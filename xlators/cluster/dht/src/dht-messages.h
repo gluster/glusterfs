@@ -1,4 +1,4 @@
-/*Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
+/*Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           36
+#define GLFS_DHT_NUM_MESSAGES           104
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -66,7 +66,7 @@
  *
  */
 
-#define DHT_MSG_CREATE_LINK_FAILED       (GLFS_DHT_BASE + 2)
+#define DHT_MSG_CREATE_LINK_FAILED      (GLFS_DHT_BASE + 2)
 
 /*!
  * @messageid 109003
@@ -77,7 +77,7 @@
  *
  */
 
-#define DHT_MSG_DICT_SET_FAILED       (GLFS_DHT_BASE + 3)
+#define DHT_MSG_DICT_SET_FAILED         (GLFS_DHT_BASE + 3)
 
 /*!
  * @messageid 109004
@@ -86,7 +86,7 @@
  *
  */
 
-#define DHT_MSG_DIR_ATTR_HEAL_FAILED (GLFS_DHT_BASE + 4)
+#define DHT_MSG_DIR_ATTR_HEAL_FAILED    (GLFS_DHT_BASE + 4)
 
 /*!
  * @messageid 109005
@@ -97,7 +97,7 @@
  *
  */
 
-#define DHT_MSG_DIR_SELFHEAL_FAILED  (GLFS_DHT_BASE + 5)
+#define DHT_MSG_DIR_SELFHEAL_FAILED     (GLFS_DHT_BASE + 5)
 
 /*!
  * @messageid 109006
@@ -108,7 +108,7 @@
  *
  */
 
-#define DHT_MSG_DIR_SELFHEAL_XATTR_FAILED  (GLFS_DHT_BASE + 6)
+#define DHT_MSG_DIR_SELFHEAL_XATTR_FAILED       (GLFS_DHT_BASE + 6)
 
 /*!
  * @messageid 109007
@@ -121,7 +121,7 @@
  *
  */
 
-#define DHT_MSG_FILE_ON_MULT_SUBVOL               (GLFS_DHT_BASE + 7)
+#define DHT_MSG_FILE_ON_MULT_SUBVOL     (GLFS_DHT_BASE + 7)
 
 /*!
  * @messageid 109008
@@ -139,7 +139,7 @@
  *
  */
 
-#define DHT_MSG_FILE_TYPE_MISMATCH        (GLFS_DHT_BASE + 8)
+#define DHT_MSG_FILE_TYPE_MISMATCH      (GLFS_DHT_BASE + 8)
 
 /*!
  * @messageid 109009
@@ -148,7 +148,7 @@
  *
  */
 
-#define DHT_MSG_GFID_MISMATCH        (GLFS_DHT_BASE + 9)
+#define DHT_MSG_GFID_MISMATCH           (GLFS_DHT_BASE + 9)
 
 /*!
  * @messageid 109010
@@ -157,17 +157,15 @@
  *
  */
 
-#define DHT_MSG_GFID_NULL        (GLFS_DHT_BASE + 10)
+#define DHT_MSG_GFID_NULL               (GLFS_DHT_BASE + 10)
 
-/*!
+/*
  * @messageid 109011
- * @diagnosis The hashed subvolume could not be found for the specified
- *              file/directory
- * @recommendedaction  None
- *
+ * @diagnosis
+ * @recommendedaction None
  */
 
-#define DHT_MSG_HASHED_SUBVOL_GET_FAILED        (GLFS_DHT_BASE + 11)
+#define DHT_MSG_HASHED_SUBVOL_GET_FAILED   (GLFS_DHT_BASE + 11)
 
 /*!
  * @messageid 109012
@@ -177,7 +175,7 @@
  *
  */
 
-#define DHT_MSG_INIT_FAILED  (GLFS_DHT_BASE + 12)
+#define DHT_MSG_INIT_FAILED             (GLFS_DHT_BASE + 12)
 
 /*!
  * @messageid 109013
@@ -186,7 +184,7 @@
  *
  */
 
-#define DHT_MSG_INVALID_CONFIGURATION  (GLFS_DHT_BASE + 13)
+#define DHT_MSG_INVALID_CONFIGURATION   (GLFS_DHT_BASE + 13)
 
 /*!
  * @messageid 109014
@@ -195,7 +193,7 @@
  *
  */
 
-#define DHT_MSG_INVALID_DISK_LAYOUT  (GLFS_DHT_BASE + 14)
+#define DHT_MSG_INVALID_DISK_LAYOUT     (GLFS_DHT_BASE + 14)
 
 /*!
  * @messageid 109015
@@ -208,7 +206,7 @@
  *
  */
 
-#define DHT_MSG_INVALID_OPTION  (GLFS_DHT_BASE + 15)
+#define DHT_MSG_INVALID_OPTION          (GLFS_DHT_BASE + 15)
 
 /*!
  * @messageid 109016
@@ -226,7 +224,7 @@
  *
  */
 
-#define DHT_MSG_LAYOUT_MERGE_FAILED       (GLFS_DHT_BASE + 17)
+#define DHT_MSG_LAYOUT_MERGE_FAILED     (GLFS_DHT_BASE + 17)
 
 /*!
  * @messageid 109018
@@ -236,7 +234,7 @@
  *
  */
 
-#define DHT_MSG_LAYOUT_MISMATCH       (GLFS_DHT_BASE + 18)
+#define DHT_MSG_LAYOUT_MISMATCH         (GLFS_DHT_BASE + 18)
 
 /*!
  * @messageid 109019
@@ -245,7 +243,7 @@
  *
  */
 
-#define DHT_MSG_LAYOUT_NULL       (GLFS_DHT_BASE + 19)
+#define DHT_MSG_LAYOUT_NULL             (GLFS_DHT_BASE + 19)
 
 /*!
  * @messageid 109020
@@ -255,7 +253,7 @@
  *
  */
 
-#define DHT_MSG_MIGRATE_DATA_COMPLETE     (GLFS_DHT_BASE + 20)
+#define DHT_MSG_MIGRATE_DATA_COMPLETE   (GLFS_DHT_BASE + 20)
 
 /*!
  * @messageid 109021
@@ -279,7 +277,7 @@
  *
  */
 
-#define DHT_MSG_MIGRATE_FILE_COMPLETE     (GLFS_DHT_BASE + 22)
+#define DHT_MSG_MIGRATE_FILE_COMPLETE   (GLFS_DHT_BASE + 22)
 
 /*!
  * @messageid 109023
@@ -304,7 +302,7 @@
  *
  */
 
-#define DHT_MSG_NO_MEMORY        (GLFS_DHT_BASE + 24)
+#define DHT_MSG_NO_MEMORY               (GLFS_DHT_BASE + 24)
 
 /*!
  * @messageid 109025
@@ -320,7 +318,7 @@
  *
  */
 
-#define DHT_MSG_OPENDIR_FAILED       (GLFS_DHT_BASE + 25)
+#define DHT_MSG_OPENDIR_FAILED          (GLFS_DHT_BASE + 25)
 
 /*!
  * @messageid 109026
@@ -332,7 +330,7 @@
  *
  */
 
-#define DHT_MSG_REBALANCE_FAILED   (GLFS_DHT_BASE + 26)
+#define DHT_MSG_REBALANCE_FAILED        (GLFS_DHT_BASE + 26)
 
 /*!
  * @messageid 109027
@@ -341,7 +339,7 @@
  *
  */
 
-#define DHT_MSG_REBALANCE_START_FAILED     (GLFS_DHT_BASE + 27)
+#define DHT_MSG_REBALANCE_START_FAILED  (GLFS_DHT_BASE + 27)
 
 /*!
  * @messageid 109028
@@ -352,7 +350,7 @@
  *
  */
 
-#define DHT_MSG_REBALANCE_STATUS     (GLFS_DHT_BASE + 28)
+#define DHT_MSG_REBALANCE_STATUS        (GLFS_DHT_BASE + 28)
 
 /*!
  * @messageid 109029
@@ -361,7 +359,7 @@
  *
  */
 
-#define DHT_MSG_REBALANCE_STOPPED     (GLFS_DHT_BASE + 29)
+#define DHT_MSG_REBALANCE_STOPPED       (GLFS_DHT_BASE + 29)
 
 /*!
  * @messageid 109030
@@ -372,7 +370,7 @@
  *
  */
 
-#define DHT_MSG_RENAME_FAILED        (GLFS_DHT_BASE + 30)
+#define DHT_MSG_RENAME_FAILED           (GLFS_DHT_BASE + 30)
 
 /*!
  * @messageid 109031
@@ -382,7 +380,7 @@
  *
  */
 
-#define DHT_MSG_SETATTR_FAILED       (GLFS_DHT_BASE + 31)
+#define DHT_MSG_SETATTR_FAILED          (GLFS_DHT_BASE + 31)
 
 /*!
  * @messageid 109032
@@ -414,7 +412,7 @@
               the specific error that is encountered.
  */
 
-#define DHT_MSG_UNLINK_FAILED     (GLFS_DHT_BASE + 34)
+#define DHT_MSG_UNLINK_FAILED           (GLFS_DHT_BASE + 34)
 
 
 
@@ -425,7 +423,7 @@
  *
  */
 
-#define DHT_MSG_LAYOUT_SET_FAILED     (GLFS_DHT_BASE + 35)
+#define DHT_MSG_LAYOUT_SET_FAILED       (GLFS_DHT_BASE + 35)
 
 /*!
  * @messageid 109036
@@ -434,7 +432,7 @@
  * @recommendedaction None
  */
 
-#define DHT_MSG_LOG_FIXED_LAYOUT     (GLFS_DHT_BASE + 36)
+#define DHT_MSG_LOG_FIXED_LAYOUT        (GLFS_DHT_BASE + 36)
 
 /*
  * @messageid 109037
@@ -442,7 +440,7 @@
  * @recommendedaction None
  */
 
-#define DHT_MSG_LOG_TIER_ERROR     (GLFS_DHT_BASE + 37)
+#define DHT_MSG_LOG_TIER_ERROR          (GLFS_DHT_BASE + 37)
 
 /*
  * @messageid 109038
@@ -450,11 +448,535 @@
  * @recommendedaction None
  */
 
-#define DHT_MSG_LOG_TIER_STATUS     (GLFS_DHT_BASE + 38)
+#define DHT_MSG_LOG_TIER_STATUS         (GLFS_DHT_BASE + 38)
 
+/*
+ * @messageid 109039
+ * @diagnosis
+ * @recommendedaction None
+ */
 
-/*------------*/
+#define DHT_MSG_GET_XATTR_FAILED        (GLFS_DHT_BASE + 39)
+
+/*
+ * @messageid 109040
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FILE_LOOKUP_FAILED      (GLFS_DHT_BASE + 40)
+
+/*
+ * @messageid 109041
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_OPEN_FD_FAILED          (GLFS_DHT_BASE + 41)
+
+/*
+ * @messageid 109042
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SET_INODE_CTX_FAILED    (GLFS_DHT_BASE + 42)
+
+/*
+ * @messageid 109043
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_UNLOCKING_FAILED        (GLFS_DHT_BASE + 43)
+
+/*
+ * @messageid 109044
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_DISK_LAYOUT_NULL        (GLFS_DHT_BASE + 44)
+
+/*
+ * @messageid 109045
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_INFO             (GLFS_DHT_BASE + 45)
+
+/*
+ * @messageid 109046
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_CHUNK_SIZE_INFO         (GLFS_DHT_BASE + 46)
+
+/*
+ * @messageid 109047
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LAYOUT_FORM_FAILED      (GLFS_DHT_BASE + 47)
+
+/*
+ * @messageid 109048
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_ERROR            (GLFS_DHT_BASE + 48)
+
+/*
+ * @messageid 109049
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LAYOUT_SORT_FAILED      (GLFS_DHT_BASE + 49)
+
+/*
+ * @messageid 109050
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_REGEX_INFO              (GLFS_DHT_BASE + 50)
+
+/*
+ * @messageid 109051
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FOPEN_FAILED            (GLFS_DHT_BASE + 51)
+
+/*
+ * @messageid 109052
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SET_HOSTNAME_FAILED     (GLFS_DHT_BASE + 52)
+
+/*
+ * @messageid 109053
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_BRICK_ERROR             (GLFS_DHT_BASE + 53)
+
+/*
+ * @messageid 109054
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SYNCOP_FAILED           (GLFS_DHT_BASE + 54)
+
+/*
+ * @messageid 109055
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_MIGRATE_INFO            (GLFS_DHT_BASE + 55)
+
+/*
+ * @messageid 109056
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SOCKET_ERROR            (GLFS_DHT_BASE + 56)
+
+/*
+ * @messageid 109057
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_CREATE_FD_FAILED        (GLFS_DHT_BASE + 57)
+
+/*
+ * @messageid 109058
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_READDIR_ERROR           (GLFS_DHT_BASE + 58)
+
+/*
+ * @messageid 109059
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_CHILD_LOC_BUILD_FAILED  (GLFS_DHT_BASE + 59)
+
+/*
+ * @messageid 109060
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SET_SWITCH_PATTERN_ERROR    (GLFS_DHT_BASE + 60)
+
+/*
+ * @messageid 109061
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_COMPUTE_HASH_FAILED     (GLFS_DHT_BASE + 61)
+
+/*
+ * @messageid 109062
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FIND_LAYOUT_ANOMALIES_ERROR     (GLFS_DHT_BASE + 62)
+
+/*
+ * @messageid 109063
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_ANOMALIES_INFO          (GLFS_DHT_BASE + 63)
+
+/*
+ * @messageid 109064
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LAYOUT_INFO             (GLFS_DHT_BASE + 64)
+
+/*
+ * @messageid 109065
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_INODE_LK_ERROR          (GLFS_DHT_BASE + 65)
+
+/*
+ * @messageid 109066
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_RENAME_INFO             (GLFS_DHT_BASE + 66)
+
+/*
+ * @messageid 109067
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_DATA_NULL               (GLFS_DHT_BASE + 67)
+
+/*
+ * @messageid 109068
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_AGGREGATE_QUOTA_XATTR_FAILED   (GLFS_DHT_BASE + 68)
+
+/*
+ * @messageid 109069
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_UNLINK_LOOKUP_INFO      (GLFS_DHT_BASE + 69)
+
+/*
+ * @messageid 109070
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LINK_FILE_LOOKUP_INFO   (GLFS_DHT_BASE + 70)
+
+/*
+ * @messageid 109071
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_OPERATION_NOT_SUP       (GLFS_DHT_BASE + 71)
+
+/*
+ * @messageid 109072
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_NOT_LINK_FILE_ERROR     (GLFS_DHT_BASE + 72)
+
+/*
+ * @messageid 109073
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_CHILD_DOWN              (GLFS_DHT_BASE + 73)
+
+/*
+ * @messageid 109074
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_UUID_PARSE_ERROR        (GLFS_DHT_BASE + 74)
+
+/*
+ * @messageid 109075
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_GET_DISK_INFO_ERROR     (GLFS_DHT_BASE + 75)
+
+/*
+ * @messageid 109076
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_INVALID_VALUE           (GLFS_DHT_BASE + 76)
+
+/*
+ * @messageid 109077
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SWITCH_PATTERN_INFO     (GLFS_DHT_BASE + 77)
+
+/*
+ * @messageid 109078
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_OP_FAILED        (GLFS_DHT_BASE + 78)
+
+/*
+ * @messageid 109079
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LAYOUT_PRESET_FAILED    (GLFS_DHT_BASE + 79)
+
+/*
+ * @messageid 109080
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_INVALID_LINKFILE        (GLFS_DHT_BASE + 80)
+
+/*
+ * @messageid 109081
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FIX_LAYOUT_INFO         (GLFS_DHT_BASE + 81)
+
+/*
+ * @messageid 109082
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_GET_HOSTNAME_FAILED     (GLFS_DHT_BASE + 82)
+
+/*
+ * @messageid 109083
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_WRITE_FAILED            (GLFS_DHT_BASE + 83)
+
+/*
+ * @messageid 109084
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_MIGRATE_HARDLINK_FILE_FAILED (GLFS_DHT_BASE + 84)
+
+/*
+ * @messageid 109085
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FSYNC_FAILED            (GLFS_DHT_BASE + 85)
+
+/*
+ * @messageid 109086
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_DECOMMISSION_INFO (GLFS_DHT_BASE + 86)
+
+/*
+ * @messageid 109087
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_BRICK_QUERY_FAILED      (GLFS_DHT_BASE + 87)
+
+/*
+ * @messageid 109088
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_NO_LAYOUT_INFO   (GLFS_DHT_BASE + 88)
+
+/*
+ * @messageid 109089
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_OPEN_FD_ON_DST_FAILED   (GLFS_DHT_BASE + 89)
+
+/*
+ * @messageid 109090
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_NOT_FOUND        (GLFS_DHT_BASE + 90)
+
+/*
+ * @messageid 109190
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FILE_LOOKUP_ON_DST_FAILED   (GLFS_DHT_BASE + 91)
+
+/*
+ * @messageid 109092
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_DISK_LAYOUT_MISSING     (GLFS_DHT_BASE + 92)
+
+/*
+ * @messageid 109093
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_DICT_GET_FAILED         (GLFS_DHT_BASE + 93)
+
+/*
+ * @messageid 109094
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_REVALIDATE_CBK_INFO     (GLFS_DHT_BASE + 94)
+
+/*
+ * @messageid 109095
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_UPGRADE_BRICKS         (GLFS_DHT_BASE + 95)
+
+/*
+ * @messageid 109096
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LK_ARRAY_INFO           (GLFS_DHT_BASE + 96)
+
+/*
+ * @messageid 109097
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_RENAME_NOT_LOCAL        (GLFS_DHT_BASE + 97)
+
+/*
+ * @messageid 109098
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_RECONFIGURE_INFO        (GLFS_DHT_BASE + 98)
+
+/*
+ * @messageid 109099
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_INIT_LOCAL_SUBVOL_FAILED        (GLFS_DHT_BASE + 99)
+
+/*
+ * @messageid 109100
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SYS_CALL_GET_TIME_FAILED        (GLFS_DHT_BASE + 100)
+
+/*
+ * @messageid 109101
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_NO_DISK_USAGE_STATUS    (GLFS_DHT_BASE + 101)
+
+/*
+ * @messageid 109102
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SUBVOL_DOWN_ERROR       (GLFS_DHT_BASE + 102)
+
+/*
+ * @messageid 109103
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_REBAL_THROTTLE_INFO       (GLFS_DHT_BASE + 103)
+
+/*
+ * @messageid 109104
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_COMMIT_HASH_INFO       (GLFS_DHT_BASE + 104)
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
-
-
 #endif /* _DHT_MESSAGES_H_ */

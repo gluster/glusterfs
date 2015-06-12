@@ -445,7 +445,8 @@ dht_rename_unlock (call_frame_t *frame, xlator_t *this)
                 if (local->loc2.inode)
                         uuid_utoa_r (local->loc2.inode->gfid, dst_gfid);
 
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_UNLOCKING_FAILED,
                         "winding unlock inodelk failed "
                         "rename (%s:%s:%s %s:%s:%s), "
                         "stale locks left on bricks",
@@ -488,7 +489,8 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
 
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_INVALID_VALUE,
                         "!local, should not happen");
                 goto out;
         }
@@ -633,9 +635,10 @@ dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "link/file %s on %s failed (%s)",
-                        local->loc.path, prev->this->name, strerror (op_errno));
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_CREATE_LINK_FAILED,
+                        "link/file %s on %s failed",
+                        local->loc.path, prev->this->name);
         }
 
         if (local->linked == _gf_true) {
@@ -1213,10 +1216,10 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->loc2.inode)
                         uuid_utoa_r (local->loc2.inode->gfid, dst_gfid);
 
-                gf_log (this->name, GF_LOG_WARNING,
-                        "acquiring inodelk failed (%s) "
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_INODE_LK_ERROR,
+                        "acquiring inodelk failed "
                         "rename (%s:%s:%s %s:%s:%s), returning EBUSY",
-                        strerror (op_errno),
                         local->loc.path, src_gfid, local->src_cached->name,
                         local->loc2.path, dst_gfid,
                         local->dst_cached ? local->dst_cached->name : NULL);
@@ -1394,7 +1397,8 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local->dst_hashed = dst_hashed;
         local->dst_cached = dst_cached;
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                DHT_MSG_RENAME_INFO,
                 "renaming %s (hash=%s/cache=%s) => %s (hash=%s/cache=%s)",
                 oldloc->path, src_hashed->name, src_cached->name,
                 newloc->path, dst_hashed->name,

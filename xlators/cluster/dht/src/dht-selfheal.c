@@ -140,7 +140,8 @@ dht_refresh_layout_done (call_frame_t *frame)
 
         ret = dht_layout_sort (refreshed);
         if (ret == -1) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LAYOUT_SORT_FAILED,
                         "sorting the layout failed");
                 goto err;
         }
@@ -192,10 +193,9 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_msg_debug (this->name, 0,
-                                      "lookup of %s on %s returned error (%s)",
-                                      local->loc.path, prev->this->name,
-                                      strerror (op_errno));
+                        gf_msg_debug (this->name, op_errno,
+                                      "lookup of %s on %s returned error",
+                                      local->loc.path, prev->this->name);
 
                         goto unlock;
                 }
@@ -936,9 +936,9 @@ dht_selfheal_dir_xattr_for_nameless_lookup (call_frame_t *frame, loc_t *loc,
         }
 
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "%d subvolumes missing xattr for %s",
-                missing_xattr, loc->path);
+        gf_msg_trace (this->name, 0,
+                      "%d subvolumes missing xattr for %s",
+                      missing_xattr, loc->path);
 
         if (missing_xattr == 0) {
                 dht_selfheal_dir_finish (frame, this, 0);
@@ -1211,7 +1211,8 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 dht_selfheal_dir_mkdir_setacl (local->xattr, dict);
 
         if (!dict)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
                         "dict is NULL, need to make sure gfids are same");
 
         for (i = 0; i < layout->cnt; i++) {
@@ -1481,14 +1482,16 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
 
         if (priv->du_stats) {
                 for (i = 0; i < priv->subvolume_cnt; ++i) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_SUBVOL_INFO,
                                 "subvolume %d (%s): %u chunks", i,
                                 priv->subvolumes[i]->name,
                                 priv->du_stats[i].chunks);
                 }
         }
         else {
-                gf_log (this->name, GF_LOG_WARNING, "no du stats ?!?");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_NO_DISK_USAGE_STATUS, "no du stats ?!?");
         }
 
 	/* First give it a layout as though it is a new directory. This
@@ -1587,9 +1590,9 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         if (weight_by_size && total_size) {
                 /* We know total_size is not zero. */
                 chunk = ((unsigned long) 0xffffffff) / total_size;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "chunk size = 0xffffffff / %u = 0x%x",
-                        total_size, chunk);
+                gf_msg_debug (this->name, 0,
+                              "chunk size = 0xffffffff / %u = 0x%x",
+                              total_size, chunk);
         }
         else {
                 weight_by_size = _gf_false;
@@ -1626,9 +1629,10 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 else {
                         curr_size = 1;
                 }
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "assigning range size 0x%x to %s", chunk * curr_size,
-                        layout->list[i].xlator->name);
+                gf_msg_debug (this->name, 0,
+                              "assigning range size 0x%x to %s",
+                              chunk * curr_size,
+                              layout->list[i].xlator->name);
                 DHT_SET_LAYOUT_RANGE(layout, i, start, chunk * curr_size,
                                      loc->path);
                 if (++bricks_used >= bricks_to_use) {
@@ -1833,14 +1837,16 @@ dht_selfheal_directory_for_nameless_lookup (call_frame_t *frame,
         local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_SUBVOL_DOWN_ERROR,
                         "%d subvolumes down -- not fixing", down);
                 ret = 0;
                 goto sorry_no_fix;
         }
 
         if (misc) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_SUBVOL_ERROR,
                         "%d subvolumes have unrecoverable errors", misc);
                 ret = 0;
                 goto sorry_no_fix;
@@ -1850,7 +1856,8 @@ dht_selfheal_directory_for_nameless_lookup (call_frame_t *frame,
         ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LAYOUT_FORM_FAILED,
                         "not able to form layout for the directory");
                 goto sorry_no_fix;
         }

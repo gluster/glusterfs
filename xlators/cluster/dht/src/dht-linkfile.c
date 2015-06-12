@@ -39,7 +39,8 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                          conf->link_xattr_name);
         if (!is_linkfile)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_NOT_LINK_FILE_ERROR,
                         "got non-linkfile %s:%s, gfid = %s",
                         prev->this->name, local->loc.path, gfid);
 out:
