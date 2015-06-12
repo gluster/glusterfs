@@ -485,11 +485,11 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
         query_cbk_args->queryFILE = fopen(GET_QFILE_PATH
                                 (gfdb_brick_dict_info->_gfdb_promote), "a+");
         if (!query_cbk_args->queryFILE) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-                                "Failed to open query file %s:%s",
-                                GET_QFILE_PATH
-                        (gfdb_brick_dict_info->_gfdb_promote),
-                        strerror(errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to open query file %s",
+                        GET_QFILE_PATH
+                        (gfdb_brick_dict_info->_gfdb_promote));
                 goto out;
         }
         if (!gfdb_brick_dict_info->_gfdb_promote) {
@@ -577,8 +577,9 @@ tier_build_migration_qfile (demotion_args_t *args,
 
         ret = gettimeofday (&current_time, NULL);
         if (ret == -1) {
-                gf_log (args->this->name, GF_LOG_ERROR,
-                        "Failed to get current timen");
+                gf_msg (args->this->name, GF_LOG_ERROR, errno,
+                        DHT_MSG_SYS_CALL_GET_TIME_FAILED,
+                        "Failed to get current time\n");
                 goto out;
         }
         time_in_past.tv_sec = current_time.tv_sec - time_in_past.tv_sec;
@@ -589,8 +590,9 @@ tier_build_migration_qfile (demotion_args_t *args,
         ret = dict_foreach (args->brick_list, tier_process_brick_cbk,
                             &gfdb_brick_dict_info);
         if (ret) {
-                gf_log (args->this->name, GF_LOG_ERROR,
-                        "Brick query failedn");
+                gf_msg (args->this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_BRICK_QUERY_FAILED,
+                        "Brick query failed\n");
                 goto out;
         }
 out:
@@ -607,7 +609,8 @@ tier_migrate_files_using_qfile (demotion_args_t *comp,
 
         query_cbk_args->queryFILE = fopen (qfile, "r");
         if (!query_cbk_args->queryFILE) {
-                gf_log ("tier", GF_LOG_ERROR,
+                gf_msg ("tier", GF_LOG_ERROR, 0,
+                        DHT_MSG_FOPEN_FAILED,
                         "Failed opening %s for migration", qfile);
                 goto out;
         }
@@ -831,7 +834,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                  * using a NTP server*/
                 ret = gettimeofday (&current_time, NULL);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                DHT_MSG_SYS_CALL_GET_TIME_FAILED,
                                 "Failed to get current time");
                         goto out;
                 }

@@ -170,7 +170,8 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
         ret = dht_hash_compute (this, layout->type, name, &hash);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_COMPUTE_HASH_FAILED,
                         "hash computation failed for type=%d name=%s",
                         layout->type, name);
                 goto out;
@@ -185,7 +186,8 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
         }
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
                         "no subvolume for hash (value) = %u", hash);
         }
 
@@ -668,7 +670,8 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
         ret = dht_layout_sort (layout);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LAYOUT_SORT_FAILED,
                         "sort failed?! how the ....");
                 goto out;
         }
@@ -679,7 +682,8 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                                     &holes, &overlaps,
                                     &missing, &down, &misc, NULL);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_FIND_LAYOUT_ANOMALIES_ERROR,
                         "Error finding anomalies in %s, gfid = %s",
                         loc->path, gfid);
                 goto out;
@@ -691,7 +695,8 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                                       "Directory %s looked up first time"
                                       " gfid = %s", loc->path, gfid);
                 } else {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_ANOMALIES_INFO,
                                 "Found anomalies in %s (gfid = %s). "
                                 "Holes=%d overlaps=%d",
                                 loc->path, gfid, holes, overlaps );
@@ -760,7 +765,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (!xattr) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_DICT_GET_FAILED,
                                 "%s: xattr dictionary is NULL",
                                 loc->path);
                         ret = -1;
@@ -773,7 +779,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (dict_ret < 0) {
                 if (err == 0 && layout->list[pos].stop) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_DISK_LAYOUT_MISSING,
                                 "%s: Disk layout missing, gfid = %s",
                                 loc->path, gfid);
                         ret = -1;
@@ -790,7 +797,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         if ((layout->list[pos].start != start_off)
             || (layout->list[pos].stop != stop_off)
             || (layout->list[pos].commit_hash != commit_hash)) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LAYOUT_INFO,
                         "subvol: %s; inode layout - %"PRIu32" - %"PRIu32
                         " - %"PRIu32"; "
                         "disk layout - %"PRIu32" - %"PRIu32" - %"PRIu32,
@@ -820,7 +828,8 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
 
         layout = dht_layout_for_subvol (this, subvol);
         if (!layout) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_SUBVOL_NO_LAYOUT_INFO,
                         "no pre-set layout for subvolume %s",
                         subvol ? subvol->name : "<nil>");
                 ret = -1;
