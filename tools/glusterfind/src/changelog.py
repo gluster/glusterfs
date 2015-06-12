@@ -61,10 +61,13 @@ def pgfid_to_path(brick, changelog_data):
         if row[0] == "":
             continue
 
-        path = symlink_gfid_to_path(brick, row[0])
-        path = output_path_prepare(path, args.output_prefix)
-
-        changelog_data.gfidpath_set_path1(path, row[0])
+        try:
+            path = symlink_gfid_to_path(brick, row[0])
+            path = output_path_prepare(path, args.output_prefix)
+            changelog_data.gfidpath_set_path1(path, row[0])
+        except (IOError, OSError) as e:
+            logger.warn("Error converting to path: %s" % e)
+            continue
 
     # pgfid2 to path2 in case of RENAME
     for row in changelog_data.gfidpath_get_distinct("pgfid2",
@@ -74,12 +77,13 @@ def pgfid_to_path(brick, changelog_data):
         if row[0] == "":
             continue
 
-        path = symlink_gfid_to_path(brick, row[0])
-        if path == "":
+        try:
+            path = symlink_gfid_to_path(brick, row[0])
+            path = output_path_prepare(path, args.output_prefix)
+            changelog_data.gfidpath_set_path2(path, row[0])
+        except (IOError, OSError) as e:
+            logger.warn("Error converting to path: %s" % e)
             continue
-
-        path = output_path_prepare(path, args.output_prefix)
-        changelog_data.gfidpath_set_path2(path, row[0])
 
 
 def populate_pgfid_and_inodegfid(brick, changelog_data):
@@ -94,14 +98,14 @@ def populate_pgfid_and_inodegfid(brick, changelog_data):
         p = os.path.join(brick, ".glusterfs", gfid[0:2], gfid[2:4], gfid)
         if os.path.islink(p):
             # It is a Directory if GFID backend path is symlink
-            path = symlink_gfid_to_path(brick, gfid)
-            if path == "":
+            try:
+                path = symlink_gfid_to_path(brick, gfid)
+                path = output_path_prepare(path, args.output_prefix)
+                changelog_data.gfidpath_update({"path1": path},
+                                                {"gfid": gfid})
+            except (IOError, OSError) as e:
+                logger.warn("Error converting to path: %s" % e)
                 continue
-
-            path = output_path_prepare(path, args.output_prefix)
-
-            changelog_data.gfidpath_update({"path1": path},
-                                           {"gfid": gfid})
         else:
             try:
                 # INODE and GFID to inodegfid table
@@ -161,12 +165,16 @@ def gfid_to_path_using_pgfid(brick, changelog_data, args):
                    conf.get_opt("brick_ignore_dirs").split(",")]
 
     for row in changelog_data.pgfid_get():
-        path = symlink_gfid_to_path(brick, row[0])
-        find(os.path.join(brick, path),
-             callback_func=output_callback,
-             filter_func=inode_filter,
-             ignore_dirs=ignore_dirs,
-             subdirs_crawl=False)
+        try:
+            path = symlink_gfid_to_path(brick, row[0])
+            find(os.path.join(brick, path),
+                callback_func=output_callback,
+                filter_func=inode_filter,
+                ignore_dirs=ignore_dirs,
+                subdirs_crawl=False)
+        except (IOError, OSError) as e:
+            logger.warn("Error converting to path: %s" % e)
+            continue
 
 
 def gfid_to_path_using_batchfind(brick, changelog_data):
@@ -291,8 +299,12 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
                 # again in list
                 if change.endswith(".%s" % start):
                     continue
-                parse_changelog_to_db(changelog_data, change)
-                libgfchangelog.cl_history_done(change)
+                try:
+                    parse_changelog_to_db(changelog_data, change)
+                    libgfchangelog.cl_history_done(change)
+                except IOError as e:
+                    logger.warn("Error parsing changelog file %s: %s" %
+                        (change, e))
 
             changelog_data.commit()
     except libgfchangelog.ChangelogException as e:
