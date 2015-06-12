@@ -1552,6 +1552,52 @@ err:
 }
 
 int32_t
+up_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        int        ret        = 0;
+        uint32_t   features   = 0;
+
+        /* upcall only has one IPC operation */
+        if (op != GF_IPC_UPCALL_FEATURES)
+                goto wind;
+
+        if (!xdata) {
+                xdata = dict_new();
+                if (!xdata) {
+                        ret = -1;
+                        goto unwind;
+                }
+        } else {
+                /* take an extra reference so that we can unconditionally unref
+                 * it later */
+                dict_ref (xdata);
+        }
+
+        /* build the feature bitmask */
+        if (is_upcall_enabled(this))
+                features |= (1 << GF_UPCALL_EVENT_NULL);
+
+        /* check if 'GF_UPCALL_CACHE_INVALIDATION' is available */
+        if (is_cache_invalidation_enabled(this))
+                features |= (1 << GF_UPCALL_CACHE_INVALIDATION);
+
+        ret = dict_set_uint32 (xdata, GF_UPCALL_FEATURES, features);
+
+unwind:
+        UPCALL_STACK_UNWIND (ipc, frame, ret, errno, xdata);
+
+        dict_unref (xdata);
+
+        return 0;
+
+wind:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ipc, op, xdata);
+
+        return 0;
+}
+
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -1812,6 +1858,9 @@ struct xlator_fops fops = {
         .link        = up_link,
         .rmdir       = up_rmdir,
         .rename      = up_rename,
+
+        /* xlator internal communication */
+        .ipc         = up_ipc,
 
 #ifdef NOT_SUPPORTED
         /* internal lk fops */
