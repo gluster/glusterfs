@@ -193,6 +193,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   logfile[PATH_MAX] = {0,};
         char                   volname[PATH_MAX] = {0,};
         char                   valgrind_logfile[PATH_MAX] = {0,};
+        char                   *volfileserver = NULL;
 
         priv    = THIS->private;
 
@@ -253,8 +254,26 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         }
 
         snprintf (volname, sizeof(volname), "rebalance/%s", volinfo->volname);
+
+        if (dict_get_str (THIS->options, "transport.socket.bind-address",
+                          &volfileserver) == 0) {
+               /*In the case of running multiple glusterds on a single machine,
+                *we should ensure that log file and unix socket file shouls be
+                *unique in given cluster */
+
+                GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD (sockfile, volinfo,
+                                                   priv);
+                snprintf (logfile, PATH_MAX, "%s/%s-%s-%s.log",
+                          DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname,
+                          (cmd == GF_DEFRAG_CMD_START_TIER ? "tier":"rebalance"),
+                          uuid_utoa(MY_UUID));
+
+        } else {
+                volfileserver = "localhost";
+        }
+
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", "localhost", "--volfile-id", volname,
+                         "-s", volfileserver, "--volfile-id", volname,
                          "--xlator-option", "*dht.use-readdirp=yes",
                          "--xlator-option", "*dht.lookup-unhashed=yes",
                          "--xlator-option", "*dht.assert-no-child-down=yes",
