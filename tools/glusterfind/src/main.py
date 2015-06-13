@@ -90,7 +90,7 @@ def run_cmd_nodes(task, args, **kwargs):
         if task == "pre":
             if vol_statusStr == "Stopped":
                 fail("Volume %s is in stopped state" % args.volume,
-                    logger=logger)
+                     logger=logger)
 
             # If Full backup is requested or start time is zero, use brickfind
             change_detector = conf.get_change_detector("changelog")
@@ -130,7 +130,7 @@ def run_cmd_nodes(task, args, **kwargs):
         elif task == "create":
             if vol_statusStr == "Stopped":
                 fail("Volume %s is in stopped state" % args.volume,
-                    logger=logger)
+                     logger=logger)
 
             # When glusterfind create, create session directory in
             # each brick nodes
@@ -182,7 +182,7 @@ def get_nodes(volume):
     Get the gluster volume info xml output and parse to get
     the brick details.
     """
-    global vol_statusStr;
+    global vol_statusStr
 
     cmd = ["gluster", 'volume', 'info', volume, "--xml"]
     _, data, _ = execute(cmd,
@@ -370,6 +370,9 @@ def mode_create(session_dir, args):
         with open(status_file, "w", buffering=0) as f:
             f.write(str(time_to_update))
 
+    sys.stdout.write("Session %s created with volume %s\n" %
+                     (args.session, args.volume))
+
     sys.exit(0)
 
 
@@ -451,6 +454,8 @@ def mode_post(session_dir, args):
     if os.path.exists(status_file_pre):
         run_cmd_nodes("post", args)
         os.rename(status_file_pre, status_file)
+        sys.stdout.write("Session %s with volume %s updated\n" %
+                         (args.session, args.volume))
         sys.exit(0)
     else:
         fail("Pre script is not run", logger=logger)
@@ -460,6 +465,8 @@ def mode_delete(session_dir, args):
     run_cmd_nodes("delete", args)
     shutil.rmtree(os.path.join(session_dir, args.volume),
                   onerror=handle_rm_error)
+    sys.stdout.write("Session %s with volume %s deleted\n" %
+                     (args.session, args.volume))
 
     # If the session contains only this volume, then cleanup the
     # session directory. If a session contains multiple volumes
@@ -524,8 +531,11 @@ def mode_list(session_dir, args):
                                          volname.ljust(25),
                                          sess_time.ljust(25)))
 
-    if not output and (args.session or args.volume):
-        fail("Invalid Session", logger=logger)
+    if not output:
+        if args.session or args.volume:
+            fail("Invalid Session", logger=logger)
+        else:
+            sys.stdout.write("No sessions found.\n")
 
 
 def main():
@@ -544,7 +554,7 @@ def main():
     vol_dir = os.path.join(session_dir, args.volume)
     if not os.path.exists(vol_dir) and args.mode not in ["create", "list"]:
         fail("Session %s not created with volume %s" %
-            (args.session, args.volume))
+             (args.session, args.volume))
 
     mkdirp(os.path.join(conf.get_opt("log_dir"), args.session, args.volume),
            exit_on_err=True)
