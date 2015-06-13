@@ -138,3 +138,19 @@ function define_clis() {
 function peer_count() {
     $CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
 }
+
+function cluster_rebalance_status_field {
+        #The rebalance status can be upto 3 words, (ex:'fix-layout in progress'), hence the awk-print $7 thru $9.
+        #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(ex:'completed 3.00').
+        #So we trim the numbers out with  `tr`. Finally remove the trailing white spaces with sed. What we get is one of the
+        #strings in the 'cli_vol_task_status_str' char array of cli-rpc-ops.c
+
+        eval  \$CLI_$1 volume rebalance $2 status | awk '{print $7,$8,$9}' |sed -n 3p |tr -d '[^0-9+\.]'|sed 's/ *$//g'
+}
+
+function cluster_volinfo_field()
+{
+    local vol=$2;
+    local field=$3;
+    eval  \$CLI_$1  volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
