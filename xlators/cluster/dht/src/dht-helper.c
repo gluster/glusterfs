@@ -1572,6 +1572,8 @@ dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                                    local->lock.locks[i]->domain,
                                    &local->lock.locks[i]->loc, F_SETLK,
                                    &flock, NULL);
+                if (!--call_cnt)
+                        break;
         }
 
         return 0;
@@ -1661,7 +1663,7 @@ dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
 
         local->call_cnt = lk_count;
 
-        for (i = 0; i < local->lock.lk_count; i++) {
+        for (i = 0; i < lk_count; i++) {
                 flock.l_type = local->lock.locks[i]->type;
 
                 STACK_WIND_COOKIE (lock_frame, dht_nonblocking_inodelk_cbk,
