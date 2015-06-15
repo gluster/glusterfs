@@ -506,9 +506,10 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                         goto out;
                 }
         }
+
+        vol_opts = volinfo->dict;
         /* cache-invalidation should be on when a volume is exported
          *  and off when a volume is unexported.                    */
-        vol_opts = volinfo->dict;
         ret = dict_set_dynstr_with_alloc (vol_opts,
                                          "features.cache-invalidation", value);
         if (ret)

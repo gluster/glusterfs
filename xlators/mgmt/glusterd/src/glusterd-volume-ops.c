@@ -1573,7 +1573,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         if (ret) {
                 ret = ganesha_manage_export(dict, "off", op_errstr);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_WARNING, "Could not"
+                        gf_log (THIS->name, GF_LOG_WARNING, "Could not "
                                         "unexport volume via NFS-Ganesha");
                         ret = 0;
                 }
@@ -2424,17 +2424,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
         }
-        /* Check if the volume is exported via NFS-Ganesha, if yes
-         * export it as part of starting the volume */
-        ret = glusterd_check_ganesha_export (volinfo);
-        if (ret) {
-                ret = ganesha_manage_export (dict, "on", op_errstr);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING, "NFS-Ganesha couldn't"
-                                "export the volume. %s", *op_errstr);
-                        ret = 0;
-                }
-        }
+
         ret = glusterd_svcs_manager (volinfo);
 
 out:

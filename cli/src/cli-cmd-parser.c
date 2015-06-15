@@ -874,7 +874,7 @@ cli_cmd_ganesha_parse (struct cli_state *state,
 
         question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
                    " disabled across the trusted pool. Do you "
-                   "still want to continue?";
+                   "still want to continue?\n";
 
         if (strcmp (value, "enable") == 0) {
                 answer = cli_cmd_get_confirmation (state, question);
@@ -885,6 +885,7 @@ cli_cmd_ganesha_parse (struct cli_state *state,
                         goto out;
                 }
         }
+        cli_out ("This will take a few minutes to complete. Please wait ..");
 
         ret = dict_set_str (dict, "key", key);
         if (ret) {
