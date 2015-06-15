@@ -266,6 +266,7 @@ struct _ec_cbk_data
     struct iovec *   vector;
     struct iobref *  buffers;
     uint64_t         dirty[2];
+    gf_dirent_t      entries;
 };
 
 struct _ec_heal

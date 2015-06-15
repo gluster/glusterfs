@@ -59,6 +59,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     cbk->count = 1;
     cbk->op_ret = op_ret;
     cbk->op_errno = op_errno;
+    INIT_LIST_HEAD (&cbk->entries.list);
 
     LOCK(&fop->lock);
 
@@ -92,6 +93,7 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
         iobref_unref(cbk->buffers);
     }
     GF_FREE(cbk->vector);
+    gf_dirent_free (&cbk->entries);
 
     mem_put(cbk);
 }

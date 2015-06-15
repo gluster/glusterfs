@@ -22,7 +22,8 @@
 int32_t ec_access_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                       int32_t op_ret, int32_t op_errno, dict_t * xdata)
 {
-    ec_fop_data_t * fop = NULL;
+    ec_fop_data_t *fop = NULL;
+    ec_cbk_data_t *cbk = NULL;
     int32_t idx = (int32_t)(uintptr_t)cookie;
 
     VALIDATE_OR_GOTO(this, out);
@@ -35,19 +36,18 @@ int32_t ec_access_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
              frame, op_ret, op_errno);
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret))
-    {
-        if (fop->cbks.access != NULL)
-        {
-            fop->cbks.access(fop->req_frame, fop, this, op_ret, op_errno,
-                             xdata);
-        }
+    cbk = ec_cbk_data_allocate (frame, this, fop, GF_FOP_ACCESS,
+                                idx, op_ret, op_errno);
+    if (cbk) {
+        if (xdata)
+               cbk->xdata = dict_ref (xdata);
+        ec_combine (cbk, NULL);
     }
 
 out:
     if (fop != NULL)
     {
-        ec_complete(fop);
+        ec_complete (fop);
     }
 
     return 0;
@@ -62,25 +62,72 @@ void ec_wind_access(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       &fop->loc[0], fop->int32, fop->xdata);
 }
 
-int32_t ec_manager_access(ec_fop_data_t * fop, int32_t state)
+int32_t
+ec_manager_access(ec_fop_data_t *fop, int32_t state)
 {
-    switch (state)
-    {
-        case EC_STATE_INIT:
-        case EC_STATE_DISPATCH:
-            ec_dispatch_one(fop);
+        ec_cbk_data_t *cbk = NULL;
 
+        switch (state) {
+        case EC_STATE_INIT:
+        case EC_STATE_LOCK:
+            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO);
+            ec_lock (fop);
+
+            return EC_STATE_DISPATCH;
+
+        case EC_STATE_DISPATCH:
+            ec_dispatch_one (fop);
+
+            return EC_STATE_PREPARE_ANSWER;
+
+        case EC_STATE_PREPARE_ANSWER:
+            cbk = fop->answer;
+            if (cbk) {
+                if ((cbk->op_ret < 0) && ec_is_recoverable_error (cbk->op_errno)) {
+                    GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
+                    fop->mask ^= (1ULL << cbk->idx);
+                    if (fop->mask == 0)
+                            return EC_STATE_REPORT;
+                    return EC_STATE_DISPATCH;
+                }
+            } else {
+                ec_fop_set_error(fop, EIO);
+            }
             return EC_STATE_REPORT;
 
-        case -EC_STATE_INIT:
-            if (fop->cbks.access != NULL)
-            {
-                fop->cbks.access(fop->req_frame, fop, fop->xl, -1, fop->error,
-                                 NULL);
-            }
-
-        case -EC_STATE_REPORT:
         case EC_STATE_REPORT:
+            cbk = fop->answer;
+            GF_ASSERT (cbk);
+            if (fop->cbks.access != NULL) {
+                if (cbk) {
+                    fop->cbks.access(fop->req_frame, fop, fop->xl,
+                                     cbk->op_ret, cbk->op_errno,
+                                     cbk->xdata);
+                }
+            }
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_INIT:
+        case -EC_STATE_LOCK:
+        case -EC_STATE_DISPATCH:
+        case -EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_REPORT:
+            if (fop->cbks.access != NULL) {
+                fop->cbks.access(fop->req_frame, fop, fop->xl, -1,
+                                 fop->error, NULL);
+            }
+            return -EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop);
+
+            return EC_STATE_UNLOCK;
+
+        case -EC_STATE_UNLOCK:
+        case EC_STATE_UNLOCK:
+            ec_unlock(fop);
+
             return EC_STATE_END;
 
         default:
@@ -88,7 +135,7 @@ int32_t ec_manager_access(ec_fop_data_t * fop, int32_t state)
                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
-    }
+        }
 }
 
 void ec_access(call_frame_t * frame, xlator_t * this, uintptr_t target,
