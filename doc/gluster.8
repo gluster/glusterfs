@@ -137,7 +137,7 @@ If snapname is specified then mentioned snapshot is deleted. If volname is speci
 Lists all snapshots taken. If volname is provided, then only the snapshots belonging to that particular volume is listed.
 .TP
 \fB\ snapshot info [snapname | (volume <volname>)] \fR
-This command gives information such as snapshot name, snapshot UUID, time at which snapshot was created, and it lists down the snap-volume-name, number of snapshots already taken and number of snapshots still available for that particular volume, and the state of the snapshot. If snapname is specified then info of the  mentioned  snapshot is  displayed.  If volname is specified then info of all snap-shots belonging to that volume is displayed.  If  both  snapname and  volname  is  not specified then info of all the snapshots present in the system are displayed.
+This command gives information such as snapshot name, snapshot UUID, time at which snapshot was created, and it lists down the snap-volume-name, number of snapshots already taken and number of snapshots still available for that particular volume, and the state of the snapshot. If snapname is specified then info of the  mentioned  snapshot is  displayed.  If volname is specified then info of all snapshots belonging to that volume is displayed.  If  both  snapname and  volname  is  not specified then info of all the snapshots present in the system are displayed.
 .TP
 \fB\ snapshot status [snapname | (volume <volname>)] \fR
 This command gives status of the snapshot. The details included are snapshot brick path, volume group(LVM details), status of the snapshot bricks, PID of the bricks, data percentage filled for that particular volume group to which the snapshots belong to, and total size of the logical volume.
@@ -151,15 +151,18 @@ snapshot config without any keywords displays the snapshot config values of all 
 
 Snapshot config command along with keywords can be used to change the existing config values. If volname is provided then config value of that volume is changed, else it will set/change the system limit.
 
-snap-max-hard-limit, snap-max-soft-limit and auto-delete are global options, that will be inherited by all volumes in the system and cannot be set to individual volumes.
+snap-max-soft-limit and auto-delete are global options, that will be inherited by all volumes in the system and cannot be set to individual volumes.
 
-The system limit takes precedence over the volume specific limit.
+snap-max-hard-limit can be set globally, as well as per volume. The lowest limit between the global system limit and the volume specific limit, becomes the
+"Effective snap-max-hard-limit" for a volume.
 
-When auto-delete feature is enabled, then upon reaching the soft-limit, with every successful snapshot creation, the oldest snapshot will be deleted.
+snap-max-soft-limit is a percentage value, which is applied on the "Effective snap-max-hard-limit" to get the "Effective snap-max-soft-limit".
 
-When auto-delete feature is disabled, then upon reaching the soft-limit, the user gets a warning with every successful snapshot creation.
+When auto-delete feature is enabled, then upon reaching the "Effective snap-max-soft-limit", with every successful snapshot creation, the oldest snapshot will be deleted.
 
-When auto-delete feature is disabled, then upon reaching the hard-limit, further  snapshot  creations  will not be allowed.
+When auto-delete feature is disabled, then upon reaching the "Effective snap-max-soft-limit", the user gets a warning with every successful snapshot creation.
+
+When auto-delete feature is disabled, then upon reaching the "Effective snap-max-hard-limit", further  snapshot  creations  will not be allowed.
 
 activate-on-create is disabled by default. If you enable activate-on-create, then further snapshot will be activated during the time of snapshot creation.
 .TP
