@@ -1140,10 +1140,10 @@ fi
 %config %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre/S28Quota-enable-root-xattr-heal.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/set/post/S30samba-set.sh
-%config %{_sharedstatedir}/glusterd/hooks/1/set/post/S31ganesha-set.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/set/post/S32gluster_enable_shared_storage.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/start/post/S29CTDBsetup.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/start/post/S30samba-start.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/reset/post/S31ganesha-reset.sh
@@ -1236,6 +1236,9 @@ fi
 
 
 %changelog
+* Mon Jun 15 2015 Niels de Vos <ndevos@redhat.com>
+- Replace hook script S31ganesha-set.sh by S31ganesha-start.sh (#1231738)
+
 * Fri Jun 12 2015 Aravinda VK <avishwan@redhat.com>
 - Added rsync as dependency to georeplication rpm (#1231205)
 
