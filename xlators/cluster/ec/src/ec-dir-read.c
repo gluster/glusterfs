@@ -316,34 +316,36 @@ out:
 
 /* FOP: readdir */
 
-void ec_adjust_readdir(ec_t * ec, int32_t idx, gf_dirent_t * entries)
+void ec_adjust_readdirp (ec_t *ec, int32_t idx, gf_dirent_t *entries)
 {
     gf_dirent_t * entry;
 
     list_for_each_entry(entry, &entries->list, list)
     {
+        if (!entry->inode)
+                continue;
+
         if (entry->d_stat.ia_type == IA_IFREG)
         {
             if ((entry->dict == NULL) ||
                 (ec_dict_del_number(entry->dict, EC_XATTR_SIZE,
-                                    &entry->d_stat.ia_size) != 0))
-            {
-                gf_log(ec->xl->name, GF_LOG_WARNING, "Unable to get exact "
-                                                     "file size.");
-
-                entry->d_stat.ia_size *= ec->fragments;
+                                    &entry->d_stat.ia_size) != 0)) {
+                    inode_unref (entry->inode);
+                    entry->inode = NULL;
+            } else {
+                ec_iatt_rebuild(ec, &entry->d_stat, 1, 1);
             }
-
-            ec_iatt_rebuild(ec, &entry->d_stat, 1, 1);
         }
     }
 }
 
-int32_t ec_readdir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                       int32_t op_ret, int32_t op_errno, gf_dirent_t * entries,
-                       dict_t * xdata)
+int32_t
+ec_common_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       gf_dirent_t *entries, dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
+    ec_fop_data_t *fop = NULL;
+    ec_cbk_data_t *cbk = NULL;
     int32_t idx = (int32_t)(uintptr_t)cookie;
 
     VALIDATE_OR_GOTO(this, out);
@@ -356,18 +358,15 @@ int32_t ec_readdir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
              frame, op_ret, op_errno);
 
-    if (op_ret > 0)
-    {
-        ec_adjust_readdir(fop->xl->private, idx, entries);
-    }
-
-    if (!ec_dispatch_one_retry(fop, idx, op_ret))
-    {
-        if (fop->cbks.readdir != NULL)
-        {
-            fop->cbks.readdir(fop->req_frame, fop, this, op_ret, op_errno,
-                              entries, xdata);
-        }
+    cbk = ec_cbk_data_allocate (frame, this, fop, fop->id,
+                                idx, op_ret, op_errno);
+    if (cbk) {
+        if (xdata)
+                cbk->xdata = dict_ref (xdata);
+        if (cbk->op_ret >= 0)
+                list_splice_init (&entries->list,
+                                  &cbk->entries.list);
+        ec_combine (cbk, NULL);
     }
 
 out:
@@ -383,14 +382,15 @@ void ec_wind_readdir(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    STACK_WIND_COOKIE(fop->frame, ec_readdir_cbk, (void *)(uintptr_t)idx,
+    STACK_WIND_COOKIE(fop->frame, ec_common_readdir_cbk, (void *)(uintptr_t)idx,
                       ec->xl_list[idx], ec->xl_list[idx]->fops->readdir,
                       fop->fd, fop->size, fop->offset, fop->xdata);
 }
 
 int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 {
-    ec_fd_t *ctx;
+    ec_fd_t *ctx = NULL;
+    ec_cbk_data_t *cbk = NULL;
 
     switch (state)
     {
@@ -404,27 +404,21 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-            if (fop->xdata == NULL)
-            {
-                fop->xdata = dict_new();
-                if (fop->xdata == NULL)
-                {
-                    gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare "
-                                                        "readdirp request");
+            if (fop->id == GF_FOP_READDIRP) {
+                    if (fop->xdata == NULL) {
+                        fop->xdata = dict_new();
+                        if (fop->xdata == NULL) {
+                            fop->error = EIO;
 
-                    fop->error = EIO;
+                            return EC_STATE_REPORT;
+                        }
+                    }
 
-                    return EC_STATE_REPORT;
-                }
-            }
-            if (dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0) != 0)
-            {
-                gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare "
-                                                    "readdirp request");
+                    if (dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0)) {
+                        fop->error = EIO;
 
-                fop->error = EIO;
-
-                return EC_STATE_REPORT;
+                        return EC_STATE_REPORT;
+                    }
             }
 
             if (fop->offset != 0)
@@ -440,37 +434,92 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
                         return EC_STATE_REPORT;
                 }
                 fop->mask &= 1ULL << idx;
+            } else {
+                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+                    ec_lock(fop);
             }
 
-        /* Fall through */
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_dispatch_one(fop);
 
+            return EC_STATE_PREPARE_ANSWER;
+
+        case EC_STATE_PREPARE_ANSWER:
+            cbk = fop->answer;
+            if (cbk) {
+                if ((cbk->op_ret < 0) &&
+                    ec_is_recoverable_error (cbk->op_errno)) {
+                    GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
+                    fop->mask ^= (1ULL << cbk->idx);
+                    if (fop->mask == 0)
+                            return EC_STATE_REPORT;
+                    return EC_STATE_DISPATCH;
+                }
+                if ((cbk->op_ret > 0) && (fop->id == GF_FOP_READDIRP)) {
+                    ec_adjust_readdirp (fop->xl->private, cbk->idx,
+                                        &cbk->entries);
+                }
+            } else {
+                ec_fop_set_error(fop, EIO);
+            }
             return EC_STATE_REPORT;
 
+        case EC_STATE_REPORT:
+            cbk = fop->answer;
+            GF_ASSERT (cbk);
+            if (fop->id == GF_FOP_READDIR) {
+                if (fop->cbks.readdir != NULL) {
+                    fop->cbks.readdir(fop->req_frame, fop, fop->xl, cbk->op_ret,
+                                      cbk->op_errno, &cbk->entries, cbk->xdata);
+                }
+            } else {
+                if (fop->cbks.readdirp != NULL) {
+                    fop->cbks.readdirp(fop->req_frame, fop, fop->xl,
+                                       cbk->op_ret, cbk->op_errno,
+                                       &cbk->entries, cbk->xdata);
+                }
+            }
+            if (fop->offset == 0)
+                    return EC_STATE_LOCK_REUSE;
+            else
+                    return EC_STATE_END;
+
         case -EC_STATE_INIT:
-            if (fop->id == GF_FOP_READDIR)
-            {
-                if (fop->cbks.readdir != NULL)
-                {
+        case -EC_STATE_LOCK:
+        case -EC_STATE_DISPATCH:
+        case -EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_REPORT:
+            if (fop->id == GF_FOP_READDIR) {
+                if (fop->cbks.readdir != NULL) {
                     fop->cbks.readdir(fop->req_frame, fop, fop->xl, -1,
                                       fop->error, NULL, NULL);
                 }
-            }
-            else
-            {
-                if (fop->cbks.readdirp != NULL)
-                {
+            } else {
+                if (fop->cbks.readdirp != NULL) {
                     fop->cbks.readdirp(fop->req_frame, fop, fop->xl, -1,
                                        fop->error, NULL, NULL);
                 }
             }
+            if (fop->offset == 0)
+                    return EC_STATE_LOCK_REUSE;
+            else
+                    return EC_STATE_END;
 
-        case EC_STATE_REPORT:
-        case -EC_STATE_REPORT:
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            GF_ASSERT (fop->offset == 0);
+            ec_lock_reuse(fop);
+
+            return EC_STATE_UNLOCK;
+
+        case -EC_STATE_UNLOCK:
+        case EC_STATE_UNLOCK:
+            GF_ASSERT (fop->offset == 0);
+            ec_unlock(fop);
+
             return EC_STATE_END;
-
         default:
             gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
                    state, ec_fop_name(fop->id));
@@ -544,51 +593,11 @@ out:
 
 /* FOP: readdirp */
 
-int32_t ec_readdirp_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno,
-                        gf_dirent_t * entries, dict_t * xdata)
-{
-    ec_fop_data_t * fop = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    if (op_ret > 0)
-    {
-        ec_adjust_readdir(fop->xl->private, idx, entries);
-    }
-
-    if (!ec_dispatch_one_retry(fop, idx, op_ret))
-    {
-        if (fop->cbks.readdirp != NULL)
-        {
-            fop->cbks.readdirp(fop->req_frame, fop, this, op_ret, op_errno,
-                               entries, xdata);
-        }
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
-}
-
 void ec_wind_readdirp(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    STACK_WIND_COOKIE(fop->frame, ec_readdirp_cbk, (void *)(uintptr_t)idx,
+    STACK_WIND_COOKIE(fop->frame, ec_common_readdir_cbk, (void *)(uintptr_t)idx,
                       ec->xl_list[idx], ec->xl_list[idx]->fops->readdirp,
                       fop->fd, fop->size, fop->offset, fop->xdata);
 }

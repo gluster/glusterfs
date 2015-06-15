@@ -186,6 +186,10 @@ void ec_update_bad(ec_fop_data_t * fop, uintptr_t good)
     ec_t *ec = fop->xl->private;
     uintptr_t bad;
 
+    /*Don't let fops that do dispatch_one() to update bad*/
+    if (fop->expected == 1)
+            return;
+
     bad = ec->xl_up & ~(fop->remaining | good);
     fop->bad |= bad;
     fop->good |= good;
@@ -314,6 +318,20 @@ void ec_resume_parent(ec_fop_data_t * fop, int32_t error)
     }
 }
 
+gf_boolean_t
+ec_is_recoverable_error (int32_t op_errno)
+{
+        switch (op_errno) {
+        case ENOTCONN:
+        case ESTALE:
+        case ENOENT:
+        case EBADFD:/*Opened fd but brick is disconnected*/
+        case EIO:/*Backend-fs crash like XFS/ext4 etc*/
+                return _gf_true;
+        }
+        return _gf_false;
+}
+
 void ec_complete(ec_fop_data_t * fop)
 {
     ec_cbk_data_t * cbk = NULL;
@@ -329,14 +347,12 @@ void ec_complete(ec_fop_data_t * fop)
             if (!list_empty(&fop->cbk_list)) {
                 cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
                 healing_count = ec_bits_count (cbk->mask & fop->healing);
+                    /* fop shouldn't be treated as success if it is not
+                     * successful on at least fop->minimum good copies*/
                 if ((cbk->count - healing_count) >= fop->minimum) {
-                        /* fop shouldn't be treated as success if it is not
-                         * successful on at least fop->minimum good copies*/
-                    if ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN)) {
-                        fop->answer = cbk;
+                    fop->answer = cbk;
 
-                        update = 1;
-                    }
+                    update = 1;
                 }
             }
 

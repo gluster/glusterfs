@@ -889,7 +889,7 @@ void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
     ec_fop_data_t *fop = newcbk->fop;
     ec_cbk_data_t *cbk = NULL, *tmp = NULL;
     struct list_head *item = NULL;
-    int32_t needed = 0, resume = 0;
+    int32_t needed = 0;
     char str[32];
 
     LOCK(&fop->lock);
@@ -926,12 +926,6 @@ void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
     ec_trace("ANSWER", fop, "combine=%s[%d]",
              ec_bin(str, sizeof(str), newcbk->mask, 0), newcbk->count);
 
-    if ((newcbk->count == fop->expected) && (fop->answer == NULL)) {
-        fop->answer = newcbk;
-
-        resume = 1;
-    }
-
     cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
     if ((fop->mask ^ fop->remaining) == fop->received) {
         needed = fop->minimum - cbk->count;
@@ -941,9 +935,5 @@ void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
 
     if (needed > 0) {
         ec_dispatch_next(fop, newcbk->idx);
-    } else if (resume) {
-        ec_update_bad(fop, newcbk->mask);
-
-        ec_resume(fop, 0);
     }
 }
