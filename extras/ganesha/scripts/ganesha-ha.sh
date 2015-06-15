@@ -235,30 +235,9 @@ cleanup_ganesha_config ()
        rm -rf ${HA_CONFDIR}/exports/*.conf
        rm -rf ${HA_CONFDIR}/.export_added
        rm -rf /etc/cluster/cluster.conf*
+       rm -rf /var/lib/pacemaker/cib/*
        sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $CONF
 }
-
-
-teardown_clean_etccluster()
-{
-    local short_host=$(hostname -s)
-
-    if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
-        while [[ ${1} ]]; do
-            if [ ${short_host} != ${1} ]; then
-                ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/nfs/secret.pem ${1} \
-rm -f /etc/cluster/cluster.*  rm -f /var/lib/pacemaker/cib/*
-                if [ $? -ne 0 ]; then
-                    logger "warning: ssh ${1} rm -f /etc/cluster/cluster.* failed"
-                fi
-            fi
-            shift
-        done
-    else
-        logger "warning: ssh ${1} rm -f /etc/cluster/cluster.* failed"
-    fi
-}
-
 
 do_create_virt_ip_constraints()
 {
@@ -783,7 +762,6 @@ main()
 
         teardown_cluster ${HA_NAME}
 
-        teardown_clean_etccluster ${HA_SERVERS}
         ;;
 
     cleanup | --cleanup)
