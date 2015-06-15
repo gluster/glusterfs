@@ -343,11 +343,14 @@ setup_create_resources()
 
     while [[ ${1} ]]; do
 
-        ipaddr=$(grep "^VIP_${1}=" ${HA_CONFDIR}/ganesha-ha.conf | cut -d = -f 2)
+        name="VIP_${1}"
+        nvs=$(grep "^${name}=" ${HA_CONFDIR}/ganesha-ha.conf)
+        eval ${nvs}
+        eval ipaddr=\$$name
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
-            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=10s failed"
+            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s failed"
         fi
 
         pcs -f ${cibfile} resource create ${1}-trigger_ip-1 ocf:heartbeat:Dummy
@@ -437,7 +440,10 @@ recreate_resources()
     local cibfile=${1}; shift
 
     while [[ ${1} ]]; do
-        ipaddr=$(grep "VIP_${1}=" ${HA_CONFDIR}/ganesha-ha.conf | cut -d = -f 2)
+        name="VIP_${1}"
+        nvs=$(grep "^${name}=" ${HA_CONFDIR}/ganesha-ha.conf)
+        eval ${nvs}
+        eval ipaddr=\$$name
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
@@ -761,7 +767,6 @@ main()
         teardown_resources ${HA_SERVERS}
 
         teardown_cluster ${HA_NAME}
-
         ;;
 
     cleanup | --cleanup)
