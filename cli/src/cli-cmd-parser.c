@@ -2422,6 +2422,9 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                                           "push-pem", "detail", "pause",
                                           "resume", NULL };
         char               *w = NULL;
+        char               *save_ptr   = NULL;
+        char               *slave_temp = NULL;
+        char               *token      = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -2578,14 +2581,29 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         ret = dict_set_str (dict, "volname",
                                             (char *)words[masteri]);
         }
-        if (!ret && slavei)
-                ret = dict_set_str (dict, "slave", (char *)words[slavei]);
+        if (!ret && slavei) {
+                /* If geo-rep is created with root user using the syntax
+                 * gluster vol geo-rep <mastervol> root@<slavehost> ...
+                 * pass down only <slavehost> else pass as it is.
+                 */
+                slave_temp = gf_strdup (words[slavei]);
+                token = strtok_r (slave_temp, "@", &save_ptr);
+                if (token && !strcmp (token, "root")) {
+                        ret = dict_set_str (dict, "slave",
+                                            (char *)words[slavei]+5);
+                } else {
+                        ret = dict_set_str (dict, "slave",
+                                            (char *)words[slavei]);
+                }
+        }
         if (!ret)
                 ret = dict_set_int32 (dict, "type", type);
         if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG)
                 ret = config_parse (words, wordcount, dict, cmdi, glob);
 
 out:
+        if (slave_temp)
+                GF_FREE (slave_temp);
         if (ret) {
                 if (dict)
                         dict_destroy (dict);
