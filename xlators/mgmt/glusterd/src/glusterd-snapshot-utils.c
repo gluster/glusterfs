@@ -3242,8 +3242,11 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
 {
         int32_t         ret             =       -1;
         char            *token          =       NULL;
+        char            *tok            =       NULL;
         char            *temp           =       NULL;
         char            *ip             =       NULL;
+        char            *ip_i           =       NULL;
+        char            *ip_temp        =       NULL;
         char            *buffer         =       NULL;
         xlator_t        *this           =       NULL;
         char            *slave_temp     =       NULL;
@@ -3284,6 +3287,7 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
                 ret = -1;
                 goto out;
         }
+        ip_i = ip;
 
         token = strtok_r (NULL, "\0", &save_ptr);
         if (!token) {
@@ -3298,8 +3302,16 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
                 goto out;
         }
 
+        /* If 'ip' has 'root@slavehost', point to 'slavehost' as
+         * working directory for root users are created without
+         * 'root@' */
+        ip_temp = gf_strdup (ip);
+        tok = strtok_r (ip_temp, "@", &save_ptr);
+        if (tok && !strcmp (tok, "root"))
+                ip_i = ip + 5;
+
         ret = snprintf (session, PATH_MAX, "%s_%s_%s",
-                        origin_volname, ip, slave_temp);
+                        origin_volname, ip_i, slave_temp);
         if (ret < 0) /* Negative value is an error */
                 goto out;
 
@@ -3316,6 +3328,9 @@ out:
 
         if (ip)
                 GF_FREE (ip);
+
+        if (ip_temp)
+                GF_FREE (ip_temp);
 
         if (slave_temp)
                 GF_FREE (slave_temp);
