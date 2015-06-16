@@ -334,7 +334,8 @@ out:
 }
 
 static inline
-int32_t dht_subvol_has_err (xlator_t *this, dht_layout_t *layout)
+int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
+                                         dht_layout_t *layout)
 {
         int ret = -1;
         int i   = 0;
@@ -350,6 +351,17 @@ int32_t dht_subvol_has_err (xlator_t *this, dht_layout_t *layout)
                         goto out;
                 }
         }
+
+        /* discard decommissioned subvol */
+        if (conf->decommission_subvols_cnt) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->decommissioned_bricks[i] &&
+                            conf->decommissioned_bricks[i] == this)
+                                ret = -1;
+                                goto out;
+                }
+        }
+
         ret = 0;
 out:
         return ret;
@@ -371,8 +383,9 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
         conf = this->private;
 
         for(i=0; i < conf->subvolume_cnt; i++) {
-                /* check if subvol has layout errors, before selecting it */
-                ignore_subvol = dht_subvol_has_err (conf->subvolumes[i],
+                /* check if subvol has layout errors and also it is not a
+                 * decommissioned brick, before selecting it */
+                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
                                                     layout);
                 if (ignore_subvol)
                         continue;
@@ -419,8 +432,10 @@ dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
         conf = this->private;
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                /* check if subvol has layout errors, before selecting it */
-                ignore_subvol = dht_subvol_has_err (conf->subvolumes[i],
+                /* check if subvol has layout errors and also it is not a
+                 * decommissioned brick, before selecting it*/
+
+                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
                                                     layout);
                 if (ignore_subvol)
                         continue;
