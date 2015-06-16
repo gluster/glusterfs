@@ -3092,7 +3092,6 @@ glusterd_find_brick_mount_path (char *brick_path, char **brick_mount_path)
                 ptr++;
 
         if (*ptr == '/') {
-                ptr++;
                 *ptr = '\0';
         }
 
