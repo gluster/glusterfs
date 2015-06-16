@@ -338,7 +338,8 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
 
 int
 shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                            int32_t op_ret, int32_t op_errno, dict_t *dict,
+                            dict_t *xdata)
 {
         shard_local_t *local = NULL;
 
@@ -356,16 +357,15 @@ err:
 }
 
 int
-shard_set_size_attrs (uint64_t size, uint64_t block_count,
-                      uint64_t **size_attr_p)
+shard_set_size_attrs (int64_t size, int64_t block_count, int64_t **size_attr_p)
 {
         int             ret       = -1;
-        uint64_t       *size_attr = NULL;
+        int64_t       *size_attr = NULL;
 
         if (!size_attr_p)
                 goto out;
 
-        size_attr = GF_CALLOC (4, sizeof (uint64_t), gf_shard_mt_uint64_t);
+        size_attr = GF_CALLOC (4, sizeof (int64_t), gf_shard_mt_int64_t);
         if (!size_attr)
                 goto out;
 
@@ -390,7 +390,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         shard_post_update_size_fop_handler_t handler)
 {
         int            ret       = -1;
-        uint64_t      *size_attr = NULL;
+        int64_t       *size_attr = NULL;
         inode_t       *inode     = NULL;
         shard_local_t *local     = NULL;
         dict_t        *xattr_req = NULL;
@@ -410,8 +410,8 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         else
                 inode = loc->inode;
 
-        ret = shard_set_size_attrs (local->postbuf.ia_size + local->hole_size,
-                                    local->postbuf.ia_blocks, &size_attr);
+        ret = shard_set_size_attrs (local->delta_size + local->hole_size,
+                                    local->delta_blocks, &size_attr);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set size attrs for"
                         " %s", uuid_utoa (inode->gfid));
@@ -435,13 +435,13 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (fd)
                 STACK_WIND (frame, shard_update_file_size_cbk,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsetxattr, fd, xattr_req,
-                            0, NULL);
+                            FIRST_CHILD(this)->fops->fxattrop, fd,
+                            GF_XATTROP_ADD_ARRAY64, xattr_req, NULL);
         else
                 STACK_WIND (frame, shard_update_file_size_cbk,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->setxattr, loc, xattr_req,
-                            0, NULL);
+                            FIRST_CHILD(this)->fops->xattrop, loc,
+                            GF_XATTROP_ADD_ARRAY64, xattr_req, NULL);
 
         dict_unref (xattr_req);
         return 0;
@@ -918,6 +918,10 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
         }
         local->postbuf.ia_size = local->offset;
         local->postbuf.ia_blocks -= (prebuf->ia_blocks - postbuf->ia_blocks);
+        /* Let the delta be negative. We want xattrop to do subtraction */
+        local->delta_size = local->postbuf.ia_size - local->prebuf.ia_size;
+        local->delta_blocks = postbuf->ia_blocks - prebuf->ia_blocks;
+        local->hole_size = 0;
 
         shard_update_file_size (frame, this, NULL, &local->loc,
                                 shard_post_update_size_truncate_handler);
@@ -993,7 +997,14 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                  * unlinked do not exist. So shard xlator would now proceed to
                  * do the final truncate + size updates.
                  */
-                shard_truncate_last_shard (frame, this, local->inode_list[0]);
+                local->postbuf.ia_size = local->offset;
+                local->postbuf.ia_blocks = local->prebuf.ia_blocks;
+                local->delta_size = local->postbuf.ia_size -
+                                    local->prebuf.ia_size;
+                local->delta_blocks = 0;
+                local->hole_size = 0;
+                shard_update_file_size (frame, this, local->fd, &local->loc,
+                                       shard_post_update_size_truncate_handler);
                 return 0;
         }
 
@@ -1445,12 +1456,13 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
                         SHARD_STACK_UNWIND (ftruncate, frame, 0, 0,
                                             &local->prebuf, &local->postbuf,
                                             NULL);
-
-
         } else if (local->offset > local->prebuf.ia_size) {
                 /* If the truncate is from a lower to a higher size, set the
                  * new size xattr and unwind.
                  */
+                local->hole_size = local->offset - local->prebuf.ia_size;
+                local->delta_size = 0;
+                local->delta_blocks = 0;
                 local->postbuf.ia_size = local->offset;
                 shard_update_file_size (frame, this, NULL, &local->loc,
                                        shard_post_update_size_truncate_handler);
@@ -1461,6 +1473,9 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
                  * iii. update the new size using setxattr.
                  * and unwind the fop.
                  */
+                local->hole_size = 0;
+                local->delta_size = (local->offset - local->prebuf.ia_size);
+                local->delta_blocks = 0;
                 shard_truncate_begin (frame, this);
         }
         return 0;
@@ -2834,6 +2849,10 @@ shard_post_update_size_writev_handler (call_frame_t *frame, xlator_t *this)
                                     local->op_errno, NULL, NULL, NULL);
                 return 0;
         }
+
+        local->postbuf.ia_size += (local->delta_size + local->hole_size);
+        local->postbuf.ia_blocks += local->delta_blocks;
+
         SHARD_STACK_UNWIND (writev, frame, local->written_size, local->op_errno,
                             &local->prebuf, &local->postbuf, local->xattr_rsp);
         return 0;
@@ -2855,9 +2874,8 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = op_errno;
         } else {
                 local->written_size += op_ret;
-                local->postbuf.ia_blocks += (postbuf->ia_blocks -
-                                             prebuf->ia_blocks);
-                local->postbuf.ia_size += (postbuf->ia_size - prebuf->ia_size);
+                local->delta_blocks += (postbuf->ia_blocks - prebuf->ia_blocks);
+                local->delta_size += (postbuf->ia_size - prebuf->ia_size);
         }
 
         if (anon_fd)
@@ -2906,6 +2924,15 @@ shard_writev_do (call_frame_t *frame, xlator_t *this)
         cur_block = local->first_block;
         local->call_count = call_count = local->num_blocks;
         last_block = local->last_block;
+
+        if (dict_set_uint32 (local->xattr_req,
+                             GLUSTERFS_WRITE_UPDATE_ATOMIC, 4)) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                shard_writev_do_cbk (frame, (void *)(long)0, this, -1, ENOMEM,
+                                     NULL, NULL, NULL);
+                return 0;
+        }
 
         while (cur_block <= last_block) {
                 if (wind_failed) {
