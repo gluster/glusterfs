@@ -65,7 +65,7 @@ TEST glusterfs --volfile=$B0/test.vol --attribute-timeout=0 --entry-timeout=0 $M
 # Send a single write, guaranteed to be short on one replica, and attempt to
 # read the data back. Failure to detect the short write results in different
 # file sizes and immediate split-brain (EIO).
-TEST dd if=/dev/zero of=$M0/file bs=128k count=1
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=1
 TEST dd if=$M0/file of=/dev/null bs=128k count=1
 ########
 #

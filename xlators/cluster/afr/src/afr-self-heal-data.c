@@ -97,10 +97,12 @@ __afr_selfheal_data_checksums_match (call_frame_t *frame, xlator_t *this,
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source)
 			continue;
-		if (memcmp (local->replies[source].checksum,
-			    local->replies[i].checksum,
-			    MD5_DIGEST_LENGTH))
-			return _gf_false;
+                if (local->replies[i].valid) {
+                        if (memcmp (local->replies[source].checksum,
+                                    local->replies[i].checksum,
+                                    MD5_DIGEST_LENGTH))
+                                return _gf_false;
+                }
 	}
 
 	return _gf_true;
@@ -378,23 +380,16 @@ out:
 static int
 __afr_selfheal_truncate_sinks (call_frame_t *frame, xlator_t *this,
 			       fd_t *fd, unsigned char *healed_sinks,
-			       struct afr_reply *replies, uint64_t size)
+			       uint64_t size)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
-	unsigned char *larger_sinks = 0;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
 
-	larger_sinks = alloca0 (priv->child_count);
-	for (i = 0; i < priv->child_count; i++) {
-		if (healed_sinks[i] && replies[i].poststat.ia_size > size)
-			larger_sinks[i] = 1;
-	}
-
-	AFR_ONLIST (larger_sinks, frame, attr_cbk, ftruncate, fd, size, NULL);
+	AFR_ONLIST (healed_sinks, frame, attr_cbk, ftruncate, fd, size, NULL);
 
 	for (i = 0; i < priv->child_count; i++)
 		if (healed_sinks[i] && local->replies[i].op_ret == -1)
@@ -437,6 +432,9 @@ afr_does_size_mismatch (xlator_t *this, unsigned char *sources,
                         continue;
 
                 if (replies[i].op_ret < 0)
+                        continue;
+
+                if (!sources[i])
                         continue;
 
                 if (!min)
@@ -686,7 +684,6 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
 
 		ret = __afr_selfheal_truncate_sinks (frame, this, fd, healed_sinks,
-						     locked_replies,
 						     locked_replies[source].poststat.ia_size);
 		if (ret < 0)
 			goto unlock;
