@@ -67,7 +67,7 @@
 
 #define SHARD_INODE_CREATE_INIT(this, local, xattr_req, loc, label) do {      \
         int            __ret       = -1;                                      \
-        uint64_t      *__size_attr = NULL;                                    \
+        int64_t       *__size_attr = NULL;                                    \
         shard_priv_t  *__priv      = NULL;                                    \
                                                                               \
         __priv = this->private;                                               \
@@ -155,6 +155,8 @@ typedef struct shard_local {
         size_t hole_size;
         size_t req_size;
         size_t readdir_size;
+        int64_t delta_size;
+        int delta_blocks;
         loc_t loc;
         loc_t dot_shard_loc;
         loc_t loc2;

@@ -969,7 +969,6 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
 
         local = dht_local_init (frame, loc, NULL, GF_FOP_XATTROP);
         if (!local) {
@@ -980,7 +979,8 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         subvol = local->cached_subvol;
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s", loc->path);
+                              "no cached subvolume for gfid=%s",
+                              uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto err;
         }
