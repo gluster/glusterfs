@@ -96,7 +96,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
         const char      failed_string[2048] = "Failed to perform brick order "
                                 "check. Use 'force' at the end of the command"
                                 " if you want to override this behavior. ";
-        const char      found_string[2048]  = "Multiple bricks of a replicate "
+        const char      found_string[2048]  = "Multiple bricks of a %s "
                                 "volume are present on the same server. This "
                                 "setup is not optimal. Use 'force' at the "
                                 "end of the command if you want to override "
@@ -243,7 +243,12 @@ check_failed:
 found_bad_brick_order:
         gf_msg (this->name, GF_LOG_INFO, 0,
                 GD_MSG_BAD_BRKORDER, "Bad brick order found");
-        snprintf (err_str, sizeof (found_string), found_string);
+        if (type == GF_CLUSTER_TYPE_DISPERSE) {
+                snprintf (err_str, sizeof (found_string), found_string, "disperse");
+        } else {
+                snprintf (err_str, sizeof (found_string), found_string, "replicate");
+        }
+
         ret = -1;
 out:
         ai_list_tmp2 = NULL;
