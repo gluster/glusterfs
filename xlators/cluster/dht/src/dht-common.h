@@ -39,6 +39,10 @@ typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
 typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, xlator_t *dst_node,
                                     call_frame_t    *frame);
 
+typedef int (*dht_refresh_layout_unlock) (call_frame_t *frame, xlator_t *this,
+                                         int op_ret);
+
+typedef int (*dht_refresh_layout_done_handle) (call_frame_t *frame);
 
 struct dht_layout {
         int                spread_cnt;  /* layout spread count per directory,
@@ -207,6 +211,10 @@ struct dht_local {
                 gf_boolean_t            force_mkdir;
                 dht_layout_t           *layout, *refreshed_layout;
         } selfheal;
+
+        dht_refresh_layout_unlock              refresh_layout_unlock;
+        dht_refresh_layout_done_handle         refresh_layout_done;
+
         uint32_t                 uid;
         uint32_t                 gid;
 
@@ -504,6 +512,7 @@ typedef struct dht_migrate_info {
         xlator_t *dst_subvol;
         GF_REF_DECL;
 } dht_migrate_info_t;
+
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
@@ -1062,4 +1071,6 @@ dht_layout_sort (dht_layout_t *layout);
 int
 dht_layout_missing_dirs (dht_layout_t *layout);
 
+int
+dht_refresh_layout (call_frame_t *frame);
 #endif/* _DHT_H */

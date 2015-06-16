@@ -115,7 +115,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         int          need_unref = 0;
         int          ret = 0;
         dht_conf_t  *conf = this->private;
-        char           gfid[GF_UUID_BUF_SIZE] = {0};
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;

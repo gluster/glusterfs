@@ -209,7 +209,7 @@ unlock:
 
         if (is_last_call (this_call_cnt)) {
                 if (local->op_ret == 0) {
-                        dht_refresh_layout_done (frame);
+                        local->refresh_layout_done (frame);
                 } else {
                         goto err;
                 }
@@ -219,7 +219,8 @@ unlock:
         return 0;
 
 err:
-        dht_selfheal_dir_finish (frame, this, -1);
+        local->refresh_layout_unlock (frame, this, -1);
+
         return 0;
 }
 
@@ -285,7 +286,7 @@ dht_refresh_layout (call_frame_t *frame)
         return 0;
 
 out:
-        dht_selfheal_dir_finish (frame, this, -1);
+        local->refresh_layout_unlock (frame, this, -1);
         return 0;
 }
 
@@ -294,9 +295,20 @@ int32_t
 dht_selfheal_layout_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+        dht_local_t     *local = NULL;
+
+        local = frame->local;
+
+        if (!local) {
+                goto err;
+        }
+
         if (op_ret < 0) {
                 goto err;
         }
+
+        local->refresh_layout_unlock = dht_selfheal_dir_finish;
+        local->refresh_layout_done = dht_refresh_layout_done;
 
         dht_refresh_layout (frame);
         return 0;
