@@ -2362,8 +2362,6 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
                 goto err;
         }
 
-        data->data = ptr;
-        data->len  = size;
         data->is_static = 0;
 
         ret = dict_set (this, key, data);
@@ -2391,10 +2389,6 @@ dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
                 ret = -EINVAL;
                 goto err;
         }
-
-        data->data = ptr;
-        data->len  = size;
-        data->is_static = 1;
 
         ret = dict_set (this, key, data);
         if (ret < 0)
