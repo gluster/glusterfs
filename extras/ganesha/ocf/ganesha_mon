@@ -97,9 +97,17 @@ ganesha_mon_stop()
 ganesha_mon_monitor()
 {
 	local short_host=$(hostname -s)
+	local pid_file="/var/run/ganesha.nfsd.pid"
 
-	if [ -e /var/run/ganesha.nfsd.pid -a \
-	     -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
+	# RHEL6 /etc/init.d/nfs-ganesha adds -p /var/run/ganesha.nfsd.pid
+	# RHEL7 systemd does not. Would be nice if all distros used the
+	# same pid file.
+	if [ -e /usr/lib/systemd/system/nfs-ganesha.service ]; then
+		pid_file="/var/run/ganesha.pid"
+	fi
+
+	if [ -e ${pid_file} -a \
+	     -d /proc/$(cat ${pid_file} ) ]; then
 		( pcs resource delete ${short_host}-dead_ip-1 > /dev/null 2>&1 )
 
 		attrd_updater -n ganesha-active -v 1

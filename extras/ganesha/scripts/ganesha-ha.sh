@@ -22,11 +22,13 @@
 
 HA_NUM_SERVERS=0
 HA_SERVERS=""
-HA_CONFDIR=""
+HA_CONFDIR="/etc/ganesha"
 HA_VOL_NAME="gluster_shared_storage"
 HA_VOL_MNT="/var/run/gluster/shared_storage"
 SERVICE_MAN="DISTRO_NOT_FOUND"
-CONF=$(cat /etc/sysconfig/ganesha | grep "CONFFILE" | cut -f 2 -d "=")
+cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
+eval $(echo ${cfgline} | grep -F CONFFILE=)
+GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 RHEL6_PCS_CNAME_OPTION="--name"
 
@@ -236,7 +238,7 @@ cleanup_ganesha_config ()
        rm -rf ${HA_CONFDIR}/.export_added
        rm -rf /etc/cluster/cluster.conf*
        rm -rf /var/lib/pacemaker/cib/*
-       sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $CONF
+       sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' ${GANESHA_CONF}
 }
 
 do_create_virt_ip_constraints()
@@ -740,15 +742,18 @@ main()
     local node=""
     local vip=""
 
-    ha_name=$(grep ^HA_NAME= ${ha_conf} | cut -d = -f 2)
-    HA_NAME=${ha_name//\"/}
-    ha_vol_server=$(grep ^HA_VOL_SERVER= ${ha_conf} | cut -d = -f 2)
-    HA_VOL_SERVER=${ha_vol_server//\"/}
-    ha_cluster_nodes=$(grep ^HA_CLUSTER_NODES= ${ha_conf} | cut -d = -f 2)
-    HA_CLUSTER_NODES=${ha_cluster_nodes//\"/}
+    # ignore any comment lines
+    cfgline=$(grep ^HA_NAME= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_NAME=)
+    cfgline=$(grep ^HA_VOL_SERVER= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
+    cfgline=$(grep ^HA_CLUSTER_NODES= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
 
+    # we'll pretend that nobody ever edits /etc/os-release
     if [ -e /etc/os-release ]; then
-        RHEL6_PCS_CNAME_OPTION=""
+        eval $(grep -F "REDHAT_SUPPORT_PRODUCT=" /etc/os-release)
+        [ "$REDHAT_SUPPORT_PRODUCT" == "Fedora" ] && RHEL6_PCS_CNAME_OPTION=""
     fi
 
     case "${cmd}" in

@@ -88,14 +88,22 @@ ganesha_grace_start()
 	local resourcename=""
 	local deadserver=""
 	local tmpIFS=${IFS}
+	local pid_file="/var/run/ganesha.nfsd.pid"
+
+	# RHEL6 /etc/init.d/nfs-ganesha adds "-p /var/run/ganesha.nfsd.pid"
+	# RHEL7 systemd does not. Would be nicer if all distros used the
+	# same pid file.
+	if [ -e /usr/lib/systemd/system/nfs-ganesha.service ]; then
+		pid_file="/var/run/ganesha.pid"
+	fi
 
 	# logger "ganesha_grace_start()"
 	# we're here because somewhere in the cluster one or more
 	# of the ganesha.nfsds have died, triggering a floating IP
 	# address to move. Resource constraint location rules ensure
 	# that this is invoked before the floating IP is moved.
-	if [ -e /var/run/ganesha.nfsd.pid -a \
-	     -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
+	if [ -e ${pid_file} -a \
+	     -d /proc/$(cat ${pid_file} ) ]; then
 		# my ganesha.nfsd is still running
 		# find out which one died?
 
