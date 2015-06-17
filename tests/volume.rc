@@ -536,11 +536,11 @@ fi
 }
 
 function get_bitd_count {
-        ps auxw | grep glusterfs | grep bitd.pid | grep -v grep | wc -l
+        ps auxww | grep glusterfs | grep bitd.pid | grep -v grep | wc -l
 }
 
 function get_scrubd_count {
-        ps auxw | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
+        ps auxww | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
 }
 
 
