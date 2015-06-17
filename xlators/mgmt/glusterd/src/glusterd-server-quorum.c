@@ -212,11 +212,6 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
 
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
-                if (peerinfo->quorum_contrib == QUORUM_WAITING) {
-                        rcu_read_unlock ();
-                        goto out;
-                }
-
                 if (_is_contributing_to_quorum (peerinfo->quorum_contrib))
                         inquorum_count = inquorum_count + 1;
                 if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))
@@ -239,7 +234,7 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
 
         *quorum_count = count;
         ret = 0;
-out:
+
         return ret;
 }
 
