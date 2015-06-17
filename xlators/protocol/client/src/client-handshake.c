@@ -714,9 +714,9 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         if (rsp.op_ret < 0) {
-                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
-                        PC_MSG_DIR_OP_SUCCESS, "reopen on %s failed (%s)",
-                        local->loc.path, strerror (rsp.op_errno));
+                gf_msg (frame->this->name, GF_LOG_WARNING, rsp.op_errno,
+                        PC_MSG_DIR_OP_SUCCESS, "reopen on %s failed.",
+                        local->loc.path);
         } else {
                 gf_msg_debug (frame->this->name, 0,
                               "reopen on %s succeeded (remote-fd = %"PRId64")",
@@ -806,9 +806,9 @@ client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         if (rsp.op_ret < 0) {
-                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
-                        PC_MSG_DIR_OP_FAILED, "reopendir on %s failed (%s)",
-                        local->loc.path, strerror (rsp.op_errno));
+                gf_msg (frame->this->name, GF_LOG_WARNING, rsp.op_errno,
+                        PC_MSG_DIR_OP_FAILED, "reopendir on %s failed",
+                        local->loc.path);
         } else {
                 gf_msg (frame->this->name, GF_LOG_INFO, 0,
                         PC_MSG_DIR_OP_SUCCESS, "reopendir on %s succeeded "
@@ -1105,9 +1105,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         op_ret   = rsp.op_ret;
         op_errno = gf_error_to_errno (rsp.op_errno);
         if (-1 == rsp.op_ret) {
-                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
-                        PC_MSG_VOL_SET_FAIL, "failed to set the volume (%s)",
-                        (op_errno)? strerror (op_errno) : "--");
+                gf_msg (frame->this->name, GF_LOG_WARNING, op_errno,
+                        PC_MSG_VOL_SET_FAIL, "failed to set the volume");
         }
 
         reply = dict_new ();
@@ -1140,9 +1139,9 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         }
 
         if (op_ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_SETVOLUME_FAIL,
-                        "SETVOLUME on remote-host failed: %s",
-                        remote_error ? remote_error : strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        PC_MSG_SETVOLUME_FAIL,
+                        "SETVOLUME on remote-host failed");
                 errno = op_errno;
                 if (remote_error &&
                     (strcmp ("Authentication failed", remote_error) == 0)) {
