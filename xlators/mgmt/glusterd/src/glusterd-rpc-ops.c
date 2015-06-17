@@ -1622,13 +1622,12 @@ glusterd_rpc_friend_remove (call_frame_t *frame, xlator_t *this,
         req.hostname = gf_strdup (peerinfo->hostname);
         req.port = peerinfo->port;
 
-        rcu_read_unlock ();
-
         ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->peer,
                                        GLUSTERD_FRIEND_REMOVE, NULL,
                                        this, glusterd_friend_remove_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
+        rcu_read_unlock ();
 out:
         GF_FREE (req.hostname);
 
