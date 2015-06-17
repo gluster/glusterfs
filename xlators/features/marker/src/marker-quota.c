@@ -2583,9 +2583,11 @@ mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
 
         ret = syncop_removexattr (FIRST_CHILD(this), loc, contri_key, 0, NULL);
         if (ret < 0) {
-                if (-ret == ENOENT || -ret == ESTALE) {
+                if (-ret == ENOENT || -ret == ESTALE || -ret == ENODATA) {
                         /* Remove contri in done when unlink operation is
                          * performed, so return success on ENOENT/ESTSLE
+                         * rename operation removes xattr earlier,
+                         * so return success on ENODATA
                          */
                         ret = 0;
                 } else {
