@@ -80,6 +80,8 @@ done
 if [ "$option" == "disable" ]; then
     # Unmount the volume on all the nodes
     umount /var/run/gluster/shared_storage
+    cat /etc/fstab  | grep -v "gluster_shared_storage /var/run/gluster/shared_storage/" > /var/run/gluster/fstab.tmp
+    mv /var/run/gluster/fstab.tmp /etc/fstab
 fi
 
 if [ "$is_originator" == 1 ]; then
@@ -121,4 +123,7 @@ if [ "$option" == "enable" ]; then
     umount /var/run/gluster/shared_storage
     mkdir -p /var/run/gluster/shared_storage
     $mount_cmd
+    cp /etc/fstab /var/run/gluster/fstab.tmp
+    echo "$local_node_hostname:/gluster_shared_storage /var/run/gluster/shared_storage/ glusterfs defaults        0 0" >> /var/run/gluster/fstab.tmp
+    mv /var/run/gluster/fstab.tmp /etc/fstab
 fi
