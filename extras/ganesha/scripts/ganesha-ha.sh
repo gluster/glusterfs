@@ -343,10 +343,23 @@ setup_create_resources()
 
     while [[ ${1} ]]; do
 
+        # this is variable indirection
+        # from a nvs like 'VIP_host1=10.7.6.5' or 'VIP_host1="10.7.6.5"'
+        # (or VIP_host-1=..., or VIP_host-1.my.domain.name=...)
+        # a variable 'clean_name' is created (e.g. w/ value 'VIP_host_1')
+        # and a clean nvs (e.g. w/ value 'VIP_host_1="10_7_6_5"')
+        # after the `eval ${clean_nvs}` there is a variable VIP_host_1
+        # with the value '10_7_6_5', and the following \$$ magic to
+        # reference it, i.e. `eval tmp_ipaddr=\$${clean_name}` gives us
+        # ${tmp_ipaddr} with 10_7_6_5 and then convert the _s back to .s
+        # to give us ipaddr="10.7.6.5". whew!
         name="VIP_${1}"
+        clean_name=${name//[-.]/_}
         nvs=$(grep "^${name}=" ${HA_CONFDIR}/ganesha-ha.conf)
-        eval ${nvs}
-        eval ipaddr=\$$name
+        clean_nvs=${nvs//[-.]/_}
+        eval ${clean_nvs}
+        eval tmp_ipaddr=\$${clean_name}
+        ipaddr=${tmp_ipaddr//_/.}
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
@@ -440,10 +453,15 @@ recreate_resources()
     local cibfile=${1}; shift
 
     while [[ ${1} ]]; do
+        # this is variable indirection
+        # see the comment on the same a few lines up
         name="VIP_${1}"
+        clean_name=${name//[-.]/_}
         nvs=$(grep "^${name}=" ${HA_CONFDIR}/ganesha-ha.conf)
-        eval ${nvs}
-        eval ipaddr=\$$name
+        clean_nvs=${nvs//[-.]/_}
+        eval ${clean_nvs}
+        eval tmp_ipaddr=\$${clean_name}
+        ipaddr=${tmp_ipaddr//_/.}
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
