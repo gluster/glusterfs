@@ -31,7 +31,7 @@ ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
 
 logger = logging.getLogger()
 node_outfiles = []
-vol_statusStr = "Stopped"
+vol_statusStr = ""
 
 
 class StoreAbsPath(Action):
@@ -88,8 +88,8 @@ def run_cmd_nodes(task, args, **kwargs):
                                     "tmp_output_%s" % num)
 
         if task == "pre":
-            if vol_statusStr == "Stopped":
-                fail("Volume %s is in stopped state" % args.volume,
+            if vol_statusStr != "Started":
+                fail("Volume %s is not online" % args.volume,
                      logger=logger)
 
             # If Full backup is requested or start time is zero, use brickfind
@@ -128,8 +128,8 @@ def run_cmd_nodes(task, args, **kwargs):
                    args.session,
                    args.volume] + (["--debug"] if args.debug else [])
         elif task == "create":
-            if vol_statusStr == "Stopped":
-                fail("Volume %s is in stopped state" % args.volume,
+            if vol_statusStr != "Started":
+                fail("Volume %s is not online" % args.volume,
                      logger=logger)
 
             # When glusterfind create, create session directory in
@@ -324,9 +324,18 @@ def mode_create(session_dir, args):
     logger.debug("Init is called - Session: %s, Volume: %s"
                  % (args.session, args.volume))
 
-    execute(["gluster", "volume", "info", args.volume],
-            exit_msg="Unable to get volume details",
-            logger=logger)
+    cmd = ["gluster", 'volume', 'info', args.volume, "--xml"]
+    _, data, _ = execute(cmd,
+                         exit_msg="Failed to Run Gluster Volume Info",
+                         logger=logger)
+    try:
+        tree = etree.fromstring(data)
+        statusStr = tree.find('volInfo/volumes/volume/statusStr').text
+    except (ParseError, AttributeError) as e:
+        fail("Invalid Volume: %s" % e, logger=logger)
+
+    if statusStr != "Started":
+        fail("Volume %s is not online" % args.volume, logger=logger)
 
     mkdirp(session_dir, exit_on_err=True, logger=logger)
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
