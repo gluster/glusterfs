@@ -52,7 +52,8 @@ gen-ChangeLog:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
 
 gen-VERSION:
-	if test -d .git; then                           \
-	  $(top_srcdir)/build-aux/pkg-version --full    \
-	    > $(distdir)/VERSION;                       \
+	if test -d $(top_srcdir)/.git; then             \
+	  cd $(top_srcdir);                             \
+	  ./build-aux/pkg-version --full                \
+	    > $(abs_top_builddir)/$(distdir)/VERSION;   \
 	fi
