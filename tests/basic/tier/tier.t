@@ -8,27 +8,65 @@ CACHE_BRICK_FIRST=4
 CACHE_BRICK_LAST=5
 DEMOTE_TIMEOUT=12
 PROMOTE_TIMEOUT=5
+MIGRATION_TIMEOUT=10
+DEMOTE_FREQ=4
+PROMOTE_FREQ=4
+
+
+# Timing adjustment to avoid spurious errors with first instances of file_on_fast_tier
+function sleep_first_cycle {
+    startTime=$(date +%s)
+    mod=$(( ( $startTime % $DEMOTE_FREQ ) + 1 ))
+    sleep $mod
+}
+
+# Grab md5sum without file path (failed attempt notifications are discarded)
+function fingerprint {
+    md5sum $1 2> /dev/null | grep --only-matching -m 1 '^[0-9a-f]*'
+}
 
 function file_on_slow_tier {
-    s=$(md5sum $1)
+    found=0
+
     for i in `seq 0 $LAST_BRICK`; do
-        test -e $B0/${V0}${i}/$1 && break;
+        test -e $B0/${V0}${i}/$1 && found=1 && break;
     done
-    if [ $? -eq 0 ] && ! [ "`md5sum $B0/${V0}${i}/$1`" == "$s" ]; then
-        echo "0"
+
+    if [ "$found" == "1" ]
+    then
+        slow_hash1=$2
+        slow_hash2=$(fingerprint "$B0/${V0}${i}/$1")
+
+        if [ "$slow_hash1" == "$slow_hash2" ]
+            then
+                echo "0"
+            else
+                echo "2"
+        fi
     else
         echo "1"
     fi
 }
 
 function file_on_fast_tier {
-    local ret="1"
+    found=0
 
-    s1=$(md5sum $1)
-    s2=$(md5sum $B0/${V0}${CACHE_BRICK_FIRST}/$1)
+    for j in `seq $CACHE_BRICK_FIRST $CACHE_BRICK_LAST`; do
+        test -e $B0/${V0}${j}/$1 && found=1 && break;
+    done
 
-    if [ -e $B0/${V0}${CACHE_BRICK_FIRST}/$1 ] && ! [ "$s1" == "$s2" ]; then
-        echo "0"
+
+    if [ "$found" == "1" ]
+    then
+        fast_hash1=$2
+        fast_hash2=$(fingerprint "$B0/${V0}${j}/$1")
+
+        if [ "$fast_hash1" == "$fast_hash2" ]
+            then
+                echo "0"
+            else
+                echo "2"
+        fi
     else
         echo "1"
     fi
@@ -52,18 +90,26 @@ function confirm_vol_stopped {
     fi
 }
 
-function check_counters_nonzero {
-    $CLI volume rebalance $V0 tier status | grep ' 0 '
-    if [ $? == 0 ]; then
-        echo "1"
-    else
-        echo "0"
-    fi
+function check_counters {
+    index=0
+    ret=0
+    rm -f /tmp/tc*.txt
+    echo "0" > /tmp/tc2.txt
+
+    $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
+
+    cat /tmp/tc.txt | grep -o '[0-9*]' | while read line; do
+        if [ $index == 0 ]; then
+            index=1
+            test $line -ne $1 && echo "1" > /tmp/tc2.txt
+        else
+            test $line -ne $2 && echo "2" > /tmp/tc2.txt
+        fi
+    done
+
+    cat /tmp/tc2.txt
 }
 
-DEMOTE_TIMEOUT=12
-PROMOTE_TIMEOUT=5
-MIGRATION_TIMEOUT=10
 cleanup
 
 TEST glusterd
@@ -91,7 +137,7 @@ TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST ! $CLI volume detach-tier $V0 commit force
 
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
-
+sleep_first_cycle
 $CLI volume rebalance $V0 tier status
 
 #Tier options expect non-negative value
@@ -100,8 +146,8 @@ TEST ! $CLI volume set $V0 cluster.tier-promote-frequency -1
 #Tier options expect non-negative value
 TEST ! $CLI volume set $V0 cluster.read-freq-threshold qwerty
 
-TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
-TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
+TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
+TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
 TEST $CLI volume set $V0 cluster.read-freq-threshold 0
 TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 
@@ -116,45 +162,51 @@ TEST touch d1/file1
 TEST mkdir d1/d2
 TEST [ -d d1/d2 ]
 TEST find d1
+mkdir /tmp/d1
 
 # Create a file. It should be on the fast tier.
-uuidgen > d1/data.txt
-TEST file_on_fast_tier d1/data.txt
+uuidgen > /tmp/d1/data.txt
+md5data=$(fingerprint /tmp/d1/data.txt)
+mv /tmp/d1/data.txt ./d1/data.txt
 
-# Check manual demotion.
-#TEST setfattr -n trusted.distribute.migrate-data d1/data.txt
-#TEST file_on_slow_tier d1/data.txt
+TEST file_on_fast_tier d1/data.txt $md5data
 
-uuidgen > d1/data2.txt
-uuidgen > d1/data3.txt
-EXPECT "0" file_on_fast_tier d1/data2.txt
-EXPECT "0" file_on_fast_tier d1/data3.txt
+uuidgen > /tmp/d1/data2.txt
+md5data2=$(fingerprint /tmp/d1/data2.txt)
+cp /tmp/d1/data2.txt ./d1/data2.txt
+
+uuidgen > /tmp/d1/data3.txt
+md5data3=$(fingerprint /tmp/d1/data3.txt)
+mv /tmp/d1/data3.txt ./d1/data3.txt
 
 # Check auto-demotion on write new.
-EXPECT_WITHIN $DEMOTE_TIMEOUT "0" file_on_slow_tier d1/data2.txt
-EXPECT_WITHIN $DEMOTE_TIMEOUT "0" file_on_slow_tier d1/data3.txt
-sleep 12
+sleep $DEMOTE_TIMEOUT
+
 # Check auto-promotion on write append.
-uuidgen >> d1/data2.txt
+UUID=$(uuidgen)
+echo $UUID >> /tmp/d1/data2.txt
+md5data2=$(fingerprint /tmp/d1/data2.txt)
+echo $UUID >> ./d1/data2.txt
 
 # Check promotion on read to slow tier
 drop_cache $M0
 cat d1/data3.txt
-sleep 5
-EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data2.txt
-EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data3.txt
 
-EXPECT "0" check_counters_nonzero
+sleep $PROMOTE_TIMEOUT
+sleep $DEMOTE_FREQ
+EXPECT "0" check_counters 2 6
 
 # stop gluster, when it comes back info file should have tiered volume
 killall glusterd
 TEST glusterd
 
+EXPECT "0" file_on_slow_tier d1/data.txt $md5data
+EXPECT "0" file_on_slow_tier d1/data2.txt $md5data2
+EXPECT "0" file_on_slow_tier d1/data3.txt $md5data3
+
 TEST $CLI volume detach-tier $V0 start
 
 TEST $CLI volume detach-tier $V0 commit force
-
-EXPECT "0" file_on_slow_tier d1/data.txt
 
 EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 
@@ -163,3 +215,6 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "0" confirm_vol_stopped $V0
 cd;
 
 cleanup
+rm -rf /tmp/d1
+
+
