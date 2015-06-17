@@ -1,10 +1,20 @@
 SUBDIRS = src
 
-EXTRA_DIST =
+EXTRA_DIST = S57glusterfind-delete-post.py
 
 bin_SCRIPTS = glusterfind
 
 CLEANFILES = $(bin_SCRIPTS)
 
+deletehookscriptsdir = $(libexecdir)/glusterfs/glusterfind/
+deletehookscripts_SCRIPTS = S57glusterfind-delete-post.py
+
+uninstall-local:
+	rm -f $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py
+
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/glusterfind/.keys
+	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/
+	rm -f $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py
+	ln -s $(libexecdir)/glusterfs/glusterfind/S57glusterfind-delete-post.py \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py

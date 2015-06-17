@@ -1213,7 +1213,7 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
@@ -1231,11 +1231,12 @@ fi
 %{_bindir}/glusterfind
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
-%exclude %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyc
-%exclude %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyo
 
 
 %changelog
+* Tue Aug 18 2015 Niels de Vos <ndevos@redhat.com>
+- Include missing directories for glusterfind hooks scripts (#1225465)
+
 * Mon Jun 15 2015 Niels de Vos <ndevos@redhat.com>
 - Replace hook script S31ganesha-set.sh by S31ganesha-start.sh (#1231738)
 
