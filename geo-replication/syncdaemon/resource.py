@@ -377,7 +377,7 @@ class Server(object):
     def gfid_mnt(cls, gfidpath):
         return errno_wrap(Xattr.lgetxattr,
                           [gfidpath, 'glusterfs.gfid.string',
-                           cls.GX_GFID_CANONICAL_LEN], [ENOENT])
+                           cls.GX_GFID_CANONICAL_LEN], [ENOENT], [ESTALE])
 
     @classmethod
     @_pathguard
@@ -647,7 +647,7 @@ class Server(object):
                 return
 
             names = []
-            names = errno_wrap(os.listdir, [path], [ENOENT])
+            names = errno_wrap(os.listdir, [path], [ENOENT], [ESTALE])
             if isinstance(names, int):
                 return
 
@@ -708,7 +708,7 @@ class Server(object):
                 else:
                     cmd_ret = errno_wrap(os.link,
                                          [slink, entry],
-                                         [ENOENT, EEXIST])
+                                         [ENOENT, EEXIST], [ESTALE])
                     collect_failure(e, cmd_ret)
             elif op == 'SYMLINK':
                 blob = entry_pack_symlink(gfid, bname, e['link'], e['stat'])
@@ -722,7 +722,7 @@ class Server(object):
                 else:
                     cmd_ret = errno_wrap(os.rename,
                                          [entry, en],
-                                         [ENOENT, EEXIST])
+                                         [ENOENT, EEXIST], [ESTALE])
                     collect_failure(e, cmd_ret)
             if blob:
                 cmd_ret = errno_wrap(Xattr.lsetxattr,
