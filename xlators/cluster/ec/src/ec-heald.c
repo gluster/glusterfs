@@ -541,10 +541,10 @@ ec_heal_op (xlator_t *this, dict_t *output, gf_xl_afr_op_t op, int xl_id)
 
         ec = this->private;
 
+        op_ret = -1;
         for (i = 0; i < ec->nodes; i++) {
                 snprintf (key, sizeof (key), "%d-%d-status", xl_id, i);
 
-                op_ret = -1;
                 if (((ec->xl_up >> i) & 1) == 0) {
                         ret = dict_set_str (output, key, "Brick is not connected");
                 } else if (!ec->up) {
