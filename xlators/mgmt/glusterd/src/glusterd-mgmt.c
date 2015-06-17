@@ -120,17 +120,15 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                                         err_string);
                 }
 
-                cli_err_str = ((is_operrstr_blk) ? op_errstr : op_err);
-
                 if (args->errstr) {
                         len = snprintf (err_str, sizeof(err_str),
                                       "%s\n%s", args->errstr,
-                                      cli_err_str);
+                                      op_err);
                         GF_FREE (args->errstr);
                         args->errstr = NULL;
                 } else
                         len = snprintf (err_str, sizeof(err_str),
-                                "%s", cli_err_str);
+                                "%s", op_err);
 
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_OP_FAIL, "%s", op_err);
