@@ -292,17 +292,20 @@ gf_init_event (gf_changelog_t *entry)
 
         ev->next_seq = 0;  /* bootstrap sequencing */
 
-        ret = gf_thread_create (&ev->invoker, NULL,
-                                gf_changelog_callback_invoker, ev);
-        if (ret != 0)
-                goto cleanup_cond;
-
         if (GF_NEED_ORDERED_EVENTS (entry)) {
                 entry->pickevent  = pick_event_ordered;
                 entry->queueevent = queue_ordered_event;
         } else {
                 entry->pickevent  = pick_event_unordered;
                 entry->queueevent = queue_unordered_event;
+        }
+
+        ret = gf_thread_create (&ev->invoker, NULL,
+                                gf_changelog_callback_invoker, ev);
+        if (ret != 0) {
+                entry->pickevent = NULL;
+                entry->queueevent = NULL;
+                goto cleanup_cond;
         }
 
         return 0;

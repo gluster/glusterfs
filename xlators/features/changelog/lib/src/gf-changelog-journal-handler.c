@@ -790,13 +790,16 @@ gf_changelog_init_processor (gf_changelog_journal_t *jnl)
                 goto cleanup_mutex;
 
         INIT_LIST_HEAD (&jnl_proc->entries);
+        jnl_proc->waiting = _gf_false;
+        jnl->jnl_proc = jnl_proc;
+
         ret = pthread_create (&jnl_proc->processor,
                               NULL, gf_changelog_process, jnl);
-        if (ret != 0)
+        if (ret != 0) {
+                jnl->jnl_proc = NULL;
                 goto cleanup_cond;
-        jnl_proc->waiting = _gf_false;
+        }
 
-        jnl->jnl_proc = jnl_proc;
         return 0;
 
  cleanup_cond:
