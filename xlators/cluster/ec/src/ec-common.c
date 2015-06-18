@@ -250,7 +250,7 @@ int32_t ec_check_complete(ec_fop_data_t * fop, ec_resume_f resume)
 
     GF_ASSERT(fop->resume == NULL);
 
-    if (fop->jobs != 0)
+    if (--fop->jobs != 0)
     {
         ec_trace("WAIT", fop, "resume=%p", resume);
 
@@ -1118,10 +1118,7 @@ int32_t ec_get_real_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret >= 0) {
         link = fop->data;
-        if (ec_dict_del_number(xdata, EC_XATTR_SIZE, &link->size) != 0) {
-            gf_log(this->name, GF_LOG_WARNING,
-                   "Unable to determine real file size");
-        }
+        link->size = buf->ia_size;
     } else {
         /* Prevent failure of parent fop. */
         fop->error = 0;
@@ -1262,11 +1259,6 @@ void ec_lock(ec_fop_data_t *fop)
     ec_lock_link_t *timer_link = NULL;
     ec_lock_t *lock;
 
-    /* There is a chance that ec_resume is called on fop even before ec_sleep.
-     * Which can result in refs == 0 for fop leading to use after free in this
-     * function when it calls ec_sleep so do ec_sleep at start and end of this
-     * function.*/
-    ec_sleep (fop);
     while (fop->locked < fop->lock_count) {
         /* Since there are only up to 2 locks per fop, this xor will change
          * the order of the locks if fop->first_lock is 1. */
@@ -1331,7 +1323,6 @@ void ec_lock(ec_fop_data_t *fop)
             timer_link = NULL;
         }
     }
-    ec_resume (fop, 0);
 
     if (timer_link != NULL) {
         ec_resume(timer_link->fop, 0);
@@ -1875,6 +1866,17 @@ void __ec_manager(ec_fop_data_t * fop, int32_t error)
 
             break;
         }
+
+        /* At each state, fop must not be used anywhere else and there
+         * shouldn't be any pending subfop going on. */
+        GF_ASSERT(fop->jobs == 0);
+
+        /* While the manager is running we need to avoid that subfops launched
+         * from it could finish and call ec_resume() before the fop->handler
+         * has completed. This could lead to the same manager being executed
+         * by two threads concurrently. ec_check_complete() will take care of
+         * this reference. */
+        fop->jobs = 1;
 
         fop->state = fop->handler(fop, fop->state);
 
