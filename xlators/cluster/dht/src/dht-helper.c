@@ -969,6 +969,14 @@ dht_migration_complete_check_task (void *data)
                 goto out;
         }
 
+        dst_node = dht_subvol_get_cached (this, tmp_loc.inode);
+        if (linkto_target && dst_node != linkto_target) {
+                gf_log (this->name, GF_LOG_WARNING, "linkto target (%s) is "
+                        "different from cached-subvol (%s). Treating %s as "
+                        "destination subvol", linkto_target->name,
+                        dst_node->name, dst_node->name);
+        }
+
         if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_GFID_MISMATCH,
@@ -977,14 +985,6 @@ dht_migration_complete_check_task (void *data)
                 ret = -1;
                 local->op_errno = EIO;
                 goto out;
-        }
-
-        dst_node = dht_subvol_get_cached (this, tmp_loc.inode);
-        if (linkto_target && dst_node != linkto_target) {
-                gf_log (this->name, GF_LOG_WARNING, "linkto target (%s) is "
-                        "different from cached-subvol (%s). Treating %s as "
-                        "destination subvol", linkto_target->name,
-                        dst_node->name, dst_node->name);
         }
 
         /* update local. A layout is set in inode-ctx in lookup already */
