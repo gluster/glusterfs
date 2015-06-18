@@ -1971,7 +1971,7 @@ gf_cli_ganesha_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         else {
-                cli_out("ganesha enable : success ");
+                cli_out("nfs-ganesha : success ");
         }
 
         ret = rsp.op_ret;
