@@ -53,11 +53,15 @@ determine_service_manager () {
 
 manage_service ()
 {
+        local action=${1}
+        local new_node=${2}
         if [ "$SERVICE_MAN" == "/usr/sbin/systemctl" ]
         then
-                $SERVICE_MAN  $1 nfs-ganesha
+                ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem root@${new_node} "$SERVICE_MAN  ${action} nfs-ganesha"
         else
-                $SERVICE_MAN nfs-ganesha $1
+                ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem root@${new_node} "$SERVICE_MAN nfs-ganesha ${action}"
         fi
 }
 
@@ -171,7 +175,8 @@ setup_copy_config()
     if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
         while [[ ${1} ]]; do
             if [ ${short_host} != ${1} ]; then
-                scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/nfs/secret.pem /etc/ganesha/ganesha-ha.conf ${1}:/etc/ganesha/
+                scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem ${1}:${HA_CONFDIR}/ganesha-ha.conf ${1}:${HA_CONFDIR}/
                 if [ $? -ne 0 ]; then
                     logger "warning: scp ganesha-ha.conf to ${1} failed"
                 fi
@@ -185,9 +190,11 @@ setup_copy_config()
 
 copy_export_config ()
 {
-        . /etc/ganesha/ganesha.conf
-        scp $HA_VOL_SERVER:/etc/ganesha.conf ${1}:/etc/ganesha/
-        scp -r $HA_VOL_SERVER:$2/exports/ ${1}:${2}/
+        local new_node=${1}
+        scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem ${HA_VOL_SERVER}:${GANESHA_CONF} ${new_node}:/etc/ganesha/
+        scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ ${new_node}:${HA_CONFDIR}/
 }
 
 
@@ -547,9 +554,6 @@ clear_resources()
 
         shift
     done
-
-    recreate_resources ${cibfile} ${add_node} ${add_vip} ${HA_SERVERS}
-
 }
 
 
@@ -570,9 +574,9 @@ addnode_create_resources()
         logger "warning: pcs -f ${cibfile} resource create nfs_start-${add_node} ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} failed"
     fi
 
-    pcs -f ${cibfile} constraint location nfs_start-${add_node} prefers ${newnode}=INFINITY
+    pcs -f ${cibfile} constraint location nfs_start-${add_node} prefers ${add_node}=INFINITY
     if [ $? -ne 0 ]; then
-        logger "warning: pcs -f ${cibfile} constraint location nfs_start-${add_node} prefers ${newnode}=INFINITY failed"
+        logger "warning: pcs -f ${cibfile} constraint location nfs_start-${add_node} prefers ${add_node}=INFINITY failed"
     fi
 
     pcs -f ${cibfile} constraint order nfs_start-${add_node} then nfs-mon-clone
@@ -802,24 +806,34 @@ main()
 
        logger "adding ${node} with ${vip} to ${HA_NAME}"
 
+       copy_export_config ${node} ${HA_CONFDIR}
+
+       determine_service_manager
+
+       manage_service "start" ${node}
+
        determine_servers "add"
 
-        pcs cluster node add ${node}
-        if [ $? -ne 0 ]; then
+       pcs cluster node add ${node}
+       if [ $? -ne 0 ]; then
             logger "warning: pcs cluster node add ${node} failed"
-        fi
+       fi
 
-        addnode_create_resources ${node} ${vip}
+       addnode_create_resources ${node} ${vip}
+       #Subsequent add-node recreates resources for all the nodes
+       #that already exist in the cluster. The nodes are picked up
+       #from the entries in the ganesha-ha.conf file. Adding the
+       #newly added node to the file so that the resources specfic
+       #to this node is correctly recreated in the future.
+       echo "VIP_$node=\"$vip\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
-        setup_state_volume ${node}
+       NEW_NODES="$HA_CLUSTER_NODES,$node"
 
-        setup_copy_config ${node}
+       sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
+$HA_CONFDIR/ganesha-ha.conf
+       HA_SERVERS="${HA_SERVERS} ${node}"
 
-        copy_export_config ${node} ${HA_CONFDIR}
-
-        determine_service_manager
-
-        manage_service "start"
+       setup_copy_config ${HA_SERVERS}
         ;;
 
     delete | --delete)
@@ -838,8 +852,6 @@ main()
 
         # TODO: delete node's directory in shared state
 
-        teardown_clean_etccluster ${node}
-
         determine_service_manager
 
         manage-service "stop"
@@ -856,9 +868,9 @@ main()
 
     help | --help)
         echo "Usage      : add|delete|status"
-        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR>  \
+        echo "Add-node   : ganesha-ha.sh --add <HA_CONFDIR>  \
 <NODE-IP/HOSTNAME>  <NODE-VIP>"
-        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR>  \
+        echo "Delete-node: ganesha-ha.sh --delete <HA_CONFDIR>  \
 <NODE-IP/HOSTNAME>"
         ;;
       *)
