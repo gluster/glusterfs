@@ -1596,6 +1596,20 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                         vector = new_vector;
                         count = new_count;
+                } else if (op_errno == ENOENT || op_errno == ESTALE) {
+                        /* We may get ENOENT/ESTALE in case of below scenario
+                         *     fd = open file.txt
+                         *     unlink file.txt
+                         *     write on fd
+                         * Here build_ancestry can fail as the file is removed.
+                         * For now ignore ENOENT/ESTALE with writes on active fd
+                         * We need to re-visit this code once we understand
+                         * how other file-system behave in this scenario
+                         */
+                        gf_msg_debug (this->name, 0, "quota enforcer failed "
+                                      "with ENOENT/ESTALE on %s, cannot check "
+                                      "quota limits and allowing writes",
+                                      uuid_utoa (fd->inode->gfid));
                 } else {
                         goto unwind;
                 }
@@ -4596,7 +4610,23 @@ quota_fallocate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
-                goto unwind;
+                if (op_errno == ENOENT || op_errno == ESTALE) {
+                        /* We may get ENOENT/ESTALE in case of below scenario
+                         *     fd = open file.txt
+                         *     unlink file.txt
+                         *     fallocate on fd
+                         * Here build_ancestry can fail as the file is removed.
+                         * For now ignore ENOENT/ESTALE on active fd
+                         * We need to re-visit this code once we understand
+                         * how other file-system behave in this scenario
+                         */
+                        gf_msg_debug (this->name, 0, "quota enforcer failed "
+                                      "with ENOENT/ESTALE on %s, cannot check "
+                                      "quota limits and allowing fallocate",
+                                      uuid_utoa (fd->inode->gfid));
+                } else {
+                        goto unwind;
+                }
         }
 
         STACK_WIND (frame, quota_fallocate_cbk,
