@@ -442,6 +442,7 @@ class GMasterCommon(object):
 
     def mgmt_lock(self):
         """Take management volume lock """
+        fd = None
         bname = str(self.uuid) + "_" + str(gconf.slave_id) + "_subvol_" \
             + str(gconf.subvol_num) + ".lock"
         mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
@@ -455,18 +456,21 @@ class GMasterCommon(object):
                 logging.info("Creating geo-rep directory in meta volume...")
                 try:
                     os.makedirs(mgmt_lock_dir)
-                    fd = os.open(path, os.O_CREAT | os.O_RDWR)
                 except OSError:
                     ex = sys.exc_info()[1]
                     if ex.errno == EEXIST:
                         pass
                     else:
                         raise
+                fd = os.open(path, os.O_CREAT | os.O_RDWR)
+            else:
+                raise
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except:
             ex = sys.exc_info()[1]
-            os.close(fd)
+            if fd:
+                os.close(fd)
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
                 # cannot grab, it's taken
                 logging.debug("Lock held by someother worker process")
