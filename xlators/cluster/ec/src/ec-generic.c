@@ -1107,7 +1107,9 @@ void ec_wind_statfs(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_statfs(ec_fop_data_t * fop, int32_t state)
 {
-    ec_cbk_data_t * cbk;
+    ec_cbk_data_t   *cbk                   = NULL;
+    gf_boolean_t     deem_statfs_enabled   = _gf_false;
+    int              ret                   = 0;
 
     switch (state)
     {
@@ -1137,9 +1139,15 @@ int32_t ec_manager_statfs(ec_fop_data_t * fop, int32_t state)
                 {
                     ec_t * ec = fop->xl->private;
 
-                    cbk->statvfs.f_blocks *= ec->fragments;
-                    cbk->statvfs.f_bfree *= ec->fragments;
-                    cbk->statvfs.f_bavail *= ec->fragments;
+                    if (cbk->xdata)
+                        ret = dict_get_int8 (cbk->xdata, "quota-deem-statfs",
+                                             (int8_t *)&deem_statfs_enabled);
+
+                    if (ret != 0 || deem_statfs_enabled == _gf_false) {
+                        cbk->statvfs.f_blocks *= ec->fragments;
+                        cbk->statvfs.f_bfree *= ec->fragments;
+                        cbk->statvfs.f_bavail *= ec->fragments;
+                    }
                 }
             }
             else
