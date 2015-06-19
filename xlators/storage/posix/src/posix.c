@@ -141,7 +141,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         if (op_ret == -1) {
                 if (op_errno != ENOENT) {
-                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
                                 P_MSG_LSTAT_FAILED,
                                 "lstat on %s failed",
                                 real_path ? real_path : "null");
