@@ -986,7 +986,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->debug_mode = ENABLE_DEBUG_MODE;
                 break;
         case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
-                cmd_args->max_connect_attempts = 1;
+                cmd_args->max_connect_attempts = DEFAULT_MAX_CONNECT_ATTEMPTS;
                 break;
 
         case ARGP_DIRECT_IO_MODE_KEY:
@@ -1955,13 +1955,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                 }
         }
 
-        /*
-           This option was made obsolete but parsing it for backward
-           compatibility with third party applications
-         */
-        if (cmd_args->max_connect_attempts) {
-                gf_msg ("glusterfs", GF_LOG_WARNING, 0, glusterfsd_msg_33);
-        }
+        cmd_args->max_connect_attempts = DEFAULT_MAX_CONNECT_ATTEMPTS;
 
 #ifdef GF_DARWIN_HOST_OS
         if (cmd_args->mount_point)

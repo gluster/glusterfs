@@ -330,6 +330,7 @@ struct _cmd_args {
         uint32_t         log_buf_size;
         uint32_t         log_flush_timeout;
         int32_t          max_connect_attempts;
+        unsigned int     connect_attempts;
         char            *print_exports;
         char            *print_netgroups;
         /* advanced options */

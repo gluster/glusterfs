@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
+
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../cluster.rc

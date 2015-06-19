@@ -16,7 +16,7 @@
 #define DEFAULT_GLUSTERD_VOLFILE              CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE                CONFDIR "/glusterfsd.vol"
-
+#define DEFAULT_MAX_CONNECT_ATTEMPTS       200
 #define DEFAULT_EVENT_POOL_SIZE            16384
 
 #define ARGP_LOG_LEVEL_NONE_OPTION        "NONE"
