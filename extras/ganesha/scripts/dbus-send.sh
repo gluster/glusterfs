@@ -4,14 +4,16 @@ declare -i EXPORT_ID
 GANESHA_DIR=${1%/}
 OPTION=$2
 VOL=$3
-
-CONF=$(cat /etc/sysconfig/ganesha | grep "CONFFILE" | cut -f 2 -d "=")
+cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
+eval $(echo ${cfgline} | grep -F CONFFILE=)
+CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 function check_cmd_status()
 {
         if [ "$1" != "0" ]
                  then
                  rm -rf $GANESHA_DIR/exports/export.$VOL.conf
+                 sed -i /$VOL.conf/d $CONF
                  exit 1
         fi
 }
@@ -20,7 +22,7 @@ function check_cmd_status()
 function dynamic_export_add()
 {
         count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
-        if [ "$count" = "1" ] ;
+        if [ "$count" = "0" ] ;
                 then
                 EXPORT_ID=2
         else
