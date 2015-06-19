@@ -32,6 +32,17 @@ GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 RHEL6_PCS_CNAME_OPTION="--name"
 
+usage() {
+
+        echo "Usage      : add|delete|status"
+        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR>  \
+<NODE-HOSTNAME>  <NODE-VIP>"
+        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR>  \
+<NODE-HOSTNAME>"
+        echo "Refresh-config : ganesha-ha.sh --refresh-config <HA_CONFDIR>\
+ <volume>"
+}
+
 determine_service_manager () {
 
         if [ -e "/usr/bin/systemctl" ];
@@ -171,12 +182,17 @@ setup_finalize()
 setup_copy_config()
 {
     local short_host=$(hostname -s)
+    local tganesha_conf=$(mktemp -u)
 
     if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
         while [[ ${1} ]]; do
-            if [ ${short_host} != ${1} ]; then
+            current_host=`echo ${1} | cut -d "." -f 1`
+            if [ ${short_host} != ${current_host} ]; then
+                cp ${HA_CONFDIR}/ganesha-ha.conf ${tganesha_conf}
                 scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem ${1}:${HA_CONFDIR}/ganesha-ha.conf ${1}:${HA_CONFDIR}/
+/var/lib/glusterd/nfs/secret.pem ${short_host}:${tganesha_conf}\
+ ${1}:${HA_CONFDIR}/ganesha-ha.conf
+                rm -rf ${tganesha_conf}
                 if [ $? -ne 0 ]; then
                     logger "warning: scp ganesha-ha.conf to ${1} failed"
                 fi
@@ -186,6 +202,56 @@ setup_copy_config()
     else
         logger "warning: scp ganesha-ha.conf to ${1} failed"
     fi
+}
+
+refresh_config ()
+{
+        local short_host=$(hostname -s)
+        local VOL=${1}
+        local HA_CONFDIR=${2}
+        local tganesha_export=$(mktemp -u)
+
+        removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
+grep Export_Id | cut -d " " -f8`
+
+        if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
+        while [[ ${3} ]]; do
+	    current_host=`echo ${3} | cut -d "." -f 1`
+            if [ ${short_host} != ${current_host} ]; then
+                cp ${HA_CONFDIR}/exports/export.$VOL.conf ${tganesha_export}
+                scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem ${short_host}:${tganesha_export} \
+${current_host}:${HA_CONFDIR}/exports/export.$VOL.conf
+                 rm -rf ${tganesha_export}
+                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem root@${current_host} "dbus-send --print-reply --system \
+--dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id"
+                 sleep 1
+                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+/var/lib/glusterd/nfs/secret.pem root@${current_host} "dbus-send  --system \
+--dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
+string:\"EXPORT(Path=/$VOL)\""
+               if [ $? -ne 0 ]; then
+                    echo "warning: refresh-config failed on ${current_host}"
+               fi
+            fi
+            shift
+        done
+    else
+        echo "warning: refresh-config failed on ${1}"
+    fi
+
+#Run the same command on the localhost,
+        dbus-send --print-reply --system \
+--dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
+        sleep 1
+        dbus-send  --system \
+--dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
+string:"EXPORT(Path=/$VOL)"
 }
 
 copy_export_config ()
@@ -740,18 +806,25 @@ setup_state_volume()
 
 main()
 {
+
     local cmd=${1}; shift
+    if [[ ${cmd} == *help ]]
+        then
+        usage
+        exit 0
+    fi
+
     HA_CONFDIR=${1}; shift
     local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
     local node=""
     local vip=""
 
     # ignore any comment lines
-    cfgline=$(grep ^HA_NAME= ${ha_conf})
+    cfgline=$(grep  ^HA_NAME= ${ha_conf})
     eval $(echo ${cfgline} | grep -F HA_NAME=)
-    cfgline=$(grep ^HA_VOL_SERVER= ${ha_conf})
+    cfgline=$(grep  ^HA_VOL_SERVER= ${ha_conf})
     eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
-    cfgline=$(grep ^HA_CLUSTER_NODES= ${ha_conf})
+    cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
     eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
 
     # we'll pretend that nobody ever edits /etc/os-release
@@ -864,18 +937,17 @@ $HA_CONFDIR/ganesha-ha.conf
         ;;
 
     refresh-config | --refresh-config)
+        VOL=${1}
+
+        determine_servers "refresh-config"
+
+        refresh_config ${VOL} ${HA_CONFDIR} ${HA_SERVERS}
         ;;
 
-    help | --help)
-        echo "Usage      : add|delete|status"
-        echo "Add-node   : ganesha-ha.sh --add <HA_CONFDIR>  \
-<NODE-IP/HOSTNAME>  <NODE-VIP>"
-        echo "Delete-node: ganesha-ha.sh --delete <HA_CONFDIR>  \
-<NODE-IP/HOSTNAME>"
-        ;;
       *)
         # setup and teardown are not intended to be used by a
         # casual user
+        usage
         logger "Usage: ganesha-ha.sh add|delete|status"
         ;;
 
