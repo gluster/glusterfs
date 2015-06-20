@@ -276,6 +276,16 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         GF_OPTION_INIT ("ctr_link_consistency", _priv->ctr_link_consistency,
                         bool, out);
 
+        /*Extract ctr_inode_heal_expire_period */
+        GF_OPTION_INIT ("ctr_inode_heal_expire_period",
+                        _priv->ctr_inode_heal_expire_period,
+                        uint64, out);
+
+        /*Extract ctr_hardlink_heal_expire_period*/
+        GF_OPTION_INIT ("ctr_hardlink_heal_expire_period",
+                        _priv->ctr_hardlink_heal_expire_period,
+                        uint64, out);
+
         /*Extract flag for hot tier brick*/
         GF_OPTION_INIT ("hot-brick", _priv->ctr_hot_brick, bool, out);
 

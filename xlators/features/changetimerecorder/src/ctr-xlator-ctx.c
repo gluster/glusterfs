@@ -10,6 +10,8 @@
 
 #include "ctr-xlator-ctx.h"
 #include "ctr-messages.h"
+#include <time.h>
+#include <sys/time.h>
 
 #define IS_THE_ONLY_HARDLINK(ctr_hard_link)\
         (ctr_hard_link->list.next == ctr_hard_link->list.prev)
@@ -63,13 +65,14 @@ out:
 
 /* Please lock the ctr_xlator_ctx before using this function */
 int
-ctr_add_hard_link (xlator_t           *this,
+ctr_add_hard_link (xlator_t             *this,
                ctr_xlator_ctx_t         *ctr_xlator_ctx,
                uuid_t                   pgfid,
                const char               *base_name)
 {
         int ret                                 = -1;
         ctr_hard_link_t *ctr_hard_link          = NULL;
+        struct timeval  current_time                   = {0};
 
         GF_ASSERT (this);
         GF_ASSERT (ctr_xlator_ctx);
@@ -98,9 +101,18 @@ ctr_add_hard_link (xlator_t           *this,
                 goto error;
         }
 
+        ret = gettimeofday (&current_time, NULL);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get current time");
+                goto error;
+        }
+
         /*Add the hard link to the list*/
         list_add_tail (&ctr_hard_link->list,
                         &ctr_xlator_ctx->hardlink_list);
+
+        ctr_hard_link->hardlink_heal_period = current_time.tv_sec;
 
         /*aal izz well!*/
         ret = 0;
@@ -169,8 +181,9 @@ ctr_update_hard_link (xlator_t                *this,
                   uuid_t                old_pgfid,
                   const char            *old_base_name)
 {
-        int ret                         = -1;
+        int ret                            = -1;
         ctr_hard_link_t *ctr_hard_link     = NULL;
+        struct timeval current_time        = {0};
 
         GF_ASSERT (this);
         GF_ASSERT (ctr_xlator_ctx);
@@ -210,6 +223,15 @@ ctr_update_hard_link (xlator_t                *this,
                 __delete_hard_link_from_list (&ctr_hard_link);
                 ctr_hard_link = NULL;
                 goto out;
+        }
+
+        ret = gettimeofday (&current_time, NULL);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get current time");
+                ctr_hard_link->hardlink_heal_period = 0;
+        } else {
+                ctr_hard_link->hardlink_heal_period = current_time.tv_sec;
         }
 
         ret = 0;
@@ -284,6 +306,7 @@ init_ctr_xlator_ctx (xlator_t *this,
         int ret                                 = -1;
         uint64_t _addr                          = 0;
         ctr_xlator_ctx_t *ctr_xlator_ctx        = NULL;
+        struct timeval current_time             = {0};
 
         GF_ASSERT (this);
         GF_ASSERT (inode);
@@ -316,6 +339,14 @@ init_ctr_xlator_ctx (xlator_t *this,
 
                 INIT_LIST_HEAD (&ctr_xlator_ctx->hardlink_list);
 
+                ret = gettimeofday (&current_time, NULL);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get current time");
+                        goto out;
+                }
+
+                ctr_xlator_ctx->inode_heal_period = current_time.tv_sec;
         }
         ret = 0;
 out:

@@ -21,6 +21,16 @@
 #include "dict.h"
 #include "libglusterfs-messages.h"
 
+/*
+ * Helps in dynamically choosing log level
+ * */
+static inline gf_loglevel_t
+_gfdb_log_level (gf_loglevel_t given_level,
+                 gf_boolean_t ignore_level)
+{
+        return (ignore_level) ? GF_LOG_DEBUG : given_level;
+}
+
 typedef enum gf_db_operation {
         GFDB_INVALID_DB_OP = -1,
         /* Query DB OPS : All the Query DB_OP should be added */
@@ -64,8 +74,6 @@ typedef enum gf_db_operation {
 #define GF_COL_WRITE_FREQ_CNTR          "WRITE_FREQ_CNTR"
 #define GF_COL_READ_FREQ_CNTR           "READ_FREQ_CNTR"
 #define GF_COL_LINK_UPDATE              "LINK_UPDATE"
-
-
 
 
 /***********************Time related********************************/
@@ -300,6 +308,9 @@ typedef struct gfdb_db_record {
         /* Global flag to Record/Not Record wind or wind time.
          * This flag will overrule do_record_uwind_time*/
         gf_boolean_t                    do_record_times;
+        /* Ignoring errors while inserting.
+         * */
+        gf_boolean_t                    ignore_errors;
 } gfdb_db_record_t;
 
 

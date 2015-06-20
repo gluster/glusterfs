@@ -1689,6 +1689,14 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
         if (ret)
                 goto out;
 
+        ret = xlator_set_option (xl, "ctr_hardlink_heal_expire_period", "300");
+        if (ret)
+                goto out;
+
+        ret = xlator_set_option (xl, "ctr_inode_heal_expire_period", "300");
+        if (ret)
+                goto out;
+
         ret = xlator_set_option (xl, "record-entry", "on");
         if (ret)
                 goto out;

@@ -22,9 +22,8 @@
 
 #define DEFAULT_PROMOTE_FREQ_SEC 120
 #define DEFAULT_DEMOTE_FREQ_SEC  120
-#define DEFAULT_WRITE_FREQ_SEC 120
-#define DEFAULT_READ_FREQ_SEC 120
-
+#define DEFAULT_WRITE_FREQ_SEC 0
+#define DEFAULT_READ_FREQ_SEC 0
 /*
  * Size of timer wheel. We would not promote or demote less
  * frequently than this number.

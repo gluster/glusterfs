@@ -176,8 +176,6 @@ sql_stmt_fini (char **sql_stmt)
 
 /******************************************************************************
  *                      DB Essential functions used by
- *                      create/insert/delete/update/query functions
- *                      > execute_sqlstmt ()
  *                      > gf_open_sqlite3_conn ()
  *                      > gf_close_sqlite3_conn ()
  * ***************************************************************************/

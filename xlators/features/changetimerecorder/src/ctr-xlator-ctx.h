@@ -25,6 +25,9 @@
 typedef struct ctr_hard_link {
         uuid_t                  pgfid;
         char                    *base_name;
+        /* Hardlink expiry : Defines the expiry period after which a
+         * database heal is attempted. */
+        uint64_t                  hardlink_heal_period;
         struct list_head        list;
 } ctr_hard_link_t;
 
@@ -32,6 +35,7 @@ typedef struct ctr_xlator_ctx {
         /* This represents the looked up hardlinks
          * NOTE: This doesn't represent all physical hardlinks of the inode*/
         struct list_head        hardlink_list;
+        uint64_t                inode_heal_period;
         gf_lock_t               lock;
 } ctr_xlator_ctx_t;
 

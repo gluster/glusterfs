@@ -9,7 +9,7 @@
 */
 
 #include "gfdb_sqlite3_helper.h"
-#include "libglusterfs-messages.h"
+
 
 #define GFDB_SQL_STMT_SIZE 256
 
@@ -309,7 +309,8 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                    char                 *pargfid,
                    char                 *basename,
                    char                 *basepath,
-                   gf_boolean_t         link_consistency)
+                   gf_boolean_t         link_consistency,
+                   gf_boolean_t         ignore_errors)
 {
         int ret = -1;
         sqlite3_stmt *insert_stmt = NULL;
@@ -332,8 +333,11 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, insert_str, -1,
                                 &insert_stmt, 0);
         if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed preparing insert "
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
+                        0,
+                        LG_MSG_PREPARE_FAILED,
+                        "Failed preparing insert "
                         "statment %s : %s", insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -343,8 +347,11 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         /*Bind gfid*/
         ret = sqlite3_bind_text (insert_stmt, 1, gfid, -1, NULL);
         if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED, "Failed binding gfid %s : %s",
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
+                        0,
+                        LG_MSG_BINDING_FAILED,
+                        "Failed binding gfid %s : %s",
                         gfid, sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -353,8 +360,10 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         /*Bind pargfid*/
         ret = sqlite3_bind_text (insert_stmt, 2, pargfid, -1, NULL);
         if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED, "Failed binding parent gfid %s "
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
+                        0, LG_MSG_BINDING_FAILED,
+                        "Failed binding parent gfid %s "
                         ": %s", pargfid,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -364,8 +373,9 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         /*Bind basename*/
         ret = sqlite3_bind_text (insert_stmt, 3, basename, -1, NULL);
         if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED,
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
+                        0, LG_MSG_BINDING_FAILED,
                         "Failed binding basename %s : %s", basename,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -375,8 +385,10 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         /*Bind basepath*/
         ret = sqlite3_bind_text (insert_stmt, 4, basepath, -1, NULL);
         if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED, "Failed binding basepath %s : "
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors), 0,
+                        LG_MSG_BINDING_FAILED,
+                        "Failed binding basepath %s : "
                         "%s", basepath,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -385,8 +397,11 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
 
         /*Execute the prepare statement*/
         if (sqlite3_step (insert_stmt) != SQLITE_DONE) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_EXEC_FAILED,
-                        "Failed executing the prepared stmt %s %s %s %s %s : %s",
+                gf_msg (GFDB_STR_SQLITE3,
+                        _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
+                        0, LG_MSG_EXEC_FAILED,
+                        "Failed executing the prepared "
+                        "stmt %s %s %s %s %s : %s",
                         gfid, pargfid, basename, basepath, insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -777,7 +792,8 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                         gfid_str, pargfid_str,
                                         gfdb_db_record->file_name,
                                         gfdb_db_record->file_path,
-                                        gfdb_db_record->link_consistency);
+                                        gfdb_db_record->link_consistency,
+                                        gfdb_db_record->ignore_errors);
                         if (ret) {
                                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                         LG_MSG_INSERT_FAILED, "Failed "
@@ -836,7 +852,8 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                         gfid_str, pargfid_str,
                                         gfdb_db_record->file_name,
                                         gfdb_db_record->file_path,
-                                        gfdb_db_record->link_consistency);
+                                        gfdb_db_record->link_consistency,
+                                        gfdb_db_record->ignore_errors);
                                 if (ret) {
                                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                                                 0, LG_MSG_INSERT_FAILED,

@@ -1900,6 +1900,30 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "updates by Change Time Recorder Xlator. When recording in a crash "
                          "consistent way the data operations will experience more latency."
         },
+        { .key         = "features.ctr_hardlink_heal_expire_period",
+          .voltype     = "features/changetimerecorder",
+          .value       = "300",
+          .option      = "ctr_hardlink_heal_expire_period",
+          .op_version  = GD_OP_VERSION_3_7_2,
+          .description = "Defines the expiry period of in-memory "
+                         "hardlink of an inode,"
+                         "used by lookup heal in Change Time Recorder."
+                         "Once the expiry period"
+                         "hits an attempt to heal the database per "
+                         "hardlink is done and the "
+                         "in-memory hardlink period is reset"
+        },
+        { .key         = "features.ctr_inode_heal_expire_period",
+          .voltype     = "features/changetimerecorder",
+          .value       = "300",
+          .option      = "ctr_inode_heal_expire_period",
+          .op_version  = GD_OP_VERSION_3_7_2,
+          .description = "Defines the expiry period of in-memory inode,"
+                         "used by lookup heal in Change Time Recorder. "
+                         "Once the expiry period"
+                         "hits an attempt to heal the database per "
+                         "inode is done"
+        },
 #endif /* USE_GFDB */
         { .key         = "locks.trace",
           .voltype     = "features/locks",
