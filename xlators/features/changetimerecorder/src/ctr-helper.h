@@ -26,6 +26,9 @@
 #include "ctr-xlator-ctx.h"
 #include "ctr-messages.h"
 
+#define CTR_DEFAULT_HARDLINK_EXP_PERIOD 300  /* Five mins */
+#define CTR_DEFAULT_INODE_EXP_PERIOD    300 /* Five mins */
+
 /*CTR Xlator Private structure*/
 typedef struct gf_ctr_private {
         gf_boolean_t                    enabled;
@@ -38,6 +41,8 @@ typedef struct gf_ctr_private {
         gfdb_db_type_t                  gfdb_db_type;
         gfdb_sync_type_t                gfdb_sync_type;
         gfdb_conn_node_t                *_db_conn;
+        uint64_t                        ctr_hardlink_heal_expire_period;
+        uint64_t                        ctr_inode_heal_expire_period;
 } gf_ctr_private_t;
 
 
@@ -467,19 +472,91 @@ out:
 
 /******************************* Hard link function ***************************/
 
-static inline int
+static inline gf_boolean_t
+__is_inode_expired (ctr_xlator_ctx_t *ctr_xlator_ctx,
+                    gf_ctr_private_t *_priv,
+                    gfdb_time_t *current_time)
+{
+        gf_boolean_t    ret       = _gf_false;
+        uint64_t        time_diff = 0;
+
+        GF_ASSERT (ctr_xlator_ctx);
+        GF_ASSERT (_priv);
+        GF_ASSERT (current_time);
+
+        time_diff = current_time->tv_sec -
+                        ctr_xlator_ctx->inode_heal_period;
+
+        ret = (time_diff >= _priv->ctr_inode_heal_expire_period) ?
+                        _gf_true : _gf_false;
+        return ret;
+}
+
+static inline gf_boolean_t
+__is_hardlink_expired (ctr_hard_link_t *ctr_hard_link,
+                       gf_ctr_private_t *_priv,
+                       gfdb_time_t *current_time)
+{
+        gf_boolean_t    ret       = _gf_false;
+        uint64_t        time_diff = 0;
+
+        GF_ASSERT (ctr_hard_link);
+        GF_ASSERT (_priv);
+        GF_ASSERT (current_time);
+
+        time_diff = current_time->tv_sec -
+                        ctr_hard_link->hardlink_heal_period;
+
+        ret = ret || (time_diff >= _priv->ctr_hardlink_heal_expire_period) ?
+                        _gf_true : _gf_false;
+
+        return ret;
+}
+
+
+/* Return values of heal*/
+typedef enum ctr_heal_ret_val {
+        CTR_CTX_ERROR = -1,
+        /* No healing required */
+        CTR_TRY_NO_HEAL = 0,
+        /* Try healing hard link */
+        CTR_TRY_HARDLINK_HEAL = 1,
+        /* Try healing inode */
+        CTR_TRY_INODE_HEAL = 2,
+} ctr_heal_ret_val_t;
+
+
+
+/**
+ * @brief Function to add hard link to the inode context variable.
+ *        The inode context maintainences a in-memory list. This is used
+ *        smart healing of database.
+ * @param frame of the FOP
+ * @param this is the Xlator instant
+ * @param inode
+ * @return Return ctr_heal_ret_val_t
+ */
+
+static inline ctr_heal_ret_val_t
 add_hard_link_ctx (call_frame_t *frame,
                    xlator_t     *this,
                    inode_t      *inode)
 {
+        ctr_heal_ret_val_t ret_val = CTR_TRY_NO_HEAL;
         int ret = -1;
         gf_ctr_local_t   *ctr_local       = NULL;
         ctr_xlator_ctx_t *ctr_xlator_ctx  = NULL;
         ctr_hard_link_t  *ctr_hard_link   = NULL;
+        gf_ctr_private_t *_priv           = NULL;
+        gfdb_time_t       current_time    = {0};
+
 
         GF_ASSERT (frame);
         GF_ASSERT (this);
         GF_ASSERT (inode);
+        GF_ASSERT (this->private);
+
+        _priv = this->private;
 
         ctr_local = frame->local;
         if (!ctr_local) {
@@ -504,7 +581,29 @@ add_hard_link_ctx (call_frame_t *frame,
                                 CTR_DB_REC(ctr_local).file_name);
         /* if there then ignore */
         if (ctr_hard_link) {
-                ret = 1;
+
+                ret = gettimeofday (&current_time, NULL);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get current time");
+                        ret_val = CTR_CTX_ERROR;
+                        goto unlock;
+                }
+
+                if (__is_hardlink_expired (ctr_hard_link,
+                                           _priv, &current_time)) {
+                        ctr_hard_link->hardlink_heal_period =
+                                        current_time.tv_sec;
+                        ret_val = ret_val | CTR_TRY_HARDLINK_HEAL;
+                }
+
+                if (__is_inode_expired (ctr_xlator_ctx,
+                                           _priv, &current_time)) {
+                        ctr_xlator_ctx->inode_heal_period =
+                                                current_time.tv_sec;
+                        ret_val = ret_val | CTR_TRY_INODE_HEAL;
+                }
+
                 goto unlock;
         }
 
@@ -516,14 +615,15 @@ add_hard_link_ctx (call_frame_t *frame,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_ADD_HARDLINK_TO_CTR_INODE_CONTEXT_FAILED,
                         "Failed to add hardlink to the ctr inode context");
+                ret_val = CTR_CTX_ERROR;
                 goto unlock;
         }
 
-        ret = 0;
+        ret_val = CTR_TRY_NO_HEAL;
 unlock:
         UNLOCK (&ctr_xlator_ctx->lock);
 out:
-        return ret;
+        return ret_val;
 }
 
 static inline int

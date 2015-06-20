@@ -114,7 +114,7 @@ ctr_lookup_wind(call_frame_t                    *frame,
                 /*Don't record time at all*/
                 CTR_DB_REC(ctr_local).do_record_times = _gf_false;
 
-                /*Copy gfid into db record*/
+                /* Copy gfid into db record*/
                 gf_uuid_copy (CTR_DB_REC(ctr_local).gfid,
                                 *(ctr_inode_cx->gfid));
 
@@ -131,6 +131,12 @@ ctr_lookup_wind(call_frame_t                    *frame,
                 strcpy (CTR_DB_REC(ctr_local).file_path,
                         NEW_LINK_CX(ctr_inode_cx)->basepath);
 
+                /* Since we are in lookup we can ignore errors while
+                 * Inserting in the DB, because there may be many
+                 * to write to the DB attempts for healing.
+                 * We dont want to log all failed attempts and
+                 * bloat the log*/
+                 ctr_local->gfdb_db_record.ignore_errors = _gf_true;
         }
 
         ret = 0;
@@ -171,8 +177,11 @@ ctr_lookup_unwind (call_frame_t          *frame,
                 ret = insert_record(_priv->_db_conn,
                                 &ctr_local->gfdb_db_record);
                 if (ret == -1) {
-                        gf_msg(this->name, GF_LOG_ERROR, 0,
-                               CTR_MSG_FILL_CTR_LOCAL_ERROR_UNWIND,
+                        gf_msg (this->name,
+                                _gfdb_log_level (GF_LOG_ERROR,
+                                        ctr_local->
+                                        gfdb_db_record.ignore_errors),
+                                0, CTR_MSG_FILL_CTR_LOCAL_ERROR_UNWIND,
                                "UNWIND: Error filling ctr local");
                         goto out;
                 }
@@ -198,9 +207,11 @@ ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        int ret                         = -1;
-        ctr_xlator_ctx_t *ctr_xlator_ctx;
-        gf_ctr_local_t *ctr_local       = NULL;
+        int ret                                 = -1;
+        ctr_xlator_ctx_t *ctr_xlator_ctx        = NULL;
+        gf_ctr_local_t *ctr_local               = NULL;
+        ctr_heal_ret_val_t  ret_val             = CTR_CTX_ERROR;
+        gf_boolean_t    _is_heal_needed         = _gf_false;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
         CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, dict, out);
@@ -223,34 +234,70 @@ ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        /* if the lookup is for dht link donot record*/
+        if (dht_is_linkfile (buf, dict)) {
+                gf_msg_trace (this->name, 0, "Ignoring Lookup "
+                                "for dht link file");
+                goto out;
+        }
+
         ctr_local = frame->local;
         /*Assign the proper inode type*/
         ctr_local->ia_inode_type = inode->ia_type;
+
+        /* Copy gfid directly from inode */
+        gf_uuid_copy (CTR_DB_REC(ctr_local).gfid, inode->gfid);
+
+        /* Checking if gfid and parent gfid is valid */
+        if (gf_uuid_is_null(CTR_DB_REC(ctr_local).gfid) ||
+                gf_uuid_is_null(CTR_DB_REC(ctr_local).pargfid)) {
+                gf_msg_trace (this->name, 0,
+                        "Invalid GFID");
+                goto out;
+        }
 
         /* if its a first entry
          * then mark the ctr_record for create
          * A create will attempt a file and a hard link created in the db*/
         ctr_xlator_ctx = get_ctr_xlator_ctx (this, inode);
         if (!ctr_xlator_ctx) {
+                 /* This marks inode heal */
                 CTR_DB_REC(ctr_local).gfdb_fop_type = GFDB_FOP_CREATE_WRITE;
+                _is_heal_needed = _gf_true;
         }
 
         /* Copy the correct gfid from resolved inode */
         gf_uuid_copy (CTR_DB_REC(ctr_local).gfid, inode->gfid);
 
         /* Add hard link to the list */
-        ret = add_hard_link_ctx (frame, this, inode);
-        if (ret < 0) {
-                gf_msg_trace (this->name, 0, "Failed adding hard link");
+        ret_val = add_hard_link_ctx (frame, this, inode);
+        if (ret_val == CTR_CTX_ERROR) {
+                gf_msg_trace (this->name, 0,
+                        "Failed adding hardlink to list");
                 goto out;
         }
+        /* If inode needs healing then heal the hardlink also */
+        else if (ret_val & CTR_TRY_INODE_HEAL) {
+                /* This marks inode heal */
+                CTR_DB_REC(ctr_local).gfdb_fop_type = GFDB_FOP_CREATE_WRITE;
+                _is_heal_needed = _gf_true;
+        }
+        /* If hardlink needs healing */
+        else if (ret_val & CTR_TRY_HARDLINK_HEAL) {
+                _is_heal_needed = _gf_true;
+        }
 
-        /* Inserts the ctr_db_record populated by ctr_lookup_wind
+        /* If lookup heal needed */
+        if (!_is_heal_needed)
+                goto out;
+
+        /* FINALLY HEAL : Inserts the ctr_db_record populated by ctr_lookup_wind
         * in to the db. It also destroys the frame->local
         * created by ctr_lookup_wind */
         ret = ctr_lookup_unwind(frame, this);
         if (ret) {
-                gf_msg_trace (this->name, 0, "Failed inserting link wind");
+                gf_msg_trace (this->name, 0,
+                        "Failed healing/inserting link");
         }
 
 
@@ -793,6 +840,7 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         /*Last link that was deleted*/
         else if (remaining_links == 1) {
+
                 ret = ctr_insert_unwind(frame, this, GFDB_FOP_DENTRY_WRITE,
                                         GFDB_FOP_UNDEL_ALL);
                 if (ret) {
@@ -819,6 +867,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         gf_ctr_link_context_t ctr_link_cx;
         gf_ctr_link_context_t *_link_cx = &ctr_link_cx;
         gf_boolean_t is_xdata_created = _gf_false;
+        struct iatt dummy_stat        = {0};
 
         GF_ASSERT (frame);
 
@@ -834,6 +883,12 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
 
         /*Internal FOP*/
         _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+
+        /* If its a internal FOP and dht link file donot record*/
+        if (_inode_cx->is_internal_fop &&
+                        dht_is_linkfile (&dummy_stat, xdata)) {
+                goto out;
+        }
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -1014,12 +1069,13 @@ ctr_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct iatt *postparent, dict_t *xdata)
 {
         int ret = -1;
+        ctr_heal_ret_val_t ret_val = CTR_CTX_ERROR;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
         /* Add hard link to the list */
-        ret = add_hard_link_ctx (frame, this, inode);
-        if (ret) {
+        ret_val = add_hard_link_ctx (frame, this, inode);
+        if (ret_val == CTR_CTX_ERROR) {
                 gf_msg_trace (this->name, 0, "Failed adding hard link");
         }
 
@@ -1053,6 +1109,7 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         uuid_t *ptr_gfid                        = &gfid;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
         GF_ASSERT(frame);
         GF_ASSERT(frame->root);
@@ -1072,9 +1129,6 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         FILL_CTR_INODE_CONTEXT (_inode_cx, loc->inode->ia_type,
                 *ptr_gfid, _link_cx, NULL,
                 GFDB_FOP_CREATE_WRITE, GFDB_FOP_WIND);
-
-        /*Internal FOP*/
-        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -1140,6 +1194,7 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         void             *uuid_req              = NULL;
         uuid_t            gfid                  = {0,};
         uuid_t            *ptr_gfid             = &gfid;
+        struct iatt dummy_stat                  = {0};
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
@@ -1166,6 +1221,12 @@ ctr_create (call_frame_t *frame, xlator_t *this,
 
         /*Internal FOP*/
         _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+
+        /* If its a internal FOP and dht link file donot record*/
+        if (_inode_cx->is_internal_fop &&
+                        dht_is_linkfile (&dummy_stat, xdata)) {
+                goto out;
+        }
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, &ctr_inode_cx);
@@ -1222,6 +1283,7 @@ ctr_link (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
         gf_ctr_link_context_t  ctr_link_cx;
         gf_ctr_link_context_t  *_link_cx = &ctr_link_cx;
+        struct iatt dummy_stat          = {0};
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
@@ -1239,6 +1301,13 @@ ctr_link (call_frame_t *frame, xlator_t *this,
 
         /*Internal FOP*/
         _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+
+        /* If its a internal FOP and dht link file donot record*/
+        if (_inode_cx->is_internal_fop &&
+                        dht_is_linkfile (&dummy_stat, xdata)) {
+                goto out;
+        }
+
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -1334,6 +1403,14 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("ctr_link_consistency", _priv->ctr_link_consistency,
                         options, bool, out);
 
+        GF_OPTION_RECONF ("ctr_inode_heal_expire_period",
+                                _priv->ctr_inode_heal_expire_period,
+                                options, uint64, out);
+
+        GF_OPTION_RECONF ("ctr_hardlink_heal_expire_period",
+                                _priv->ctr_hardlink_heal_expire_period,
+                                options, uint64, out);
+
         GF_OPTION_RECONF ("record-exit", _priv->ctr_record_unwind, options,
                           bool, out);
 
@@ -1385,6 +1462,10 @@ init (xlator_t *this)
         _priv->gfdb_sync_type           = GFDB_DB_SYNC;
         _priv->enabled                  = _gf_true;
         _priv->_db_conn                 = NULL;
+        _priv->ctr_hardlink_heal_expire_period =
+                                CTR_DEFAULT_HARDLINK_EXP_PERIOD;
+        _priv->ctr_inode_heal_expire_period =
+                                CTR_DEFAULT_INODE_EXP_PERIOD;
 
         /*Extract ctr xlator options*/
         ret_db = extract_ctr_options (this, _priv);
@@ -1548,6 +1629,14 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
           .default_value = "off"
+        },
+        { .key  = {"ctr_hardlink_heal_expire_period"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "300"
+        },
+        { .key  = {"ctr_inode_heal_expire_period"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "300"
         },
         { .key  = {"hot-brick"},
           .type = GF_OPTION_TYPE_BOOL,
