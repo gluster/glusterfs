@@ -353,6 +353,25 @@ fail:
         gf_store_unlink_tmppath (sh);
 }
 
+static gf_boolean_t
+mount_open_rmtab (const char *rmtab, gf_store_handle_t **sh)
+{
+        int ret = -1;
+
+        /* updating the rmtab is disabled, use in-memory only */
+        if (!rmtab || rmtab[0] == '\0')
+                return _gf_false;
+
+        ret = gf_store_handle_new (rmtab, sh);
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'", rmtab);
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
+
 /* Read the rmtab into a clean ms->mountlist.
  */
 static void
@@ -360,16 +379,13 @@ mount_read_rmtab (struct mount3_state *ms)
 {
         gf_store_handle_t       *sh = NULL;
         struct nfs_state        *nfs = NULL;
-        int                     ret;
+        gf_boolean_t            read_rmtab = _gf_false;
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
-        ret = gf_store_handle_new (nfs->rmtab, &sh);
-        if (ret) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
-                        nfs->rmtab);
+        read_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
+        if (!read_rmtab)
                 return;
-        }
 
         if (gf_store_lock (sh)) {
                 gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'",
@@ -389,6 +405,7 @@ out:
  * The rmtab could be empty, or it can exists and have been updated by a
  * different storage server without our knowing.
  *
+ * 0. if opening the nfs->rmtab fails, return gracefully
  * 1. takes the store_handle lock on the current rmtab
  *    - blocks if an other storage server rewrites the rmtab at the same time
  * 2. [if new_rmtab] takes the store_handle lock on the new rmtab
@@ -407,17 +424,15 @@ mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
         struct nfs_state        *nfs = NULL;
         int                     ret;
         char                    *rmtab = NULL;
+        gf_boolean_t            got_old_rmtab = _gf_false;
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
-        ret = gf_store_handle_new (nfs->rmtab, &sh);
-        if (ret) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
-                        nfs->rmtab);
+        got_old_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
+        if (!got_old_rmtab && !new_rmtab)
                 return;
-        }
 
-        if (gf_store_lock (sh)) {
+        if (got_old_rmtab && gf_store_lock (sh)) {
                 gf_log (GF_MNT, GF_LOG_WARNING, "Not rewriting '%s'",
                         nfs->rmtab);
                 goto free_sh;
@@ -439,7 +454,8 @@ mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
         }
 
         /* always read the currently used rmtab */
-        __mount_read_rmtab (sh, &ms->mountlist, _gf_true);
+        if (got_old_rmtab)
+                __mount_read_rmtab (sh, &ms->mountlist, _gf_true);
 
         if (new_rmtab) {
                 /* read the new rmtab and write changes to the new location */
@@ -466,9 +482,11 @@ free_nsh:
         if (new_rmtab)
                 gf_store_handle_destroy (nsh);
 unlock_sh:
-        gf_store_unlock (sh);
+        if (got_old_rmtab)
+                gf_store_unlock (sh);
 free_sh:
-        gf_store_handle_destroy (sh);
+        if (got_old_rmtab)
+                gf_store_handle_destroy (sh);
 }
 
 /* Add a new NFS-client to the ms->mountlist and update the rmtab if we can.
@@ -492,6 +510,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         char                    *colon = NULL;
         struct nfs_state        *nfs = NULL;
         gf_store_handle_t       *sh = NULL;
+        gf_boolean_t            update_rmtab = _gf_false;
 
         if ((!ms) || (!req) || (!expname))
                 return -1;
@@ -503,12 +522,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
-        ret = gf_store_handle_new (nfs->rmtab, &sh);
-        if (ret) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
-                        nfs->rmtab);
-                goto free_err;
-        }
+        update_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
 
         strncpy (me->exname, expname, MNTPATHLEN);
 
@@ -518,7 +532,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
          */
         ret = rpcsvc_transport_peername (req->trans, me->hostname, MNTPATHLEN);
         if (ret == -1)
-                goto free_err2;
+                goto free_err;
 
         colon = strrchr (me->hostname, ':');
         if (colon) {
@@ -527,10 +541,10 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         LOCK (&ms->mountlock);
         {
                 /* in case locking fails, we just don't write the rmtab */
-                if (gf_store_lock (sh)) {
+                if (update_rmtab && gf_store_lock (sh)) {
                         gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'"
                                 ", changes will not be written", nfs->rmtab);
-                } else {
+                } else if (update_rmtab) {
                         __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
                 }
 
@@ -545,19 +559,19 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
                 list_add_tail (&me->mlist, &ms->mountlist);
 
                 /* only write the rmtab in case it was locked */
-                if (gf_store_locked_local (sh))
+                if (update_rmtab && gf_store_locked_local (sh))
                         __mount_rewrite_rmtab (ms, sh);
         }
 dont_add:
-        if (gf_store_locked_local (sh))
+        if (update_rmtab && gf_store_locked_local (sh))
                 gf_store_unlock (sh);
 
         UNLOCK (&ms->mountlock);
 
-free_err2:
-        gf_store_handle_destroy (sh);
-
 free_err:
+        if (update_rmtab)
+                gf_store_handle_destroy (sh);
+
         if (ret == -1)
                 GF_FREE (me);
 
@@ -1589,27 +1603,25 @@ mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
         int                     ret = -1;
         gf_store_handle_t       *sh = NULL;
         struct nfs_state        *nfs = NULL;
+        gf_boolean_t            update_rmtab = _gf_false;
 
         if ((!ms) || (!dirpath) || (!hostname))
                 return -1;
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
-        ret = gf_store_handle_new (nfs->rmtab, &sh);
-        if (ret) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
-                        nfs->rmtab);
-                return 0;
-        }
-
-        ret = gf_store_lock (sh);
-        if (ret) {
-                goto out_free;
+        update_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
+        if (update_rmtab) {
+                ret = gf_store_lock (sh);
+                if (ret)
+                        goto out_free;
         }
 
         LOCK (&ms->mountlock);
         {
-                __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
+                if (update_rmtab)
+                        __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
+
                 if (list_empty (&ms->mountlist)) {
                         ret = 0;
                         goto out_unlock;
@@ -1641,13 +1653,20 @@ mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
 
                 list_del (&me->mlist);
                 GF_FREE (me);
-                __mount_rewrite_rmtab (ms, sh);
+
+                if (update_rmtab)
+                        __mount_rewrite_rmtab (ms, sh);
         }
 out_unlock:
         UNLOCK (&ms->mountlock);
-        gf_store_unlock (sh);
+
+        if (update_rmtab)
+                gf_store_unlock (sh);
+
 out_free:
-        gf_store_handle_destroy (sh);
+        if (update_rmtab)
+                gf_store_handle_destroy (sh);
+
         return ret;
 }
 
