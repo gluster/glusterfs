@@ -425,6 +425,15 @@ ops['ipc'] = (
 	('cbk-arg',	'xdata',		'dict_t *'),
 )
 
+ops['seek'] = (
+	('fop-arg',	'fd',			'fd_t *'),
+	('fop-arg',	'offset',		'off_t'),
+	('fop-arg',	'what',			'gf_seek_what_t'),
+	('fop-arg',	'xdata',		'dict_t *'),
+	('cbk-arg',	'offset',		'off_t'),
+	('cbk-arg',	'xdata',		'dict_t *'),
+)
+
 ops['getspec'] = (
 	('fop-arg',	'key',			'const char *'),
 	('fop-arg',	'flags',		'int32_t'),

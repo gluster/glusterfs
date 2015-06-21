@@ -2042,6 +2042,54 @@ out:
 }
 
 
+call_stub_t *
+fop_seek_cbk_stub (call_frame_t *frame, fop_seek_cbk_t fn,
+                   int32_t op_ret, int32_t op_errno, off_t offset,
+                   dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_SEEK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.seek = fn;
+
+        args_seek_cbk_store (&stub->args_cbk, op_ret, op_errno, offset, xdata);
+out:
+        return stub;
+}
+
+
+call_stub_t *
+fop_seek_stub (call_frame_t *frame, fop_seek_t fn, fd_t *fd,
+               off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_SEEK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.seek = fn;
+
+        if (fd)
+                stub->args.fd = fd_ref (fd);
+
+        stub->args.offset = offset;
+        stub->args.what = what;
+
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+out:
+        return stub;
+
+}
+
+
 void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2278,6 +2326,11 @@ call_resume_wind (call_stub_t *stub)
                 stub->fn.ipc (stub->frame, stub->frame->this,
                               stub->args.cmd, stub->args.xdata);
                 break;
+        case GF_FOP_SEEK:
+                stub->fn.seek (stub->frame, stub->frame->this,
+                               stub->args.fd, stub->args.offset,
+                               stub->args.what, stub->args.xdata);
+                break;
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
@@ -2487,6 +2540,10 @@ call_resume_unwind (call_stub_t *stub)
                 break;
         case GF_FOP_IPC:
                 STUB_UNWIND (stub, ipc, stub->args_cbk.xdata);
+                break;
+        case GF_FOP_SEEK:
+                STUB_UNWIND (stub, seek, stub->args_cbk.offset,
+                             stub->args_cbk.xdata);
                 break;
 
         default:
