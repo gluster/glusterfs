@@ -901,6 +901,14 @@ if test "x${have_posix_fallocate}" = "xyes"; then
    AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
 fi
 
+OLD_CFLAGS=${CFLAGS}
+CFLAGS="-D_GNU_SOURCE"
+AC_CHECK_DECL([SEEK_HOLE], , , [#include <unistd.h>])
+if test "x${ac_cv_have_decl_SEEK_HOLE}" = "xyes"; then
+   AC_DEFINE(HAVE_SEEK_HOLE, 1, [define if SEEK_HOLE is available])
+fi
+CFLAGS=${OLD_CFLAGS}
+
 # Check the distribution where you are compiling glusterfs on
 
 GF_DISTRIBUTION=

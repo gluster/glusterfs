@@ -45,7 +45,7 @@
  */
 
 #define POSIX_COMP_BASE         GLFS_MSGID_COMP_POSIX
-#define GLFS_NUM_MESSAGES       105
+#define GLFS_NUM_MESSAGES       107
 #define GLFS_MSGID_END          (POSIX_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x POSIX_COMP_BASE, "Invalid: Start of messages"
@@ -894,6 +894,22 @@
  */
 
 #define P_MSG_BUFFER_OVERFLOW                   (POSIX_COMP_BASE + 105)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define P_MSG_SEEK_UNKOWN                       (POSIX_COMP_BASE + 106)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define P_MSG_SEEK_FAILED                       (POSIX_COMP_BASE + 107)
 /*!
  * @messageid
  * @diagnosis
