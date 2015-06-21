@@ -209,6 +209,7 @@ typedef struct client_args {
         gf_xattrop_flags_t  optype;
         int32_t             valid;
         int32_t             len;
+        gf_seek_what_t      what;
 
         mode_t              umask;
         dict_t             *xdata;

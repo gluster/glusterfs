@@ -659,6 +659,22 @@ struct gfs3_ipc_rsp {
 };
 
 
+struct gfs3_seek_req {
+        opaque    gfid[16];
+        quad_t    fd;
+        u_quad_t  offset;
+        int       what;
+        opaque    xdata<>;
+};
+
+struct gfs3_seek_rsp {
+        int       op_ret;
+        int       op_errno;
+        u_quad_t  offset;
+        opaque    xdata<>;
+};
+
+
  struct gf_setvolume_req {
         opaque dict<>;
 }  ;
