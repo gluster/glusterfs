@@ -2838,6 +2838,42 @@ syncop_ipc (xlator_t *subvol, int32_t op, dict_t *xdata_in, dict_t **xdata_out)
 }
 
 int
+syncop_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno, off_t offset, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        args->offset   = offset;
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_seek (xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,
+             dict_t *xdata_in, off_t *off)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_seek_cbk, subvol->fops->seek, fd,
+                offset, what, xdata_in);
+
+        if (*off)
+                *off = args.offset;
+
+        if (args.op_ret == -1)
+                return -args.op_errno;
+        return args.op_ret;
+}
+
+int
 syncop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno, struct gf_flock *flock,
 	       dict_t *xdata)
@@ -2857,7 +2893,6 @@ syncop_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 }
-
 
 int
 syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock,

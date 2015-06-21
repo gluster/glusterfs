@@ -169,7 +169,9 @@ struct syncargs {
         pthread_mutex_t     mutex;
         pthread_cond_t      cond;
 	int                 done;
+
         gf_dirent_t        entries;
+        off_t              offset;
 };
 
 struct syncopctx {
@@ -511,4 +513,9 @@ int syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
 int
 syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
                  dict_t *dict, dict_t *xdata_in, dict_t **xdata_out);
+
+int
+syncop_seek (xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,
+             dict_t *xdata_in, off_t *off);
+
 #endif /* _SYNCOP_H */
