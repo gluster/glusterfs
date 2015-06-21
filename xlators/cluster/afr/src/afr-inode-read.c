@@ -1779,3 +1779,81 @@ out:
 }
 
 /* }}} */
+
+/* {{{ seek */
+
+int
+afr_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+              int32_t op_ret, int32_t op_errno, off_t offset, dict_t *xdata)
+{
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret < 0) {
+                local->op_ret = -1;
+                local->op_errno = op_errno;
+
+                afr_read_txn_continue (frame, this, (long) cookie);
+                return 0;
+        }
+
+        AFR_STACK_UNWIND (seek, frame, op_ret, op_errno, offset, xdata);
+        return 0;
+}
+
+
+int
+afr_seek_wind (call_frame_t *frame, xlator_t *this, int subvol)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        if (subvol == -1) {
+                AFR_STACK_UNWIND (seek, frame, local->op_ret, local->op_errno,
+                                  0, NULL);
+                return 0;
+        }
+
+        STACK_WIND_COOKIE (frame, afr_seek_cbk, (void *) (long) subvol,
+                           priv->children[subvol],
+                           priv->children[subvol]->fops->seek,
+                           local->fd, local->cont.seek.offset,
+                           local->cont.seek.what, local->xdata_req);
+        return 0;
+}
+
+
+int
+afr_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+          gf_seek_what_t what, dict_t *xdata)
+{
+        afr_local_t    *local      = NULL;
+        int32_t         op_errno   = 0;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto out;
+
+        local->op = GF_FOP_SEEK;
+        local->fd = fd_ref (fd);
+        local->cont.seek.offset = offset;
+        local->cont.seek.what = what;
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
+
+        afr_fix_open (fd, this);
+
+        afr_read_txn (frame, this, fd->inode, afr_seek_wind,
+                      AFR_DATA_TRANSACTION);
+
+        return 0;
+out:
+        AFR_STACK_UNWIND (seek, frame, -1, op_errno, 0, NULL);
+
+        return 0;
+}
+/* }}} */

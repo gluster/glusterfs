@@ -634,6 +634,11 @@ typedef struct _afr_local {
                         struct gf_flock flock;
                 } inodelk;
 
+                struct {
+                        off_t offset;
+                        gf_seek_what_t what;
+                } seek;
+
         } cont;
 
         struct {
