@@ -1894,6 +1894,35 @@ out:
 
 
 int32_t
+client_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+             gf_seek_what_t what, dict_t *xdata)
+{
+        int          ret              = -1;
+        clnt_conf_t *conf             = NULL;
+        rpc_clnt_procedure_t *proc    = NULL;
+        clnt_args_t  args             = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.fd = fd;
+        args.offset = offset;
+        args.what = what;
+        args.xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_SEEK];
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT(seek, frame, -1, ENOTCONN, 0, NULL);
+
+        return 0;
+}
+
+
+int32_t
 client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                 int32_t flags)
 {
@@ -2688,6 +2717,7 @@ struct xlator_fops fops = {
         .zerofill    = client_zerofill,
         .getspec     = client_getspec,
         .ipc         = client_ipc,
+        .seek        = client_seek,
 };
 
 

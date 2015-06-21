@@ -151,6 +151,7 @@ struct _server_state {
         struct gf_flock   flock;
         const char       *volume;
         dir_entry_t      *entry;
+        gf_seek_what_t    what;
 
         dict_t           *xdata;
         mode_t            umask;
