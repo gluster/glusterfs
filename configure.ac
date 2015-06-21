@@ -246,7 +246,8 @@ AC_CONFIG_FILES([Makefile
 		tools/glusterfind/src/tool.conf
 	        tools/glusterfind/glusterfind
 	        tools/glusterfind/Makefile
-                tools/glusterfind/src/Makefile])
+                tools/glusterfind/src/Makefile
+                tests/basic/gfapi/Makefile])
 
 AC_CANONICAL_HOST
 
