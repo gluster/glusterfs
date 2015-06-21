@@ -9,6 +9,11 @@
 */
 #define __XOPEN_SOURCE 500
 
+/* for SEEK_HOLE and SEEK_DATA */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
@@ -20,6 +25,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -972,6 +978,62 @@ posix_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
         return 0;
 
 }
+
+#ifdef HAVE_SEEK_HOLE
+static int32_t
+posix_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+            gf_seek_what_t what, dict_t *xdata)
+{
+        struct posix_fd *pfd       = NULL;
+        off_t            ret       = -1;
+        int              err       = 0;
+        int              whence    = 0;
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (fd, out);
+
+        switch (what) {
+        case GF_SEEK_DATA:
+                whence = SEEK_DATA;
+                break;
+        case GF_SEEK_HOLE:
+                whence = SEEK_HOLE;
+                break;
+        default:
+                err = ENOTSUP;
+                gf_msg (this->name, GF_LOG_ERROR, ENOTSUP,
+                        P_MSG_SEEK_UNKOWN, "don't know what to seek");
+                goto out;
+        }
+
+        ret = posix_fd_ctx_get (fd, this, &pfd);
+        if (ret < 0) {
+                gf_msg_debug (this->name, 0, "pfd is NULL from fd=%p", fd);
+                goto out;
+        }
+
+        ret = lseek (pfd->fd, offset, whence);
+        if (ret == -1) {
+                err = errno;
+                gf_msg (this->name, GF_LOG_ERROR, err, P_MSG_SEEK_FAILED,
+                        "seek failed on fd %d length %" PRId64 , pfd->fd,
+                        offset);
+                goto out;
+        }
+
+out:
+        SET_TO_OLD_FS_ID ();
+
+        STACK_UNWIND_STRICT (seek, frame, (ret == -1 ? -1 : 0), err,
+                             (ret == -1 ? -1 : ret), xdata);
+        return 0;
+}
+#endif
 
 int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
@@ -6998,6 +7060,9 @@ struct xlator_fops fops = {
 	.discard     = posix_discard,
         .zerofill    = posix_zerofill,
         .ipc         = posix_ipc,
+#ifdef HAVE_SEEK_HOLE
+        .seek        = posix_seek,
+#endif
 };
 
 struct xlator_cbks cbks = {
