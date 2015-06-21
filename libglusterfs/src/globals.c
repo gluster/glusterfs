@@ -68,6 +68,7 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
 	[GF_FOP_DISCARD]     = "DISCARD",
         [GF_FOP_ZEROFILL]    = "ZEROFILL",
         [GF_FOP_IPC]         = "IPC",
+        [GF_FOP_SEEK]        = "SEEK",
 };
 /* THIS */
 

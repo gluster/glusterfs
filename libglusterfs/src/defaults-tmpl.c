@@ -76,6 +76,7 @@ struct xlator_fops _default_fops = {
 	.discard = default_discard,
         .zerofill = default_zerofill,
         .ipc = default_ipc,
+        .seek = default_seek,
 
         .getspec = default_getspec,
 };

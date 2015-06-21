@@ -70,6 +70,7 @@ typedef struct {
 		fop_discard_t discard;
                 fop_zerofill_t zerofill;
                 fop_ipc_t ipc;
+                fop_seek_t seek;
 	} fn;
 
 	union {
@@ -118,6 +119,7 @@ typedef struct {
 		fop_discard_cbk_t discard;
                 fop_zerofill_cbk_t zerofill;
                 fop_ipc_cbk_t ipc;
+                fop_seek_cbk_t seek;
 	} fn_cbk;
 
 	struct {
@@ -147,6 +149,7 @@ typedef struct {
 		gf_xattrop_flags_t optype;
 		int valid;
 		struct iatt stat;
+                gf_seek_what_t what;
 		dict_t *xdata;
 	} args;
 
@@ -743,6 +746,15 @@ fop_ipc_stub (call_frame_t *frame, fop_ipc_t fn, int32_t op, dict_t *xdata);
 call_stub_t *
 fop_ipc_cbk_stub (call_frame_t *frame, fop_ipc_cbk_t fn,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+call_stub_t *
+fop_seek_stub (call_frame_t *frame, fop_seek_t fn, fd_t *fd, off_t offset,
+               gf_seek_what_t what, dict_t *xdata);
+
+call_stub_t *
+fop_seek_cbk_stub (call_frame_t *frame, fop_seek_cbk_t fn,
+                  int32_t op_ret, int32_t op_errno, off_t offset,
+                  dict_t *xdata);
 
 
 void call_resume (call_stub_t *stub);

@@ -264,6 +264,10 @@ int
 args_ipc_cbk_store (default_args_cbk_t *args,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata);
 
+int
+args_seek_cbk_store (default_args_cbk_t *args, int32_t op_ret,
+                     int32_t op_errno, off_t offset, dict_t *xdata);
+
 void
 args_cbk_wipe (default_args_cbk_t *args_cbk);
 

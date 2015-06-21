@@ -40,6 +40,7 @@ typedef struct {
         uint8_t *strong_checksum;
         dict_t *xdata;
         gf_dirent_t entries;
+        off_t offset;            /* seek hole/data */
         int valid; /* If the response is valid or not. For call-stub it is
                       always valid irrespective of this */
 } default_args_cbk_t;
@@ -288,6 +289,9 @@ int32_t default_zerofill(call_frame_t *frame,
 int32_t default_ipc (call_frame_t *frame, xlator_t *this, int32_t op,
                      dict_t *xdata);
 
+int32_t default_seek (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                      off_t offset, gf_seek_what_t what, dict_t *xdata);
+
 
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
@@ -519,6 +523,9 @@ int32_t default_zerofill_resume(call_frame_t *frame,
 
 int32_t default_ipc_resume (call_frame_t *frame, xlator_t *this,
                             int32_t op, dict_t *xdata);
+
+int32_t default_seek_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                             off_t offset, gf_seek_what_t what, dict_t *xdata);
 
 
 /* _cbk_resume */
@@ -1016,6 +1023,10 @@ int32_t default_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t default_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, dict_t *xdata);
 
+int32_t default_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, off_t offset,
+                          dict_t *xdata);
+
 int32_t
 default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, char *spec_data);
@@ -1156,6 +1167,9 @@ default_zerofill_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_getspec_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_seek_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);

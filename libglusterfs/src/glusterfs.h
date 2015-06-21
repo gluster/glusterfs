@@ -318,6 +318,7 @@ typedef enum {
 	GF_FOP_DISCARD,
         GF_FOP_ZEROFILL,
         GF_FOP_IPC,
+        GF_FOP_SEEK,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -390,6 +391,11 @@ typedef enum {
         GF_XATTROP_ADD_ARRAY_WITH_DEFAULT,
         GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT
 } gf_xattrop_flags_t;
+
+typedef enum {
+        GF_SEEK_DATA,
+        GF_SEEK_HOLE
+} gf_seek_what_t;
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */

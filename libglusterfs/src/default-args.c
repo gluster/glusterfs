@@ -794,6 +794,19 @@ args_ipc_cbk_store (default_args_cbk_t *args,
         return 0;
 }
 
+int
+args_seek_cbk_store (default_args_cbk_t *args, int32_t op_ret,
+                     int32_t op_errno, off_t offset, dict_t *xdata)
+{
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+        args->offset = offset;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
 void
 args_cbk_wipe (default_args_cbk_t *args_cbk)
 {

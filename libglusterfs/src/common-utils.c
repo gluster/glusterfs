@@ -4196,6 +4196,7 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_RCHECKSUM:
         case GF_FOP_ZEROFILL:
         case GF_FOP_FALLOCATE:
+        case GF_FOP_SEEK:
                 return "LOW";
 
         case GF_FOP_NULL:
