@@ -9,6 +9,12 @@
   cases as published by the Free Software Foundation.
 */
 
+/* for SEEK_HOLE and SEEK_DATA */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <unistd.h>
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
@@ -519,12 +525,62 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_creat, 3.4.0);
 
+#ifdef HAVE_SEEK_HOLE
+static int
+glfs_seek (struct glfs_fd *glfd, off_t offset, int whence)
+{
+        int               ret             = -1;
+        xlator_t         *subvol          = NULL;
+        fd_t             *fd              = NULL;
+        gf_seek_what_t    what            = 0;
+        off_t             off             = -1;
+
+        switch (whence) {
+        case SEEK_DATA:
+                what = GF_SEEK_DATA;
+                break;
+        case SEEK_HOLE:
+                what = GF_SEEK_HOLE;
+                break;
+        default:
+                /* other SEEK_* do not make sense, all operations get an offset
+                 * and the position in the fd is not tracked */
+                errno = EINVAL;
+                goto out;
+        }
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto done;
+        }
+
+        ret = syncop_seek (subvol, fd, offset, what, NULL, &off);
+        DECODE_SYNCOP_ERR (ret);
+
+        if (ret != -1)
+                glfd->offset = off;
+
+done:
+        glfs_subvol_done (glfd->fs, subvol);
+
+out:
+        return ret;
+}
+#endif
 
 off_t
 pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
 {
-	struct stat sb = {0, };
+	struct stat sb  = {0, };
 	int         ret = -1;
+        off_t       off = -1;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -544,11 +600,22 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
 		}
 		glfd->offset = sb.st_size + offset;
 		break;
+#ifdef HAVE_SEEK_HOLE
+        case SEEK_DATA:
+        case SEEK_HOLE:
+                ret = glfs_seek (glfd, offset, whence);
+                break;
+#endif
+        default:
+                errno = EINVAL;
 	}
 
         __GLFS_EXIT_FS;
 
-	return glfd->offset;
+        if (ret != -1)
+                off = glfd->offset;
+
+        return off;
 
 invalid_fs:
         return -1;
