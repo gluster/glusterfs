@@ -1323,7 +1323,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         volinfo->subvol_count = (volinfo->brick_count /
                                  volinfo->dist_leaf_count);
 
-        ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        ret = glusterd_create_volfiles (volinfo);
         if (ret)
                 goto out;
 
@@ -1401,6 +1401,9 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                               _glusterd_restart_gsync_session, &param);
         }
         volinfo->caps = caps;
+
+        ret = glusterd_fetchspec_notify (this);
+
 out:
         GF_FREE (free_ptr1);
         GF_FREE (free_ptr2);
