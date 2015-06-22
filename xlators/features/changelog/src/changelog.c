@@ -376,7 +376,9 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         ret = dict_get_bin (xdata, DHT_CHANGELOG_RENAME_OP_KEY, (void **)&info);
-        if (ret)  {      /* xdata "NOT" set, Special rename => avoid logging */
+        if (ret && oldloc->inode->ia_type != IA_IFDIR)  {
+                /* xdata "NOT" set for a non-directory,
+                 * Special rename => avoid logging */
                goto wind;
         }
 
