@@ -31,6 +31,7 @@ eval $(echo ${cfgline} | grep -F CONFFILE=)
 GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 RHEL6_PCS_CNAME_OPTION="--name"
+SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
 
 usage() {
 
@@ -69,10 +70,10 @@ manage_service ()
         if [ "$SERVICE_MAN" == "/usr/sbin/systemctl" ]
         then
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem root@${new_node} "$SERVICE_MAN  ${action} nfs-ganesha"
+${SECRET_PEM} root@${new_node} "$SERVICE_MAN  ${action} nfs-ganesha"
         else
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem root@${new_node} "$SERVICE_MAN nfs-ganesha ${action}"
+${SECRET_PEM} root@${new_node} "$SERVICE_MAN nfs-ganesha ${action}"
         fi
 }
 
@@ -184,15 +185,12 @@ setup_copy_config()
     local short_host=$(hostname -s)
     local tganesha_conf=$(mktemp -u)
 
-    if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
+    if [ -e ${SECRET_PEM} ]; then
         while [[ ${1} ]]; do
             current_host=`echo ${1} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                cp ${HA_CONFDIR}/ganesha-ha.conf ${tganesha_conf}
                 scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem ${short_host}:${tganesha_conf}\
- ${1}:${HA_CONFDIR}/ganesha-ha.conf
-                rm -rf ${tganesha_conf}
+${SECRET_PEM} ${HA_CONFDIR}/ganesha-ha.conf ${1}:${HA_CONFDIR}/
                 if [ $? -ne 0 ]; then
                     logger "warning: scp ganesha-ha.conf to ${1} failed"
                 fi
@@ -209,27 +207,24 @@ refresh_config ()
         local short_host=$(hostname -s)
         local VOL=${1}
         local HA_CONFDIR=${2}
-        local tganesha_export=$(mktemp -u)
 
         removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
 grep Export_Id | cut -d " " -f8`
 
-        if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
+        if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
 	    current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                cp ${HA_CONFDIR}/exports/export.$VOL.conf ${tganesha_export}
                 scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem ${short_host}:${tganesha_export} \
-${current_host}:${HA_CONFDIR}/exports/export.$VOL.conf
-                 rm -rf ${tganesha_export}
+${SECRET_PEM} ${HA_CONFDIR}/exports/export.$VOL.conf \
+${current_host}:${HA_CONFDIR}/exports/
                  ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem root@${current_host} "dbus-send --print-reply --system \
+${SECRET_PEM} root@${current_host} "dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id"
                  sleep 1
                  ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem root@${current_host} "dbus-send  --system \
+${SECRET_PEM} root@${current_host} "dbus-send  --system \
 --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
 string:\"EXPORT(Path=/$VOL)\""
@@ -256,11 +251,23 @@ string:"EXPORT(Path=/$VOL)"
 
 copy_export_config ()
 {
-        local new_node=${1}
-        scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem ${HA_VOL_SERVER}:${GANESHA_CONF} ${new_node}:/etc/ganesha/
-        scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-/var/lib/glusterd/nfs/secret.pem ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ ${new_node}:${HA_CONFDIR}/
+    local new_node=${1}
+    local tganesha_conf=$(mktemp -u)
+    local tganesha_exports=$(mktemp -d)
+
+    # avoid prompting for password, even with password-less scp
+    # scp $host1:$file $host2:$file prompts for the password
+    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} ${HA_VOL_SERVER}:${GANESHA_CONF} ${tganesha_conf}
+    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} ${tganesha_conf} ${new_node}:${GANESHA_CONF}
+    rm -f ${tganesha_conf}
+
+    scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ ${tganesha_exports}
+    scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} ${tganesha_exports} ${new_node}:${HA_CONFDIR}/
+    rm -rf ${tganesha_exports}
 }
 
 
@@ -706,7 +713,7 @@ deletenode_delete_resources()
     # recompute their constraints
     clear_resources ${cibfile} ${HA_SERVERS}
     recreate_resources ${cibfile} ${ha_servers}
-    HA_SERVERS="${ha_servers}"
+    HA_SERVERS=$(echo "${ha_servers}" | sed -e "s/  / /")
 
     create_virt_ip_constraints ${cibfile} ${HA_SERVERS}
 
@@ -804,6 +811,7 @@ setup_state_volume()
 }
 
 
+
 main()
 {
 
@@ -877,36 +885,36 @@ main()
         node=${1}; shift
         vip=${1}; shift
 
-       logger "adding ${node} with ${vip} to ${HA_NAME}"
+        logger "adding ${node} with ${vip} to ${HA_NAME}"
 
-       copy_export_config ${node} ${HA_CONFDIR}
+        copy_export_config ${node} ${HA_CONFDIR}
 
-       determine_service_manager
+        determine_service_manager
 
-       manage_service "start" ${node}
+        manage_service "start" ${node}
 
-       determine_servers "add"
+        determine_servers "add"
 
-       pcs cluster node add ${node}
-       if [ $? -ne 0 ]; then
+        pcs cluster node add ${node}
+        if [ $? -ne 0 ]; then
             logger "warning: pcs cluster node add ${node} failed"
-       fi
+        fi
 
-       addnode_create_resources ${node} ${vip}
-       #Subsequent add-node recreates resources for all the nodes
-       #that already exist in the cluster. The nodes are picked up
-       #from the entries in the ganesha-ha.conf file. Adding the
-       #newly added node to the file so that the resources specfic
-       #to this node is correctly recreated in the future.
-       echo "VIP_$node=\"$vip\"" >> ${HA_CONFDIR}/ganesha-ha.conf
+        addnode_create_resources ${node} ${vip}
+        #Subsequent add-node recreates resources for all the nodes
+        #that already exist in the cluster. The nodes are picked up
+        #from the entries in the ganesha-ha.conf file. Adding the
+        #newly added node to the file so that the resources specfic
+        #to this node is correctly recreated in the future.
+        echo "VIP_$node=\"$vip\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
-       NEW_NODES="$HA_CLUSTER_NODES,$node"
+        NEW_NODES="$HA_CLUSTER_NODES,$node"
 
-       sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
+        sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
 $HA_CONFDIR/ganesha-ha.conf
-       HA_SERVERS="${HA_SERVERS} ${node}"
+        HA_SERVERS="${HA_SERVERS} ${node}"
 
-       setup_copy_config ${HA_SERVERS}
+        setup_copy_config ${HA_SERVERS}
         ;;
 
     delete | --delete)
@@ -923,13 +931,16 @@ $HA_CONFDIR/ganesha-ha.conf
             logger "warning: pcs cluster node remove ${node} failed"
         fi
 
-        # TODO: delete node's directory in shared state
+        ha_servers=$(echo ${HA_SERVERS} | sed -e "s/ /,/")
+        sed -i "s/^HA_CLUSTER_NODES=.*$/HA_CLUSTER_NODES=\"${ha_servers// /,}\"/" ${HA_CONFDIR}/ganesha-ha.conf
+
+        setup_copy_config ${HA_SERVERS}
+
+        rm -rf ${HA_VOL_MNT}/nfs-ganesha/{node}
 
         determine_service_manager
 
-        manage-service "stop"
-
-        cleanup_ganesha_config ${HA_CONFDIR}
+        manage_service "stop" ${node}
         ;;
 
     status | --status)
