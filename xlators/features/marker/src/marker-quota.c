@@ -2606,8 +2606,6 @@ mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
         }
         UNLOCK (&contri->lock);
 
-        QUOTA_FREE_CONTRIBUTION_NODE (contri);
-
         ret = 0;
 out:
 
