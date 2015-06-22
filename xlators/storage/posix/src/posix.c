@@ -2825,6 +2825,8 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         dict_t                *rsp_xdata = NULL;
 	int                    is_append = 0;
 	gf_boolean_t           locked = _gf_false;
+	gf_boolean_t           write_append = _gf_false;
+	gf_boolean_t           update_atomic = _gf_false;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2846,16 +2848,32 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         _fd = pfd->fd;
 
-	if (xdata && dict_get (xdata, GLUSTERFS_WRITE_IS_APPEND)) {
-		/* The write_is_append check and write must happen
-		   atomically. Else another write can overtake this
-		   write after the check and get written earlier.
+        if (xdata) {
+                if (dict_get (xdata, GLUSTERFS_WRITE_IS_APPEND))
+                        write_append = _gf_true;
+                if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC))
+                        update_atomic = _gf_true;
+	}
 
-		   So lock before preop-stat and unlock after write.
-		*/
+        /* The write_is_append check and write must happen
+           atomically. Else another write can overtake this
+           write after the check and get written earlier.
+
+           So lock before preop-stat and unlock after write.
+        */
+
+        /*
+         * The update_atomic option is to instruct posix to do prestat,
+         * write and poststat atomically. This is to prevent any modification to
+         * ia_size and ia_blocks until poststat and the diff in their values
+         * between pre and poststat could be of use for some translators (shard
+         * as of today).
+         */
+
+        if (write_append || update_atomic) {
 		locked = _gf_true;
 		LOCK(&fd->inode->lock);
-	}
+        }
 
         op_ret = posix_fdstat (this, _fd, &preop);
         if (op_ret == -1) {
@@ -2865,7 +2883,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-	if (locked) {
+	if (locked && write_append) {
 		if (preop.ia_size == offset || (fd->flags & O_APPEND))
 			is_append = 1;
 	}
@@ -2873,7 +2891,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         op_ret = __posix_writev (_fd, vector, count, offset,
                                  (pfd->flags & O_DIRECT));
 
-	if (locked) {
+	if (locked && (!update_atomic)) {
 		UNLOCK (&fd->inode->lock);
 		locked = _gf_false;
 	}
@@ -2887,42 +2905,45 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
+        rsp_xdata = _fill_writev_xdata (fd, xdata, this, is_append);
+        /* writev successful, we also need to get the stat of
+         * the file we wrote to
+         */
+
+        ret = posix_fdstat (this, _fd, &postop);
+        if (ret == -1) {
+                op_ret = -1;
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_FSTAT_FAILED,
+                        "post-operation fstat failed on fd=%p",
+                        fd);
+                goto out;
+        }
+
+	if (locked) {
+		UNLOCK (&fd->inode->lock);
+		locked = _gf_false;
+	}
+
+        if (flags & (O_SYNC|O_DSYNC)) {
+                ret = fsync (_fd);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_WRITEV_FAILED,
+                                "fsync() in writev on fd %d failed",
+                                _fd);
+                        op_ret = -1;
+                        op_errno = errno;
+                        goto out;
+                }
+        }
+
         LOCK (&priv->lock);
         {
                 priv->write_value    += op_ret;
         }
         UNLOCK (&priv->lock);
-
-        if (op_ret >= 0) {
-                rsp_xdata = _fill_writev_xdata (fd, xdata, this, is_append);
-                /* wiretv successful, we also need to get the stat of
-                 * the file we wrote to
-                 */
-
-                if (flags & (O_SYNC|O_DSYNC)) {
-                        ret = fsync (_fd);
-			if (ret) {
-				gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_WRITEV_FAILED,
-					"fsync() in writev on fd %d failed",
-					_fd);
-				op_ret = -1;
-				op_errno = errno;
-				goto out;
-			}
-                }
-
-                ret = posix_fdstat (this, _fd, &postop);
-                if (ret == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_FSTAT_FAILED,
-                                "post-operation fstat failed on fd=%p",
-                                fd);
-                        goto out;
-                }
-        }
 
 out:
 
