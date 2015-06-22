@@ -14,6 +14,7 @@
 #include "xlator.h"
 #include "read-ahead.h"
 #include <assert.h>
+#include "read-ahead-messages.h"
 
 ra_page_t *
 ra_page_get (ra_file_t *file, off_t offset)
@@ -150,7 +151,8 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         pending_offset = local->pending_offset;
 
         if (file == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, EBADF,
+                        READ_AHEAD_MSG_FD_CONTEXT_NOT_SET,
                         "read-ahead context not set in fd (%p)", fd);
                 op_ret = -1;
                 op_errno = EBADF;
@@ -165,9 +167,10 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 page = ra_page_get (file, pending_offset);
 
                 if (!page) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "wasted copy: %"PRId64"[+%"PRId64"] file=%p",
-                                pending_offset, file->page_size, file);
+                        gf_msg_trace (this->name, 0,
+                                      "wasted copy: "
+                                      "%"PRId64"[+%"PRId64"] file=%p",
+                                      pending_offset, file->page_size, file);
                         goto unlock;
                 }
 

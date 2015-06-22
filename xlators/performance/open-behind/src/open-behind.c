@@ -13,6 +13,7 @@
 #include "statedump.h"
 #include "call-stub.h"
 #include "defaults.h"
+#include "open-behind-messages.h"
 
 typedef struct ob_conf {
 	gf_boolean_t  use_anonymous_fd; /* use anonymous FDs wherever safe
@@ -340,8 +341,8 @@ ob_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
 	return 0;
 err:
-	gf_log (this->name, GF_LOG_ERROR, "%s: %s", loc->path,
-		strerror (op_errno));
+	gf_msg (this->name, GF_LOG_ERROR, op_errno, OPEN_BEHIND_MSG_NO_MEMORY,
+                "%s", loc->path);
 
 	STACK_UNWIND_STRICT (open, frame, -1, op_errno, 0, 0);
 
@@ -887,7 +888,9 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_ob_mt_end + 1);
 
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting failed");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        OPEN_BEHIND_MSG_NO_MEMORY,
+                        "Memory accounting failed");
 
         return ret;
 }
@@ -920,14 +923,16 @@ init (xlator_t *this)
         ob_conf_t    *conf = NULL;
 
         if (!this->children || this->children->next) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        OPEN_BEHIND_MSG_XLATOR_CHILD_MISCONFIGURED,
                         "FATAL: volume (%s) not configured with exactly one "
                         "child", this->name);
                 return -1;
         }
 
         if (!this->parents)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
                         "dangling volume. check volfile ");
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_ob_mt_conf_t);

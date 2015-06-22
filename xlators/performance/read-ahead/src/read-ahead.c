@@ -23,6 +23,7 @@
 #include "statedump.h"
 #include <assert.h>
 #include <sys/time.h>
+#include "read-ahead-messages.h"
 
 static void
 read_ahead (call_frame_t *frame, ra_file_t *file);
@@ -84,8 +85,10 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
         if (ret == -1) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
-                        "cannot set read-ahead context information in fd (%p)",
+                gf_msg (frame->this->name, GF_LOG_WARNING,
+                        0, READ_AHEAD_MSG_NO_MEMORY,
+                        "cannot set read-ahead context"
+                        "information in fd (%p)",
                         fd);
                 ra_file_destroy (file);
                 op_ret = -1;
@@ -156,8 +159,10 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "cannot set read ahead context information in fd (%p)",
+                gf_msg (this->name, GF_LOG_WARNING,
+                        0, READ_AHEAD_MSG_NO_MEMORY,
+                        "cannot set read ahead context"
+                        "information in fd (%p)",
                         fd);
                 ra_file_destroy (file);
                 op_ret = -1;
@@ -324,8 +329,8 @@ read_ahead (call_frame_t *frame, ra_file_t *file)
                 }
 
                 if (fault) {
-                        gf_log (frame->this->name, GF_LOG_TRACE,
-                                "RA at offset=%"PRId64, trav_offset);
+                        gf_msg_trace (frame->this->name, 0,
+                                      "RA at offset=%"PRId64, trav_offset);
                         ra_page_fault (file, frame, trav_offset);
                 }
                 trav_offset += file->page_size;
@@ -391,14 +396,15 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
                         trav->dirty = 0;
 
                         if (trav->ready) {
-                                gf_log (frame->this->name, GF_LOG_TRACE,
-                                        "HIT at offset=%"PRId64".",
-                                        trav_offset);
+                                gf_msg_trace (frame->this->name, 0,
+                                              "HIT at offset=%"PRId64".",
+                                              trav_offset);
                                 ra_frame_fill (trav, frame);
                         } else {
-                                gf_log (frame->this->name, GF_LOG_TRACE,
-                                        "IN-TRANSIT at offset=%"PRId64".",
-                                        trav_offset);
+                                gf_msg_trace (frame->this->name, 0,
+                                              "IN-TRANSIT at "
+                                              "offset=%"PRId64".",
+                                              trav_offset);
                                 ra_wait_on_page (trav, frame);
                                 need_atime_update = 0;
                         }
@@ -411,9 +417,9 @@ dispatch_requests (call_frame_t *frame, ra_file_t *file)
                 }
 
                 if (fault) {
-                        gf_log (frame->this->name, GF_LOG_TRACE,
-                                "MISS at offset=%"PRId64".",
-                                trav_offset);
+                        gf_msg_trace (frame->this->name, 0,
+                                      "MISS at offset=%"PRId64".",
+                                      trav_offset);
                         ra_page_fault (file, frame, trav_offset);
                 }
 
@@ -471,9 +477,9 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         conf = this->private;
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
-                offset, size);
+        gf_msg_trace (this->name, 0,
+                      "NEW REQ at offset=%"PRId64" for size=%"GF_PRI_SIZET"",
+                      offset, size);
 
         fd_ctx_get (fd, this, &tmp_file);
         file = (ra_file_t *)(long)tmp_file;
@@ -483,15 +489,16 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         if (file->offset != offset) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "unexpected offset (%"PRId64" != %"PRId64") resetting",
-                        file->offset, offset);
+                gf_msg_trace (this->name, 0,
+                              "unexpected offset (%"PRId64" != %"PRId64") "
+                              "resetting",
+                              file->offset, offset);
 
                 expected_offset = file->expected = file->page_count = 0;
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "expected offset (%"PRId64") when page_count=%d",
-                        offset, file->page_count);
+                gf_msg_trace (this->name, 0,
+                              "expected offset (%"PRId64") when page_count=%d",
+                              offset, file->page_count);
 
                 if (file->expected < (file->page_size * conf->page_count)) {
                         file->expected += size;
@@ -1098,7 +1105,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_ra_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        READ_AHEAD_MSG_NO_MEMORY, "Memory accounting init"
                         "failed");
         }
 
@@ -1136,14 +1144,16 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO ("read-ahead", this, out);
 
         if (!this->children || this->children->next) {
-                gf_log (this->name,  GF_LOG_ERROR,
+                gf_msg (this->name,  GF_LOG_ERROR, 0,
+                        READ_AHEAD_MSG_XLATOR_CHILD_MISCONFIGURED,
                         "FATAL: read-ahead not configured with exactly one"
                         " child");
                 goto out;
         }
 
         if (!this->parents) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READ_AHEAD_MSG_VOL_MISCONFIGURED,
                         "dangling volume. check volfile ");
         }
 
@@ -1168,7 +1178,8 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (ra_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR,
+                        ENOMEM, READ_AHEAD_MSG_NO_MEMORY,
                         "failed to create local_t's memory pool");
                 goto out;
         }
