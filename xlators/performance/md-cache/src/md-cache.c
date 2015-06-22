@@ -17,6 +17,7 @@
 #include "glusterfs-acl.h"
 #include <assert.h>
 #include <sys/time.h>
+#include "md-cache-messages.h"
 
 
 /* TODO:
@@ -287,8 +288,8 @@ mdc_inode_prep (xlator_t *this, inode_t *inode)
 
                 mdc = GF_CALLOC (sizeof (*mdc), 1, gf_mdc_mt_md_cache_t);
                 if (!mdc) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                MD_CACHE_MSG_NO_MEMORY, "out of memory");
                         goto unlock;
                 }
 
@@ -296,8 +297,8 @@ mdc_inode_prep (xlator_t *this, inode_t *inode)
 
                 ret = __mdc_inode_ctx_set (this, inode, mdc);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                MD_CACHE_MSG_NO_MEMORY, "out of memory");
                         GF_FREE (mdc);
                         mdc = NULL;
                 }
@@ -2242,8 +2243,8 @@ init (xlator_t *this)
 
 	conf = GF_CALLOC (sizeof (*conf), 1, gf_mdc_mt_mdc_conf_t);
 	if (!conf) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        MD_CACHE_MSG_NO_MEMORY, "out of memory");
 		return -1;
 	}
 

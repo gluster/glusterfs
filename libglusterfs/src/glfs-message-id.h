@@ -104,9 +104,9 @@
 #define GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END    (GLFS_MSGID_COMP_RPC_TRANS_SOCKET + \
                                                 GLFS_MSGID_SEGMENT)
 
-#define GLFS_MSGID_COMP_QUOTA           GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END
-#define GLFS_MSGID_COMP_QUOTA_END       (GLFS_MSGID_COMP_QUOTA +\
-                                        GLFS_MSGID_SEGMENT)
+#define GLFS_MSGID_COMP_QUOTA              GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END
+#define GLFS_MSGID_COMP_QUOTA_END          (GLFS_MSGID_COMP_QUOTA +\
+                                           GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_CTR                GLFS_MSGID_COMP_QUOTA_END
 #define GLFS_MSGID_COMP_CTR_END            (GLFS_MSGID_COMP_CTR+\
@@ -115,6 +115,45 @@
 #define GLFS_MSGID_COMP_EC               GLFS_MSGID_COMP_CTR_END
 #define GLFS_MSGID_COMP_EC_END           (GLFS_MSGID_COMP_EC +\
                                          GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_IO_CACHE                GLFS_MSGID_COMP_EC_END
+#define GLFS_MSGID_COMP_IO_CACHE_END            (GLFS_MSGID_COMP_IO_CACHE+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_IO_THREADS              GLFS_MSGID_COMP_IO_CACHE_END
+#define GLFS_MSGID_COMP_IO_THREADS_END          (GLFS_MSGID_COMP_IO_THREADS+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_MD_CACHE                GLFS_MSGID_COMP_IO_THREADS_END
+#define GLFS_MSGID_COMP_MD_CACHE_END            (GLFS_MSGID_COMP_MD_CACHE+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_OPEN_BEHIND             GLFS_MSGID_COMP_MD_CACHE_END
+#define GLFS_MSGID_COMP_OPEN_BEHIND_END         (GLFS_MSGID_COMP_OPEN_BEHIND+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_QUICK_READ              GLFS_MSGID_COMP_OPEN_BEHIND_END
+#define GLFS_MSGID_COMP_QUICK_READ_END          (GLFS_MSGID_COMP_QUICK_READ+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_READ_AHEAD              GLFS_MSGID_COMP_QUICK_READ_END
+#define GLFS_MSGID_COMP_READ_AHEAD_END          (GLFS_MSGID_COMP_READ_AHEAD+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_READDIR_AHEAD           GLFS_MSGID_COMP_READ_AHEAD_END
+#define GLFS_MSGID_COMP_READDIR_AHEAD_END       (GLFS_MSGID_COMP_READDIR_AHEAD+\
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_SYMLINK_CACHE           \
+GLFS_MSGID_COMP_READDIR_AHEAD_END
+#define GLFS_MSGID_COMP_SYMLINK_CACHE_END \
+(GLFS_MSGID_COMP_SYMLINK_CACHE+ \
+                                                GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_WRITE_BEHIND             \
+GLFS_MSGID_COMP_SYMLINK_CACHE_END
+#define GLFS_MSGID_COMP_WRITE_BEHIND_END        (GLFS_MSGID_COMP_WRITE_BEHIND+\
+                                                GLFS_MSGID_SEGMENT)
 
 /* --- new segments for messages goes above this line --- */
 

@@ -29,7 +29,7 @@
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
 #include "defaults.h"
-
+#include "readdir-ahead-messages.h"
 static int rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
 
 /*
@@ -257,8 +257,9 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 	/* Verify that the preload buffer is still pending on this data. */
 	if (ctx->next_offset != local->offset) {
-		gf_log(this->name, GF_LOG_ERROR,
-			"Out of sequence directory preload.");
+		gf_msg(this->name, GF_LOG_ERROR,
+                       0, READDIR_AHEAD_MSG_OUT_OF_SEQUENCE,
+                       "Out of sequence directory preload.");
 		ctx->state |= (RDA_FD_BYPASS|RDA_FD_ERROR);
 		ctx->op_errno = EUCLEAN;
 
@@ -429,8 +430,9 @@ rda_releasedir(xlator_t *this, fd_t *fd)
 		STACK_DESTROY(ctx->fill_frame->root);
 
 	if (ctx->stub)
-		gf_log(this->name, GF_LOG_ERROR,
-			"released a directory with a pending stub");
+		gf_msg(this->name, GF_LOG_ERROR, 0,
+		        READDIR_AHEAD_MSG_DIR_RELEASE_PENDING_STUB,
+                       "released a directory with a pending stub");
 
 	GF_FREE(ctx);
 	return 0;
@@ -447,7 +449,8 @@ mem_acct_init(xlator_t *this)
 	ret = xlator_mem_acct_init(this, gf_rda_mt_end + 1);
 
 	if (ret != 0)
-		gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+		gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
+                       READDIR_AHEAD_MSG_NO_MEMORY, "Memory accounting init"
 		       "failed");
 
 out:
@@ -479,14 +482,16 @@ init(xlator_t *this)
         GF_VALIDATE_OR_GOTO("readdir-ahead", this, err);
 
         if (!this->children || this->children->next) {
-                gf_log(this->name,  GF_LOG_ERROR,
+                gf_msg(this->name,  GF_LOG_ERROR, 0,
+                        READDIR_AHEAD_MSG_XLATOR_CHILD_MISCONFIGURED,
                         "FATAL: readdir-ahead not configured with exactly one"
                         " child");
                 goto err;
         }
 
         if (!this->parents) {
-                gf_log(this->name, GF_LOG_WARNING,
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_VOL_MISCONFIGURED,
                         "dangling volume. check volfile ");
         }
 

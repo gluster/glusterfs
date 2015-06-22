@@ -77,7 +77,8 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
         if (ioc_inode == NULL) {
                 local->op_ret = -1;
                 local->op_errno = EINVAL;
-                gf_log (frame->this->name, GF_LOG_WARNING, "ioc_inode is NULL");
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_INODE_NULL, "ioc_inode is NULL");
                 goto out;
         }
 
@@ -125,12 +126,15 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                                 waiter_page->ready = 0;
                                                 need_fault = 1;
                                         } else {
-                                                gf_log (frame->this->name,
-                                                        GF_LOG_TRACE,
-                                                        "validate frame(%p) is "
-                                                        "waiting for in-transit"
-                                                        " page = %p", frame,
-                                                        waiter_page);
+                                                gf_msg_trace (frame->this->name,
+                                                              0,
+                                                              "validate "
+                                                              "frame(%p) is "
+                                                              "waiting for "
+                                                              "in-transit"
+                                                              " page = %p",
+                                                              frame,
+                                                              waiter_page);
                                         }
                                 }
                                 ioc_inode_unlock (ioc_inode);
@@ -193,8 +197,8 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
         }
         ioc_table_unlock (table);
 
-        gf_log (table->xl->name, GF_LOG_TRACE,
-                "adding to inode_lru[%d]", weight);
+        gf_msg_trace (table->xl->name, 0,
+                      "adding to inode_lru[%d]", weight);
 
 out:
         return ioc_inode;
