@@ -776,6 +776,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         pthread_t demote_thread;
         gf_boolean_t  is_promotion_triggered = _gf_false;
         gf_boolean_t  is_demotion_triggered = _gf_false;
+        xlator_t                *any        = NULL;
+        xlator_t                *xlator       = NULL;
 
         conf   = this->private;
 
@@ -797,6 +799,20 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
 
         while (1) {
+
+                /*
+                 * Check if a graph switch occured. If so, stop migration
+                 * thread. It will need to be restarted manually.
+                 */
+                any = THIS->ctx->active->first;
+                xlator = xlator_search_by_name(any, this->name);
+
+                if (xlator != this) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_LOG_TIER_STATUS,
+                                "Detected graph switch. Exiting migration daemon.");
+                        goto out;
+                }
 
                 sleep(1);
 
