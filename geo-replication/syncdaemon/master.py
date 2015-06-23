@@ -476,7 +476,7 @@ class GMasterCommon(object):
         return True
 
     def should_crawl(self):
-        if not gconf.use_meta_volume:
+        if not boolify(gconf.use_meta_volume):
             return gconf.glusterd_uuid in self.master.server.node_uuid()
 
         if not os.path.ismount(gconf.meta_volume_mnt):
