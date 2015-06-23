@@ -23,7 +23,7 @@ glusterd_svc_create_rundir (char *rundir)
 {
         int ret      = -1;
 
-        ret = mkdir (rundir, 0777);
+        ret = mkdir_p (rundir, 0777, _gf_true);
         if ((ret == -1) && (EEXIST != errno)) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED, "Unable to create rundir %s",
