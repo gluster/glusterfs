@@ -52,6 +52,15 @@ function confirm_vol_stopped {
     fi
 }
 
+function check_counters_nonzero {
+    $CLI volume rebalance $V0 tier status | grep ' 0 '
+    if [ $? == 0 ]; then
+        echo "1"
+    else
+        echo "0"
+    fi
+}
+
 DEMOTE_TIMEOUT=12
 PROMOTE_TIMEOUT=5
 MIGRATION_TIMEOUT=10
@@ -62,12 +71,17 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
 # testing bug 1215122, ie should fail if replica count and bricks are not compatible.
+
 TEST ! $CLI volume attach-tier $V0 replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 TEST $CLI volume start $V0
 
+# The following two commands instigate a graph switch. Do them
+# before attaching the tier. If done on a tiered volume the rebalance
+# daemon will terminate and must be restarted manually.
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
+
 TEST $CLI volume set $V0 features.ctr-enabled on
 
 #Not a tier volume
@@ -77,6 +91,8 @@ TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST ! $CLI volume detach-tier $V0 commit force
 
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+$CLI volume rebalance $V0 tier status
 
 #Tier options expect non-negative value
 TEST ! $CLI volume set $V0 cluster.tier-promote-frequency -1
@@ -128,12 +144,11 @@ sleep 5
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data2.txt
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data3.txt
 
+EXPECT "0" check_counters_nonzero
+
 # stop gluster, when it comes back info file should have tiered volume
 killall glusterd
 TEST glusterd
-
-# Test rebalance commands
-TEST $CLI volume rebalance $V0 tier status
 
 TEST $CLI volume detach-tier $V0 start
 
