@@ -2470,6 +2470,10 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                                         "update peer %s", peerinfo->hostname);
                                 goto out;
                         }
+                        ret = glusterd_store_peerinfo (peerinfo);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to store peerinfo");
                 }
 
                 peerinfo = NULL;
