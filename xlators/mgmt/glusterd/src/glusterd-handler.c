@@ -2773,7 +2773,13 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                                         GD_MSG_PEER_INFO_UPDATE_FAIL,
                                         "Failed to "
                                         "update peer %s", peerinfo->hostname);
+                                goto unlock;
                         }
+                        ret = glusterd_store_peerinfo (peerinfo);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_PEERINFO_CREATE_FAIL,
+                                        "Failed to store peerinfo");
                 }
 unlock:
                 rcu_read_unlock ();
