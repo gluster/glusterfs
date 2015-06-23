@@ -442,8 +442,8 @@ class GMasterCommon(object):
 
     def mgmt_lock(self):
         """Take management volume lock """
-        bname = str(self.uuid) + "_subvol_" + str(gconf.subvol_num) \
-            + ".lock"
+        bname = str(self.uuid) + "_" + str(gconf.slave_id) + "_subvol_" \
+            + str(gconf.subvol_num) + ".lock"
         mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
         path = os.path.join(mgmt_lock_dir, bname)
         logging.debug("lock_file_path: %s" % path)
