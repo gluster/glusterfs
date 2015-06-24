@@ -118,7 +118,7 @@ stripe_xattr_aggregate (char *buffer, stripe_local_t *local, int32_t *total)
 
         for (i = 0; i < local->nallocs; i++) {
                 xattr = local->xattr_list + i;
-                len = xattr->xattr_len;
+                len = xattr->xattr_len - 1; /* length includes \0 */
 
                 if (len && xattr && xattr->xattr_value) {
                         memcpy (buffer, xattr->xattr_value, len);
