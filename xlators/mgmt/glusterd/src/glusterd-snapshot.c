@@ -2252,7 +2252,8 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
 out:
 
         if (ret && err_str[0] != '\0') {
-                gf_log (this->name, loglevel, "%s", err_str);
+                gf_msg (this->name, loglevel, 0,
+                        GD_MSG_SNAP_CLONE_PREVAL_FAILED, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
         }
 

@@ -23,6 +23,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-hooks.h"
+#include "glusterd-messages.h"
 
 #include <fnmatch.h>
 
@@ -84,16 +85,18 @@ glusterd_hooks_create_hooks_directory (char *basedir)
         snprintf (path, sizeof (path), "%s/hooks", basedir);
         ret = mkdir_p (path, 0777, _gf_true);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due"
-                         "to %s", path, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create %s",
+                        path);
                 goto out;
         }
 
         GLUSTERD_GET_HOOKS_DIR (version_dir, GLUSTERD_HOOK_VER, priv);
         ret = mkdir_p (version_dir, 0777, _gf_true);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due "
-                        "to %s", version_dir, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create %s",
+                        version_dir);
                 goto out;
         }
 
@@ -106,9 +109,10 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                           cmd_subdir);
                 ret = mkdir_p (path, 0777, _gf_true);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_CRITICAL,
-                                "Unable to create %s due to %s",
-                                path, strerror (errno));
+                        gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_CREATE_DIR_FAILED,
+                                "Unable to create %s",
+                                path);
                         goto out;
                 }
 
@@ -118,9 +122,10 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                                   version_dir, cmd_subdir, type_subdir[type]);
                         ret = mkdir_p (path, 0777, _gf_true);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_CRITICAL,
-                                        "Unable to create %s due to %s",
-                                        path, strerror (errno));
+                                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_CREATE_DIR_FAILED,
+                                        "Unable to create %s",
+                                        path);
                                 goto out;
                         }
                 }
@@ -171,10 +176,10 @@ glusterd_hooks_add_custom_args (dict_t *dict, runner_t *runner)
 
         ret = dict_get_str (dict, "hooks_args", &hooks_args);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "No Hooks Arguments.");
         else
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Hooks Args = %s", hooks_args);
 
         if (hooks_args)
@@ -332,7 +337,8 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 
         ret = dict_get_str (op_ctx, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to get volname "
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get volname "
                         "from operation context");
                 goto out;
         }
@@ -340,8 +346,10 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
         hookdir = opendir (hooks_path);
         if (!hookdir) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open dir %s, due "
-                        "to %s", hooks_path, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
+                        "Failed to open dir %s",
+                        hooks_path);
                 goto out;
         }
 
@@ -385,7 +393,8 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                 runner_argprintf (&runner, "--volname=%s", volname);
                 ret = glusterd_hooks_add_op_args (&runner, op, op_ctx, type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to add "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_ADD_OP_ARGS_FAIL, "Failed to add "
                                 "command specific arguments");
                         goto out;
                 }
@@ -475,7 +484,8 @@ glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
         ret = 0;
 out:
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialize "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_POST_HOOK_STUB_INIT_FAIL, "Failed to initialize "
                         "post hooks stub");
                 glusterd_hooks_stub_cleanup (hooks_stub);
         }
@@ -487,7 +497,8 @@ void
 glusterd_hooks_stub_cleanup (glusterd_hooks_stub_t *stub)
 {
         if (!stub) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  GD_MSG_HOOK_STUB_NULL,
                                   "hooks_stub is NULL");
                 return;
         }
@@ -577,7 +588,8 @@ glusterd_hooks_spawn_worker (xlator_t *this)
         ret = pthread_create (&hooks_priv->worker, NULL, hooks_worker,
                               (void *)this);
         if (ret)
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn post "
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_SPAWN_THREADS_FAIL, "Failed to spawn post "
                         "hooks worker thread");
 out:
         return ret;

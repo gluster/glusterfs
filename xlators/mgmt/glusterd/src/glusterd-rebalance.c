@@ -422,7 +422,9 @@ glusterd_rebalance_cmd_validate (int cmd, char *volname,
 
         ret = glusterd_disallow_op_for_tier (*volinfo, GD_OP_REBALANCE, cmd);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Received rebalance command "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_REBALANCE_CMD_IN_TIER_VOL,
+                        "Received rebalance command "
                         "on Tier volume %s", volname);
                 snprintf (op_errstr, len, "Rebalance operations are not "
                           "supported on a tiered volume");
@@ -548,13 +550,16 @@ glusterd_brick_validation  (dict_t *dict, char *key, data_t *value,
         ret = glusterd_volume_brickinfo_get_by_brick (value->data, volinfo,
                                                       &brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Incorrect brick %s for "
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_BRICK_NOT_FOUND,
+                        "Incorrect brick %s for "
                         "volume %s", value->data, volinfo->volname);
                 return ret;
         }
 
         if (!brickinfo->decommissioned) {
-                gf_log (this->name, GF_LOG_ERROR, "Incorrect brick %s for "
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_BRICK_NOT_FOUND, "Incorrect brick %s for "
                         "volume %s", value->data, volinfo->volname);
                 ret = -1;
                 return ret;

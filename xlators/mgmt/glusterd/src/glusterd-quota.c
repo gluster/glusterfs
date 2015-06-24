@@ -400,7 +400,9 @@ glusterd_inode_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
         ret = dict_set_dynstr_with_alloc (volinfo->dict,
                                           VKEY_FEATURES_INODE_QUOTA, "on");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
+                        "dict set failed");
                 goto out;
         }
 
@@ -466,7 +468,8 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                                           "features.quota-deem-statfs",
                                           "on");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "setting quota-deem-statfs"
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "setting quota-deem-statfs"
                         "in volinfo failed");
                 goto out;
         }
@@ -838,21 +841,25 @@ out:
         } else if (!ret) {
                 ret = gf_store_rename_tmppath (volinfo->quota_conf_shandle);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to rename "
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
+                                "Failed to rename "
                                 "quota conf file");
                         return ret;
                 }
 
                 ret = glusterd_compute_cksum (volinfo, _gf_true);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_CKSUM_COMPUTE_FAIL, "Failed to "
                                 "compute cksum for quota conf file");
                         return ret;
                 }
 
                 ret = glusterd_store_save_quota_version_and_cksum (volinfo);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CKSUM_VER_STORE_FAIL, "Failed to "
                                 "store quota version and cksum");
         }
 
@@ -1823,7 +1830,8 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
  out:
         if (ret && op_errstr && *op_errstr)
-                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_QUOTA_FAIL, "%s", *op_errstr);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
 
          return ret;

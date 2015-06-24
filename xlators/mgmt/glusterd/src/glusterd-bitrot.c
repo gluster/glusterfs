@@ -21,6 +21,7 @@
 #include "byte-order.h"
 #include "compat-errno.h"
 #include "glusterd-scrub-svc.h"
+#include "glusterd-messages.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -70,7 +71,8 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL, "failed to "
                                 "unserialize req-buffer to dictionary");
                         snprintf (msg, sizeof (msg), "Unable to decode the "
                                   "command");
@@ -83,7 +85,8 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get volume name");
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name, "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name, "
                         "while handling bitrot command");
                 goto out;
         }
@@ -91,7 +94,8 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get type of command");
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get type of cmd, "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get type of cmd, "
                         "while handling bitrot command");
                 goto out;
         }
@@ -138,7 +142,8 @@ glusterd_bitrot_scrub_throttle (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "scrub-throttle-value", &scrub_throttle);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub-"
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch scrub-"
                         "throttle value");
                 goto out;
         }
@@ -146,14 +151,17 @@ glusterd_bitrot_scrub_throttle (glusterd_volinfo_t *volinfo, dict_t *dict,
         option = gf_strdup (scrub_throttle);
         ret = dict_set_dynstr (volinfo->dict, key, option);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set option %s",
                         key);
                 goto out;
         }
 
         ret = glusterd_scrubsvc_reconfigure ();
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SCRUBSVC_RECONF_FAIL,
+                        "Failed to reconfigure scrub "
                         "services");
                 goto out;
         }
@@ -176,7 +184,8 @@ glusterd_bitrot_scrub_freq (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "scrub-frequency-value", &scrub_freq);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub-"
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch scrub-"
                         "freq value");
                 goto out;
         }
@@ -184,14 +193,17 @@ glusterd_bitrot_scrub_freq (glusterd_volinfo_t *volinfo, dict_t *dict,
         option = gf_strdup (scrub_freq);
         ret = dict_set_dynstr (volinfo->dict, key, option);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set option %s",
                         key);
                 goto out;
         }
 
         ret = glusterd_scrubsvc_reconfigure ();
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SCRUBSVC_RECONF_FAIL,
+                        "Failed to reconfigure scrub "
                         "services");
                 goto out;
         }
@@ -214,7 +226,8 @@ glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "scrub-value", &scrub_value);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch scrub"
                         "value");
                 goto out;
         }
@@ -227,14 +240,17 @@ glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_set_dynstr (volinfo->dict, key, option);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set option %s",
                         key);
                 goto out;
         }
 
         ret = glusterd_scrubsvc_reconfigure ();
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SCRUBSVC_RECONF_FAIL,
+                        "Failed to reconfigure scrub "
                         "services");
                 goto out;
         }
@@ -257,7 +273,8 @@ glusterd_bitrot_expiry_time (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_uint32 (dict, "expiry-time", &expiry_time);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get bitrot expiry"
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get bitrot expiry"
                         " timer value.");
                 goto out;
         }
@@ -266,14 +283,17 @@ glusterd_bitrot_expiry_time (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_set_dynstr_with_alloc (volinfo->dict, key, dkey);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set option %s",
                         key);
                 goto out;
         }
 
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure bitrot"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BITDSVC_RECONF_FAIL,
+                        "Failed to reconfigure bitrot"
                          "services");
                 goto out;
         }
@@ -310,7 +330,8 @@ glusterd_bitrot_enable (glusterd_volinfo_t *volinfo, char **op_errstr)
         ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_BITROT,
                                           "on");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
                 goto out;
         }
 
@@ -318,7 +339,8 @@ glusterd_bitrot_enable (glusterd_volinfo_t *volinfo, char **op_errstr)
         ret = dict_set_dynstr_with_alloc (volinfo->dict, "features.scrub",
                                           "Active");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set option "
                         "features.scrub value");
                 goto out;
         }
@@ -346,7 +368,8 @@ glusterd_bitrot_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_BITROT,
                                           "off");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
                 goto out;
         }
 
@@ -354,7 +377,8 @@ glusterd_bitrot_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         ret = dict_set_dynstr_with_alloc (volinfo->dict, "features.scrub",
                                           "Inactive");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set "
                         "features.scrub value");
                 goto out;
         }
@@ -456,7 +480,8 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -468,7 +493,8 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get type from "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get type from "
                         "dict");
                 goto out;
         }
@@ -531,7 +557,8 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to re-create "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL, "Unable to re-create "
                         "volfiles");
                 ret = -1;
                 goto out;
@@ -540,7 +567,7 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to store volinfo for "
+                gf_msg_debug (this->name, 0, "Failed to store volinfo for "
                         "bitrot");
                 goto out;
         }
@@ -572,7 +599,8 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -591,7 +619,8 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get type for "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get type for "
                         "operation");
 
                 *op_errstr = gf_strdup ("Staging stage failed for bitrot "
@@ -614,7 +643,8 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (!ret) {
                         ret = dict_get_str (dict, "scrub-value", &scrub_cmd);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_DICT_GET_FAILED, "Unable to "
                                         "get scrub-value");
                                 *op_errstr = gf_strdup ("Staging failed for "
                                                         "bitrot operation. "
@@ -641,8 +671,9 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
  out:
         if (ret && op_errstr && *op_errstr)
-                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_BITROT_FAIL, "%s", *op_errstr);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }

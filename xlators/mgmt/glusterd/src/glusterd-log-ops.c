@@ -67,7 +67,9 @@ __glusterd_handle_log_rotate (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received log rotate req "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_LOG_ROTATE_REQ_RECVD,
+                "Received log rotate req "
                 "for volume %s", volname);
 
         ret = dict_set_uint64 (dict, "rotate-key", (uint64_t)time (NULL));

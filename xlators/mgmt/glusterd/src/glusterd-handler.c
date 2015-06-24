@@ -693,7 +693,8 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                  * not be held */
                 ret = dict_get_str (dict, "volname", &tmp);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                GD_MSG_DICT_GET_FAILED,
                                 "No Volume name present. "
                                 "Locks not being held.");
                         goto local_locking_done;
@@ -1158,7 +1159,9 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received CLI probe req %s %d",
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_CLI_REQ_RECVD,
+                "Received CLI probe req %s %d",
                 hostname, port);
 
         if (dict_get_str(this->options,"transport.socket.bind-address",
@@ -1269,7 +1272,9 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 }
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received CLI deprobe req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_CLI_REQ_RECVD,
+                "Received CLI deprobe req");
 
         ret = dict_get_str (dict, "hostname", &hostname);
         if (ret) {
@@ -1388,7 +1393,9 @@ __glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received cli list req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_CLI_REQ_RECVD,
+                "Received cli list req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -1447,7 +1454,9 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received get vol req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_GET_VOL_REQ_RCVD,
+                "Received get vol req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -1839,7 +1848,7 @@ __glusterd_handle_ganesha_cmd (rpcsvc_request_t *req)
                 }
         }
 
-        gf_log (this->name, GF_LOG_TRACE, "Received global option request");
+        gf_msg_trace (this->name, 0, "Received global option request");
 
         ret = glusterd_op_begin_synctask (req, GD_OP_GANESHA, dict);
 out:
@@ -2119,7 +2128,8 @@ __glusterd_handle_sync_volume (rpcsvc_request_t *req)
                 }
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received volume sync req "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_VOL_SYNC_REQ_RCVD, "Received volume sync req "
                 "for volume %s", (flags & GF_CLI_SYNC_ALL) ? "all" : volname);
 
         if (gf_is_local_addr (hostname)) {
@@ -2511,7 +2521,8 @@ __glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_PROBE_RCVD,
                 "Received probe from uuid: %s", uuid_utoa (friend_req.uuid));
         ret = glusterd_handle_friend_req (req, friend_req.uuid,
                                           friend_req.hostname, friend_req.port,
@@ -2560,7 +2571,8 @@ __glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_UNFRIEND_REQ_RCVD,
                 "Received unfriend from uuid: %s", uuid_utoa (friend_req.uuid));
 
         ret = glusterd_remote_hostname_get (req, remote_hostname,
@@ -2685,7 +2697,8 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_FRIEND_UPDATE_RCVD,
                 "Received friend update from uuid: %s", uuid_utoa (friend_req.uuid));
 
         if (friend_req.friends.friends_len) {
@@ -2729,7 +2742,8 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                 gf_uuid_parse (uuid_buf, uuid);
 
                 if (!gf_uuid_compare (uuid, MY_UUID)) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_UUID_RECEIVED,
                                 "Received my uuid as Friend");
                         i++;
                         continue;
@@ -2852,7 +2866,8 @@ __glusterd_handle_probe_query (rpcsvc_request_t *req)
         else
                 port = GF_DEFAULT_BASE_PORT;
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_PROBE_RCVD,
                 "Received probe from uuid: %s", uuid_utoa (probe_req.uuid));
 
         /* Check for uuid collision and handle it in a user friendly way by
@@ -2885,7 +2900,9 @@ __glusterd_handle_probe_query (rpcsvc_request_t *req)
                 rsp.op_ret = -1;
                 rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
         } else if (peerinfo == NULL) {
-                gf_log ("glusterd", GF_LOG_INFO, "Unable to find peerinfo"
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_PEER_NOT_FOUND,
+                        "Unable to find peerinfo"
                         " for host: %s (%d)", remote_hostname, port);
                 args.mode = GD_MODE_ON;
                 ret = glusterd_friend_add (remote_hostname, port,
@@ -2911,7 +2928,8 @@ respond:
                                (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
         ret = 0;
 
-        gf_log ("glusterd", GF_LOG_INFO, "Responded to %s, op_ret: %d, "
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO, "Responded to %s, op_ret: %d, "
                 "op_errno: %d, ret: %d", remote_hostname,
                 rsp.op_ret, rsp.op_errno, ret);
 
@@ -2972,7 +2990,9 @@ __glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received volume profile req "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_VOL_PROFILE_REQ_RCVD,
+                "Received volume profile req "
                 "for volume %s", volname);
         ret = dict_get_int32 (dict, "op", &op);
         if (ret) {
@@ -3021,7 +3041,8 @@ __glusterd_handle_getwd (rpcsvc_request_t *req)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received getwd req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_GETWD_REQ_RCVD, "Received getwd req");
 
         rsp.wd = priv->workdir;
 
@@ -3066,7 +3087,9 @@ __glusterd_handle_mount (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received mount req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_MOUNT_REQ_RCVD,
+                "Received mount req");
 
         if (mnt_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -3150,7 +3173,9 @@ __glusterd_handle_umount (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received umount req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_UMOUNT_REQ_RCVD,
+                "Received umount req");
 
         if (dict_get_str (this->options, "mountbroker-root",
                           &mountbroker_root) != 0) {
@@ -3472,7 +3497,8 @@ glusterd_friend_add (const char *hoststr, int port,
         }
 
 out:
-        gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CONNECT_RETURNED, "connect returned %d", ret);
         return ret;
 }
 
@@ -3521,7 +3547,9 @@ glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
         }
 
 out:
-        gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CONNECT_RETURNED,
+                "connect returned %d", ret);
         return ret;
 }
 
@@ -3540,7 +3568,8 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
         peerinfo = glusterd_peerinfo_find (NULL, hoststr);
 
         if (peerinfo == NULL) {
-                gf_log ("glusterd", GF_LOG_INFO, "Unable to find peerinfo"
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Unable to find peerinfo"
                         " for host: %s (%d)", hoststr, port);
                 args.mode = GD_MODE_ON;
                 args.req  = req;
@@ -3604,7 +3633,8 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
         peerinfo = glusterd_peerinfo_find (uuid, hoststr);
         if (peerinfo == NULL) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_INFO, "Unable to find peerinfo"
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Unable to find peerinfo"
                         " for host: %s %d", hoststr, port);
                 goto out;
         }
@@ -3685,7 +3715,8 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
         return ret;
 }
@@ -3717,7 +3748,8 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO,
                 "Responded to %s (%d), ret: %d", remote_hostname, port, ret);
         GF_FREE (rsp.hostname);
         return ret;
@@ -4203,7 +4235,8 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
                                 GD_MSG_VOL_NOT_FOUND, "%s", err_str);
                         goto out;
                 }
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_STATUS_VOL_REQ_RCVD,
                         "Received status volume req for volume %s", volname);
 
         }
@@ -4326,7 +4359,8 @@ __glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received clear-locks volume req "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CLRCLK_VOL_REQ_RCVD, "Received clear-locks volume req "
                 "for volume %s", volname);
 
         ret = glusterd_op_begin_synctask (req, GD_OP_CLEARLOCKS_VOLUME, dict);
@@ -4448,7 +4482,9 @@ __glusterd_handle_barrier (rpcsvc_request_t *req)
                         "dict");
                 goto out;
         }
-        gf_log (this->name, GF_LOG_INFO, "Received barrier volume request for "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_BARRIER_VOL_REQ_RCVD,
+                "Received barrier volume request for "
                 "volume %s", volname);
 
         ret = glusterd_op_begin_synctask (req, GD_OP_BARRIER, dict);
@@ -4803,7 +4839,8 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                  * need to stop the brick
                  */
                 if (brickinfo->snap_status == -1) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_SNAPSHOT_PENDING,
                                 "Snapshot is pending on %s:%s. "
                                 "Hence not starting the brick",
                                 brickinfo->hostname,
