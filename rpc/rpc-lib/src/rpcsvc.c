@@ -631,8 +631,10 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                         gf_log (GF_RPCSVC, GF_LOG_ERROR,
                                 "Request received from non-"
                                 "privileged port. Failing request");
-                        rpcsvc_request_destroy (req);
-                        return -1;
+                        req->rpc_status = MSG_DENIED;
+                        req->rpc_err = AUTH_ERROR;
+                        req->auth_err = RPCSVC_AUTH_REJECT;
+                        goto err_reply;
         }
 
         /* DRC */
