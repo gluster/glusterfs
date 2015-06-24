@@ -96,6 +96,7 @@ struct _call_stack_t {
         uid_t                         uid;
         gid_t                         gid;
         pid_t                         pid;
+        char                          identifier[UNIX_PATH_MAX];
         uint16_t                      ngrps;
         uint32_t                      groups_small[SMALL_GROUP_COUNT];
 	uint32_t                     *groups_large;

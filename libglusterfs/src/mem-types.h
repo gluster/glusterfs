@@ -128,6 +128,8 @@ enum gf_common_mem_types_ {
         gf_common_mt_ereg,
         gf_common_mt_wr,
         gf_common_mt_rdma_arena_mr,
+        gf_common_mt_dnscache             = 115,
+        gf_common_mt_dnscache_entry       = 116,
         gf_common_mt_parser_t,
         gf_common_quota_meta_t,
         /*related to gfdb library*/

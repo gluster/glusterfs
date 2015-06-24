@@ -159,6 +159,27 @@ typedef struct dht_changelog_rename_info {
 
 typedef int (*gf_cmp) (void *, void *);
 
+struct _dict;
+
+struct dnscache {
+        struct _dict *cache_dict;
+        time_t ttl;
+};
+
+struct dnscache_entry {
+        char *ip;
+        char *fqdn;
+        time_t timestamp;
+};
+
+
+struct dnscache *gf_dnscache_init (time_t ttl);
+struct dnscache_entry *gf_dnscache_entry_init ();
+void gf_dnscache_entry_deinit (struct dnscache_entry *entry);
+char *gf_rev_dns_lookup_cached (const char *ip, struct dnscache *dnscache);
+
+char *gf_resolve_path_parent (const char *path);
+
 void gf_global_variable_init(void);
 
 int32_t gf_resolve_ip6 (const char *hostname, uint16_t port, int family,

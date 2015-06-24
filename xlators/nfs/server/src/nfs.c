@@ -639,8 +639,8 @@ nfs_user_root_create (nfs_user_t *newnfu)
 
 
 int
-nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid, gid_t *auxgids,
-                 int auxcount)
+nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid,
+                 rpc_transport_t *trans, gid_t *auxgids, int auxcount)
 {
         int     x = 1;
         int     y = 0;
@@ -655,6 +655,10 @@ nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid, gid_t *auxgids,
         newnfu->uid = uid;
         newnfu->gids[0] = gid;
         newnfu->ngrps = 1;
+        if (trans) {
+                memcpy (&newnfu->identifier, trans->peerinfo.identifier,
+                       UNIX_PATH_MAX);
+        }
 
         gf_msg_trace (GF_NFS, 0, "uid: %d, gid %d, gids: %d", uid, gid,
                 auxcount);
@@ -683,7 +687,9 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
 
         gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
         nfs_user_create (nfu, rpcsvc_request_uid (req),
-                         rpcsvc_request_gid (req), gidarr, gids);
+                         rpcsvc_request_gid (req),
+                         rpcsvc_request_transport (req),
+                         gidarr, gids);
 
         return;
 }
@@ -699,7 +705,8 @@ nfs_request_primary_user_init (nfs_user_t *nfu, rpcsvc_request_t *req,
                 return;
 
         gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
-        nfs_user_create (nfu, uid, gid, gidarr, gids);
+        nfs_user_create (nfu, uid, gid, rpcsvc_request_transport (req),
+                         gidarr, gids);
 
         return;
 }

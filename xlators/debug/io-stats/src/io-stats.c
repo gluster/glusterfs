@@ -34,8 +34,12 @@
 #include "logging.h"
 #include "cli1-xdr.h"
 #include "statedump.h"
+#include <pwd.h>
+#include <grp.h>
 
 #define MAX_LIST_MEMBERS 100
+#define DEFAULT_PWD_BUF_SZ 16384
+#define DEFAULT_GRP_BUF_SZ 16384
 
 typedef enum {
         IOS_STATS_TYPE_NONE,
@@ -82,6 +86,25 @@ struct ios_stat_head {
        struct ios_stat_list    *iosstats;
 };
 
+typedef struct _ios_sample_t {
+        uid_t  uid;
+        gid_t  gid;
+        char   identifier[UNIX_PATH_MAX];
+        glusterfs_fop_t fop_type;
+        struct timeval timestamp;
+        double elapsed;
+} ios_sample_t;
+
+
+typedef struct _ios_sample_buf_t {
+        uint64_t        pos;  /* Position in write buffer */
+        uint64_t        size;  /* Size of ring buffer */
+        uint64_t        collected;  /* Number of samples we've collected */
+        uint64_t        observed;  /* Number of FOPs we've observed */
+        ios_sample_t    *ios_samples;  /* Our list of samples */
+} ios_sample_buf_t;
+
+
 struct ios_lat {
         double      min;
         double      max;
@@ -102,7 +125,6 @@ struct ios_global_stats {
         struct timeval  max_openfd_time;
 };
 
-
 struct ios_conf {
         gf_lock_t                 lock;
         struct ios_global_stats   cumulative;
@@ -116,6 +138,12 @@ struct ios_conf {
         int32_t                   ios_dump_interval;
         pthread_t                 dump_thread;
         gf_boolean_t              dump_thread_should_die;
+        gf_lock_t                 ios_sampling_lock;
+        int32_t                   ios_sample_interval;
+        int32_t                   ios_sample_buf_size;
+        ios_sample_buf_t          *ios_sample_buf;
+        struct dnscache           *dnscache;
+        int32_t                   ios_dnscache_ttl_sec;
 };
 
 
@@ -133,7 +161,8 @@ typedef enum {
         IOS_DUMP_TYPE_FILE      = 1,
         IOS_DUMP_TYPE_DICT      = 2,
         IOS_DUMP_TYPE_JSON_FILE = 3,
-        IOS_DUMP_TYPE_MAX       = 4
+        IOS_DUMP_TYPE_SAMPLES   = 4,
+        IOS_DUMP_TYPE_MAX       = 5
 } ios_dump_type_t;
 
 struct ios_dump_args {
@@ -163,6 +192,7 @@ is_fop_latency_started (call_frame_t *frame)
 }
 
 #ifdef GF_LINUX_HOST_OS
+const char *_IOS_SAMP_DIR = "/var/log/glusterfs/samples";
 #define _IOS_DUMP_DIR DATADIR "/lib/glusterd/stats"
 #else
 #define _IOS_DUMP_DIR DATADIR "/db/glusterd/stats"
@@ -427,6 +457,72 @@ ios_inode_ctx_get (inode_t *inode, xlator_t *this, struct ios_stat **iosstat)
 
         return ret;
 
+}
+
+/*
+ * So why goto all this trouble?  Why not just queue up some samples in
+ * a big list and malloc away?  Well malloc is expensive relative
+ * to what we are measuring, so cannot have any malloc's (or worse
+ * callocs) in our measurement code paths.  Instead, we are going to
+ * pre-allocate a circular buffer and collect a maximum number of samples.
+ * Prior to dumping them all we'll create a new buffer and swap the
+ * old buffer with the new, and then proceed to dump the statistics
+ * in our dump thread.
+ *
+ */
+ios_sample_buf_t *
+ios_create_sample_buf (size_t buf_size)
+{
+        ios_sample_buf_t *ios_sample_buf = NULL;
+        ios_sample_t     *ios_samples = NULL;
+
+        ios_sample_buf = GF_CALLOC (1,
+                sizeof (*ios_sample_buf),
+                gf_io_stats_mt_ios_sample_buf);
+        if (!ios_sample_buf)
+                goto err;
+
+        ios_samples = GF_CALLOC (buf_size,
+                sizeof (*ios_samples),
+                gf_io_stats_mt_ios_sample);
+
+        if (!ios_samples)
+                goto err;
+
+        ios_sample_buf->ios_samples = ios_samples;
+        ios_sample_buf->size = buf_size;
+        ios_sample_buf->pos = 0;
+        ios_sample_buf->observed = 0;
+        ios_sample_buf->collected = 0;
+
+        return ios_sample_buf;
+err:
+        GF_FREE (ios_sample_buf);
+        return NULL;
+}
+
+void
+ios_destroy_sample_buf (ios_sample_buf_t *ios_sample_buf)
+{
+        GF_FREE (ios_sample_buf->ios_samples);
+        GF_FREE (ios_sample_buf);
+}
+
+static int
+ios_init_sample_buf (struct ios_conf *conf)
+{
+        int32_t        ret = -1;
+
+        GF_ASSERT (conf);
+        LOCK (&conf->lock);
+        conf->ios_sample_buf = ios_create_sample_buf (
+                conf->ios_sample_buf_size);
+        if (!conf->ios_sample_buf)
+                goto out;
+        ret = 0;
+out:
+        UNLOCK (&conf->lock);
+        return ret;
 }
 
 int
@@ -812,6 +908,230 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         ret = 0;
 out:
         GF_FREE (key_prefix);
+        return ret;
+}
+
+char *
+_resolve_username (xlator_t *this, uid_t uid)
+{
+        struct passwd pwd;
+        struct passwd *pwd_result = NULL;
+        size_t pwd_buf_len;
+        char   *pwd_buf = NULL;
+        char   *ret = NULL;
+
+        /* Prepare our buffer for the uid->username translation */
+#ifdef _SC_GETGR_R_SIZE_MAX
+        pwd_buf_len = sysconf (_SC_GETGR_R_SIZE_MAX);
+#else
+        pwd_buf_len = -1;
+#endif
+        if (pwd_buf_len == -1) {
+                pwd_buf_len = DEFAULT_PWD_BUF_SZ;  /* per the man page */
+        }
+
+        pwd_buf = alloca (pwd_buf_len);
+        if (!pwd_buf)
+                goto err;
+
+        getpwuid_r (uid, &pwd, pwd_buf, pwd_buf_len,
+                   &pwd_result);
+        if (!pwd_result)
+                goto err;
+
+        ret = gf_strdup (pwd.pw_name);
+        if (ret)
+                return ret;
+        else
+                gf_log (this->name, GF_LOG_ERROR,
+                        "gf_strdup failed, failing username "
+                        "resolution.");
+err:
+        return ret;
+}
+
+char *
+_resolve_group_name (xlator_t *this, gid_t gid)
+{
+        struct group grp;
+        struct group *grp_result = NULL;
+        size_t grp_buf_len;
+        char   *grp_buf = NULL;
+        char   *ret = NULL;
+
+        /* Prepare our buffer for the gid->group name translation */
+#ifdef _SC_GETGR_R_SIZE_MAX
+        grp_buf_len = sysconf (_SC_GETGR_R_SIZE_MAX);
+#else
+        grp_buf_len = -1;
+#endif
+        if (grp_buf_len == -1) {
+                grp_buf_len = DEFAULT_GRP_BUF_SZ;  /* per the man page */
+        }
+
+        grp_buf = alloca (grp_buf_len);
+        if (!grp_buf) {
+                goto err;
+        }
+
+        getgrgid_r (gid, &grp, grp_buf, grp_buf_len,
+                   &grp_result);
+        if (!grp_result)
+                goto err;
+
+        ret = gf_strdup (grp.gr_name);
+        if (ret)
+                return ret;
+        else
+                gf_log (this->name, GF_LOG_ERROR,
+                        "gf_strdup failed, failing username "
+                        "resolution.");
+err:
+        return ret;
+}
+
+
+/*
+ * This function writes out a latency sample to a given file descriptor
+ * and beautifies the output in the process.
+ */
+void
+_io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
+                                FILE *logfp)
+{
+        double epoch_time = 0.00;
+        char   *xlator_name = NULL;
+        char   *instance_name = NULL;
+        char   *hostname = NULL;
+        char   *identifier = NULL;
+        char   *port = NULL;
+        char   *port_pos = NULL;
+        char   *group_name = NULL;
+        char   *username = NULL;
+        struct ios_conf *conf = NULL;
+
+        conf = this->private;
+
+        epoch_time = (sample->timestamp).tv_sec +
+          ((sample->timestamp).tv_usec / 1000000.0);
+
+        if (!sample->identifier || (strlen (sample->identifier) == 0)) {
+                hostname = "Unknown";
+                port = "Unknown";
+        } else {
+                identifier = strdupa (sample->identifier);
+                port_pos = strrchr (identifier, ':');
+                if (!port_pos || strlen(port_pos) < 2)
+                        goto err;
+                port = strdupa (port_pos + 1);
+                if (!port)
+                        goto err;
+                *port_pos = '\0';
+                hostname = gf_rev_dns_lookup_cached (identifier,
+                                                     conf->dnscache);
+                if (!hostname)
+                        hostname = "Unknown";
+        }
+
+        xlator_name = this->name;
+        if (!xlator_name || strlen (xlator_name) == 0)
+                xlator_name = "Unknown";
+
+        instance_name = this->instance_name;
+        if (!instance_name || strlen (instance_name) == 0)
+                instance_name = "N/A";
+
+        /* Resolve the UID to a string username */
+        username = _resolve_username (this, sample->uid);
+        if (!username) {
+                username = GF_MALLOC (30, gf_common_mt_char);
+                sprintf (username, "%d", (int32_t)sample->uid);
+        }
+
+        /* Resolve the GID to a string group name */
+        group_name = _resolve_group_name (this, sample->gid);
+        if (!group_name) {
+                group_name = GF_MALLOC (30, gf_common_mt_char);
+                sprintf (group_name, "%d", (int32_t)sample->gid);
+        }
+
+        ios_log (this, logfp,
+                 "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s",
+                 epoch_time, fop_enum_to_pri_string (sample->fop_type),
+                 fop_enum_to_string (sample->fop_type),
+                 sample->elapsed, xlator_name, instance_name, username,
+                 group_name, hostname, port);
+        goto out;
+err:
+        gf_log (this->name, GF_LOG_ERROR,
+                "Error parsing socket identifier");
+out:
+        GF_FREE (group_name);
+        GF_FREE (username);
+}
+
+/*
+ * Takes our current sample buffer in conf->io_sample_buf, and saves
+ * a reference to this, init's a new buffer, and then dumps out the
+ * contents of the saved reference.
+ */
+int
+io_stats_dump_latency_samples_logfp (xlator_t *this, FILE *logfp)
+{
+        uint64_t              i = 0;
+        struct ios_conf       *conf = NULL;
+        ios_sample_buf_t      *sample_buf = NULL;
+        int                   ret = 1;  /* Default to error */
+
+        conf = this->private;
+
+        /* Save pointer to old buffer; the CS equivalent of
+         * Indiana Jones: https://www.youtube.com/watch?v=Pr-8AP0To4k,
+         * though ours will end better I hope!
+         */
+        sample_buf = conf->ios_sample_buf;
+        if (!sample_buf) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Sampling buffer is null, bailing!");
+                goto out;
+        }
+
+        /* Empty case, nothing to do, exit. */
+        if (sample_buf->collected == 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No samples, dump not required.");
+                ret = 0;
+                goto out;
+        }
+
+        /* Init a new buffer, so we are free to work on the one we saved a
+         * reference to above.
+         */
+        if (ios_init_sample_buf (conf) != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to init new sampling buffer, out of memory?");
+                goto out;
+        }
+
+        /* Wrap-around case, dump from pos to sample_buf->size -1
+         * and then from 0 to sample_buf->pos (covered off by
+         * "simple case")
+         */
+        if (sample_buf->collected > sample_buf->pos + 1) {
+                for (i = sample_buf->pos; i < sample_buf->size; i++) {
+                        _io_stats_write_latency_sample (this,
+                                &(sample_buf->ios_samples[i]), logfp);
+                }
+        }
+
+        /* Simple case: Dump from 0 to sample_buf->pos */
+        for (i = 0; i < sample_buf->pos; i++) {
+                _io_stats_write_latency_sample (this,
+                        &(sample_buf->ios_samples[i]), logfp);
+        }
+        ios_destroy_sample_buf (sample_buf);
+
+out:
         return ret;
 }
 
@@ -1284,6 +1604,48 @@ io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
         return 0;
 }
 
+void collect_ios_latency_sample (struct ios_conf *conf,
+                glusterfs_fop_t fop_type, double elapsed,
+                call_frame_t *frame)
+{
+        ios_sample_buf_t *ios_sample_buf = NULL;
+        ios_sample_t     *ios_sample = NULL;
+        struct timeval   *timestamp = NULL;
+        call_stack_t     *root = NULL;
+
+
+        ios_sample_buf = conf->ios_sample_buf;
+        LOCK (&conf->ios_sampling_lock);
+        if (conf->ios_sample_interval == 0 ||
+            ios_sample_buf->observed % conf->ios_sample_interval != 0)
+                goto out;
+
+        timestamp = &frame->begin;
+        root = frame->root;
+
+        ios_sample = &(ios_sample_buf->ios_samples[ios_sample_buf->pos]);
+        ios_sample->elapsed = elapsed;
+        ios_sample->fop_type = fop_type;
+        ios_sample->uid = root->uid;
+        ios_sample->gid = root->gid;
+        (ios_sample->timestamp).tv_sec = timestamp->tv_sec;
+        (ios_sample->timestamp).tv_usec = timestamp->tv_usec;
+        memcpy (&ios_sample->identifier, &root->identifier,
+                sizeof (root->identifier));
+
+        /* We've reached the end of the circular buffer, start from the
+         * beginning. */
+        if (ios_sample_buf->pos == (ios_sample_buf->size - 1))
+                ios_sample_buf->pos = 0;
+        else
+                ios_sample_buf->pos++;
+        ios_sample_buf->collected++;
+out:
+        ios_sample_buf->observed++;
+        UNLOCK (&conf->ios_sampling_lock);
+        return;
+}
+
 static void
 update_ios_latency_stats (struct ios_global_stats   *stats, double elapsed,
                           glusterfs_fop_t op)
@@ -1321,6 +1683,7 @@ update_ios_latency (struct ios_conf *conf, call_frame_t *frame,
 
         update_ios_latency_stats (&conf->cumulative, elapsed, op);
         update_ios_latency_stats (&conf->incremental, elapsed, op);
+        collect_ios_latency_sample (conf, op, elapsed, frame);
 
         return 0;
 }
@@ -1660,7 +2023,7 @@ io_stats_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (iosstat) {
               BUMP_STATS (iosstat, IOS_STATS_TYPE_READDIRP);
-              iosstat = NULL;
+               iosstat = NULL;
         }
 
         STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, buf, xdata);
@@ -2512,14 +2875,18 @@ _ios_destroy_dump_thread (struct ios_conf *conf) {
 void *
 _ios_dump_thread (xlator_t *this) {
         struct ios_conf         *conf = NULL;
-        FILE                    *logfp = NULL;
+        FILE                    *stats_logfp = NULL;
+        FILE                    *samples_logfp = NULL;
         struct ios_dump_args args = {0};
         int                     i;
-        int                     bytes_written = 0;
-        char                    filename[PATH_MAX];
+        int                     stats_bytes_written = 0;
+        int                     samples_bytes_written = 0;
+        char                    stats_filename[PATH_MAX];
+        char                    samples_filename[PATH_MAX];
         char                    *xlator_name;
         char                    *instance_name;
-        gf_boolean_t            log_fopen_failure = _gf_true;
+        gf_boolean_t            log_stats_fopen_failure = _gf_true;
+        gf_boolean_t            log_samples_fopen_failure = _gf_true;
         int                     old_cancel_type;
 
         conf = this->private;
@@ -2546,17 +2913,34 @@ _ios_dump_thread (xlator_t *this) {
                         goto out;
                 }
         }
+        if (mkdir (_IOS_SAMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
+                if (errno != EEXIST) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not create stats-sample directory %s",
+                                _IOS_SAMP_DIR);
+                        goto out;
+                }
+        }
         if (instance_name) {
-                bytes_written = snprintf (filename, PATH_MAX,
+                stats_bytes_written = snprintf (stats_filename, PATH_MAX,
                         "%s/%s_%s_%s.dump", _IOS_DUMP_DIR,
                         __progname, xlator_name, instance_name);
+                samples_bytes_written = snprintf (samples_filename, PATH_MAX,
+                        "%s/%s_%s_%s.samp", _IOS_SAMP_DIR,
+                        __progname, xlator_name, instance_name);
         } else {
-                bytes_written = snprintf (filename, PATH_MAX, "%s/%s_%s.dump",
-                        _IOS_DUMP_DIR, __progname, xlator_name);
+                stats_bytes_written = snprintf (stats_filename, PATH_MAX,
+                        "%s/%s_%s.dump", _IOS_DUMP_DIR, __progname,
+                        xlator_name);
+                samples_bytes_written = snprintf (samples_filename, PATH_MAX,
+                        "%s/%s_%s.samp", _IOS_SAMP_DIR, __progname,
+                        xlator_name);
         }
-        if (bytes_written >= PATH_MAX) {
+        if ((stats_bytes_written >= PATH_MAX) ||
+            (samples_bytes_written >= PATH_MAX)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Invalid path for IO Stats dump: %s", filename);
+                        "Invalid path for stats dump (%s) and/or latency "
+                        "samples (%s)", stats_filename, samples_filename);
                 goto out;
         }
         while (1) {
@@ -2572,22 +2956,32 @@ _ios_dump_thread (xlator_t *this) {
                  * just hold it open and rewind/truncate on each iteration.
                  * Leaving it alone for now.
                  */
-                logfp = fopen (filename, "w+");
-                if (!logfp) {
-                        if (log_fopen_failure) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "could not open stats-dump file %s",
-                                        filename);
-                                log_fopen_failure = _gf_false;
-                        }
-                        continue;
+                stats_logfp = fopen (stats_filename, "w+");
+                if (stats_logfp) {
+                        (void) ios_dump_args_init (&args,
+                                                   IOS_DUMP_TYPE_JSON_FILE,
+                                                   stats_logfp);
+                        io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
+                        fclose (stats_logfp);
+                        log_stats_fopen_failure = _gf_true;
+                } else if (log_stats_fopen_failure) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not open stats-dump file %s (%s)",
+                                stats_filename, strerror(errno));
+                        log_stats_fopen_failure = _gf_false;
                 }
-                (void) ios_dump_args_init (
-                                            &args, IOS_DUMP_TYPE_JSON_FILE,
-                                            logfp);
-                io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
-                fclose (logfp);
-                log_fopen_failure = _gf_true;
+                samples_logfp = fopen (samples_filename, "w+");
+                if (samples_logfp) {
+                        io_stats_dump_latency_samples_logfp (this,
+                                                             samples_logfp);
+                        fclose (samples_logfp);
+                        log_samples_fopen_failure = _gf_true;
+                } else if (log_samples_fopen_failure) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not open samples-dump file %s (%s)",
+                                samples_filename, strerror(errno));
+                        log_samples_fopen_failure = _gf_false;
+                }
         }
 out:
         gf_log (this->name, GF_LOG_INFO, "IO stats dump thread terminated");
@@ -3116,6 +3510,10 @@ reconfigure (xlator_t *this, dict_t *options)
                                 (void *) &_ios_dump_thread, this);
         }
 
+        GF_OPTION_RECONF ("ios-sample-interval", conf->ios_sample_interval,
+                         options, int32, out);
+        GF_OPTION_RECONF ("ios-sample-buf-size", conf->ios_sample_buf_size,
+                         options, int32, out);
         GF_OPTION_RECONF ("sys-log-level", sys_log_str, options, str, out);
         if (sys_log_str) {
                 sys_log_level = glusterd_check_log_level (sys_log_str);
@@ -3229,6 +3627,7 @@ init (xlator_t *this)
          * in case of error paths.
          */
         LOCK_INIT (&conf->lock);
+        LOCK_INIT (&conf->ios_sampling_lock);
 
         gettimeofday (&conf->cumulative.started_at, NULL);
         gettimeofday (&conf->incremental.started_at, NULL);
@@ -3246,6 +3645,22 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("ios-dump-interval", conf->ios_dump_interval,
                         int32, out);
+
+        GF_OPTION_INIT ("ios-sample-interval", conf->ios_sample_interval,
+                        int32, out);
+
+        GF_OPTION_INIT ("ios-sample-buf-size", conf->ios_sample_buf_size,
+                        int32, out);
+
+        if (ios_init_sample_buf (conf) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                return -1;
+        }
+
+        GF_OPTION_INIT ("ios-dnscache-ttl-sec", conf->ios_dnscache_ttl_sec,
+                        int32, out);
+        conf->dnscache = gf_dnscache_init (conf->ios_dnscache_ttl_sec);
 
         GF_OPTION_INIT ("sys-log-level", sys_log_str, str, out);
         if (sys_log_str) {
@@ -3496,6 +3911,29 @@ struct volume_options options[] = {
           .default_value = "5",
           .description = "Interval (in seconds) at which to auto-dump "
                          "statistics. Zero disables automatic dumping."
+        },
+        { .key  = { "ios-sample-interval" },
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .max = 65535,
+          .default_value = "0",
+          .description = "Interval in which we want to collect FOP latency "
+                         "samples.  2 means collect a sample every 2nd FOP."
+        },
+        { .key  = { "ios-sample-buf-size" },
+          .type = GF_OPTION_TYPE_INT,
+          .min = 1024,
+          .max = 1024*1024,
+          .default_value = "65535",
+          .description = "The maximum size of our FOP sampling ring buffer."
+        },
+        { .key  = { "ios-dnscache-ttl-sec" },
+          .type = GF_OPTION_TYPE_INT,
+          .min = 1,
+          .max = 3600 * 72,
+          .default_value = "86400",
+          .description = "The interval after wish a cached DNS entry will be "
+                         "re-validated.  Default: 24 hrs"
         },
         { .key  = { "latency-measurement" },
           .type = GF_OPTION_TYPE_BOOL,

@@ -849,6 +849,21 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "ios-dump-interval",
           .op_version  = 1
         },
+        { .key         = "diagnostics.fop-sample-interval",
+          .voltype     = "debug/io-stats",
+          .option      = "ios-sample-interval",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.fop-sample-buf-size",
+          .voltype     = "debug/io-stats",
+          .option      = "ios-sample-buf-size",
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.stats-dnscache-ttl-sec",
+          .voltype     = "debug/io-stats",
+          .option      = "ios-dnscache-ttl-sec",
+          .op_version  = 1
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",
