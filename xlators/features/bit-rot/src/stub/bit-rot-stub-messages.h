@@ -167,7 +167,14 @@
  * @recommendedaction
  *
  */
-#define BRS_MSG_REMOVE_BAD_OBJECT_XATTR     (GLFS_BITROT_STUB_BASE + 18)
+#define BRS_MSG_REMOVE_INTERNAL_XATTR       (GLFS_BITROT_STUB_BASE + 18)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_SET_INTERNAL_XATTR          (GLFS_BITROT_STUB_BASE + 19)
 /*!
  * @messageid
  * @diagnosis
@@ -182,5 +189,6 @@
  *
  */
 /*------------*/
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_BITROT_STUB_MESSAGES_H_ */
