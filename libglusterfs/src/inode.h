@@ -257,4 +257,7 @@ __inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
 void
 inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
 
+int
+inode_is_linked (inode_t *inode);
+
 #endif /* _INODE_H */

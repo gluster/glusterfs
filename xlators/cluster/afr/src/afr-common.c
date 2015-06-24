@@ -726,7 +726,7 @@ out:
 
 
 int
-afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
+afr_hash_child (afr_read_subvol_args_t *args, int32_t child_count, int hashmode)
 {
         uuid_t gfid_copy = {0,};
         pid_t pid;
@@ -735,11 +735,9 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
                 return -1;
         }
 
-        if (inode) {
-               uuid_copy (gfid_copy, inode->gfid);
-        }
+        uuid_copy (gfid_copy, args->gfid);
 
-        if (hashmode > 1 && inode->ia_type != IA_IFDIR) {
+        if ((hashmode > 1) && (args->ia_type != IA_IFDIR)) {
                 /*
                  * Why getpid?  Because it's one of the cheapest calls
                  * available - faster than gethostname etc. - and returns a
@@ -760,32 +758,41 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
-				  unsigned char *readable)
+				  unsigned char *readable,
+                                  afr_read_subvol_args_t *args)
 {
-	afr_private_t *priv = NULL;
-	int read_subvol = -1;
-	int i = 0;
+	int             i           = 0;
+	int             read_subvol = -1;
+	afr_private_t  *priv        = NULL;
+        afr_read_subvol_args_t local_args = {0,};
 
 	priv = this->private;
 
 	/* first preference - explicitly specified or local subvolume */
 	if (priv->read_child >= 0 && readable[priv->read_child])
-		return priv->read_child;
+                return priv->read_child;
+
+        if (inode_is_linked (inode)) {
+                uuid_copy (local_args.gfid, inode->gfid);
+                local_args.ia_type = inode->ia_type;
+        } else if (args) {
+                local_args = *args;
+        }
 
 	/* second preference - use hashed mode */
-	read_subvol = afr_hash_child (inode, priv->child_count,
-				      priv->hash_mode);
+	read_subvol = afr_hash_child (&local_args, priv->child_count,
+                                      priv->hash_mode);
 	if (read_subvol >= 0 && readable[read_subvol])
-		return read_subvol;
+                return read_subvol;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (readable[i])
-			return i;
+                if (readable[i])
+                return i;
 	}
 
-	/* no readable subvolumes, either split brain or all subvols down */
+        /* no readable subvolumes, either split brain or all subvols down */
 
-	return -1;
+        return -1;
 }
 
 
@@ -808,7 +815,8 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
-		     int *event_p, afr_transaction_type type)
+		     int *event_p, afr_transaction_type type,
+                     afr_read_subvol_args_t *args)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *data_readable = NULL;
@@ -835,10 +843,10 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 	if (AFR_COUNT (intersection, priv->child_count) > 0)
 		subvol = afr_read_subvol_select_by_policy (inode, this,
-							   intersection);
+							   intersection, args);
 	else
 		subvol = afr_read_subvol_select_by_policy (inode, this,
-							   readable);
+							   readable, args);
 	if (subvol_p)
 		*subvol_p = subvol;
 	if (event_p)
@@ -1170,7 +1178,8 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
         priv = this->private;
 
         if (parent)
-                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0);
+                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0,
+                                                       NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!replies[i].valid)
@@ -1218,6 +1227,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	gf_boolean_t        locked_entry = _gf_false;
 	gf_boolean_t        can_interpret = _gf_true;
         inode_t            *parent = NULL;
+        ia_type_t           ia_type = IA_INVAL;
+        afr_read_subvol_args_t args = {0,};
 
         priv  = this->private;
         local = frame->local;
@@ -1263,6 +1274,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		if (read_subvol == -1 || !readable[read_subvol]) {
 			read_subvol = i;
 			uuid_copy (read_gfid, replies[i].poststat.ia_gfid);
+                        ia_type = replies[i].poststat.ia_type;
 			local->op_ret = 0;
 		}
 	}
@@ -1308,14 +1320,16 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		   a response from all the UP subvolumes and all of them resolved
 		   to the same GFID
 		*/
+                uuid_copy (args.gfid, read_gfid);
+                args.ia_type = ia_type;
 		if (afr_replies_interpret (frame, this, local->inode)) {
 			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0);
+							   0, 0, &args);
 			afr_inode_read_subvol_reset (local->inode, this);
 			goto cant_interpret;
 		} else {
 			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0);
+							   0, 0, &args);
 		}
 	} else {
 	cant_interpret:
@@ -1783,7 +1797,7 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
 
 	afr_replies_interpret (frame, this, local->inode);
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0);
+	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
 	if (read_subvol == -1) {
 		gf_log (this->name, GF_LOG_WARNING, "no read subvols for %s",
 			local->loc.path);
@@ -1942,7 +1956,7 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 	}
 
 	afr_read_subvol_get (loc->inode, this, NULL, &event,
-			     AFR_DATA_TRANSACTION);
+			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
 		afr_inode_refresh (frame, this, loc->inode, afr_discover_do);
@@ -2088,7 +2102,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         }
 
 	afr_read_subvol_get (loc->parent, this, NULL, &event,
-			     AFR_DATA_TRANSACTION);
+			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
 		afr_inode_refresh (frame, this, loc->parent, afr_lookup_do);
@@ -2408,7 +2422,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0);
+	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
 
         LOCK (&frame->lock);
         {
