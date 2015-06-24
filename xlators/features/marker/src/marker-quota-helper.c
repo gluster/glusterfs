@@ -125,6 +125,39 @@ out:
         return ctx;
 }
 
+void
+mq_contri_fini (void *data)
+{
+        inode_contribution_t *contri = data;
+
+        LOCK_DESTROY (&contri->lock);
+        GF_FREE (contri);
+}
+
+inode_contribution_t*
+mq_contri_init (inode_t *inode)
+{
+        inode_contribution_t *contri   = NULL;
+        int32_t               ret      = 0;
+
+        QUOTA_ALLOC (contri, inode_contribution_t, ret);
+        if (ret == -1)
+                goto out;
+
+        GF_REF_INIT (contri, mq_contri_fini);
+
+        contri->contribution = 0;
+        contri->file_count = 0;
+        contri->dir_count = 0;
+        gf_uuid_copy (contri->gfid, inode->gfid);
+
+        LOCK_INIT (&contri->lock);
+        INIT_LIST_HEAD (&contri->contri_list);
+
+out:
+        return contri;
+}
+
 inode_contribution_t *
 mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
 {
@@ -134,35 +167,26 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
         if (!inode || !ctx)
                 goto out;
 
-        list_for_each_entry (temp, &ctx->contribution_head, contri_list) {
-                if (gf_uuid_compare (temp->gfid, inode->gfid) == 0) {
-                        contri = temp;
-                        goto out;
+        LOCK (&ctx->lock);
+        {
+                list_for_each_entry (temp, &ctx->contribution_head,
+                                     contri_list) {
+                        if (gf_uuid_compare (temp->gfid, inode->gfid) == 0) {
+                                contri = temp;
+                                GF_REF_GET (contri);
+                                break;
+                        }
                 }
         }
+        UNLOCK (&ctx->lock);
 out:
         return contri;
 }
-
-
-int32_t
-mq_delete_contribution_node (dict_t *dict, char *key,
-                             inode_contribution_t *contribution)
-{
-        if (dict_get (dict, key) != NULL)
-                goto out;
-
-        QUOTA_FREE_CONTRIBUTION_NODE (contribution);
-out:
-        return 0;
-}
-
 
 inode_contribution_t *
 __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
                                 loc_t *loc)
 {
-        int32_t               ret          = 0;
         inode_contribution_t *contribution = NULL;
 
         if (!loc->parent) {
@@ -185,16 +209,9 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
                 }
         }
 
-        QUOTA_ALLOC (contribution, inode_contribution_t, ret);
-        if (ret == -1)
+        contribution = mq_contri_init (loc->parent);
+        if (contribution == NULL)
                 goto out;
-
-        contribution->contribution = 0;
-
-        gf_uuid_copy (contribution->gfid, loc->parent->gfid);
-
-	LOCK_INIT (&contribution->lock);
-        INIT_LIST_HEAD (&contribution->contri_list);
 
         list_add_tail (&contribution->contri_list, &ctx->contribution_head);
 
@@ -219,6 +236,8 @@ mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
         LOCK (&ctx->lock);
         {
                 contribution = __mq_add_new_contribution_node (this, ctx, loc);
+                if (contribution)
+                        GF_REF_GET (contribution);
         }
         UNLOCK (&ctx->lock);
 
@@ -386,6 +405,12 @@ mq_local_unref (xlator_t *this, quota_local_t *local)
 
         if (local->fd != NULL)
                 fd_unref (local->fd);
+
+        if (local->contri)
+                GF_REF_PUT (local->contri);
+
+        if (local->xdata)
+                dict_unref (local->xdata);
 
         loc_wipe (&local->loc);
 

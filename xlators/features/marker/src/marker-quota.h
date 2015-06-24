@@ -12,6 +12,7 @@
 
 #include "xlator.h"
 #include "marker-mem-types.h"
+#include "refcount.h"
 
 #define QUOTA_XATTR_PREFIX "trusted.glusterfs"
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
@@ -104,7 +105,8 @@ struct inode_contribution {
         int64_t          file_count;
         int64_t          dir_count;
         uuid_t           gfid;
-  gf_lock_t lock;
+        gf_lock_t        lock;
+        GF_REF_DECL;
 };
 typedef struct inode_contribution inode_contribution_t;
 
