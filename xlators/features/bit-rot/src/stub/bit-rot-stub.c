@@ -988,6 +988,37 @@ unwind:
         return 0;
 }
 
+
+/**
+ * As of now, versioning is done by the stub (though as a setxattr
+ * operation) as part of inode modification operations such as writev,
+ * truncate, ftruncate. And signing is done by BitD by a fsetxattr call.
+ * So any kind of setxattr coming on the versioning and the signing xattr is
+ * not allowed (i.e. BITROT_CURRENT_VERSION_KEY and BITROT_SIGNING_VERSION_KEY).
+ * In future if BitD/scrubber are allowed to change the versioning
+ * xattrs (though I cannot see a reason for it as of now), then the below
+ * function can be modified to block setxattr on version for only applications.
+ *
+ * NOTE: BitD sends sign request on GLUSTERFS_SET_OBJECT_SIGNATURE key.
+ *       BITROT_SIGNING_VERSION_KEY is the xattr used to save the signature.
+ *
+ */
+static int32_t
+br_stub_handle_internal_xattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                               char *key)
+{
+        int32_t          op_ret   = -1;
+        int32_t          op_errno = EINVAL;
+
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                BRS_MSG_SET_INTERNAL_XATTR, "setxattr called"
+                " on the internal xattr %s for inode %s", key,
+                uuid_utoa (fd->inode->gfid));
+
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+}
+
 int
 br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
@@ -1005,6 +1036,20 @@ br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
         if (!ret) {
                 br_stub_handle_object_signature (frame, this,
                                                  fd, dict, sign, xdata);
+                goto done;
+        }
+
+        /* signing xattr */
+        if (dict_get(dict, BITROT_SIGNING_VERSION_KEY)) {
+                br_stub_handle_internal_xattr (frame, this, fd,
+                                               BITROT_SIGNING_VERSION_KEY);
+                goto done;
+        }
+
+        /* version xattr */
+        if (dict_get(dict, BITROT_CURRENT_VERSION_KEY)) {
+                br_stub_handle_internal_xattr (frame, this, fd,
+                                               BITROT_CURRENT_VERSION_KEY);
                 goto done;
         }
 
@@ -1030,6 +1075,45 @@ done:
         return 0;
 }
 
+
+/**
+ * Currently BitD and scrubber are doing fsetxattr to either sign the object
+ * or to mark it as bad. Hence setxattr on any of those keys is denied directly
+ * without checking from where the fop is coming.
+ * Later, if BitD or Scrubber does setxattr of those keys, then appropriate
+ * check has to be added below.
+ */
+int
+br_stub_setxattr (call_frame_t *frame, xlator_t *this,
+                  loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
+{
+        int32_t  op_ret                    = -1;
+        int32_t  op_errno                  = EINVAL;
+        char     dump[64*1024]             = {0,};
+        char    *format                    = "(%s:%s)";
+
+        if (dict_get (dict, GLUSTERFS_SET_OBJECT_SIGNATURE) ||
+            dict_get (dict, BR_REOPEN_SIGN_HINT_KEY) ||
+            dict_get (dict, BITROT_OBJECT_BAD_KEY) ||
+            dict_get (dict, BITROT_SIGNING_VERSION_KEY) ||
+            dict_get (dict, BITROT_CURRENT_VERSION_KEY)) {
+                dict_dump_to_str (dict, dump, sizeof(dump), format);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_SET_INTERNAL_XATTR, "setxattr called on "
+                        "internal xattr %s", dump);
+                goto unwind;
+        }
+
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->setxattr, loc, dict, flags,
+                         xdata);
+        return 0;
+unwind:
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+}
+
 /** }}} */
 
 
@@ -1044,12 +1128,15 @@ br_stub_removexattr (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = EINVAL;
 
-        if (!strcmp (BITROT_OBJECT_BAD_KEY, name)) {
+        if (!strcmp (BITROT_OBJECT_BAD_KEY, name) ||
+            !strcmp (BITROT_SIGNING_VERSION_KEY, name) ||
+            !strcmp (BITROT_CURRENT_VERSION_KEY, name)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
-                        BRS_MSG_REMOVE_BAD_OBJECT_XATTR, "Remove xattr called"
-                        " on bad object xattr for file %s", loc->path);
+                        BRS_MSG_REMOVE_INTERNAL_XATTR, "removexattr called"
+                        " on internal xattr %s for file %s", name, loc->path);
                 goto unwind;
         }
+
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->removexattr,
@@ -1067,13 +1154,16 @@ br_stub_fremovexattr (call_frame_t *frame, xlator_t *this,
         int32_t op_ret    = -1;
         int32_t op_errno  = EINVAL;
 
-        if (!strcmp (BITROT_OBJECT_BAD_KEY, name)) {
+        if (!strcmp (BITROT_OBJECT_BAD_KEY, name) ||
+            !strcmp (BITROT_SIGNING_VERSION_KEY, name) ||
+            !strcmp (BITROT_CURRENT_VERSION_KEY, name)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
-                        BRS_MSG_REMOVE_BAD_OBJECT_XATTR, "Remove xattr called"
-                        " on bad object xattr for inode %s",
+                        BRS_MSG_REMOVE_INTERNAL_XATTR, "removexattr called"
+                        " on internal xattr %s for inode %s", name,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
+
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->fremovexattr,
@@ -2588,6 +2678,7 @@ struct xlator_fops fops = {
         .readv     = br_stub_readv,
         .removexattr = br_stub_removexattr,
         .fremovexattr = br_stub_fremovexattr,
+        .setxattr  = br_stub_setxattr,
 };
 
 struct xlator_cbks cbks = {
