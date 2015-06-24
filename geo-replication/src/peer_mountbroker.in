@@ -86,8 +86,31 @@ class MountbrokerUserMgmt(object):
             del(self._options[key])
 
     def add_user(self, user, volumes):
+        vols = set()
+        for k, v in self._options.iteritems():
+            if k.startswith("mountbroker-geo-replication.") \
+               and user == k.split(".")[-1]:
+                vols.update(v.split(","))
+
+        vols.update(volumes)
         self.set_opt("mountbroker-geo-replication.%s" % user,
-                     ",".join(volumes))
+                     ",".join(vols))
+
+    def remove_volume(self, user, volumes):
+        vols = set()
+        for k, v in self._options.iteritems():
+            if k.startswith("mountbroker-geo-replication.") \
+               and user == k.split(".")[-1]:
+                vols.update(v.split(","))
+
+        for v1 in volumes:
+            vols.discard(v1)
+
+        if vols:
+            self.set_opt("mountbroker-geo-replication.%s" % user,
+                         ",".join(vols))
+        else:
+            self.remove_opt("mountbroker-geo-replication.%s" % user)
 
     def remove_user(self, user):
         self.remove_opt("mountbroker-geo-replication.%s" % user)
@@ -129,12 +152,17 @@ def _get_args():
     subparsers = parser.add_subparsers(title='subcommands', dest='cmd')
     parser_useradd = subparsers.add_parser('user')
     parser_userdel = subparsers.add_parser('userdel')
+    parser_volumedel = subparsers.add_parser('volumedel')
     subparsers.add_parser('info')
     parser_opt = subparsers.add_parser('opt')
     parser_optdel = subparsers.add_parser('optdel')
 
     parser_useradd.add_argument('username', help="Username", type=str)
     parser_useradd.add_argument('volumes', type=str, default='',
+                                help="Volumes list. ',' seperated")
+
+    parser_volumedel.add_argument('username', help="Username", type=str)
+    parser_volumedel.add_argument('volumes', type=str, default='',
                                 help="Volumes list. ',' seperated")
 
     parser_userdel.add_argument('username', help="Username", type=str)
@@ -163,6 +191,10 @@ def main():
         volumes = [v.strip() for v in args.volumes.split(",")
                    if v.strip() != ""]
         m.add_user(args.username, volumes)
+    elif args.cmd == "volumedel":
+        volumes = [v.strip() for v in args.volumes.split(",")
+                   if v.strip() != ""]
+        m.remove_volume(args.username, volumes)
     elif args.cmd == "info":
         info = m.info()
         if not args.json:
