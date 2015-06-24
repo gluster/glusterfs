@@ -615,7 +615,8 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                  */
                 if (!glusterd_friend_contains_vol_bricks (volinfo,
                                                           MY_UUID)) {
-                        gf_log (THIS->name, GF_LOG_INFO,
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_STALE_VOL_DELETE_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
                         ret = glusterd_delete_volume (volinfo);
                         if (ret) {
@@ -866,7 +867,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         ret = dict_get_str (ev_ctx->vols, "hostname_in_cluster",
                             &hostname);
         if (ret || !hostname) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Unable to fetch local hostname from peer");
         } else
                 strncpy (local_node_hostname, hostname,

@@ -27,7 +27,8 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 snprintf (errstr, sizeof (errstr), "Volume %s is not a tier "
                           "volume. Option %s is only valid for tier volume.",
                           volinfo->volname, key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
@@ -44,7 +45,8 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 snprintf (errstr, sizeof (errstr), "%s is not a compatible "
                           "value. %s expects an integer value.",
                           value, key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
@@ -57,7 +59,8 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                                   "compatible value. %s expects a positive "
                                   "integer value.",
                                   value, key);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
                         *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
@@ -68,7 +71,8 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                                    "compatible value. %s expects a non-negative"
                                    " integer value.",
                                    value, key);
-                         gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INCOMPATIBLE_VALUE,  "%s", errstr);
                          *op_errstr = gf_strdup (errstr);
                          ret = -1;
                         goto out;
@@ -76,7 +80,7 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -159,11 +163,12 @@ validate_defrag_throttle_option (glusterd_volinfo_t *volinfo, dict_t *dict,
                 ret = -1;
                 snprintf (errstr, sizeof (errstr), "%s should be "
                           "{lazy|normal|aggressive}", key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }

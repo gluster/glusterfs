@@ -162,7 +162,8 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                                 " not retrieve disperse count");
                         goto out;
                 }
-                gf_log (this->name, GF_LOG_INFO, "Disperse cluster type"
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DISPERSE_CLUSTER_FOUND, "Disperse cluster type"
                         " found. Checking brick order.");
         }
 
@@ -777,7 +778,8 @@ __glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received heal vol req "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_HEAL_VOL_REQ_RCVD, "Received heal vol req "
                 "for volume %s", volname);
 
         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -912,7 +914,8 @@ __glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received statedump request for "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_STATEDUMP_VOL_REQ_RCVD, "Received statedump request for "
                 "volume %s with options %s", volname, options);
 
         ret = glusterd_op_begin_synctask (req, GD_OP_STATEDUMP_VOLUME, dict);
@@ -1013,7 +1016,9 @@ next:
                                 continue;
                         if (!strcmp (prop.value.string, "thin-pool")) {
                                 brick->caps |= CAPS_THIN;
-                                gf_log (THIS->name, GF_LOG_INFO, "Thin Pool "
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_THINPOOLS_FOR_THINLVS,
+                                        "Thin Pool "
                                         "\"%s\" will be used for thin LVs",
                                         lvm_lv_get_name (lv_list->lv));
                                 break;
@@ -1254,7 +1259,8 @@ out:
                 glusterd_brickinfo_delete (brick_info);
 
         if (msg[0] != '\0') {
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_CREATE_VOL_FAIL, "%s", msg);
                 *op_errstr = gf_strdup (msg);
         }
         gf_msg_debug (this->name, 0, "Returning %d", ret);
@@ -1502,7 +1508,8 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
         ret = 0;
 out:
         if (ret && (msg[0] != '\0')) {
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_START_VOL_FAIL, "%s", msg);
                 *op_errstr = gf_strdup (msg);
         }
         return ret;
@@ -1573,7 +1580,8 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         if (ret) {
                 ret = ganesha_manage_export(dict, "off", op_errstr);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_WARNING, "Could not "
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                GD_MSG_NFS_GNS_UNEXPRT_VOL_FAIL, "Could not "
                                         "unexport volume via NFS-Ganesha");
                         ret = 0;
                 }
@@ -1658,7 +1666,8 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
 
 out:
         if (msg[0] != '\0') {
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_DELETE_VOL_FAIL, "%s", msg);
                 *op_errstr = gf_strdup (msg);
         }
         gf_msg_debug (this->name, 0, "Returning %d", ret);
@@ -1743,7 +1752,8 @@ glusterd_handle_heal_cmd (xlator_t *this, glusterd_volinfo_t *volinfo,
         }
 out:
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "%s", *op_errstr);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_HANDLE_HEAL_CMD_FAIL, "%s", *op_errstr);
         return ret;
 }
 
@@ -2904,7 +2914,9 @@ glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret)
                 ret = 0;
 
-        gf_log (THIS->name, GF_LOG_INFO, "Received clear-locks request for "
+        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                GD_MSG_CLRCLK_VOL_REQ_RCVD,
+                "Received clear-locks request for "
                 "volume %s with kind %s type %s and options %s", volname,
                 kind, type, opts);
 
@@ -2961,7 +2973,8 @@ glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         ret = glusterd_clearlocks_send_cmd (volinfo, cmd_str, path, result,
                                             msg, sizeof (msg), mntpt);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CLRCLK_SND_CMD_FAIL, "%s", msg);
                 goto umount;
         }
 

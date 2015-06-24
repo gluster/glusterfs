@@ -243,7 +243,8 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_PROBE_REQ_RESP_RCVD,
                 "Received probe resp from uuid: %s, host: %s",
                 uuid_utoa (rsp.uuid), rsp.hostname);
         if (rsp.op_ret != 0) {
@@ -270,7 +271,8 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
         peerinfo = glusterd_peerinfo_find (rsp.uuid, rsp.hostname);
         if (peerinfo == NULL) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peerd %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_PEER_NOT_FOUND, "Could not find peerd %s(%s)",
                         rsp.hostname, uuid_utoa (rsp.uuid));
                 goto unlock;
         }
@@ -353,7 +355,8 @@ reply:
                 goto unlock;
 
         } else if (strncasecmp (rsp.hostname, peerinfo->hostname, 1024)) {
-                gf_log (THIS->name, GF_LOG_INFO, "Host: %s  with uuid: %s "
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_HOST_PRESENT_ALREADY, "Host: %s  with uuid: %s "
                         "already present in cluster with alias hostname: %s",
                         rsp.hostname, uuid_utoa (rsp.uuid), peerinfo->hostname);
 
@@ -402,7 +405,8 @@ cont:
         ret = glusterd_friend_sm_inject_event (event);
 
 
-        gf_log ("glusterd", GF_LOG_INFO, "Received resp to probe req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_PROBE_REQ_RESP_RCVD, "Received resp to probe req");
 
 unlock:
         rcu_read_unlock ();
@@ -463,7 +467,8 @@ __glusterd_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO,
                 "Received %s from uuid: %s, host: %s, port: %d",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
@@ -580,7 +585,8 @@ __glusterd_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO,
                 "Received %s from uuid: %s, host: %s, port: %d",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
@@ -676,7 +682,8 @@ __glusterd_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_INFO, "Received %s from uuid: %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_RESPONSE_INFO, "Received %s from uuid: %s",
                 (ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
@@ -1516,7 +1523,8 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
         if (!peerinfo) {
                 rcu_read_unlock ();
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 goto out;
         }
@@ -1540,7 +1548,8 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
                                           "hostname_in_cluster",
                                           peerinfo->hostname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
                         "Unable to add hostname of the peer");
                 goto out;
         }
@@ -1613,7 +1622,8 @@ glusterd_rpc_friend_remove (call_frame_t *frame, xlator_t *this,
         if (!peerinfo) {
                 rcu_read_unlock ();
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 goto out;
         }
