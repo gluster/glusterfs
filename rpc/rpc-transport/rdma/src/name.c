@@ -33,36 +33,41 @@ gf_resolve_ip6 (const char *hostname,
                 void **dnscache,
                 struct addrinfo **addr_info);
 
+
+static void
+_assign_port (struct sockaddr *sockaddr, uint16_t port)
+{
+        switch (sockaddr->sa_family) {
+        case AF_INET6:
+                ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
+                break;
+
+        case AF_INET_SDP:
+        case AF_INET:
+                ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
+                break;
+        }
+}
+
 static int32_t
 af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
                                  struct sockaddr *sockaddr,
-                                 socklen_t sockaddr_len, int ceiling)
+                                 socklen_t sockaddr_len, uint32_t ceiling)
 {
         int32_t        ret        = -1;
         uint16_t      port        = ceiling - 1;
         /* by default assume none of the ports are blocked and all are available */
-        gf_boolean_t  ports[1024] = {_gf_false,};
+        gf_boolean_t  ports[GF_PORT_MAX] = {_gf_false,};
         int           i           = 0;
 
-        ret = gf_process_reserved_ports (ports);
+        ret = gf_process_reserved_ports (ports, ceiling);
         if (ret != 0) {
-                for (i = 0; i < 1024; i++)
+                for (i = 0; i < GF_PORT_MAX; i++)
                         ports[i] = _gf_false;
         }
 
         while (port) {
-                switch (sockaddr->sa_family) {
-                case AF_INET6:
-                        ((struct sockaddr_in6 *)sockaddr)->sin6_port
-                                = htons (port);
-                        break;
-
-                case AF_INET_SDP:
-                case AF_INET:
-                        ((struct sockaddr_in *)sockaddr)->sin_port
-                                = htons (port);
-                        break;
-                }
+                _assign_port (sockaddr, port);
                 /* ignore the reserved ports */
                 if (ports[port] == _gf_true) {
                         port--;
@@ -426,22 +431,26 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
                 *sockaddr_len = sizeof (struct sockaddr_in);
 
         case AF_INET6:
-                ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
+                if (!this->bind_insecure) {
+                        ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
                                                        *sockaddr_len,
                                                        GF_CLIENT_PORT_CEILING);
-                if (ret == -1) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                RDMA_MSG_PORT_BIND_FAILED,
-                                "cannot bind rdma_cm_id to port "
-                                "less than %d", GF_CLIENT_PORT_CEILING);
-                        if (sockaddr->sa_family == AF_INET6) {
-                                ((struct sockaddr_in6 *)sockaddr)->sin6_port
-                                        = htons (0);
-                        } else {
-                                ((struct sockaddr_in *)sockaddr)->sin_port
-                                        = htons (0);
+                        if (ret == -1) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        RDMA_MSG_PORT_BIND_FAILED,
+                                        "cannot bind rdma_cm_id to port "
+                                        "less than %d", GF_CLIENT_PORT_CEILING);
                         }
-                        ret = rdma_bind_addr (cm_id, sockaddr);
+                } else {
+                        ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
+                                                       *sockaddr_len,
+                                                       GF_PORT_MAX);
+                        if (ret == -1) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        RDMA_MSG_PORT_BIND_FAILED,
+                                        "cannot bind rdma_cm_id to port "
+                                        "less than %d", GF_PORT_MAX);
+                        }
                 }
                 break;
 
