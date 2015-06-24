@@ -219,6 +219,7 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
         frame->root->pid = NFS_PID;
         frame->root->uid = nfu->uid;
         frame->root->gid = nfu->gids[NFS_PRIMGID_IDX];
+        memcpy (&frame->root->identifier, &nfu->identifier, UNIX_PATH_MAX);
         frame->root->lk_owner = nfu->lk_owner;
 
         if (nfu->ngrps != 1) {

@@ -258,6 +258,10 @@
 
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
+/*
+ * OTHER NOTE: fop_enum_to_str and fop_enum_to_pri_str (in common-utils.h) also
+ * contain lists of fops, so if you update this list UPDATE THOSE TOO.
+ */
 typedef enum {
         GF_FOP_NULL = 0,
         GF_FOP_STAT,
@@ -312,6 +316,8 @@ typedef enum {
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
+const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
+const char *fop_enum_to_string (glusterfs_fop_t fop);
 
 typedef enum {
         GF_MGMT_NULL = 0,

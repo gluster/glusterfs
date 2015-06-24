@@ -423,6 +423,7 @@ get_frame_from_request (rpcsvc_request_t *req)
         server_conf_t *priv = NULL;
         clienttable_t *clienttable = NULL;
         unsigned int   i           = 0;
+        rpc_transport_t *trans = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", req, out);
 
@@ -500,6 +501,12 @@ get_frame_from_request (rpcsvc_request_t *req)
             server_resolve_groups (frame, req);
         else
             server_decode_groups (frame, req);
+        trans = req->trans;
+        if (trans) {
+                memcpy (&frame->root->identifier, trans->peerinfo.identifier,
+                        sizeof (trans->peerinfo.identifier));
+        }
+
 
         frame->local = req;
 out:

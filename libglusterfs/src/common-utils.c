@@ -34,6 +34,7 @@
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
+#include <libgen.h>
 
 #include "compat-errno.h"
 #include "logging.h"
@@ -210,7 +211,7 @@ out:
 }
 
 /**
- * gf_resolve_parent_path -- Given a path, returns an allocated string
+ * gf_resolve_path_parent -- Given a path, returns an allocated string
  *                           containing the parent's path.
  * @path: Path to parse
  * @return: The parent path if found, NULL otherwise
@@ -359,6 +360,135 @@ err:
         return -1;
 }
 
+/**
+ * gf_dnscache_init -- Initializes a dnscache struct and sets the ttl
+ *                     to the specified value in the parameter.
+ *
+ * @ttl: the TTL in seconds
+ * @return: SUCCESS: Pointer to an allocated dnscache struct
+ *          FAILURE: NULL
+ */
+struct dnscache *
+gf_dnscache_init (time_t ttl)
+{
+        struct dnscache *cache = GF_MALLOC (sizeof (*cache),
+                                            gf_common_mt_dnscache);
+        cache->cache_dict = NULL;
+        cache->ttl = ttl;
+        return cache;
+}
+
+/**
+ * gf_dnscache_entry_init -- Initialize a dnscache entry
+ *
+ * @return: SUCCESS: Pointer to an allocated dnscache entry struct
+ *          FAILURE: NULL
+ */
+struct dnscache_entry *
+gf_dnscache_entry_init ()
+{
+        struct dnscache_entry *entry = GF_CALLOC (1, sizeof (*entry),
+                                                 gf_common_mt_dnscache_entry);
+        return entry;
+}
+
+/**
+ * gf_dnscache_entry_deinit -- Free memory used by a dnscache entry
+ *
+ * @entry: Pointer to deallocate
+ */
+void
+gf_dnscache_entry_deinit (struct dnscache_entry *entry)
+{
+        GF_FREE (entry->ip);
+        GF_FREE (entry->fqdn);
+        GF_FREE (entry);
+}
+
+/**
+ * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
+ *
+ * @ip: The IP address to perform a reverse lookup on
+ *
+ * @return: success: Allocated string containing the hostname
+ *          failure: NULL
+ */
+char *
+gf_rev_dns_lookup_cached (const char *ip, struct dnscache *dnscache)
+{
+        char               *fqdn = NULL;
+        int                ret  = 0;
+        dict_t             *cache = NULL;
+        data_t             *entrydata = NULL;
+        struct dnscache_entry *dnsentry = NULL;
+        gf_boolean_t        from_cache = _gf_false;
+
+        if (!dnscache)
+                goto out;
+
+        if (!dnscache->cache_dict) {
+                dnscache->cache_dict = dict_new ();
+                if (!dnscache->cache_dict) {
+                        goto out;
+                }
+        }
+        cache = dnscache->cache_dict;
+
+        /* Quick cache lookup to see if we already hold it */
+        entrydata = dict_get (cache, (char *)ip);
+        if (entrydata) {
+                dnsentry = (struct dnscache_entry *)entrydata->data;
+                /* First check the TTL & timestamp */
+                if (time (NULL) - dnsentry->timestamp > dnscache->ttl) {
+                        gf_dnscache_entry_deinit (dnsentry);
+                        entrydata->data = NULL; /* Mark this as 'null' so
+                                                 * dict_del () doesn't try free
+                                                 * this after we've already
+                                                 * freed it.
+                                                 */
+
+                        dict_del (cache, (char *)ip); /* Remove this entry */
+                } else {
+                        /* Cache entry is valid, get the FQDN and return */
+                        fqdn = dnsentry->fqdn;
+                        from_cache = _gf_true; /* Mark this as from cache */
+                        goto out;
+                }
+        }
+
+        /* Get the FQDN */
+        ret =  gf_get_hostname_from_ip ((char *)ip, &fqdn);
+        if (ret != 0)
+                goto out;
+
+        if (!fqdn) {
+                gf_log_callingfn ("resolver", GF_LOG_CRITICAL,
+                                  "Allocation failed for the host address");
+                goto out;
+        }
+
+        from_cache = _gf_false;
+out:
+        /* Insert into the cache */
+        if (fqdn && !from_cache) {
+                struct dnscache_entry *entry = gf_dnscache_entry_init ();
+
+                if (!entry) {
+                        goto out;
+                }
+                entry->fqdn = fqdn;
+                entry->ip = gf_strdup (ip);
+                if (!ip) {
+                        gf_dnscache_entry_deinit (entry);
+                        goto out;
+                }
+                entry->timestamp = time (NULL);
+
+                entrydata = bin_to_data (entry, sizeof (*entry));
+                dict_set (cache, (char *)ip, entrydata);
+        }
+        return fqdn;
+}
 
 struct xldump {
 	int lineno;
@@ -4011,4 +4141,132 @@ void
 _unmask_cancellation (void)
 {
         (void) pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+}
+
+
+const char *
+fop_enum_to_pri_string (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_OPEN:
+        case GF_FOP_STAT:
+        case GF_FOP_FSTAT:
+        case GF_FOP_LOOKUP:
+        case GF_FOP_ACCESS:
+        case GF_FOP_READLINK:
+        case GF_FOP_OPENDIR:
+        case GF_FOP_STATFS:
+        case GF_FOP_READDIR:
+        case GF_FOP_READDIRP:
+                return "HIGH";
+
+        case GF_FOP_CREATE:
+        case GF_FOP_FLUSH:
+        case GF_FOP_LK:
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+        case GF_FOP_UNLINK:
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_MKNOD:
+        case GF_FOP_MKDIR:
+        case GF_FOP_RMDIR:
+        case GF_FOP_SYMLINK:
+        case GF_FOP_RENAME:
+        case GF_FOP_LINK:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_GETXATTR:
+        case GF_FOP_FGETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+        case GF_FOP_IPC:
+                return "NORMAL";
+
+        case GF_FOP_READ:
+        case GF_FOP_WRITE:
+        case GF_FOP_FSYNC:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FSYNCDIR:
+        case GF_FOP_XATTROP:
+        case GF_FOP_FXATTROP:
+        case GF_FOP_RCHECKSUM:
+        case GF_FOP_ZEROFILL:
+        case GF_FOP_FALLOCATE:
+                return "LOW";
+
+        case GF_FOP_NULL:
+        case GF_FOP_FORGET:
+        case GF_FOP_RELEASE:
+        case GF_FOP_RELEASEDIR:
+        case GF_FOP_GETSPEC:
+        case GF_FOP_MAXVALUE:
+        case GF_FOP_DISCARD:
+                return "LEAST";
+        }
+        return "UNKNOWN";
+}
+
+const char *
+fop_enum_to_string (glusterfs_fop_t fop)
+{
+        static const char *const str_map[] = {
+                "NULL",
+                "STAT",
+                "READLINK",
+                "MKNOD",
+                "MKDIR",
+                "UNLINK",
+                "RMDIR",
+                "SYMLINK",
+                "RENAME",
+                "LINK",
+                "TRUNCATE",
+                "OPEN",
+                "READ",
+                "WRITE",
+                "STATFS",
+                "FLUSH",
+                "FSYNC",
+                "SETXATTR",
+                "GETXATTR",
+                "REMOVEXATTR",
+                "OPENDIR",
+                "FSYNCDIR",
+                "ACCESS",
+                "CREATE",
+                "FTRUNCATE",
+                "FSTAT",
+                "LK",
+                "LOOKUP",
+                "READDIR",
+                "INODELK",
+                "FINODELK",
+                "ENTRYLK",
+                "FENTRYLK",
+                "XATTROP",
+                "FXATTROP",
+                "FGETXATTR",
+                "FSETXATTR",
+                "RCHECKSUM",
+                "SETATTR",
+                "FSETATTR",
+                "READDIRP",
+                "FORGET",
+                "RELEASE",
+                "RELEASEDIR",
+                "GETSPEC",
+                "FREMOVEXATTR",
+                "FALLOCATE",
+                "DISCARD",
+                "ZEROFILL",
+                "IPC",
+                "MAXVALUE"};
+        if (fop <= GF_FOP_MAXVALUE)
+                return str_map[fop];
+
+        return "UNKNOWNFOP";
 }
