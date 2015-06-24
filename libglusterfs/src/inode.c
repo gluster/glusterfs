@@ -2169,6 +2169,28 @@ inode_ctx_reset0 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p)
         return ret;
 }
 
+int
+inode_is_linked (inode_t *inode)
+{
+        int            ret   = 0;
+        inode_table_t *table = NULL;
+
+        if (!inode) {
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
+                return 0;
+        }
+
+        table = inode->table;
+
+        pthread_mutex_lock (&table->lock);
+        {
+                ret = __is_inode_hashed (inode);
+        }
+        pthread_mutex_unlock (&table->lock);
+
+        return ret;
+}
 
 void
 inode_dump (inode_t *inode, char *prefix)

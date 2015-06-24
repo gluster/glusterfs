@@ -90,14 +90,14 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 	if (local->inode) {
 		afr_replies_interpret (frame, this, local->inode);
 		inode_read_subvol = afr_data_subvol_get (local->inode, this,
-							 NULL, NULL);
+							 NULL, NULL, NULL);
 	}
 	if (local->parent)
 		parent_read_subvol = afr_data_subvol_get (local->parent, this,
-							  NULL, NULL);
+							  NULL, NULL, NULL);
 	if (local->parent2)
 		parent2_read_subvol = afr_data_subvol_get (local->parent2, this,
-							   NULL, NULL);
+							   NULL, NULL, NULL);
 
 	local->op_ret = -1;
 	local->op_errno = afr_final_errno (local, priv);

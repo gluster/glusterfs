@@ -148,7 +148,12 @@ afr_validate_read_subvol (inode_t *inode, xlator_t *this, int par_read_subvol)
         if (!priv->consistent_metadata)
                 return 0;
 
-        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0);
+        /* For an inode fetched through readdirp which is yet to be linked,
+         * inode ctx would not be initialised (yet). So this function returns
+         * -1 above due to gen being 0, which is why it is OK to pass NULL for
+         *  read_subvol_args here.
+         */
+        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0, NULL);
         if (entry_read_subvol != par_read_subvol)
                 return -1;
 
