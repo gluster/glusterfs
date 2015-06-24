@@ -48,10 +48,11 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 	if (local->inode) {
 		if (local->transaction.type == AFR_METADATA_TRANSACTION)
 			read_subvol = afr_metadata_subvol_get (local->inode, this,
-							       NULL, NULL);
+							       NULL, NULL,
+                                                               NULL);
 		else
 			read_subvol = afr_data_subvol_get (local->inode, this,
-							   NULL, NULL);
+							   NULL, NULL, NULL);
 	}
 
 	local->op_ret = -1;

@@ -264,4 +264,7 @@ inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
 void
 inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode);
 
+int
+inode_is_linked (inode_t *inode);
+
 #endif /* _INODE_H */

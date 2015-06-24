@@ -90,7 +90,7 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
                 memcpy (local->readable, local->child_up, priv->child_count);
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
-							local->readable);
+							local->readable, NULL);
 	if (read_subvol == -1)
                 AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
 
@@ -232,7 +232,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		goto refresh;
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
-							local->readable);
+							local->readable, NULL);
 
 	if (read_subvol < 0 || read_subvol > priv->child_count) {
 		gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,

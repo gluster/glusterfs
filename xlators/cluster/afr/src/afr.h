@@ -750,6 +750,11 @@ typedef struct afr_spbc_timeout {
         int          spb_child_index;
 } afr_spbc_timeout_t;
 
+typedef struct afr_read_subvol_args {
+        ia_type_t ia_type;
+        uuid_t gfid;
+} afr_read_subvol_args_t;
+
 /* did a call fail due to a child failing? */
 #define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \
                                            ((op_errno == ENOTCONN) ||   \
@@ -782,7 +787,8 @@ afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this);
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
-				  unsigned char *readable);
+				  unsigned char *readable,
+                                  afr_read_subvol_args_t *args);
 
 int
 afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
@@ -790,13 +796,14 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 				int type);
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
-		     int *event_p, afr_transaction_type type);
+		     int *event_p, afr_transaction_type type,
+                     afr_read_subvol_args_t *args);
 
-#define afr_data_subvol_get(i, t, s, e) \
-	afr_read_subvol_get(i, t, s, e, AFR_DATA_TRANSACTION)
+#define afr_data_subvol_get(i, t, s, e, a) \
+	afr_read_subvol_get(i, t, s, e, AFR_DATA_TRANSACTION, a)
 
-#define afr_metadata_subvol_get(i, t, s, e) \
-	afr_read_subvol_get(i, t, s, e, AFR_METADATA_TRANSACTION)
+#define afr_metadata_subvol_get(i, t, s, e, a) \
+	afr_read_subvol_get(i, t, s, e, AFR_METADATA_TRANSACTION, a)
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
