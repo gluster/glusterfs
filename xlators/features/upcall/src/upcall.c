@@ -635,7 +635,7 @@ up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* invalidate parent's entry too */
-        flags = UP_PARENT_DENTRY_FLAGS;
+        flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  stbuf, postparent, NULL);
 
@@ -655,7 +655,7 @@ up_mkdir (call_frame_t *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, loc->inode);
+        local = upcall_local_init (frame, this, loc->parent);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -697,7 +697,7 @@ up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* As its a new file create, no need of sending notification */
         /* However invalidate parent's entry */
-        flags = UP_PARENT_DENTRY_FLAGS;
+        flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  stbuf, postparent, NULL);
 
@@ -718,7 +718,7 @@ up_create (call_frame_t *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, loc->inode);
+        local = upcall_local_init (frame, this, loc->parent);
 
         if (!local) {
                 op_errno = ENOMEM;
@@ -1047,7 +1047,7 @@ up_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* invalidate parent's entry too */
-        flags = UP_PARENT_DENTRY_FLAGS;
+        flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  buf, postparent, NULL);
 
@@ -1067,7 +1067,7 @@ up_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, loc->inode);
+        local = upcall_local_init (frame, this, loc->parent);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1108,7 +1108,7 @@ up_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* invalidate parent's entry too */
-        flags = UP_PARENT_DENTRY_FLAGS;
+        flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  buf, postparent, NULL);
 
@@ -1129,7 +1129,7 @@ up_symlink (call_frame_t   *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, loc->inode);
+        local = upcall_local_init (frame, this, loc->parent);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
