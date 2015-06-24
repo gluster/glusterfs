@@ -882,7 +882,10 @@ mq_update_dirty_inode (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
 
         local->ctx = ctx;
 
-        local->contri = contribution;
+        if (contribution) {
+                local->contri = contribution;
+                GF_REF_GET (local->contri);
+        }
 
         lock.l_type = F_WRLCK;
         lock.l_whence = SEEK_SET;
@@ -1089,6 +1092,9 @@ free_value:
 err:
         dict_unref (dict);
 
+        if (contri)
+                GF_REF_PUT (contri);
+
 out:
         if (ret < 0) {
                 mq_xattr_creation_release_lock (frame, NULL, this, 0, 0, NULL);
@@ -1262,7 +1268,6 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
 {
         int32_t            ret = -1;
         quota_inode_ctx_t *ctx = NULL;
-        inode_contribution_t *contribution = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", local, out);
@@ -1327,9 +1332,8 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
            contribution will be at the end of the list. So get the proper
            parent's contribution, by searching the entire list.
         */
-        contribution = mq_get_contribution_node (local->loc.parent, ctx);
-        GF_ASSERT (contribution != NULL);
-        local->contri = contribution;
+        local->contri = mq_get_contribution_node (local->loc.parent, ctx);
+        GF_ASSERT (local->contri != NULL);
 
         ret = 0;
 out:
@@ -1992,7 +1996,10 @@ mq_prepare_txn_frame (xlator_t *this, loc_t *loc,
                 goto fr_destroy;
 
         local->ctx = ctx;
-        local->contri = contri;
+        if (contri) {
+                local->contri = contri;
+                GF_REF_GET (local->contri);
+        }
 
         ret = 0;
         *new_frame = frame;
@@ -2241,6 +2248,9 @@ mq_create_xattrs (xlator_t *this, loc_t *loc, gf_boolean_t objects)
 out:
         if (dict)
                 dict_unref (dict);
+
+        if (contribution)
+                GF_REF_PUT (contribution);
 
         return ret;
 }
@@ -2569,7 +2579,8 @@ out:
 }
 
 int32_t
-mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
+mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
+                  inode_contribution_t *contri, quota_meta_t *delta)
 {
         int32_t              ret                         = -1;
         char                 contri_key[CONTRI_KEY_MAX]  = {0, };
@@ -2583,7 +2594,8 @@ mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
 
         ret = syncop_removexattr (FIRST_CHILD(this), loc, contri_key, 0, NULL);
         if (ret < 0) {
-                if (-ret == ENOENT || -ret == ESTALE || -ret == ENODATA) {
+                if (-ret == ENOENT || -ret == ESTALE || -ret == ENODATA ||
+                    -ret == ENOATTR) {
                         /* Remove contri in done when unlink operation is
                          * performed, so return success on ENOENT/ESTSLE
                          * rename operation removes xattr earlier,
@@ -2600,14 +2612,16 @@ mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
 
         LOCK (&contri->lock);
         {
-                contri->contribution = 0;
-                contri->file_count = 0;
-                contri->dir_count = 0;
+                contri->contribution += delta->size;
+                contri->file_count += delta->file_count;
+                contri->dir_count += delta->dir_count;
         }
         UNLOCK (&contri->lock);
 
         ret = 0;
+
 out:
+        QUOTA_FREE_CONTRIBUTION_NODE (ctx, contri);
 
         return ret;
 }
@@ -2804,10 +2818,12 @@ mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
         gf_boolean_t       status     = _gf_true;
         quota_meta_t       delta      = {0, };
 
+        GF_VALIDATE_OR_GOTO ("marker", contri, out);
+        GF_REF_GET (contri);
+
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
-        GF_VALIDATE_OR_GOTO ("marker", contri, out);
 
         ret = mq_loc_copy (&child_loc, loc);
         if (ret < 0) {
@@ -2902,6 +2918,8 @@ mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                         ret = -1;
                         goto out;
                 }
+
+                GF_REF_PUT (contri);
                 contri = mq_get_contribution_node (child_loc.parent, ctx);
                 GF_ASSERT (contri != NULL);
         }
@@ -2918,6 +2936,8 @@ out:
 
         loc_wipe (&child_loc);
         loc_wipe (&parent_loc);
+        if (contri)
+                GF_REF_PUT (contri);
 
         return ret;
 }
@@ -3095,11 +3115,12 @@ mq_reduce_parent_size_task (void *opaque)
                 goto out;
         dirty = _gf_true;
 
-        ret = mq_remove_contri (this, loc, contribution);
+        mq_sub_meta (&delta, NULL);
+
+        ret = mq_remove_contri (this, loc, ctx, contribution, &delta);
         if (ret < 0)
                 goto out;
 
-        mq_sub_meta (&delta, NULL);
         ret = mq_update_size (this, &parent_loc, &delta);
         if (ret < 0)
                 goto out;
@@ -3115,6 +3136,9 @@ out:
                 ret = mq_initiate_quota_blocking_txn (this, &parent_loc);
 
         loc_wipe (&parent_loc);
+
+        if (contribution)
+                GF_REF_PUT (contribution);
 
         return ret;
 }
@@ -3198,6 +3222,9 @@ mq_initiate_quota_task (void *opaque)
 
         ret = 0;
 out:
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -3447,13 +3474,18 @@ mq_inspect_directory_xattr_task (void *opaque)
         }
 
         ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
-        if (ret < 0)
-                goto out;
+        if (ret < 0) {
+                /* dirty is set only on the first file write operation
+                 * so ignore this error
+                 */
+                ret = 0;
+                dirty = 0;
+        }
 
         ret = _quota_dict_get_meta (this, dict, QUOTA_SIZE_KEY, &size,
                                     IA_IFDIR, _gf_false);
         if (ret < 0)
-                goto out;
+                goto create_xattr;
 
         if (!loc_is_root(loc)) {
                 GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
@@ -3463,7 +3495,7 @@ mq_inspect_directory_xattr_task (void *opaque)
                 ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
                                             IA_IFDIR, _gf_false);
                 if (ret < 0)
-                        goto out;
+                        goto create_xattr;
 
                 LOCK (&contribution->lock);
                 {
@@ -3494,11 +3526,15 @@ mq_inspect_directory_xattr_task (void *opaque)
                 mq_initiate_quota_blocking_txn (this, loc);
 
         ret = 0;
-out:
+
+create_xattr:
         if (ret < 0)
                 ret = mq_create_xattrs_blocking_txn (this, loc);
 
 err:
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -3570,41 +3606,32 @@ mq_inspect_file_xattr_task (void *opaque)
         }
         UNLOCK (&ctx->lock);
 
-        list_for_each_entry (contribution, &ctx->contribution_head,
-                             contri_list) {
+        GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
+        if (ret < 0)
+                goto out;
 
-                GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
-                if (ret < 0)
-                        continue;
-
-                ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
-                                            IA_IFREG, _gf_true);
-                if (ret < 0) {
-                        ret = mq_create_xattrs_blocking_txn (this, loc);
-                } else {
-                        LOCK (&contribution->lock);
-                        {
-                                contribution->contribution = contri.size;
-                                contribution->file_count = contri.file_count;
-                                contribution->dir_count = contri.dir_count;
-                        }
-                        UNLOCK (&contribution->lock);
-
-                        mq_compute_delta (&delta, &size, &contri);
-                        if (!quota_meta_is_null (&delta)) {
-                                mq_initiate_quota_blocking_txn (this, loc);
-                                /* TODO: revist this code when fixing hardlinks
-                                 */
-                                break;
-                        }
+        ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
+                                    IA_IFREG, _gf_true);
+        if (ret < 0) {
+                ret = mq_create_xattrs_blocking_txn (this, loc);
+        } else {
+                LOCK (&contribution->lock);
+                {
+                        contribution->contribution = contri.size;
+                        contribution->file_count = contri.file_count;
+                        contribution->dir_count = contri.dir_count;
                 }
+                UNLOCK (&contribution->lock);
 
-                /* TODO: loc->parent might need to be assigned to corresponding
-                 * contribution inode. We need to handle hard links here
-                */
+                mq_compute_delta (&delta, &size, &contri);
+                if (!quota_meta_is_null (&delta))
+                        mq_initiate_quota_blocking_txn (this, loc);
         }
+        /* TODO: revist this code when fixing hardlinks */
 
 out:
+        if (contribution)
+                GF_REF_PUT (contribution);
 
         return ret;
 }
@@ -3947,7 +3974,10 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
                 goto out;
 
         local->ctx = ctx;
-        local->contri = contribution;
+        if (contribution) {
+                local->contri = contribution;
+                GF_REF_GET (local->contri);
+        }
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0) {
@@ -3991,6 +4021,9 @@ out:
         if (local != NULL)
                 mq_local_unref (this, local);
 
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -4025,6 +4058,10 @@ mq_rename_update_newpath (xlator_t *this, loc_t *loc)
 
         mq_initiate_quota_txn (this, loc);
 out:
+
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -4040,7 +4077,7 @@ mq_forget (xlator_t *this, quota_inode_ctx_t *ctx)
         list_for_each_entry_safe (contri, next, &ctx->contribution_head,
                                   contri_list) {
                 list_del (&contri->contri_list);
-                GF_FREE (contri);
+                GF_REF_PUT (contri);
         }
 
         LOCK_DESTROY (&ctx->lock);
