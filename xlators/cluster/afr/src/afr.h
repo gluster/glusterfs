@@ -761,6 +761,9 @@ typedef struct afr_read_subvol_args {
                                             (op_errno == EBADFD)))
 
 int
+afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                        unsigned char *readable, int *event_p, int type);
+int
 afr_inode_read_subvol_get (inode_t *inode, xlator_t *this,
 			   unsigned char *data_subvols,
 			   unsigned char *metadata_subvols,

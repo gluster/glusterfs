@@ -336,6 +336,58 @@ out:
 }
 
 int
+afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                       unsigned char *readable, int *event_p, int type)
+{
+
+        afr_private_t *priv = this->private;
+        afr_local_t *local = frame->local;
+        unsigned char *data = alloca0 (priv->child_count);
+        unsigned char *metadata = alloca0 (priv->child_count);
+        int data_count = 0;
+        int metadata_count = 0;
+        int event_generation = 0;
+        int ret = 0;
+
+        /* We don't care about split-brains for entry transactions. */
+        if (type == AFR_ENTRY_TRANSACTION || type == AFR_ENTRY_RENAME_TRANSACTION)
+                return 0;
+
+        ret = afr_inode_read_subvol_get (inode, this, data, metadata,
+                                         &event_generation);
+        if (ret == -1)
+                return -EIO;
+
+        data_count = AFR_COUNT (data, priv->child_count);
+        metadata_count = AFR_COUNT (metadata, priv->child_count);
+
+        if (inode->ia_type == IA_IFDIR) {
+                /* For directories, allow even if it is in data split-brain. */
+                if (type == AFR_METADATA_TRANSACTION) {
+                        if (!metadata_count)
+                                return -EIO;
+                }
+        } else {
+                /* For files, abort in case of data/metadata split-brain. */
+                if (!data_count || !metadata_count)
+                        return -EIO;
+        }
+
+        if (type == AFR_METADATA_TRANSACTION && readable)
+                memcpy (readable, metadata, priv->child_count * sizeof *metadata);
+        if (type == AFR_DATA_TRANSACTION && readable) {
+                if (!data_count)
+                        memcpy (readable, local->child_up,
+                                priv->child_count * sizeof *readable);
+                else
+                        memcpy (readable, data, priv->child_count * sizeof *data);
+        }
+        if (event_p)
+                *event_p = event_generation;
+        return 0;
+}
+
+int
 afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
                                   int *spb_choice)
 {
@@ -593,6 +645,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	for (i = 0; i < priv->child_count; i++) {
 		if (data_accused[i])
 			continue;
+                if ((priv->arbiter_count == 1) && (i == ARBITER_BRICK_INDEX))
+                        continue;
 		if (replies[i].poststat.ia_size < maxsize)
 			data_accused[i] = 1;
 	}
@@ -1677,6 +1731,10 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * the slowest local subvolume is far preferable to a remote one.
          */
         if (is_local) {
+                /* Don't set arbiter as read child. */
+                if ((priv->arbiter_count == 1) &&
+                    (child_index == ARBITER_BRICK_INDEX))
+                        goto out;
                 gf_log (this->name, GF_LOG_INFO,
                         "selecting local read_child %s",
                         priv->children[child_index]->name);
