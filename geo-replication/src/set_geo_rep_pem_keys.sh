@@ -12,6 +12,7 @@ function main()
     user=$1
     master_vol=$2
     slave_vol=$3
+    GLUSTERD_WORKDIR=$(gluster system:: getwd)
 
     if [ "$user" == "" ];  then
         echo "Please enter the user's name"
