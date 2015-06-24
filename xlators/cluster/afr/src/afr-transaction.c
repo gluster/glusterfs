@@ -1967,6 +1967,13 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         if (ret < 0)
             goto out;
 
+        ret = afr_inode_get_readable (frame, local->inode, this, 0, 0, type);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,
+                        "Failing %s on gfid %s: split-brain observed.",
+                        gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
+                goto out;
+        }
         afr_transaction_eager_lock_init (local, this);
 
         if (local->fd && local->transaction.eager_lock_on)
