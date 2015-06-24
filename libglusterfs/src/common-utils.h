@@ -83,6 +83,7 @@ void trap (void);
  */
 #define GF_NFS3_PORT    2049
 #define GF_CLIENT_PORT_CEILING 1024
+#define GF_PORT_MAX 65535
 
 #define GF_MINUTE_IN_SECONDS 60
 #define GF_HOUR_IN_SECONDS (60*60)
@@ -697,8 +698,9 @@ int gf_strip_whitespace (char *str, int len);
 int gf_canonicalize_path (char *path);
 char *generate_glusterfs_ctx_id (void);
 char *gf_get_reserved_ports();
-int gf_process_reserved_ports (gf_boolean_t ports[]);
-gf_boolean_t gf_ports_reserved (char *blocked_port, gf_boolean_t *ports);
+int gf_process_reserved_ports (gf_boolean_t ports[], uint32_t ceiling);
+gf_boolean_t
+gf_ports_reserved (char *blocked_port, gf_boolean_t *ports, uint32_t ceiling);
 int gf_get_hostname_from_ip (char *client_ip, char **hostname);
 gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);

@@ -2789,7 +2789,7 @@ out:
 }
 
 int
-gf_process_reserved_ports (gf_boolean_t *ports)
+gf_process_reserved_ports (gf_boolean_t *ports, uint32_t ceiling)
 {
         int      ret         = -1;
 #if defined GF_LINUX_HOST_OS
@@ -2809,7 +2809,7 @@ gf_process_reserved_ports (gf_boolean_t *ports)
         blocked_port = strtok_r (ports_info, ",\n",&tmp);
 
         while (blocked_port) {
-                gf_ports_reserved (blocked_port, ports);
+                gf_ports_reserved (blocked_port, ports, ceiling);
                 blocked_port = strtok_r (NULL, ",\n", &tmp);
         }
 
@@ -2822,7 +2822,7 @@ out:
 }
 
 gf_boolean_t
-gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
+gf_ports_reserved (char *blocked_port, gf_boolean_t *ports, uint32_t ceiling)
 {
         gf_boolean_t    result      = _gf_false;
         char            *range_port = NULL;
@@ -2834,7 +2834,7 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
                 if (blocked_port[strlen(blocked_port) -1] == '\n')
                         blocked_port[strlen(blocked_port) -1] = '\0';
                 if (gf_string2int16 (blocked_port, &tmp_port1) == 0) {
-                        if (tmp_port1 > (GF_CLIENT_PORT_CEILING - 1)
+                        if (tmp_port1 > ceiling
                             || tmp_port1 < 0) {
                                 gf_msg ("glusterfs-socket", GF_LOG_WARNING, 0,
                                         LG_MSG_INVALID_PORT, "invalid port %d",
@@ -2860,8 +2860,8 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
                         goto out;
                 }
                 if (gf_string2int16 (range_port, &tmp_port1) == 0) {
-                        if (tmp_port1 > (GF_CLIENT_PORT_CEILING - 1))
-                                tmp_port1 = GF_CLIENT_PORT_CEILING - 1;
+                        if (tmp_port1 > ceiling)
+                                tmp_port1 = ceiling;
                         if (tmp_port1 < 0)
                                 tmp_port1 = 0;
                 }
@@ -2874,9 +2874,8 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
                 if (range_port[strlen(range_port) -1] == '\n')
                         range_port[strlen(range_port) - 1] = '\0';
                 if (gf_string2int16 (range_port, &tmp_port2) == 0) {
-                        if (tmp_port2 >
-                            (GF_CLIENT_PORT_CEILING - 1))
-                                tmp_port2 = GF_CLIENT_PORT_CEILING - 1;
+                        if (tmp_port2 > ceiling)
+                                tmp_port2 = ceiling;
                         if (tmp_port2 < 0)
                                 tmp_port2 = 0;
                 }
