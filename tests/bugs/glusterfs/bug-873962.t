@@ -65,8 +65,8 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $
 #Files are in split-brain, so open should fail
 TEST ! cat $M0/a;
 TEST ! cat $M1/a;
-TEST cat $M0/b;
-TEST cat $M1/b;
+TEST ! cat $M0/b;
+TEST ! cat $M1/b;
 
 #Reset split-brain status
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/a;
@@ -92,8 +92,8 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $
 #Files are in split-brain, so open should fail
 TEST ! cat $M0/c
 TEST ! cat $M1/c
-TEST cat $M0/d
-TEST cat $M1/d
+TEST ! cat $M0/d
+TEST ! cat $M1/d
 
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/c
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}1/d

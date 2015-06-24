@@ -52,6 +52,9 @@ afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
                 local->op_ret = ret;                              \
                 local->op_errno = errnum;                          \
                 read_subvol = index;                              \
+                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,\
+                        "Failing %s on gfid %s: split-brain observed.",\
+                        gf_fop_list[local->op], uuid_utoa (inode->gfid));\
                 goto label;                                       \
         } while (0)
 
@@ -59,7 +62,6 @@ int
 afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
 	afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
 	int read_subvol = 0;
 	int event_generation = 0;
 	inode_t *inode = NULL;
@@ -68,26 +70,18 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 
 	local = frame->local;
 	inode = local->inode;
-        priv  = frame->this->private;
 
 	if (err)
                 AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, -err, -1, readfn);
 
-	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
-					      &event_generation,
-					      local->transaction.type);
+	ret = afr_inode_get_readable (frame, inode, this, local->readable,
+			              &event_generation,
+				      local->transaction.type);
 
 	if (ret == -1 || !event_generation)
 		/* Even after refresh, we don't have a good
 		   read subvolume. Time to bail */
                 AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
-
-         /* For directories in split-brain, we need to allow all fops
-          * except (f)getxattr and access. */
-        if (!AFR_COUNT(local->readable, priv->child_count) &&
-            local->transaction.type == AFR_DATA_TRANSACTION &&
-            inode->ia_type == IA_IFDIR)
-                memcpy (local->readable, local->child_up, priv->child_count);
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
 							local->readable, NULL);
@@ -237,8 +231,8 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	if (read_subvol < 0 || read_subvol > priv->child_count) {
 		gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
                        "Unreadable subvolume %d found with event generation "
-                       "%d. (Possible split-brain)",
-                        read_subvol, event_generation);
+                       "%d for gfid %s. (Possible split-brain)",
+                        read_subvol, event_generation, uuid_utoa(inode->gfid));
 		goto refresh;
 	}
 
