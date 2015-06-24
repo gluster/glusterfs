@@ -3317,7 +3317,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
  * This is used by DHT to redirect FOPs if the file is being migrated
  * Ignore errors for now
  */
-        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
                 if (ret)
                         goto out;
@@ -4519,7 +4519,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 ret = posix_fdstat (this, pfd->fd, &stbuf);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -4660,7 +4660,7 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
                 if (ret)
                         goto out;
@@ -4732,7 +4732,7 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 ret = posix_fdstat (this, pfd->fd, &stbuf);
                 if (ret)
                         goto out;
