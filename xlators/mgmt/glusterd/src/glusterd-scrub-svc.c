@@ -44,12 +44,13 @@ glusterd_scrubsvc_create_volfile ()
         ret = glusterd_create_global_volfile (build_scrub_graph,
                                               filepath, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to create volfile");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL, "Failed to create volfile");
                 goto out;
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -80,7 +81,7 @@ glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags)
         }
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }

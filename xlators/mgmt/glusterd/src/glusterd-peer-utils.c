@@ -990,7 +990,7 @@ glusterd_peerinfo_find_by_generation (uint32_t generation) {
         cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
                 if (entry->generation == generation) {
 
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
                         found = entry; /* Probably should be rcu_dereferenced */
@@ -1000,7 +1000,7 @@ glusterd_peerinfo_find_by_generation (uint32_t generation) {
         rcu_read_unlock ();
 
         if (!found)
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Friend with generation: %"PRIu32", not found",
                         generation);
         return found;

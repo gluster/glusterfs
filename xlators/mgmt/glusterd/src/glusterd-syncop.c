@@ -569,7 +569,9 @@ _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
                         peerinfo->locked = _gf_true;
         } else {
                 rsp.op_ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer with "
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_PEER_NOT_FOUND,
+                        "Could not find peer with "
                         "ID %s", uuid_utoa (*peerid));
         }
         rcu_read_unlock ();
@@ -662,7 +664,8 @@ _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 peerinfo->locked = _gf_false;
         } else {
                 rsp.op_ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer with "
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer with "
                         "ID %s", uuid_utoa (*peerid));
         }
         rcu_read_unlock ();
@@ -1839,7 +1842,8 @@ global:
                 ret = glusterd_mgmt_v3_lock (global, MY_UUID, &op_errno,
                                              "global");
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MGMTV3_LOCK_GET_FAIL,
                                 "Unable to acquire lock for %s", global);
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress "

@@ -21,6 +21,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 #define MAXBUF 1024
 #define DELIM "=\""
 #define SHARED_STORAGE_MNT "/var/run/gluster/shared_storage/nfs-ganesha"
@@ -80,7 +81,7 @@ manage_service (char *action)
         while (sc_list[i].binary != NULL) {
                 ret = stat (sc_list[i].binary, &stbuf);
                 if (ret == 0) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "%s found.", sc_list[i].binary);
                         if (strcmp (sc_list[i].binary, "/usr/bin/systemctl") == 0)
                                 ret = sc_systemctl_action (&sc_list[i], action);
@@ -91,7 +92,8 @@ manage_service (char *action)
                 }
                 i++;
         }
-        gf_log (THIS->name, GF_LOG_ERROR,
+        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                GD_MSG_UNRECOGNIZED_SVC_MNGR,
                 "Could not %s NFS-Ganesha.Service manager for distro"
                 " not recognized.", action);
         return ret;
@@ -108,7 +110,7 @@ glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo) {
         ret = glusterd_volinfo_get (volinfo, "ganesha.enable", &value);
         if ((ret == 0) && value) {
                 if (strcmp (value, "on") == 0) {
-                        gf_log (THIS->name, GF_LOG_DEBUG, "ganesha.enable set"
+                        gf_msg_debug (THIS->name, 0, "ganesha.enable set"
                                 " to %s", value);
                         is_exported = _gf_true;
                 }
@@ -137,7 +139,9 @@ glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
                 }
                 ret = glusterd_handle_ganesha_op (dict, errstr, key, value);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Handling NFS-Ganesha"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NFS_GNS_OP_HANDLE_FAIL,
+                                "Handling NFS-Ganesha"
                                 " op failed.");
                 }
         }
@@ -169,7 +173,8 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
 
         value = dict_get_str_boolean (dict, "value", _gf_false);
         if (value == -1) {
-               gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
                         "value not present.");
                 goto out;
         }
@@ -177,7 +182,8 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         /*Ignoring the ret value and proceeding */
         ret = dict_get_str (priv->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL, &str);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "Global dict not present.");
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_DICT_GET_FAILED, "Global dict not present.");
                 ret = 0;
                 goto out;
         }
@@ -193,7 +199,8 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         if (value) {
                 ret =  start_ganesha (op_errstr);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NFS_GNS_START_FAIL,
                                 "Could not start NFS-Ganesha");
 
                 }
@@ -204,11 +211,11 @@ out:
         if (ret) {
                 if (!(*op_errstr)) {
                         *op_errstr = gf_strdup ("Error, Validation Failed");
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Error, Cannot Validate option :%s",
                                 GLUSTERD_STORE_KEY_GANESHA_GLOBAL);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Error, Cannot Validate option");
                 }
         }
@@ -236,22 +243,25 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-               gf_log (this->name, GF_LOG_ERROR,
-                       "Couldn't get key in global option set");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Couldn't get key in global option set");
                 goto out;
        }
 
         ret = dict_get_str (dict, "value", &value);
         if (ret) {
-               gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
                         "Couldn't get value in global option set");
                 goto out;
         }
 
         ret = glusterd_handle_ganesha_op (dict, errstr, key, value);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                "Initial NFS-Ganesha set up failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NFS_GNS_SETUP_FAIL,
+                        "Initial NFS-Ganesha set up failed");
                 ret = -1;
                 goto out;
         }
@@ -259,14 +269,15 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
                                    GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
                                    value);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set"
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set"
                         " nfs-ganesha in dict.");
                 goto out;
         }
         ret = glusterd_get_next_global_opt_version_str (priv->opts,
                                                         &next_version);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "Could not fetch "
+                gf_msg_debug (THIS->name, 0, "Could not fetch "
                         " global op version");
                 goto out;
         }
@@ -277,13 +288,13 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
 
         ret = glusterd_store_options (this, priv->opts);
         if (ret) {
-             gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to store options");
-                        goto out;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_STORE_FAIL, "Failed to store options");
+                goto out;
         }
 
 out:
-       gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+       gf_msg_debug (this->name, 0, "returning %d", ret);
        return ret;
 }
 
@@ -312,7 +323,8 @@ is_ganesha_host (void)
         fp = fopen (GANESHA_HA_CONF, "r");
 
         if (fp == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "couldn't open the file %s",
+                gf_msg (this->name, GF_LOG_INFO, errno,
+                        GD_MSG_FILE_OP_FAILED, "couldn't open the file %s",
                         GANESHA_HA_CONF);
                 return _gf_false;
         }
@@ -331,7 +343,9 @@ is_ganesha_host (void)
 
         ret = gf_is_local_addr (host_from_file);
         if (ret) {
-                gf_log (this->name, GF_LOG_INFO, "ganesha host found "
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_NFS_GNS_HOST_FOUND,
+                        "ganesha host found "
                         "Hostname is %s", host_from_file);
         }
 
@@ -360,7 +374,8 @@ check_host_list (void)
         fp = fopen (GANESHA_HA_CONF, "r");
 
         if (fp == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "couldn't open the file %s",
+                gf_msg (this->name, GF_LOG_INFO, errno,
+                        GD_MSG_FILE_OP_FAILED, "couldn't open the file %s",
                         GANESHA_HA_CONF);
                 return 0;
         }
@@ -382,7 +397,9 @@ check_host_list (void)
         while (hostname != NULL) {
                 ret = gf_is_local_addr (hostname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_INFO, "ganesha host found "
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_NFS_GNS_HOST_FOUND,
+                                "ganesha host found "
                                 "Hostname is %s", hostname);
                         break;
                 }
@@ -440,19 +457,22 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
                         "Unable to get volume name");
                 goto out;
         }
         ret = gf_string2boolean (value, &option);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "invalid value.");
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "invalid value.");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND,
                         FMTSTR_CHECK_VOL_EXISTS, volname);
                 goto out;
         }
@@ -475,7 +495,7 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
         ret = dict_get_str_boolean (priv->opts,
                             GLUSTERD_STORE_KEY_GANESHA_GLOBAL, _gf_false);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to get "
+                gf_msg_debug (this->name, 0, "Failed to get "
                         "global option dict.");
                 gf_asprintf (op_errstr, "The option "
                              "nfs-ganesha should be "
@@ -494,7 +514,9 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
          if (option) {
                 ret  =  create_export_config (volname, op_errstr);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to create"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_EXPORT_FILE_CREATE_FAIL,
+                                "Failed to create"
                                 "export file for NFS-Ganesha\n");
                         goto out;
                 }
@@ -585,7 +607,7 @@ teardown (char **op_errstr)
                                  "cleanup", CONFDIR,  NULL);
         ret = runner_run (&runner);
         if (ret)
-                gf_log (THIS->name, GF_LOG_DEBUG, "Could not clean up"
+                gf_msg_debug (THIS->name, 0, "Could not clean up"
                         " NFS-Ganesha related config");
 
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
@@ -594,7 +616,8 @@ teardown (char **op_errstr)
                 unexported, hence setting the appropriate key */
                 ret = dict_set_str (vol_opts, "ganesha.enable", "off");
                 if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING,
+                        gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Could not set ganesha.enable to off");
         }
 out:
@@ -667,8 +690,9 @@ pre_setup (char **op_errstr)
         ret = mkdir (SHARED_STORAGE_MNT, 0775);
 
         if ((-1 == ret) && (EEXIST != errno)) {
-                gf_log ("THIS->name", GF_LOG_ERROR, "mkdir() failed on path %s,"
-                        "errno: %s", SHARED_STORAGE_MNT, strerror (errno));
+                gf_msg ("THIS->name", GF_LOG_ERROR, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "mkdir() failed on path %s,",
+                        SHARED_STORAGE_MNT);
                 goto out;
         }
 

@@ -66,7 +66,9 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received replace brick req");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_REPLACE_BRK_REQ_RCVD,
+                "Received replace brick req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -123,7 +125,9 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
         }
 
         gf_msg_debug (this->name, 0, "dst brick=%s", dst_brick);
-        gf_log (this->name, GF_LOG_INFO, "Received replace brick commit-force "
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_REPLACE_BRK_COMMIT_FORCE_REQ_RCVD,
+                "Received replace brick commit-force "
                 "request operation");
 
         ret = glusterd_op_begin (req, GD_OP_REPLACE_BRICK, dict,
@@ -331,7 +335,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         ret = dict_set_int32 (rsp_dict, "src-brick-port",
                                               src_brickinfo->port);
                         if (ret) {
-                                gf_msg_debug ("", 0,
+                                gf_msg_debug (this->name, 0,
                                         "Could not set src-brick-port=%d",
                                         src_brickinfo->port);
                         }
@@ -370,7 +374,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (ret) {
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_VALIDATE_FAIL, "%s", *op_errstr);
                 goto out;
         }
 
@@ -507,7 +512,8 @@ rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
                 src_brickinfo->port = src_port;
 
         if (gf_is_local_addr (src_brickinfo->hostname)) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_BRK_PORT_NO_ADD_INDO,
                         "adding src-brick port no");
 
                 if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
@@ -520,7 +526,8 @@ rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
                 src_brickinfo->port = pmap_registry_search (this,
                                       brickname, GF_PMAP_PORT_BRICKSERVER);
                 if (!src_brickinfo->port) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SRC_BRICK_PORT_UNAVAIL,
                                 "Src brick port not available");
                         ret = -1;
                         goto out;
@@ -530,7 +537,7 @@ rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
                         ret = dict_set_int32 (rsp_dict, "src-brick-port",
                                               src_brickinfo->port);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_msg_debug (this->name, 0,
                                         "Could not set src-brick port no");
                                 goto out;
                         }
@@ -541,7 +548,7 @@ rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
                         ret = dict_set_int32 (ctx, "src-brick-port",
                                               src_brickinfo->port);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_msg_debug (this->name, 0,
                                         "Could not set src-brick port no");
                                 goto out;
                         }
@@ -568,14 +575,15 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
                 dst_brickinfo->port = dst_port;
 
         if (gf_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_INFO,
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_BRK_PORT_NO_ADD_INDO,
                         "adding dst-brick port no");
 
                 if (rsp_dict) {
                         ret = dict_set_int32 (rsp_dict, "dst-brick-port",
                                               dst_brickinfo->port);
                         if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
+                                gf_msg_debug ("glusterd", 0,
                                         "Could not set dst-brick port no in rsp dict");
                                 goto out;
                         }
@@ -586,7 +594,7 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
                         ret = dict_set_int32 (ctx, "dst-brick-port",
                                               dst_brickinfo->port);
                         if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
+                                gf_msg_debug ("glusterd", 0,
                                         "Could not set dst-brick port no");
                                 goto out;
                         }
@@ -670,7 +678,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
 
 out:
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -786,7 +794,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         }
 
         if (gf_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log (this->name, GF_LOG_DEBUG, "I AM THE DESTINATION HOST");
+                gf_msg_debug (this->name, 0, "I AM THE DESTINATION HOST");
                 ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_CRITICAL, 0,
@@ -798,7 +806,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
         ret = glusterd_svcs_stop (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NFS_SERVER_STOP_FAIL,
                         "Unable to stop nfs server, ret: %d", ret);
         }
 

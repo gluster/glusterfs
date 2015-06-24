@@ -130,7 +130,8 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
                 if ((volinfo->brick_count * stripe_count) == total_bricks) {
                         /* Change the volume type */
                         *type = GF_CLUSTER_TYPE_STRIPE;
-                        gf_log (THIS->name, GF_LOG_INFO,
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_VOL_TYPE_CHANGING_INFO,
                                 "Changing the type of volume %s from "
                                 "'distribute' to 'stripe'", volinfo->volname);
                         ret = 0;
@@ -149,7 +150,8 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
                 if (!(total_bricks % (volinfo->replica_count * stripe_count))) {
                         /* Change the volume type */
                         *type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-                        gf_log (THIS->name, GF_LOG_INFO,
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_VOL_TYPE_CHANGING_INFO,
                                 "Changing the type of volume %s from "
                                 "'replicate' to 'replicate-stripe'",
                                 volinfo->volname);
@@ -193,7 +195,8 @@ gd_addbr_validate_stripe_count (glusterd_volinfo_t *volinfo, int stripe_count,
                                                      volinfo->replica_count)) ==
                             (total_bricks * volinfo->dist_leaf_count)) {
                                 /* Change the dist_leaf_count */
-                                gf_log (THIS->name, GF_LOG_INFO,
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_STRIPE_COUNT_CHANGE_INFO,
                                         "Changing the stripe count of "
                                         "volume %s from %d to %d",
                                         volinfo->volname,
@@ -229,7 +232,8 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
                 if ((volinfo->brick_count * replica_count) == total_bricks) {
                         /* Change the volume type */
                         *type = GF_CLUSTER_TYPE_REPLICATE;
-                        gf_log (THIS->name, GF_LOG_INFO,
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_VOL_TYPE_CHANGING_INFO,
                                 "Changing the type of volume %s from "
                                 "'distribute' to 'replica'", volinfo->volname);
                         ret = 0;
@@ -294,7 +298,8 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
                             (volinfo->brick_count * (replica_count *
                                                      volinfo->stripe_count))) {
                                 /* Change the dist_leaf_count */
-                                gf_log (THIS->name, GF_LOG_INFO,
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_REPLICA_COUNT_CHANGE_INFO,
                                         "Changing the replica count of "
                                         "volume %s from %d to %d",
                                         volinfo->volname, volinfo->replica_count,
@@ -426,7 +431,8 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received add brick req");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_ADD_BRICK_REQ_RECVD, "Received add brick req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -510,13 +516,15 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         snprintf (err_str, sizeof (err_str),
                                   "Volume %s is already a tier.", volname);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_ALREADY_TIER, "%s", err_str);
                         ret = -1;
                         goto out;
                 }
 
                 if (glusterd_is_tiering_supported(err_str) == _gf_false) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VERSION_UNSUPPORTED,
                                 "Tiering not supported at this version");
                         ret = -1;
                         goto out;
@@ -524,7 +532,8 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
 
                 ret = dict_get_int32 (dict, "hot-type", &type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED,
                                 "failed to get type from dictionary");
                         goto out;
                 }
@@ -536,7 +545,8 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         if (ret) {
                 snprintf (err_str, sizeof (err_str), "Add-brick operation is "
                           "not supported on a tiered volume %s", volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_UNSUPPORTED, "%s", err_str);
                 goto out;
         }
 
@@ -804,7 +814,9 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Received rem brick req");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_REM_BRICK_REQ_RECVD,
+                "Received rem brick req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -853,7 +865,8 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         if ((volinfo->type == GF_CLUSTER_TYPE_TIER) &&
             (glusterd_is_tiering_supported(err_str) == _gf_false)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VERSION_UNSUPPORTED,
                         "Tiering not supported at this version");
                 ret = -1;
                 goto out;
@@ -863,7 +876,8 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         if (ret) {
                 snprintf (err_str, sizeof (err_str), "Unable to get cmd "
                           "ccommand");
-                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "%s", err_str);
                 goto out;
         }
 
@@ -871,7 +885,8 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         if (ret) {
                 snprintf (err_str, sizeof (err_str),
                           "Removing brick from a Tier volume is not allowed");
-                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_UNSUPPORTED, "%s", err_str);
                 goto out;
         }
 
@@ -1735,7 +1750,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof(msg), "volume %s is not a tier "
                                   "volume", volinfo->volname);
                         errstr = gf_strdup (msg);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_TIER, "%s", errstr);
                         goto out;
                 }
 
@@ -1833,7 +1849,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof(msg), "volume %s is not a tier "
                                   "volume", volinfo->volname);
                         errstr = gf_strdup (msg);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_TIER, "%s", errstr);
                         goto out;
                 }
 
@@ -1892,7 +1909,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         snprintf (msg, sizeof(msg), "volume %s is not a tier "
                                   "volume", volinfo->volname);
                         errstr = gf_strdup (msg);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_TIER, "%s", errstr);
                         goto out;
                 }
         case GF_OP_CMD_COMMIT_FORCE:
@@ -2073,7 +2091,7 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
         }
 
         if (dict_get(dict, "attach-tier")) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "Adding tier");
+                gf_msg_debug (THIS->name, 0, "Adding tier");
                 glusterd_op_perform_attach_tier (dict, volinfo, count, bricks);
         }
 

@@ -152,7 +152,8 @@ glusterd_uuid_init ()
 
         ret = glusterd_retrieve_uuid ();
         if (ret == 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_RETRIEVED_UUID,
                         "retrieved UUID: %s", uuid_utoa (priv->uuid));
                 return 0;
         }
@@ -183,7 +184,8 @@ glusterd_uuid_generate_save ()
 
         gf_uuid_generate (priv->uuid);
 
-        gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_GENERATED_UUID, "generated UUID: %s",
                 uuid_utoa (priv->uuid));
 
         ret = glusterd_store_global_info (this);
@@ -395,7 +397,7 @@ glusterd_rpcsvc_options_build (dict_t *options)
                         goto out;
         }
 
-        gf_msg_debug ("", 0, "listen-backlog value: %d", backlog);
+        gf_msg_debug ("glusterd", 0, "listen-backlog value: %d", backlog);
 
 out:
         return ret;
@@ -478,7 +480,7 @@ group_write_allow (char *path, gid_t gid)
 
  out:
         if (ret == -1)
-                gf_msg ("", GF_LOG_CRITICAL, errno,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
                         GD_MSG_WRITE_ACCESS_GRANT_FAIL,
                         "failed to set up write access to %s for group %d (%s)",
                         path, gid, strerror (errno));
@@ -590,7 +592,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
  out:
-        gf_msg_debug ("", 0, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -842,7 +844,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 ret = fstat (dfd, &st);
         }
         if (ret == -1 || !S_ISDIR (st.st_mode)) {
-                gf_msg ("", GF_LOG_ERROR, errno,
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,
                         "cannot access mountbroker-root directory %s",
                         mountbroker_root);
@@ -851,7 +853,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         }
         if (st.st_uid != 0 ||
             (st.st_mode & (S_IWGRP|S_IWOTH))) {
-                gf_msg ("", GF_LOG_ERROR, 0,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DIR_PERM_LIBERAL,
                         "permissions on mountbroker-root directory %s are "
                         "too liberal", mountbroker_root);
@@ -859,7 +861,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 goto out;
         }
         if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
-                gf_msg ("", GF_LOG_WARNING, 0,
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
                         GD_MSG_DIR_PERM_STRICT,
                         "permissions on mountbroker-root directory %s are "
                         "probably too strict", mountbroker_root);
@@ -874,7 +876,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                         ret = fstat (dfd2, &st2);
                 }
                 if (ret == -1) {
-                        gf_msg ("", GF_LOG_ERROR, errno,
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
                                 GD_MSG_DIR_OP_FAILED,
                                 "error while checking mountbroker-root ancestors "
                                 "%d (%s)", errno, strerror (errno));
@@ -887,7 +889,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 if (st2.st_uid != 0 ||
                     ((st2.st_mode & (S_IWGRP|S_IWOTH)) &&
                      !(st2.st_mode & S_ISVTX))) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_DIR_PERM_LIBERAL,
                                 "permissions on ancestors of mountbroker-root "
                                 "directory are too liberal");
@@ -895,7 +897,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                         goto out;
                 }
                 if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
-                        gf_msg ("", GF_LOG_WARNING, 0,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
                                 GD_MSG_DIR_PERM_STRICT,
                                 "permissions on ancestors of mountbroker-root "
                                 "directory are probably too strict");
@@ -912,7 +914,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         if (ret != -1)
                 ret = sys_fstatat (dfd0, MB_HIVE, &st, AT_SYMLINK_NOFOLLOW);
         if (ret == -1 || st.st_mode != (S_IFDIR|0711)) {
-                gf_msg ("", GF_LOG_ERROR, errno,
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED,
                         "failed to set up mountbroker-root directory %s",
                         mountbroker_root);
@@ -1004,7 +1006,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         return 0;
  err:
 
-        gf_msg ("", GF_LOG_ERROR, 0,
+        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                 GD_MSG_MOUNT_SPEC_INSTALL_FAIL,
                 "adding %smount spec failed: label: %s desc: %s",
                 georep ? GEOREP" " : "", label, pdesc);
@@ -1159,7 +1161,7 @@ glusterd_stop_listener (xlator_t *this)
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "%s function called ", __func__);
 
         for (i = 0; i < gd_inet_programs_count; i++) {
@@ -1311,19 +1313,21 @@ glusterd_svc_init_all ()
         /* Init BitD svc */
         ret = glusterd_bitdsvc_init (&(priv->bitd_svc));
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialized BitD "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BITD_INIT_FAIL, "Failed to initialized BitD "
                         "service");
                 goto out;
         }
-        gf_log (THIS->name, GF_LOG_DEBUG, "BitD service initialized");
+        gf_msg_debug (THIS->name, 0, "BitD service initialized");
 
         ret = glusterd_scrubsvc_init (&(priv->scrub_svc));
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialized scrub "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SCRUB_INIT_FAIL, "Failed to initialized scrub "
                         "service");
                 goto out;
         }
-        gf_log (THIS->name, GF_LOG_DEBUG, "scrub service initialized");
+        gf_msg_debug (THIS->name, 0, "scrub service initialized");
 
 out:
         return ret;
@@ -1365,9 +1369,10 @@ init (xlator_t *this)
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_SETXATTR_FAIL,
                                 "Failed to set 'ulimit -n "
-                                " 65536': %s", strerror(errno));
+                                " 65536'");
                 } else {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_FILE_DESC_LIMIT_SET,
                                 "Maximum allowed open file descriptors "
                                 "set to 65536");
                 }
@@ -1416,12 +1421,14 @@ init (xlator_t *this)
         }
 
         setenv ("GLUSTERD_WORKDIR", workdir, 1);
-        gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CURR_WORK_DIR_INFO, "Using %s as working directory",
                 workdir);
 
         ret = glusterd_find_correct_var_run_dir (this, var_run_dir);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to find "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_VAR_RUN_DIR_FIND_FAIL, "Unable to find "
                         "the correct var run dir");
                 exit (1);
         }
@@ -1441,7 +1448,8 @@ init (xlator_t *this)
         ret = glusterd_init_var_run_dirs (this, var_run_dir,
                                       GLUSTER_SHARED_STORAGE_BRICK_DIR);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_VAR_RUN_DIR_INIT_FAIL, "Unable to create "
                         "shared storage brick");
                 exit (1);
         }
@@ -1519,18 +1527,20 @@ init (xlator_t *this)
         snprintf (storedir, PATH_MAX, "%s/bitd", workdir);
         ret = mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create bitrot directory %s"
-                        " ,errno = %d", storedir, errno);
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
+                        "Unable to create bitrot directory %s",
+                        storedir);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/scrub", workdir);
         ret = mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create scrub directory %s"
-                        " ,errno = %d", storedir, errno);
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
+                        "Unable to create scrub directory %s",
+                        storedir);
                 exit (1);
         }
 

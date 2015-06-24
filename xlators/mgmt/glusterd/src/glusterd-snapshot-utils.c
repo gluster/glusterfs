@@ -1995,7 +1995,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
         uint64_t   voldisplaycount  = 0;
 
         if (!dst || !src) {
-                gf_msg ("", GF_LOG_ERROR, 0,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_EMPTY, "Source or Destination "
                         "dict is empty.");
                 goto out;
@@ -2003,7 +2003,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
 
         ret = dict_get_int32 (dst, "config-command", &config_command);
         if (ret) {
-                gf_msg ("", GF_LOG_ERROR, 0,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED,
                         "failed to get config-command type");
                 goto out;
@@ -2019,7 +2019,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                          GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                          hard_limit);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
                                         "Unable to set snap_max_hard_limit");
                                 goto out;
@@ -2034,7 +2034,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
                                        &soft_limit);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_GET_FAILED,
                                 "Unable to get snap_max_soft_limit");
                         goto out;
@@ -2044,7 +2044,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
                                        soft_limit);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "Unable to set snap_max_soft_limit");
                         goto out;
@@ -2053,7 +2053,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                 ret = dict_get_uint64 (src, "voldisplaycount",
                                        &voldisplaycount);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_GET_FAILED,
                                 "Unable to get voldisplaycount");
                         goto out;
@@ -2062,7 +2062,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                 ret = dict_set_uint64 (dst, "voldisplaycount",
                                        voldisplaycount);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "Unable to set voldisplaycount");
                         goto out;
@@ -2073,14 +2073,14 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                   "volume%"PRIu64"-volname", i);
                         ret = dict_get_str (src, buf, &volname);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_GET_FAILED,
                                         "Unable to get %s", buf);
                                 goto out;
                         }
                         ret = dict_set_str (dst, buf, volname);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
                                         "Unable to set %s", buf);
                                 goto out;
@@ -2090,14 +2090,14 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                   "volume%"PRIu64"-snap-max-hard-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_GET_FAILED,
                                         "Unable to get %s", buf);
                                 goto out;
                         }
                         ret = dict_set_uint64 (dst, buf, value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
                                         "Unable to set %s", buf);
                                 goto out;
@@ -2107,14 +2107,14 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                   "volume%"PRIu64"-active-hard-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_GET_FAILED,
                                         "Unable to get %s", buf);
                                 goto out;
                         }
                         ret = dict_set_uint64 (dst, buf, value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
                                         "Unable to set %s", buf);
                                 goto out;
@@ -2124,14 +2124,14 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
                                   "volume%"PRIu64"-snap-max-soft-limit", i);
                         ret = dict_get_uint64 (src, buf, &value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_GET_FAILED,
                                         "Unable to get %s", buf);
                                 goto out;
                         }
                         ret = dict_set_uint64 (dst, buf, value);
                         if (ret) {
-                                gf_msg ("", GF_LOG_ERROR, 0,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
                                         "Unable to set %s", buf);
                                 goto out;
@@ -2145,7 +2145,7 @@ glusterd_snap_config_use_rsp_dict (dict_t *dst, dict_t *src)
 
         ret = 0;
 out:
-        gf_msg_debug ("", 0, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -2382,7 +2382,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
         int32_t        snap_command   = 0;
 
         if (!dst || !src) {
-                gf_msg ("", GF_LOG_ERROR, 0,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_EMPTY, "Source or Destination "
                         "dict is empty.");
                 goto out;
@@ -2390,7 +2390,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
 
         ret = dict_get_int32 (dst, "type", &snap_command);
         if (ret) {
-                gf_msg ("", GF_LOG_ERROR, 0,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "unable to get the type of "
                         "the snapshot command");
                 goto out;
@@ -2402,7 +2402,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
         case GF_SNAP_OPTION_TYPE_CLONE:
                 ret = glusterd_snap_create_use_rsp_dict (dst, src);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_RSP_DICT_USE_FAIL,
                                 "Unable to use rsp dict");
                         goto out;
@@ -2411,7 +2411,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
         case GF_SNAP_OPTION_TYPE_CONFIG:
                 ret = glusterd_snap_config_use_rsp_dict (dst, src);
                 if (ret) {
-                        gf_msg ("", GF_LOG_ERROR, 0,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_RSP_DICT_USE_FAIL,
                                 "Unable to use rsp dict");
                         goto out;
@@ -2426,7 +2426,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
 
         ret = 0;
 out:
-        gf_msg_debug ("", 0, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 

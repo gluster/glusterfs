@@ -2031,7 +2031,8 @@ glusterd_restore_op_version (xlator_t *this)
                         goto out;
                 }
                 conf->op_version = op_version;
-                gf_log ("glusterd", GF_LOG_INFO,
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_OP_VERS_INFO,
                         "retrieved op-version: %d", conf->op_version);
                 goto out;
         }
@@ -2051,11 +2052,15 @@ glusterd_restore_op_version (xlator_t *this)
          */
         ret = glusterd_retrieve_uuid();
         if (ret) {
-                gf_log (this->name, GF_LOG_INFO, "Detected new install. Setting"
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_OP_VERS_SET_INFO,
+                        "Detected new install. Setting"
                         " op-version to maximum : %d", GD_OP_VERSION_MAX);
                 conf->op_version = GD_OP_VERSION_MAX;
         } else {
-                gf_log (this->name, GF_LOG_INFO, "Upgrade detected. Setting"
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_OP_VERS_SET_INFO,
+                        "Upgrade detected. Setting"
                         " op-version to minimum : %d", GD_OP_VERSION_MIN);
                 conf->op_version = GD_OP_VERSION_MIN;
         }
@@ -2813,7 +2818,8 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
         /* Initialize the snapd service */
         ret = glusterd_snapdsvc_init (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to initialize snapd "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize snapd "
                         "service for volume %s", volinfo->volname);
                 goto out;
         }
@@ -3028,7 +3034,8 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 ret = glusterd_store_retrieve_node_state (volinfo);
                 if (ret) {
                         /* Backward compatibility */
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_NEW_NODE_STATE_CREATION,
                                 "Creating a new node_state "
                                 "for volume: %s.", entry->d_name);
                         glusterd_store_create_nodestate_sh_on_absence (volinfo);
@@ -3132,7 +3139,8 @@ glusterd_mount_brick_paths (char *brick_mount_path,
         entry = glusterd_get_mnt_entry_info (brick_mount_path, buff,
                                              sizeof (buff), &save_entry);
         if (entry) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_ALREADY_MOUNTED,
                         "brick_mount_path (%s) already mounted.",
                         brick_mount_path);
                 ret = 0;
@@ -4460,7 +4468,9 @@ glusterd_quota_conf_write_header (int fd)
 
 out:
         if (ret < 0)
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                  "failed to write "
                                   "header to a quota conf");
 
         return ret;
@@ -4498,7 +4508,9 @@ glusterd_quota_conf_write_gfid (int fd, void *buf, char type)
 
 out:
         if (ret < 0)
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                  "failed to write "
                                   "gfid %s to a quota conf", uuid_utoa (buf));
 
         return ret;

@@ -88,7 +88,9 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         return xl;
 
  error:
-        gf_log ("", GF_LOG_ERROR, "creating xlator of type %s failed",
+        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                GD_MSG_XLATOR_CREATE_FAIL,
+                "creating xlator of type %s failed",
                 type);
         GF_FREE (volname);
         if (xl)
@@ -119,7 +121,8 @@ volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
 
         ret = glusterfs_xlator_link (pxl, cxl);
         if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY,
                         "Out of memory, cannot link xlators %s <- %s",
                         pxl->name, cxl->name);
         }
@@ -136,7 +139,9 @@ volgen_graph_link (volgen_graph_t *graph, xlator_t *xl)
         if (graph->graph.first)
                 ret = volgen_xlator_link (xl, graph->graph.first);
         if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "failed to add graph entry %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_GRAPH_ENTRY_ADD_FAIL,
+                        "failed to add graph entry %s",
                         xl->name);
 
                 return -1;
@@ -211,7 +216,8 @@ xlator_set_option (xlator_t *xl, char *key, char *value)
 
         dval = gf_strdup (value);
         if (!dval) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_NO_MEMORY,
                         "failed to set xlator opt: %s[%s] = %s",
                         xl->name, key, value);
 
@@ -582,7 +588,8 @@ volgen_dict_get (dict_t *dict, char *key, char **value)
         ret = volgen_graph_set_options_generic (NULL, dict, &vme,
                                                 &optget_option_handler);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Out of memory");
 
                 return -1;
         }
@@ -643,7 +650,9 @@ glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key)
         if (val)
                 ret = gf_string2boolean (val, &enabled);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "value for %s option is not valid", key);
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY,
+                        "value for %s option is not valid", key);
 
                 return -1;
         }
@@ -750,7 +759,8 @@ glusterd_check_option_exists (char *key, char **completion)
                 if (completion) {
                         ret = option_complete (key, completion);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        GD_MSG_NO_MEMORY,
                                         "Out of memory");
                                 return -1;
                         }
@@ -777,7 +787,8 @@ glusterd_check_option_exists (char *key, char **completion)
  trie:
         ret = volopt_trie (key, completion);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_ERROR_ENCOUNTERED,
                         "Some error occurred during keyword hinting");
         }
 
@@ -794,7 +805,8 @@ glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         xlator_t                *this = THIS;
 
         if (!dict || !key || !value) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING, "Invalid "
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, EINVAL,
+                                  GD_MSG_INVALID_ENTRY, "Invalid "
                                   "Arguments (dict=%p, key=%s, value=%s)", dict,
                                   key, value);
                 return -1;
@@ -829,7 +841,8 @@ glusterd_get_trans_type_rb (gf_transport_type ttype)
                 gf_asprintf (&trans_type, "tcp");
                 break;
         default:
-                gf_log (THIS->name, GF_LOG_ERROR, "Unknown "
+                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "Unknown "
                         "transport type");
         }
 
@@ -849,7 +862,7 @@ _xl_link_children (xlator_t *parent, xlator_t *children, size_t child_count)
         for (trav = children; --seek; trav = trav->next);
         for (; child_count--; trav = trav->prev) {
                 ret = volgen_xlator_link (parent, trav);
-                gf_log (THIS->name, GF_LOG_DEBUG, "%s:%s", parent->name,
+                gf_msg_debug (THIS->name, 0, "%s:%s", parent->name,
                         trav->name);
                 if (ret)
                         goto out;
@@ -928,8 +941,10 @@ volgen_apply_filters (char *orig_volfile)
                         goto free_fp;
                 }
                 if (runcmd(filterpath,orig_volfile,NULL)) {
-                        gf_log("",GF_LOG_ERROR,"failed to run filter %.*s",
-                               (int)sizeof(entry.d_name), entry.d_name);
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_FILTER_RUN_FAILED,
+                                "failed to run filter %.*s",
+                                (int)sizeof(entry.d_name), entry.d_name);
                 }
 free_fp:
                 GF_FREE(filterpath);
@@ -956,8 +971,8 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
 
         fd = creat (ftmp, S_IRUSR | S_IWUSR);
         if (fd < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
-                        strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "file creation failed");
                 goto error;
         }
 
@@ -971,8 +986,9 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
                 goto error;
 
         if (fclose (f) != 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "fclose on the file %s "
-                        "failed (%s)", ftmp, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "fclose on the file %s "
+                        "failed", ftmp);
                 /*
                  * Even though fclose has failed here, we have to set f to NULL.
                  * Otherwise when the code path goes to error, there again we
@@ -1000,7 +1016,8 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
         if (f)
                 fclose (f);
 
-        gf_log (this->name, GF_LOG_ERROR,
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                GD_MSG_VOLFILE_CREATE_FAIL,
                 "failed to create volfile %s", filename);
 
         return -1;
@@ -1098,7 +1115,8 @@ get_vol_nfs_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 {
         if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
                 strcpy (tt, "tcp");
-                gf_log ("glusterd", GF_LOG_INFO,
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_DEFAULT_OPT_INFO,
                         "The default transport type for tcp,rdma volume "
                         "is tcp if option is not defined by the user ");
         } else
@@ -1205,7 +1223,9 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to get the marker status");
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_MARKER_STATUS_GET_FAIL,
+                        "failed to get the marker status");
                 ret = -1;
                 goto out;
         }
@@ -1215,7 +1235,9 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 glusterd_check_geo_rep_configured (volinfo, &enabled);
 
                 if (enabled) {
-                        gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_MARKER_DISABLE_FAIL,
+                                GEOREP" sessions active"
                                 "for the volume %s, cannot disable marker "
                                 ,volinfo->volname);
                         set_graph_errstr (graph,
@@ -1228,7 +1250,7 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
 
         ret = 0;
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -1352,8 +1374,9 @@ volgen_graph_set_xl_options (volgen_graph_t *graph, dict_t *dict)
 
         for (trav = first_of (graph); trav; trav = trav->next) {
                 if (fnmatch(xlator_match, trav->type, FNM_NOESCAPE) == 0) {
-                        gf_log ("glusterd", GF_LOG_DEBUG, "Setting log level for xlator: %s",
-                                trav->type);
+                        gf_msg_debug ("glusterd", 0,
+                                      "Setting log level for xlator: %s",
+                                      trav->type);
                         ret = xlator_set_option (trav, "log-level", loglevel);
                         if (ret)
                                 break;
@@ -1884,7 +1907,8 @@ brick_graph_add_ro (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
             dict_get_str_boolean (set_dict, "features.worm", 0)) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
                         "read-only and worm cannot be set together");
                 ret = -1;
                 goto out;
@@ -1915,7 +1939,8 @@ brick_graph_add_worm (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
             dict_get_str_boolean (set_dict, "features.worm", 0)) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INCOMPATIBLE_VALUE,
                         "read-only and worm cannot be set together");
                 ret = -1;
                 goto out;
@@ -1993,7 +2018,8 @@ brick_graph_add_upcall (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         xl = volgen_graph_add (graph, "features/upcall", volinfo->volname);
         if (!xl) {
-                gf_log ("glusterd", GF_LOG_WARNING,
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_FEATURE_ADD_FAIL,
                         "failed to add features/upcall to graph");
                 goto out;
         }
@@ -2045,7 +2071,8 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cert-depth", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_XLATOR_SET_OPT_FAIL,
                                 "failed to set ssl-cert-depth");
                         return -1;
                 }
@@ -2054,7 +2081,8 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cipher-list", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_XLATOR_SET_OPT_FAIL,
                                 "failed to set ssl-cipher-list");
                         return -1;
                 }
@@ -2137,7 +2165,8 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
                         ret = xlator_set_option (rbxl, "ssl-cert-depth", value);
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_WARNING,
+                                gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "failed to set ssl-cert-depth");
                                 return -1;
                         }
@@ -2147,7 +2176,8 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         ret = xlator_set_option (rbxl, "ssl-cipher-list",
                                                  value);
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_WARNING,
+                                gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "failed to set ssl-cipher-list");
                                 return -1;
                         }
@@ -2329,7 +2359,8 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = server_graph_table[i].builder (graph, volinfo, set_dict,
                                                      param);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Builing graph "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_BUILD_GRAPH_FAILED, "Builing graph "
                                 "failed for server graph table entry: %d", i);
                         goto out;
                 }
@@ -2350,7 +2381,8 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!ret) {
                 ret = dict_get_str (set_dict, "loglevel", &loglevel);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "could not get both"
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED, "could not get both"
                                 " translator name and loglevel for log level request");
                         goto out;
                 }
@@ -2436,21 +2468,23 @@ end_sethelp_xml_doc (xmlTextWriterPtr writer)
 
         ret = xmlTextWriterEndElement(writer);
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
-                        "xmlElemetnt");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_TEXT_WRITE_FAIL, "Could not end an "
+                        "xmlElement");
                 ret = -1;
                 goto out;
         }
         ret = xmlTextWriterEndDocument (writer);
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_TEXT_WRITE_FAIL, "Could not end an "
                         "xmlDocument");
                 ret = -1;
                 goto out;
         }
         ret = 0;
  out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -2462,7 +2496,8 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
 
         *buf = xmlBufferCreateSize (8192);
         if (buf == NULL) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Error creating the xml "
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Error creating the xml "
                           "buffer");
                 ret = -1;
                 goto out;
@@ -2472,7 +2507,8 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
 
         *writer = xmlNewTextWriterMemory(*buf, 0);
         if (writer == NULL) {
-                gf_log ("glusterd", GF_LOG_ERROR, " Error creating the xml "
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, " Error creating the xml "
                          "writer");
                 ret = -1;
                 goto out;
@@ -2480,15 +2516,17 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
 
         ret = xmlTextWriterStartDocument(*writer, "1.0", "UTF-8", "yes");
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Error While starting the "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_DOC_START_FAIL, "Error While starting the "
                          "xmlDoc");
                 goto out;
         }
 
         ret = xmlTextWriterStartElement(*writer, (xmlChar *)"options");
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
-                        "xmlElemetnt");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not create an "
+                        "xmlElement");
                 ret = -1;
                 goto out;
         }
@@ -2497,7 +2535,7 @@ init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
         ret = 0;
 
  out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -2513,7 +2551,8 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 
         ret = xmlTextWriterStartElement(writer, (xmlChar *) "option");
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not create an "
                         "xmlElemetnt");
                 ret = -1;
                 goto out;
@@ -2522,7 +2561,8 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar*)"defaultValue",
                                               "%s", def_val);
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not create an "
                         "xmlElemetnt");
                 ret = -1;
                 goto out;
@@ -2531,7 +2571,8 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"description",
                                               "%s",  dscrpt );
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not create an "
                         "xmlElemetnt");
                 ret = -1;
                 goto out;
@@ -2540,7 +2581,8 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *) "name", "%s",
                                                name);
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not create an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not create an "
                         "xmlElemetnt");
                 ret = -1;
                 goto out;
@@ -2548,7 +2590,8 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 
         ret = xmlTextWriterEndElement(writer);
         if (ret < 0) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Could not end an "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_XML_ELE_CREATE_FAIL, "Could not end an "
                         "xmlElemetnt");
                 ret = -1;
                 goto out;
@@ -2556,7 +2599,7 @@ xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
 
         ret = 0;
  out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -2599,10 +2642,11 @@ _get_xlator_opt_key_from_vme ( struct volopt_map_entry *vme, char **key)
                 }
         }
         if (ret)
-                gf_log ("glusterd", GF_LOG_ERROR, "Wrong entry found in  "
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "Wrong entry found in  "
                         "glusterd_volopt_map entry %s", vme->key);
         else
-                gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+                gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -2699,7 +2743,8 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cert-depth", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                GD_MSG_DICT_GET_FAILED,
                                 "failed to set ssl-cert-depth");
                         goto err;
                 }
@@ -2708,7 +2753,8 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cipher-list", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                GD_MSG_DICT_GET_FAILED,
                                 "failed to set ssl-cipher-list");
                         goto err;
                 }
@@ -2733,7 +2779,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         volname = volinfo->volname;
 
         if (volinfo->brick_count == 0) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLUME_INCONSISTENCY,
                         "volume inconsistency: brick count is 0");
                 goto out;
         }
@@ -2741,7 +2788,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if ((volinfo->type != GF_CLUSTER_TYPE_TIER) &&
             (volinfo->dist_leaf_count < volinfo->brick_count) &&
             ((volinfo->brick_count % volinfo->dist_leaf_count) != 0)) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLUME_INCONSISTENCY,
                         "volume inconsistency: "
                         "total number of bricks (%d) is not divisible with "
                         "number of bricks per cluster (%d) in a multi-cluster "
@@ -2770,7 +2818,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         if (i != volinfo->brick_count) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLUME_INCONSISTENCY,
                         "volume inconsistency: actual number of bricks (%d) "
                         "differs from brick count (%d)", i,
                         volinfo->brick_count);
@@ -2913,14 +2962,16 @@ volgen_graph_build_snapview_client (volgen_graph_t *graph,
          **/
         ret = volgen_xlator_link (graph->graph.first, prev_top);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to link the "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_XLATOR_LINK_FAIL, "failed to link the "
                         "snapview-client to distribute");
                 goto out;
         }
 
         ret = volgen_xlator_link (graph->graph.first, prot_clnt);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to link the "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_XLATOR_LINK_FAIL, "failed to link the "
                         "snapview-client to snapview-server");
                 goto out;
         }
@@ -2941,14 +2992,18 @@ _xl_is_client_decommissioned (xlator_t *xl, glusterd_volinfo_t *volinfo)
         ret = xlator_get_option (xl, "remote-host", &hostname);
         if (ret) {
                 GF_ASSERT (0);
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get remote-host "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_REMOTE_HOST_GET_FAIL,
+                        "Failed to get remote-host "
                         "from client %s", xl->name);
                 goto out;
         }
         ret = xlator_get_option (xl, "remote-subvolume", &path);
         if (ret) {
                 GF_ASSERT (0);
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to get remote-host "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_REMOTE_HOST_GET_FAIL,
+                        "Failed to get remote-host "
                         "from client %s", xl->name);
                 goto out;
         }
@@ -3038,7 +3093,8 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         /* NUFA and Switch section */
         if (dict_get_str_boolean (volinfo->dict, "cluster.nufa", 0) &&
             dict_get_str_boolean (volinfo->dict, "cluster.switch", 0)) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
                         "nufa and switch cannot be set together");
                 ret = -1;
                 goto out;
@@ -3235,7 +3291,9 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
 
                 break;
         default:
-                gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLUME_INCONSISTENCY,
+                        "volume inconsistency: "
                         "unrecognized clustering type");
                 goto out;
         }
@@ -3290,38 +3348,50 @@ graph_set_generic_options (xlator_t *this, volgen_graph_t *graph,
                                                 &loglevel_option_handler);
 
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing %s log level"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "changing %s log level"
                         " failed", identifier);
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &sys_loglevel_option_handler);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing %s syslog "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "changing %s syslog "
                         "level failed", identifier);
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &logger_option_handler);
 
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing %s logger"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "changing %s logger"
                         " failed", identifier);
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &log_format_option_handler);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing %s log format"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "changing %s log format"
                         " failed", identifier);
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &log_buf_size_option_handler);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "Failed to change "
                         "log-buf-size option");
 
         ret = volgen_graph_set_options_generic (graph, set_dict, "client",
                                                 &log_flush_timeout_option_handler);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "Failed to change "
                         "log-flush-timeout option");
         return 0;
 }
@@ -3496,7 +3566,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (volinfo->is_snap_volume) {
                 xl = volgen_graph_add (graph, "features/read-only", volname);
                 if (!xl) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to add "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_GRAPH_FEATURE_ADD_FAIL,
+                                "Failed to add "
                                 "read-only feature to the graph of %s "
                                 "snapshot with %s origin volume",
                                 volname, volinfo->parent_volname);
@@ -3574,7 +3646,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         ob = _gf_false;
                         ret = gf_string2boolean (tmp, &ob);
                         if (!ret && ob) {
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_ROOT_SQUASH_ENABLED,
                                         "root-squash is enabled. Please turn it"
                                         " off to change read-after-open "
                                         "option");
@@ -3643,7 +3716,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                 ret = 0;
                 }
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "setting "
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_ROOT_SQUASH_FAILED,
+                                "setting "
                                 "open behind option as part of root "
                                 "squash failed");
                         goto out;
@@ -3655,8 +3730,9 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                ret = dict_set_str (set_dict, "client.send-gids",
                                    ret ? "false" : "true");
                if (ret)
-                       gf_log (THIS->name, GF_LOG_WARNING, "changing client"
-                               " protocol option failed");
+                        gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                                GD_MSG_DICT_SET_FAILED, "changing client"
+                                " protocol option failed");
         }
 
         ret = client_graph_set_perf_options(graph, volinfo, set_dict);
@@ -3686,7 +3762,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = dict_get_str_boolean (set_dict, "ganesha.enable", _gf_false);
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "setting ganesha.enable"
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_DICT_GET_FAILED, "setting ganesha.enable"
                         "option failed.");
                 goto out;
         }
@@ -3695,8 +3772,10 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 xl = volgen_graph_add (graph, "features/ganesha", volname);
 
                 if (!xl) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to add"
-                               "add features/ganesha to graph");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_GRAPH_FEATURE_ADD_FAIL,
+                                "failed to add"
+                                "add features/ganesha to graph");
                         ret = -1;
                         goto out;
                 }
@@ -4243,7 +4322,9 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
         set_dict = dict_new ();
         if (!set_dict) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY,
+                        "Out of memory");
                 return -1;
         }
 
@@ -4274,7 +4355,8 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
                                    voliter->volname);
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Out of memory");
                         goto out;
                 }
                 ret = xlator_set_option (nfsxl, skey, "*");
@@ -4285,7 +4367,8 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 ret = gf_asprintf (&skey, "nfs3.%s.volume-id",
                                    voliter->volname);
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_NO_MEMORY, "Out of memory");
                         goto out;
                 }
                 ret = xlator_set_option (nfsxl, skey, uuid_utoa (voliter->volume_id));
@@ -4373,12 +4456,13 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 }
 
                 if (ret)
-                        gf_log ("glusterd", GF_LOG_WARNING, "Could not set "
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_GRAPH_SET_OPT_FAIL, "Could not set "
                                  "vol-options for the volume %s", voliter->volname);
         }
 
  out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         dict_destroy (set_dict);
 
         return ret;
@@ -4424,14 +4508,18 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
 
         ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to create brickinfo"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_BRICKINFO_CREATE_FAIL,
+                        "Failed to create brickinfo"
                         " for brick %s", brick );
                 ret = 0;
                 goto out;
         }
         ret = glusterd_volinfo_new (&volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to create volinfo");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_VOLINFO_STORE_FAIL,
+                        "Failed to create volinfo");
                 ret = 0;
                 goto out;
         }
@@ -4519,7 +4607,8 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
                 ret = gf_asprintf(&skey, "%s.volume-id", voliter->volname);
                 if (ret == -1) {
-                        gf_log("", GF_LOG_ERROR, "Out of memory");
+                        gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Out of memory");
                         goto out;
                 }
                 ret = xlator_set_option(quotad_xl, skey, voliter->volname);
@@ -4624,13 +4713,15 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         if (ret) {
                 ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0600);
                 if (ret == -1 && errno == EEXIST) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "timestamp file exist");
                         ret = -2;
                 }
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to create "
-                                "%s (%s)", tstamp_file, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
+                                "failed to create "
+                                "%s", tstamp_file);
                         return -1;
                 }
                 if (ret >= 0) {
@@ -4646,7 +4737,8 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                                 ret = gf_set_timestamp (parent_tstamp_file,
                                                         tstamp_file);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_TSTAMP_SET_FAIL,
                                                 "Unable to set atime and mtime"
                                                 " of %s as of %s", tstamp_file,
                                                 parent_tstamp_file);
@@ -4659,14 +4751,16 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                 if (ret == -1 && errno == ENOENT)
                         ret = 0;
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to unlink "
-                                "%s (%s)", tstamp_file, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
+                                "failed to unlink "
+                                "%s", tstamp_file);
                         return -1;
                 }
         }
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Found a brick - %s:%s", brickinfo->hostname,
                         brickinfo->path);
 
@@ -4679,7 +4773,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         ret = 0;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -4755,7 +4849,8 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                                                             type);
                 }
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INVALID_ENTRY,
                                 "Received invalid transport-type");
                         goto out;
                 }
@@ -4770,7 +4865,8 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
         /* Generate volfile for rebalance process */
         ret = dict_set_int32 (dict, "rebalance-volfile-creation", _gf_true);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set rebalance-volfile-creation");
                 goto out;
         }
@@ -4781,7 +4877,8 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                                                         filepath,
                                                         dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
                         "Failed to create rebalance volfile for %s",
                         volinfo->volname);
                 goto out;
@@ -4791,7 +4888,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        gf_log ("", GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -4817,7 +4914,8 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         if (!ret) {
                 ret = dict_get_str (set_dict, "loglevel", &loglevel);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "could not get both"
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED, "could not get both"
                                 " translator name and loglevel for log level "
                                 "request");
                         return -1;
@@ -4854,7 +4952,8 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cert-depth", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_XLATOR_SET_OPT_FAIL,
                                 "failed to set ssl-cert-depth");
                         return -1;
                 }
@@ -4863,7 +4962,8 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
                 ret = xlator_set_option (xl, "ssl-cipher-list", value);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_XLATOR_SET_OPT_FAIL,
                                 "failed to set ssl-cipher-list");
                         return -1;
                 }
@@ -5265,21 +5365,24 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
                         "Could not generate volfiles for bricks");
                 goto out;
         }
 
         ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
                         "Could not generate trusted client volfiles");
                 goto out;
         }
 
         ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
                         "Could not generate client volfiles");
 
 out:
@@ -5334,8 +5437,10 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
         get_brick_filepath (filename, volinfo, brickinfo);
         ret = unlink (filename);
         if (ret)
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to delete file: %s, "
-                        "reason: %s", filename, strerror (errno));
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "failed to delete file: %s",
+                        filename);
         return ret;
 }
 
@@ -5362,7 +5467,7 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
 
         volgen_graph_free (&graph);
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 out:
         dict_del (val_dict, "graph-check");
         return ret;
@@ -5391,7 +5496,8 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
                         snprintf (err_str, sizeof (err_str), "Changing nfs "
                                   "transport type is allowed only for volumes "
                                   "of transport type tcp,rdma");
-                        gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OP_UNSUPPORTED, "%s", err_str);
                         *op_errstr = gf_strdup (err_str);
                         ret = -1;
                         goto out;
@@ -5407,7 +5513,8 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
 
         ret = dict_set_str (val_dict, "volume-name", volinfo->volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set volume name");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set volume name");
                 goto out;
         }
 
@@ -5420,7 +5527,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
 out:
         if (dict_get (val_dict, "volume-name"))
                 dict_del (val_dict, "volume-name");
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -5443,7 +5550,7 @@ validate_clientopts (glusterd_volinfo_t *volinfo,
 
         volgen_graph_free (&graph);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -5466,7 +5573,7 @@ validate_brickopts (glusterd_volinfo_t *volinfo,
 
         volgen_graph_free (&graph);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -5479,7 +5586,7 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
         int                   ret = -1;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "Validating %s", brickinfo->hostname);
 
                 ret = validate_brickopts (volinfo, brickinfo, val_dict,
@@ -5522,32 +5629,32 @@ glusterd_validate_globalopts (glusterd_volinfo_t *volinfo,
         ret = glusterd_validate_brickreconf (volinfo, val_dict, op_errstr);
 
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "Could not Validate  bricks");
                 goto out;
         }
 
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "Could not Validate client");
                 goto out;
         }
 
         ret = validate_nfsopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Could not Validate nfs");
+                gf_msg_debug ("glusterd", 0, "Could not Validate nfs");
                 goto out;
         }
 
         ret = validate_shdopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Could not Validate self-heald");
+                gf_msg_debug ("glusterd", 0, "Could not Validate self-heald");
                 goto out;
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -5579,34 +5686,34 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
         ret = glusterd_validate_brickreconf (volinfo, val_dict, op_errstr);
 
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "Could not Validate  bricks");
                 goto out;
         }
 
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "Could not Validate client");
                 goto out;
         }
 
         ret = validate_nfsopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Could not Validate nfs");
+                gf_msg_debug ("glusterd", 0, "Could not Validate nfs");
                 goto out;
         }
 
 
         ret = validate_shdopts (volinfo, val_dict, op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Could not Validate self-heald");
+                gf_msg_debug ("glusterd", 0, "Could not Validate self-heald");
                 goto out;
         }
 
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
