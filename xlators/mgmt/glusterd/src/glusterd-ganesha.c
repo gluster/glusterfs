@@ -633,6 +633,14 @@ start_ganesha (char **op_errstr)
                 ret = dict_set_str (vol_opts, "nfs.disable", "on");
                 if (ret)
                         goto out;
+
+                ret = glusterd_store_volinfo (volinfo,
+                                GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret) {
+                        *op_errstr = gf_strdup ("Failed to store the "
+                                                "Volume information");
+                        goto out;
+                }
         }
 
         ret = priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
