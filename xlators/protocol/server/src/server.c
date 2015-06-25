@@ -1154,7 +1154,9 @@ server_process_event_upcall (xlator_t *this, void *data)
                 list_for_each_entry (xprt, &conf->xprt_list, list) {
                         client = xprt->xl_private;
 
-                        if (strcmp(client->client_uid, client_uid))
+                        /* 'client' is not atomically added during xprt entry
+                         * addition to the list. */
+                        if (!client || strcmp(client->client_uid, client_uid))
                                 continue;
 
                         rpcsvc_request_submit(conf->rpc, xprt,
