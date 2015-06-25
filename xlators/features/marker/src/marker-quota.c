@@ -2585,10 +2585,14 @@ out:
 
 int32_t
 mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
-                  inode_contribution_t *contri, quota_meta_t *delta)
+                  inode_contribution_t *contri, quota_meta_t *delta,
+                  gf_boolean_t remove_xattr)
 {
         int32_t              ret                         = -1;
         char                 contri_key[CONTRI_KEY_MAX]  = {0, };
+
+        if (remove_xattr == _gf_false)
+                goto done;
 
         GET_CONTRI_KEY (contri_key, contri->gfid, ret);
         if (ret < 0) {
@@ -2615,6 +2619,7 @@ mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 }
         }
 
+done:
         LOCK (&contri->lock);
         {
                 contri->contribution += delta->size;
@@ -3042,6 +3047,7 @@ mq_reduce_parent_size_task (void *opaque)
         xlator_t                *this          = NULL;
         loc_t                   *loc           = NULL;
         int64_t                  contri        = 0;
+        gf_boolean_t             remove_xattr  = _gf_true;
 
         GF_ASSERT (opaque);
 
@@ -3068,7 +3074,11 @@ mq_reduce_parent_size_task (void *opaque)
         }
 
         if (contri >= 0) {
-                /* contri paramater is supplied only for rename operation */
+                /* contri paramater is supplied only for rename operation.
+                 * remove xattr is alreday performed, we need to skip
+                 * removexattr for rename operation
+                 */
+                remove_xattr = _gf_false;
                 delta.size = contri;
                 delta.file_count = 1;
                 delta.dir_count = 0;
@@ -3122,7 +3132,8 @@ mq_reduce_parent_size_task (void *opaque)
 
         mq_sub_meta (&delta, NULL);
 
-        ret = mq_remove_contri (this, loc, ctx, contribution, &delta);
+        ret = mq_remove_contri (this, loc, ctx, contribution, &delta,
+                                remove_xattr);
         if (ret < 0)
                 goto out;
 
