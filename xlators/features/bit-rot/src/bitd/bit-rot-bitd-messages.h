@@ -387,5 +387,32 @@
  *
  */
 /*------------*/
+#define BRB_MSG_SCRUB_THREAD_CLEANUP       (GLFS_BITROT_BITD_BASE + 49)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+/*------------*/
+#define BRB_MSG_SCRUBBER_CLEANED           (GLFS_BITROT_BITD_BASE + 50)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+/*------------*/
+#define BRB_MSG_GENERIC_SSM_INFO           (GLFS_BITROT_BITD_BASE + 51)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+/*------------*/
+#define BRB_MSG_ZERO_TIMEOUT_BUG           (GLFS_BITROT_BITD_BASE + 52)
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_BITROT_BITD_MESSAGES_H_ */
