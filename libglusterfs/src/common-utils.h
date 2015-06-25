@@ -276,8 +276,7 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                         gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
                                 LG_MSG_NO_PERM,                         \
                                 "attempt to set internal"               \
-                                " xattr: %s: %s", pattern,              \
-                                strerror (op_errno));                   \
+                                " xattr: %s", pattern);                 \
                         goto label;                                     \
                 }                                                       \
         } while (0)
