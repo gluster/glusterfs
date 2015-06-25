@@ -2731,11 +2731,11 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        DHT_STACK_UNWIND (getxattr, frame, 0, 0, NULL, NULL);
+        DHT_STACK_UNWIND (getxattr, frame, 0, 0, xattr, xdata);
         goto out;
 
  unwind:
-        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, xdata);
  out:
         return 0;
 }
