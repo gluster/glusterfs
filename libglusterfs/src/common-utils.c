@@ -115,10 +115,12 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
 
         ret = stat (dir, &stbuf);
         if (ret || !S_ISDIR (stbuf.st_mode)) {
+                if (ret == 0)
+                        errno = 0;
                 ret = -1;
-                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_DIR_OP_FAILED, "Failed to "
-                        "create directory, possibly some of the components "
-                        "were not directories");
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED, "Failed"
+                        " to create directory, possibly some of the components"
+                        " were not directories");
                 goto out;
         }
 
@@ -299,12 +301,10 @@ gf_resolve_ip6 (const char *hostname,
 
                 ret = gf_asprintf (&port_str, "%d", port);
                 if (-1 == ret) {
-                        gf_msg ("resolver", GF_LOG_ERROR, 0,
-                                LG_MSG_ASPRINTF_FAILED, "asprintf failed");
                         return -1;
                 }
                 if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) != 0) {
-                        gf_msg ("resolver", GF_LOG_ERROR, ret,
+                        gf_msg ("resolver", GF_LOG_ERROR, 0,
                                 LG_MSG_GETADDRINFO_FAILED, "getaddrinfo failed"
                                 " (%s)", gai_strerror (ret));
 
@@ -3132,8 +3132,7 @@ gf_is_local_addr (char *hostname)
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ret,
-                        LG_MSG_GETADDRINFO_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
                         "error in getaddrinfo: %s\n", gai_strerror(ret));
                 goto out;
         }
@@ -3173,17 +3172,15 @@ gf_is_same_address (char *name1, char *name2)
 
         gai_err = getaddrinfo(name1,NULL,NULL,&addr1);
         if (gai_err != 0) {
-                gf_msg (name1, GF_LOG_WARNING, gai_err,
-                        LG_MSG_GETADDRINFO_FAILED, "error in getaddrinfo: "
-                        "%s\n", gai_strerror(gai_err));
+                gf_msg (name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
                 goto out;
         }
 
         gai_err = getaddrinfo(name2,NULL,NULL,&addr2);
         if (gai_err != 0) {
-                gf_msg (name2, GF_LOG_WARNING, gai_err,
-                        LG_MSG_GETADDRINFO_FAILED, "error in getaddrinfo: "
-                        "%s\n", gai_strerror(gai_err));
+                gf_msg (name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
                 goto out;
         }
 
@@ -3527,8 +3524,7 @@ gf_set_timestamp  (const char *src, const char* dest)
         ret = stat (src, &sb);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
-                        LG_MSG_FILE_STAT_FAILED, "stat on %s failed: %s",
-                        src, strerror(errno));
+                        LG_MSG_FILE_STAT_FAILED, "stat on %s", src);
                 goto out;
         }
         new_time[0].tv_sec = sb.st_atime;
@@ -3544,7 +3540,7 @@ gf_set_timestamp  (const char *src, const char* dest)
         ret = utimes (dest, new_time);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, LG_MSG_UTIMES_FAILED,
-                        "utimes on %s failed: %s", dest, strerror(errno));
+                        "utimes on %s", dest);
         }
 out:
         return ret;
