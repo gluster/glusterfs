@@ -2328,7 +2328,7 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         unsigned char       *create   = NULL;
         dict_t              *xdata    = NULL;
         char                *linkname = NULL;
-
+        ec_config_t         config;
         /* There should be just one gfid key */
         EC_REPLIES_ALLOC (replies, ec->nodes);
         if (gfid_db->count != 1) {
@@ -2422,6 +2422,19 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                         if (output1[i])
                                 output[i] = 1;
                 break;
+        case IA_IFREG:
+                config.version = EC_CONFIG_VERSION;
+                config.algorithm = EC_CONFIG_ALGORITHM;
+                config.gf_word_size = EC_GF_BITS;
+                config.bricks = ec->nodes;
+                config.redundancy = ec->redundancy;
+                config.chunk_size = EC_METHOD_CHUNK_SIZE;
+
+                if (ec_dict_set_config(xdata, EC_XATTR_CONFIG,
+                                   &config) < 0) {
+                        ret = -EIO;
+                        goto out;
+                }
         default:
                 ret = dict_set_int32 (xdata, GLUSTERFS_INTERNAL_FOP_KEY,
                                       1);
