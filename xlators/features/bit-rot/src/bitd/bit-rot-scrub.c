@@ -537,11 +537,12 @@ br_fsscan_deactivate (xlator_t *this, br_child_t *child)
         ret = gf_tw_del_timer (priv->timer_wheel, fsscan->timer);
         if (ret == 0) {
                 nstate = BR_SCRUB_STATE_STALLED;
-                gf_log (this->name, GF_LOG_INFO, "Brick [%s] is under active "
-                        "scrubbing. Pausing scrub..", child->brick_path);
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                        "Brick [%s] is under active scrubbing. Pausing scrub..",
+                        child->brick_path);
         } else {
                 nstate = BR_SCRUB_STATE_PAUSED;
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
                         "Scrubber paused [Brick: %s]", child->brick_path);
         }
 
@@ -612,8 +613,9 @@ br_fsscanner_exit_control (xlator_t *this, br_child_t *child)
                 if (fsscan->state == BR_SCRUB_STATE_ACTIVE) {
                         (void) br_fsscan_activate (this, child);
                 } else {
-                        gf_log (this->name, GF_LOG_INFO, "Brick [%s] waiting "
-                                "to get rescheduled..", child->brick_path);
+                        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                                "Brick [%s] waiting to get rescheduled..",
+                                child->brick_path);
                 }
         }
         UNLOCK (&child->lock);
@@ -752,7 +754,8 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child)
         timo = br_fsscan_calculate_timeout (fsscan->boot,
                                             fsscan->boot, fsscrub->frequency);
         if (timo == 0) {
-                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
+                        "BUG: Zero schedule timeout");
                 goto error_return;
         }
 
@@ -800,7 +803,8 @@ br_fsscan_activate (xlator_t *this, br_child_t *child)
         timo = br_fsscan_calculate_timeout (fsscan->boot,
                                             now.tv_sec, fsscrub->frequency);
         if (timo == 0) {
-                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
+                        "BUG: Zero schedule timeout");
                 return -1;
         }
 
@@ -810,8 +814,8 @@ br_fsscan_activate (xlator_t *this, br_child_t *child)
         (void) gf_tw_mod_timer (priv->timer_wheel, fsscan->timer, timo);
 
         _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
-        gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s rescheduled to run "
-                "at %s", child->brick_path, timestr);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing for "
+                "%s rescheduled to run at %s", child->brick_path, timestr);
 
         return 0;
 }
@@ -835,7 +839,8 @@ br_fsscan_reschedule (xlator_t *this, br_child_t *child)
         timo = br_fsscan_calculate_timeout (fsscan->boot,
                                             now.tv_sec, fsscrub->frequency);
         if (timo == 0) {
-                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
+                        "BUG: Zero schedule timeout");
                 return -1;
         }
 
@@ -845,13 +850,14 @@ br_fsscan_reschedule (xlator_t *this, br_child_t *child)
         fsscan->over = _gf_false;
         ret = gf_tw_mod_timer_pending (priv->timer_wheel, fsscan->timer, timo);
         if (ret == 0)
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
                         "Scrubber for %s is currently running and would be "
                         "rescheduled after completion", child->brick_path);
         else {
                 _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
-                gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s rescheduled "
-                        "to run at %s", child->brick_path, timestr);
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                        "Scrubbing for %s rescheduled to run at %s",
+                        child->brick_path, timestr);
         }
 
         return 0;
