@@ -1264,7 +1264,8 @@ br_child_enaction (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
                 if (!ret) {
                         child->witnessed = 1;
                         _br_set_child_state (child, BR_CHILD_STATE_CONNECTED);
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO,
+                                0, BRB_MSG_CONNECTED_TO_BRICK,
                                 "Connected to brick %s..", child->brick_path);
                 }
         }
@@ -1389,7 +1390,8 @@ br_cleanup_scrubber (xlator_t *this, br_child_t *child)
          */
         ret = gf_thread_cleanup_xint (child->thread);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_INFO,
+                        0, BRB_MSG_SCRUB_THREAD_CLEANUP,
                         "Error cleaning up scanner thread");
 
         /**
@@ -1407,7 +1409,8 @@ br_cleanup_scrubber (xlator_t *this, br_child_t *child)
          */
         _br_child_set_scrub_state (child, BR_SCRUB_STATE_INACTIVE);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO,
+                0, BRB_MSG_SCRUBBER_CLEANED,
                 "Cleaned up scrubber for brick [%s]", child->brick_path);
 
         return 0;
@@ -1522,8 +1525,9 @@ _br_qchild_event (xlator_t *this, br_child_t *child, br_child_handler *call)
 
         childev = GF_CALLOC (1, sizeof (*childev), gf_br_mt_br_child_event_t);
         if (!childev) {
-                gf_log (this->name, GF_LOG_ERROR, "Event unhandled for "
-                        "child.. [Brick: %s]", child->xl->name);
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
+                        "Event unhandled for child.. [Brick: %s]",
+                        child->xl->name);
                 return;
         }
 
@@ -1805,7 +1809,8 @@ br_init_children (xlator_t *this, br_private_t *priv)
                 child->timer_pool = mem_pool_new
                                     (struct gf_tw_timer_list,  4096);
                 if (!child->timer_pool) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                ENOMEM, BRB_MSG_NO_MEMORY,
                                 "failed to allocate mem-pool for timer");
                         errno = ENOMEM;
                         goto freechild;
@@ -1832,13 +1837,14 @@ init (xlator_t *this)
 	br_private_t *priv = NULL;
 
 	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR, "FATAL: no children");
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_NO_CHILD,
+                        "FATAL: no children");
 		goto out;
 	}
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_br_mt_br_private_t);
         if (!priv) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
                         "failed to allocate memory (->priv)");
                 goto out;
         }
@@ -1930,9 +1936,10 @@ br_reconfigure_child (xlator_t *this, br_child_t *child)
 
         ret = br_scrub_state_machine (this, child);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not reschedule scrubber for brick: %s. "
-                        "Scubbing will continue according to old frequency.",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
+                        "Could not reschedule scrubber for brick: %s. Scubbing "
+                        "will continue according to old frequency.",
                         child->brick_path);
         }
 }
@@ -1963,7 +1970,8 @@ br_reconfigure_scrubber (xlator_t *this, dict_t *options)
                 LOCK (&child->lock);
                 {
                         if (_br_child_failed_conn (child)) {
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO,
+                                        0, BRB_MSG_BRICK_INFO,
                                         "Scrubber for brick [%s] failed "
                                         "initialization, rescheduling is "
                                         "skipped", child->brick_path);

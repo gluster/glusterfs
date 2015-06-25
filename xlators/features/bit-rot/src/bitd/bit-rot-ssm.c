@@ -10,6 +10,7 @@
 
 #include "bit-rot-ssm.h"
 #include "bit-rot-scrub.h"
+#include "bit-rot-bitd-messages.h"
 
 int br_scrub_ssm_noop (xlator_t *this, br_child_t *child)
 {
@@ -19,7 +20,7 @@ int br_scrub_ssm_noop (xlator_t *this, br_child_t *child)
 int
 br_scrub_ssm_state_pause (xlator_t *this, br_child_t *child)
 {
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_GENERIC_SSM_INFO,
                 "Scrubber paused [Brick: %s]", child->brick_path);
         _br_child_set_scrub_state (child, BR_SCRUB_STATE_PAUSED);
         return 0;
@@ -28,7 +29,7 @@ br_scrub_ssm_state_pause (xlator_t *this, br_child_t *child)
 int
 br_scrub_ssm_state_ipause (xlator_t *this, br_child_t *child)
 {
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_GENERIC_SSM_INFO,
                 "Scrubber paused [Brick: %s]", child->brick_path);
         _br_child_set_scrub_state (child, BR_SCRUB_STATE_IPAUSED);
         return 0;
@@ -42,7 +43,7 @@ br_scrub_ssm_state_active (xlator_t *this, br_child_t *child)
         if (fsscan->over) {
                 (void) br_fsscan_activate (this, child);
         } else {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_GENERIC_SSM_INFO,
                         "Scrubbing resumed [Brick %s]", child->brick_path);
                 _br_child_set_scrub_state (child, BR_SCRUB_STATE_ACTIVE);
         }
@@ -53,8 +54,9 @@ br_scrub_ssm_state_active (xlator_t *this, br_child_t *child)
 int
 br_scrub_ssm_state_stall (xlator_t *this, br_child_t *child)
 {
-        gf_log (this->name, GF_LOG_INFO, "Brick [%s] is under active "
-                "scrubbing. Pausing scrub..", child->brick_path);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_GENERIC_SSM_INFO,
+                "Brick [%s] is under active scrubbing. Pausing scrub..",
+                child->brick_path);
         _br_child_set_scrub_state (child, BR_SCRUB_STATE_STALLED);
         return 0;
 }
