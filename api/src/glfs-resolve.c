@@ -1021,3 +1021,40 @@ glfs_create_object (loc_t *loc, struct glfs_object **retobject)
 
 	return 0;
 }
+
+struct glfs_object *
+glfs_h_resolve_symlink (struct glfs *fs, struct glfs_object *object)
+{
+
+        xlator_t                *subvol         = NULL;
+        loc_t                   sym_loc         = {0,};
+        struct iatt             iatt            = {0,};
+        char                    *lpath          = NULL;
+        int                     ret             = 0;
+        struct glfs_object      *target_object  = NULL;
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        ret = glfs_resolve_symlink (fs, subvol, object->inode, &lpath);
+        if (ret < 0)
+                goto out;
+
+        ret = glfs_resolve_at (fs, subvol, NULL, lpath,
+                               &sym_loc, &iatt,
+                              /* always recurisvely follow while
+                                following symlink
+                              */
+                               1, 0);
+        if (ret == 0)
+                ret = glfs_create_object (&sym_loc, &target_object);
+
+out:
+        loc_wipe (&sym_loc);
+        GF_FREE (lpath);
+        return target_object;
+}

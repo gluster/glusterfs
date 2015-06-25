@@ -1999,6 +1999,7 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
         int ret = -1;
         char *acl_s = NULL;
         const char *acl_key = NULL;
+        struct glfs_object *new_object = NULL;
 
         DECLARE_OLD_THIS;
 
@@ -2018,12 +2019,22 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
         if (!acl_s)
                 goto out;
 
-        ret = pub_glfs_h_setxattrs (fs, object, acl_key, acl_s,
+        if (IA_ISLNK (object->inode->ia_type)) {
+                new_object = glfs_h_resolve_symlink (fs, object);
+                if (new_object == NULL)
+                        goto out;
+        } else
+                new_object = object;
+
+        ret = pub_glfs_h_setxattrs (fs, new_object, acl_key, acl_s,
                                     strlen (acl_s) + 1, 0);
 
         acl_free (acl_s);
 
 out:
+        if (IA_ISLNK (object->inode->ia_type) && new_object)
+                glfs_h_close (new_object);
+
         __GLFS_EXIT_FS;
 
 invalid_fs:
@@ -2039,6 +2050,7 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
         char *acl_s = NULL;
         dict_t *xattr = NULL;
         const char *acl_key = NULL;
+        struct glfs_object *new_object = NULL;
 
         DECLARE_OLD_THIS;
 
@@ -2053,7 +2065,14 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
         if (!acl_key)
                 goto out;
 
-        ret = glfs_h_getxattrs_common (fs, object, &xattr, acl_key);
+        if (IA_ISLNK (object->inode->ia_type)) {
+                new_object = glfs_h_resolve_symlink (fs, object);
+                if (new_object == NULL)
+                        goto out;
+        } else
+                new_object = object;
+
+        ret = glfs_h_getxattrs_common (fs, new_object, &xattr, acl_key);
         if (ret)
                 goto out;
 
@@ -2065,6 +2084,8 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
 
 out:
         GF_FREE (acl_s);
+        if (IA_ISLNK (object->inode->ia_type) && new_object)
+                glfs_h_close (new_object);
 
         __GLFS_EXIT_FS;
 

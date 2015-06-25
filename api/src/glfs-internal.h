@@ -415,4 +415,8 @@ ssize_t
 glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
                         const struct iovec *iovec, int iovcnt,
                         off_t offset, int flags);
+
+struct glfs_object *
+glfs_h_resolve_symlink (struct glfs *fs, struct glfs_object *object);
+
 #endif /* !_GLFS_INTERNAL_H */
