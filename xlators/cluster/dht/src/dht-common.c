@@ -3582,7 +3582,7 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
         return 0;
 
 err:
-        DHT_STACK_UNWIND (setxattr, frame, local->op_ret, op_errno, NULL);
+        DHT_STACK_UNWIND (setxattr, frame, local ? local->op_ret : -1, op_errno, NULL);
         return 0;
 }
 
@@ -4425,7 +4425,9 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 goto err;
         }
 
-        if (!(conf->local_subvols_cnt) || !conf->defrag) {
+        if ((conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_TIER) ||
+            (conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) ||
+            (!(conf->local_subvols_cnt) || !conf->defrag)) {
                 local->call_cnt = conf->subvolume_cnt;
 
                 for (i = 0; i < conf->subvolume_cnt; i++) {
