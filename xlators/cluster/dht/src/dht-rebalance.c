@@ -1546,6 +1546,7 @@ gf_defrag_migrate_single_file (void *opaque)
         struct timeval           end            = {0,};
         double                   elapsed        = {0,};
         struct dht_container    *rebal_entry    = NULL;
+        inode_t                 *inode          = NULL;
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -1603,8 +1604,6 @@ gf_defrag_migrate_single_file (void *opaque)
 
         gf_uuid_copy (entry_loc.pargfid, loc->gfid);
 
-        entry_loc.inode->ia_type = entry->d_stat.ia_type;
-
         ret = syncop_lookup (this, &entry_loc, &iatt, NULL, NULL, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1614,6 +1613,11 @@ gf_defrag_migrate_single_file (void *opaque)
                 ret = 0;
                 goto out;
         }
+
+        inode = inode_link (entry_loc.inode, entry_loc.parent, entry->d_name, &iatt);
+        inode_unref (entry_loc.inode);
+        /* use the inode returned by inode_link */
+        entry_loc.inode = inode;
 
         ret = syncop_setxattr (this, &entry_loc, migrate_data, 0, NULL, NULL);
         if (ret < 0) {
