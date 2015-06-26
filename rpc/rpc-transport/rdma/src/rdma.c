@@ -120,8 +120,7 @@ gf_rdma_new_post (rpc_transport_t *this, gf_rdma_device_t *device, int32_t len,
         if (!post->mr) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_MR_ALOC_FAILED,
-                        "memory registration failed (%s)",
-                        strerror (errno));
+                        "memory registration failed");
                 goto out;
         }
 
@@ -1034,8 +1033,8 @@ gf_rdma_cm_handle_connect_request (struct rdma_cm_event *event)
         if (ret < 0) {
                 gf_msg (listener->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_ACCEPT_FAILED, "rdma_accept failed peer:%s "
-                        "me:%s (%s)", this->peerinfo.identifier,
-                        this->myinfo.identifier, strerror (errno));
+                        "me:%s", this->peerinfo.identifier,
+                        this->myinfo.identifier);
                 gf_rdma_cm_handle_disconnect (this);
                 goto out;
         }
@@ -1087,7 +1086,7 @@ gf_rdma_cm_handle_route_resolved (struct rdma_cm_event *event)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_CONNECT_FAILED,
-                        "rdma_connect failed (%s)", strerror (errno));
+                        "rdma_connect failed");
                 gf_rdma_cm_handle_disconnect (this);
                 goto out;
         }
@@ -1130,9 +1129,8 @@ gf_rdma_cm_handle_addr_resolved (struct rdma_cm_event *event)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_ROUTE_RESOLVE_FAILED, "rdma_resolve_route "
-                        "failed (me:%s peer:%s) (%s)",
-                        this->myinfo.identifier, this->peerinfo.identifier,
-                        strerror (errno));
+                        "failed (me:%s peer:%s)",
+                        this->myinfo.identifier, this->peerinfo.identifier);
                 gf_rdma_cm_handle_disconnect (this);
         }
 
@@ -1257,8 +1255,7 @@ gf_rdma_cm_event_handler (void *data)
                 if (ret != 0) {
                         gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                                 RDMA_MSG_CM_EVENT_FAILED,
-                                "rdma_cm_get_event failed (%s)",
-                                strerror (errno));
+                                "rdma_cm_get_event failed");
                         break;
                 }
 
@@ -1464,8 +1461,7 @@ __gf_rdma_create_read_chunks_from_vector (gf_rdma_peer_t *peer,
                 if (!mr) {
                         gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                                 RDMA_MSG_MR_ALOC_FAILED,
-                                "memory registration failed (%s) (peer:%s)",
-                                strerror (errno),
+                                "memory registration failed (peer:%s)",
                                 peer->trans->peerinfo.identifier);
                         goto out;
                 }
@@ -1611,8 +1607,7 @@ __gf_rdma_create_write_chunks_from_vector (gf_rdma_peer_t *peer,
                 if (!mr) {
                         gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                                 RDMA_MSG_MR_ALOC_FAILED, "memory "
-                                "registration failed (%s) (peer:%s)",
-                                strerror (errno),
+                                "registration failed (peer:%s)",
                                 peer->trans->peerinfo.identifier);
                         goto out;
                 }
@@ -2331,7 +2326,7 @@ __gf_rdma_register_local_mr_for_rdma (gf_rdma_peer_t *peer,
                         gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                                 RDMA_MSG_MR_ALOC_FAILED,
                                 "registering memory for IBV_ACCESS_LOCAL_WRITE"
-                                " failed (%s)", strerror (errno));
+                                " failed");
                         goto out;
                 }
 
@@ -3231,8 +3226,8 @@ gf_rdma_create_qp (rpc_transport_t *this)
         ret = rdma_create_qp(peer->cm_id, device->pd, &init_attr);
         if (ret != 0) {
                 gf_msg (peer->trans->name, GF_LOG_CRITICAL, errno,
-                        RDMA_MSG_CREAT_QP_FAILED, "%s: could not create QP "
-                        "(%s)", this->name, strerror (errno));
+                        RDMA_MSG_CREAT_QP_FAILED, "%s: could not create QP",
+                        this->name);
                 ret = -1;
                 goto out;
         }
@@ -4121,7 +4116,7 @@ gf_rdma_async_event_thread (void *context)
                         if (ret && errno != EINTR) {
                                 gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                                         RDMA_MSG_EVENT_ERROR, "Error getting "
-                                        "event (%s)", strerror (errno));
+                                        "event");
                         }
                 } while (ret && errno == EINTR);
 
@@ -4592,7 +4587,7 @@ __gf_rdma_ctx_create (void)
         if (rdma_ctx->rdma_cm_event_channel == NULL) {
                 gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                         RDMA_MSG_CM_EVENT_FAILED, "rdma_cm event channel "
-                        "creation failed (%s)", strerror (errno));
+                        "creation failed");
                 goto out;
         }
 
@@ -4602,7 +4597,7 @@ __gf_rdma_ctx_create (void)
         if (ret != 0) {
                 gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, ret,
                         RDMA_MSG_CM_EVENT_FAILED, "creation of thread to "
-                        "handle rdma-cm events failed (%s)", strerror (ret));
+                        "handle rdma-cm events failed");
                 goto out;
         }
 
@@ -4727,7 +4722,7 @@ gf_rdma_connect (struct rpc_transport *this, int port)
                 if (ret != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 RDMA_MSG_CM_EVENT_FAILED, "creation of "
-                                "rdma_cm_id failed (%s)", strerror (errno));
+                                "rdma_cm_id failed");
                         ret = -errno;
                         goto unlock;
                 }
@@ -4749,7 +4744,7 @@ gf_rdma_connect (struct rpc_transport *this, int port)
                 if (ret != 0) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 RDMA_MSG_CLIENT_BIND_FAILED,
-                                "client bind failed: %s", strerror (errno));
+                                "client bind failed");
                         goto unlock;
                 }
 
@@ -4758,8 +4753,7 @@ gf_rdma_connect (struct rpc_transport *this, int port)
                 if (ret != 0) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 RDMA_MSG_RDMA_RESOLVE_ADDR_FAILED,
-                                "rdma_resolve_addr failed (%s)",
-                                strerror (errno));
+                                "rdma_resolve_addr failed");
                         goto unlock;
                 }
 
@@ -4814,7 +4808,7 @@ gf_rdma_listen (rpc_transport_t *this)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_CM_EVENT_FAILED, "creation of rdma_cm_id "
-                        "failed (%s)", strerror (errno));
+                        "failed");
                 goto err;
         }
 
@@ -4829,7 +4823,7 @@ gf_rdma_listen (rpc_transport_t *this)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, ret,
                         TRANS_MSG_GET_NAME_INFO_FAILED,
-                        "getnameinfo failed (%s)", gai_strerror (ret));
+                        "getnameinfo failed");
                 goto err;
         }
 
@@ -4840,8 +4834,7 @@ gf_rdma_listen (rpc_transport_t *this)
                               (void *)&optval, sizeof(optval));
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
-                        RDMA_MSG_OPTION_SET_FAILED, "rdma option set failed "
-                        "(%s)", strerror (errno));
+                        RDMA_MSG_OPTION_SET_FAILED, "rdma option set failed");
                 goto err;
         }
 
@@ -4849,7 +4842,7 @@ gf_rdma_listen (rpc_transport_t *this)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_RDMA_BIND_ADDR_FAILED,
-                        "rdma_bind_addr failed (%s)", strerror (errno));
+                        "rdma_bind_addr failed");
                 goto err;
         }
 
@@ -4857,7 +4850,7 @@ gf_rdma_listen (rpc_transport_t *this)
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_LISTEN_FAILED,
-                        "rdma_listen failed (%s)", strerror (errno));
+                        "rdma_listen failed");
                 goto err;
         }
 
