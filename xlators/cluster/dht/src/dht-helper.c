@@ -14,6 +14,17 @@
 #include "dht-common.h"
 #include "dht-helper.h"
 
+void
+dht_free_mig_info (void *data)
+{
+        dht_migrate_info_t *miginfo = NULL;
+
+        miginfo = data;
+        GF_FREE (miginfo);
+
+        return;
+}
+
 static inline int
 dht_inode_ctx_set_mig_info (xlator_t *this, inode_t *inode,
                             xlator_t *src_subvol, xlator_t *dst_subvol)
@@ -28,12 +39,13 @@ dht_inode_ctx_set_mig_info (xlator_t *this, inode_t *inode,
 
         miginfo->src_subvol = src_subvol;
         miginfo->dst_subvol = dst_subvol;
+        GF_REF_INIT (miginfo, dht_free_mig_info);
 
         value = (uint64_t) miginfo;
 
         ret = inode_ctx_set1 (inode, this, &value);
         if (ret < 0) {
-                GF_FREE (miginfo);
+                GF_REF_PUT (miginfo);
         }
 
 out:
@@ -49,17 +61,26 @@ dht_inode_ctx_get_mig_info (xlator_t *this, inode_t *inode,
         uint64_t            tmp_miginfo = 0;
         dht_migrate_info_t *miginfo     = NULL;
 
-        ret =  inode_ctx_get1 (inode, this, &tmp_miginfo);
-        if ((ret < 0) || (tmp_miginfo == 0))
-                goto out;
+        LOCK (&inode->lock);
+        {
+                ret =  __inode_ctx_get1 (inode, this, &tmp_miginfo);
+                if ((ret < 0) || (tmp_miginfo == 0)) {
+                        UNLOCK (&inode->lock);
+                        goto out;
+                }
 
-        miginfo = (dht_migrate_info_t *)tmp_miginfo;
+                miginfo = (dht_migrate_info_t *)tmp_miginfo;
+                GF_REF_GET (miginfo);
+        }
+        UNLOCK (&inode->lock);
 
         if (src_subvol)
                 *src_subvol = miginfo->src_subvol;
 
         if (dst_subvol)
                 *dst_subvol = miginfo->dst_subvol;
+
+        GF_REF_PUT (miginfo);
 
 out:
         return ret;
@@ -895,21 +916,22 @@ out:
 int
 dht_migration_complete_check_task (void *data)
 {
-        int           ret         = -1;
-        xlator_t     *src_node    = NULL;
-        xlator_t     *dst_node    = NULL, *linkto_target = NULL;
-        dht_local_t  *local       = NULL;
-        dict_t       *dict        = NULL;
-        struct iatt   stbuf       = {0,};
-        xlator_t     *this        = NULL;
-        call_frame_t *frame       = NULL;
-        loc_t         tmp_loc     = {0,};
-        char         *path        = NULL;
-        dht_conf_t   *conf        = NULL;
-        inode_t      *inode       = NULL;
-        fd_t         *iter_fd     = NULL;
-        uint64_t      tmp_miginfo = 0;
-        int           open_failed = 0;
+        int                 ret         = -1;
+        xlator_t           *src_node    = NULL;
+        xlator_t           *dst_node    = NULL, *linkto_target = NULL;
+        dht_local_t        *local       = NULL;
+        dict_t             *dict        = NULL;
+        struct iatt         stbuf       = {0,};
+        xlator_t           *this        = NULL;
+        call_frame_t       *frame       = NULL;
+        loc_t               tmp_loc     = {0,};
+        char               *path        = NULL;
+        dht_conf_t         *conf        = NULL;
+        inode_t            *inode       = NULL;
+        fd_t               *iter_fd     = NULL;
+        uint64_t            tmp_miginfo = 0;
+        dht_migrate_info_t *miginfo     = NULL;
+        int                 open_failed = 0;
 
         this  = THIS;
         frame = data;
@@ -1005,7 +1027,8 @@ dht_migration_complete_check_task (void *data)
            done on all the fd of inode */
         ret = inode_ctx_reset1 (inode, this, &tmp_miginfo);
         if (tmp_miginfo) {
-                GF_FREE ((void *)tmp_miginfo);
+                miginfo = (void *)tmp_miginfo;
+                GF_REF_PUT (miginfo);
                 goto out;
         }
 
