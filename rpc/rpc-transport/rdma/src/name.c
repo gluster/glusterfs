@@ -397,8 +397,8 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, ret,
                         TRANS_MSG_GET_ADDR_INFO_FAILED,
-                        "getaddrinfo failed for host %s, service %s (%s)",
-                        listen_host, service, gai_strerror (ret));
+                        "getaddrinfo failed for host %s, service %s",
+                        listen_host, service);
                 ret = -1;
                 goto out;
         }
@@ -432,8 +432,7 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 RDMA_MSG_PORT_BIND_FAILED,
                                 "cannot bind rdma_cm_id to port "
-                                "less than %d (%s)", GF_CLIENT_PORT_CEILING,
-                                strerror (errno));
+                                "less than %d", GF_CLIENT_PORT_CEILING);
                         if (sockaddr->sa_family == AF_INET6) {
                                 ((struct sockaddr_in6 *)sockaddr)->sin6_port
                                         = htons (0);
@@ -637,7 +636,7 @@ fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *add
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, ret,
                         TRANS_MSG_GET_NAME_INFO_FAILED,
-                        "getnameinfo failed (%s)", gai_strerror (ret));
+                        "getnameinfo failed");
         }
 
         sprintf (identifier, "%s:%s", host, service);
