@@ -15,6 +15,7 @@
 #include "dht-messages.h"
 #include "libxlator.h"
 #include "syncop.h"
+#include "refcount.h"
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -501,6 +502,7 @@ struct dir_dfmeta {
 typedef struct dht_migrate_info {
         xlator_t *src_subvol;
         xlator_t *dst_subvol;
+        GF_REF_DECL;
 } dht_migrate_info_t;
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
