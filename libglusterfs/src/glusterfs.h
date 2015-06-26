@@ -164,6 +164,8 @@
 #define GF_AFR_SBRAIN_CHOICE "replica.split-brain-choice"
 #define GF_AFR_SPB_CHOICE_TIMEOUT "replica.split-brain-choice-timeout"
 #define GF_AFR_SBRAIN_RESOLVE "replica.split-brain-heal-finalize"
+#define GF_AFR_REPLACE_BRICK "trusted.replace-brick"
+#define GF_AFR_DIRTY "trusted.afr.dirty"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
