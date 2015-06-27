@@ -457,6 +457,40 @@ br_stub_mark_inode_modified (xlator_t *this, br_stub_local_t *local)
 }
 
 /**
+ * The possible return values from br_stub_is_bad_object () are:
+ * 1) 0  => as per the inode context object is not bad
+ * 2) -1 => Failed to get the inode context itself
+ * 3) -2 => As per the inode context object is bad
+ * Both -ve values means the fop which called this function is failed
+ * and error is returned upwards.
+ */
+static int
+br_stub_check_bad_object (xlator_t *this, inode_t *inode, int32_t *op_ret,
+                           int32_t *op_errno)
+{
+        int ret = -1;
+
+        ret = br_stub_is_bad_object (this, inode);
+        if (ret == -2) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJECT_ACCESS,
+                        "%s is a bad object. Returning",
+                        uuid_utoa (inode->gfid));
+                *op_ret = -1;
+                *op_errno = EIO;
+        }
+
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "could not get inode"
+                        " context for %s", uuid_utoa (inode->gfid));
+                *op_ret = -1;
+                *op_errno = EINVAL;
+        }
+
+        return ret;
+}
+
+/**
  * callback for inode/fd versioning
  */
 int
@@ -1100,6 +1134,12 @@ br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
+        if (dict_get (dict, GLUSTERFS_GET_OBJECT_SIGNATURE)) {
+                br_stub_handle_internal_xattr (frame, this, fd,
+                                               GLUSTERFS_GET_OBJECT_SIGNATURE);
+                goto done;
+        }
+
         /* object reopen request */
         ret = dict_get_uint32 (dict, BR_REOPEN_SIGN_HINT_KEY, &val);
         if (!ret) {
@@ -1140,6 +1180,7 @@ br_stub_setxattr (call_frame_t *frame, xlator_t *this,
         char    *format                    = "(%s:%s)";
 
         if (dict_get (dict, GLUSTERFS_SET_OBJECT_SIGNATURE) ||
+            dict_get (dict, GLUSTERFS_GET_OBJECT_SIGNATURE) ||
             dict_get (dict, BR_REOPEN_SIGN_HINT_KEY) ||
             dict_get (dict, BITROT_OBJECT_BAD_KEY) ||
             dict_get (dict, BITROT_SIGNING_VERSION_KEY) ||
@@ -1582,13 +1623,16 @@ br_stub_readv (call_frame_t *frame, xlator_t *this,
 {
         int32_t              op_ret   = -1;
         int32_t              op_errno = EINVAL;
+        int32_t              ret      = -1;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, unwind);
 
-        BR_STUB_HANDLE_BAD_OBJECT (this, fd->inode, op_ret, op_errno, unwind);
+        ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
+        if (ret)
+                goto unwind;
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->readv, fd, size, offset,
@@ -1682,7 +1726,9 @@ br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret)
                 goto unwind;
 
-        BR_STUB_HANDLE_BAD_OBJECT (this, fd->inode, op_ret, op_errno, unwind);
+        ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
+        if (ret)
+                goto unwind;
 
         /**
          * The inode is not dirty and also witnessed atleast one successful
@@ -1803,7 +1849,9 @@ br_stub_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret)
                 goto unwind;
 
-        BR_STUB_HANDLE_BAD_OBJECT (this, fd->inode, op_ret, op_errno, unwind);
+        ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
+        if (ret)
+                goto unwind;
 
         if (!inc_version && modified)
                 goto wind;
@@ -1935,7 +1983,9 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (ret)
                 goto cleanup_fd;
 
-        BR_STUB_HANDLE_BAD_OBJECT (this, fd->inode, op_ret, op_errno, unwind);
+        ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
+        if (ret)
+                goto unwind;
 
         if (!inc_version && modified)
                 goto wind;
@@ -2029,7 +2079,9 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
 
         ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
 
-        BR_STUB_HANDLE_BAD_OBJECT (this, loc->inode, op_ret, op_errno, unwind);
+        ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
+        if (ret)
+                goto unwind;
 
         if (frame->root->pid == GF_CLIENT_PID_SCRUB)
                 goto wind;
@@ -2211,6 +2263,13 @@ unwind:
  * calls can be avoided and bad objects can be caught instantly. Fetching the
  * xattr is needed only in lookups when there is a brick restart or inode
  * forget.
+ *
+ * If the dict (@xattr) is NULL, then how should that be handled? Fail the
+ * lookup operation? Or let it continue with version being initialized to
+ * BITROT_DEFAULT_CURRENT_VERSION. But what if the version was different
+ * on disk (and also a right signature was there), but posix failed to
+ * successfully allocate the dict? Posix does not treat call back xdata
+ * creattion failure as the lookup failure.
  */
 static inline int32_t
 br_stub_lookup_version (xlator_t *this,
@@ -2234,6 +2293,14 @@ br_stub_lookup_version (xlator_t *this,
         version = ((status == BR_VXATTR_STATUS_FULL)
                    || (status == BR_VXATTR_STATUS_UNSIGNED))
                         ? obuf->ongoingversion : BITROT_DEFAULT_CURRENT_VERSION;
+
+        /**
+         * If signature is there, but version is not therem then that status is
+         * is treated as INVALID. So in that case, we should not initialize the
+         * inode context with wrong version names etc.
+         */
+        if (status == BR_VXATTR_STATUS_INVALID)
+                return -1;
 
         return br_stub_init_inode_versions (this, NULL, inode, version,
                                             _gf_true, bad_object);
