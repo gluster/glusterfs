@@ -100,10 +100,10 @@ class ChangelogData(object):
             ts     VARCHAR,
             type   VARCHAR,
             gfid   VARCHAR(40),
-            pgfid1 VARCHAR(40),
-            bn1    VARCHAR(500),
-            pgfid2 VARCHAR(40),
-            bn2    VARCHAR(500),
+            pgfid1 VARCHAR(40) DEFAULT '',
+            bn1    VARCHAR(500) DEFAULT '',
+            pgfid2 VARCHAR(40) DEFAULT '',
+            bn2    VARCHAR(500) DEFAULT '',
             path1  VARCHAR DEFAULT '',
             path2  VARCHAR DEFAULT ''
         )
@@ -283,7 +283,7 @@ class ChangelogData(object):
 
     def append_path1(self, path, inode):
         # || is for concatenate in SQL
-        query = """UPDATE gfidpath SET path1 = ',' || ?
+        query = """UPDATE gfidpath SET path1 = path1 || ',' || ?
         WHERE gfid IN (SELECT gfid FROM inodegfid WHERE inode = ?)"""
         self.cursor.execute(query, (path, inode))
 
@@ -344,15 +344,31 @@ class ChangelogData(object):
                                   "pgfid1": pgfid1, "bn1": bn1})
         elif self.gfidpath_exists({"gfid": data[1], "type": "RENAME",
                                    "pgfid2": pgfid1, "bn2": bn1}):
-            # If <OLD_PGFID>/<BNAME> is same as <PGFID2>/<BN2>(may be previous
-            # RENAME) then UPDATE <NEW_PGFID>/<BNAME> as <PGFID2>/<BN2>
-            self.gfidpath_update({"pgfid2": pgfid2, "bn2": bn2},
-                                 {"gfid": data[1], "type": "RENAME",
-                                 "pgfid2": pgfid1, "bn2": bn1})
+            # If we are renaming file back to original name then just
+            # delete the entry since it will effectively be a no-op
+            if self.gfidpath_exists({"gfid": data[1], "type": "RENAME",
+                                     "pgfid2": pgfid1, "bn2": bn1,
+                                     "pgfid1": pgfid2, "bn1": bn2}):
+                self.gfidpath_delete({"gfid": data[1], "type": "RENAME",
+                                      "pgfid2": pgfid1, "bn2": bn1})
+            else:
+                # If <OLD_PGFID>/<BNAME> is same as <PGFID2>/<BN2>
+                # (may be previous RENAME)
+                # then UPDATE <NEW_PGFID>/<BNAME> as <PGFID2>/<BN2>
+                self.gfidpath_update({"pgfid2": pgfid2, "bn2": bn2},
+                                     {"gfid": data[1], "type": "RENAME",
+                                      "pgfid2": pgfid1, "bn2": bn1})
         else:
             # Else insert as RENAME
             self.gfidpath_add(changelogfile, RecordType.RENAME, data[1],
                               pgfid1, bn1, pgfid2, bn2)
+
+        if self.gfidpath_exists({"gfid": data[1], "type": "MODIFY"}):
+            # If MODIFY exists already for that GFID, remove it and insert
+            # again so that MODIFY entry comes after RENAME entry
+            # Output will have MODIFY <NEWNAME>
+            self.gfidpath_delete({"gfid": data[1], "type": "MODIFY"})
+            self.gfidpath_add(changelogfile, RecordType.MODIFY, data[1])
 
     def when_link_symlink(self, changelogfile, data):
         # E <GFID> <LINK|SYMLINK> <PGFID>/<BASENAME>
@@ -366,7 +382,8 @@ class ChangelogData(object):
 
     def when_data_meta(self, changelogfile, data):
         # If GFID row exists, Ignore else Add to Db
-        if not self.gfidpath_exists({"gfid": data[1]}):
+        if not self.gfidpath_exists({"gfid": data[1], "type": "NEW"}) and \
+           not self.gfidpath_exists({"gfid": data[1], "type": "MODIFY"}):
             self.gfidpath_add(changelogfile, RecordType.MODIFY, data[1])
 
     def when_unlink_rmdir(self, changelogfile, data):

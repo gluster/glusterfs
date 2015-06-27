@@ -433,7 +433,8 @@ def mode_pre(session_dir, args):
                 # Multiple paths in case of Hardlinks
                 paths = row[1].split(",")
                 for p in paths:
-                    if p == "":
+                    if p == "" or p.replace("%2F%2F","%2F") == \
+                       row[2].replace("%2F%2F","%2F"):
                         continue
                     f.write("%s %s %s\n" % (row[0], p, row[2]))
 
