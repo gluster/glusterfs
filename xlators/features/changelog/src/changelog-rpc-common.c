@@ -53,7 +53,7 @@ changelog_rpc_client_init (xlator_t *this, void *cbkdata,
                 goto dealloc_dict;
         }
 
-        rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!rpc)
                 goto dealloc_dict;
 

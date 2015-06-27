@@ -626,7 +626,7 @@ cli_rpc_init (struct cli_state *state)
                         goto out;
         }
 
-        rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!rpc)
                 goto out;
 

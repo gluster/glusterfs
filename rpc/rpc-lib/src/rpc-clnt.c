@@ -810,6 +810,16 @@ out:
 static void
 rpc_clnt_destroy (struct rpc_clnt *rpc);
 
+#define RPC_THIS_SAVE(xl) do {                                  \
+        old_THIS = THIS ;                                       \
+        if (!old_THIS)                                          \
+                gf_log_callingfn ("rpc", GF_LOG_CRITICAL,       \
+                                  "THIS is not initialised.");  \
+        THIS = xl;                                              \
+} while (0)
+
+#define RPC_THIS_RESTORE        (THIS = old_THIS)
+
 int
 rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  rpc_transport_event_t event, void *data, ...)
@@ -821,6 +831,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         rpc_transport_pollin_t *pollin      = NULL;
         struct timespec         ts          = {0, };
         void                   *clnt_mydata = NULL;
+        DECLARE_OLD_THIS;
 
         conn = mydata;
         if (conn == NULL) {
@@ -829,6 +840,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         clnt = conn->rpc_clnt;
         if (!clnt)
                 goto out;
+
+        RPC_THIS_SAVE (clnt->owner);
 
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
@@ -930,6 +943,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         }
 
 out:
+        RPC_THIS_RESTORE;
         return ret;
 }
 
@@ -1034,11 +1048,13 @@ out:
 }
 
 struct rpc_clnt *
-rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx, char *name,
+rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
               uint32_t reqpool_size)
 {
         int                    ret  = -1;
         struct rpc_clnt       *rpc  = NULL;
+        glusterfs_ctx_t       *ctx  = owner->ctx;
+
 
         rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
         if (!rpc) {
@@ -1047,6 +1063,7 @@ rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx, char *name,
 
         pthread_mutex_init (&rpc->lock, NULL);
         rpc->ctx = ctx;
+        rpc->owner = owner;
 
         if (!reqpool_size)
                 reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
