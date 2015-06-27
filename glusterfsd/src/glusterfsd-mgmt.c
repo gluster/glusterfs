@@ -2033,7 +2033,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_new (options, THIS->ctx, THIS->name, 8);
+        rpc = rpc_clnt_new (options, THIS, THIS->name, 8);
         if (!rpc) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_WARNING, "failed to create rpc clnt");

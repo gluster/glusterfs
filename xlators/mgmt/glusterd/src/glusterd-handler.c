@@ -3291,7 +3291,7 @@ glusterd_rpc_create (struct rpc_clnt **rpc,
         GF_ASSERT (options);
 
         /* TODO: is 32 enough? or more ? */
-        new_rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        new_rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!new_rpc)
                 goto out;
 

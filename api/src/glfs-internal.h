@@ -249,7 +249,6 @@ int glfs_first_lookup (xlator_t *subvol);
 void glfs_process_upcall_event (struct glfs *fs, void *data)
         GFAPI_PRIVATE(glfs_process_upcall_event, 3.7.0);
 
-#define DECLARE_OLD_THIS xlator_t *old_THIS = NULL
 
 #define __GLFS_ENTRY_VALIDATE_FS(fs, label)                         \
 do {                                                                \

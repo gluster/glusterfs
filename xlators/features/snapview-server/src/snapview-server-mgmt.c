@@ -80,7 +80,7 @@ svs_mgmt_init (xlator_t *this)
                 goto out;
         }
 
-        priv->rpc = rpc_clnt_new (options, this->ctx, this->name, 8);
+        priv->rpc = rpc_clnt_new (options, this, this->name, 8);
         if (!priv->rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to initialize RPC");
                 goto out;

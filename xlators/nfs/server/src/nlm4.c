@@ -1050,7 +1050,7 @@ nlm4_establish_callback (void *csarg)
         }
 
         /* TODO: is 32 frames in transit enough ? */
-        rpc_clnt = rpc_clnt_new (options, cs->nfsx->ctx, "NLM-client", 32);
+        rpc_clnt = rpc_clnt_new (options, cs->nfsx, "NLM-client", 32);
         if (rpc_clnt == NULL) {
                 gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
                         "rpc_clnt NULL");

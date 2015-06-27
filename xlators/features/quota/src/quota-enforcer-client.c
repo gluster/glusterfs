@@ -448,7 +448,7 @@ quota_enforcer_init (xlator_t *this, dict_t *options)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!rpc) {
                 ret = -1;
                 goto out;

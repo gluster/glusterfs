@@ -61,6 +61,7 @@
 
 /* THIS */
 #define THIS (*__glusterfs_this_location())
+#define DECLARE_OLD_THIS        xlator_t *old_THIS = THIS
 
 xlator_t **__glusterfs_this_location ();
 xlator_t *glusterfs_this_get ();
