@@ -385,32 +385,32 @@ br_stub_remove_vxattrs (dict_t *xattr)
         }
 }
 
-#define BR_STUB_HANDLE_BAD_OBJECT(this, inode, op_ret, op_errno, label) \
-        do {                                                            \
-                if (br_stub_is_bad_object (this, inode)) {              \
-                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
-                                 BRS_MSG_BAD_OBJECT_ACCESS,             \
-                                 "%s is a bad object. Returning",       \
-                                 uuid_utoa (inode->gfid));              \
-                        op_ret = -1;                                    \
-                        op_errno = EIO;                                 \
-                        goto label;                                     \
-                }                                                       \
-        } while (0)
-
-static inline gf_boolean_t
+/**
+ * This function returns the below values for different situations
+ * 0  => as per the inode context object is not bad
+ * -1 => Failed to get the inode context itself
+ * -2 => As per the inode context object is bad
+ * Both -ve values means the fop which called this function is failed
+ * and error is returned upwards.
+ * In future if needed or more errors have to be handled, then those
+ * errors can be made into enums.
+ */
+static inline int
 br_stub_is_bad_object (xlator_t *this, inode_t *inode)
 {
-        gf_boolean_t         bad_object = _gf_false;
+        int                  bad_object = 0;
+        gf_boolean_t         tmp        = _gf_false;
         uint64_t             ctx_addr   = 0;
         br_stub_inode_ctx_t *ctx        = NULL;
         int32_t              ret        = -1;
 
         ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_CONTEXT_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED,
                         "failed to get the inode context for the inode %s",
                         uuid_utoa (inode->gfid));
+                bad_object = -1;
                 goto out;
         }
 
@@ -418,7 +418,9 @@ br_stub_is_bad_object (xlator_t *this, inode_t *inode)
 
         LOCK (&inode->lock);
         {
-                bad_object = __br_stub_is_bad_object (ctx);
+                tmp = __br_stub_is_bad_object (ctx);
+                if (tmp)
+                        bad_object = -2;
         }
         UNLOCK (&inode->lock);
 
@@ -454,12 +456,16 @@ out:
         return ret;
 }
 
+/**
+ * There is a possibility that dict_set might fail. The o/p of dict_set is
+ * given to the caller and the caller has to decide what to do.
+ */
 static inline int32_t
 br_stub_mark_xdata_bad_object (xlator_t *this, inode_t *inode, dict_t *xdata)
 {
         int32_t    ret = 0;
 
-        if (br_stub_is_bad_object (this, inode))
+        if (br_stub_is_bad_object (this, inode) == -2)
                 ret = dict_set_int32 (xdata, GLUSTERFS_BAD_INODE, 1);
 
         return ret;
