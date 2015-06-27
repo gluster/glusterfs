@@ -188,9 +188,11 @@ typedef struct rpc_clnt {
         int                   refcount;
         int                   auth_null;
         char                  disabled;
+        xlator_t             *owner;
 } rpc_clnt_t;
 
-struct rpc_clnt *rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx,
+
+struct rpc_clnt *rpc_clnt_new (dict_t *options, xlator_t *owner,
                                char *name, uint32_t reqpool_size);
 
 int rpc_clnt_start (struct rpc_clnt *rpc);
