@@ -199,7 +199,6 @@ struct glfs {
 
 	gf_boolean_t        migration_in_progress;
 
-        uint32_t            upcall_features; /* supported upcall events */
         struct list_head    upcall_list;
         pthread_mutex_t     upcall_list_mutex; /* mutex for upcall entry list */
 
