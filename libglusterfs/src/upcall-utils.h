@@ -15,20 +15,9 @@
 #include "compat-uuid.h"
 #include "compat.h"
 
-/* Used by GF_IPC_UPCALL_FEATURES in the ipc() FOP.
- *
- * Each feature is a bit in the uint32_t, this likely will match all the events
- * from the gf_upcall_event_t enum.
- *
- * When the bit for GF_UPCALL_EVENT_NULL is not set, upcall is loaded, but
- * disabled.
- */
-#define GF_UPCALL_FEATURES "gluster.upcall.features"
-
 typedef enum {
-        GF_UPCALL_EVENT_NULL = 0,
-        GF_UPCALL_CACHE_INVALIDATION = 1,
-        /* add new events to the feature mask in up_ipc() */
+        GF_UPCALL_EVENT_NULL,
+        GF_UPCALL_CACHE_INVALIDATION,
 } gf_upcall_event_t;
 
 struct gf_upcall {
