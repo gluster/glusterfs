@@ -83,6 +83,7 @@ struct quota_inode_ctx {
         int64_t                file_count;
         int64_t                dir_count;
         int8_t                 dirty;
+        gf_boolean_t           create_status;
         gf_boolean_t           updation_status;
         gf_lock_t              lock;
         struct list_head       contribution_head;
@@ -92,8 +93,6 @@ typedef struct quota_inode_ctx quota_inode_ctx_t;
 struct quota_synctask {
         xlator_t      *this;
         loc_t          loc;
-        dict_t        *dict;
-        struct iatt    buf;
         int64_t        contri;
         gf_boolean_t   is_static;
 };
@@ -146,9 +145,6 @@ mq_reduce_parent_size_txn (xlator_t *, loc_t *, int64_t);
 
 int32_t
 mq_rename_update_newpath (xlator_t *, loc_t *);
-
-int32_t
-mq_inspect_file_xattr (xlator_t *this, loc_t *loc, dict_t *dict, struct iatt buf);
 
 int32_t
 mq_forget (xlator_t *, quota_inode_ctx_t *);
