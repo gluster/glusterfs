@@ -22,7 +22,7 @@ function check_cmd_status()
 function dynamic_export_add()
 {
         count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
-        if [ "$count" = "0" ] ;
+        if [ "$count" = "1" ] ;
                 then
                 EXPORT_ID=2
         else
