@@ -15,6 +15,7 @@
 #include <fnmatch.h>
 #include <signal.h>
 
+
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
 #define DHT_REBALANCE_BLKSIZE           (128 * 1024)
@@ -25,6 +26,7 @@
 #ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
 #endif
+
 
 #define GF_CRAWL_INDEX_MOVE(idx, sv_cnt)  {     \
                 idx++;                          \
@@ -741,7 +743,8 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
 
 static inline int
 __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
-                               struct iatt *stbuf, fd_t **src_fd)
+                               struct iatt *stbuf, fd_t **src_fd,
+                               gf_boolean_t *clean_src)
 {
         int          ret  = 0;
         fd_t        *fd   = NULL;
@@ -752,6 +755,8 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
 
         this = THIS;
         conf = this->private;
+
+        *clean_src = _gf_false;
 
         fd = fd_create (loc->inode, DHT_REBALANCE_PID);
         if (!fd) {
@@ -796,6 +801,9 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                 ret = -1;
                 goto out;
         }
+
+        /* Reset source mode/xattr if migration fails*/
+        *clean_src = _gf_true;
 
         /* mode should be (+S+T) to indicate migration is in progress */
         iatt.ia_prot = stbuf->ia_prot;
@@ -967,6 +975,72 @@ out:
         return ret;
 }
 
+
+static int
+__dht_migration_cleanup_src_file (xlator_t *this, loc_t *loc, fd_t *fd,
+                                  xlator_t *from, ia_prot_t *src_ia_prot)
+{
+        int ret                       = -1;
+        dht_conf_t     *conf          = NULL;
+        struct iatt     new_stbuf     = {0,};
+
+        if (!this || !fd || !from || !src_ia_prot) {
+                goto out;
+        }
+
+        conf = this->private;
+
+        /*Revert source mode and xattr changes*/
+        ret = syncop_fstat (from, fd, &new_stbuf, NULL, NULL);
+        if (ret < 0) {
+                /* Failed to get the stat info */
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file cleanup failed: failed to fstat "
+                        "file %s on %s ", loc->path, from->name);
+                ret = -1;
+                goto out;
+        }
+
+
+        /* Remove the sticky bit and sgid bit set, reset it to 0*/
+        if (!src_ia_prot->sticky)
+                new_stbuf.ia_prot.sticky = 0;
+
+        if (!src_ia_prot->sgid)
+                new_stbuf.ia_prot.sgid = 0;
+
+        ret = syncop_fsetattr (from, fd, &new_stbuf,
+                               (GF_SET_ATTR_GID | GF_SET_ATTR_MODE),
+                               NULL, NULL, NULL, NULL);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file cleanup failed:"
+                        "%s: failed to perform fsetattr on %s ",
+                        loc->path, from->name);
+                ret = -1;
+                goto out;
+        }
+
+        ret = syncop_fremovexattr (from, fd, conf->link_xattr_name, 0, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to remove linkto xattr on %s (%s)",
+                        loc->path, from->name, strerror (-ret));
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+
+
 /*
   return values:
 
@@ -995,7 +1069,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         loc_t           tmp_loc              = {0, };
         gf_boolean_t    locked               = _gf_false;
         int             lk_ret               = -1;
-        gf_defrag_info_t *defrag              =  NULL;
+        gf_defrag_info_t *defrag             =  NULL;
+        gf_boolean_t    clean_src            = _gf_false;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1093,7 +1168,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* Open the source, and also update mode/xattr */
-        ret = __dht_rebalance_open_src_file (from, to, loc, &stbuf, &src_fd);
+        ret = __dht_rebalance_open_src_file (from, to, loc, &stbuf, &src_fd,
+                                             &clean_src);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -1199,6 +1275,10 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
         }
 
+        /* The src file is being unlinked after this so we don't need
+           to clean it up */
+        clean_src = _gf_false;
+
         /* Make the source as a linkfile first before deleting it */
         empty_iatt.ia_prot.sticky = 1;
         ret = syncop_fsetattr (from, src_fd, &empty_iatt,
@@ -1286,6 +1366,18 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         ret = 0;
 out:
+        if (clean_src) {
+                /* Revert source mode and xattr changes*/
+                lk_ret = __dht_migration_cleanup_src_file (this, loc, src_fd,
+                                                        from, &src_ia_prot);
+                if (lk_ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "%s: failed to cleanup source file on %s",
+                                loc->path, from->name);
+                }
+        }
+
         if (locked) {
                 flock.l_type = F_UNLCK;
 
