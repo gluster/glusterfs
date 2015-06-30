@@ -32,8 +32,7 @@ function write_conf()
 {
 echo -e "# WARNING : Using Gluster CLI will overwrite manual
 # changes made to this file. To avoid it, edit the
-# file, copy it over to all the NFS-Ganesha nodes
-# and run ganesha-ha.sh --refresh-config."
+# file and run ganesha-ha.sh --refresh-config."
 
 echo "EXPORT{"
 echo "      Export_Id = 2;"

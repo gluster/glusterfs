@@ -37,24 +37,27 @@ function parse_args ()
 #This function generates a new export entry as export.volume_name.conf
 function write_conf()
 {
-        echo "EXPORT{
-        "
-        echo "Export_Id = ;"
-        echo "Path=\"/$1\";"
-        echo "FSAL {
-        "
-        echo "name = "GLUSTER";"
-        echo "hostname="localhost";"
-        echo  "volume=\"$1\";"
-        echo "}"
-        echo "Access_type = RW;"
-        echo "Squash = No_root_squash;"
-        echo "Disable_ACL = TRUE;"
-        echo "Pseudo=\"/$1\";"
-        echo "Protocols = \"3\",\"4\" ;"
-        echo "Transports = \"UDP\",\"TCP\" ;"
-        echo "SecType = \"sys\";"
-        echo "}"
+echo -e "# WARNING : Using Gluster CLI will overwrite manual
+# changes made to this file. To avoid it, edit the
+# file, copy it over to all the NFS-Ganesha nodes
+# and run ganesha-ha.sh --refresh-config."
+
+echo "EXPORT{"
+echo "      Export_Id = 2;"
+echo "      Path = \"/$VOL\";"
+echo "      FSAL {"
+echo "           name = \"GLUSTER\";"
+echo "           hostname=\"localhost\";"
+echo "           volume=\"$VOL\";"
+echo "           }"
+echo "      Access_type = RW;"
+echo "      Disable_ACL = true;"
+echo "      Squash=\"No_root_squash\";"
+echo "      Pseudo=\"/$VOL\";"
+echo "      Protocols = \"3\", \"4\" ;"
+echo "      Transports = \"UDP\",\"TCP\";"
+echo "      SecType = \"sys\";"
+echo "}"
 }
 
 #This function keeps track of export IDs and increments it with every new entry
@@ -101,9 +104,14 @@ function start_ganesha()
 }
 
         parse_args $@
+        is_exported="no"
+        if showmount -e localhost | cut -d "" -f1 | grep -q "/$VOL[[:space:]]"
+        then
+              is_exported="yes"
+        fi
         ganesha_value=$(grep $ganesha_key  $GLUSTERD_WORKDIR/vols/$VOL/info |\
                         cut -d"=" -f2)
-        if [ "$ganesha_value" = "on" ]
+        if [ "$ganesha_value" = "on" -a "$is_exported" = "no" ]
         then
                 write_conf $VOL > $GANESHA_DIR/exports/export.$VOL.conf
                 start_ganesha $VOL
