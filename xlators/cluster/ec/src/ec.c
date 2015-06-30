@@ -219,15 +219,35 @@ int32_t mem_acct_init(xlator_t * this)
     return 0;
 }
 
+void
+ec_configure_background_heal_opts (ec_t *ec, int background_heals,
+                                   int heal_wait_qlen)
+{
+        if (background_heals == 0) {
+                ec->heal_wait_qlen = 0;
+        } else {
+                ec->heal_wait_qlen = heal_wait_qlen;
+        }
+        ec->background_heals = background_heals;
+}
+
 int32_t
 reconfigure (xlator_t *this, dict_t *options)
 {
-        ec_t *ec = this->private;
+        ec_t     *ec              = this->private;
+        uint32_t heal_wait_qlen   = 0;
+        uint32_t background_heals = 0;
 
-        GF_OPTION_RECONF ("self-heal-daemon", ec->shd.enabled, options, bool, failed);
+        GF_OPTION_RECONF ("self-heal-daemon", ec->shd.enabled, options, bool,
+                          failed);
         GF_OPTION_RECONF ("iam-self-heal-daemon", ec->shd.iamshd, options,
                           bool, failed);
-
+        GF_OPTION_RECONF ("background-heals", background_heals, options,
+                          uint32, failed);
+        GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
+                          uint32, failed);
+        ec_configure_background_heal_opts (ec, background_heals,
+                                           heal_wait_qlen);
         return 0;
 failed:
         return -1;
@@ -577,6 +597,10 @@ init (xlator_t *this)
     ec_method_initialize();
     GF_OPTION_INIT ("self-heal-daemon", ec->shd.enabled, bool, failed);
     GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
+    GF_OPTION_INIT ("background-heals", ec->background_heals, uint32, failed);
+    GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
+    ec_configure_background_heal_opts (ec, ec->background_heals,
+                                       ec->heal_wait_qlen);
 
     if (ec->shd.iamshd)
             ec_selfheal_daemon_init (this);
@@ -1188,6 +1212,10 @@ int32_t ec_dump_private(xlator_t *this)
     gf_proc_dump_write("childs_up", "%u", ec->xl_up_count);
     gf_proc_dump_write("childs_up_mask", "%s",
                        ec_bin(tmp, sizeof(tmp), ec->xl_up, ec->nodes));
+    gf_proc_dump_write("background-heals", "%d", ec->background_heals);
+    gf_proc_dump_write("heal-wait-qlength", "%d", ec->heal_wait_qlen);
+    gf_proc_dump_write("healers", "%d", ec->healers);
+    gf_proc_dump_write("heal-waiters", "%d", ec->heal_waiters);
 
     return 0;
 }
@@ -1270,6 +1298,22 @@ struct volume_options options[] =
       .description = "This option differentiates if the disperse "
                      "translator is running as part of self-heal-daemon "
                      "or not."
+    },
+    { .key = {"background-heals"},
+      .type = GF_OPTION_TYPE_INT,
+      .min = 0,/*Disabling background heals*/
+      .max = 256,
+      .default_value = "8",
+      .description = "This option can be used to control number of parallel"
+                     " heals",
+    },
+    { .key = {"heal-wait-qlength"},
+      .type = GF_OPTION_TYPE_INT,
+      .min = 0,
+      .max = 65536, /*Around 100MB as of now with sizeof(ec_fop_data_t) at 1800*/
+      .default_value = "128",
+      .description = "This option can be used to control number of heals"
+                     " that can wait",
     },
     { }
 };

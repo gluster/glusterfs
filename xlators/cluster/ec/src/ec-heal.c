@@ -26,9 +26,6 @@
 #include "syncop-utils.h"
 #include "cluster-syncop.h"
 
-#define EC_MAX_BACKGROUND_HEALS 8
-#define EC_MAX_HEAL_WAITERS 128
-
 #define alloca0(size) ({void *__ptr; __ptr = alloca(size); memset(__ptr, 0, size); __ptr; })
 #define EC_COUNT(array, max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res; })
 #define EC_INTERSECT(dst, src1, src2, max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i]; })
@@ -2329,10 +2326,9 @@ __ec_dequeue_heals (ec_t *ec)
         if (list_empty (&ec->heal_waiting))
                 goto none;
 
-        if (ec->healers == EC_MAX_BACKGROUND_HEALS)
+        if ((ec->background_heals > 0) && (ec->healers >= ec->background_heals))
                 goto none;
 
-        GF_ASSERT (ec->healers < EC_MAX_BACKGROUND_HEALS);
         fop = list_entry(ec->heal_waiting.next, ec_fop_data_t, healer);
         ec->heal_waiters--;
         list_del_init(&fop->healer);
@@ -2400,12 +2396,14 @@ ec_heal_throttle (xlator_t *this, ec_fop_data_t *fop)
 
                 LOCK (&ec->lock);
                 {
-                        if (ec->heal_waiters >= EC_MAX_HEAL_WAITERS) {
-                                can_heal = _gf_false;
-                        } else {
+                        if ((ec->background_heals > 0) &&
+                            (ec->heal_wait_qlen + ec->background_heals) >
+                                             (ec->heal_waiters + ec->healers)) {
                                 list_add_tail(&fop->healer, &ec->heal_waiting);
                                 ec->heal_waiters++;
                                 fop = __ec_dequeue_heals (ec);
+                        } else {
+                                can_heal = _gf_false;
                         }
                 }
                 UNLOCK (&ec->lock);

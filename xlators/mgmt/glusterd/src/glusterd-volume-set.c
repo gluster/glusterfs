@@ -2010,6 +2010,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/upcall",
           .op_version  = GD_OP_VERSION_3_7_0,
         },
+        { .key         = "disperse.background-heals",
+          .voltype     = "cluster/disperse",
+          .op_version  = GD_OP_VERSION_3_7_3,
+        },
+        { .key         = "disperse.heal-wait-qlength",
+          .voltype     = "cluster/disperse",
+          .op_version  = GD_OP_VERSION_3_7_3,
+        },
         { .key         = NULL
         }
 };
