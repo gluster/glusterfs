@@ -783,7 +783,9 @@ setup_state_volume()
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
         fi
-        touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+        if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/state ]; then
+            touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+        fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
         fi
@@ -796,8 +798,8 @@ setup_state_volume()
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
-            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
+        if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
+            touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
         fi
         for server in ${HA_SERVERS} ; do
             if [ ${server} != ${dirname} ]; then
