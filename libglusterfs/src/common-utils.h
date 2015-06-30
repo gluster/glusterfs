@@ -294,8 +294,7 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                         gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
                                 LG_MSG_NO_PERM,                         \
                                 "attempt to remove internal "           \
-                                "xattr: %s: %s", key,                   \
-                                strerror (op_errno));                   \
+                                "xattr: %s", key);                      \
                         goto label;                                     \
                 }                                                       \
         } while (0)

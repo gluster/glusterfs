@@ -92,7 +92,7 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
                 ret = mkdir (dir, mode);
                 if (ret && errno != EEXIST) {
                         gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
-                                "Failed due to reason %s", strerror (errno));
+                                "Failed due to reason");
                         goto out;
                 }
 
@@ -198,15 +198,12 @@ gf_rev_dns_lookup (const char *ip)
         if (ret != 0) {
                 gf_msg ("resolver", GF_LOG_INFO, errno,
                         LG_MSG_RESOLVE_HOSTNAME_FAILED, "could not resolve "
-                        "hostname for %s: %s", ip, strerror (errno));
+                        "hostname for %s", ip);
                 goto out;
         }
 
         /* Get the FQDN */
         fqdn = gf_strdup (host_addr);
-        if (!fqdn)
-                gf_msg ("resolver", GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
-                        "Allocation failed for the host address");
 
 out:
        return fqdn;
@@ -237,8 +234,6 @@ gf_resolve_path_parent (const char *path)
         /* dup the parameter, we don't want to modify it */
         pathc = strdupa (path);
         if (!pathc) {
-                gf_msg (THIS->name, GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
-                        "Allocation failed for the parent");
                 goto out;
         }
 
@@ -248,9 +243,6 @@ gf_resolve_path_parent (const char *path)
                 goto out;
 
         parent = gf_strdup (tmp);
-        if (!parent)
-                gf_msg (THIS->name, GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
-                        "Allocation failed for the parent");
 out:
         return parent;
 }
@@ -1804,7 +1796,7 @@ get_checksum_for_path (char *path, uint32_t *checksum)
 
         if (fd == -1) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_PATH_ERROR,
-                        "Unable to open %s, errno: %d", path, errno);
+                        "Unable to open %s", path);
                 goto out;
         }
 
@@ -1838,8 +1830,8 @@ get_file_mtime (const char *path, time_t *stamp)
         ret = stat (path, &f_stat);
         if (ret < 0) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        LG_MSG_FILE_STAT_FAILED, "failed to stat %s: %s",
-                        path, strerror (errno));
+                        LG_MSG_FILE_STAT_FAILED, "failed to stat %s",
+                        path);
                 goto out;
         }
 
@@ -1900,15 +1892,13 @@ gf_is_ip_in_net (const char *network, const char *ip_str)
         ret = inet_pton (family, ip_str, &ip_buf);
         if (ret < 0)
                 gf_msg ("common-utils", GF_LOG_ERROR, errno,
-                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed with %s",
-                        strerror (errno));
+                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed");
 
         /* Convert network IP address to a long */
         ret = inet_pton (family, net_ip, &net_ip_buf);
         if (ret < 0) {
                 gf_msg ("common-utils", GF_LOG_ERROR, errno,
-                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed with %s",
-                        strerror (errno));
+                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed");
                 goto out;
         }
 
@@ -2738,13 +2728,12 @@ generate_glusterfs_ctx_id (void)
         if (gettimeofday (&tv, NULL) == -1) {
                 gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
                         LG_MSG_GETTIMEOFDAY_FAILED, "gettimeofday: "
-                        "failed %s", strerror (errno));
+                        "failed");
         }
 
         if (gethostname (hostname, 256) == -1) {
                 gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
-                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: failed %s",
-                        strerror (errno));
+                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: failed");
         }
 
         gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
@@ -2779,7 +2768,7 @@ gf_get_reserved_ports ()
                 gf_msg ("glusterfs", GF_LOG_WARNING, errno,
                         LG_MSG_FILE_OP_FAILED, "could not open the file "
                         "/proc/sys/net/ipv4/ip_local_reserved_ports for "
-                        "getting reserved ports info (%s)", strerror (errno));
+                        "getting reserved ports info");
                 goto out;
         }
 
@@ -2787,8 +2776,7 @@ gf_get_reserved_ports ()
         if (ret < 0) {
                 gf_msg ("glusterfs", GF_LOG_WARNING, errno,
                         LG_MSG_FILE_OP_FAILED, "could not read the file %s for"
-                        " getting reserved ports info (%s)", proc_file,
-                        strerror (errno));
+                        " getting reserved ports info", proc_file);
                 goto out;
         }
         ports_info = gf_strdup (buffer);
@@ -3393,8 +3381,7 @@ gf_is_service_running (char *pidfile, int *pid)
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-                        "Unable to read pidfile: %s, %s", pidfile,
-                        strerror (errno));
+                        "Unable to read pidfile: %s", pidfile);
                 *pid = -1;
         }
 
