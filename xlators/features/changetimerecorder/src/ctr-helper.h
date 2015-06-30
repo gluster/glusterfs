@@ -180,12 +180,12 @@ do {\
 } while (0)
 
 /*Clear and fill the ctr_link_context with values*/
-#define FILL_CTR_LINK_CX(ctr_link_cx, _pargfid, _basename, _basepath)\
+#define FILL_CTR_LINK_CX(ctr_link_cx, _pargfid, _basename, _basepath, label)\
 do {\
-        GF_ASSERT (ctr_link_cx);\
-        GF_ASSERT (_pargfid);\
-        GF_ASSERT (_basename);\
-        GF_ASSERT (_basepath);\
+        GF_VALIDATE_OR_GOTO ("ctr", ctr_link_cx, label);\
+        GF_VALIDATE_OR_GOTO ("ctr", _pargfid, label);\
+        GF_VALIDATE_OR_GOTO ("ctr", _basename, label);\
+        GF_VALIDATE_OR_GOTO ("ctr", _basepath, label);\
         memset (ctr_link_cx, 0, sizeof (*ctr_link_cx));\
         ctr_link_cx->pargfid = &_pargfid;\
         ctr_link_cx->basename = _basename;\
