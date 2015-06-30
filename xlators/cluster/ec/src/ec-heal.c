@@ -26,6 +26,9 @@
 #include "syncop-utils.h"
 #include "cluster-syncop.h"
 
+#define EC_MAX_BACKGROUND_HEALS 8
+#define EC_MAX_HEAL_WAITERS 128
+
 #define alloca0(size) ({void *__ptr; __ptr = alloca(size); memset(__ptr, 0, size); __ptr; })
 #define EC_COUNT(array, max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res; })
 #define EC_INTERSECT(dst, src1, src2, max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i]; })
@@ -2318,6 +2321,106 @@ ec_heal_done (int ret, call_frame_t *heal, void *opaque)
         return 0;
 }
 
+ec_fop_data_t*
+__ec_dequeue_heals (ec_t *ec)
+{
+        ec_fop_data_t *fop = NULL;
+
+        if (list_empty (&ec->heal_waiting))
+                goto none;
+
+        if (ec->healers == EC_MAX_BACKGROUND_HEALS)
+                goto none;
+
+        GF_ASSERT (ec->healers < EC_MAX_BACKGROUND_HEALS);
+        fop = list_entry(ec->heal_waiting.next, ec_fop_data_t, healer);
+        ec->heal_waiters--;
+        list_del_init(&fop->healer);
+        list_add(&fop->healer, &ec->healing);
+        ec->healers++;
+        return fop;
+none:
+        gf_msg_debug (ec->xl->name, 0, "Num healers: %d, Num Waiters: %d",
+                      ec->healers, ec->heal_waiters);
+        return NULL;
+}
+
+void
+ec_heal_fail (ec_t *ec, ec_fop_data_t *fop)
+{
+        if (fop->cbks.heal) {
+            fop->cbks.heal (fop->req_frame, NULL, ec->xl, -1, EIO, 0, 0,
+                            0, NULL);
+        }
+        if (fop)
+            ec_fop_data_release (fop);
+}
+
+void
+ec_launch_heal (ec_t *ec, ec_fop_data_t *fop)
+{
+        int     ret = 0;
+
+        ret = synctask_new (ec->xl->ctx->env, ec_synctask_heal_wrap,
+                            ec_heal_done, NULL, fop);
+        if (ret < 0) {
+                ec_heal_fail (ec, fop);
+        }
+}
+
+void
+ec_handle_healers_done (ec_fop_data_t *fop)
+{
+        ec_t *ec = fop->xl->private;
+        ec_fop_data_t *heal_fop = NULL;
+
+        if (list_empty (&fop->healer))
+                return;
+
+        LOCK (&ec->lock);
+        {
+                list_del_init (&fop->healer);
+                ec->healers--;
+                heal_fop = __ec_dequeue_heals (ec);
+        }
+        UNLOCK (&ec->lock);
+
+        if (heal_fop)
+                ec_launch_heal (ec, heal_fop);
+
+}
+
+void
+ec_heal_throttle (xlator_t *this, ec_fop_data_t *fop)
+{
+        gf_boolean_t can_heal = _gf_true;
+        ec_t         *ec      = this->private;
+
+        if (fop->req_frame == NULL) {
+
+                LOCK (&ec->lock);
+                {
+                        if (ec->heal_waiters >= EC_MAX_HEAL_WAITERS) {
+                                can_heal = _gf_false;
+                        } else {
+                                list_add_tail(&fop->healer, &ec->heal_waiting);
+                                ec->heal_waiters++;
+                                fop = __ec_dequeue_heals (ec);
+                        }
+                }
+                UNLOCK (&ec->lock);
+        }
+
+        if (can_heal) {
+                if (fop)
+                        ec_launch_heal (ec, fop);
+        } else {
+               gf_msg_debug (this->name, 0, "Max number of heals are pending, "
+                             "background self-heal rejected");
+                ec_heal_fail (ec, fop);
+        }
+}
+
 void
 ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
          int32_t minimum, fop_heal_cbk_t func, void *data, loc_t *loc,
@@ -2325,7 +2428,6 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
 {
     ec_cbk_t callback = { .heal = func };
     ec_fop_data_t *fop = NULL;
-    int ret = 0;
 
     gf_msg_trace ("ec", 0, "EC(HEAL) %p", frame);
 
@@ -2353,10 +2455,7 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
     if (xdata)
         fop->xdata = dict_ref(xdata);
 
-    ret = synctask_new (this->ctx->env, ec_synctask_heal_wrap,
-                        ec_heal_done, NULL, fop);
-    if (ret < 0)
-            goto fail;
+    ec_heal_throttle (this, fop);
     return;
 fail:
     if (fop)
