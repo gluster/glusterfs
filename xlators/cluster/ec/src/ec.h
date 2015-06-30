@@ -28,6 +28,8 @@
 struct _ec
 {
     xlator_t *        xl;
+    int32_t           healers;
+    int32_t           heal_waiters;
     int32_t           nodes;
     int32_t           bits_for_nodes;
     int32_t           fragments;
@@ -46,6 +48,8 @@ struct _ec
     gf_timer_t *      timer;
     gf_boolean_t      shutdown;
     struct list_head  pending_fops;
+    struct list_head  heal_waiting;
+    struct list_head  healing;
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;

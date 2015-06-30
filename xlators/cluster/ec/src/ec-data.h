@@ -213,6 +213,7 @@ struct _ec_fop_data
     ec_cbk_t           cbks;
     void              *data;
     ec_heal_t         *heal;
+    struct list_head   healer;
 
     uint64_t           user_size;
     uint32_t           head;

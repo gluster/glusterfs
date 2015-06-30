@@ -135,6 +135,7 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     }
 
     INIT_LIST_HEAD(&fop->cbk_list);
+    INIT_LIST_HEAD(&fop->healer);
     INIT_LIST_HEAD(&fop->answer_list);
     INIT_LIST_HEAD(&fop->pending_list);
     INIT_LIST_HEAD(&fop->locks[0].wait_list);
@@ -300,6 +301,7 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
         ec = fop->xl->private;
         ec_handle_last_pending_fop_completion (fop, &notify);
+        ec_handle_healers_done (fop);
         mem_put(fop);
         if (notify) {
             ec_pending_fops_completed(ec);

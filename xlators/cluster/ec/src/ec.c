@@ -543,6 +543,8 @@ init (xlator_t *this)
     LOCK_INIT(&ec->lock);
 
     INIT_LIST_HEAD(&ec->pending_fops);
+    INIT_LIST_HEAD(&ec->heal_waiting);
+    INIT_LIST_HEAD(&ec->healing);
 
     ec->fop_pool = mem_pool_new(ec_fop_data_t, 1024);
     ec->cbk_pool = mem_pool_new(ec_cbk_data_t, 4096);
