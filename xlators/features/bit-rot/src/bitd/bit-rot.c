@@ -589,15 +589,12 @@ static inline int32_t br_sign_object (br_object_t *object)
                 goto out;
         }
 
-        /* sanity check */
-        sign_info = ntohl (object->sign_info);
-        GF_ASSERT (sign_info != BR_SIGN_NORMAL);
-
         /**
          * For fd's that have notified for reopening, we send an explicit
          * open() followed by a dummy write() call. This triggers the
          * actual signing of the object.
          */
+        sign_info = ntohl (object->sign_info);
         if (sign_info == BR_SIGN_REOPEN_WAIT) {
                 br_object_resign (this, object, linked_inode);
                 goto unref_inode;
@@ -717,7 +714,8 @@ br_add_object_to_queue (struct gf_tw_timer_list *timer,
         }
         pthread_mutex_unlock (&priv->lock);
 
-        mem_put (timer);
+        if (timer)
+                mem_put (timer);
         return;
 }
 
@@ -757,7 +755,7 @@ br_initialize_timer (xlator_t *this, br_object_t *object, br_child_t *child,
                 goto out;
         INIT_LIST_HEAD (&timer->entry);
 
-        timer->expires  = (priv->expiry_time >> 1);
+        timer->expires = priv->expiry_time;
         if (!timer->expires)
                 timer->expires = 1;
 
@@ -767,6 +765,27 @@ br_initialize_timer (xlator_t *this, br_object_t *object, br_child_t *child,
 
 out:
         return timer;
+}
+
+static int32_t
+br_schedule_object_reopen (xlator_t *this, br_object_t *object,
+                           br_child_t *child, changelog_event_t *ev)
+{
+        struct gf_tw_timer_list *timer = NULL;
+
+        timer = br_initialize_timer (this, object, child, ev);
+        if (!timer)
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_TIMER_FAILED,
+                        "Failed to allocate object expiry timer [GFID: %s]",
+                        uuid_utoa (object->gfid));
+        return timer ? 0 : -1;
+}
+
+static int32_t
+br_object_quicksign (xlator_t *this, br_object_t *object)
+{
+        br_add_object_to_queue (NULL, object, 0ULL);
+        return 0;
 }
 
 /**
@@ -782,11 +801,12 @@ void
 br_brick_callback (void *xl, char *brick,
                    void *data, changelog_event_t *ev)
 {
-        uuid_t gfid = {0,};
-        xlator_t                *this   = NULL;
-        br_object_t             *object = NULL;
-        br_child_t              *child  = NULL;
-        struct gf_tw_timer_list *timer  = NULL;
+        int32_t          ret       = 0;
+        uuid_t           gfid      = {0,};
+        xlator_t        *this      = NULL;
+        br_object_t     *object    = NULL;
+        br_child_t      *child     = NULL;
+        br_sign_state_t  sign_info = BR_SIGN_INVALID;
 
         this = xl;
 
@@ -817,22 +837,25 @@ br_brick_callback (void *xl, char *brick,
                 goto out;
         }
 
-        timer = br_initialize_timer (this, object, child, ev);
-        if (!timer) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_TIMER_FAILED,
-                        "failed to allocate object expiry timer [GFID: %s]",
-                        uuid_utoa (gfid));
+        /* sanity check */
+        sign_info = ntohl (object->sign_info);
+        GF_ASSERT (sign_info != BR_SIGN_NORMAL);
+
+        if (sign_info == BR_SIGN_REOPEN_WAIT)
+                ret = br_schedule_object_reopen (this, object, child, ev);
+        else
+                ret = br_object_quicksign (this, object);
+
+        if (ret)
                 goto free_object;
-        }
 
         gf_msg_debug (this->name, 0, "->callback: brick [%s], type [%d]\n",
                       brick, ev->ev_type);
-
         return;
 
  free_object:
         GF_FREE (object);
-out:
+ out:
         return;
 }
 
