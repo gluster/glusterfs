@@ -20,6 +20,6 @@ echo abc > $M0/a
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 find $M0 | xargs stat > /dev/null
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 cleanup

@@ -43,6 +43,6 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT '2' count_sh_entries $B0/brick0
 EXPECT_WITHIN $HEAL_TIMEOUT '2' count_sh_entries $B0/brick1
 #Two entries for DIR and two for FILE
-EXPECT_WITHIN $HEAL_TIMEOUT "4" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "4" get_pending_heal_count $V0
 TEST diff <(ls $B0/brick0/DIR) <(ls $B0/brick1/DIR)
 cleanup

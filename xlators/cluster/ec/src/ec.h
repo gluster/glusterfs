@@ -47,6 +47,8 @@ struct _ec
     gf_lock_t         lock;
     gf_timer_t *      timer;
     gf_boolean_t      shutdown;
+    uint32_t          background_heals;
+    uint32_t          heal_wait_qlen;
     struct list_head  pending_fops;
     struct list_head  heal_waiting;
     struct list_head  healing;
