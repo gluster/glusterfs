@@ -50,7 +50,7 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000000 $B0/${V0}1/mdatafile
 
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 EXPECT_WITHIN $HEAL_TIMEOUT '0' echo $(count_sh_entries $B0/$V0"0")
 EXPECT_WITHIN $HEAL_TIMEOUT '0' echo $(count_sh_entries $B0/$V0"1")
 

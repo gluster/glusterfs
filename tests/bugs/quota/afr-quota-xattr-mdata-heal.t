@@ -55,7 +55,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #Check external xattrs match
 EXPECT "bar" echo $(getfattr -d -m. -e text $B0/${V0}0/d | grep trusted.foo)

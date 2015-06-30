@@ -33,7 +33,7 @@ TEST chmod +x $M0/mdatafile
 #pending entry heal. Also causes pending metadata/data heals on file{1..5}
 TEST touch $M0/dir/file{1..5}
 
-EXPECT 8 afr_get_pending_heal_count $V0
+EXPECT 8 get_pending_heal_count $V0
 
 #After brick comes back up, access from client should not trigger heals
 TEST $CLI volume start $V0 force
@@ -54,7 +54,7 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 TEST ls $M0/dir
 
 #No heal must have happened
-EXPECT 8 afr_get_pending_heal_count $V0
+EXPECT 8 get_pending_heal_count $V0
 
 #Enable heal client side heal options and trigger heals
 TEST $CLI volume set $V0 cluster.data-self-heal on
@@ -63,7 +63,7 @@ TEST $CLI volume set $V0 cluster.entry-self-heal on
 
 #Metadata heal is triggered by lookup without need for inode refresh.
 TEST ls $M0/mdatafile
-EXPECT 7 afr_get_pending_heal_count $V0
+EXPECT 7 get_pending_heal_count $V0
 
 #Inode refresh must trigger data and entry heals.
 #To trigger inode refresh for sure, the volume is unmounted and mounted each time.
@@ -74,7 +74,7 @@ TEST cat $M0/datafile
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 TEST ls $M0/dir
-EXPECT 5 afr_get_pending_heal_count $V0
+EXPECT 5 get_pending_heal_count $V0
 
 TEST cat  $M0/dir/file1
 TEST cat  $M0/dir/file2
@@ -82,5 +82,5 @@ TEST cat  $M0/dir/file3
 TEST cat  $M0/dir/file4
 TEST cat  $M0/dir/file5
 
-EXPECT 0 afr_get_pending_heal_count $V0
+EXPECT 0 get_pending_heal_count $V0
 cleanup;

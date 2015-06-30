@@ -216,7 +216,7 @@ function afr_get_changelog_xattr {
         echo $xval
 }
 
-function afr_get_pending_heal_count {
+function get_pending_heal_count {
         local vol=$1
         gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
 }

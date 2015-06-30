@@ -60,7 +60,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST $CLI volume heal $V0
-EXPECT 0 afr_get_pending_heal_count $V0
+EXPECT 0 get_pending_heal_count $V0
 
 # I/O can resume again.
 TEST cat $M0/file

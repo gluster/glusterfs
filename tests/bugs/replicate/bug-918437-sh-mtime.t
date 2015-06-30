@@ -54,7 +54,7 @@ TEST stat $M0/b
 TEST gluster volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick01/a
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick02/b
-EXPECT_WITHIN $HEAL_TIMEOUT 0 afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
 
 size=`stat -c '%s' /etc/passwd`
 EXPECT $size stat -c '%s' $B0/gfs0/brick01/a

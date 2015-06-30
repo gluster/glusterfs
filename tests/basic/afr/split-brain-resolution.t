@@ -38,7 +38,7 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
-EXPECT 4 afr_get_pending_heal_count $V0
+EXPECT 4 get_pending_heal_count $V0
 
 TEST ! cat $M0/data-split-brain.txt
 TEST ! getfattr -n user.test $M0/metadata-split-brain.txt
@@ -82,6 +82,6 @@ TEST setfattr -n replica.split-brain-heal-finalize -v $V0-client-1 $M0/data-spli
 EXPECT "brick0" get_text_xattr user.test $M0/metadata-split-brain.txt
 EXPECT "brick1_alive" cat $M0/data-split-brain.txt
 
-EXPECT 0 afr_get_pending_heal_count $V0
+EXPECT 0 get_pending_heal_count $V0
 
 cleanup;
