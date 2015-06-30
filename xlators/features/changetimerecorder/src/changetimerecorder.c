@@ -334,8 +334,8 @@ ctr_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name,
-                        loc->path);
+        FILL_CTR_LINK_CX(_link_cx, loc->parent->gfid, loc->name,
+                        loc->path, out);
 
          /* Fill ctr inode context*/
          /* IA_IFREG : We assume its a file in the wind
@@ -764,11 +764,11 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         /*Fill old link context*/
         FILL_CTR_LINK_CX(_olink_cx, oldloc->pargfid, oldloc->name,
-                        oldloc->path);
+                        oldloc->path, out);
 
         /*Fill new link context*/
         FILL_CTR_LINK_CX(_nlink_cx, newloc->pargfid, newloc->name,
-                        newloc->path);
+                        newloc->path, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
@@ -874,7 +874,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
         /*Fill link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path);
+        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -1123,7 +1123,7 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, loc->path);
+        FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, loc->path, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT (_inode_cx, loc->inode->ia_type,
@@ -1212,7 +1212,7 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path);
+        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -1292,7 +1292,7 @@ ctr_link (call_frame_t *frame, xlator_t *this,
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX(_link_cx, newloc->pargfid, newloc->name,
-                        newloc->path);
+                        newloc->path, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
