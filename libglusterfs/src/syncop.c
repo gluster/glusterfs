@@ -337,8 +337,7 @@ synctask_yield (struct synctask *task)
         }
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
                 gf_msg ("syncop", GF_LOG_ERROR, errno,
-                        LG_MSG_SWAPCONTEXT_FAILED, "swapcontext failed (%s)",
-                        strerror (errno));
+                        LG_MSG_SWAPCONTEXT_FAILED, "swapcontext failed");
         }
 
         THIS = oldTHIS;
@@ -490,8 +489,7 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 
         if (getcontext (&newtask->ctx) < 0) {
                 gf_msg ("syncop", GF_LOG_ERROR, errno,
-                        LG_MSG_GETCONTEXT_FAILED, "getcontext failed (%s)",
-                        strerror (errno));
+                        LG_MSG_GETCONTEXT_FAILED, "getcontext failed");
                 goto err;
         }
 

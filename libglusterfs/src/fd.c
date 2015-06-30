@@ -281,10 +281,9 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
                         error = gf_fd_fdtable_expand (fdtable,
                                                       fdtable->max_fds + 1);
                         if (error) {
-                                gf_msg ("fd", GF_LOG_ERROR, 0,
+                                gf_msg ("fd", GF_LOG_ERROR, error,
                                         LG_MSG_EXPAND_FD_TABLE_FAILED,
-                                        "Cannot expand fdtable: %s",
-                                        strerror (error));
+                                        "Cannot expand fdtable");
                                 goto out;
                         }
                         ++alloc_attempts;
