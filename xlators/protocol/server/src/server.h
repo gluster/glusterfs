@@ -172,4 +172,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
 
+void
+forget_inode_if_no_dentry (inode_t *inode);
+
 #endif /* !_SERVER_H */

@@ -32,6 +32,16 @@
                 ret = RPCSVC_ACTOR_ERROR;                       \
         } while (0)
 
+void
+forget_inode_if_no_dentry (inode_t *inode)
+{
+        if (!inode_has_dentry (inode))
+                inode_forget (inode, 0);
+
+        return;
+}
+
+
 /* Callback function section */
 int
 server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -108,6 +118,23 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 inode_unlink (state->loc.inode,
                                               state->loc.parent,
                                               state->loc.name);
+                                /**
+                                 * If the entry is not present, then just
+                                 * unlinking the associated dentry is not
+                                 * suffecient. This condition should be
+                                 * treated as unlink of the entry. So along
+                                 * with deleting the entry, its also important
+                                 * to forget the inode for it (if the dentry
+                                 * being considered was the last dentry).
+                                 * Otherwise it might lead to inode leak.
+                                 * It also might lead to wrong decisions being
+                                 * taken if the future lookups on this inode are
+                                 * successful since they are able to find the
+                                 * inode in the inode table (atleast gfid based
+                                 * lookups will be successful, if the lookup
+                                 * is a soft lookup)
+                                 */
+                                forget_inode_if_no_dentry (state->loc.inode);
                         }
                 }
                 goto out;
@@ -416,7 +443,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_rmdir_rsp       rsp    = {0,};
         server_state_t      *state  = NULL;
-        inode_t             *parent = NULL;
         rpcsvc_request_t    *req    = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
@@ -436,15 +462,11 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_unlink (state->loc.inode, state->loc.parent,
                       state->loc.name);
-        parent = inode_parent (state->loc.inode, 0, NULL);
-        if (parent)
-                /* parent should not be found for directories after
-                 * inode_unlink, since directories cannot have
-                 * hardlinks.
-                 */
-                inode_unref (parent);
-        else
-                inode_forget (state->loc.inode, 0);
+        /* parent should not be found for directories after
+         * inode_unlink, since directories cannot have
+         * hardlinks.
+         */
+        forget_inode_if_no_dentry (state->loc.inode);
 
         gf_stat_from_iatt (&rsp.preparent, preparent);
         gf_stat_from_iatt (&rsp.postparent, postparent);
@@ -1023,12 +1045,7 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (tmp_inode) {
                 inode_unlink (tmp_inode, state->loc2.parent,
                               state->loc2.name);
-                tmp_parent = inode_parent (tmp_inode, 0, NULL);
-                if (tmp_parent)
-                        inode_unref (tmp_parent);
-                else
-                        inode_forget (tmp_inode, 0);
-
+                forget_inode_if_no_dentry (tmp_inode);
                 inode_unref (tmp_inode);
         }
 
@@ -1064,7 +1081,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_unlink_rsp      rsp    = {0,};
         server_state_t      *state  = NULL;
-        inode_t             *parent = NULL;
         rpcsvc_request_t    *req    = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
@@ -1089,11 +1105,7 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_unlink (state->loc.inode, state->loc.parent,
                       state->loc.name);
 
-        parent = inode_parent (state->loc.inode, 0, NULL);
-        if (parent)
-                inode_unref (parent);
-        else
-                inode_forget (state->loc.inode, 0);
+        forget_inode_if_no_dentry (state->loc.inode);
 
         gf_stat_from_iatt (&rsp.preparent, preparent);
         gf_stat_from_iatt (&rsp.postparent, postparent);
