@@ -13,6 +13,9 @@
 
 #include "glusterd-svc-mgmt.h"
 
+void
+glusterd_shdsvc_build (glusterd_svc_t *svc);
+
 int
 glusterd_shdsvc_init (glusterd_svc_t *svc);
 

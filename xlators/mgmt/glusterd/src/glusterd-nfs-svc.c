@@ -18,6 +18,14 @@
 
 char *nfs_svc_name = "nfs";
 
+void
+glusterd_nfssvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_nfssvc_manager;
+        svc->start = glusterd_nfssvc_start;
+        svc->stop = glusterd_nfssvc_stop;
+}
+
 static gf_boolean_t
 glusterd_nfssvc_need_start ()
 {
@@ -43,10 +51,7 @@ glusterd_nfssvc_need_start ()
 int
 glusterd_nfssvc_init (glusterd_svc_t *svc)
 {
-        return glusterd_svc_init (svc, nfs_svc_name,
-                                  glusterd_nfssvc_manager,
-                                  glusterd_nfssvc_start,
-                                  glusterd_nfssvc_stop);
+        return glusterd_svc_init (svc, nfs_svc_name);
 }
 
 static int
@@ -166,6 +171,19 @@ int
 glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = -1;
+
+        if (!svc->inited) {
+                ret = glusterd_nfssvc_init (svc);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FAILED_INIT_NFSSVC, "Failed to init nfs "
+                                "service");
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (THIS->name, 0, "nfs service initialized");
+                }
+        }
 
         ret = svc->stop (svc, SIGKILL);
         if (ret)

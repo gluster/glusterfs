@@ -20,6 +20,9 @@ struct glusterd_scrubsvc_{
         gf_store_handle_t   *handle;
 };
 
+void
+glusterd_scrubsvc_build (glusterd_svc_t *svc);
+
 int
 glusterd_scrubsvc_init (glusterd_svc_t *svc);
 

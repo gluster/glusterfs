@@ -1271,10 +1271,9 @@ out:
         return ret;
 }
 
-static int
-glusterd_svc_init_all ()
+static void
+glusterd_svcs_build ()
 {
-        int                 ret     = -1;
         xlator_t           *this    = NULL;
         glusterd_conf_t    *priv    = NULL;
 
@@ -1284,59 +1283,22 @@ glusterd_svc_init_all ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        /* Init SHD svc */
-        ret = glusterd_shdsvc_init (&(priv->shd_svc));
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_FAILED_INIT_SHDSVC,
-                        "Failed to init shd service");
-                goto out;
-        }
-        gf_msg_debug (THIS->name, 0, "shd service initialized");
+        priv->shd_svc.build = glusterd_shdsvc_build;
+        priv->shd_svc.build (&(priv->shd_svc));
 
-        /* Init NFS svc */
-        ret = glusterd_nfssvc_init (&(priv->nfs_svc));
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_FAILED_INIT_NFSSVC,
-                        "Failed to init nfs service");
-                goto out;
-        }
-        gf_msg_debug (THIS->name, 0, "nfs service initialized");
+        priv->nfs_svc.build = glusterd_nfssvc_build;
+        priv->nfs_svc.build (&(priv->nfs_svc));
 
-        /* Init QuotaD svc */
-        ret = glusterd_quotadsvc_init (&(priv->quotad_svc));
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_FAILED_INIT_QUOTASVC, "Failed to init quotad "
-                        "service");
-                goto out;
-        }
-        gf_msg_debug (THIS->name, 0, "quotad service initialized");
+        priv->quotad_svc.build = glusterd_quotadsvc_build;
+        priv->quotad_svc.build (&(priv->quotad_svc));
 
-        /* Init BitD svc */
-        ret = glusterd_bitdsvc_init (&(priv->bitd_svc));
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_BITD_INIT_FAIL, "Failed to initialized BitD "
-                        "service");
-                goto out;
-        }
-        gf_msg_debug (THIS->name, 0, "BitD service initialized");
+        priv->bitd_svc.build = glusterd_bitdsvc_build;
+        priv->bitd_svc.build (&(priv->bitd_svc));
 
-        ret = glusterd_scrubsvc_init (&(priv->scrub_svc));
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SCRUB_INIT_FAIL, "Failed to initialized scrub "
-                        "service");
-                goto out;
-        }
-        gf_msg_debug (THIS->name, 0, "scrub service initialized");
+        priv->scrub_svc.build = glusterd_scrubsvc_build;
+        priv->scrub_svc.build (&(priv->scrub_svc));
 
-out:
-        return ret;
 }
-
 /*
  * init - called during glusterd initialization
  *
@@ -1738,6 +1700,7 @@ init (xlator_t *this)
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
+        glusterd_svcs_build ();
 
         /* Make install copies few of the hook-scripts by creating hooks
          * directory. Hence purposefully not doing the check for the presence of
@@ -1786,10 +1749,6 @@ init (xlator_t *this)
                         "Failed to restore op_version");
                 goto out;
         }
-
-        ret = glusterd_svc_init_all ();
-        if (ret)
-                goto out;
 
         ret = glusterd_restore ();
         if (ret < 0)

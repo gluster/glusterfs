@@ -2810,15 +2810,6 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
         if (snap)
                 volinfo->is_snap_volume = _gf_true;
 
-        /* Initialize the snapd service */
-        ret = glusterd_snapdsvc_init (volinfo);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize snapd "
-                        "service for volume %s", volinfo->volname);
-                goto out;
-        }
-
         ret = glusterd_store_update_volinfo (volinfo);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,

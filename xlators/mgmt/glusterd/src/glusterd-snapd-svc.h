@@ -21,6 +21,9 @@ struct glusterd_snapdsvc_{
         gf_store_handle_t *handle;
 };
 
+void
+glusterd_snapdsvc_build (glusterd_svc_t *svc);
+
 int
 glusterd_snapdsvc_init (void *data);
 

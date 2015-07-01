@@ -12,7 +12,9 @@ TEST launch_cluster 2;
 # is > 3.5. This is to ensure 3.5 code path is hit to test that volume status
 # works when a node is upgraded from 3.5 to 3.7 or higher as mgmt_v3 lock is
 # been introduced in 3.6 version and onwards
+
 GD1_WD=$($CLI_1 system getwd)
+$CLI_1 system uuid get
 TEST sed -rnie "'s/(operating-version=)\w+/\130500/gip'" ${GD1_WD}/glusterd.info
 
 TEST kill_glusterd 1

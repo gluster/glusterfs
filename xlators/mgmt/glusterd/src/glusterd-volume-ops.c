@@ -2297,12 +2297,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_snapdsvc_init (volinfo);
-        if (ret) {
-                *op_errstr = gf_strdup ("Failed to initialize snapd service");
-                goto out;
-        }
-
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 *op_errstr = gf_strdup ("Failed to create volume files");

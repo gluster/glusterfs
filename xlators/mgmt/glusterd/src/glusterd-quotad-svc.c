@@ -18,16 +18,21 @@
 
 char *quotad_svc_name = "quotad";
 
+void
+glusterd_quotadsvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_quotadsvc_manager;
+        svc->start = glusterd_quotadsvc_start;
+        svc->stop = glusterd_svc_stop;
+}
+
 int glusterd_quotadsvc_init (glusterd_svc_t *svc)
 {
         int              ret                = -1;
         char             volfile[PATH_MAX]  = {0,};
         glusterd_conf_t *conf               = THIS->private;
 
-        ret = glusterd_svc_init (svc, quotad_svc_name,
-                                 glusterd_quotadsvc_manager,
-                                 glusterd_quotadsvc_start,
-                                 glusterd_svc_stop);
+        ret = glusterd_svc_init (svc, quotad_svc_name);
         if (ret)
                 goto out;
 
@@ -59,6 +64,20 @@ glusterd_quotadsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = 0;
         glusterd_volinfo_t *volinfo = NULL;
+
+        if (!svc->inited) {
+                ret = glusterd_quotadsvc_init (svc);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FAILED_INIT_QUOTASVC, "Failed to init "
+                                "quotad service");
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (THIS->name, 0, "quotad service "
+                                      "initialized");
+                }
+        }
 
         volinfo = data;
 
