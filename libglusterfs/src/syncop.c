@@ -389,7 +389,7 @@ synctask_destroy (struct synctask *task)
         if (!task)
                 return;
 
-        FREE (task->stack);
+        GF_FREE (task->stack);
 
         if (task->opframe)
                 STACK_DESTROY (task->opframe->root);
@@ -399,7 +399,7 @@ synctask_destroy (struct synctask *task)
                pthread_cond_destroy (&task->cond);
         }
 
-        FREE (task);
+        GF_FREE (task);
 }
 
 
@@ -461,7 +461,7 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         if (destroymode)
                 return NULL;
 
-        newtask = CALLOC (1, sizeof (*newtask));
+        newtask = GF_CALLOC (1, sizeof (*newtask), gf_common_mt_synctask);
         if (!newtask)
                 return NULL;
 
@@ -495,7 +495,7 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
                 goto err;
         }
 
-        newtask->stack = CALLOC (1, env->stacksize);
+        newtask->stack = GF_CALLOC (1, env->stacksize, gf_common_mt_syncstack);
         if (!newtask->stack) {
                 goto err;
         }
@@ -525,10 +525,10 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 	return newtask;
 err:
         if (newtask) {
-                FREE (newtask->stack);
+                GF_FREE (newtask->stack);
                 if (newtask->opframe)
                         STACK_DESTROY (newtask->opframe->root);
-                FREE (newtask);
+                GF_FREE (newtask);
         }
 
         return NULL;
@@ -771,7 +771,7 @@ syncenv_destroy (struct syncenv *env)
         pthread_mutex_destroy (&env->mutex);
         pthread_cond_destroy (&env->cond);
 
-        FREE (env);
+        GF_FREE (env);
 
         return;
 }
@@ -792,7 +792,7 @@ syncenv_new (size_t stacksize, int procmin, int procmax)
 	if (procmin > procmax)
 		return NULL;
 
-        newenv = CALLOC (1, sizeof (*newenv));
+        newenv = GF_CALLOC (1, sizeof (*newenv), gf_common_mt_syncenv);
 
         if (!newenv)
                 return NULL;
