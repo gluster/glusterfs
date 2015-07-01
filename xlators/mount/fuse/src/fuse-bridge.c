@@ -3923,6 +3923,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct fuse_init_in  *fini      = msg;
         struct fuse_init_out  fino      = {0,};
         fuse_private_t       *priv      = NULL;
+        size_t                size      = 0;
         int                   ret       = 0;
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         pthread_t             messenger;
@@ -4060,7 +4061,15 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 	if (fini->flags & FUSE_ASYNC_DIO)
 		fino.flags |= FUSE_ASYNC_DIO;
 #endif
-        ret = send_fuse_obj (this, finh, &fino);
+        /* FUSE 7.23 and newer added attributes to the fuse_init_out struct */
+        if (fini->minor > 22) {
+                size = sizeof (fino);
+        } else {
+                /* reduce the size, chop off unused attributes from &fino */
+                size = FUSE_COMPAT_22_INIT_OUT_SIZE;
+        }
+
+        ret = send_fuse_data (this, finh, &fino, size);
         if (ret == 0)
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
                         "FUSE inited with protocol versions:"
