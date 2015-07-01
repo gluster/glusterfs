@@ -40,6 +40,12 @@ main (int argc, char ** argv)
         char fbuf[PATH_MAX]  = {0,};
         unsigned long end_ts = 0;
 
+        ret = gf_changelog_init (NULL);
+        if (ret) {
+                handle_error ("init failed");
+                goto out;
+        }
+
         ret = gf_changelog_register ("/export/z1/zwoop",
                                      "/tmp/scratch_v1", "/tmp/changes.log",
                                      9, 5);

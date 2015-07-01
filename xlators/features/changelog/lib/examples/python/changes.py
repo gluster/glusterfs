@@ -10,6 +10,7 @@ cl = libgfchangelog.Changes()
 def get_changes(brick, scratch_dir, log_file, log_level, interval):
     change_list = []
     try:
+        cl.cl_init()
         cl.cl_register(brick, scratch_dir, log_file, log_level)
         while True:
             cl.cl_scan()
@@ -25,7 +26,7 @@ def get_changes(brick, scratch_dir, log_file, log_level, interval):
         print ex
 
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         print("usage: %s <brick> <scratch-dir> <log-file> <fetch-interval>"
               % (sys.argv[0]))
         sys.exit(1)
