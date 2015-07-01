@@ -367,6 +367,23 @@ server_setvolume (rpcsvc_request_t *req)
         config_params = dict_copy_with_ref (this->options, NULL);
         conf          = this->private;
 
+        if (conf->parent_up == _gf_false) {
+                /* PARENT_UP indicates that all xlators in graph are inited
+                 * successfully
+                 */
+                op_ret = -1;
+                op_errno = EAGAIN;
+
+                ret = dict_set_str (reply, "ERROR",
+                                    "xlator graph in server is not initialised "
+                                    "yet. Try again later");
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error: "
+                                      "xlator graph in server is not "
+                                      "initialised yet. Try again later");
+                goto fail;
+        }
+
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
                 op_ret = -1;

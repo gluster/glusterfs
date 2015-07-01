@@ -1183,6 +1183,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         int32_t          val          = 0;
         dict_t           *dict        = NULL;
         dict_t           *output      = NULL;
+        server_conf_t    *conf        = NULL;
         va_list          ap;
 
         dict = data;
@@ -1203,6 +1204,16 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 }
                 break;
         }
+
+        case GF_EVENT_PARENT_UP:
+        {
+                conf = this->private;
+
+                conf->parent_up = _gf_true;
+
+                /* fall through and notify the event to children */
+        }
+
         default:
                 default_notify (this, event, data);
                 break;
