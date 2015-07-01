@@ -666,14 +666,19 @@ start_ganesha (char **op_errstr)
                 }
         }
 
-        ret = priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
-        if (ret) {
-                ret = -1;
-                gf_asprintf (op_errstr, "Gluster-NFS service could"
-                             "not be stopped, exiting.");
-                goto out;
+        /* If the nfs svc is not initialized it means that the service is not
+         * running, hence we can skip the process of stopping gluster-nfs
+         * service
+         */
+        if (priv->nfs_svc.inited) {
+                ret = priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
+                if (ret) {
+                        ret = -1;
+                        gf_asprintf (op_errstr, "Gluster-NFS service could"
+                                     "not be stopped, exiting.");
+                        goto out;
+                }
         }
-
         if (check_host_list()) {
                 ret = manage_service ("start");
                 if (ret)

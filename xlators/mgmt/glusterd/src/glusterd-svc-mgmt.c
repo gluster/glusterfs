@@ -49,9 +49,6 @@ static int
 glusterd_svc_init_common (glusterd_svc_t *svc,
                           char *svc_name, char *workdir,
                           char *rundir, char *logdir,
-                          glusterd_svc_manager_t manager,
-                          glusterd_svc_start_t start,
-                          glusterd_svc_stop_t stop,
                           glusterd_conn_notify_t notify)
 {
         int                     ret                        = -1;
@@ -73,10 +70,6 @@ glusterd_svc_init_common (glusterd_svc_t *svc,
         ret = snprintf (svc->name, sizeof (svc->name), "%s", svc_name);
         if (ret < 0)
                 goto out;
-
-        svc->manager = manager;
-        svc->start = start;
-        svc->stop = stop;
 
         if (!notify)
                 notify = glusterd_svc_common_rpc_notify;
@@ -126,10 +119,7 @@ svc_add_args (dict_t *cmdline, char *arg, data_t *value, void *data)
         return 0;
 }
 
-int glusterd_svc_init (glusterd_svc_t *svc, char *svc_name,
-                       glusterd_svc_manager_t manager,
-                       glusterd_svc_start_t start,
-                       glusterd_svc_stop_t stop)
+int glusterd_svc_init (glusterd_svc_t *svc, char *svc_name)
 {
         int              ret               = -1;
         char             rundir[PATH_MAX]  = {0,};
@@ -145,8 +135,7 @@ int glusterd_svc_init (glusterd_svc_t *svc, char *svc_name,
         glusterd_svc_build_rundir (svc_name, priv->workdir, rundir,
                                    sizeof (rundir));
         ret = glusterd_svc_init_common (svc, svc_name, priv->workdir, rundir,
-                                        DEFAULT_LOG_FILE_DIRECTORY, manager,
-                                        start, stop, NULL);
+                                        DEFAULT_LOG_FILE_DIRECTORY, NULL);
 
         return ret;
 }

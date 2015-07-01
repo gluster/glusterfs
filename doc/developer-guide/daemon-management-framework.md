@@ -25,9 +25,12 @@ Data members & functions of different management objects
     - connection object
     - process object
     - online status
-    - Methods - manager, start, stop which can be abstracted as a common methods
-      or specific to service requirements
-    - init API can be invoked using the service management object
+    - Methods
+      -- manager, start, stop which can be abstracted as a common
+         methods or specific to service requirements
+      -- init API is invoked on demand of the service and currently integrated
+         into manager.
+      -- build method is to initialize the method pointers
 
  The above structures defines the skeleton of the daemon management framework.
  Introduction of new daemons in GlusterFS needs to inherit these properties. Any

@@ -17,13 +17,18 @@
 
 char *scrub_svc_name = "scrub";
 
+void
+glusterd_scrubsvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_scrubsvc_manager;
+        svc->start = glusterd_scrubsvc_start;
+        svc->stop = glusterd_scrubsvc_stop;
+}
+
 int
 glusterd_scrubsvc_init (glusterd_svc_t *svc)
 {
-        return glusterd_svc_init (svc, scrub_svc_name,
-                                  glusterd_scrubsvc_manager,
-                                  glusterd_scrubsvc_start,
-                                  glusterd_scrubsvc_stop);
+        return glusterd_svc_init (svc, scrub_svc_name);
 }
 
 static int
@@ -59,6 +64,20 @@ int
 glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int          ret    = -EINVAL;
+
+        if (!svc->inited) {
+                ret = glusterd_scrubsvc_init (svc);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SCRUB_INIT_FAIL, "Failed to init "
+                                "scrub service");
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (THIS->name, 0, "scrub service "
+                                      "initialized");
+                }
+        }
 
         if (glusterd_should_i_stop_bitd ()) {
                 ret = svc->stop (svc, SIGTERM);

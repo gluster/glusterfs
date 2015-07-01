@@ -36,6 +36,13 @@ glusterd_svc_build_snapd_logfile (char *logfile, char *logdir, size_t len)
         snprintf (logfile, len, "%s/snapd.log", logdir);
 }
 
+void
+glusterd_snapdsvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_snapdsvc_manager;
+        svc->start = glusterd_snapdsvc_start;
+        svc->stop = glusterd_svc_stop;
+}
 
 int
 glusterd_snapdsvc_init (void *data)
@@ -68,10 +75,6 @@ glusterd_snapdsvc_init (void *data)
         ret = snprintf (svc->name, sizeof (svc->name), "%s", snapd_svc_name);
         if (ret < 0)
                 goto out;
-
-        svc->manager = glusterd_snapdsvc_manager;
-        svc->start = glusterd_snapdsvc_start;
-        svc->stop = glusterd_svc_stop;
 
         notify = glusterd_snapdsvc_rpc_notify;
 
@@ -122,6 +125,21 @@ glusterd_snapdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
         glusterd_volinfo_t *volinfo = NULL;
 
         volinfo = data;
+
+        if (!svc->inited) {
+                ret = glusterd_snapdsvc_init (volinfo);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize "
+                                "snapd service for volume %s",
+                                volinfo->volname);
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (THIS->name, 0, "snapd service "
+                                      "initialized");
+                }
+        }
 
         ret = glusterd_is_snapd_enabled (volinfo);
         if (ret == -1) {

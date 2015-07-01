@@ -496,6 +496,9 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         new_volinfo->xl = THIS;
 
+        new_volinfo->snapd.svc.build = glusterd_snapdsvc_build;
+        new_volinfo->snapd.svc.build (&(new_volinfo->snapd.svc));
+
         pthread_mutex_init (&new_volinfo->reflock, NULL);
         *volinfo = glusterd_volinfo_ref (new_volinfo);
 
@@ -3772,35 +3775,17 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
-                /* snapdsvc initialization of old_volinfo is also required here
-                 * as glusterd_delete_stale_volume () invokes snapdsvc manager
-                 */
-                ret = glusterd_snapdsvc_init (old_volinfo);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize"
-                                " snapdsvc for old volume %s",
-                                old_volinfo->volname);
-                        goto out;
-                }
                 (void) gd_check_and_update_rebalance_info (old_volinfo,
                                                            new_volinfo);
                 (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
-        }
-
-        ret = glusterd_snapdsvc_init (new_volinfo);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize "
-                        "snapdsvc for volume %s", new_volinfo->volname);
-                goto out;
         }
 
         if (glusterd_is_volume_started (new_volinfo)) {
                 (void) glusterd_start_bricks (new_volinfo);
                 if (glusterd_is_snapd_enabled (new_volinfo)) {
                         svc = &(new_volinfo->snapd.svc);
-                        (void) svc->start (svc, PROC_START_NO_WAIT);
+                        (void) svc->manager (svc, new_volinfo,
+                                             PROC_START_NO_WAIT);
                 }
         }
 

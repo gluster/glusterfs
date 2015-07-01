@@ -15,13 +15,18 @@
 #include "glusterd-volgen.h"
 #include "glusterd-bitd-svc.h"
 
+void
+glusterd_bitdsvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_bitdsvc_manager;
+        svc->start = glusterd_bitdsvc_start;
+        svc->stop = glusterd_bitdsvc_stop;
+}
+
 int
 glusterd_bitdsvc_init (glusterd_svc_t *svc)
 {
-        return glusterd_svc_init (svc, bitd_svc_name,
-                                  glusterd_bitdsvc_manager,
-                                  glusterd_bitdsvc_start,
-                                  glusterd_bitdsvc_stop);
+        return glusterd_svc_init (svc, bitd_svc_name);
 }
 
 static int
@@ -64,6 +69,20 @@ glusterd_bitdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 
         this = THIS;
         GF_ASSERT (this);
+
+        if (!svc->inited) {
+                ret = glusterd_bitdsvc_init (svc);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BITD_INIT_FAIL, "Failed to init "
+                                "bitd service");
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (this->name, 0, "BitD service "
+                                      "initialized");
+                }
+        }
 
         if (glusterd_should_i_stop_bitd ()) {
                 ret = svc->stop (svc, SIGTERM);

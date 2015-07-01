@@ -17,6 +17,8 @@
 struct glusterd_svc_;
 typedef struct glusterd_svc_ glusterd_svc_t;
 
+typedef void (*glusterd_svc_build_t) (glusterd_svc_t *svc);
+
 typedef int (*glusterd_svc_manager_t) (glusterd_svc_t *svc,
                                        void *data, int flags);
 typedef int (*glusterd_svc_start_t) (glusterd_svc_t *svc, int flags);
@@ -26,20 +28,19 @@ struct glusterd_svc_ {
         char                      name[PATH_MAX];
         glusterd_conn_t           conn;
         glusterd_proc_t           proc;
+        glusterd_svc_build_t      build;
         glusterd_svc_manager_t    manager;
         glusterd_svc_start_t      start;
         glusterd_svc_stop_t       stop;
         gf_boolean_t              online;
+        gf_boolean_t              inited;
 };
 
 int
 glusterd_svc_create_rundir (char *rundir);
 
 int
-glusterd_svc_init (glusterd_svc_t *svc, char *svc_name,
-                   glusterd_svc_manager_t manager,
-                   glusterd_svc_start_t start,
-                   glusterd_svc_stop_t stop);
+glusterd_svc_init (glusterd_svc_t *svc, char *svc_name);
 
 int
 glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline);

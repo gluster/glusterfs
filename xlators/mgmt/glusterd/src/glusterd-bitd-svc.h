@@ -15,6 +15,9 @@
 
 #define bitd_svc_name "bitd"
 
+void
+glusterd_bitdsvc_build (glusterd_svc_t *svc);
+
 int
 glusterd_bitdsvc_init (glusterd_svc_t *svc);
 
