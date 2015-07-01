@@ -66,6 +66,8 @@ struct server_conf {
 
         int                     event_threads; /* # of event threads
                                                 * configured */
+
+        gf_boolean_t            parent_up;
 };
 typedef struct server_conf server_conf_t;
 
