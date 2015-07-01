@@ -2,7 +2,7 @@
 
 key=`echo $3 | cut -d '=' -f 1`
 val=`echo $3 | cut -d '=' -f 2`
-if [ "$key" != "cluster.enable-shared-storage" ]; then
+if [ ! "$key" -eq "enable-shared-storage" -o "$key" -eq "cluster.enable-shared-storage" ]; then
     exit;
 fi
 if [ "$val" != 'enable' ]; then
