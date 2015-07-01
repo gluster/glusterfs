@@ -438,14 +438,9 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_PREPARE_ANSWER:
             cbk = fop->answer;
             if (cbk) {
-                if ((cbk->op_ret < 0) &&
-                    ec_is_recoverable_error (cbk->op_errno)) {
-                    GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
-                    fop->mask ^= (1ULL << cbk->idx);
-                    if (fop->mask == 0)
-                            return EC_STATE_REPORT;
-                    return EC_STATE_DISPATCH;
-                }
+                if (ec_dispatch_one_retry (fop, cbk))
+                        return EC_STATE_DISPATCH;
+
                 if ((cbk->op_ret > 0) && (fop->id == GF_FOP_READDIRP)) {
                     ec_adjust_readdirp (fop->xl->private, cbk->idx,
                                         &cbk->entries);

@@ -596,13 +596,16 @@ void ec_dispatch_one(ec_fop_data_t * fop)
     }
 }
 
-int32_t ec_dispatch_one_retry(ec_fop_data_t *fop, int32_t idx, int32_t op_ret)
+gf_boolean_t
+ec_dispatch_one_retry(ec_fop_data_t *fop, ec_cbk_data_t *cbk)
 {
-    if (op_ret < 0) {
-        return (ec_dispatch_next(fop, idx) >= 0);
-    }
-
-    return 0;
+        if ((cbk->op_ret < 0) && ec_is_recoverable_error (cbk->op_errno)) {
+                GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
+                fop->mask ^= (1ULL << cbk->idx);
+                if (fop->mask)
+                        return _gf_true;
+        }
+        return _gf_false;
 }
 
 void ec_dispatch_inc(ec_fop_data_t * fop)
@@ -1952,6 +1955,7 @@ void __ec_manager(ec_fop_data_t * fop, int32_t error)
         fop->jobs = 1;
 
         fop->state = fop->handler(fop, fop->state);
+        GF_ASSERT (fop->state >= 0);
 
         error = ec_check_complete(fop, __ec_manager);
     } while (error >= 0);

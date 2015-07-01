@@ -98,6 +98,7 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
     }
     GF_FREE(cbk->vector);
     gf_dirent_free (&cbk->entries);
+    GF_FREE (cbk->str);
 
     mem_put(cbk);
 }
