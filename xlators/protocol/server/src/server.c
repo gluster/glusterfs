@@ -616,6 +616,7 @@ _delete_auth_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject",
+                                        "auth.login.*.ssl-allow",
                                         NULL};
         int i = 0;
 
@@ -635,6 +636,7 @@ _copy_auth_opt (dict_t *unused, char *key, data_t *value, void *xl_dict)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject",
+                                        "auth.login.*.ssl-allow",
                                         NULL};
         int i = 0;
 
