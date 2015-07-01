@@ -18,13 +18,18 @@
 
 char *shd_svc_name = "glustershd";
 
+void
+glusterd_shdsvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_shdsvc_manager;
+        svc->start = glusterd_shdsvc_start;
+        svc->stop = glusterd_svc_stop;
+}
+
 int
 glusterd_shdsvc_init (glusterd_svc_t *svc)
 {
-        return glusterd_svc_init (svc, shd_svc_name,
-                                  glusterd_shdsvc_manager,
-                                  glusterd_shdsvc_start,
-                                  glusterd_svc_stop);
+        return glusterd_svc_init (svc, shd_svc_name);
 }
 
 static int
@@ -79,6 +84,19 @@ glusterd_shdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = 0;
         glusterd_volinfo_t *volinfo = NULL;
+
+        if (!svc->inited) {
+                ret = glusterd_shdsvc_init (svc);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FAILED_INIT_SHDSVC, "Failed to init shd "
+                                "service");
+                        goto out;
+                } else {
+                        svc->inited = _gf_true;
+                        gf_msg_debug (THIS->name, 0, "shd service initialized");
+                }
+        }
 
         volinfo = data;
 
