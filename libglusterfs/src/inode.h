@@ -273,4 +273,7 @@ inode_set_need_lookup (inode_t *inode, xlator_t *this);
 gf_boolean_t
 inode_needs_lookup (inode_t *inode, xlator_t *this);
 
+int
+inode_has_dentry (inode_t *inode);
+
 #endif /* _INODE_H */

@@ -1314,6 +1314,32 @@ inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
         return parent;
 }
 
+static int
+__inode_has_dentry (inode_t *inode)
+{
+        if (!inode) {
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
+                return 0;
+        }
+
+        return !list_empty (&inode->dentry_list);
+}
+
+int
+inode_has_dentry (inode_t *inode)
+{
+
+        int dentry_present = 0;
+
+        LOCK (&inode->lock);
+        {
+                dentry_present = __inode_has_dentry (inode);
+        }
+        UNLOCK (&inode->lock);
+
+        return dentry_present;
+}
 
 int
 __inode_path (inode_t *inode, const char *name, char **bufp)
