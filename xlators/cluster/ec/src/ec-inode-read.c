@@ -1498,6 +1498,196 @@ out:
     }
 }
 
+/* FOP: seek */
+
+int32_t ec_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, off_t offset,
+                    dict_t *xdata)
+{
+    ec_fop_data_t *fop = NULL;
+    ec_cbk_data_t *cbk = NULL;
+    ec_t *ec = this->private;
+    int32_t idx = (int32_t)(uintptr_t)cookie;
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = frame->local;
+
+    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
+             frame, op_ret, op_errno);
+
+    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_SEEK, idx, op_ret,
+                               op_errno);
+    if (cbk != NULL) {
+        if (op_ret >= 0) {
+            cbk->offset = offset;
+        }
+        if (xdata != NULL) {
+            cbk->xdata = dict_ref(xdata);
+        }
+
+        if ((op_ret > 0) && ((cbk->offset % ec->fragment_size) != 0)) {
+            cbk->op_ret = -1;
+            cbk->op_errno = EIO;
+        }
+
+        ec_combine(cbk, NULL);
+    }
+
+out:
+    if (fop != NULL) {
+        ec_complete(fop);
+    }
+
+    return 0;
+}
+
+void ec_wind_seek(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
+{
+    ec_trace("WIND", fop, "idx=%d", idx);
+
+    STACK_WIND_COOKIE(fop->frame, ec_seek_cbk, (void *)(uintptr_t)idx,
+                      ec->xl_list[idx], ec->xl_list[idx]->fops->seek, fop->fd,
+                      fop->offset, fop->seek, fop->xdata);
+}
+
+int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
+{
+    ec_cbk_data_t *cbk;
+
+    switch (state) {
+    case EC_STATE_INIT:
+        fop->user_size = fop->offset;
+        fop->head = ec_adjust_offset(fop->xl->private, &fop->offset, 1);
+
+    /* Fall through */
+
+    case EC_STATE_LOCK:
+        ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+        ec_lock(fop);
+
+        return EC_STATE_DISPATCH;
+
+    case EC_STATE_DISPATCH:
+        ec_dispatch_one(fop);
+
+        return EC_STATE_PREPARE_ANSWER;
+
+    case EC_STATE_PREPARE_ANSWER:
+        cbk = fop->answer;
+        if (cbk != NULL) {
+            if (ec_dispatch_one_retry(fop, &cbk)) {
+                return EC_STATE_DISPATCH;
+            }
+            if (cbk->op_ret >= 0) {
+                ec_t *ec = fop->xl->private;
+
+                cbk->offset *= ec->fragments;
+                if (cbk->offset < fop->user_size) {
+                    cbk->offset = fop->user_size;
+                }
+            } else {
+                ec_fop_set_error(fop, cbk->op_errno);
+            }
+        } else {
+            ec_fop_set_error(fop, EIO);
+        }
+
+        return EC_STATE_REPORT;
+
+    case EC_STATE_REPORT:
+        cbk = fop->answer;
+
+        GF_ASSERT(cbk != NULL);
+
+        if (fop->cbks.seek != NULL) {
+            fop->cbks.seek(fop->req_frame, fop, fop->xl, cbk->op_ret,
+                           cbk->op_errno, cbk->offset, cbk->xdata);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_INIT:
+    case -EC_STATE_LOCK:
+    case -EC_STATE_DISPATCH:
+    case -EC_STATE_PREPARE_ANSWER:
+    case -EC_STATE_REPORT:
+        GF_ASSERT(fop->error != 0);
+
+        if (fop->cbks.seek != NULL) {
+            fop->cbks.seek(fop->req_frame, fop, fop->xl, -1, fop->error, 0,
+                           NULL);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_LOCK_REUSE:
+    case EC_STATE_LOCK_REUSE:
+        ec_lock_reuse(fop);
+
+        return EC_STATE_UNLOCK;
+
+    case -EC_STATE_UNLOCK:
+    case EC_STATE_UNLOCK:
+        ec_unlock(fop);
+
+        return EC_STATE_END;
+
+    default:
+        gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s", state,
+                ec_fop_name(fop->id));
+
+        return EC_STATE_END;
+    }
+}
+
+void ec_seek(call_frame_t *frame, xlator_t *this, uintptr_t target,
+              int32_t minimum, fop_seek_cbk_t func, void *data, fd_t *fd,
+              off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+    ec_cbk_t callback = { .seek = func };
+    ec_fop_data_t *fop = NULL;
+    int32_t error = EIO;
+
+    gf_msg_trace ("ec", 0, "EC(SEEK) %p", frame);
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_SEEK, EC_FLAG_LOCK_SHARED,
+                               target, minimum, ec_wind_seek,
+                               ec_manager_seek, callback, data);
+    if (fop == NULL) {
+        goto out;
+    }
+
+    fop->use_fd = 1;
+
+    fop->offset = offset;
+    fop->seek = what;
+
+    if (fd != NULL) {
+        fop->fd = fd_ref(fd);
+    }
+    if (xdata != NULL) {
+        fop->xdata = dict_ref(xdata);
+    }
+
+    error = 0;
+
+out:
+    if (fop != NULL) {
+        ec_manager(fop, error);
+    } else {
+        func(frame, NULL, this, -1, EIO, 0, NULL);
+    }
+}
+
 /* FOP: stat */
 
 int32_t ec_combine_stat(ec_fop_data_t * fop, ec_cbk_data_t * dst,

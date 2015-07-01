@@ -1157,6 +1157,15 @@ int32_t ec_gf_zerofill(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
+int32_t ec_gf_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                   gf_seek_what_t what, dict_t *xdata)
+{
+    ec_seek(frame, this, -1, EC_MINIMUM_ONE, default_seek_cbk, NULL, fd,
+            offset, what, xdata);
+
+    return 0;
+}
+
 int32_t ec_gf_forget(xlator_t * this, inode_t * inode)
 {
     uint64_t value = 0;
@@ -1271,7 +1280,8 @@ struct xlator_fops fops =
     .fsetattr     = ec_gf_fsetattr,
     .fallocate    = ec_gf_fallocate,
     .discard      = ec_gf_discard,
-    .zerofill     = ec_gf_zerofill
+    .zerofill     = ec_gf_zerofill,
+    .seek         = ec_gf_seek
 };
 
 struct xlator_cbks cbks =
