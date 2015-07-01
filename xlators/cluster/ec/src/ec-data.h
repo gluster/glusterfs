@@ -253,6 +253,7 @@ struct _ec_cbk_data
     int32_t          op_errno;
     int32_t          count;
     uintptr_t        mask;
+    uint64_t         dirty[2];
 
     dict_t *         xdata;
     dict_t *         dict;
@@ -267,8 +268,8 @@ struct _ec_cbk_data
     struct gf_flock  flock;
     struct iovec *   vector;
     struct iobref *  buffers;
-    uint64_t         dirty[2];
     gf_dirent_t      entries;
+    char            *str;
 };
 
 struct _ec_heal

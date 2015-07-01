@@ -84,13 +84,8 @@ ec_manager_access(ec_fop_data_t *fop, int32_t state)
         case EC_STATE_PREPARE_ANSWER:
             cbk = fop->answer;
             if (cbk) {
-                if ((cbk->op_ret < 0) && ec_is_recoverable_error (cbk->op_errno)) {
-                    GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
-                    fop->mask ^= (1ULL << cbk->idx);
-                    if (fop->mask == 0)
-                            return EC_STATE_REPORT;
-                    return EC_STATE_DISPATCH;
-                }
+                if (ec_dispatch_one_retry (fop, cbk))
+                        return EC_STATE_DISPATCH;
             } else {
                 ec_fop_set_error(fop, EIO);
             }
@@ -1029,12 +1024,14 @@ int32_t ec_combine_readlink(ec_fop_data_t * fop, ec_cbk_data_t * dst,
     return 1;
 }
 
-int32_t ec_readlink_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno, const char * path,
-                        struct iatt * buf, dict_t * xdata)
+int32_t
+ec_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, const char *path,
+                 struct iatt *buf, dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
+    ec_fop_data_t   *fop = NULL;
+    ec_cbk_data_t   *cbk = NULL;
+    int32_t         idx  = (int32_t)(uintptr_t)cookie;
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1046,25 +1043,26 @@ int32_t ec_readlink_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
              frame, op_ret, op_errno);
 
-    if (op_ret > 0)
-    {
-        ec_iatt_rebuild(fop->xl->private, buf, 1, 1);
-    }
+    cbk = ec_cbk_data_allocate (frame, this, fop, fop->id,
+                                idx, op_ret, op_errno);
+    if (cbk) {
+            if (xdata)
+                    cbk->xdata = dict_ref (xdata);
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret))
-    {
-        if (fop->cbks.readlink != NULL)
-        {
-            fop->cbks.readlink(fop->req_frame, fop, this, op_ret, op_errno,
-                               path, buf, xdata);
-        }
+            if (cbk->op_ret >= 0) {
+                    cbk->iatt[0] = *buf;
+                    cbk->str = gf_strdup (path);
+                    if (!cbk->str) {
+                            cbk->op_ret = -1;
+                            cbk->op_errno = ENOMEM;
+                    }
+            }
+            ec_combine (cbk, NULL);
     }
 
 out:
     if (fop != NULL)
-    {
         ec_complete(fop);
-    }
 
     return 0;
 }
@@ -1080,25 +1078,68 @@ void ec_wind_readlink(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_readlink(ec_fop_data_t * fop, int32_t state)
 {
+    ec_cbk_data_t *cbk = NULL;
+
     switch (state)
     {
         case EC_STATE_INIT:
+        case EC_STATE_LOCK:
+            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO);
+            ec_lock (fop);
+            return EC_STATE_DISPATCH;
+
         case EC_STATE_DISPATCH:
-            ec_dispatch_one(fop);
+            ec_dispatch_one (fop);
+
+            return EC_STATE_PREPARE_ANSWER;
+
+        case EC_STATE_PREPARE_ANSWER:
+            cbk = fop->answer;
+            if (cbk) {
+                if (ec_dispatch_one_retry (fop, cbk)) {
+                        return EC_STATE_DISPATCH;
+                } else if (cbk->op_ret >= 0) {
+                        ec_iatt_rebuild(fop->xl->private, &cbk->iatt[0], 1, 1);
+                }
+            } else {
+                    ec_fop_set_error(fop, EIO);
+            }
 
             return EC_STATE_REPORT;
 
+        case EC_STATE_REPORT:
+            cbk = fop->answer;
+            GF_ASSERT (cbk);
+            if (fop->cbks.readlink != NULL) {
+                fop->cbks.readlink (fop->req_frame, fop, fop->xl, cbk->op_ret,
+                                    cbk->op_errno, cbk->str, &cbk->iatt[0],
+                                    cbk->xdata);
+            }
+
+            return EC_STATE_LOCK_REUSE;
+
         case -EC_STATE_INIT:
-            if (fop->cbks.readlink != NULL)
-            {
+        case -EC_STATE_LOCK:
+        case -EC_STATE_DISPATCH:
+        case -EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_REPORT:
+            if (fop->cbks.readlink != NULL) {
                 fop->cbks.readlink(fop->req_frame, fop, fop->xl, -1,
                                    fop->error, NULL, NULL, NULL);
             }
+            return EC_STATE_LOCK_REUSE;
 
-        case EC_STATE_REPORT:
-        case -EC_STATE_REPORT:
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop);
+
+            return EC_STATE_UNLOCK;
+
+        case -EC_STATE_UNLOCK:
+        case EC_STATE_UNLOCK:
+            ec_unlock(fop);
+
             return EC_STATE_END;
-
         default:
             gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
