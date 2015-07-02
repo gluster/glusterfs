@@ -547,6 +547,14 @@ function get_quotad_count {
         ps auxww | grep glusterfs | grep quotad.pid | grep -v grep | wc -l
 }
 
+function get_nfs_count {
+        ps auxww | grep glusterfs | grep nfs.pid | grep -v grep | wc -l
+}
+
+function get_snapd_count {
+        ps auxww | grep glusterfs | grep snapd.pid | grep -v grep | wc -l
+}
+
 function drop_cache() {
 	case $OSTYPE in
 	Linux)
@@ -599,14 +607,6 @@ function quota_hl_exceeded()
 {
         quota_list_field $1 7
 
-}
-
-function get_nfs_count {
-        ps auxww | grep glusterfs | grep nfs.pid | grep -v grep | wc -l
-}
-
-function get_snapd_count {
-        ps auxww | grep glusterfs | grep snapd.pid | grep -v grep | wc -l
 }
 
 

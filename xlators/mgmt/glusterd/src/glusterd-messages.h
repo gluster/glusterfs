@@ -4589,6 +4589,22 @@
  */
 #define GD_MSG_SVC_STOP_SUCCESS                     (GLUSTERD_COMP_BASE + 568)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_PARAM_NULL                           (GLUSTERD_COMP_BASE + 569)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SVC_STOP_FAIL                        (GLUSTERD_COMP_BASE + 570)
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */
