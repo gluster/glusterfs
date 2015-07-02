@@ -737,13 +737,21 @@ AC_ARG_ENABLE([tiering],
                              [Disable data classification/tiering]),
               [BUILD_GFDB="${enableval}"], [BUILD_GFDB="yes"])
 
-if test "x${BUILD_GFDB}" = "xyes"; then
-  PKG_CHECK_MODULES([SQLITE], [sqlite3],
-                    AC_DEFINE(USE_GFDB, 1),
-                    AC_MSG_ERROR([pass --disable-tiering to build without sqlite]))
-else
-  AC_DEFINE(USE_GFDB, 0, [no sqlite, gfdb is disabled])
-fi
+case $host_os in
+  darwin*)
+    SQLITE_LIBS="-lsqlite3"
+    AC_CHECK_HEADERS([sqlite3.h], AC_DEFINE(USE_GFDB, 1))
+    ;;
+  *)
+    if test "x${BUILD_GFDB}" = "xyes"; then
+      PKG_CHECK_MODULES([SQLITE], [sqlite3],
+                        AC_DEFINE(USE_GFDB, 1),
+                        AC_MSG_ERROR([pass --disable-tiering to build without sqlite]))
+    else
+      AC_DEFINE(USE_GFDB, 0, [no sqlite, gfdb is disabled])
+    fi
+    ;;
+esac
 
 AC_SUBST(SQLITE_CFLAGS)
 AC_SUBST(SQLITE_LIBS)
