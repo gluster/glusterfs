@@ -302,12 +302,12 @@ glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *cbk) __THROW
 
 int
 glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
-                const acl_type_t type, const acl_t acl) __THROW;
+                const acl_type_t type, const acl_t acl) __THROW
         GFAPI_PUBLIC(glfs_h_acl_set, 3.7.0);
 
 acl_t
 glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
-                const acl_type_t type) __THROW;
+                const acl_type_t type) __THROW
         GFAPI_PUBLIC(glfs_h_acl_get, 3.7.0);
 
 size_t

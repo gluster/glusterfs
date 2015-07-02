@@ -246,7 +246,7 @@ fd_t *__glfs_migrate_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd
 
 int glfs_first_lookup (xlator_t *subvol);
 
-void glfs_process_upcall_event (struct glfs *fs, void *data);
+void glfs_process_upcall_event (struct glfs *fs, void *data)
         GFAPI_PRIVATE(glfs_process_upcall_event, 3.7.0);
 
 #define DECLARE_OLD_THIS xlator_t *old_THIS = NULL
