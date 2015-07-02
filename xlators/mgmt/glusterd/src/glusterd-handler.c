@@ -6273,11 +6273,16 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         this = THIS;
         conf = this->private;
 
-        if (RPC_CLNT_DESTROY == event) {
+        switch (event) {
+        case RPC_CLNT_DESTROY:
                 GF_FREE (peerctx->errstr);
                 GF_FREE (peerctx->peername);
                 GF_FREE (peerctx);
                 return 0;
+        case RPC_CLNT_PING:
+                return 0;
+        default:
+                break;
         }
 
         rcu_read_lock ();
