@@ -12,21 +12,15 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <assert.h>
+#include "locking.h"
 
-#ifndef __FreeBSD__
-#ifdef __NetBSD__
-#include <sys/xattr.h>
-#else
-#include <attr/xattr.h>
-#endif /* __NetBSD__ */
-#endif /* __FreeBSD__ */
-
+#include "compat.h"
 #include "list.h"
+#include "syscall.h"
 
 #define THREAD_MAX 32
 #define BUMP(name) INC(name, 1)
@@ -325,7 +319,7 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
 
         tdbg ("Entering: %s\n", job->dirname);
 
-        dirp = opendir (job->dirname);
+        dirp = sys_opendir (job->dirname);
         if (!dirp) {
                 terr ("opendir failed on %s (%s)\n", job->dirname,
                      strerror (errno));
@@ -387,7 +381,7 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
         ret = 0;
 out:
         if (dirp)
-                closedir (dirp);
+                sys_closedir (dirp);
 
         return ret;
 }
@@ -527,15 +521,15 @@ parse_and_validate_args (int argc, char *argv[])
         }
 
         basedir = argv[1];
-        ret = lstat (basedir, &d);
+        ret = sys_lstat (basedir, &d);
         if (ret) {
                 err ("%s: %s\n", basedir, strerror (errno));
                 return NULL;
         }
 
 #ifndef __FreeBSD__
-        ret = lgetxattr (basedir, "trusted.glusterfs.volume-id",
-                         volume_id, 16);
+        ret = sys_lgetxattr (basedir, "trusted.glusterfs.volume-id",
+                             volume_id, 16);
         if (ret != 16) {
                 err ("%s:Not a valid brick path.\n", basedir);
                 return NULL;
@@ -543,7 +537,7 @@ parse_and_validate_args (int argc, char *argv[])
 #endif /* __FreeBSD__ */
 
         slv_mnt = argv[2];
-        ret = lstat (slv_mnt, &d);
+        ret = sys_lstat (slv_mnt, &d);
         if (ret) {
                 err ("%s: %s\n", slv_mnt, strerror (errno));
                 return NULL;

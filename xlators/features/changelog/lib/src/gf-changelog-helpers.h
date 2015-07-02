@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
-#include <pthread.h>
+#include "locking.h"
 
 #include <xlator.h>
 
