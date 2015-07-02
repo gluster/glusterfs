@@ -9,7 +9,7 @@
  *   */
 
 #ifndef _GFAPI_MESSAGES_H__
-#define _GFAPI_MESSAGES_H_
+#define _GFAPI_MESSAGES_H__
 
 #include "glfs-message-id.h"
 
@@ -95,4 +95,4 @@
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
-#endif /* !_GFAPI_MESSAGES_H_ */
+#endif /* !_GFAPI_MESSAGES_H__ */
