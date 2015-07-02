@@ -9,7 +9,7 @@
 */
 
 #ifndef _PS_MESSAGES_H__
-#define _PS_MESSAGES_H_
+#define _PS_MESSAGES_H__
 
 #include "glfs-message-id.h"
 
@@ -787,5 +787,5 @@
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
-#endif /* !_PS_MESSAGES_H_ */
+#endif /* !_PS_MESSAGES_H__ */
 
