@@ -416,8 +416,8 @@ AC_SUBST(PKGCONFIG_UUID)
 
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
-     *netbsd*)
-        AC_MSG_WARN([NetBSD does not support POSIX ACLs... disabling them])
+     *netbsd* | darwin*)
+        AC_MSG_WARN([platform does not support POSIX ACLs... disabling them])
         ACL_LIBS=''
         USE_POSIX_ACLS='0'
         BUILD_POSIX_ACLS='no'
