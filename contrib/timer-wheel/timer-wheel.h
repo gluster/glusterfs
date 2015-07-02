@@ -17,7 +17,7 @@
 #ifndef __TIMER_WHEEL_H
 #define __TIMER_WHEEL_H
 
-#include <pthread.h>
+#include "locking.h"
 
 #include "list.h"
 
