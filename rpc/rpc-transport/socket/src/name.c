@@ -23,21 +23,6 @@
 #include "socket.h"
 #include "common-utils.h"
 
-static void
-_assign_port (struct sockaddr *sockaddr, uint16_t port)
-{
-        switch (sockaddr->sa_family) {
-        case AF_INET6:
-                ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
-                break;
-
-        case AF_INET_SDP:
-        case AF_INET:
-                ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
-                break;
-        }
-}
-
 static int32_t
 af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, int ceiling)
@@ -56,7 +41,17 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
 
         while (port)
         {
-                _assign_port (sockaddr, port);
+                switch (sockaddr->sa_family)
+                {
+                case AF_INET6:
+                        ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
+                        break;
+
+                case AF_INET_SDP:
+                case AF_INET:
+                        ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
+                        break;
+                }
                 // ignore the reserved ports
                 if (ports[port] == _gf_true) {
                         port--;
@@ -445,24 +440,12 @@ client_bind (rpc_transport_t *this,
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
                                                        *sockaddr_len, GF_CLIENT_PORT_CEILING);
-                        if (ret == -1) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "cannot bind inet socket (%d) to port less than %d (%s)",
-                                        sock, GF_CLIENT_PORT_CEILING, strerror (errno));
-                                ret = 0;
-                        }
-                } else {
-                        /* A port number of zero will let the bind function to
-                         * pick any available local port dynamically
-                         */
-                        _assign_port (sockaddr, 0);
-                        ret = bind (sock, sockaddr, *sockaddr_len);
-                        if (ret == -1) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "failed while binding to available ports (%s)",
-                                        strerror (errno));
-                                ret = 0;
-                        }
+                }
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "cannot bind inet socket (%d) to port less than %d (%s)",
+                                sock, GF_CLIENT_PORT_CEILING, strerror (errno));
+                        ret = 0;
                 }
                 break;
 
