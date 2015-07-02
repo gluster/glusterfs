@@ -259,9 +259,13 @@ struct syncenv * syncenv_new (size_t stacksize, int procmin, int procmax);
 void syncenv_destroy (struct syncenv *);
 void syncenv_scale (struct syncenv *env);
 
-int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t, call_frame_t* frame, void *);
-struct synctask *synctask_create (struct syncenv *, synctask_fn_t,
-				  synctask_cbk_t, call_frame_t *, void *);
+int synctask_new1 (struct syncenv *, size_t stacksize, synctask_fn_t,
+                    synctask_cbk_t, call_frame_t *frame, void *);
+int synctask_new (struct syncenv *, synctask_fn_t, synctask_cbk_t,
+                  call_frame_t *frame, void *);
+struct synctask *synctask_create (struct syncenv *, size_t stacksize,
+                                  synctask_fn_t, synctask_cbk_t, call_frame_t *,
+                                  void *);
 int synctask_join (struct synctask *task);
 void synctask_wake (struct synctask *task);
 void synctask_yield (struct synctask *task);

@@ -437,8 +437,8 @@ synctask_setid (struct synctask *task, uid_t uid, gid_t gid)
 
 
 struct synctask *
-synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
-		 call_frame_t *frame, void *opaque)
+synctask_create (struct syncenv *env, size_t stacksize, synctask_fn_t fn,
+                 synctask_cbk_t cbk, call_frame_t *frame, void *opaque)
 {
         struct synctask *newtask = NULL;
         xlator_t        *this    = THIS;
@@ -493,13 +493,21 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
                 goto err;
         }
 
-        newtask->stack = GF_CALLOC (1, env->stacksize, gf_common_mt_syncstack);
+        if (stacksize <= 0) {
+                newtask->stack = GF_CALLOC (1, env->stacksize,
+                                            gf_common_mt_syncstack);
+                newtask->ctx.uc_stack.ss_size = env->stacksize;
+        } else {
+                newtask->stack = GF_CALLOC (1, stacksize,
+                                            gf_common_mt_syncstack);
+                newtask->ctx.uc_stack.ss_size = stacksize;
+        }
+
         if (!newtask->stack) {
                 goto err;
         }
 
         newtask->ctx.uc_stack.ss_sp   = newtask->stack;
-        newtask->ctx.uc_stack.ss_size = env->stacksize;
 
         makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 2, newtask);
 
@@ -554,13 +562,13 @@ synctask_join (struct synctask *task)
 
 
 int
-synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
-              call_frame_t *frame, void *opaque)
+synctask_new1 (struct syncenv *env, size_t stacksize, synctask_fn_t fn,
+                synctask_cbk_t cbk, call_frame_t *frame, void *opaque)
 {
 	struct synctask *newtask = NULL;
 	int              ret = 0;
 
-	newtask = synctask_create (env, fn, cbk, frame, opaque);
+	newtask = synctask_create (env, stacksize, fn, cbk, frame, opaque);
 	if (!newtask)
 		return -1;
 
@@ -570,6 +578,13 @@ synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         return ret;
 }
 
+
+int
+synctask_new (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
+              call_frame_t *frame, void *opaque)
+{
+        return synctask_new1 (env, 0, fn, cbk, frame, opaque);
+}
 
 struct synctask *
 syncenv_task (struct syncproc *proc)

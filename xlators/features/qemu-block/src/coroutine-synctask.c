@@ -100,7 +100,7 @@ qb_coroutine (call_frame_t *frame, synctask_fn_t fn)
 	LOCK(&qb_co.lock);
 
 	if (!qb_co.task)
-		qb_co.task = synctask_create(qb_conf->env, qb_synctask_wrap,
+		qb_co.task = synctask_create(qb_conf->env, 0, qb_synctask_wrap,
 					     synctask_nop_cbk, frame, NULL);
 
 	list_add_tail(&qb_local->list, &qb_co.queue);
