@@ -364,6 +364,10 @@ glusterd_restart_rebalance (glusterd_conf_t *conf);
 void
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo);
 
+void
+glusterd_defrag_info_set (glusterd_volinfo_t *volinfo, dict_t *dict, int cmd,
+                          int status, int op);
+
 int32_t
 glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
                                         glusterd_volinfo_t *volinfo);

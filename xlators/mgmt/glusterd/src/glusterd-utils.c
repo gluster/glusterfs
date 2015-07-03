@@ -6811,6 +6811,60 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         return ret;
 }
+
+void
+glusterd_defrag_info_set (glusterd_volinfo_t *volinfo, dict_t *dict, int cmd,
+                          int status, int op)
+{
+
+        xlator_t                *this        = NULL;
+        dict_t                  *op_ctx      = NULL;
+        int                      ret         = -1;
+        char                    *task_id_str = NULL;
+        glusterd_rebalance_t    *rebal       = NULL;
+
+        this = THIS;
+        rebal = &volinfo->rebal;
+
+        rebal->defrag_cmd = cmd;
+        rebal->defrag_status = status;
+        rebal->op = op;
+
+        if (!rebal->rebalance_id)
+                return;
+
+        if (is_origin_glusterd (dict)) {
+
+                ret = glusterd_generate_and_set_task_id(dict,
+                                                        GF_REBALANCE_TID_KEY);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TASKID_GEN_FAIL,
+                                "Failed to generate task-id");
+                        goto out;
+                }
+        }
+        ret = dict_get_str (dict, GF_REBALANCE_TID_KEY,
+                            &task_id_str);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_REBALANCE_ID_MISSING, "Missing rebalance-id");
+                ret = 0;
+                goto out;
+        }
+
+        gf_uuid_parse (task_id_str, rebal->rebalance_id);
+out:
+
+        if (ret) {
+                gf_msg_debug (this->name, 0,
+                                "Rebalance start validate failed");
+        }
+        return;
+
+}
+
+
 void
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
 {
@@ -6819,8 +6873,21 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
 
         if (!volinfo->rebal.defrag_cmd)
                 return;
-        if (!gd_should_i_start_rebalance (volinfo))
+        if (!gd_should_i_start_rebalance (volinfo)) {
+
+                /* Store the rebalance-id and rebalance command even if
+                 * the peer isn't starting a rebalance process. On peers
+                 * where a rebalance process is started,
+                 * glusterd_handle_defrag_start performs the storing.
+                 *
+                 * Storing this is needed for having 'volume status'
+                 * work correctly.
+                 */
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                        glusterd_store_perform_node_state_store (volinfo);
+
                 return;
+        }
         glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
                                 volinfo->rebal.defrag_cmd, NULL);
 }
