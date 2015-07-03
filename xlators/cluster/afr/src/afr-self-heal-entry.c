@@ -584,17 +584,20 @@ afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		uuid_utoa (fd->inode->gfid));
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (i != source && !healed_sinks[i])
+		if (!healed_sinks[i])
 			continue;
 		ret = afr_selfheal_entry_do_subvol (frame, this, fd, i);
                 if (ret == -1) {
                         /* gfid or type mismatch. */
                         mismatch = _gf_true;
-                        continue;
+                        ret = 0;
                 }
 		if (ret)
 			break;
 	}
+        if (!ret && source != -1)
+		ret = afr_selfheal_entry_do_subvol (frame, this, fd, source);
+
         if (mismatch == _gf_true)
                 /* undo pending will be skipped */
                 ret = -1;
