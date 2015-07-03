@@ -955,8 +955,8 @@ quota_check_limit_continuation (struct list_head *parents, inode_t *inode,
 
         list_for_each_entry (entry, parents, next) {
                 parent = inode_find (inode->table, entry->par);
-
                 quota_check_limit (frame, parent, this, NULL, NULL);
+                inode_unref (parent);
         }
 
 out:
