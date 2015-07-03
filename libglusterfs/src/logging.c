@@ -2056,7 +2056,7 @@ _gf_msg (const char *domain, const char *file, const char *function,
 
         if (trace) {
                 ret = _gf_msg_backtrace (GF_LOG_BACKTRACE_DEPTH, callstr,
-                                         GF_LOG_BACKTRACE_DEPTH);
+                                         GF_LOG_BACKTRACE_SIZE);
                 if (ret >= 0)
                         passcallstr = 1;
                 else
