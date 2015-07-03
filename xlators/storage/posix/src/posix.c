@@ -3603,6 +3603,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                                                      + strlen (temppath) + 1 );
                                 if (!tempv) {
                                         GF_FREE (*path);
+                                        *path = NULL;
                                         op_ret = -1;
                                         *op_errno = ENOMEM;
                                         goto out;
@@ -3617,6 +3618,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                 count--;
         }
 
+        op_ret = 0;
 out:
         if (dirp) {
                 op_ret = closedir (dirp);
@@ -3807,6 +3809,11 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
         }
 
 out:
+        if (ret && path && *path) {
+                GF_FREE (*path);
+                *path = NULL;
+        }
+
         return ret;
 }
 
