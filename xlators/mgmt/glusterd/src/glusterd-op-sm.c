@@ -240,14 +240,8 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
         ret = dict_get_bin(priv->glusterd_txn_opinfo,
                            uuid_utoa (*txn_id),
                            (void **) &opinfo_obj);
-        if (ret) {
-                gf_msg_callingfn (this->name, GF_LOG_ERROR, errno,
-                        GD_MSG_DICT_GET_FAILED,
-                        "Unable to get transaction opinfo "
-                        "for transaction ID : %s",
-                        uuid_utoa (*txn_id));
+        if (ret)
                 goto out;
-        }
 
         (*opinfo) = opinfo_obj->opinfo;
 
@@ -343,9 +337,11 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
 
         ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_TRANS_OPINFO_GET_FAIL,
-                        "Transaction opinfo not found");
+                        "Unable to get transaction opinfo "
+                        "for transaction ID : %s",
+                        uuid_utoa (*txn_id));
                 goto out;
         }
 
@@ -7307,9 +7303,12 @@ glusterd_op_sm ()
                         ret = glusterd_get_txn_opinfo (&event->txn_id,
                                                        &txn_op_info);
                         if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_TRANS_OPINFO_GET_FAIL,
-                                        "Unable to get transaction's opinfo");
+                                gf_msg_callingfn (this->name, GF_LOG_ERROR, 0,
+                                                  GD_MSG_TRANS_OPINFO_GET_FAIL,
+                                                  "Unable to get transaction "
+                                                  "opinfo for transaction ID :"
+                                                  "%s",
+                                                  uuid_utoa (event->txn_id));
                                 glusterd_destroy_op_event_ctx (event);
                                 GF_FREE (event);
                                 continue;
