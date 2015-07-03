@@ -441,6 +441,7 @@ class GMasterCommon(object):
             t.start()
 
     def mgmt_lock(self):
+
         """Take management volume lock """
         fd = None
         bname = str(self.uuid) + "_" + str(gconf.slave_id) + "_subvol_" \
@@ -473,10 +474,16 @@ class GMasterCommon(object):
                 os.close(fd)
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
                 # cannot grab, it's taken
-                logging.debug("Lock held by someother worker process")
+                if not gconf.passive_earlier:
+                    gconf.passive_earlier = True
+                    logging.info("Didn't get lock : %s : Becoming PASSIVE"
+                                 % gconf.local_path)
                 return False
             raise
-        logging.debug("Got the lock")
+
+        if not gconf.active_earlier:
+            gconf.active_earlier = True
+            logging.info("Got lock : %s : Becoming ACTIVE" % gconf.local_path)
         return True
 
     def should_crawl(self):
@@ -1123,8 +1130,9 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         self.status.set_worker_crawl_status("History Crawl")
         purge_time = self.get_purge_time()
 
-        logging.info('starting history crawl... turns: %s, stime: %s'
-                     % (self.history_turns, repr(purge_time)))
+        end_time = int(time.time())
+        logging.info('starting history crawl... turns: %s, stime: %s, etime: %s'
+                     % (self.history_turns, repr(purge_time), repr(end_time)))
 
         if not purge_time or purge_time == URXTIME:
             logging.info("stime not available, abandoning history crawl")
@@ -1138,7 +1146,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         ret, actual_end = self.changelog_agent.history(
             changelog_path,
             purge_time[0],
-            self.changelog_register_time,
+            end_time,
             int(gconf.sync_jobs))
 
         # scan followed by getchanges till scan returns zero.
