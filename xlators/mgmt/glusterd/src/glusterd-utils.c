@@ -8276,10 +8276,11 @@ glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                gf_msg_callingfn (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_TRANS_OPINFO_GET_FAIL,
-                        "Failed to get txn_op_info "
-                        "for txn_id = %s", uuid_utoa (*txn_id));
+                        "Unable to get transaction opinfo "
+                        "for transaction ID : %s",
+                        uuid_utoa (*txn_id));
                 goto out;
         }
 
