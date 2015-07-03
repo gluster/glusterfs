@@ -137,6 +137,11 @@ TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST ! $CLI volume detach-tier $V0 commit force
 
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+# stop the volume and restart it. The rebalance daemon should restart.
+TEST $CLI volume stop $V0
+TEST $CLI volume start $V0
+
 sleep_first_cycle
 $CLI volume rebalance $V0 tier status
 
