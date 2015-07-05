@@ -423,7 +423,7 @@ def edit_schedules(jobname, schedule, volname):
 
 def initialise_scheduler():
     try:
-        with open("/tmp/crontab", "w+", 0644) as f:
+        with open(TMP_FILE, "w+", 0644) as f:
             updater = ("* * * * * root PATH=$PATH:/usr/local/sbin:"
                        "/usr/sbin gcron.py --update\n")
             f.write("%s\n" % updater)
@@ -431,11 +431,11 @@ def initialise_scheduler():
             os.fsync(f.fileno())
             f.close()
     except IOError as (errno, strerror):
-        log.error("Failed to open /tmp/crontab. Error: %s.", strerror)
+        log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
         ret = INIT_FAILED
         return ret
 
-    shutil.move("/tmp/crontab", GCRON_UPDATE_TASK)
+    shutil.move(TMP_FILE, GCRON_UPDATE_TASK)
 
     if not os.path.lexists(GCRON_TASKS):
         try:
@@ -491,6 +491,9 @@ def syntax_checker(args):
 
 
 def perform_operation(args):
+    if not os.path.exists(CURRENT_SCHEDULER):
+        update_current_scheduler("none")
+
     # Initialise snapshot scheduler on local node
     if args.action == "init":
         ret = initialise_scheduler()
@@ -650,9 +653,6 @@ def main(argv):
                 output("Failed to create %s. Error: %s"
                        % (LOCK_FILE_DIR, strerror))
                 return INTERNAL_ERROR
-
-    if not os.path.exists(CURRENT_SCHEDULER):
-        update_current_scheduler("none")
 
     try:
         f = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR | os.O_NONBLOCK, 0644)
