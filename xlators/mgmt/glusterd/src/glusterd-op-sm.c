@@ -51,7 +51,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-extern char ss_brick_path[PATH_MAX];
 extern char local_node_hostname[PATH_MAX];
 static int
 glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
@@ -2291,12 +2290,12 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
         /* Re-create the brick path so as to be *
          * able to re-use it                    *
          */
-        ret = recursive_rmdir (ss_brick_path);
+        ret = recursive_rmdir (GLUSTER_SHARED_STORAGE_BRICK_DIR);
         if (ret) {
                 snprintf (errstr, PATH_MAX,
                           "Failed to remove shared "
                           "storage brick(%s). "
-                          "Reason: %s", ss_brick_path,
+                          "Reason: %s", GLUSTER_SHARED_STORAGE_BRICK_DIR,
                           strerror (errno));
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED, "%s", errstr);
@@ -2304,12 +2303,12 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
                 goto out;
         }
 
-        ret = mkdir_p (ss_brick_path, 0777, _gf_true);
+        ret = mkdir_p (GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777, _gf_true);
         if (-1 == ret) {
                 snprintf (errstr, PATH_MAX,
                           "Failed to create shared "
                           "storage brick(%s). "
-                          "Reason: %s", ss_brick_path,
+                          "Reason: %s", GLUSTER_SHARED_STORAGE_BRICK_DIR,
                           strerror (errno));
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED, "%s", errstr);

@@ -64,7 +64,6 @@ extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
 extern char snap_mount_dir[PATH_MAX];
-char ss_brick_path[PATH_MAX];
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
@@ -1441,17 +1440,14 @@ init (xlator_t *this)
         snprintf (snap_mount_dir, sizeof(snap_mount_dir), "%s%s",
                   var_run_dir, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
 
-        ret = glusterd_init_var_run_dirs (this, var_run_dir,
-                                      GLUSTER_SHARED_STORAGE_BRICK_DIR);
+        ret = mkdir_p (GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777,
+                       _gf_true);
         if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
-                        GD_MSG_VAR_RUN_DIR_INIT_FAIL, "Unable to create "
+                        GD_MSG_DIR_OP_FAILED, "Unable to create "
                         "shared storage brick");
                 exit (1);
         }
-
-        snprintf (ss_brick_path, sizeof(ss_brick_path), "%s%s",
-                  var_run_dir, GLUSTER_SHARED_STORAGE_BRICK_DIR);
 
         snprintf (cmd_log_filename, PATH_MAX, "%s/cmd_history.log",
                   DEFAULT_LOG_FILE_DIRECTORY);

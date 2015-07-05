@@ -74,7 +74,7 @@ create_cmd="gluster --mode=script --wignore volume create \
 # Adding the brick names in the command
 for i in "${connected_peer[@]}"
 do
-    create_cmd=$create_cmd" "$i:/var/run/gluster/ss_brick
+    create_cmd=$create_cmd" "$i:"$GLUSTERD_WORKDIR"/ss_brick
 done
 
 if [ "$option" == "disable" ]; then
