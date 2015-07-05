@@ -2393,6 +2393,66 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
+#if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
+static int
+fuse_lseek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, off_t offset, dict_t *xdata)
+{
+        fuse_state_t           *state = frame->root->state;
+        fuse_in_header_t       *finh  = state->finh;
+        struct fuse_lseek_out   flo   = {0, };
+
+        fuse_log_eh_fop (this, state, frame, op_ret, op_errno);
+
+        if (op_ret >= 0) {
+                flo.offset = offset;
+                send_fuse_obj (this, finh, &flo);
+        } else {
+                send_fuse_err (this, finh, op_errno);
+        }
+
+        free_fuse_state (state);
+        STACK_DESTROY (frame->root);
+
+        return 0;
+}
+
+static void
+fuse_lseek_resume (fuse_state_t *state)
+{
+        FUSE_FOP (state, fuse_lseek_cbk, GF_FOP_SEEK, seek, state->fd,
+                  state->off, state->whence, state->xdata);
+}
+
+static void
+fuse_lseek (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        struct fuse_lseek_in *ffi   = msg;
+        fuse_state_t         *state = NULL;
+
+        GET_STATE (this, finh, state);
+        state->fd = FH_TO_FD (ffi->fh);
+        state->off = ffi->offset;
+
+        switch (ffi->whence) {
+        case SEEK_DATA:
+                state->whence = GF_SEEK_DATA;
+                break;
+        case SEEK_HOLE:
+                state->whence = GF_SEEK_HOLE;
+                break;
+        default:
+                /* fuse should handle other whence internally */
+                send_fuse_err (this, finh, EINVAL);
+                free_fuse_state (state);
+                return;
+        }
+
+        fuse_resolve_fd_init (state, &state->resolve, state->fd);
+        fuse_resolve_and_resume (state, fuse_lseek_resume);
+}
+#endif /* FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE */
+
 void
 fuse_flush_resume (fuse_state_t *state)
 {
@@ -5326,6 +5386,10 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
 
 #if FUSE_KERNEL_MINOR_VERSION >= 21
 	[FUSE_READDIRPLUS] = fuse_readdirp,
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
+        [FUSE_LSEEK]        = fuse_lseek,
 #endif
 };
 
