@@ -508,10 +508,10 @@ typedef enum {
 #define GLUSTERD_MISSED_SNAPS_LIST_FILE "missed_snaps_list"
 #define GLUSTERD_VOL_SNAP_DIR_PREFIX "snaps"
 
-#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR        "/gluster/snaps"
-#define GLUSTER_SHARED_STORAGE_BRICK_DIR        "/gluster/ss_brick"
-#define GLUSTERD_VAR_RUN_DIR                    "/var/run"
-#define GLUSTERD_RUN_DIR                        "/run"
+#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR     "/gluster/snaps"
+#define GLUSTER_SHARED_STORAGE_BRICK_DIR     GLUSTERD_DEFAULT_WORKDIR"/ss_brick"
+#define GLUSTERD_VAR_RUN_DIR                 "/var/run"
+#define GLUSTERD_RUN_DIR                     "/run"
 
 /* definitions related to replace brick */
 #define RB_CLIENT_MOUNTPOINT    "rb_mount"
