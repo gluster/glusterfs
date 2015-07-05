@@ -41,7 +41,7 @@
 #include "gidcache.h"
 
 #if defined(GF_LINUX_HOST_OS) || defined(__FreeBSD__) || defined(__NetBSD__)
-#define FUSE_OP_HIGH (FUSE_READDIRPLUS + 1)
+#define FUSE_OP_HIGH (FUSE_LSEEK + 1)
 #endif
 #ifdef GF_DARWIN_HOST_OS
 #define FUSE_OP_HIGH (FUSE_DESTROY + 1)
@@ -380,6 +380,8 @@ typedef struct {
         uuid_t         gfid;
         uint32_t       io_flags;
         int32_t        fd_no;
+
+        gf_seek_what_t whence;
 } fuse_state_t;
 
 typedef struct {
