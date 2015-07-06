@@ -203,7 +203,8 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         if (cmdline)
                 dict_foreach (cmdline, svc_add_args, (void *) &runner);
 
-        gf_msg_debug (this->name, 0, "Starting %s service", svc->name);
+        gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_SVC_START_SUCCESS,
+                "Starting %s service", svc->name);
 
         if (flags == PROC_START_NO_WAIT) {
                 ret = runner_run_nowait (&runner);
@@ -234,6 +235,8 @@ int glusterd_svc_stop (glusterd_svc_t *svc, int sig)
                 svc->online =  _gf_false;
                 (void) glusterd_unlink_file ((char *)svc->conn.sockpath);
         }
+        gf_msg (THIS->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
+                "%s service is stopped", svc->name);
 out:
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
