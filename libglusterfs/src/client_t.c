@@ -288,6 +288,9 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         gf_boolean_t unref = _gf_false;
         int bind_ref;
 
+        if (client == NULL)
+                goto out;
+
         if (detached)
                 *detached = _gf_false;
 
@@ -304,6 +307,9 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
                         *detached = _gf_true;
                 gf_client_unref (client);
         }
+
+out:
+        return;
 }
 
 client_t *
