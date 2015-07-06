@@ -531,7 +531,7 @@ svc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc,
                          * virtual directory from path
                          */
                         subvolume = FIRST_CHILD (this);
-                        root_loc.path = "/";
+                        root_loc.path = gf_strdup("/");
                         gf_uuid_clear(root_loc.gfid);
                         root_loc.gfid[15] = 1;
                         root_loc.inode = inode_ref (loc->inode->table->root);
