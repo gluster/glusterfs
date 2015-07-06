@@ -3013,13 +3013,26 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
                 ret = glusterd_op_verify_gsync_running (volinfo, slave,
                                                         conf_path, op_errstr);
-                if (ret)
-                        goto out;
+                if (ret) {
+                        ret = glusterd_get_local_brickpaths (volinfo,
+                                                             &path_list);
+                        if (path_list) {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
                 if (!is_force) {
                         ret = gd_pause_resume_validation (type, volinfo, slave,
                                                           statefile, op_errstr);
-                        if (ret)
-                                goto out;
+                        if (ret) {
+                                ret = glusterd_get_local_brickpaths (volinfo,
+                                                                    &path_list);
+                                if (path_list) {
+                                        ret = -1;
+                                        goto out;
+                                }
+                        }
                 }
                 break;
 
