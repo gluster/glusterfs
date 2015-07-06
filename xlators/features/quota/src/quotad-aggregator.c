@@ -374,6 +374,11 @@ quotad_aggregator_init (xlator_t *this)
 
         priv = this->private;
 
+        if (priv->rpcsvc) {
+                /* Listener already created */
+                return 0;
+        }
+
         ret = dict_set_str (this->options, "transport.address-family", "unix");
         if (ret)
                 goto out;
@@ -423,6 +428,11 @@ quotad_aggregator_init (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret && priv->rpcsvc) {
+                GF_FREE (priv->rpcsvc);
+                priv->rpcsvc = NULL;
+        }
+
         return ret;
 }
 
