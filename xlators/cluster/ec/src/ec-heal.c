@@ -471,6 +471,8 @@ ec_heal_metadata_find_direction (ec_t *ec, default_args_cbk_t *replies,
         for (i = 0; i < ec->nodes; i++) {
                 if (!replies[i].valid)
                         continue;
+                if (replies[i].op_ret < 0)
+                        continue;
                 ret = ec_dict_del_array (replies[i].xdata, EC_XATTR_VERSION,
                                          xattr, EC_VERSION_SIZE);
                 if (ret == 0) {
@@ -489,6 +491,8 @@ ec_heal_metadata_find_direction (ec_t *ec, default_args_cbk_t *replies,
                 same_count = 1;
                 source_ia = replies[i].stat;
                 for (j = i + 1; j < ec->nodes; j++) {
+                        if (!replies[j].valid || replies[j].op_ret < 0)
+                                continue;
                         child_ia = replies[j].stat;
                         if (!IA_EQUAL(source_ia, child_ia, gfid) ||
                             !IA_EQUAL(source_ia, child_ia, type) ||
@@ -517,7 +521,7 @@ ec_heal_metadata_find_direction (ec_t *ec, default_args_cbk_t *replies,
         for (i = 0; i < ec->nodes; i++) {
                 if (groups[i] == groups[same_source])
                         sources[i] = 1;
-                else if (replies[i].valid)
+                else if (replies[i].valid && replies[i].op_ret >= 0)
                         healed_sinks[i] = 1;
         }
         ret = same_source;
@@ -606,6 +610,7 @@ __ec_removexattr_sinks (call_frame_t *frame, ec_t *ec, inode_t *inode,
                 if (ret < 0) {
                         sources[i] = 0;
                         healed_sinks[i] = 0;
+                        continue;
                 }
 
                 if (replies[i].xdata->count == 0) {
