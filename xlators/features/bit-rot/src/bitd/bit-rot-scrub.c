@@ -218,9 +218,12 @@ bitd_compare_ckum (xlator_t *this,
                 return 0;
         }
 
-        gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_CHECKSUM_MISMATCH,
+        gf_msg (this->name, GF_LOG_DEBUG, 0, BRB_MSG_CHECKSUM_MISMATCH,
                 "Object checksum mismatch: %s [GFID: %s | Brick: %s]",
                 loc->path, uuid_utoa (linked_inode->gfid), child->brick_path);
+        gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_CHECKSUM_MISMATCH,
+                "CORRUPTION DETECTED: Object %s {Brick: %s | GFID: %s}",
+                loc->path, child->brick_path, uuid_utoa (linked_inode->gfid));
 
         /* Perform bad-file marking */
         xattr = dict_new ();
