@@ -382,6 +382,24 @@ void ec_complete(ec_fop_data_t * fop)
     ec_fop_data_release(fop);
 }
 
+/* There could be already granted locks sitting on the bricks, unlock for which
+ * must be wound at all costs*/
+static gf_boolean_t
+ec_must_wind (ec_fop_data_t *fop)
+{
+        if ((fop->id == GF_FOP_INODELK) || (fop->id == GF_FOP_FINODELK) ||
+            (fop->id == GF_FOP_LK)) {
+                if (fop->flock.l_type == F_UNLCK)
+                        return _gf_true;
+        } else if ((fop->id == GF_FOP_ENTRYLK) ||
+                   (fop->id == GF_FOP_FENTRYLK)) {
+                if (fop->entrylk_cmd == ENTRYLK_UNLOCK)
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int32_t ec_child_select(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
@@ -391,6 +409,11 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     ec_fop_cleanup(fop);
 
     fop->mask &= ec->node_mask;
+    /* Wind the fop on same subvols as parent for any internal extra fops like
+     * head/tail read in case of writev fop. Unlocks shouldn't do this because
+     * unlock should go on all subvols where lock is performed*/
+    if (fop->parent && !ec_must_wind (fop))
+            fop->mask &= fop->parent->mask;
 
     mask = ec->xl_up;
     if (fop->parent == NULL)
@@ -1866,24 +1889,6 @@ void ec_lock_reuse(ec_fop_data_t *fop)
             ec_resume(link->fop, 0);
         }
     }
-}
-
-/* There could be already granted locks sitting on the bricks, unlock for which
- * must be wound at all costs*/
-static gf_boolean_t
-ec_must_wind (ec_fop_data_t *fop)
-{
-        if ((fop->id == GF_FOP_INODELK) || (fop->id == GF_FOP_FINODELK) ||
-            (fop->id == GF_FOP_LK)) {
-                if (fop->flock.l_type == F_UNLCK)
-                        return _gf_true;
-        } else if ((fop->id == GF_FOP_ENTRYLK) ||
-                   (fop->id == GF_FOP_FENTRYLK)) {
-                if (fop->entrylk_cmd == ENTRYLK_UNLOCK)
-                        return _gf_true;
-        }
-
-        return _gf_false;
 }
 
 void __ec_manager(ec_fop_data_t * fop, int32_t error)
