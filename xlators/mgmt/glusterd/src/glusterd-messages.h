@@ -4549,6 +4549,22 @@
  */
 #define GD_MSG_ROOT_SQUASH_FAILED                     (GLUSTERD_COMP_BASE + 563)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SVC_START_SUCCESS                     (GLUSTERD_COMP_BASE + 564)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SVC_STOP_SUCCESS                     (GLUSTERD_COMP_BASE + 565)
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */

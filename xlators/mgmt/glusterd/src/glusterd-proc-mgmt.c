@@ -83,8 +83,8 @@ glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags)
                         proc->name);
                 goto out;
         }
-        gf_msg_debug (this->name, 0, "Stopping %s daemon running in pid: "
-                "%d", proc->name, pid);
+        gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
+                "Stopping %s daemon running in pid: " "%d", proc->name, pid);
 
         ret = kill (pid, sig);
         if (ret) {
