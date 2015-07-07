@@ -1111,8 +1111,10 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 if (wordcount == 7) {
 
                         ret = gf_string2percent (words[6], &percent);
-                        if (ret != 0) {
-                                cli_err ("Please enter a correct value");
+                        if (ret != 0 || percent > 100) {
+                                ret = -1;
+                                cli_err ("Please enter a correct value "
+                                         "in the range of 0 to 100");
                                 goto out;
                         }
 
