@@ -97,7 +97,7 @@
                 STACK_WIND_TAIL (frame, params);                        \
                                                                         \
                 if (_local)                                             \
-                        quota_local_cleanup (_this, _local);            \
+                        quota_local_cleanup (_local);                   \
         } while (0)
 
 #define QUOTA_STACK_UNWIND(fop, frame, params...)                       \
@@ -110,7 +110,7 @@
                         frame->local = NULL;                            \
                 }                                                       \
                 STACK_UNWIND_STRICT (fop, frame, params);               \
-                quota_local_cleanup (_this, _local);                    \
+                quota_local_cleanup (_local);                           \
         } while (0)
 
 #define QUOTA_FREE_CONTRIBUTION_NODE(_contribution)     \
@@ -188,7 +188,6 @@ typedef void
 
 struct quota_local {
         gf_lock_t               lock;
-        uint32_t                validate_count;
         uint32_t                link_count;
         loc_t                   loc;
         loc_t                   oldloc;
@@ -214,6 +213,7 @@ struct quota_local {
         dict_t                 *validate_xdata;
         int32_t                 quotad_conn_retry;
         xlator_t               *this;
+        call_frame_t           *par_frame;
 };
 typedef struct quota_local      quota_local_t;
 
@@ -261,6 +261,9 @@ int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                    char *name, uuid_t par);
 
+inode_t *
+do_quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                      quota_dentry_t *dentry);
 int
 quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                      loc_t *loc, struct iatt *buf, int32_t *op_errno);
