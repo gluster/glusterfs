@@ -75,4 +75,23 @@ is_same_lkowner (gf_lkowner_t *l1, gf_lkowner_t *l2)
         return ((l1->len == l2->len) && !memcmp(l1->data, l2->data, l1->len));
 }
 
+static inline int
+is_lk_owner_null (gf_lkowner_t *lkowner)
+{
+        int is_null = 1;
+        int i       = 0;
+
+        if (lkowner == NULL || lkowner->len == 0)
+                goto out;
+
+        for (i = 0; i < lkowner->len; i++) {
+                if (lkowner->data[i] != 0) {
+                        is_null = 0;
+                        break;
+                }
+        }
+out:
+        return is_null;
+}
+
 #endif /* _LK_OWNER_H */
