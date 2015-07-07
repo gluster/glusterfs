@@ -17,7 +17,7 @@ TEST glusterd
 TEST pidof glusterd;
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 $H0:$B0/${V0}{1};
+TEST $CLI volume create $V0 $H0:$B0/${V0};
 TEST $CLI volume start $V0;
 
 TEST $CLI volume quota $V0 enable;
