@@ -3534,7 +3534,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         gf_boolean_t     var           = _gf_false;
         gf_boolean_t     ob            = _gf_false;
         gf_boolean_t     uss_enabled   = _gf_false;
-        gf_boolean_t     rebal_volfile = _gf_false;
         xlator_t        *this          = THIS;
 
         GF_ASSERT (this);
@@ -3752,19 +3751,12 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (uss_enabled == -1)
                 goto out;
         if (uss_enabled && !volinfo->is_snap_volume) {
-                rebal_volfile = dict_get_str_boolean (set_dict,
-                                                   "rebalance-volfile-creation",
-                                                   _gf_false);
-                if (rebal_volfile == -1)
-                        goto out;
 
-                if (!rebal_volfile) {
-                        ret = volgen_graph_build_snapview_client
-                                                   (graph, volinfo,
-                                                    volname, set_dict);
-                        if (ret == -1)
-                                goto out;
-                }
+                ret = volgen_graph_build_snapview_client
+                                           (graph, volinfo,
+                                            volname, set_dict);
+                if (ret == -1)
+                        goto out;
         }
 
         ret = dict_get_str_boolean (set_dict, "ganesha.enable", _gf_false);
@@ -4211,6 +4203,73 @@ out:
         return clusters;
 }
 
+static int
+build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
+                         dict_t *mod_dict)
+{
+        volgen_graph_t          graph           = {0,};
+        xlator_t                *xl             = NULL;
+        int                     ret             = -1;
+        xlator_t                *this           = NULL;
+        dict_t                  *set_dict       = NULL;
+
+        this = THIS;
+
+        if (volinfo->brick_count <= volinfo->dist_leaf_count) {
+                /*
+                 * Volume is not a distribute volume or
+                 * contains only 1 brick, no need to create
+                 * the volfiles.
+                 */
+                return 0;
+        }
+
+        if (mod_dict) {
+                set_dict = dict_copy (volinfo->dict, NULL);
+                if (!set_dict)
+                        return -1;
+                 dict_copy (mod_dict, set_dict);
+                 /* XXX dict_copy swallows errors */
+        } else {
+                set_dict = volinfo->dict;
+        }
+
+
+        ret = volgen_graph_build_clients (&graph, volinfo, set_dict, NULL);
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                ret = volume_volgen_graph_build_clusters_tier
+                                        (&graph, volinfo, _gf_false);
+        else
+                ret = volume_volgen_graph_build_clusters
+                                        (&graph, volinfo, _gf_false);
+
+        xl = volgen_graph_add_as (&graph, "debug/io-stats", volinfo->volname);
+        if (!xl) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = graph_set_generic_options (this, &graph, set_dict,
+                                         "rebalance-daemon");
+        if (ret)
+                goto out;
+
+        ret = volgen_graph_set_options_generic (&graph, set_dict, volinfo,
+                                                basic_option_handler);
+
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filepath);
+
+out:
+        volgen_graph_free (&graph);
+
+        if (mod_dict)
+                dict_destroy (set_dict);
+
+
+        return ret;
+
+}
 static int
 build_shd_volume_graph (xlator_t *this, volgen_graph_t *graph,
                         glusterd_volinfo_t *volinfo,
@@ -4871,19 +4930,10 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
         }
 
         /* Generate volfile for rebalance process */
-        ret = dict_set_int32 (dict, "rebalance-volfile-creation", _gf_true);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        GD_MSG_DICT_SET_FAILED,
-                        "Failed to set rebalance-volfile-creation");
-                goto out;
-        }
-
         glusterd_get_rebalance_volfile (volinfo, filepath, PATH_MAX);
+        ret = build_rebalance_volfile (volinfo, filepath, dict);
 
-        ret = generate_single_transport_client_volfile (volinfo,
-                                                        filepath,
-                                                        dict);
+
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLFILE_CREATE_FAIL,
