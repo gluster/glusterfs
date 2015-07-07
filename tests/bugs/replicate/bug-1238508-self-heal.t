@@ -30,7 +30,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 # Test if the files are present on both the bricks
 EXPECT "newdir" ls $B0/${V0}0/
