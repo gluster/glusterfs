@@ -1371,18 +1371,15 @@ init (xlator_t *this)
                 goto out;
         }
 
+        /* Enable encryption for the TCP listener is management encryption is
+         * enabled
+         */
         if (this->ctx->secure_mgmt) {
-                /*
-                 * The socket code will turn on SSL based on the same check,
-                 * but that will by default turn on own-thread as well and
-                 * we're not multi-threaded enough to handle that.  Thus, we
-                 * override the value here.
-                 */
                 ret = dict_set_str (this->options,
-                                    "transport.socket.own-thread", "off");
+                                    "transport.socket.ssl-enabled", "on");
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "failed to clear own-thread");
+                                "failed to set ssl-enabled in dict");
                         goto out;
                 }
                 /*
