@@ -3426,6 +3426,20 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                 }
         }
 
+        /* Enable encryption for the client connection if management encryption
+         * is enabled
+         */
+        if (this->ctx->secure_mgmt) {
+                ret = dict_set_str (options, "transport.socket.ssl-enabled",
+                                    "on");
+                if (ret) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set ssl-enabled in dict");
+                        goto out;
+                }
+        }
+
         ret = glusterd_rpc_create (&peerinfo->rpc, options,
                                    glusterd_peer_rpc_notify, peerctx);
         if (ret) {
