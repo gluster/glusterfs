@@ -244,6 +244,7 @@ void ec_sleep(ec_fop_data_t *fop)
 {
     LOCK(&fop->lock);
 
+    GF_ASSERT (fop->refs > 0);
     fop->refs++;
     fop->jobs++;
 
@@ -1319,6 +1320,12 @@ void ec_lock(ec_fop_data_t *fop)
     ec_lock_link_t *timer_link = NULL;
     ec_lock_t *lock;
 
+    /* There is a chance that ec_resume is called on fop even before ec_sleep.
+     * Which can result in refs == 0 for fop leading to use after free in this
+     * function when it calls ec_sleep so do ec_sleep at start and ec_resume at
+     * the end of this function.*/
+    ec_sleep (fop);
+
     while (fop->locked < fop->lock_count) {
         /* Since there are only up to 2 locks per fop, this xor will change
          * the order of the locks if fop->first_lock is 1. */
@@ -1383,6 +1390,7 @@ void ec_lock(ec_fop_data_t *fop)
             timer_link = NULL;
         }
     }
+    ec_resume (fop, 0);
 
     if (timer_link != NULL) {
         ec_resume(timer_link->fop, 0);

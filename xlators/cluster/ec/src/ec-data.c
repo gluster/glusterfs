@@ -258,6 +258,7 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
     ec_trace("RELEASE", fop, "");
 
+    GF_ASSERT (fop->refs > 0);
     refs = --fop->refs;
 
     UNLOCK(&fop->lock);
