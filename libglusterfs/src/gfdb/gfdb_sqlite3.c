@@ -763,7 +763,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
                 /*First condition: For writes*/
                 "((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") <= ? )"
-                " OR "
+                " AND "
                 /*Second condition: For reads*/
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") <= ?)";
@@ -996,7 +996,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 "( (" GF_COL_TB_WFC " < ? ) AND"
                 "((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") >= ? ) ) )"
-                " OR "
+                " AND "
                 /*Second condition: For Reads
                  * Files that have read wind time smaller than for_time
                  * OR
