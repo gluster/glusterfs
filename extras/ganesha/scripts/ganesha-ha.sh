@@ -26,12 +26,42 @@ HA_CONFDIR="/etc/ganesha"
 HA_VOL_NAME="gluster_shared_storage"
 HA_VOL_MNT="/var/run/gluster/shared_storage"
 SERVICE_MAN="DISTRO_NOT_FOUND"
-cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
-eval $(echo ${cfgline} | grep -F CONFFILE=)
-GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 RHEL6_PCS_CNAME_OPTION="--name"
 SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
+
+GANESHA_CONF=
+CONFFILE=
+
+function find_rhel7_conf
+{
+ while [[ $# > 0 ]]
+        do
+                key="$1"
+                case $key in
+                        -f)
+                         CONFFILE="$2"
+                         break;
+                         ;;
+                         *)
+                         ;;
+                 esac
+                 shift
+         done
+}
+
+cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
+eval $(echo ${cfgline} | grep -F ^CONFFILE=)
+
+if [ -z $CONFFILE ]
+        then
+        cfgline=$(grep ^OPTIONS= /etc/sysconfig/ganesha)
+        eval $(echo ${cfgline} | grep -F ^OPTIONS=)
+        find_rhel7_conf $cfgline
+
+fi
+
+GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 usage() {
 
@@ -823,7 +853,7 @@ main()
         exit 0
     fi
     if [[ ${cmd} != *status ]]; then
-        HA_CONFDIR=${1}; shift
+        HA_CONFDIR=${1%/}; shift
         local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
         local node=""
         local vip=""

@@ -5,8 +5,10 @@
 #An export file specific to a volume
 #is created in GANESHA_DIR/exports.
 
-GANESHA_DIR=$1
+GANESHA_DIR=${1%/}
 VOL=$2
+CONF=
+CONFFILE=
 
 function check_cmd_status()
 {
@@ -24,9 +26,33 @@ if [ ! -d "$GANESHA_DIR/exports" ];
         check_cmd_status `echo $?`
 fi
 
-CONF=$(cat /etc/sysconfig/ganesha | grep "CONFFILE" | cut -f 2 -d "=")
-check_cmd_status `echo $?`
+function find_rhel7_conf
+{
+ while [[ $# > 0 ]]
+        do
+                key="$1"
+                case $key in
+                        -f)
+                         CONFFILE="$2"
+                         ;;
+                         *)
+                         ;;
+                 esac
+                 shift
+         done
+}
 
+cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
+eval $(echo ${cfgline} | grep -F ^CONFFILE=)
+
+if [ -z $CONFFILE ]
+        then
+        cfgline=$(grep ^OPTIONS= /etc/sysconfig/ganesha)
+        eval $(echo ${cfgline} | grep -F ^OPTIONS=)
+        find_rhel7_conf $cfgline
+
+fi
+CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 function write_conf()
 {
