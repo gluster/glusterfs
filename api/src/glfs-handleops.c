@@ -746,11 +746,6 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
         /* populate out args */
         if (ret == 0) {
-                /* TODO: If the inode existed in the cache (say file already
-                   exists), then the glfs_loc_link will not update the
-                   loc.inode, as a result we will have a 0000 GFID that we
-                   would copy out to the object, this needs to be fixed.
-                */
                 ret = glfs_loc_link (&loc, &iatt);
                 if (ret != 0) {
                         goto out;
@@ -1466,11 +1461,6 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
 
         /* populate out args */
         if (ret == 0) {
-                /* TODO: If the inode existed in the cache (say file already
-                 * exists), then the glfs_loc_link will not update the
-                 * loc.inode, as a result we will have a 0000 GFID that we
-                 * would copy out to the object, this needs to be fixed.
-                 */
                 ret = glfs_loc_link (&loc, &iatt);
                 if (ret != 0) {
                         goto out;

@@ -76,17 +76,23 @@ int
 glfs_loc_link (loc_t *loc, struct iatt *iatt)
 {
 	int ret = -1;
-	inode_t *linked_inode = NULL;
+        inode_t *old_inode = NULL;
 
 	if (!loc->inode) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	linked_inode = inode_link (loc->inode, loc->parent, loc->name, iatt);
-	if (linked_inode) {
-		inode_lookup (linked_inode);
-		inode_unref (linked_inode);
+        old_inode = loc->inode;
+
+        /* If the inode already exists in the cache, the inode
+         * returned here points to the existing one. We need
+         * to update loc.inode accordingly.
+         */
+	loc->inode = inode_link (loc->inode, loc->parent, loc->name, iatt);
+	if (loc->inode) {
+		inode_lookup (loc->inode);
+                inode_unref (old_inode);
 		ret = 0;
 	} else {
 		ret = -1;
