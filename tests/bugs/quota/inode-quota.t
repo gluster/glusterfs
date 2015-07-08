@@ -4,20 +4,6 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
-function quota_list_field () {
-        local QUOTA_PATH=$1
-        local FIELD=$2
-        $CLI volume quota $V0 list $QUOTA_PATH | grep $QUOTA_PATH\
-                                               | awk '{print $FIELD}'
-}
-
-function quota_object_list_field () {
-        local QUOTA_PATH=$1
-        local FIELD=$2
-        $CLI volume quota $V0 list-objects $QUOTA_PATH | grep $QUOTA_PATH\
-                                                       | awk '{print $FIELD}'
-}
-
 cleanup;
 
 QDD=$(dirname $0)/quota

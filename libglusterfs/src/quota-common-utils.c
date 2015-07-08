@@ -57,7 +57,7 @@ out:
 }
 
 int32_t
-quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
+quota_dict_get_inode_meta (dict_t *dict, char *key, quota_meta_t *meta)
 {
         int32_t        ret      = -1;
         data_t        *data     = NULL;
@@ -72,6 +72,18 @@ quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
         ret = quota_data_to_meta (data, key, meta);
 
 out:
+
+        return ret;
+}
+
+int32_t
+quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
+{
+        int32_t        ret      = -1;
+
+        ret = quota_dict_get_inode_meta (dict, key, meta);
+        if (ret == -2)
+                ret = 0;
 
         return ret;
 }

@@ -2090,9 +2090,9 @@ _quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
 
         priv = this->private;
 
-        ret = quota_dict_get_meta (dict, key, meta);
+        ret = quota_dict_get_inode_meta (dict, key, meta);
         if (ret == -2 && (priv->feature_enabled & GF_INODE_QUOTA) == 0) {
-                /* quota_dict_get_meta returns -2 if
+                /* quota_dict_get_inode_meta returns -2 if
                  * inode quota xattrs are not present.
                  * if inode quota self heal is turned off,
                  * then we should skip healing inode quotas
@@ -2461,9 +2461,8 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
 
         if (size) {
                 if (loc->inode->ia_type == IA_IFDIR) {
-                        ret = _quota_dict_get_meta (this, rsp_dict,
-                                                    QUOTA_SIZE_KEY, &meta,
-                                                    IA_IFDIR, _gf_true);
+                        ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
+                                                   &meta);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "dict_get failed.");
@@ -2481,8 +2480,7 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         }
 
         if (contri && !loc_is_root(loc)) {
-                ret = _quota_dict_get_meta (this, rsp_dict, contri_key, &meta,
-                                            loc->inode->ia_type, _gf_false);
+                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
                 if (ret < 0) {
                         contri->size = 0;
                         contri->file_count = 0;

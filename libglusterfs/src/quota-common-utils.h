@@ -41,6 +41,9 @@ int32_t
 quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta);
 
 int32_t
+quota_dict_get_inode_meta (dict_t *dict, char *key, quota_meta_t *meta);
+
+int32_t
 quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta);
 
 int32_t
