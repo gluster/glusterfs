@@ -69,6 +69,6 @@ TEST $CLI volume start $V0 force;
 # let client get the snapd port from glusterd and connect
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" snap_client_connected_status $V0
 
-TEST stat $M0/.snaps;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/.snaps
 
 cleanup;
