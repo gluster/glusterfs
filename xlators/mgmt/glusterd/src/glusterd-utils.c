@@ -4279,6 +4279,7 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
         char *name = NULL;
         char *hostname = NULL;
         char *tmp_host = NULL;
+        char *canon = NULL;
         int  ret = 0;
 
         name = req->trans->peerinfo.identifier;
@@ -4291,6 +4292,11 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
                 memset (remote_host, 0, len);
                 ret = -1;
                 goto out;
+        }
+
+        if ((gf_get_hostname_from_ip(hostname,&canon) == 0) && canon) {
+                GF_FREE(tmp_host);
+                tmp_host = hostname = canon;
         }
 
         strncpy (remote_host, hostname, strlen (hostname));
