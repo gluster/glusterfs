@@ -414,7 +414,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
      * head/tail read in case of writev fop. Unlocks shouldn't do this because
      * unlock should go on all subvols where lock is performed*/
     if (fop->parent && !ec_must_wind (fop))
-            fop->mask &= fop->parent->mask;
+            fop->mask &= (fop->parent->mask & ~fop->parent->healing);
 
     mask = ec->xl_up;
     if (fop->parent == NULL)
