@@ -3678,6 +3678,12 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                 (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
+
+        /* Marking volume as stopped, so that svc manager stops snapd
+         * and we are deleting the volume.
+         */
+        stale_volinfo->status = GLUSTERD_STATUS_STOPPED;
+
         if (!stale_volinfo->is_snap_volume) {
                 svc = &(stale_volinfo->snapd.svc);
                 (void) svc->manager (svc, stale_volinfo, PROC_START_NO_WAIT);
