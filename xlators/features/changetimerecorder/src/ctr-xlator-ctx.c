@@ -213,7 +213,7 @@ ctr_update_hard_link (xlator_t                *this,
 
         /* update the hard link */
         gf_uuid_copy (ctr_hard_link->pgfid, pgfid);
-        GF_FREE (&ctr_hard_link->base_name);
+        GF_FREE (ctr_hard_link->base_name);
         ret = gf_asprintf(&ctr_hard_link->base_name, "%s", base_name);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,

@@ -829,7 +829,7 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                                 "Creating gfid string failed.");
                                         goto out;
                                 }
-                                gf_sql_update_link (sql_conn, gfid_str,
+                                ret = gf_sql_update_link (sql_conn, gfid_str,
                                                 pargfid_str,
                                                 gfdb_db_record->file_name,
                                                 gfdb_db_record->file_path,
