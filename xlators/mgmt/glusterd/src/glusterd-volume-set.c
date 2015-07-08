@@ -2018,6 +2018,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "cluster/disperse",
           .op_version  = GD_OP_VERSION_3_7_3,
         },
+        { .key        = "cluster.heal-timeout",
+          .voltype    = "cluster/disperse",
+          .option     = "!heal-timeout",
+          .op_version  = GD_OP_VERSION_3_7_3,
+          .type       = NO_DOC,
+        },
         { .key         = NULL
         }
 };

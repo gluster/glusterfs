@@ -246,6 +246,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           uint32, failed);
         GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
                           uint32, failed);
+        GF_OPTION_RECONF ("heal-timeout", ec->shd.timeout, options,
+                          int32, failed);
         ec_configure_background_heal_opts (ec, background_heals,
                                            heal_wait_qlen);
         return 0;
@@ -1314,6 +1316,14 @@ struct volume_options options[] =
       .default_value = "128",
       .description = "This option can be used to control number of heals"
                      " that can wait",
+    },
+    { .key  = {"heal-timeout"},
+      .type = GF_OPTION_TYPE_INT,
+      .min  = 60,
+      .max  = INT_MAX,
+      .default_value = "600",
+      .description = "time interval for checking the need to self-heal "
+                     "in self-heal-daemon"
     },
     { }
 };
