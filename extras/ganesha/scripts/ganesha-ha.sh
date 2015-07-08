@@ -818,29 +818,29 @@ main()
 {
 
     local cmd=${1}; shift
-    if [[ ${cmd} == *help ]]
-        then
+    if [[ ${cmd} == *help ]]; then
         usage
         exit 0
     fi
+    if [[ ${cmd} != *status ]]; then
+        HA_CONFDIR=${1}; shift
+        local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
+        local node=""
+        local vip=""
 
-    HA_CONFDIR=${1}; shift
-    local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
-    local node=""
-    local vip=""
+        # ignore any comment lines
+        cfgline=$(grep  ^HA_NAME= ${ha_conf})
+        eval $(echo ${cfgline} | grep -F HA_NAME=)
+        cfgline=$(grep  ^HA_VOL_SERVER= ${ha_conf})
+        eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
+        cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
+        eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
 
-    # ignore any comment lines
-    cfgline=$(grep  ^HA_NAME= ${ha_conf})
-    eval $(echo ${cfgline} | grep -F HA_NAME=)
-    cfgline=$(grep  ^HA_VOL_SERVER= ${ha_conf})
-    eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
-    cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
-    eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
-
-    # we'll pretend that nobody ever edits /etc/os-release
-    if [ -e /etc/os-release ]; then
-        eval $(grep -F "REDHAT_SUPPORT_PRODUCT=" /etc/os-release)
-        [ "$REDHAT_SUPPORT_PRODUCT" == "Fedora" ] && RHEL6_PCS_CNAME_OPTION=""
+        # we'll pretend that nobody ever edits /etc/os-release
+        if [ -e /etc/os-release ]; then
+            eval $(grep -F "REDHAT_SUPPORT_PRODUCT=" /etc/os-release)
+            [ "$REDHAT_SUPPORT_PRODUCT" == "Fedora" ] && RHEL6_PCS_CNAME_OPTION=""
+        fi
     fi
 
     case "${cmd}" in
