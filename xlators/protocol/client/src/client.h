@@ -213,6 +213,7 @@ typedef struct client_args {
         int32_t             valid;
         int32_t             len;
         gf_seek_what_t      what;
+        struct gf_lease    *lease;
 
         mode_t              umask;
         dict_t             *xdata;

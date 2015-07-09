@@ -38,6 +38,45 @@ client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
 }
 
 int
+client_cbk_recall_lease (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        int                           ret          = -1;
+        struct iovec                 *iov          = NULL;
+        struct gf_upcall              upcall_data  = {0,};
+        uuid_t                        gfid;
+        struct gf_upcall_recall_lease rl_data      = {0,};
+        gfs3_recall_lease_req         recall_lease = {{0,},};
+
+        GF_VALIDATE_OR_GOTO ("client-callback", rpc, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", mydata, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", data, out);
+
+        iov = (struct iovec *)data;
+        ret =  xdr_to_generic (*iov, &recall_lease,
+                               (xdrproc_t)xdr_gfs3_recall_lease_req);
+
+        if (ret < 0) {
+                gf_msg (THIS->name, GF_LOG_WARNING, -ret,
+                        PC_MSG_RECALL_LEASE_FAIL,
+                        "XDR decode of recall lease failed.");
+                goto out;
+        }
+
+        upcall_data.data = &rl_data;
+        gf_proto_recall_lease_to_upcall (&recall_lease, &upcall_data);
+        upcall_data.event_type = GF_UPCALL_RECALL_LEASE;
+
+        gf_msg_trace (THIS->name, 0, "Upcall gfid = %s, ret = %d",
+                      recall_lease.gfid, ret);
+
+        default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
+
+out:
+        return ret;
+}
+
+
+int
 client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         int              ret                        = -1;
@@ -128,6 +167,7 @@ rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_CACHE_INVALIDATION] = {"CACHE_INVALIDATION", GF_CBK_CACHE_INVALIDATION, client_cbk_cache_invalidation },
         [GF_CBK_CHILD_UP]           = {"CHILD_UP",           GF_CBK_CHILD_UP,           client_cbk_child_up },
         [GF_CBK_CHILD_DOWN]         = {"CHILD_DOWN",         GF_CBK_CHILD_DOWN,         client_cbk_child_down },
+        [GF_CBK_RECALL_LEASE]       = {"RECALL_LEASE",       GF_CBK_RECALL_LEASE,       client_cbk_recall_lease },
 };
 
 

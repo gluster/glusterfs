@@ -159,6 +159,7 @@ struct _server_state {
 
         dict_t           *xdata;
         mode_t            umask;
+        struct gf_lease   lease;
 };
 
 

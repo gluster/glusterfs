@@ -192,6 +192,43 @@ out:
         return 0;
 }
 
+int
+server_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
+                  dict_t *xdata)
+{
+        gfs3_lease_rsp       rsp   = {0,};
+        rpcsvc_request_t    *req   = NULL;
+        server_state_t      *state = NULL;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret) {
+                state = CALL_STATE (frame);
+                gf_msg (this->name, fop_log_level (GF_FOP_LEASE, op_errno),
+                        op_errno, PS_MSG_LK_INFO,
+                        "%"PRId64": LEASE %s (%s) ==> "
+                        "(%s)", frame->root->unique,
+                        state->loc.path,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+        gf_proto_lease_from_lease (&rsp.lease, lease);
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        req = frame->local;
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfs3_lease_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
 
 int
 server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2201,6 +2238,27 @@ err:
 
         return 0;
 
+}
+
+int
+server_lease_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_lease_cbk, bound_xl, bound_xl->fops->lease,
+                    &state->loc, &state->lease, state->xdata);
+
+        return 0;
+
+err:
+        server_lease_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                          state->resolve.op_errno, NULL, NULL);
+        return 0;
 }
 
 int
@@ -6107,6 +6165,58 @@ out:
 }
 
 int
+server3_3_lease (rpcsvc_request_t *req)
+{
+        server_state_t      *state = NULL;
+        call_frame_t        *frame = NULL;
+        gfs3_lease_req       args  = {{0,},};
+        int                  ret   = -1;
+        int                  op_errno = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args, (xdrproc_t)xdr_gfs3_lease_req);
+        if (ret < 0) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+        frame->root->op = GF_FOP_LEASE;
+
+        state = CALL_STATE (frame);
+        if (!frame->root->client->bound_xl) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        state->resolve.type = RESOLVE_MUST;
+        memcpy (state->resolve.gfid, args.gfid, 16);
+        gf_proto_lease_to_lease (&args.lease, &state->lease);
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata,
+                                      args.xdata.xdata_val,
+                                      args.xdata.xdata_len, ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_lease_resume);
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
+int
 server3_3_lk (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
@@ -6458,6 +6568,7 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_ZEROFILL]     = {"ZEROFILL",     GFS3_OP_ZEROFILL,     server3_3_zerofill,     NULL, 0, DRC_NA},
         [GFS3_OP_IPC]          = {"IPC",          GFS3_OP_IPC,          server3_3_ipc,          NULL, 0, DRC_NA},
         [GFS3_OP_SEEK]         = {"SEEK",         GFS3_OP_SEEK,         server3_3_seek,         NULL, 0, DRC_NA},
+        [GFS3_OP_LEASE]       =  {"LEASE",        GFS3_OP_LEASE,        server3_3_lease,        NULL, 0, DRC_NA},
 };
 
 
