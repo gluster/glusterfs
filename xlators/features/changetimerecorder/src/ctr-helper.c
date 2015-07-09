@@ -247,11 +247,11 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         GF_ASSERT (this);
         GF_ASSERT (_priv);
 
-        /*Checking if the CTR Translator is enabled. By Default its enabled*/
+        /*Checking if the CTR Translator is enabled. By default its disabled*/
         _priv->enabled = _gf_false;
         GF_OPTION_INIT ("ctr-enabled", _priv->enabled, bool, out);
         if (!_priv->enabled) {
-                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                gf_msg (GFDB_DATA_STORE, GF_LOG_INFO, 0,
                         CTR_MSG_XLATOR_DISABLED,
                         "CTR Xlator is disabled.");
                 ret = 0;
