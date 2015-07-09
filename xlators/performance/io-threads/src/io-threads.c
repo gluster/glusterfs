@@ -299,6 +299,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_FINODELK:
         case GF_FOP_ENTRYLK:
         case GF_FOP_FENTRYLK:
+        case GF_FOP_LEASE:
         case GF_FOP_UNLINK:
         case GF_FOP_SETATTR:
         case GF_FOP_FSETATTR:
