@@ -2839,6 +2839,49 @@ out:
         return ret;
 }
 
+int32_t
+mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
+                    quota_inode_ctx_t **ctx)
+{
+        int32_t               ret     = -1;
+        quota_inode_ctx_t    *ctxtmp  = NULL;
+
+        if (origin_loc == NULL || origin_loc->inode == NULL ||
+            (gf_uuid_is_null(origin_loc->gfid) &&
+             gf_uuid_is_null(origin_loc->inode->gfid)))
+                goto out;
+
+        loc_copy (loc, origin_loc);
+
+        if (gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (loc->gfid, loc->inode->gfid);
+
+        if (ctx)
+                ret = mq_inode_ctx_get (loc->inode, this, ctx);
+        else
+                ret = mq_inode_ctx_get (loc->inode, this, &ctxtmp);
+
+        if (ret < 0) {
+                if (ctx) {
+                        *ctx = mq_inode_ctx_new (loc->inode, this);
+                        if (*ctx == NULL) {
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "mq_inode_ctx_new failed for "
+                                                  "%s", loc->path);
+                                ret = -1;
+                                goto out;
+                        }
+                } else {
+                        gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for "
+                                          "is NULL for %s", loc->path);
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                        inode_contribution_t *contri)
@@ -2861,16 +2904,6 @@ mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
         ret = mq_loc_copy (&child_loc, loc);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "loc copy failed");
-                goto out;
-        }
-
-        if (gf_uuid_is_null (child_loc.gfid))
-                gf_uuid_copy (child_loc.gfid, child_loc.inode->gfid);
-
-        if (gf_uuid_is_null (child_loc.gfid)) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
-                        child_loc.path);
                 goto out;
         }
 
@@ -3003,16 +3036,6 @@ mq_create_xattrs_task (void *opaque)
         this = args->this;
         THIS = this;
 
-        if (gf_uuid_is_null (loc->gfid))
-                gf_uuid_copy (loc->gfid, loc->inode->gfid);
-
-        if (gf_uuid_is_null (loc->gfid)) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
-                        loc->path);
-                goto out;
-        }
-
         ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to"
@@ -3054,34 +3077,30 @@ out:
 }
 
 static int
-_mq_create_xattrs_txn (xlator_t *this, loc_t *loc, gf_boolean_t spawn)
+_mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
 {
         int32_t                  ret        = -1;
         quota_inode_ctx_t       *ctx        = NULL;
         gf_boolean_t             status     = _gf_true;
+        loc_t                    loc        = {0, };
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret < 0) {
-                ctx = mq_inode_ctx_new (loc->inode, this);
-                if (ctx == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "mq_inode_ctx_new failed");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
 
         ret = mq_test_and_set_ctx_create_status (ctx, &status);
         if (ret < 0 || status == _gf_true)
                 goto out;
 
-        ret = mq_synctask (this, mq_create_xattrs_task, spawn, loc, 0);
+        ret = mq_synctask (this, mq_create_xattrs_task, spawn, &loc, 0);
 out:
         if (ret < 0 && status == _gf_false)
                 mq_set_ctx_create_status (ctx, _gf_false);
 
+        loc_wipe (&loc);
         return ret;
 }
+
 int
 mq_create_xattrs_txn (xlator_t *this, loc_t *loc)
 {
@@ -3235,17 +3254,33 @@ out:
 }
 
 int32_t
-mq_reduce_parent_size_txn (xlator_t *this, loc_t *loc, int64_t contri)
+mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc, int64_t contri)
 {
         int32_t                  ret           = -1;
+        loc_t                    loc           = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
 
-        ret = mq_synctask (this, mq_reduce_parent_size_task, _gf_true, loc,
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        if (loc_is_root(&loc)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (loc.parent == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "parent is NULL for %s, "
+                        "aborting reduce parent size txn", loc.path);
+                goto out;
+        }
+
+        ret = mq_synctask (this, mq_reduce_parent_size_task, _gf_true, &loc,
                            contri);
 out:
+        loc_wipe (&loc);
         return ret;
 }
 
@@ -3323,16 +3358,25 @@ out:
 }
 
 int
-_mq_initiate_quota_txn (xlator_t *this, loc_t *loc, gf_boolean_t spawn)
+_mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
 {
         int32_t                 ret          = -1;
         quota_inode_ctx_t      *ctx          = NULL;
         gf_boolean_t            status       = _gf_true;
+        loc_t                   loc          = {0,};
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "inode ctx get failed, aborting quota txn");
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
+
+        if (loc_is_root(&loc)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (loc.parent == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "parent is NULL for %s, "
+                        "aborting updation txn", loc.path);
                 goto out;
         }
 
@@ -3340,12 +3384,13 @@ _mq_initiate_quota_txn (xlator_t *this, loc_t *loc, gf_boolean_t spawn)
         if (ret < 0 || status == _gf_true)
                 goto out;
 
-        ret = mq_synctask (this, mq_initiate_quota_task, spawn, loc, 0);
+        ret = mq_synctask (this, mq_initiate_quota_task, spawn, &loc, 0);
 
 out:
         if (ret < 0 && status == _gf_false)
                 mq_set_ctx_updation_status (ctx, _gf_false);
 
+        loc_wipe (&loc);
         return ret;
 }
 
@@ -3404,16 +3449,6 @@ mq_update_dirty_inode_task (void *opaque)
         loc = &args->loc;
         this = args->this;
         THIS = this;
-
-        if (gf_uuid_is_null (loc->gfid))
-                gf_uuid_copy (loc->gfid, loc->inode->gfid);
-
-        if (gf_uuid_is_null (loc->gfid)) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
-                        loc->path);
-                goto out;
-        }
 
         ret = mq_lock (this, loc, F_WRLCK);
         if (ret < 0)
@@ -3705,29 +3740,25 @@ out:
 }
 
 int32_t
-mq_xattr_state (xlator_t *this, loc_t *loc, dict_t *dict, struct iatt buf)
+mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
+                struct iatt buf)
 {
         int32_t               ret     = -1;
         quota_inode_ctx_t    *ctx     = NULL;
+        loc_t                 loc     = {0, };
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret < 0) {
-                ctx = mq_inode_ctx_new (loc->inode, this);
-                if (ctx == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "mq_inode_ctx_new failed");
-                        ret = -1;
-                        goto out;
-                }
-        }
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
 
         if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
             || (buf.ia_type == IA_IFLNK))  {
-                mq_inspect_file_xattr (this, ctx, loc, dict, buf);
+                mq_inspect_file_xattr (this, ctx, &loc, dict, buf);
         } else if (buf.ia_type == IA_IFDIR)
-                mq_inspect_directory_xattr (this, loc, ctx, dict, buf);
+                mq_inspect_directory_xattr (this, &loc, ctx, dict, buf);
 
 out:
+        loc_wipe (&loc);
         return ret;
 }
 
