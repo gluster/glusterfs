@@ -534,6 +534,14 @@ ops['getspec'] = (
 	('cbk-arg',	'spec_data',	'char *'),
 )
 
+ops['lease'] = (
+        ('fop-arg',     'loc',                  'loc_t *'),
+        ('fop-arg',     'lease',                'struct gf_lease *'),
+        ('fop-arg',     'xdata',                'dict_t *'),
+        ('cbk-arg',     'lease',                'struct gf_lease *'),
+        ('cbk-arg',     'xdata',                'dict_t *'),
+)
+
 #####################################################################
 xlator_cbks['forget'] = (
         ('fn-arg',      'this',        'xlator_t *'),

@@ -1803,6 +1803,43 @@ out:
 
 }
 
+call_stub_t *
+fop_lease_cbk_stub (call_frame_t *frame, fop_lease_cbk_t fn,
+                    int32_t op_ret, int32_t op_errno,
+                    struct gf_lease *lease, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_LEASE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.lease = fn;
+        args_lease_cbk_store (&stub->args_cbk, op_ret, op_errno, lease, xdata);
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_lease_stub (call_frame_t *frame, fop_lease_t fn,
+                loc_t *loc, struct gf_lease *lease, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", lease, out);
+
+        stub = stub_new (frame, 1, GF_FOP_LEASE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.lease = fn;
+        args_lease_store (&stub->args, loc, lease, xdata);
+out:
+        return stub;
+
+}
 
 call_stub_t *
 fop_seek_cbk_stub (call_frame_t *frame, fop_seek_cbk_t fn,
@@ -2085,6 +2122,11 @@ call_resume_wind (call_stub_t *stub)
                                stub->args.fd, stub->args.offset,
                                stub->args.what, stub->args.xdata);
                 break;
+        case GF_FOP_LEASE:
+                stub->fn.lease (stub->frame, stub->frame->this,
+                                &stub->args.loc, &stub->args.lease,
+                                stub->args.xdata);
+                break;
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
@@ -2297,6 +2339,10 @@ call_resume_unwind (call_stub_t *stub)
                 break;
         case GF_FOP_SEEK:
                 STUB_UNWIND (stub, seek, stub->args_cbk.offset,
+                             stub->args_cbk.xdata);
+                break;
+        case GF_FOP_LEASE:
+                STUB_UNWIND (stub, lease, &stub->args_cbk.lease,
                              stub->args_cbk.xdata);
                 break;
 

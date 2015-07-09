@@ -155,6 +155,7 @@ struct syncargs {
         char               *buffer;
         dict_t             *xdata;
 	struct gf_flock     flock;
+        struct gf_lease     lease;
 
         /* some more _cbk needs */
         uuid_t              uuid;
@@ -504,6 +505,9 @@ int syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock,
 int syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc,
                     int32_t cmd, struct gf_flock *lock, dict_t *xdata_in,
                     dict_t **xdata_out);
+
+int syncop_lease (xlator_t *subvol, loc_t *loc, struct gf_lease *lease,
+                  dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_ipc (xlator_t *subvol, int op, dict_t *xdata_in, dict_t **xdata_out);
 

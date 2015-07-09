@@ -18,6 +18,7 @@
 typedef enum {
         GF_UPCALL_EVENT_NULL,
         GF_UPCALL_CACHE_INVALIDATION,
+        GF_UPCALL_RECALL_LEASE,
 } gf_upcall_event_t;
 
 struct gf_upcall {

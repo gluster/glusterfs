@@ -2547,6 +2547,61 @@ lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len)
         return dst;
 }
 
+gf_boolean_t
+is_valid_lease_id (const char *lease_id)
+{
+        int i = 0;
+        gf_boolean_t valid = _gf_false;
+
+        for (i = 0; i < LEASE_ID_SIZE; i++) {
+                if (lease_id[i] != 0) {
+                        valid = _gf_true;
+                        goto out;
+                }
+        }
+out:
+        return valid;
+}
+
+/* Lease_id can be a either in printable or non printable binary
+ * format. This function can be used to print any lease_id.
+ *
+ * This function returns a pointer to a buf, containing the ascii
+ * representation of the value in lease_id, in the following format:
+ * 4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum
+ *
+ * Eg: If lease_id = "lid1-clnt1" the printable string would be:
+ * 6c69-6431-2d63-6c6e-7431-0000-0000-0000
+ *
+ * Note: The pointer returned should not be stored for further use, as any
+ * subsequent call to this function will override the same buffer.
+ */
+char *
+leaseid_utoa (const char *lease_id)
+{
+        char *buf = NULL;
+        int   i   = 0;
+        int   j   = 0;
+
+        buf = glusterfs_leaseid_buf_get ();
+        if (!buf)
+                goto out;
+
+        for (i = 0; i < LEASE_ID_SIZE; i++) {
+                if (i && !(i % 2)) {
+                        buf[j] = '-';
+                        j++;
+                }
+                sprintf (&buf[j], "%02hhx", lease_id[i]);
+                j += 2;
+                if (j == GF_LEASE_ID_BUF_SIZE)
+                        break;
+        }
+        buf[GF_LEASE_ID_BUF_SIZE - 1] = '\0';
+out:
+        return buf;
+}
+
 void* gf_array_elem (void *a, int index, size_t elem_size)
 {
         uint8_t* ptr = a;
@@ -4199,6 +4254,7 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_REMOVEXATTR:
         case GF_FOP_FREMOVEXATTR:
         case GF_FOP_IPC:
+        case GF_FOP_LEASE:
                 return "NORMAL";
 
         case GF_FOP_READ:

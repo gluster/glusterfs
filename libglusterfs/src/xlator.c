@@ -81,6 +81,7 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (zerofill);
         SET_DEFAULT_FOP (ipc);
         SET_DEFAULT_FOP (seek);
+        SET_DEFAULT_FOP (lease);
 
         SET_DEFAULT_FOP (getspec);
 

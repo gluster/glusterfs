@@ -269,6 +269,11 @@ args_seek_cbk_store (default_args_cbk_t *args, int32_t op_ret,
                      int32_t op_errno, off_t offset, dict_t *xdata);
 
 void
+args_lease_cbk_store (default_args_cbk_t *args,
+                     int32_t op_ret, int32_t op_errno,
+                     struct gf_lease *lease, dict_t *xdata);
+
+void
 args_cbk_wipe (default_args_cbk_t *args_cbk);
 
 int
@@ -458,5 +463,9 @@ args_ipc_store (default_args_t *args,
 int
 args_seek_store (default_args_t *args, fd_t *fd,
                  off_t offset, gf_seek_what_t what, dict_t *xdata);
+
+void
+args_lease_store (default_args_t *args, loc_t *loc, struct gf_lease *lease,
+                  dict_t *xdata);
 
 #endif /* _DEFAULT_ARGS_H */
