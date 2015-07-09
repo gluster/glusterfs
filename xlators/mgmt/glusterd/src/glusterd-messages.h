@@ -40,7 +40,7 @@
  */
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
-#define GLFS_NUM_MESSAGES       563
+#define GLFS_NUM_MESSAGES       568
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -4555,7 +4555,7 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_SVC_START_SUCCESS                     (GLUSTERD_COMP_BASE + 564)
+#define GD_MSG_LOCK_OWNER_MISMATCH                    (GLUSTERD_COMP_BASE + 564)
 
 /*!
  * @messageid
@@ -4563,7 +4563,31 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_SVC_STOP_SUCCESS                     (GLUSTERD_COMP_BASE + 565)
+#define GD_MSG_LOCK_NOT_HELD                          (GLUSTERD_COMP_BASE + 565)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_LOCK_ALREADY_HELD                      (GLUSTERD_COMP_BASE + 566)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SVC_START_SUCCESS                     (GLUSTERD_COMP_BASE + 567)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SVC_STOP_SUCCESS                     (GLUSTERD_COMP_BASE + 568)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

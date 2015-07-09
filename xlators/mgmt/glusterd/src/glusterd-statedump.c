@@ -14,6 +14,7 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-locks.h"
+#include "glusterd-messages.h"
 
 static void
 glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
@@ -150,7 +151,9 @@ glusterd_dict_mgmt_v3_lock_statedump (dict_t *dict)
         char         dump[64*1024]             = {0,};
 
         if (!dict) {
-                gf_log_callingfn ("glusterd", GF_LOG_WARNING, "dict NULL");
+                gf_msg_callingfn ("glusterd", GF_LOG_WARNING, EINVAL,
+                                  GD_MSG_DICT_EMPTY,
+                                  "dict NULL");
                 goto out;
         }
         for (trav = dict->members_list; trav; trav = trav->next) {
