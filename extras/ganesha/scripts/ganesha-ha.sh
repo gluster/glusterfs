@@ -243,7 +243,7 @@ grep Export_Id | cut -d " " -f8`
 
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
-	    current_host=`echo ${3} | cut -d "." -f 1`
+            current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
                 scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${HA_CONFDIR}/exports/export.$VOL.conf \
@@ -282,21 +282,21 @@ string:"EXPORT(Path=/$VOL)"
 copy_export_config ()
 {
     local new_node=${1}
-    local tganesha_conf=$(mktemp -u)
+    local tganesha_conf=$(mktemp)
     local tganesha_exports=$(mktemp -d)
-
+    local short_host=$(hostname -s)
     # avoid prompting for password, even with password-less scp
     # scp $host1:$file $host2:$file prompts for the password
     scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_VOL_SERVER}:${GANESHA_CONF} ${tganesha_conf}
+${SECRET_PEM} ${HA_VOL_SERVER}:${GANESHA_CONF} $short_host:${tganesha_conf}
     scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${tganesha_conf} ${new_node}:${GANESHA_CONF}
     rm -f ${tganesha_conf}
 
     scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ ${tganesha_exports}
+${SECRET_PEM} ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ $short_host:${tganesha_exports}
     scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${tganesha_exports} ${new_node}:${HA_CONFDIR}/
+${SECRET_PEM} ${tganesha_exports}/exports ${new_node}:${HA_CONFDIR}/
     rm -rf ${tganesha_exports}
 }
 
