@@ -57,13 +57,15 @@ glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
         ret = sys_lsetxattr (brickinfo->path, GF_AFR_DIRTY, dirty,
                              sizeof (dirty), 0);
         if (ret == -1) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set extended"
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
                         " attribute %s : %s.", GF_AFR_DIRTY, strerror (errno));
                 goto out;
         }
 
         if (mkdtemp (tmpmount) == NULL) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
                         "failed to create a temporary mount directory.");
                 ret = -1;
                 goto out;
@@ -94,7 +96,8 @@ glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
                              brickinfo->brick_id, sizeof (brickinfo->brick_id),
                              0);
         if (ret == -1)
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set extended"
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
                         " attribute %s : %s", GF_AFR_REPLACE_BRICK,
                         strerror (errno));
         gf_umount_lazy (THIS->name, tmpmount, 1);
@@ -103,7 +106,7 @@ lock:
 out:
         if (pid)
                 GF_FREE (pid);
-        gf_log ("", GF_LOG_DEBUG, "Returning with ret");
+        gf_msg_debug ("glusterd", 0, "Returning with ret");
         return ret;
 }
 

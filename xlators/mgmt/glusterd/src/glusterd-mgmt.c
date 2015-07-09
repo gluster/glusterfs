@@ -173,7 +173,8 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                 ret = glusterd_op_stage_replace_brick (dict, op_errstr,
                                                        rsp_dict);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
                                 "Replace-brick prevalidation failed.");
                         goto out;
                 }
@@ -860,7 +861,8 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                 {
                         ret = dict_get_str (dict, "volname", &volname);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_CRITICAL,
+                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "volname is not present in "
                                         "operation ctx");
                                 goto out;
