@@ -5676,6 +5676,20 @@ out:
         return 0;
 }
 
+int32_t
+posix_lease (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, struct gf_lease *lease, dict_t *xdata)
+{
+        struct gf_lease nullease = {0, };
+
+        gf_msg (this->name, GF_LOG_CRITICAL, EINVAL, P_MSG_LEASE_DISABLED,
+                "\"features/leases\" translator is not loaded. You need"
+                "to use it for proper functioning of your application");
+
+        STACK_UNWIND_STRICT (lease, frame, -1, ENOSYS, &nullease, NULL);
+        return 0;
+}
+
 static int gf_posix_lk_log;
 
 int32_t
@@ -7083,6 +7097,7 @@ struct xlator_fops fops = {
 #ifdef HAVE_SEEK_HOLE
         .seek        = posix_seek,
 #endif
+        .lease       = posix_lease,
 };
 
 struct xlator_cbks cbks = {

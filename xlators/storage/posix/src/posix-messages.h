@@ -45,7 +45,7 @@
  */
 
 #define POSIX_COMP_BASE         GLFS_MSGID_COMP_POSIX
-#define GLFS_NUM_MESSAGES       108
+#define GLFS_NUM_MESSAGES       109
 #define GLFS_MSGID_END          (POSIX_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x POSIX_COMP_BASE, "Invalid: Start of messages"
@@ -918,6 +918,14 @@
  */
 
 #define P_MSG_INODE_RESOLVE_FAILED              (POSIX_COMP_BASE + 108)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define P_MSG_LEASE_DISABLED                    (POSIX_COMP_BASE + 109)
 /*!
  * @messageid
  * @diagnosis
