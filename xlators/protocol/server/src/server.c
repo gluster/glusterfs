@@ -1176,16 +1176,17 @@ fini (xlator_t *this)
 int
 server_process_event_upcall (xlator_t *this, void *data)
 {
-        int              ret          = -1;
-        server_conf_t    *conf        = NULL;
-        client_t         *client      = NULL;
-        char             *client_uid  = NULL;
-        struct gf_upcall *upcall_data = NULL;
-        void             *up_req      = NULL;
-        rpc_transport_t  *xprt        = NULL;
-        enum gf_cbk_procnum cbk_procnum          = GF_CBK_NULL;
-        gfs3_cbk_cache_invalidation_req gf_c_req = {0,};
-        xdrproc_t        xdrproc;
+        int                             ret         = -1;
+        server_conf_t                  *conf        = NULL;
+        client_t                       *client      = NULL;
+        char                           *client_uid  = NULL;
+        struct gf_upcall               *upcall_data = NULL;
+        void                           *up_req      = NULL;
+        rpc_transport_t                *xprt        = NULL;
+        enum gf_cbk_procnum             cbk_procnum     = GF_CBK_NULL;
+        gfs3_cbk_cache_invalidation_req gf_c_req        = {0,};
+        gfs3_recall_lease_req           gf_recall_lease = {{0,},};
+        xdrproc_t                       xdrproc;
 
         GF_VALIDATE_OR_GOTO(this->name, data, out);
 
@@ -1193,9 +1194,7 @@ server_process_event_upcall (xlator_t *this, void *data)
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         upcall_data = (struct gf_upcall *)data;
-
         client_uid = upcall_data->client_uid;
-
         GF_VALIDATE_OR_GOTO(this->name, client_uid, out);
 
         switch (upcall_data->event_type) {
@@ -1206,6 +1205,12 @@ server_process_event_upcall (xlator_t *this, void *data)
                 up_req = &gf_c_req;
                 cbk_procnum = GF_CBK_CACHE_INVALIDATION;
                 xdrproc = (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req;
+                break;
+        case GF_UPCALL_RECALL_LEASE:
+                gf_proto_recall_lease_from_upcall (&gf_recall_lease, upcall_data);
+                up_req = &gf_recall_lease;
+                cbk_procnum = GF_CBK_RECALL_LEASE;
+                xdrproc = (xdrproc_t)xdr_gfs3_recall_lease_req;
                 break;
         default:
                 gf_msg (this->name, GF_LOG_WARNING, EINVAL,

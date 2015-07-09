@@ -26,6 +26,12 @@ struct gf_proto_flock {
         opaque         lk_owner<>;
 } ;
 
+struct gf_proto_lease {
+        unsigned int   cmd;
+        unsigned int   lease_type;
+        opaque         lease_id[16];
+        unsigned int   lease_flags;
+} ;
 
 struct gf_iatt {
         opaque             ia_gfid[16];
@@ -306,6 +312,24 @@ struct   gfs3_lookup_req {
         int    op_errno;
 	struct gf_proto_flock flock;
         opaque   xdata<>; /* Extra data */
+}  ;
+
+struct gfs3_lease_req {
+        opaque gfid[16];
+        struct gf_proto_lease lease;
+        opaque   xdata<>; /* Extra data */
+}  ;
+
+struct gfs3_lease_rsp {
+        int    op_ret;
+        int    op_errno;
+        struct gf_proto_lease lease;
+        opaque   xdata<>; /* Extra data */
+}  ;
+
+struct gfs3_recall_lease_req {
+        opaque       gfid[16];
+        unsigned int lease_type;
 }  ;
 
  struct gfs3_inodelk_req {

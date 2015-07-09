@@ -62,6 +62,7 @@ enum gf_fop_procnum {
         GFS3_OP_IPC,
         GFS3_OP_SEEK,
         GFS3_OP_COMPOUND,
+        GFS3_OP_LEASE,
         GFS3_OP_MAXVALUE,
 } ;
 
@@ -137,6 +138,7 @@ enum gf_cbk_procnum {
         GF_CBK_CACHE_INVALIDATION,
         GF_CBK_CHILD_UP,
         GF_CBK_CHILD_DOWN,
+        GF_CBK_RECALL_LEASE,
         GF_CBK_MAXVALUE,
 };
 

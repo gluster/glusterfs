@@ -45,7 +45,7 @@
  */
 
 #define GLFS_PC_BASE                GLFS_MSGID_COMP_PC
-#define GLFS_PC_NUM_MESSAGES        65
+#define GLFS_PC_NUM_MESSAGES        66
 #define GLFS_PC_MSGID_END           (GLFS_PC_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messages with message IDs */
 #define glfs_msg_start_x GLFS_PC_BASE, "Invalid: Start of messages"
@@ -617,6 +617,7 @@
  * @recommendedaction
  *
  */
+
 #define PC_MSG_CHILD_STATUS                     (GLFS_PC_BASE + 64)
 
 /*!
@@ -625,7 +626,17 @@
  * @recommendedaction
  *
  */
-#define PC_MSG_GFID_NULL                       (GLFS_PC_BASE + 65)
+
+#define PC_MSG_RECALL_LEASE_FAIL                (GLFS_PC_BASE + 65)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PC_MSG_GFID_NULL                       (GLFS_PC_BASE + 66)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

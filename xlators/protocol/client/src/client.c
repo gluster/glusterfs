@@ -1478,6 +1478,34 @@ out:
 }
 
 int32_t
+client_lease (call_frame_t *frame, xlator_t *this, loc_t *loc,
+              struct gf_lease *lease, dict_t *xdata)
+{
+        int                   ret  = -1;
+        clnt_conf_t          *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t           args = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.loc = loc;
+        args.lease = lease;
+        args.xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_LEASE];
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (lk, frame, -1, ENOTCONN, NULL, NULL);
+
+        return 0;
+}
+
+
+int32_t
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
            struct gf_flock *lock, dict_t *xdata)
 {
@@ -2720,6 +2748,7 @@ struct xlator_fops fops = {
         .getspec     = client_getspec,
         .ipc         = client_ipc,
         .seek        = client_seek,
+        .lease       = client_lease,
 };
 
 

@@ -36,4 +36,9 @@ struct gf_upcall_cache_invalidation {
         struct iatt oldp_stat; /* oldparent dir stat */
 };
 
+struct gf_upcall_recall_lease {
+        uint32_t  lease_type;
+        /* TODO: Add the lease type it can be downgraded to */
+};
+
 #endif /* _UPCALL_UTILS_H */

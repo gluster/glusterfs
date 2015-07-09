@@ -183,6 +183,62 @@ gf_statfs_from_statfs (struct gf_statfs *gf_stat, struct statvfs *stat)
 }
 
 static inline void
+gf_proto_lease_to_lease (struct gf_proto_lease *gf_proto_lease, struct gf_lease *gf_lease)
+{
+        if (!gf_lease || !gf_proto_lease)
+                return;
+
+        gf_lease->cmd        = gf_proto_lease->cmd;
+        gf_lease->lease_type = gf_proto_lease->lease_type;
+        memcpy (gf_lease->lease_id, gf_proto_lease->lease_id, LEASE_ID_SIZE);
+}
+
+static inline void
+gf_proto_lease_from_lease (struct gf_proto_lease *gf_proto_lease, struct gf_lease *gf_lease)
+{
+        if (!gf_lease || !gf_proto_lease)
+                return;
+
+        gf_proto_lease->cmd  = gf_lease->cmd;
+        gf_proto_lease->lease_type = gf_lease->lease_type;
+        memcpy (gf_proto_lease->lease_id, gf_lease->lease_id, LEASE_ID_SIZE);
+}
+
+static inline void
+gf_proto_recall_lease_to_upcall (struct gfs3_recall_lease_req *recall_lease,
+                                 struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_recall_lease *tmp = NULL;
+
+        GF_VALIDATE_OR_GOTO(THIS->name, recall_lease, out);
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_recall_lease *)gf_up_data->data;
+        tmp->lease_type = recall_lease->lease_type;
+        memcpy (gf_up_data->gfid, recall_lease->gfid, 16);
+out:
+        return;
+
+}
+
+static inline void
+gf_proto_recall_lease_from_upcall (struct gfs3_recall_lease_req *recall_lease,
+                                   struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_recall_lease *tmp = NULL;
+
+        GF_VALIDATE_OR_GOTO(THIS->name, recall_lease, out);
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_recall_lease *)gf_up_data->data;
+        recall_lease->lease_type = tmp->lease_type;
+        memcpy (recall_lease->gfid, gf_up_data->gfid, 16);
+out:
+        return;
+
+}
+
+static inline void
 gf_proto_flock_to_flock (struct gf_proto_flock *gf_proto_flock, struct gf_flock *gf_flock)
 {
         if (!gf_flock || !gf_proto_flock)
