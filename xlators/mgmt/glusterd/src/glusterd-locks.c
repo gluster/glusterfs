@@ -541,7 +541,8 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                gf_msg_callingfn (this->name, GF_LOG_ERROR,
+                        EINVAL, GD_MSG_INVALID_ENTRY,
                         "Invalid entity. Cannot perform locking "
                         "operation on %s types", type);
                 ret = -1;
@@ -570,7 +571,8 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
         /* If the lock has already been held for the given volume
          * we fail */
         if (!gf_uuid_is_null (owner)) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                gf_msg_callingfn (this->name, GF_LOG_WARNING,
+                                  0, GD_MSG_LOCK_ALREADY_HELD,
                                   "Lock for %s held by %s",
                                   name, uuid_utoa (owner));
                 ret = -1;
@@ -645,7 +647,8 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY,
                         "Invalid entity. Cannot perform unlocking "
                         "operation on %s types", type);
                 ret = -1;
@@ -673,7 +676,8 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         }
 
         if (gf_uuid_is_null (owner)) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                gf_msg_callingfn (this->name, GF_LOG_WARNING,
+                        0, GD_MSG_LOCK_NOT_HELD,
                         "Lock for %s %s not held", type, name);
                 ret = -1;
                 goto out;
@@ -681,7 +685,8 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
 
         ret = gf_uuid_compare (uuid, owner);
         if (ret) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                gf_msg_callingfn (this->name, GF_LOG_WARNING,
+                                  0, GD_MSG_LOCK_OWNER_MISMATCH,
                                   "Lock owner mismatch. "
                                   "Lock for %s %s held by %s",
                                   type, name, uuid_utoa (owner));
