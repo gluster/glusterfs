@@ -22,6 +22,7 @@ import tempfile
 import signal
 from datetime import datetime
 import codecs
+import re
 
 from utils import execute, is_host_local, mkdirp, fail
 from utils import setup_logger, human_time, handle_rm_error
@@ -523,11 +524,8 @@ def write_output(outfile, outfilemerger, field_separator):
                                                   p_rep).encode())
 
 
-def mode_create(session_dir, args):
-    logger.debug("Init is called - Session: %s, Volume: %s"
-                 % (args.session, args.volume))
-
-    cmd = ["gluster", 'volume', 'info', args.volume, "--xml"]
+def validate_volume(volume):
+    cmd = ["gluster", 'volume', 'info', volume, "--xml"]
     _, data, _ = execute(cmd,
                          exit_msg="Failed to Run Gluster Volume Info",
                          logger=logger)
@@ -535,11 +533,42 @@ def mode_create(session_dir, args):
         tree = etree.fromstring(data)
         statusStr = tree.find('volInfo/volumes/volume/statusStr').text
     except (ParseError, AttributeError) as e:
-        fail("Invalid Volume: %s" % e, logger=logger)
-
+        fail("Invalid Volume: Check the Volume name! %s" % e)
     if statusStr != "Started":
-        fail("Volume %s is not online" % args.volume, logger=logger)
+        fail("Volume %s is not online" % volume)
 
+# The rules for a valid session name.
+SESSION_NAME_RULES = {
+    'min_length': 2,
+    'max_length': 256,  # same as maximum volume length
+    # Specifies all alphanumeric characters, underscore, hyphen.
+    'valid_chars': r'0-9a-zA-Z_-',
+}
+
+
+# checks valid session name, fail otherwise
+def validate_session_name(session):
+    # Check for minimum length
+    if len(session) < SESSION_NAME_RULES['min_length']:
+        fail('session_name must be at least ' +
+                 str(SESSION_NAME_RULES['min_length']) + ' characters long.')
+    # Check for maximum length
+    if len(session) > SESSION_NAME_RULES['max_length']:
+        fail('session_name must not exceed ' +
+                 str(SESSION_NAME_RULES['max_length']) + ' characters length.')
+
+    # Matches strings composed entirely of characters specified within
+    if not re.match(r'^[' + SESSION_NAME_RULES['valid_chars'] +
+                        ']+$', session):
+        fail('Session name can only contain these characters: ' +
+                         SESSION_NAME_RULES['valid_chars'])
+
+
+def mode_create(session_dir, args):
+    validate_session_name(args.session)
+
+    logger.debug("Init is called - Session: %s, Volume: %s"
+                 % (args.session, args.volume))
     mkdirp(session_dir, exit_on_err=True, logger=logger)
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
@@ -838,6 +867,11 @@ def main():
         if not os.path.exists(session_dir) and \
                 args.mode not in ["create", "list", "query"]:
             fail("Invalid session %s" % args.session)
+
+        # volume involved, validate the volume first
+        if args.mode not in ["list"]:
+            validate_volume(args.volume)
+
 
         # "default" is a system defined session name
         if args.mode in ["create", "post", "pre", "delete"] and \
