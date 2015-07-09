@@ -1432,6 +1432,32 @@ args_seek_cbk_store (default_args_cbk_t *args, int32_t op_ret,
 }
 
 void
+args_lease_store (default_args_t *args, loc_t *loc, struct gf_lease *lease,
+                  dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->lease = *lease;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return;
+}
+
+void
+args_lease_cbk_store (default_args_cbk_t *args,
+                     int32_t op_ret, int32_t op_errno,
+                     struct gf_lease *lease, dict_t *xdata)
+{
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+        if (op_ret == 0)
+                args->lease = *lease;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+}
+
+void
 args_cbk_wipe (default_args_cbk_t *args_cbk)
 {
         if (!args_cbk)

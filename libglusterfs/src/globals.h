@@ -92,6 +92,8 @@ int synctask_set (void *);
 char *glusterfs_uuid_buf_get ();
 /* lkowner_buf */
 char *glusterfs_lkowner_buf_get ();
+/* leaseid buf */
+char *glusterfs_leaseid_buf_get ();
 
 /* init */
 int glusterfs_globals_init (glusterfs_ctx_t *ctx);

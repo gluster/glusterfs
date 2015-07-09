@@ -321,6 +321,7 @@ typedef enum {
         GF_FOP_ZEROFILL,
         GF_FOP_IPC,
         GF_FOP_SEEK,
+        GF_FOP_LEASE,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -357,6 +358,23 @@ typedef enum {
         GF_LK_F_UNLCK,
         GF_LK_EOL,
 } glusterfs_lk_types_t;
+
+/* Lease Types */
+enum gf_lease_types {
+        NONE        = 0,
+        GF_RD_LEASE = 1,
+        GF_RW_LEASE = 2,
+        GF_LEASE_MAX_TYPE,
+};
+typedef enum gf_lease_types gf_lease_types_t;
+
+/* Lease cmds */
+enum gf_lease_cmds {
+        GF_GET_LEASE = 1,
+        GF_SET_LEASE = 2,
+        GF_UNLK_LEASE = 3,
+};
+typedef enum gf_lease_cmds gf_lease_cmds_t;
 
 typedef enum {
         F_RESLK_LCK = 200,
@@ -639,6 +657,14 @@ typedef enum {
         GF_EVENT_SCRUB_STATUS,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
+
+#define LEASE_ID_SIZE 16 /* 128bits */
+struct gf_lease {
+        gf_lease_cmds_t  cmd;
+        gf_lease_types_t lease_type;
+        char             lease_id[LEASE_ID_SIZE];
+        unsigned int     lease_flags;
+};
 
 struct gf_flock {
         short        l_type;

@@ -74,6 +74,7 @@ typedef struct _call_stub {
                 fop_zerofill_t zerofill;
                 fop_ipc_t ipc;
                 fop_seek_t seek;
+                fop_lease_t lease;
 	} fn;
 
 	union {
@@ -123,6 +124,7 @@ typedef struct _call_stub {
                 fop_zerofill_cbk_t zerofill;
                 fop_ipc_cbk_t ipc;
                 fop_seek_cbk_t seek;
+                fop_lease_cbk_t lease;
 	} fn_cbk;
 
         default_args_t args;
@@ -729,6 +731,14 @@ fop_seek_cbk_stub (call_frame_t *frame, fop_seek_cbk_t fn,
                   int32_t op_ret, int32_t op_errno, off_t offset,
                   dict_t *xdata);
 
+call_stub_t *
+fop_lease_stub (call_frame_t *frame, fop_lease_t fn, loc_t *loc,
+                struct gf_lease *lease, dict_t *xdata);
+
+call_stub_t *
+fop_lease_cbk_stub (call_frame_t *frame, fop_lease_cbk_t fn,
+                    int32_t op_ret, int32_t op_errno,
+                    struct gf_lease *lease, dict_t *xdata);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

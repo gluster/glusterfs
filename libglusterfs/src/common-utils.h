@@ -100,6 +100,13 @@ void trap (void);
 #define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 
+/* Lease: buffer length for stringified lease id
+ * Format: 4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum-4hexnum
+ * Eg:6c69-6431-2d63-6c6e-7431-0000-0000-0000
+ */
+#define GF_LEASE_ID_BUF_SIZE  ((LEASE_ID_SIZE * 2) +     \
+                               (LEASE_ID_SIZE / 2))
+
 enum _gf_boolean
 {
 	_gf_false = 0,
@@ -719,6 +726,8 @@ char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);
 char *lkowner_utoa (gf_lkowner_t *lkowner);
 char *lkowner_utoa_r (gf_lkowner_t *lkowner, char *dst, int len);
+char *leaseid_utoa (const char *lease_id);
+gf_boolean_t is_valid_lease_id (const char *lease_id);
 
 void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
                              gf_cmp cmp);
