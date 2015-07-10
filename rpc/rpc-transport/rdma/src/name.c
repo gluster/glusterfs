@@ -96,10 +96,10 @@ af_unix_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
         if (path_data) {
                 char *path = data_to_str (path_data);
                 if (!path || strlen (path) > UNIX_PATH_MAX) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "transport.rdma.bind-path not specified "
-                                "for unix socket, letting connect to assign "
-                                "default value");
+                        gf_msg_debug (this->name, 0,
+                                      "transport.rdma.bind-path not specified "
+                                      "for unix socket, letting connect to "
+                                      "assign default value");
                         goto err;
                 }
 
@@ -107,9 +107,10 @@ af_unix_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
                 strcpy (addr->sun_path, path);
                 ret = bind (sock, (struct sockaddr *)addr, sockaddr_len);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "cannot bind to unix-domain socket %d (%s)",
-                                sock, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                TRANS_MSG_SOCKET_BIND_ERROR,
+                                "cannot bind to unix-domain socket %d ",
+                                sock);
                         goto err;
                 }
         }

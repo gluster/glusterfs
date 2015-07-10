@@ -372,7 +372,8 @@ gf_rdma_deregister_iobuf_pool (gf_rdma_device_t *device)
                         list_for_each_entry_safe (arena_mr, tmp,
                                                   &device->all_mr, list) {
                                 if (ibv_dereg_mr(arena_mr->mr)) {
-                                        gf_log ("rdma", GF_LOG_WARNING,
+                                        gf_msg ("rdma", GF_LOG_WARNING, 0,
+                                                RDMA_MSG_DEREGISTER_ARENA_FAILED,
                                                 "deallocation of memory region "
                                                 "failed");
                                         return;
@@ -1657,7 +1658,7 @@ __gf_rdma_create_write_chunks (gf_rdma_peer_t *peer, gf_rdma_ioq_t *entry,
   if ((chunk_type == gf_rdma_writech)
   && ((entry->msg.request.rsphdr_count == 0)
   || (entry->msg.request.rsphdr_vec[0].iov_base == NULL))) {
-  gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
+  gf_msg_debug (GF_RDMA_LOG_NAME, 0,
   "vector specifying buffer to hold the program's reply "
   "header should also be provided when buffers are "
   "provided for holding the program's payload in reply");
@@ -2756,7 +2757,8 @@ __gf_rdma_ioq_churn_entry (gf_rdma_peer_t *peer, gf_rdma_ioq_t *entry)
 
                 if (post == NULL) {
                         ret = -1;
-                        gf_log_callingfn (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                        gf_msg_callingfn (GF_RDMA_LOG_NAME, GF_LOG_WARNING, 0,
+                                          RDMA_MSG_POST_SEND_FAILED,
                                           "not able to get a post to send msg");
                         goto out;
                 }
@@ -4659,7 +4661,8 @@ gf_rdma_disconnect (rpc_transport_t *this)
         int32_t            ret  = 0;
 
         priv = this->private;
-        gf_log_callingfn (this->name, GF_LOG_DEBUG,
+        gf_msg_callingfn (this->name, GF_LOG_DEBUG, 0,
+                          RDMA_MSG_PEER_DISCONNECTED,
                           "disconnect called (peer:%s)",
                           this->peerinfo.identifier);
 
