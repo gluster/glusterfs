@@ -126,7 +126,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		ret = syncop_lookup (priv->children[dst], &srcloc, 0, 0, 0, 0);
 		if (ret == 0) {
 			ret = syncop_link (priv->children[dst], &srcloc, &loc,
-					   NULL, NULL);
+					   &newent, NULL, NULL);
 		} else {
 			ret = syncop_readlink (priv->children[source], &srcloc,
 					       &linkname, 4096, NULL, NULL);

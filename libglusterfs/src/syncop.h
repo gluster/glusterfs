@@ -475,7 +475,7 @@ int syncop_mkdir (xlator_t *subvol, loc_t *loc, mode_t mode, struct iatt *iatt,
                   dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc,
-                 dict_t *xdata_in, dict_t **xdata_out);
+                 struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_fsyncdir (xlator_t *subvol, fd_t *fd, int datasync,
                      dict_t *xdata_in, dict_t **xdata_out);

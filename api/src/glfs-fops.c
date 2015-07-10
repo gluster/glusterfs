@@ -1996,7 +1996,7 @@ retrynew:
 	}
         newloc.inode = inode_ref (oldloc.inode);
 
-	ret = syncop_link (subvol, &oldloc, &newloc, NULL, NULL);
+	ret = syncop_link (subvol, &oldloc, &newloc, &newiatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	if (ret == -1 && errno == ESTALE) {
@@ -2007,7 +2007,7 @@ retrynew:
 	}
 
 	if (ret == 0)
-		ret = glfs_loc_link (&newloc, &oldiatt);
+		ret = glfs_loc_link (&newloc, &newiatt);
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);

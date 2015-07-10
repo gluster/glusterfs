@@ -316,7 +316,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         hashed_subvol = linkto_subvol;
                 }
 
-                ret = syncop_link (hashed_subvol, loc, loc, NULL, NULL);
+                ret = syncop_link (hashed_subvol, loc, loc, &iatt, NULL, NULL);
                 if  (ret) {
                         op_errno = -ret;
                         ret = -1;

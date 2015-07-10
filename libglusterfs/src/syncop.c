@@ -2157,6 +2157,9 @@ syncop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata)
                 args->xdata  = dict_ref (xdata);
 
+        if (buf)
+                args->iatt1 = *buf;
+
         __wake (args);
 
         return 0;
@@ -2164,13 +2167,16 @@ syncop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc, dict_t *xdata_in,
-             dict_t **xdata_out)
+syncop_link (xlator_t *subvol, loc_t *oldloc, loc_t *newloc, struct iatt *iatt,
+             dict_t *xdata_in, dict_t **xdata_out)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_link_cbk, subvol->fops->link,
                 oldloc, newloc, xdata_in);
+
+        if (iatt)
+                *iatt = args.iatt1;
 
         if (xdata_out)
                 *xdata_out = args.xdata;
