@@ -41,7 +41,7 @@
  */
 
 #define GLFS_RPC_LIB_BASE        GLFS_MSGID_COMP_RPC_LIB
-#define GLFS_NUM_MESSAGES        12
+#define GLFS_NUM_MESSAGES        13
 #define GLFS_RPC_LIB_MSGID_END   (GLFS_RPC_LIB_BASE + GLFS_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -74,6 +74,8 @@
 #define TRANS_MSG_TRANSPORT_ERROR                    (GLFS_RPC_LIB_BASE + 11)
 
 #define TRANS_MSG_TIMEOUT_EXCEEDED                   (GLFS_RPC_LIB_BASE + 12)
+
+#define TRANS_MSG_SOCKET_BIND_ERROR                  (GLFS_RPC_LIB_BASE + 13)
 
 /*------------*/
 
