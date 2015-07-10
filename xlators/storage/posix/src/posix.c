@@ -3338,10 +3338,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                  * reduced into required size using GF_REALLO().
                  */
                 acl_xattr = GF_CALLOC (1, ACL_BUFFER_MAX, gf_posix_mt_char);
-                if (!acl_xattr) {
-                        ret = -1;
+                if (!acl_xattr)
                         goto out;
-                }
 
                 acl_size = sys_lgetxattr (real_path, POSIX_ACL_ACCESS_XATTR,
                                           acl_xattr, ACL_BUFFER_MAX);
@@ -3350,7 +3348,6 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_XATTR_FAILED, "Posix acl is not set "
                                 "properly at the backend");
-                        ret = -1;
                         goto out;
                 }
 
@@ -3359,32 +3356,33 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                         gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
                                 P_MSG_BUFFER_OVERFLOW, "size of acl is more"
                                 "than the buffer");
-                        ret = -1;
                         goto out;
                 }
 
                 acl_xattr = GF_REALLOC (acl_xattr, acl_size);
+                if (!acl_xattr)
+                        goto out;
+
                 ret = dict_set_bin (xattr, POSIX_ACL_ACCESS_XATTR,
                                     acl_xattr, acl_size);
-                if (ret) {
+                if (ret)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_SET_XDATA_FAIL, "failed to set"
                                 "xdata for acl");
-                        ret = -1;
-                        goto out;
-                }
-        }
 
-        GF_FREE (acl_xattr);
-        acl_xattr = NULL;
+                /*
+                 * dict_unref() will call GF_FREE() indirectly, so to avoid
+                 * double freeing acl_xattr in out, just set it as NULL here
+                 */
+                acl_xattr = NULL;
+        }
 
         if (dict_get (dict, GF_POSIX_ACL_DEFAULT)) {
 
                 acl_xattr = GF_CALLOC (1, ACL_BUFFER_MAX, gf_posix_mt_char);
-                if (!acl_xattr) {
-                        ret = -1;
+                if (!acl_xattr)
                         goto out;
-                }
+
                 acl_size = sys_lgetxattr (real_path, POSIX_ACL_DEFAULT_XATTR,
                                           acl_xattr, ACL_BUFFER_MAX);
 
@@ -3392,7 +3390,6 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_XATTR_FAILED, "Posix acl is not set "
                                 "properly at the backend");
-                        ret = -1;
                         goto out;
                 }
 
@@ -3400,20 +3397,25 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                         gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
                                 P_MSG_BUFFER_OVERFLOW, "size of acl is more"
                                 "than the buffer");
-                        ret = -1;
                         goto out;
                 }
 
                 acl_xattr = GF_REALLOC (acl_xattr, acl_size);
+                if (!acl_xattr)
+                        goto out;
+
                 ret = dict_set_bin (xattr, POSIX_ACL_DEFAULT_XATTR,
                                     acl_xattr, acl_size);
-                if (ret) {
+                if (ret)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_SET_XDATA_FAIL, "failed to set"
                                 "xdata for acl");
-                        ret = -1;
-                        goto out;
-                }
+
+                /*
+                 * dict_unref() will call GF_FREE() indirectly, so to avoid
+                 * double freeing acl_xattr in out, just set it as NULL here
+                 */
+                acl_xattr = NULL;
         }
 out:
         SET_TO_OLD_FS_ID ();
@@ -3422,9 +3424,7 @@ out:
 
         if (xattr)
                 dict_unref(xattr);
-
-        if (acl_xattr)
-                GF_FREE (acl_xattr);
+        GF_FREE (acl_xattr);
 
         return 0;
 }
