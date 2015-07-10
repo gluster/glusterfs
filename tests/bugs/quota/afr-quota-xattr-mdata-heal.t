@@ -16,7 +16,7 @@ TEST $CLI volume quota $V0 limit-usage /d 1MB
 TEST touch $M0/d/a
 echo abc > $M0/d/a
 
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "512Bytes" quota_usage "/"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "512Bytes" quotausage "/"
 
 #Set the acl xattrs directly on backend, for some reason on mount it gives error
 acl_access_val="0x0200000001000600ffffffff04000400ffffffff10000400ffffffff20000400ffffffff"

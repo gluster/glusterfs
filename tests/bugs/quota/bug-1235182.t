@@ -9,12 +9,6 @@
 
 cleanup;
 
-function usage()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | grep "$QUOTA_PATH" | awk '{print $4}'
-}
-
 QDD=$(dirname $0)/quota
 # compile the test write program and run it
 build_tester $(dirname $0)/../../basic/quota.c -o $QDD
@@ -47,7 +41,7 @@ echo "Wait for process with pid $PID to complete"
 wait $PID
 echo "Process with pid $PID finished"
 
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "100.0MB" usage "/"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "100.0MB" quotausage "/"
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
