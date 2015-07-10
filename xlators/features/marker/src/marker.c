@@ -2714,6 +2714,10 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
+        xattr_req = xattr_req ? dict_ref (xattr_req) : dict_new ();
+        if (!xattr_req)
+                goto err;
+
         if (priv->feature_enabled == 0)
                 goto wind;
 
@@ -2727,14 +2731,20 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
         if (ret == -1)
                 goto err;
 
-        if ((priv->feature_enabled & GF_QUOTA) && xattr_req)
+        if ((priv->feature_enabled & GF_QUOTA))
                 mq_req_xattr (this, loc, xattr_req, NULL);
 wind:
         STACK_WIND (frame, marker_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
+
+        dict_unref (xattr_req);
+
         return 0;
 err:
         STACK_UNWIND_STRICT (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+
+        if (xattr_req)
+                dict_unref (xattr_req);
 
         return 0;
 }
@@ -2774,8 +2784,6 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 entry->d_name);
                         continue;
                 }
-
-                mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
 
                 inode_unref (parent);
                 parent = inode_ref (entry->inode);
