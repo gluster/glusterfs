@@ -543,3 +543,21 @@ function get_scrubd_count {
         ps auxww | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
 }
 
+function quota_list_field () {
+        local QUOTA_PATH=$1
+        local FIELD=$2
+        $CLI volume quota $V0 list $QUOTA_PATH | grep $QUOTA_PATH\
+                                               | awk '{print $FIELD}'
+}
+
+function quota_object_list_field () {
+        local QUOTA_PATH=$1
+        local FIELD=$2
+        $CLI volume quota $V0 list-objects $QUOTA_PATH | grep $QUOTA_PATH\
+                                                       | awk '{print $FIELD}'
+}
+
+function quota_usage()
+{
+        quota_list_field $1 4
+}
