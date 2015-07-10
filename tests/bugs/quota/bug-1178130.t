@@ -9,12 +9,6 @@
 
 cleanup;
 
-function usage()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | grep "$QUOTA_PATH" | awk '{print $4}'
-}
-
 QDD=$(dirname $0)/quota
 # compile the test write program and run it
 build_tester $(dirname $0)/../../basic/quota.c -o $QDD
@@ -35,7 +29,7 @@ TEST $CLI volume quota $V0 hard-timeout 0
 TEST $CLI volume quota $V0 soft-timeout 0
 
 TEST $QDD $M0/file 256 40
-EXPECT "10.0MB" usage "/"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10.0MB" quotausage "/"
 
 TEST kill_brick $V0 $H0 $B0/${V0}2
 TEST mv $M0/file $M0/file2
@@ -45,7 +39,7 @@ TEST $CLI volume start $V0 force;
 EXPECT_WITHIN $HEAL_TIMEOUT "0" STAT "$B0/${V0}2/file2"
 
 #usage should remain same after rename and self-heal operation
-EXPECT "10.0MB" usage "/"
+EXPECT "10.0MB" quotausage "/"
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

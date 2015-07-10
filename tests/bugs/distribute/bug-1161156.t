@@ -4,13 +4,6 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
-function usage()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | \
-                grep "$QUOTA_PATH" | awk '{print $4}'
-}
-
 cleanup;
 
 QDD=$(dirname $0)/quota
@@ -44,7 +37,7 @@ TEST $CLI volume quota $V0 hard-timeout 0
 
 TEST $QDD $N0/$mydir/newfile_1 256 20
 # wait for write behind to complete.
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" usage "/"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" quotausage "/"
 TEST ! $QDD $N0/$mydir/newfile_2 256 40
 
 # Test rename within a directory. It should pass even when the
