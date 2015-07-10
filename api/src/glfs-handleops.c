@@ -1572,6 +1572,7 @@ pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
         inode_t            *pinode = NULL;
         loc_t               oldloc = {0, };
         loc_t               newloc = {0, };
+        struct iatt         iatt = {0, };
 
         DECLARE_OLD_THIS;
 
@@ -1629,12 +1630,11 @@ pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
         newloc.inode = inode_ref (inode);
 
         /* fop/op */
-        ret = syncop_link (subvol, &oldloc, &newloc, NULL, NULL);
+        ret = syncop_link (subvol, &oldloc, &newloc, &iatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret == 0)
-                /* TODO: No iatt to pass as there has been no lookup */
-                ret = glfs_loc_link (&newloc, NULL);
+                ret = glfs_loc_link (&newloc, &iatt);
 out:
         loc_wipe (&oldloc);
         loc_wipe (&newloc);
