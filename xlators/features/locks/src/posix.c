@@ -1806,10 +1806,21 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         posix_lock_t *conf       = NULL;
         int           ret        = 0;
 
-        if ((flock->l_start < 0) || (flock->l_len < 0)) {
+        if ((flock->l_start < 0) ||
+            ((flock->l_start + flock->l_len) < 0)) {
                 op_ret = -1;
                 op_errno = EINVAL;
                 goto unwind;
+        }
+
+        /* As per 'man 3 fcntl', the value of l_len may be
+         * negative. In such cases, lock request should be
+         * considered for the range starting at 'l_start+l_len'
+         * and ending at 'l_start-1'. Update the fields accordingly.
+         */
+        if (flock->l_len < 0) {
+                flock->l_start += flock->l_len;
+                flock->l_len = abs (flock->l_len);
         }
 
         pl_inode = pl_inode_get (this, fd->inode);
