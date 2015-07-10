@@ -513,8 +513,6 @@ posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p)
         iatt_from_stat (&stbuf, &fstatbuf);
 
         ret = posix_fill_gfid_fd (this, fd, &stbuf);
-        if (ret)
-                gf_log_callingfn (this->name, GF_LOG_DEBUG, "failed to get gfid");
 
         posix_fill_ino_from_gfid (this, &stbuf);
 

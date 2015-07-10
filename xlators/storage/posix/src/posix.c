@@ -2788,8 +2788,9 @@ _fill_writev_xdata (fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
                 inode = fd->inode;
 
         if (!fd || !fd->inode || gf_uuid_is_null (fd->inode->gfid)) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid Args: "
-                                  "fd: %p inode: %p gfid:%s", fd, inode?inode:0,
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, EINVAL,
+                                  P_MSG_XATTR_FAILED, "fd: %p inode: %p"
+                                  "gfid:%s", fd, inode?inode:0,
                                   inode?uuid_utoa(inode->gfid):"N/A");
                 goto out;
         }
@@ -4536,9 +4537,10 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 ret = posix_fdstat (this, pfd->fd, &stbuf);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fsetxattr (fstat) failed on fd=%p: %s",
-                                fd, strerror (op_errno));
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                P_MSG_XATTR_FAILED, "fsetxattr (fstat)"
+                                "failed on fd=%p", fd);
                         goto out;
                 }
 
