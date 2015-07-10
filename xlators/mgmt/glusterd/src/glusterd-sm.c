@@ -1020,7 +1020,7 @@ glusterd_sm_t  glusterd_state_befriended [] = {
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_PROBE,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_ACC
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
