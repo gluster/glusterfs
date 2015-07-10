@@ -188,7 +188,7 @@ int glfs_h_close (struct glfs_object *object) __THROW
 
 int glfs_caller_specific_init (void *uid_caller_key, void *gid_caller_key,
 			       void *future) __THROW
-        GFAPI_PUBLIC(glfs_h_lookupat, 3.5.0);
+        GFAPI_PUBLIC(glfs_caller_specific_init, 3.5.0);
 
 int glfs_h_truncate (struct glfs *fs, struct glfs_object *object,
                      off_t offset) __THROW
@@ -209,7 +209,7 @@ int glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
 int glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
 		      const char *name, void *value,
 		      size_t size) __THROW
-        GFAPI_PUBLIC(glfs_h_lookupat, 3.5.1);
+        GFAPI_PUBLIC(glfs_h_getxattrs, 3.5.1);
 
 int glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
 		     struct stat *sb, int valid) __THROW
