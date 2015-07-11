@@ -630,7 +630,8 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                         /* Non-privileged user, fail request */
                         gf_log (GF_RPCSVC, GF_LOG_ERROR,
                                 "Request received from non-"
-                                "privileged port. Failing request");
+                                "privileged port. Failing request for %s.",
+                                req->trans->peerinfo.identifier);
                         rpcsvc_request_destroy (req);
                         return -1;
         }
