@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+#define SUPPORT_RMTAB 0
 
 /* This macro will assist in freeing up entire link list
  * of host_auth_spec structure.
@@ -444,7 +445,7 @@ mount_open_rmtab (const char *rmtab, gf_store_handle_t **sh)
         return _gf_true;
 }
 
-
+#if SUPPORT_RMTAB
 /* Read the rmtab into a clean ms->mountlist.
  */
 static void
@@ -472,6 +473,7 @@ mount_read_rmtab (struct mount3_state *ms)
 out:
         gf_store_handle_destroy (sh);
 }
+#endif
 
 /* Write the ms->mountlist to the rmtab.
  *
@@ -597,7 +599,9 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
+#if SUPPORT_RMTAB
         update_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
+#endif
 
         strncpy (me->exname, expname, MNTPATHLEN);
         /* Sometimes we don't care about the full path
@@ -791,7 +795,9 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         }
 
         snprintf (path, PATH_MAX, "/%s", mntxl->name);
+#if SUPPORT_RMTAB
         mnt3svc_update_mountlist (ms, req, path, NULL);
+#endif
         GF_FREE (path);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx))) {
                 fh = nfs3_fh_build_indexed_root_fh (ms->nfsx->children, mntxl);
@@ -2265,9 +2271,10 @@ __build_mountlist (struct mount3_state *ms, int *count)
         if ((!ms) || (!count))
                 return NULL;
 
+#if SUPPORT_RMTAB
         /* read rmtab, other peers might have updated it */
         mount_read_rmtab(ms);
-
+#endif
         *count = 0;
         gf_msg_debug (GF_MNT, 0, "Building mount list:");
         list_for_each_entry (me, &ms->mountlist, mlist) {
@@ -2399,7 +2406,9 @@ mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
 
         nfs = (struct nfs_state *)ms->nfsx->private;
 
+#if SUPPORT_RMTAB
         update_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
+#endif
         if (update_rmtab) {
                 ret = gf_store_lock (sh);
                 if (ret)
@@ -3026,7 +3035,9 @@ mount3udp_add_mountlist (xlator_t *nfsx, char *host, char *export)
         LOCK (&ms->mountlock);
         {
                 list_add_tail (&me->mlist, &ms->mountlist);
+#if SUPPORT_RMTAB
                 mount_rewrite_rmtab(ms, NULL);
+#endif
         }
         UNLOCK (&ms->mountlock);
         return 0;
