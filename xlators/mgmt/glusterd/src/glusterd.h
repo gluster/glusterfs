@@ -170,6 +170,7 @@ typedef struct {
         struct cds_list_head       missed_snaps_list;
         int                        ping_timeout;
         uint32_t                   generation;
+        int32_t                    workers;
 } glusterd_conf_t;
 
 

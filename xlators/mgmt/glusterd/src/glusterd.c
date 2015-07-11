@@ -24,6 +24,7 @@
 #include "defaults.h"
 #include "list.h"
 #include "dict.h"
+#include "options.h"
 #include "compat.h"
 #include "compat-errno.h"
 #include "syscall.h"
@@ -1353,6 +1354,7 @@ init (xlator_t *this)
         char              *valgrind_str               = NULL;
         char              *transport_type             = NULL;
         char               var_run_dir[PATH_MAX]      = {0,};
+        int32_t            workers                    = 0;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1804,6 +1806,15 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        GF_OPTION_INIT ("event-threads", workers, int32, out);
+        if (workers > 0 && workers != conf->workers) {
+                conf->workers = workers;
+                ret = event_reconfigure_threads (this->ctx->event_pool,
+                                                 workers);
+                if (ret)
+                        goto out;
+        }
+
         ret = 0;
 out:
         if (ret < 0) {
@@ -1981,6 +1992,16 @@ struct volume_options options[] = {
           .min  = 0,
           .max  = 300,
           .default_value = TOSTRING(RPC_DEFAULT_PING_TIMEOUT),
+        },
+        { .key   = {"event-threads"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 32,
+          .default_value = "2",
+          .description = "Specifies the number of event threads to execute "
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads."
         },
         { .key   = {NULL} },
 };
