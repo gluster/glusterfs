@@ -1945,37 +1945,38 @@ handling_other_acl_related_xattr (xlator_t *this, inode_t *inode, dict_t *xattr)
         data_t                 *data     = NULL;
         int                     ret      = 0;
 
-        ctx = posix_acl_ctx_get (inode, this);
-        if (!ctx) {
-                ret = -1;
-                goto out;
-        }
-
         data = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
         if (data) {
+
+
+                acl = posix_acl_from_xattr (this, data->data, data->len);
+                if (!acl) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = posix_acl_set_specific (inode, this, acl, _gf_true);
+                if (ret)
+                        goto out;
+
                 ctx = posix_acl_ctx_get (inode, this);
                 if (!ctx) {
                         ret = -1;
                         goto out;
                 }
 
-                acl = posix_acl_from_xattr (this, data->data, data->len);
-
-                ret = posix_acl_set_specific (inode, this, acl, _gf_true);
-                if (ret)
-                        goto out;
-
-                if (acl)
-                        posix_acl_access_set_mode (acl, ctx);
-
-        }
-
-        if (acl)
+                posix_acl_access_set_mode (acl, ctx);
                 posix_acl_unref (this, acl);
+                acl = NULL;
+        }
 
         data = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
         if (data) {
                 acl = posix_acl_from_xattr (this, data->data, data->len);
+                if (!acl) {
+                        ret = -1;
+                        goto out;
+                }
 
                 ret = posix_acl_set_specific (inode, this, acl, _gf_false);
         }
