@@ -13,6 +13,7 @@
 #include "xlator.h"
 #include "marker-mem-types.h"
 #include "refcount.h"
+#include "quota-common-utils.h"
 
 #define QUOTA_XATTR_PREFIX "trusted.glusterfs"
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
@@ -93,7 +94,7 @@ typedef struct quota_inode_ctx quota_inode_ctx_t;
 struct quota_synctask {
         xlator_t      *this;
         loc_t          loc;
-        int64_t        contri;
+        quota_meta_t   contri;
         gf_boolean_t   is_static;
 };
 typedef struct quota_synctask quota_synctask_t;
@@ -141,7 +142,7 @@ int32_t
 mq_reduce_parent_size (xlator_t *, loc_t *, int64_t);
 
 int32_t
-mq_reduce_parent_size_txn (xlator_t *, loc_t *, int64_t);
+mq_reduce_parent_size_txn (xlator_t *, loc_t *, quota_meta_t *);
 
 int32_t
 mq_rename_update_newpath (xlator_t *, loc_t *);
