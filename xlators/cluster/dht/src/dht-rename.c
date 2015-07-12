@@ -359,6 +359,7 @@ dht_rename_track_for_changelog (xlator_t *this, dict_t *xattr,
                         "Failed to set dictionary value: key = %s,"
                         " path = %s", DHT_CHANGELOG_RENAME_OP_KEY,
                         oldloc->name);
+                GF_FREE (info);
         }
         return ret;
 }

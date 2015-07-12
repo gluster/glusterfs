@@ -401,6 +401,12 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
+        new_dict = dict_new ();
+        if (!new_dict) {
+                errno = ENOMEM;
+                goto err;
+        }
+
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
         *delta = hton64 (local->sum - ntoh64 (*size));
@@ -410,15 +416,11 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 " path = %s diff = %"PRIu64, local->sum, ntoh64 (*size),
                 local->loc.path, ntoh64 (*delta));
 
-        new_dict = dict_new ();
-        if (!new_dict) {
-		errno = ENOMEM;
-		goto err;
-	}
-
         ret = dict_set_bin (new_dict, QUOTA_SIZE_KEY, delta, 8);
-        if (ret)
+        if (ret) {
+                GF_FREE (delta);
                 goto err;
+        }
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
@@ -1649,6 +1651,7 @@ mq_update_parent_size (call_frame_t *frame,
 
         ret = dict_set_bin (newdict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0) {
+                GF_FREE (size);
                 op_errno = -ret;
                 goto err;
         }
@@ -1776,6 +1779,7 @@ unlock:
 
         ret = dict_set_bin (newdict, contri_key, delta, 8);
         if (ret < 0) {
+                GF_FREE (delta);
                 op_errno = -ret;
                 ret = -1;
                 goto err;
@@ -3998,8 +4002,10 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         *size = hton64 (-local->size);
 
         ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
-        if (ret < 0)
+        if (ret < 0) {
+                GF_FREE (size);
                 goto err;
+        }
 
         gf_uuid_copy (local->parent_loc.gfid,
                    local->parent_loc.inode->gfid);

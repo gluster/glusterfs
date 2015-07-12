@@ -1345,8 +1345,10 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         op_errno = EINVAL;
         ret = dict_set_bin (xattr, GLUSTERFS_GET_OBJECT_SIGNATURE,
                             (void *)sign, totallen);
-        if (ret < 0)
+        if (ret < 0) {
+                GF_FREE (sign);
                 goto delkeys;
+        }
         op_errno = 0;
         op_ret = totallen;
 

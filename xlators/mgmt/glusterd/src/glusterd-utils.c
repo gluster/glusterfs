@@ -7308,8 +7308,10 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
                 snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i + dst_count);
 
                 ret = dict_set_bin (dst, sts_val_name, dst_sts_val, sizeof(gf_gsync_status_t));
-                if (ret)
+                if (ret) {
+                        GF_FREE (dst_sts_val);
                         goto out;
+                }
         }
 
         ret = dict_set_int32 (dst, "gsync-count", dst_count+src_count);

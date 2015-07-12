@@ -5142,6 +5142,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                        "Failed to set transaction id.");
+                GF_FREE (txn_id);
                 goto out;
         }
 
@@ -5256,6 +5257,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                        "Failed to set transaction id.");
+                GF_FREE (txn_id);
                 goto out;
         }
 

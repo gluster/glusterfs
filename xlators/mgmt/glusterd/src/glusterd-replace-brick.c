@@ -868,6 +868,7 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases (rpcsvc_request_t *req,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
+                GF_FREE (originator_uuid);
                 goto out;
         }
 

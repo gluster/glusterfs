@@ -680,6 +680,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                         "Directory self heal xattr failed:"
                         "%s: (subvol %s) Failed to set xattr dictionary,"
                         " gfid = %s", loc->path, subvol->name, gfid);
+                GF_FREE (disk_layout);
                 goto err;
         }
         disk_layout = NULL;
@@ -2125,6 +2126,8 @@ dht_update_commit_hash_for_layout_resume (call_frame_t *frame, void *cookie,
                                 "%s: (subvol %s) Failed to set xattr"
                                 " dictionary,", local->loc.path,
                                 conf->local_subvols[i]->name);
+
+                        GF_FREE (disk_layout);
 
                         goto err;
                 }

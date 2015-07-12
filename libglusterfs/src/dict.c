@@ -2286,8 +2286,11 @@ dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
         data->is_static = is_static;
 
         ret = dict_set (this, key, data);
-        if (ret < 0)
+        if (ret < 0) {
+                /* don't free data->data, let callers handle it */
+                data->data = NULL;
                 data_destroy (data);
+        }
 
 err:
         return ret;
