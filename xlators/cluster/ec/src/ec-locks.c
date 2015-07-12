@@ -77,7 +77,10 @@ int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
                 }
             }
         } else {
-            error = EIO;
+            if (fop->answer && fop->answer->op_ret < 0)
+                    error = fop->answer->op_errno;
+            else
+                    error = EIO;
         }
     }
 

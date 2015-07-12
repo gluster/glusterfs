@@ -64,6 +64,8 @@ static char* posix_ignore_xattrs[] = {
         GLUSTERFS_POSIXLK_COUNT,
         GLUSTERFS_PARENT_ENTRYLK,
         GF_GFIDLESS_LOOKUP,
+        GLUSTERFS_INODELK_DOM_COUNT,
+        GLUSTERFS_INTERNAL_FOP_KEY,
         NULL
 };
 
@@ -1512,6 +1514,7 @@ _handle_entry_create_keyvalue_pair (dict_t *d, char *k, data_t *v,
             !strcmp ("gfid-req", k) ||
             !strcmp (POSIX_ACL_DEFAULT_XATTR, k) ||
             !strcmp (POSIX_ACL_ACCESS_XATTR, k) ||
+            posix_xattr_ignorable (k) ||
             ZR_FILE_CONTENT_REQUEST(k)) {
                 return 0;
         }
