@@ -92,7 +92,6 @@ struct marker_local{
         pid_t           pid;
         loc_t           loc;
         loc_t           parent_loc;
-        loc_t          *next_lock_on;
         uid_t           uid;
         gid_t           gid;
         int32_t         ref;
@@ -101,7 +100,8 @@ struct marker_local{
         mode_t          mode;
         int32_t         err;
         call_stub_t    *stub;
-        int64_t         contribution;
+        call_frame_t   *lk_frame;
+        quota_meta_t    contribution;
         struct marker_local *oplocal;
 
         /* marker quota specific */
