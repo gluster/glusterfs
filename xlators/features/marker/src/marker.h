@@ -75,6 +75,18 @@ enum {
                 frame->cookie = NULL;                           \
         } while (0)
 
+#define MARKER_STACK_UNWIND(fop, frame, params...)              \
+        do {                                                    \
+                quota_local_t *_local = NULL;                   \
+                if (frame) {                                    \
+                        _local = frame->local;                  \
+                        frame->local = NULL;                    \
+                }                                               \
+                STACK_UNWIND_STRICT (fop, frame, params);       \
+                if (_local)                                     \
+                        marker_local_unref (_local);            \
+        } while (0)
+
 struct marker_local{
         uint32_t        timebuf[2];
         pid_t           pid;
