@@ -146,6 +146,7 @@ struct _ec_lock
                                    the next unlock/lock cycle. */
     uintptr_t          mask;
     uintptr_t          good_mask;
+    uintptr_t          healing;
     int32_t            refs;
     int32_t            refs_frozen;
     int32_t            inserted;
