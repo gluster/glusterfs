@@ -256,10 +256,13 @@ int32_t ec_heal_readv_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     }
     else
     {
-            gf_msg_debug (fop->xl->name, 0, "%s: read failed %s, failing "
-                    "to heal block at %"PRIu64,
-                    uuid_utoa (heal->fd->inode->gfid), strerror (op_errno),
-                    heal->offset);
+        if (op_ret < 0) {
+                gf_msg_debug (fop->xl->name, 0, "%s: read failed %s, failing "
+                        "to heal block at %"PRIu64,
+                        uuid_utoa (heal->fd->inode->gfid), strerror (op_errno),
+                        heal->offset);
+                heal->bad = 0;
+        }
         heal->done = 1;
     }
 
@@ -1709,10 +1712,7 @@ ec_manager_heal_block (ec_fop_data_t *fop, int32_t state)
     case EC_STATE_HEAL_DATA_UNLOCK:
         ec_heal_inodelk(heal, F_UNLCK, 1, 0, 0);
 
-        if (state < 0)
-                return -EC_STATE_REPORT;
-        else
-                return EC_STATE_REPORT;
+         return EC_STATE_REPORT;
 
     case EC_STATE_REPORT:
         if (fop->cbks.heal) {
@@ -1728,7 +1728,7 @@ ec_manager_heal_block (ec_fop_data_t *fop, int32_t state)
                             EIO, 0, 0, 0, NULL);
         }
 
-        return -EC_STATE_END;
+        return EC_STATE_END;
     default:
         gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
                 EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
@@ -1758,8 +1758,6 @@ ec_heal_block (call_frame_t *frame, xlator_t *this, uintptr_t target,
                                 heal);
     if (fop == NULL)
         goto out;
-
-    GF_ASSERT(ec_set_inode_size(fop, heal->fd->inode, heal->total_size));
 
     error = 0;
 
@@ -1834,6 +1832,8 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
                         break;
 
         }
+        memset (healed_sinks, 0, ec->nodes);
+        ec_mask_to_char_array (heal->bad, healed_sinks, ec->nodes);
         fd_unref (heal->fd);
         LOCK_DESTROY (&heal->lock);
         syncbarrier_destroy (heal->data);

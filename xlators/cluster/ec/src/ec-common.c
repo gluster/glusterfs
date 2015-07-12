@@ -401,6 +401,18 @@ ec_must_wind (ec_fop_data_t *fop)
         return _gf_false;
 }
 
+static gf_boolean_t
+ec_internal_op (ec_fop_data_t *fop)
+{
+        if (ec_must_wind (fop))
+                return _gf_true;
+        if (fop->id == GF_FOP_XATTROP)
+                return _gf_true;
+        if (fop->id == GF_FOP_FXATTROP)
+                return _gf_true;
+        return _gf_false;
+}
+
 int32_t ec_child_select(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
@@ -413,8 +425,9 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     /* Wind the fop on same subvols as parent for any internal extra fops like
      * head/tail read in case of writev fop. Unlocks shouldn't do this because
      * unlock should go on all subvols where lock is performed*/
-    if (fop->parent && !ec_must_wind (fop))
+    if (fop->parent && !ec_internal_op (fop)) {
             fop->mask &= (fop->parent->mask & ~fop->parent->healing);
+    }
 
     mask = ec->xl_up;
     if (fop->parent == NULL)
@@ -972,6 +985,7 @@ out:
         parent->mask &= fop->good;
 
         /*As of now only data healing marks bricks as healing*/
+        lock->healing |= fop->healing;
         if (ec_is_data_fop (parent->id)) {
             parent->healing |= fop->healing;
         }
@@ -996,9 +1010,13 @@ void ec_get_size_version(ec_lock_link_t *link)
 
     lock = link->lock;
     ctx = lock->ctx;
+    fop = link->fop;
 
     /* If ec metadata has already been retrieved, do not try again. */
     if (ctx->have_info) {
+        if (ec_is_data_fop (fop->id)) {
+            fop->healing |= lock->healing;
+        }
         return;
     }
 
@@ -1007,8 +1025,6 @@ void ec_get_size_version(ec_lock_link_t *link)
     if (!lock->query && (lock->loc.inode->ia_type != IA_IFREG)) {
         return;
     }
-
-    fop = link->fop;
 
     uid = fop->frame->root->uid;
     gid = fop->frame->root->gid;
@@ -1274,6 +1290,7 @@ int32_t ec_locked(call_frame_t *frame, void *cookie, xlator_t *this,
         link = fop->data;
         lock = link->lock;
         lock->mask = lock->good_mask = fop->good;
+        lock->healing = 0;
 
         ec_lock_acquired(link);
         ec_lock(fop->parent);
