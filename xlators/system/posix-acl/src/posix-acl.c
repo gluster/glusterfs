@@ -659,6 +659,7 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
                             size_access);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                GF_FREE (xattr_access);
                 ret = -1;
                 goto out;
         }
@@ -682,6 +683,7 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
                             size_default);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                GF_FREE (xattr_default);
                 ret = -1;
                 goto out;
         }

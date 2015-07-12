@@ -260,9 +260,11 @@ marker_getxattr_stampfile_cbk (call_frame_t *frame, xlator_t *this,
 
         ret = dict_set_bin (dict, (char *)name, vol_mark,
                             sizeof (struct volume_mark));
-        if (ret)
+        if (ret) {
+                GF_FREE (vol_mark);
                 gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
                         name);
+        }
 
         STACK_UNWIND_STRICT (getxattr, frame, 0, 0, dict, xdata);
 

@@ -161,6 +161,7 @@ size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
 int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
                           int32_t size)
 {
+    int         ret = -1;
     uint64_t   *ptr = NULL;
     int32_t     vindex;
     if (value == NULL)
@@ -172,7 +173,10 @@ int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
     for (vindex = 0; vindex < size; vindex++) {
          ptr[vindex] = hton64(value[vindex]);
     }
-    return dict_set_bin(dict, key, ptr, sizeof(uint64_t) * size);
+    ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t) * size);
+    if (ret)
+         GF_FREE (ptr);
+    return ret;
 }
 
 
@@ -214,6 +218,7 @@ int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
 
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
 {
+    int        ret = -1;
     uint64_t * ptr;
 
     ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
@@ -224,7 +229,11 @@ int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
 
     *ptr = hton64(value);
 
-    return dict_set_bin(dict, key, ptr, sizeof(value));
+    ret = dict_set_bin(dict, key, ptr, sizeof(value));
+    if (ret)
+        GF_FREE (ptr);
+
+    return ret;
 }
 
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
@@ -247,6 +256,7 @@ int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
 
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
 {
+    int ret = -1;
     uint64_t * ptr, data;
 
     if (config->version > EC_CONFIG_VERSION)
@@ -274,7 +284,11 @@ int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
 
     *ptr = hton64(data);
 
-    return dict_set_bin(dict, key, ptr, sizeof(uint64_t));
+    ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t));
+    if (ret)
+        GF_FREE (ptr);
+
+    return ret;
 }
 
 int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)

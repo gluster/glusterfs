@@ -81,8 +81,10 @@ afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
 	raw[idx] = hton32 (output_dirty[subvol]);
 	ret = dict_set_bin (xattr, AFR_DIRTY, raw,
 			    sizeof(int) * AFR_NUM_CHANGE_LOGS);
-	if (ret)
+	if (ret) {
+                GF_FREE (raw);
 		goto err;
+        }
 
 	/* clear/set pending */
 	for (j = 0; j < priv->child_count; j++) {
@@ -95,8 +97,10 @@ afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
 
 		ret = dict_set_bin (xattr, priv->pending_key[j],
 				    raw, sizeof(int) * AFR_NUM_CHANGE_LOGS);
-		if (ret)
+		if (ret) {
+                        GF_FREE (raw);
 			goto err;
+                }
 	}
 
 	return xattr;

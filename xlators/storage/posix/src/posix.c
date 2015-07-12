@@ -3365,16 +3365,13 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
                 ret = dict_set_bin (xattr, POSIX_ACL_ACCESS_XATTR,
                                     acl_xattr, acl_size);
-                if (ret)
+                if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_SET_XDATA_FAIL, "failed to set"
                                 "xdata for acl");
-
-                /*
-                 * dict_unref() will call GF_FREE() indirectly, so to avoid
-                 * double freeing acl_xattr in out, just set it as NULL here
-                 */
-                acl_xattr = NULL;
+                        GF_FREE (acl_xattr);
+                        goto out;
+                }
         }
 
         if (dict_get (dict, GF_POSIX_ACL_DEFAULT)) {
@@ -3406,16 +3403,13 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
                 ret = dict_set_bin (xattr, POSIX_ACL_DEFAULT_XATTR,
                                     acl_xattr, acl_size);
-                if (ret)
+                if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_SET_XDATA_FAIL, "failed to set"
                                 "xdata for acl");
-
-                /*
-                 * dict_unref() will call GF_FREE() indirectly, so to avoid
-                 * double freeing acl_xattr in out, just set it as NULL here
-                 */
-                acl_xattr = NULL;
+                        GF_FREE (acl_xattr);
+                        goto out;
+                }
         }
 out:
         SET_TO_OLD_FS_ID ();
@@ -3423,8 +3417,7 @@ out:
         STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xattr);
 
         if (xattr)
-                dict_unref(xattr);
-        GF_FREE (acl_xattr);
+                dict_unref (xattr);
 
         return 0;
 }
@@ -4963,9 +4956,8 @@ unlock:
                 op_ret = -1;
                 goto out;
         } else {
-                size = dict_set_bin (d, k, array, v->len);
-
-                if (size != 0) {
+                op_ret = dict_set_bin (d, k, array, v->len);
+                if (op_ret) {
                         if (filler->real_path)
                                 gf_msg_debug (this->name, 0,
                                         "dict_set_bin failed (path=%s): "
@@ -4980,6 +4972,7 @@ unlock:
 
                         op_ret = -1;
                         op_errno = EINVAL;
+                        GF_FREE (array);
                         goto out;
                 }
                 array = NULL;

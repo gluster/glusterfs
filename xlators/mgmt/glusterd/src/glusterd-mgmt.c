@@ -1817,6 +1817,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
+                GF_FREE (originator_uuid);
                 goto out;
         }
 
@@ -2051,6 +2052,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
+                GF_FREE (originator_uuid);
                 goto out;
         }
 
