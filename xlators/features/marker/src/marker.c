@@ -343,10 +343,6 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
-        marker_local_t *local = NULL;
-        local = frame->local;
-
-
         if (cookie) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Filtering the quota extended attributes");
@@ -372,9 +368,7 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 marker_filter_internal_xattrs (frame->this, dict);
         }
 
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
-        marker_local_unref (local);
+        MARKER_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
 
@@ -422,9 +416,7 @@ marker_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return 0;
 out:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL, NULL);
-        marker_local_unref (local);
+        MARKER_STACK_UNWIND (getxattr, frame, -1, ENOMEM, NULL, NULL);
         return 0;
 }
 
@@ -661,8 +653,9 @@ wind:
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (mkdir, frame, -1, ENOMEM, NULL,
+        MARKER_STACK_UNWIND (mkdir, frame, -1, ENOMEM, NULL,
                              NULL, NULL, NULL, NULL);
+
         return 0;
 }
 
@@ -735,7 +728,7 @@ wind:
                     fd, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+        MARKER_STACK_UNWIND (create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
                              NULL, NULL);
 
         return 0;
@@ -811,7 +804,7 @@ wind:
                     flags, iobref, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -879,7 +872,7 @@ wind:
                     FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (rmdir, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (rmdir, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -958,9 +951,7 @@ unlink_wind:
                     FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
 err:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (unlink, frame, -1, ENOMEM, NULL, NULL, NULL);
-        marker_local_unref (local);
+        MARKER_STACK_UNWIND (unlink, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1034,7 +1025,7 @@ wind:
                     FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+        MARKER_STACK_UNWIND (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
                              NULL);
 
         return 0;
@@ -1616,8 +1607,9 @@ rename_wind:
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (rename, frame, -1, ENOMEM, NULL,
+        MARKER_STACK_UNWIND (rename, frame, -1, ENOMEM, NULL,
                              NULL, NULL, NULL, NULL, NULL);
+        marker_local_unref (oplocal);
 
         return 0;
 }
@@ -1686,7 +1678,7 @@ wind:
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1754,7 +1746,7 @@ wind:
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1828,8 +1820,9 @@ wind:
                     xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (symlink, frame, -1, ENOMEM, NULL,
+        MARKER_STACK_UNWIND (symlink, frame, -1, ENOMEM, NULL,
                              NULL, NULL, NULL, NULL);
+
         return 0;
 }
 
@@ -1904,8 +1897,9 @@ wind:
                     xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (mknod, frame, -1, ENOMEM, NULL,
+        MARKER_STACK_UNWIND (mknod, frame, -1, ENOMEM, NULL,
                              NULL, NULL, NULL, NULL);
+
         return 0;
 }
 
@@ -1973,7 +1967,7 @@ wind:
 		    xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (fallocate, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (fallocate, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2041,7 +2035,7 @@ wind:
                     FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (discard, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (discard, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2108,7 +2102,7 @@ wind:
                     FIRST_CHILD(this)->fops->zerofill, fd, offset, len, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (zerofill, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (zerofill, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2229,16 +2223,11 @@ quota_xattr_cleaner_cbk (int ret, call_frame_t *frame, void *args)
         dict_t *xdata = args;
         int op_ret = -1;
         int op_errno = 0;
-	marker_local_t *local = NULL;
-
-	local = frame->local;
-	frame->local = NULL;
 
         op_ret   = (ret < 0)? -1: 0;
         op_errno = -ret;
 
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
-	marker_local_unref (local);
+        MARKER_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
         return ret;
 }
 
@@ -2312,11 +2301,9 @@ marker_do_xattr_cleanup (call_frame_t *frame, xlator_t *this, dict_t *xdata,
 
         ret = 0;
 out:
-        if (ret) {
-		frame->local = NULL;
-                STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM, xdata);
-		marker_local_unref (local);
-        }
+        if (ret)
+                MARKER_STACK_UNWIND (setxattr, frame, -1, ENOMEM, xdata);
+
         return ret;
 }
 
@@ -2371,7 +2358,7 @@ wind:
                     FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, NULL);
+        MARKER_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
 
         return 0;
 }
@@ -2438,7 +2425,7 @@ wind:
                     FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOMEM, NULL);
+        MARKER_STACK_UNWIND (fsetxattr, frame, -1, ENOMEM, NULL);
 
         return 0;
 }
@@ -2504,7 +2491,7 @@ wind:
                     FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2571,7 +2558,7 @@ wind:
                     FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2636,7 +2623,7 @@ wind:
                     FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
         return 0;
 err:
-        STACK_UNWIND_STRICT (removexattr, frame, -1, ENOMEM, NULL);
+        MARKER_STACK_UNWIND (removexattr, frame, -1, ENOMEM, NULL);
 
         return 0;
 }
@@ -2746,7 +2733,7 @@ wind:
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+        MARKER_STACK_UNWIND (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
 
         if (xattr_req)
                 dict_unref (xattr_req);
@@ -2858,11 +2845,7 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
-        local = frame->local;
-        frame->local = NULL;
-
-        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
-        marker_local_unref (local);
+        MARKER_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, xdata);
 
         return 0;
 }
@@ -2906,7 +2889,7 @@ marker_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         dict_unref (dict);
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL, NULL);
+        MARKER_STACK_UNWIND (readdirp, frame, -1, ENOMEM, NULL, NULL);
         return 0;
 }
 
