@@ -28,13 +28,22 @@ TEST $CLI volume quota $V0 limit-usage / 1GB
 TEST $CLI volume quota $V0 hard-timeout 0
 TEST $CLI volume quota $V0 soft-timeout 0
 
-$QDD $M0/f1 256 400&
+TEST mkdir $M0/1
+$QDD $M0/1/f1 256 400&
 PID=$!
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/f1
-TESTS_EXPECTED_IN_LOOP=50
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/1/f1
+TESTS_EXPECTED_IN_LOOP=150
 for i in {1..50}; do
         ii=`expr $i + 1`;
-        TEST_IN_LOOP mv $M0/f$i $M0/f$ii;
+        touch $M0/$i/f$ii
+        echo Hello > $M0/$i/f$ii
+
+        #rename within same dir
+        TEST_IN_LOOP mv -f $M0/$i/f$i $M0/$i/f$ii;
+
+        #rename to different dir
+        TEST_IN_LOOP mkdir $M0/$ii
+        TEST_IN_LOOP mv -f $M0/$i/f$ii $M0/$ii/f$ii;
 done
 
 echo "Wait for process with pid $PID to complete"

@@ -174,6 +174,9 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
 
         LOCK (&ctx->lock);
         {
+                if (list_empty (&ctx->contribution_head))
+                        goto unlock;
+
                 list_for_each_entry (temp, &ctx->contribution_head,
                                      contri_list) {
                         if (gf_uuid_compare (temp->gfid, inode->gfid) == 0) {
@@ -183,7 +186,9 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
                         }
                 }
         }
+unlock:
         UNLOCK (&ctx->lock);
+
 out:
         return contri;
 }
