@@ -15,6 +15,6 @@ bit_rot_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 
 noinst_HEADERS = bit-rot.h bit-rot-scrub.h bit-rot-tbf.h bit-rot-bitd-messages.h bit-rot-ssm.h
 
-AM_CFLAGS = -Wall $(GF_CFLAGS)
+AM_CFLAGS = -Wall -DBR_RATE_LIMIT_SIGNER $(GF_CFLAGS)
 
 CLEANFILES =
