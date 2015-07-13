@@ -3,24 +3,6 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
-function hard_limit()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | grep "$QUOTA_PATH" | awk '{print $2}'
-}
-
-function soft_limit()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | grep "$QUOTA_PATH" | awk '{print $3}'
-}
-
-function usage()
-{
-        local QUOTA_PATH=$1;
-        $CLI volume quota $V0 list $QUOTA_PATH | grep "$QUOTA_PATH" | awk '{print $4}'
-}
-
 cleanup
 QDD=$(dirname $0)/quota
 # compile the test write program and run it
@@ -41,8 +23,8 @@ TEST $CLI volume quota $V0 enable
 
 TEST $CLI volume quota $V0 limit-usage /test 10MB
 
-EXPECT "10.0MB" hard_limit "/test";
-EXPECT "80%" soft_limit "/test";
+EXPECT "10.0MB" quota_hard_limit "/test";
+EXPECT "80%" quota_soft_limit "/test";
 
 TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
@@ -50,13 +32,13 @@ TEST $CLI volume quota $V0 hard-timeout 0
 TEST ! $QDD $M0/test/file1.txt 256 48
 TEST rm $M0/test/file1.txt
 
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test"
 
 TEST $QDD $M0/test/file2.txt 256 32
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quotausage "/test"
 
 TEST rm $M0/test/file2.txt
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test"
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
 

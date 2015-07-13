@@ -80,6 +80,7 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
 # try creating a 15MB file and it should succeed
 TEST ! $QDD $M0/test_dir/test2.txt 256 60
 TEST rm -f $M0/test_dir/test2.txt
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
 
 
 #------------------------------------------------------
