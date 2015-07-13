@@ -726,6 +726,15 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
                 goto out;
         }
 
+        /*Clear freq counters of un-selected data*/
+        ret = gf_sql_clear_counters(sql_conn);
+        if (ret) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_CLEAR_COUNTER_FAILED, "Failed clearing"
+                        " counters!");
+                goto out;
+        }
+
         ret = 0;
 out:
         sqlite3_finalize(prep_stmt);
@@ -808,6 +817,15 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed Query %s", query_str);
+                goto out;
+        }
+
+        /*Clear freq counters of un-selected data*/
+        ret = gf_sql_clear_counters(sql_conn);
+        if (ret) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_CLEAR_COUNTER_FAILED, "Failed clearing"
+                        " counters!");
                 goto out;
         }
 

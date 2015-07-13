@@ -508,7 +508,7 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                                                         write_freq_threshold,
                                         query_cbk_args->defrag->
                                                         read_freq_threshold,
-                                        _gf_false);
+                                        _gf_true);
                 }
         } else {
                 if (query_cbk_args->defrag->write_freq_threshold == 0 &&
@@ -527,7 +527,7 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                                 query_cbk_args->defrag->
                                 write_freq_threshold,
                                 query_cbk_args->defrag->read_freq_threshold,
-                                _gf_false);
+                                _gf_true);
                 }
         }
         if (ret) {
