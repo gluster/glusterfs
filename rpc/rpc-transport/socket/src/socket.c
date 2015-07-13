@@ -2422,6 +2422,12 @@ socket_poller (void *ctx)
         uint32_t          gen = 0;
         char             *cname = NULL;
 
+        GF_ASSERT (this);
+        /* Set THIS early on in the life of this thread, instead of setting it
+         * conditionally
+         */
+        THIS = this->xl;
+
         priv->ot_state = OT_RUNNING;
 
         if (priv->use_ssl) {
@@ -2450,7 +2456,6 @@ socket_poller (void *ctx)
         }
 
         if (priv->connected == 0) {
-		THIS = this->xl;
                 ret = socket_connect_finish (this);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -2491,8 +2496,7 @@ socket_poller (void *ctx)
 			       "poll error on pipe");
 			break;
 		}
-		/* Only glusterd actually seems to need this. */
-		THIS = this->xl;
+
 		if (pfd[1].revents & POLL_MASK_INPUT) {
 			ret = socket_event_poll_in(this);
 			if (ret >= 0) {
@@ -2570,8 +2574,7 @@ err:
         priv->sock = -1;
         priv->ot_state = OT_IDLE;
         pthread_mutex_unlock(&priv->lock);
-        rpc_transport_notify (this->listener, RPC_TRANSPORT_DISCONNECT,
-                              this);
+        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
         rpc_transport_unref (this);
 	return NULL;
 }
