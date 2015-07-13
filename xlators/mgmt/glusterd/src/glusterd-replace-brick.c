@@ -545,76 +545,6 @@ rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
         return glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_true);
 }
 
-/* Set src-brick's port number to be used in the maintenance mount
- * after all commit acks are received.
- */
-static int
-rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
-                         glusterd_brickinfo_t *src_brickinfo,
-                         dict_t *rsp_dict, dict_t *req_dict, char *replace_op)
-{
-        xlator_t *this                  = NULL;
-        int       ret                   = 0;
-        int       dict_ret              = 0;
-        int       src_port              = 0;
-        char      brickname[PATH_MAX]   = {0,};
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        dict_ret = dict_get_int32 (req_dict, "src-brick-port", &src_port);
-        if (src_port)
-                src_brickinfo->port = src_port;
-
-        if (gf_is_local_addr (src_brickinfo->hostname)) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        GD_MSG_BRK_PORT_NO_ADD_INDO,
-                        "adding src-brick port no");
-
-                if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
-                        snprintf (brickname, sizeof(brickname), "%s.rdma",
-                                  src_brickinfo->path);
-                } else
-                        snprintf (brickname, sizeof(brickname), "%s",
-                                  src_brickinfo->path);
-
-                src_brickinfo->port = pmap_registry_search (this,
-                                      brickname, GF_PMAP_PORT_BRICKSERVER);
-                if (!src_brickinfo->port) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SRC_BRICK_PORT_UNAVAIL,
-                                "Src brick port not available");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (rsp_dict) {
-                        ret = dict_set_int32 (rsp_dict, "src-brick-port",
-                                              src_brickinfo->port);
-                        if (ret) {
-                                gf_msg_debug (this->name, 0,
-                                        "Could not set src-brick port no");
-                                goto out;
-                        }
-                }
-
-                if (req_dict) {
-                        ret = dict_set_int32 (req_dict, "src-brick-port",
-                                              src_brickinfo->port);
-                        if (ret) {
-                                gf_msg_debug (this->name, 0,
-                                        "Could not set src-brick port no");
-                                goto out;
-                        }
-                }
-
-        }
-
-out:
-        return ret;
-
-}
-
 static int
 rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
                          dict_t *req_dict, char *replace_op)
@@ -828,11 +758,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         "Unable to resolve dst-brickinfo");
                 goto out;
         }
-
-        ret = rb_update_srcbrick_port (volinfo, src_brickinfo, rsp_dict,
-                                       dict, replace_op);
-        if (ret)
-                goto out;
 
         ret = rb_update_dstbrick_port (dst_brickinfo, rsp_dict,
                                        dict, replace_op);
