@@ -241,11 +241,11 @@ out:
 }
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "peer probe <HOSTNAME>",
+        { "peer probe { <HOSTNAME> | <IP-address> }",
           cli_cmd_peer_probe_cbk,
           "probe peer specified by <HOSTNAME>"},
 
-        { "peer detach <HOSTNAME> [force]",
+        { "peer detach { <HOSTNAME> | <IP-address> } [force]",
           cli_cmd_peer_deprobe_cbk,
           "detach peer specified by <HOSTNAME>"},
 
