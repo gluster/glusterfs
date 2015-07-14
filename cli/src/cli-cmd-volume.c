@@ -2356,7 +2356,7 @@ cli_cmd_volume_statedump_cbk (struct cli_state *state, struct cli_cmd_word *word
 out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error = 0))
+                if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume statedump failed");
         }
 
