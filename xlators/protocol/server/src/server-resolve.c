@@ -101,6 +101,7 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_resolve_t     *resolve = NULL;
         inode_t              *link_inode = NULL;
         loc_t                *resolve_loc = NULL;
+        dict_t               *dict = NULL;
 
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
@@ -161,10 +162,19 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_path (resolve_loc->parent, resolve_loc->name,
                     (char **) &resolve_loc->path);
 
+        dict = dict_copy_with_ref (state->xdata, NULL);
+        if (!dict && state->xdata)
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                        "BUG: dict allocation failed (pargfid: %s, name: %s), "
+                        "still continuing", uuid_utoa (resolve_loc->gfid),
+                        resolve_loc->name);
+
         STACK_WIND (frame, resolve_gfid_entry_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, state->xdata);
+                    &resolve->resolve_loc, dict);
+        if (dict)
+                dict_unref (dict);
         return 0;
 out:
         resolve_continue (frame);
@@ -180,6 +190,7 @@ resolve_gfid (call_frame_t *frame)
         server_resolve_t     *resolve = NULL;
         loc_t                *resolve_loc = NULL;
         int                   ret = 0;
+        dict_t               *xdata = NULL;
 
         state = CALL_STATE (frame);
         this  = frame->this;
@@ -194,10 +205,21 @@ resolve_gfid (call_frame_t *frame)
         resolve_loc->inode = inode_new (state->itable);
         ret = loc_path (resolve_loc, NULL);
 
+        xdata = dict_copy_with_ref (state->xdata, NULL);
+        if (!xdata && state->xdata)
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                        "BUG: dict allocation failed (gfid: %s), "
+                        "still continuing",
+                        uuid_utoa (resolve_loc->gfid));
+
         STACK_WIND (frame, resolve_gfid_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, state->xdata);
+                    &resolve->resolve_loc, xdata);
+
+        if (xdata)
+                dict_unref (xdata);
+
         return 0;
 }
 
