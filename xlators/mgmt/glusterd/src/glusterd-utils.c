@@ -4484,7 +4484,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         continue;
                 if (start_svcs == _gf_false) {
                         start_svcs = _gf_true;
-                        glusterd_svcs_manager (volinfo);
+                        glusterd_svcs_manager (NULL);
                 }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
