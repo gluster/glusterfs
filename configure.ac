@@ -363,6 +363,10 @@ AC_ARG_WITH([ocf],
             )
 AC_SUBST(OCF_SUBDIR)
 
+AC_ARG_WITH(asan,--with-asan,,with_asan="no")
+AC_ARG_WITH(tsan,--with-tsan,,with_tsan="no")
+AC_ARG_WITH(jemalloc,--with-jemalloc,,with_jemalloc="no")
+
 # LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
@@ -922,8 +926,63 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-TESTER_CFLAGS=""
+BUILD_ASAN=no
+if test "x$with_asan" = "xyes"; then
+    echo -n "checking for address sanitizer (ASAN) support... "
+    AC_LANG_CONFTEST(AC_LANG_PROGRAM())
+    $CC conftest.c $CFLAGS -fsanitize=address -o conftest
+    ret=$?
+    rm -f conftest.o conftest
+    if test $ret -eq 0 ; then
+      echo "yes"
+      BUILD_ASAN=yes
+      GF_CFLAGS="$GF_CFLAGS -DASAN -fsanitize=address -O0 -ggdb"
+      GF_LDFLAGS="-gdb -static-libasan $GF_LDFLAGS"
+    else
+      echo "no"
+      echo "ERROR: ASAN not supported by compiler ($CC)"
+      exit 1
+    fi
+fi
 
+BUILD_TSAN=no
+if test "x$with_tsan" = "xyes"; then
+    echo -n "checking for thread sanitizer (TSAN) support... "
+    AC_LANG_CONFTEST([AC_LANG_PROGRAM()])
+    $CC conftest.c $CFLAGS -fsanitize=address -o conftest > /dev/null 2> /dev/null
+    ret=$?
+    rm -f conftest.o conftest
+    if test $ret -eq 0 ; then
+      echo "yes"
+      BUILD_TSAN=yes
+      GF_CFLAGS="$GF_CFLAGS -fsanitize=thread -O0 -ggdb -fPIC -pie"
+      GF_LDFLAGS="-gdb -static-libtsan $GF_LDFLAGS"
+    else
+      echo "no"
+      echo "ERROR: TSAN not supported by compiler ($CC)"
+      exit 1
+    fi
+fi
+
+BUILD_JEMALLOC=no
+if test "x$with_jemalloc" = "xyes"; then
+    echo -n "checking for jemalloc support... "
+    AC_LANG_CONFTEST([AC_LANG_PROGRAM()])
+    $CC conftest.c $CFLAGS -ljemalloc -o conftest > /dev/null 2> /dev/null
+    ret=$?
+    rm -f conftest.o conftest
+    if test $ret -eq 0 ; then
+      echo "yes"
+      BUILD_JEMALLOC=yes
+      GF_LDFLAGS="-ljemalloc $GF_LDFLAGS"
+    else
+      echo "no"
+      echo "ERROR: jemalloc linking error"
+      exit 1
+    fi
+fi
+
+TESTER_CFLAGS=""
 dnl include tirpc for FB builds
 if test "x$BUILD_FBEXTRAS" = "xyes"; then
         TIRPC_CFLAGS="-I/usr/include/tirpc"
@@ -1393,4 +1452,7 @@ echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"
+echo "ASAN enabled         : $BUILD_ASAN"
+echo "TSAN enabled         : $BUILD_TSAN"
+echo "jemalloc enabled     : $BUILD_JEMALLOC"
 echo

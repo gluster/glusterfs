@@ -202,6 +202,7 @@ BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 %if ( 0%{?_with_fbextras:1} )
 BuildRequires:    fb-libtirpc fb-libtirpc-devel
+BuildRequires:    jemalloc jemalloc-devel
 %endif
 BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
@@ -522,6 +523,7 @@ Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
 %if ( 0%{?_with_fbextras:1} )
 Requires:         fb-libtirpc >= 0.2.5-1
+Requires:         jemalloc >= 3.6.0-1
 %endif
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
 Requires:         %{name}-api%{?_isa} = %{version}-%{release}
