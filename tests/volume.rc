@@ -543,6 +543,9 @@ function get_scrubd_count {
         ps auxww | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
 }
 
+function get_quotad_count {
+        ps auxww | grep glusterfs | grep quotad.pid | grep -v grep | wc -l
+}
 
 function drop_cache() {
 	case $OSTYPE in
