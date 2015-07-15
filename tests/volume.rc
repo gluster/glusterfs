@@ -121,7 +121,7 @@ function ec_get_info {
         local vol=$1
         local dist_id=$2
         local key=$3
-        local fpath=$(generate_mount_statedump $vol)
+        local fpath=$4
         local value=$(sed -n "/^\[cluster\/disperse\.$vol-disperse-$dist_id\]/,/^\[/{s/^$key=\(.*\)/\1/p;}" $fpath | head -1)
         rm -f $fpath
         echo "$value"
@@ -131,14 +131,28 @@ function ec_child_up_status {
         local vol=$1
         local dist_id=$2
         local brick_id=$(($3 + 1))
-        local mask=$(ec_get_info $vol $dist_id "childs_up_mask")
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_mount_statedump $vol))
         echo "${mask: -$brick_id:1}"
 }
 
 function ec_child_up_count {
         local vol=$1
         local dist_id=$2
-        ec_get_info $vol $dist_id "childs_up"
+        ec_get_info $vol $dist_id "childs_up" $(generate_mount_statedump $vol)
+}
+
+function ec_child_up_status_shd {
+        local vol=$1
+        local dist_id=$2
+        local brick_id=$(($3 + 1))
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_shd_statedump $vol))
+        echo "${mask: -$brick_id:1}"
+}
+
+function ec_child_up_count_shd {
+        local vol=$1
+        local dist_id=$2
+        ec_get_info $vol $dist_id "childs_up" $(generate_shd_statedump $vol)
 }
 
 function get_shd_process_pid {

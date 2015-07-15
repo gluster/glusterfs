@@ -379,12 +379,14 @@ ec_shd_full_healer (void *data)
 {
         struct subvol_healer *healer = NULL;
         xlator_t *this = NULL;
+        loc_t rootloc = {0};
 
         int run = 0;
 
         healer = data;
         THIS = this = healer->this;
 
+        rootloc.inode = this->itable->root;
         for (;;) {
                 pthread_mutex_lock (&healer->mutex);
                 {
@@ -404,6 +406,7 @@ ec_shd_full_healer (void *data)
                         "starting full sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
 
+                ec_shd_selfheal (healer, healer->subvol, &rootloc);
                 ec_shd_full_sweep (healer, this->itable->root);
 
                 gf_msg (this->name, GF_LOG_INFO, 0,
