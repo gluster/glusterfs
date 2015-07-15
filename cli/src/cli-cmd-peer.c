@@ -269,12 +269,20 @@ cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount)
 {
         struct cli_cmd        *cmd = NULL;
+        struct cli_cmd        *probe_cmd = NULL;
+        int                   count     = 0;
+
+        cmd = GF_CALLOC (1, sizeof (cli_probe_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, cli_probe_cmds, sizeof (cli_probe_cmds));
+        count = (sizeof (cli_probe_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
 
 
 
-        for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+        for (probe_cmd = cmd; probe_cmd->pattern; probe_cmd++)
+                cli_out ("%s - %s", probe_cmd->pattern, probe_cmd->desc);
 
+        GF_FREE (cmd);
         return 0;
 }
 

@@ -105,6 +105,10 @@ cli_cmd_submit (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                 int procnum, struct iobref *iobref,
                 xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
+int cli_cmd_pattern_cmp (void *a, void *b);
+
+void cli_cmd_sort (struct cli_cmd *cmd, int count);
+
 gf_answer_t
 cli_cmd_get_confirmation (struct cli_state *state, const char *question);
 int cli_cmd_sent_status_get (int *status);

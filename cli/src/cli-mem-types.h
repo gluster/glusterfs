@@ -23,6 +23,7 @@ enum cli_mem_types_ {
         cli_mt_cli_local_t,
         cli_mt_cli_get_vol_ctx_t,
         cli_mt_append_str,
+        cli_mt_cli_cmd,
         cli_mt_end
 
 };

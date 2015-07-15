@@ -2797,12 +2797,20 @@ int
 cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount)
 {
-        struct cli_cmd        *cmd = NULL;
+        struct cli_cmd        *cmd     = NULL;
+        struct cli_cmd        *vol_cmd = NULL;
+        int                   count    = 0;
 
-        for (cmd = volume_cmds; cmd->pattern; cmd++)
-                if (_gf_false == cmd->disable)
-                        cli_out ("%s - %s", cmd->pattern, cmd->desc);
+        cmd = GF_CALLOC (1, sizeof (volume_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, volume_cmds, sizeof (volume_cmds));
+        count = (sizeof (volume_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
 
+        for (vol_cmd = cmd; vol_cmd->pattern; vol_cmd++)
+                if (_gf_false == vol_cmd->disable)
+                        cli_out ("%s - %s", vol_cmd->pattern, vol_cmd->desc);
+
+        GF_FREE (cmd);
         return 0;
 }
 
