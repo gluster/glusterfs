@@ -562,17 +562,17 @@ function drop_cache() {
 function quota_list_field () {
         local QUOTA_PATH=$1
         local FIELD=$2
-        local cmd="$CLI volume quota $V0 list $QUOTA_PATH | grep $QUOTA_PATH | awk '{print \$$FIELD}'"
+        local awk_arg="{print \$$FIELD}"
 
-        $cmd
+        $CLI volume quota $V0 list $QUOTA_PATH | grep $QUOTA_PATH | awk "$awk_arg"
 }
 
 function quota_object_list_field () {
         local QUOTA_PATH=$1
         local FIELD=$2
-        local cmd="$CLI volume quota $V0 list-objects $QUOTA_PATH | grep $QUOTA_PATH | awk '{print \$$FIELD}'"
+        local awk_arg="{print \$$FIELD}"
 
-        $cmd
+        $CLI volume quota $V0 list-objects $QUOTA_PATH | grep $QUOTA_PATH | awk "$awk_arg"
 }
 
 function quotausage()
