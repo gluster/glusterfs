@@ -73,14 +73,14 @@ EXPECT "10" quota_object_list_field "/test_dir" 2
 
 # try creating a 8MB file and it should fail
 TEST $QDD $M0/test_dir/test1.txt 256 32
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quota_list_field "/test_dir" 2
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quotausage "/test_dir"
 TEST rm -f $M0/test_dir/test1.txt
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test_dir"
 
-# try creating a 15MB file and it should succeed
+# try creating a 15MB file and it should not succeed
 TEST ! $QDD $M0/test_dir/test2.txt 256 60
 TEST rm -f $M0/test_dir/test2.txt
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test_dir"
 
 
 #------------------------------------------------------
@@ -94,16 +94,16 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
 for i in {1..9}; do
         TEST_IN_LOOP touch $M0/test_dir/test$i.txt
 done
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10" quota_object_list_field "/test_dir" 4
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "9" quota_object_list_field "/test_dir" 4
 
 # Check available limit
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0" quota_object_list_field "/test_dir" 5
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0" quota_object_list_field "/test_dir" 6
 
 # Check if hard-limit exceeded
-EXPECT "Yes" quota_object_list_field "/test_dir" 7
+EXPECT "Yes" quota_object_list_field "/test_dir" 8
 
 # Check if soft-limit exceeded
-EXPECT "Yes" quota_object_list_field "/test_dir" 6
+EXPECT "Yes" quota_object_list_field "/test_dir" 7
 
 # Creation of 11th file should throw out an error
 TEST ! touch $M0/test_dir/test11.txt
