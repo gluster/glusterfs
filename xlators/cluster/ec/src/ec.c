@@ -397,38 +397,11 @@ ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
 }
 
 gf_boolean_t
-ec_force_unlocks(ec_t *ec)
+ec_disable_delays(ec_t *ec)
 {
-        struct list_head list;
-        ec_fop_data_t *fop;
-
-        if (list_empty(&ec->pending_fops)) {
-                return _gf_true;
-        }
-
-        INIT_LIST_HEAD(&list);
-
-        /* All pending fops when GF_EVENT_PARENT_DOWN is received should only
-         * be fops waiting for a delayed unlock. However the unlock can
-         * generate new fops. We don't want to trverse these new fops while
-         * forcing unlocks, so we move all fops to a temporal list. To process
-         * them without interferences.*/
-        list_splice_init(&ec->pending_fops, &list);
-
-        while (!list_empty(&list)) {
-                fop = list_entry(list.next, ec_fop_data_t, pending_list);
-                list_move_tail(&fop->pending_list, &ec->pending_fops);
-
-                UNLOCK(&ec->lock);
-
-                ec_unlock_force(fop);
-
-                LOCK(&ec->lock);
-        }
-
         ec->shutdown = _gf_true;
 
-        return list_empty(&ec->pending_fops);
+        return list_empty (&ec->pending_fops);
 }
 
 void
@@ -484,7 +457,7 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         } else if (event == GF_EVENT_PARENT_DOWN) {
                 /* If there aren't pending fops running after we have waken up
                  * them, we immediately propagate the notification. */
-                propagate = ec_force_unlocks(ec);
+                propagate = ec_disable_delays(ec);
                 goto unlock;
         }
 

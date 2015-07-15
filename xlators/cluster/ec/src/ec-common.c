@@ -1361,13 +1361,20 @@ void ec_lock(ec_fop_data_t *fop)
         if (lock->timer != NULL) {
             GF_ASSERT (lock->release == _gf_false);
             timer_link = lock->timer->data;
-            ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
-            gf_timer_call_cancel(fop->xl->ctx, lock->timer);
-            lock->timer = NULL;
-
-            lock->refs--;
-            /* There should remain at least 1 ref, the current one. */
-            GF_ASSERT(lock->refs > 0);
+            if (gf_timer_call_cancel(fop->xl->ctx, lock->timer) == 0) {
+                    ec_trace("UNLOCK_CANCELLED", timer_link->fop,
+                             "lock=%p", lock);
+                    lock->timer = NULL;
+                    lock->refs--;
+                    /* There should remain at least 1 ref, the current one. */
+                    GF_ASSERT(lock->refs > 0);
+            } else {
+                    /* Timer expired and on the way to unlock.
+                     * Set lock->release to _gf_true, so that this
+                     * lock will be put in frozen list*/
+                    timer_link = NULL;
+                    lock->release = _gf_true;
+            }
         }
 
         GF_ASSERT(list_empty(&link->wait_list));
@@ -1816,18 +1823,6 @@ void ec_unlock(ec_fop_data_t *fop)
     for (i = 0; i < fop->lock_count; i++) {
         ec_unlock_timer_add(&fop->locks[i]);
     }
-}
-
-void
-ec_unlock_force(ec_fop_data_t *fop)
-{
-        int32_t i;
-
-        for (i = 0; i < fop->lock_count; i++) {
-                ec_trace("UNLOCK_FORCED", fop, "lock=%p", &fop->locks[i]);
-
-                ec_unlock_timer_del(&fop->locks[i]);
-        }
 }
 
 void ec_flush_size_version(ec_fop_data_t * fop)
