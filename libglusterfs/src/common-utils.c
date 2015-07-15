@@ -2442,8 +2442,8 @@ gf_array_insertionsort (void *A, int l, int r, size_t elem_size,
         for(i = l; i < N; i++) {
                 Temp = gf_array_elem (A, i, elem_size);
                 j = i - 1;
-                while((cmp (Temp, gf_array_elem (A, j, elem_size))
-		       < 0) && j>=0) {
+                while (j >= 0 && (cmp (Temp, gf_array_elem (A, j, elem_size))
+                      < 0)) {
                         gf_elem_swap (Temp, gf_array_elem (A, j, elem_size),
                                       elem_size);
                         Temp = gf_array_elem (A, j, elem_size);
