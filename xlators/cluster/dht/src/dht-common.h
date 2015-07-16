@@ -45,7 +45,7 @@ typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, xlator_t *dst_node,
                                     call_frame_t    *frame, int ret);
 
 typedef int (*dht_refresh_layout_unlock) (call_frame_t *frame, xlator_t *this,
-                                         int op_ret);
+                                         int op_ret, int invoke_cbk);
 
 typedef int (*dht_refresh_layout_done_handle) (call_frame_t *frame);
 
@@ -139,6 +139,11 @@ typedef enum {
         qdstatfs_action_NEGLECT,
         qdstatfs_action_COMPARE,
 } qdstatfs_action_t;
+
+typedef enum {
+        FAIL_ON_ANY_ERROR,
+        IGNORE_ENOENT_ESTALE
+} dht_reaction_type_t;
 
 struct dht_skip_linkto_unlink {
 
@@ -270,6 +275,7 @@ struct dht_local {
                 fop_inodelk_cbk_t   inodelk_cbk;
                 dht_lock_t        **locks;
                 int                 lk_count;
+                dht_reaction_type_t reaction;
 
                 /* whether locking failed on _any_ of the "locks" above */
                 int                 op_ret;
@@ -1128,7 +1134,8 @@ dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
  */
 int
 dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, fop_inodelk_cbk_t inodelk_cbk);
+                      int lk_count, dht_reaction_type_t reaction,
+                      fop_inodelk_cbk_t inodelk_cbk);
 
 int32_t
 dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
