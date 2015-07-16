@@ -342,6 +342,7 @@ dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
 
         lock->xl = xl;
         lock->type = type;
+
         lock->domain = gf_strdup (domain);
         if (lock->domain == NULL) {
                 dht_lock_free (lock);
@@ -1679,7 +1680,8 @@ out:
 
 int
 dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                         int lk_count, fop_inodelk_cbk_t inodelk_cbk)
+                         int lk_count, dht_reaction_type_t reaction,
+                         fop_inodelk_cbk_t inodelk_cbk)
 {
         struct gf_flock  flock      = {0,};
         int              i          = 0, ret = 0;
@@ -1702,6 +1704,7 @@ dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
         dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
+        local->lock.reaction = reaction;
         local->main_frame = frame;
 
         local->call_cnt = lk_count;
@@ -1732,21 +1735,42 @@ dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         int          lk_index = 0;
+        int          i        = 0;
         dht_local_t *local    = NULL;
 
         lk_index = (long) cookie;
 
         local = frame->local;
-
         if (op_ret == 0) {
                 local->lock.locks[lk_index]->locked = _gf_true;
         } else {
-                local->lock.op_ret = -1;
-                local->lock.op_errno = op_errno;
-                goto cleanup;
+                switch (op_errno) {
+                case ESTALE:
+                case ENOENT:
+                        if (local->lock.reaction != IGNORE_ENOENT_ESTALE) {
+                                local->lock.op_ret = -1;
+                                local->lock.op_errno = op_errno;
+                                goto cleanup;
+                        }
+                        break;
+                default:
+                        local->lock.op_ret = -1;
+                        local->lock.op_errno = op_errno;
+                        goto cleanup;
+                }
         }
 
         if (lk_index == (local->lock.lk_count - 1)) {
+                for (i = 0; (i < local->lock.lk_count) &&
+                     (!local->lock.locks[i]->locked); i++) {
+                        ;
+                }
+
+                if (i == local->lock.lk_count) {
+                        local->lock.op_ret = -1;
+                        local->lock.op_errno = op_errno;
+                }
+
                 dht_inodelk_done (frame);
         } else {
                 dht_blocking_inodelk_rec (frame, ++lk_index);
@@ -1820,7 +1844,8 @@ out:
 
 int
 dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, fop_inodelk_cbk_t inodelk_cbk)
+                      int lk_count, dht_reaction_type_t reaction,
+                      fop_inodelk_cbk_t inodelk_cbk)
 {
         int           ret        = -1;
         call_frame_t *lock_frame = NULL;
@@ -1842,6 +1867,7 @@ dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
         dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
+        local->lock.reaction = reaction;
         local->main_frame = frame;
 
         dht_blocking_inodelk_rec (lock_frame, 0);

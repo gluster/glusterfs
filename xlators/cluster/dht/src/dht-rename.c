@@ -1303,7 +1303,7 @@ dht_rename_lock (call_frame_t *frame)
         local->lock.lk_count = count;
 
         ret = dht_nonblocking_inodelk (frame, lk_array, count,
-                                       dht_rename_lock_cbk);
+                                       FAIL_ON_ANY_ERROR, dht_rename_lock_cbk);
         if (ret < 0) {
                 local->lock.locks = NULL;
                 local->lock.lk_count = 0;
