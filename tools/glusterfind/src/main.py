@@ -55,6 +55,12 @@ def node_cmd(host, host_uuid, task, cmd, args, opts):
     """
     localdir = is_host_local(host_uuid)
 
+    # this is so to avoid deleting the ssh keys on local node which otherwise
+    # cause ssh password prompts on the console (race conditions)
+    # mode_delete() should be cleaning up the session tree
+    if localdir and task == "delete":
+        return
+
     pem_key_path = get_pem_key_path(args.session, args.volume)
 
     if not localdir:
