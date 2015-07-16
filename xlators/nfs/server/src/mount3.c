@@ -3901,7 +3901,7 @@ mnt3svc_init (xlator_t *nfsx)
                 pthread_create (&mstate->auth_refresh_thread, NULL,
                                 _mnt3_auth_param_refresh_thread, mstate);
         } else
-                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_EXP_AUTH_DISABLED,
+                gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_EXP_AUTH_DISABLED,
                         "Exports auth has been disabled!");
 
         mnt3prog.private = mstate;
