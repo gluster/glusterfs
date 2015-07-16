@@ -2689,6 +2689,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 GF_FREE (new_trans);
                                 goto unlock;
                         }
+                        INIT_LIST_HEAD (&new_trans->list);
 
                         new_trans->name = gf_strdup (this->name);
 
