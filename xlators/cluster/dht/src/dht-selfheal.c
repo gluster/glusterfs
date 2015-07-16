@@ -77,7 +77,8 @@ dht_selfheal_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
+dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret,
+                         int invoke_cbk)
 {
         dht_local_t  *local      = NULL, *lock_local = NULL;
         call_frame_t *lock_frame = NULL;
@@ -85,7 +86,6 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 
         local = frame->local;
         lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
-
         if (lock_count == 0)
                 goto done;
 
@@ -112,8 +112,9 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
         lock_frame = NULL;
 
 done:
-        local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
-                                 local->op_errno, NULL);
+        if (invoke_cbk)
+                local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
+                                         local->op_errno, NULL);
         if (lock_frame != NULL) {
                 DHT_STACK_DESTROY (lock_frame);
         }
@@ -155,13 +156,13 @@ dht_refresh_layout_done (call_frame_t *frame)
 
                 dht_layout_unref (frame->this, heal);
 
-                dht_selfheal_dir_finish (frame, frame->this, 0);
+                dht_selfheal_dir_finish (frame, frame->this, 0, 1);
         }
 
         return 0;
 
 err:
-        dht_selfheal_dir_finish (frame, frame->this, -1);
+        dht_selfheal_dir_finish (frame, frame->this, -1, 1);
         return 0;
 }
 
@@ -221,8 +222,7 @@ unlock:
         return 0;
 
 err:
-        local->refresh_layout_unlock (frame, this, -1);
-
+        local->refresh_layout_unlock (frame, this, -1, 1);
         return 0;
 }
 
@@ -288,7 +288,7 @@ dht_refresh_layout (call_frame_t *frame)
         return 0;
 
 out:
-        local->refresh_layout_unlock (frame, this, -1);
+        local->refresh_layout_unlock (frame, this, -1, 1);
         return 0;
 }
 
@@ -317,7 +317,7 @@ dht_selfheal_layout_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
-        dht_selfheal_dir_finish (frame, this, -1);
+        dht_selfheal_dir_finish (frame, this, -1, 1);
         return 0;
 }
 
@@ -580,7 +580,7 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
         local->lock.locks = lk_array;
         local->lock.lk_count = count;
 
-        ret = dht_blocking_inodelk (frame, lk_array, count,
+        ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
                                     dht_selfheal_layout_lock_cbk);
         if (ret < 0) {
                 local->lock.locks = NULL;
@@ -591,13 +591,7 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
         return 0;
 err:
         if (lk_array != NULL) {
-                int tmp_count = 0, i = 0;
-
-                for (i = 0; (i < count) && (lk_array[i]); i++, tmp_count++) {
-                        ;
-                }
-
-                dht_lock_array_free (lk_array, tmp_count);
+                dht_lock_array_free (lk_array, count);
                 GF_FREE (lk_array);
         }
 
@@ -650,7 +644,7 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-                dht_selfheal_dir_finish (frame, this, 0);
+                dht_selfheal_dir_finish (frame, this, 0, 1);
         }
 
         return 0;
@@ -884,7 +878,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
                       missing_xattr, loc->path);
 
         if (missing_xattr == 0) {
-                dht_selfheal_dir_finish (frame, this, 0);
+                dht_selfheal_dir_finish (frame, this, 0, 1);
                 return 0;
         }
 
@@ -1011,7 +1005,7 @@ dht_selfheal_dir_xattr_for_nameless_lookup (call_frame_t *frame, loc_t *loc,
                       missing_xattr, loc->path);
 
         if (missing_xattr == 0) {
-                dht_selfheal_dir_finish (frame, this, 0);
+                dht_selfheal_dir_finish (frame, this, 0, 1);
                 return 0;
         }
 
@@ -1079,7 +1073,7 @@ dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                 dht_should_heal_layout);
 
                 if (ret < 0) {
-                        dht_selfheal_dir_finish (frame, this, -1);
+                        dht_selfheal_dir_finish (frame, this, -1, 1);
                 }
         }
 
@@ -1110,7 +1104,7 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                                                 dht_should_heal_layout);
 
                 if (ret < 0) {
-                        dht_selfheal_dir_finish (frame, this, -1);
+                        dht_selfheal_dir_finish (frame, this, -1, 1);
                 }
 
                 return 0;
@@ -1148,7 +1142,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_layout_t  *layout = NULL;
         call_frame_t  *prev = NULL;
         xlator_t      *subvol = NULL;
-        int            i = 0;
+        int            i = 0, ret = -1;
         int            this_call_cnt = 0;
         char           gfid[GF_UUID_BUF_SIZE] = {0};
 
@@ -1177,11 +1171,13 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         dht_iatt_merge (this, &local->preparent, preparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
+        ret = 0;
 
 out:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
+                dht_selfheal_dir_finish (frame, this, ret, 0);
                 dht_selfheal_dir_setattr (frame, &local->loc, &local->stbuf, 0xffffff, layout);
         }
 
@@ -1234,33 +1230,21 @@ out:
 }
 
 int
-dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
-                        dht_layout_t *layout, int force)
+dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
 {
-        int           missing_dirs = 0;
+        dht_local_t  *local = NULL;
         int           i     = 0;
         int           ret   = -1;
-        dht_local_t  *local = NULL;
-        xlator_t     *this = NULL;
         dict_t       *dict = NULL;
+        dht_layout_t  *layout = NULL;
+        loc_t        *loc   = NULL;
+
+        VALIDATE_OR_GOTO (this->private, err);
 
         local = frame->local;
-        this = frame->this;
+        layout = local->layout;
+        loc    = &local->loc;
 
-        local->selfheal.force_mkdir = force ? _gf_true : _gf_false;
-
-        for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err == ENOENT || force)
-                        missing_dirs++;
-        }
-
-        if (missing_dirs == 0) {
-                dht_selfheal_dir_setattr (frame, loc, &local->stbuf,
-                                          0xffffffff, layout);
-                return 0;
-        }
-
-        local->call_cnt = missing_dirs;
         if (!gf_uuid_is_null (local->gfid)) {
                 dict = dict_new ();
                 if (!dict)
@@ -1274,6 +1258,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                                 " key = gfid-req", loc->path);
         } else if (local->params) {
                 /* Send the dictionary from higher layers directly */
+
                 dict = dict_ref (local->params);
         }
         /* Set acls */
@@ -1286,7 +1271,8 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                         "dict is NULL, need to make sure gfids are same");
 
         for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err == ENOENT || force) {
+                if (layout->list[i].err == ENOENT ||
+                    local->selfheal.force_mkdir) {
                         gf_msg_debug (this->name, 0,
                                       "Creating directory %s on subvol %s",
                                       loc->path, layout->list[i].xlator->name);
@@ -1305,6 +1291,202 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 dict_unref (dict);
 
         return 0;
+
+err:
+        dht_selfheal_dir_finish (frame, this, -1, 1);
+        return 0;
+}
+
+int
+dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
+                                   xlator_t *this, int op_ret, int op_errno,
+                                   inode_t *inode, struct iatt *stbuf,
+                                   dict_t *xattr, struct iatt *postparent)
+{
+        dht_local_t  *local = NULL;
+        int           i     = 0;
+        int           this_call_cnt = 0;
+        int           missing_dirs = 0;
+        dht_layout_t  *layout = NULL;
+        loc_t         *loc    = NULL;
+
+        VALIDATE_OR_GOTO (this->private, err);
+
+        local = frame->local;
+        layout = local->layout;
+        loc = &local->loc;
+
+        this_call_cnt = dht_frame_return (frame);
+
+        LOCK (&frame->lock);
+        {
+                if ((op_ret < 0) && (op_errno == ENOENT || op_errno == ESTALE))
+                        local->selfheal.hole_cnt = !local->selfheal.hole_cnt ? 1
+                                                : local->selfheal.hole_cnt + 1;
+        }
+        UNLOCK (&frame->lock);
+
+        if (is_last_call (this_call_cnt)) {
+                if (local->selfheal.hole_cnt == layout->cnt) {
+                        gf_msg_debug (this->name, op_errno,
+                                      "Lookup failed, an rmdir could have "
+                                      "deleted this entry %s", loc->name);
+                        local->op_errno = op_errno;
+                        goto err;
+                } else {
+                        for (i = 0; i < layout->cnt; i++) {
+                                if (layout->list[i].err == ENOENT ||
+                                    layout->list[i].err == ESTALE ||
+                                    local->selfheal.force_mkdir)
+                                        missing_dirs++;
+                        }
+
+                        if (missing_dirs == 0) {
+                                dht_selfheal_dir_finish (frame, this, 0, 0);
+                                dht_selfheal_dir_setattr (frame, loc,
+                                                          &local->stbuf,
+                                                          0xffffffff, layout);
+                                return 0;
+                        }
+
+                        local->call_cnt = missing_dirs;
+                        dht_selfheal_dir_mkdir_lookup_done (frame, this);
+                }
+        }
+
+        return 0;
+
+err:
+        dht_selfheal_dir_finish (frame, this, -1, 1);
+        return 0;
+}
+
+
+int
+dht_selfheal_dir_mkdir_lock_cbk (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf  = NULL;
+        int           i     = 0;
+
+        VALIDATE_OR_GOTO (this->private, err);
+
+        conf = this->private;
+        local = frame->local;
+
+	    local->call_cnt = conf->subvolume_cnt;
+
+        if (op_ret < 0) {
+
+                /* We get this error when the directory entry was not created
+                 * on a newky attatched tier subvol. Hence proceed and do mkdir
+                 * on the tier subvol.
+                 */
+                if (op_errno == EINVAL) {
+                        local->call_cnt = 1;
+                        dht_selfheal_dir_mkdir_lookup_done (frame, this);
+                        return 0;
+                }
+
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_INODE_LK_ERROR,
+                        "acquiring inodelk failed for %s",
+                        local->loc.path);
+
+                local->op_errno = op_errno;
+                goto err;
+        }
+
+        /* After getting locks, perform lookup again to ensure that the
+           directory was not deleted by a racing rmdir
+        */
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                STACK_WIND (frame, dht_selfheal_dir_mkdir_lookup_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->lookup,
+                            &local->loc, NULL);
+        }
+
+        return 0;
+
+err:
+        dht_selfheal_dir_finish (frame, this, -1, 1);
+        return 0;
+}
+
+int
+dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
+                        dht_layout_t *layout, int force)
+{
+        int           missing_dirs = 0;
+        int           i     = 0;
+        int           ret   = -1;
+        int           count = 1;
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf  = NULL;
+        xlator_t     *this = NULL;
+        dht_lock_t   **lk_array = NULL;
+
+        local = frame->local;
+        this = frame->this;
+        conf = this->private;
+
+        local->selfheal.force_mkdir = force;
+        local->selfheal.hole_cnt = 0;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err == ENOENT || force)
+                        missing_dirs++;
+        }
+
+        if (missing_dirs == 0) {
+                dht_selfheal_dir_setattr (frame, loc, &local->stbuf,
+                                          0xffffffff, layout);
+                return 0;
+        }
+
+        count = conf->subvolume_cnt;
+
+        /* Locking on all subvols in the mkdir phase of lookup selfheal is
+           is done to synchronize with rmdir/rename.
+        */
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+        if (lk_array == NULL)
+                goto err;
+
+        for (i = 0; i < count; i++) {
+                lk_array[i] = dht_lock_new (frame->this,
+                                            conf->subvolumes[i],
+                                            &local->loc, F_WRLCK,
+                                            DHT_LAYOUT_HEAL_DOMAIN);
+                if (lk_array[i] == NULL)
+                        goto err;
+        }
+
+        local->lock.locks = lk_array;
+        local->lock.lk_count = count;
+
+        ret = dht_blocking_inodelk (frame, lk_array, count,
+                                    IGNORE_ENOENT_ESTALE,
+                                    dht_selfheal_dir_mkdir_lock_cbk);
+
+        if (ret < 0) {
+                local->lock.locks = NULL;
+                local->lock.lk_count = 0;
+                goto err;
+        }
+
+        return 0;
+err:
+        if (lk_array != NULL) {
+                dht_lock_array_free (lk_array, count);
+                GF_FREE (lk_array);
+        }
+
+        return -1;
 }
 
 int
@@ -1878,7 +2060,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
 sorry_no_fix:
         /* TODO: need to put appropriate local->op_errno */
-        dht_selfheal_dir_finish (frame, this, ret);
+        dht_selfheal_dir_finish (frame, this, ret, 1);
 
         return 0;
 }
@@ -1946,7 +2128,7 @@ dht_selfheal_directory_for_nameless_lookup (call_frame_t *frame,
 
 sorry_no_fix:
         /* TODO: need to put appropriate local->op_errno */
-        dht_selfheal_dir_finish (frame, this, ret);
+        dht_selfheal_dir_finish (frame, this, ret, 1);
 
         return 0;
 
@@ -2299,7 +2481,7 @@ dht_update_commit_hash_for_layout (call_frame_t *frame)
         local->lock.locks = lk_array;
         local->lock.lk_count = count;
 
-        ret = dht_blocking_inodelk (frame, lk_array, count,
+        ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
                                     dht_update_commit_hash_for_layout_resume);
         if (ret < 0) {
                 local->lock.locks = NULL;
@@ -2310,13 +2492,7 @@ dht_update_commit_hash_for_layout (call_frame_t *frame)
         return 0;
 err:
         if (lk_array != NULL) {
-                int tmp_count = 0, i = 0;
-
-                for (i = 0; (i < count) && (lk_array[i]); i++, tmp_count++) {
-                        ;
-                }
-
-                dht_lock_array_free (lk_array, tmp_count);
+                dht_lock_array_free (lk_array, count);
                 GF_FREE (lk_array);
         }
 
