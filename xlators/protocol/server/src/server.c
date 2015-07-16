@@ -513,6 +513,14 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
+                /* A DISCONNECT event could come without an ACCEPT event
+                 * happening for this transport. This happens when the server is
+                 * expecting encrypted connections by the client tries to
+                 * connect unecnrypted
+                 */
+                if (list_empty (&trans->list))
+                        break;
+
                 /* transport has to be removed from the list upon disconnect
                  * irrespective of whether lock self heal is off or on, since
                  * new transport will be created upon reconnect.
