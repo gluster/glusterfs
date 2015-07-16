@@ -340,6 +340,14 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
+                /* A DISCONNECT event could come without an ACCEPT event
+                 * happening for this transport. This happens when the server is
+                 * expecting encrypted connections by the client tries to
+                 * connect unecnrypted
+                 */
+                if (list_empty (&xprt->list))
+                        break;
+
                 pthread_mutex_lock (&priv->xprt_lock);
                 list_del (&xprt->list);
                 pthread_mutex_unlock (&priv->xprt_lock);
