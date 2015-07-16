@@ -4985,11 +4985,13 @@ unlock:
                 array = NULL;
         }
 
-        array = NULL;
-
 out:
         if (op_ret < 0)
                 filler->op_errno = op_errno;
+
+        if (array)
+                GF_FREE (array);
+
         return op_ret;
 }
 
