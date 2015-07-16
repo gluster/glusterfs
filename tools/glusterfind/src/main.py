@@ -525,7 +525,7 @@ def mode_list(session_dir, args):
                     last_processed = f.read().strip()
             except (OSError, IOError) as e:
                 if e.errno == ENOENT:
-                    pass
+                    continue
                 else:
                     raise
             output.append((session, volname, last_processed))
