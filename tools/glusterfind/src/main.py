@@ -53,31 +53,34 @@ def node_cmd(host, host_uuid, task, cmd, args, opts):
     """
     Runs command via ssh if host is not local
     """
-    localdir = is_host_local(host_uuid)
+    try:
+        localdir = is_host_local(host_uuid)
 
-    # this is so to avoid deleting the ssh keys on local node which otherwise
-    # cause ssh password prompts on the console (race conditions)
-    # mode_delete() should be cleaning up the session tree
-    if localdir and task == "delete":
-        return
+        # this is so to avoid deleting the ssh keys on local node which
+        # otherwise cause ssh password prompts on the console (race conditions)
+        # mode_delete() should be cleaning up the session tree
+        if localdir and task == "delete":
+            return
 
-    pem_key_path = get_pem_key_path(args.session, args.volume)
+        pem_key_path = get_pem_key_path(args.session, args.volume)
 
-    if not localdir:
-        # prefix with ssh command if not local node
-        cmd = ["ssh",
-               "-i", pem_key_path,
-               "root@%s" % host] + cmd
+        if not localdir:
+            # prefix with ssh command if not local node
+            cmd = ["ssh",
+                   "-i", pem_key_path,
+                   "root@%s" % host] + cmd
 
-    execute(cmd, exit_msg="%s - %s failed" % (host, task), logger=logger)
+        execute(cmd, exit_msg="%s - %s failed" % (host, task), logger=logger)
 
-    if opts.get("copy_outfile", False):
-        cmd_copy = ["scp",
-                    "-i", pem_key_path,
-                    "root@%s:/%s" % (host, opts.get("node_outfile")),
-                    os.path.dirname(opts.get("node_outfile"))]
-        execute(cmd_copy, exit_msg="%s - Copy command failed" % host,
-                logger=logger)
+        if opts.get("copy_outfile", False):
+            cmd_copy = ["scp",
+                        "-i", pem_key_path,
+                        "root@%s:/%s" % (host, opts.get("node_outfile")),
+                        os.path.dirname(opts.get("node_outfile"))]
+            execute(cmd_copy, exit_msg="%s - Copy command failed" % host,
+                    logger=logger)
+    except KeyboardInterrupt:
+        sys.exit(2)
 
 
 def run_cmd_nodes(task, args, **kwargs):
@@ -555,31 +558,38 @@ def mode_list(session_dir, args):
 
 
 def main():
-    args = _get_args()
-    mkdirp(conf.get_opt("session_dir"), exit_on_err=True)
+    try:
+        args = _get_args()
+        mkdirp(conf.get_opt("session_dir"), exit_on_err=True)
 
-    if args.mode == "list":
-        session_dir = conf.get_opt("session_dir")
-    else:
-        session_dir = os.path.join(conf.get_opt("session_dir"),
-                                   args.session)
+        if args.mode == "list":
+            session_dir = conf.get_opt("session_dir")
+        else:
+            session_dir = os.path.join(conf.get_opt("session_dir"),
+                                       args.session)
 
-    if not os.path.exists(session_dir) and args.mode not in ["create", "list"]:
-        fail("Invalid session %s" % args.session)
+        if not os.path.exists(session_dir) and args.mode not in ["create",
+                                                                 "list"]:
+            fail("Invalid session %s" % args.session)
 
-    vol_dir = os.path.join(session_dir, args.volume)
-    if not os.path.exists(vol_dir) and args.mode not in ["create", "list"]:
-        fail("Session %s not created with volume %s" %
-             (args.session, args.volume))
+        vol_dir = os.path.join(session_dir, args.volume)
+        if not os.path.exists(vol_dir) and args.mode not in ["create", "list"]:
+            fail("Session %s not created with volume %s" %
+                 (args.session, args.volume))
 
-    mkdirp(os.path.join(conf.get_opt("log_dir"), args.session, args.volume),
-           exit_on_err=True)
-    log_file = os.path.join(conf.get_opt("log_dir"),
+        mkdirp(os.path.join(conf.get_opt("log_dir"),
                             args.session,
-                            args.volume,
-                            "cli.log")
-    setup_logger(logger, log_file, args.debug)
+                            args.volume),
+               exit_on_err=True)
+        log_file = os.path.join(conf.get_opt("log_dir"),
+                                args.session,
+                                args.volume,
+                                "cli.log")
+        setup_logger(logger, log_file, args.debug)
 
-    # globals() will have all the functions already defined.
-    # mode_<args.mode> will be the function name to be called
-    globals()["mode_" + args.mode](session_dir, args)
+        # globals() will have all the functions already defined.
+        # mode_<args.mode> will be the function name to be called
+        globals()["mode_" + args.mode](session_dir, args)
+    except KeyboardInterrupt:
+        # Interrupted, exit with non zero error code
+        sys.exit(2)
