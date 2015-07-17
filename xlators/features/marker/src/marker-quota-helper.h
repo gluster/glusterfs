@@ -13,14 +13,14 @@
 
 #include "marker.h"
 
-#define QUOTA_FREE_CONTRIBUTION_NODE(ctx, _contribution)          \
-        do {                                                      \
-                LOCK (&ctx->lock);                                \
-                {                                                 \
-                        list_del (&_contribution->contri_list);   \
-                        GF_REF_PUT (_contribution);               \
-                }                                                 \
-                UNLOCK (&ctx->lock);                              \
+#define QUOTA_FREE_CONTRIBUTION_NODE(ctx, _contribution)             \
+        do {                                                         \
+                LOCK (&ctx->lock);                                   \
+                {                                                    \
+                        list_del_init (&_contribution->contri_list); \
+                        GF_REF_PUT (_contribution);                  \
+                }                                                    \
+                UNLOCK (&ctx->lock);                                 \
         } while (0)
 
 #define QUOTA_SAFE_INCREMENT(lock, var)                 \

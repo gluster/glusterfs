@@ -4173,7 +4173,7 @@ mq_forget (xlator_t *this, quota_inode_ctx_t *ctx)
 
         list_for_each_entry_safe (contri, next, &ctx->contribution_head,
                                   contri_list) {
-                list_del (&contri->contri_list);
+                list_del_init (&contri->contri_list);
                 GF_REF_PUT (contri);
         }
 
