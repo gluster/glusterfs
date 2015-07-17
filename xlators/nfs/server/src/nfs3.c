@@ -3158,7 +3158,7 @@ rpcerr:
 }
 
 
-int
+static int
 nfs3_mknod_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *fh,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent)
@@ -3254,7 +3254,7 @@ nfs3err:
 }
 
 
-int
+static int
 nfs3_mknod_device (nfs3_call_state_t *cs)
 {
         int                             ret = -EFAULT;
@@ -3285,12 +3285,11 @@ nfs3_mknod_device (nfs3_call_state_t *cs)
 }
 
 
-int
-nfs3_mknod_fifo (nfs3_call_state_t *cs)
+static int
+nfs3_mknod_fifo (nfs3_call_state_t *cs, mode_t mode)
 {
         int                             ret = -EFAULT;
         nfs_user_t                      nfu = {0, };
-        mode_t                          mode = S_IFIFO;
 
         if (!cs)
                 return ret;
@@ -3309,7 +3308,7 @@ nfs3_mknod_fifo (nfs3_call_state_t *cs)
 }
 
 
-int
+static int
 nfs3_mknod_resume (void *carg)
 {
         nfsstat3                        stat = NFS3ERR_SERVERFAULT;
@@ -3328,8 +3327,10 @@ nfs3_mknod_resume (void *carg)
                 ret = nfs3_mknod_device (cs);
                 break;
         case NF3SOCK:
+                ret = nfs3_mknod_fifo (cs, S_IFSOCK);
+                break;
         case NF3FIFO:
-                ret = nfs3_mknod_fifo (cs);
+                ret = nfs3_mknod_fifo (cs, S_IFIFO);
                 break;
         default:
                 ret = -EBADF;
