@@ -21,6 +21,7 @@ import libgfchangelog
 from utils import mkdirp, symlink_gfid_to_path
 from utils import fail, setup_logger, find
 from utils import get_changelog_rollover_time
+from utils import output_path_prepare
 from changelogdata import ChangelogData
 import conf
 
@@ -37,17 +38,6 @@ history_turn_time = 0
 logger = logging.getLogger()
 
 
-def output_path_prepare(path, output_prefix):
-    """
-    If Prefix is set, joins to Path, removes ending slash
-    and encodes it.
-    """
-    if output_prefix != ".":
-        path = os.path.join(output_prefix, path)
-        if path.endswith("/"):
-            path = path[0:len(path)-1]
-
-    return urllib.quote_plus(path)
 
 
 def pgfid_to_path(brick, changelog_data):
@@ -217,7 +207,7 @@ def gfid_to_path_using_batchfind(brick, changelog_data):
          ignore_dirs=ignore_dirs)
 
 
-def parse_changelog_to_db(changelog_data, filename):
+def parse_changelog_to_db(changelog_data, filename, args):
     """
     Parses a Changelog file and populates data in gfidpath table
     """
@@ -240,7 +230,7 @@ def parse_changelog_to_db(changelog_data, filename):
                 changelog_data.when_rename(changelogfile, data)
             elif data[0] == "E" and data[2] in ["UNLINK", "RMDIR"]:
                 # UNLINK/RMDIR
-                changelog_data.when_unlink_rmdir(changelogfile, data)
+                changelog_data.when_unlink_rmdir(changelogfile, data, args)
 
 
 def get_changes(brick, hash_dir, log_file, start, end, args):
@@ -300,7 +290,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
                 if change.endswith(".%s" % start):
                     continue
                 try:
-                    parse_changelog_to_db(changelog_data, change)
+                    parse_changelog_to_db(changelog_data, change, args)
                     libgfchangelog.cl_history_done(change)
                 except IOError as e:
                     logger.warn("Error parsing changelog file %s: %s" %

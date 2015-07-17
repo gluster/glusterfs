@@ -13,7 +13,7 @@ import urllib
 import os
 
 from utils import RecordType
-
+from utils import output_path_prepare
 
 class OutputMerger(object):
     """
@@ -386,12 +386,16 @@ class ChangelogData(object):
            not self.gfidpath_exists({"gfid": data[1], "type": "MODIFY"}):
             self.gfidpath_add(changelogfile, RecordType.MODIFY, data[1])
 
-    def when_unlink_rmdir(self, changelogfile, data):
+    def when_unlink_rmdir(self, changelogfile, data, args):
         # E <GFID> <UNLINK|RMDIR> <PGFID>/<BASENAME>
         pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
         # Quote again the basename
         bn1 = urllib.quote_plus(bn1.strip())
+
         deleted_path = data[4] if len(data) == 5 else ""
+        if deleted_path != "":
+                deleted_path = output_path_prepare(deleted_path,
+                                                args.output_prefix)
 
         if self.gfidpath_exists({"gfid": data[1], "type": "NEW",
                                  "pgfid1": pgfid1, "bn1": bn1}):

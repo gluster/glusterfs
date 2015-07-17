@@ -226,3 +226,16 @@ def get_changelog_rollover_time(volumename):
         return int(tree.find('volGetopts/Value').text)
     except ParseError:
         return DEFAULT_CHANGELOG_INTERVAL
+
+
+def output_path_prepare(path, output_prefix):
+    """
+    If Prefix is set, joins to Path, removes ending slash
+    and encodes it.
+    """
+    if output_prefix != ".":
+        path = os.path.join(output_prefix, path)
+        if path.endswith("/"):
+            path = path[0:len(path)-1]
+
+    return urllib.quote_plus(path)
