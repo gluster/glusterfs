@@ -384,7 +384,7 @@ quota_timeout (struct timeval *tv, int32_t timeout)
         return timed_out;
 }
 
-inline void
+void
 quota_add_parent (quota_dentry_t *dentry, struct list_head *list)
 {
         quota_dentry_t *entry = NULL;
@@ -938,7 +938,7 @@ err:
         return 0;
 }
 
-inline int
+int
 quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
                   int64_t *soft_lim)
 {

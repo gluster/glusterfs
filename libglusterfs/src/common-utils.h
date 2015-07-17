@@ -625,7 +625,7 @@ gf_skip_header_section (int fd, int header_len);
 struct iatt;
 struct _dict;
 
-inline gf_boolean_t
+gf_boolean_t
 dht_is_linkfile (struct iatt *buf, struct _dict *dict);
 
 gf_loglevel_t

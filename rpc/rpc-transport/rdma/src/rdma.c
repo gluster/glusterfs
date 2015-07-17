@@ -3074,7 +3074,7 @@ out:
 }
 
 
-inline int32_t
+static int32_t
 gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                           size_t bytes_in_post)
 {

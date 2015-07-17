@@ -172,7 +172,7 @@ int bd_clone (bd_local_t *local, bd_priv_t *priv);
 
 int bd_merge (bd_priv_t *priv, uuid_t gfid);
 int bd_get_origin (bd_priv_t *priv, loc_t *loc, fd_t *fd, dict_t *dict);
-inline void bd_update_amtime(struct iatt *iatt, int flag);
+void bd_update_amtime(struct iatt *iatt, int flag);
 int bd_snapshot_create (bd_local_t *local, bd_priv_t *priv);
 int bd_clone (bd_local_t *local, bd_priv_t *priv);
 int bd_merge (bd_priv_t *priv, uuid_t gfid);

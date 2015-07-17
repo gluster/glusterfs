@@ -50,7 +50,7 @@ changelog_thread_cleanup (xlator_t *this, pthread_t thr_id)
         return;
 }
 
-inline void *
+void *
 changelog_get_usable_buffer (changelog_local_t *local)
 {
         changelog_log_data_t *cld = NULL;
@@ -65,7 +65,7 @@ changelog_get_usable_buffer (changelog_local_t *local)
         return cld->cld_iobuf->ptr;
 }
 
-inline void
+void
 changelog_set_usable_record_and_length (changelog_local_t *local,
                                         size_t len, int xr)
 {
@@ -105,7 +105,7 @@ changelog_local_cleanup (xlator_t *xl, changelog_local_t *local)
         mem_put (local);
 }
 
-inline int
+int
 changelog_write (int fd, char *buffer, size_t len)
 {
         ssize_t size = 0;
@@ -237,7 +237,7 @@ changelog_start_next_change (xlator_t *this,
 /**
  * return the length of entry
  */
-inline size_t
+size_t
 changelog_entry_length ()
 {
         return sizeof (changelog_log_data_t);
@@ -264,7 +264,7 @@ changelog_write_change (changelog_priv_t *priv, char *buffer, size_t len)
         return changelog_write (priv->changelog_fd, buffer, len);
 }
 
-inline int
+int
 changelog_handle_change (xlator_t *this,
                          changelog_priv_t *priv, changelog_log_data_t *cld)
 {
@@ -639,7 +639,7 @@ changelog_inode_ctx_get (xlator_t *this,
  * then there is no need to record an update (as the equality of the two version
  * signifies an update was recorded in the current time slice).
  */
-inline void
+void
 changelog_update (xlator_t *this, changelog_priv_t *priv,
                   changelog_local_t *local, changelog_log_type type)
 {
