@@ -987,7 +987,8 @@ dht_migration_complete_check_task (void *data)
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                         DHT_MSG_FILE_LOOKUP_FAILED,
                         "%s: failed to lookup the file on %s",
-                        tmp_loc.path, this->name);
+                        tmp_loc.path ? tmp_loc.path : uuid_utoa (tmp_loc.gfid),
+                        this->name);
                 local->op_errno = -ret;
                 ret = -1;
                 goto out;
@@ -1007,7 +1008,8 @@ dht_migration_complete_check_task (void *data)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid different on the target file on %s",
-                                tmp_loc.path, dst_node->name);
+                                tmp_loc.path ? tmp_loc.path :
+                                uuid_utoa (tmp_loc.gfid), dst_node->name);
                 ret = -1;
                 local->op_errno = EIO;
                 goto out;
@@ -1187,28 +1189,34 @@ dht_rebalance_inprogress_task (void *data)
         local->rebalance.target_node = dst_node;
 
         if (local->loc.inode) {
-                /* lookup on dst */
-                ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
-                                     NULL, NULL);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                DHT_MSG_FILE_LOOKUP_ON_DST_FAILED,
-                                "%s: failed to lookup the file on %s",
-                                local->loc.path, dst_node->name);
-                        ret = -1;
-                        goto out;
-                }
-
-                if (gf_uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_GFID_MISMATCH,
-                                "%s: gfid different on the target file on %s",
-                                local->loc.path, dst_node->name);
-                        ret = -1;
-                        goto out;
-                }
+                loc_copy (&tmp_loc, &local->loc);
+        } else {
+                tmp_loc.inode = inode_ref (inode);
+                gf_uuid_copy (tmp_loc.gfid, inode->gfid);
         }
 
+        /* lookup on dst */
+        ret = syncop_lookup (dst_node, &tmp_loc, &stbuf, NULL,
+                             NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_FILE_LOOKUP_ON_DST_FAILED,
+                        "%s: failed to lookup the file on %s",
+                        tmp_loc.path ? tmp_loc.path : uuid_utoa (tmp_loc.gfid),
+                        dst_node->name);
+                ret = -1;
+                goto out;
+        }
+
+        if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "%s: gfid different on the target file on %s",
+                        tmp_loc.path ? tmp_loc.path : uuid_utoa (tmp_loc.gfid),
+                        dst_node->name);
+                ret = -1;
+                goto out;
+        }
         ret = 0;
 
         if (list_empty (&inode->fd_list))
@@ -1219,7 +1227,6 @@ dht_rebalance_inprogress_task (void *data)
          */
         SYNCTASK_SETID (0, 0);
 
-        tmp_loc.inode = inode;
         inode_path (inode, NULL, &path);
         if (path)
                 tmp_loc.path = path;
@@ -1245,7 +1252,6 @@ dht_rebalance_inprogress_task (void *data)
                         open_failed = 1;
                 }
         }
-        GF_FREE (path);
 
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
 
@@ -1266,6 +1272,7 @@ done:
 
         ret = 0;
 out:
+        loc_wipe (&tmp_loc);
         return ret;
 }
 
