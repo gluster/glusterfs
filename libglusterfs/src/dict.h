@@ -63,7 +63,6 @@ typedef struct _data_pair data_pair_t;
 struct _data {
         unsigned char  is_static:1;
         unsigned char  is_const:1;
-        unsigned char  is_stdalloc:1;
         int32_t        len;
         char          *data;
         int32_t        refcount;
@@ -141,9 +140,6 @@ uint64_t data_to_uint64 (data_t *data);
 uint32_t data_to_uint32 (data_t *data);
 uint16_t data_to_uint16 (data_t *data);
 uint8_t data_to_uint8 (data_t *data);
-
-data_t *data_from_ptr (void *value);
-data_t *data_from_static_ptr (void *value);
 
 data_t *data_from_int64 (int64_t value);
 data_t *data_from_int32 (int32_t value);
@@ -239,7 +235,6 @@ GF_MUST_CHECK int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size);
 
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
-GF_MUST_CHECK int dict_set_dynmstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str);
 GF_MUST_CHECK int dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str);
