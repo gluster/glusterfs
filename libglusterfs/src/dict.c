@@ -222,14 +222,8 @@ data_destroy (data_t *data)
         if (data) {
                 LOCK_DESTROY (&data->lock);
 
-                if (!data->is_static) {
-                        if (data->data) {
-                                if (data->is_stdalloc)
-                                        free (data->data);
-                                else
-                                        GF_FREE (data->data);
-                        }
-                }
+                if (!data->is_static)
+                        GF_FREE (data->data);
 
                 data->len = 0xbabababa;
                 if (!data->is_const)
@@ -272,7 +266,7 @@ err_out:
 }
 
 static data_pair_t *
-_dict_lookup (dict_t *this, char *key)
+dict_lookup_common (dict_t *this, char *key)
 {
         int hashval = 0;
         if (!this || !key) {
@@ -311,7 +305,7 @@ dict_lookup (dict_t *this, char *key, data_t **data)
         data_pair_t *tmp = NULL;
         LOCK (&this->lock);
         {
-                tmp = _dict_lookup (this, key);
+                tmp = dict_lookup_common (this, key);
         }
         UNLOCK (&this->lock);
 
@@ -323,7 +317,7 @@ dict_lookup (dict_t *this, char *key, data_t **data)
 }
 
 static int32_t
-_dict_set (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
+dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 {
         int hashval = 0;
         data_pair_t *pair;
@@ -349,7 +343,7 @@ _dict_set (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 
         /* Search for a existing key if 'replace' is asked for */
         if (replace) {
-                pair = _dict_lookup (this, key);
+                pair = dict_lookup_common (this, key);
 
                 if (pair) {
                         data_t *unref_data = pair->value;
@@ -427,7 +421,7 @@ dict_set (dict_t *this,
 
         LOCK (&this->lock);
 
-        ret = _dict_set (this, key, value, 1);
+        ret = dict_set_lk (this, key, value, 1);
 
         UNLOCK (&this->lock);
 
@@ -449,7 +443,7 @@ dict_add (dict_t *this, char *key, data_t *value)
 
         LOCK (&this->lock);
 
-        ret = _dict_set (this, key, value, 0);
+        ret = dict_set_lk (this, key, value, 0);
 
         UNLOCK (&this->lock);
 
@@ -471,7 +465,7 @@ dict_get (dict_t *this, char *key)
 
         LOCK (&this->lock);
 
-        pair = _dict_lookup (this, key);
+        pair = dict_lookup_common (this, key);
 
         UNLOCK (&this->lock);
 
@@ -839,46 +833,18 @@ data_from_uint16 (uint16_t value)
         return data;
 }
 
-
-data_t *
-data_from_ptr (void *value)
+static data_t *
+data_from_ptr_common (void *value, gf_boolean_t is_static)
 {
-        if (!value) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "value is NULL");
-                return NULL;
-        }
+        /* it is valid to set 0/NULL as a value, no need to check *value */
 
         data_t *data = get_new_data ();
-
         if (!data) {
                 return NULL;
         }
 
         data->data = value;
-        return data;
-}
-
-data_t *
-data_from_static_ptr (void *value)
-{
-/*
-  this is valid to set 0 as value..
-
-  if (!value) {
-  gf_log ("dict", GF_LOG_CRITICAL,
-  "@value=%p", value);
-  return NULL;
-  }
-*/
-        data_t *data = get_new_data ();
-
-        if (!data) {
-                return NULL;
-        }
-
-        data->is_static = 1;
-        data->data = value;
+        data->is_static = is_static;
 
         return data;
 }
@@ -919,26 +885,6 @@ data_from_dynstr (char *value)
                 return NULL;
         data->len = strlen (value) + 1;
         data->data = value;
-
-        return data;
-}
-
-data_t *
-data_from_dynmstr (char *value)
-{
-        if (!value) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "value is NULL");
-                return NULL;
-        }
-
-        data_t *data = get_new_data ();
-
-        if (!data)
-                return NULL;
-        data->len = strlen (value) + 1;
-        data->data = value;
-        data->is_stdalloc = 1;
 
         return data;
 }
@@ -1363,10 +1309,7 @@ dict_keys_join (void *value, int size, dict_t *dict,
 }
 
 static int
-_copy (dict_t *unused,
-       char *key,
-       data_t *value,
-       void *newdict)
+dict_copy_one (dict_t *unused, char *key, data_t *value, void *newdict)
 {
         return dict_set ((dict_t *)newdict, key, (value));
 }
@@ -1384,7 +1327,7 @@ dict_copy (dict_t *dict,
         if (!new)
                 new = get_new_dict_full (dict->hash_size);
 
-        dict_foreach (dict, _copy, new);
+        dict_foreach (dict, dict_copy_one, new);
 
         return new;
 }
@@ -1418,7 +1361,7 @@ dict_copy_with_ref (dict_t *dict,
                 new = local_new;
         }
 
-        dict_foreach (dict, _copy, new);
+        dict_foreach (dict, dict_copy_one, new);
 fail:
         return new;
 }
@@ -1451,7 +1394,7 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 
         LOCK (&this->lock);
         {
-                pair = _dict_lookup (this, key);
+                pair = dict_lookup_common (this, key);
         }
         UNLOCK (&this->lock);
 
@@ -1465,7 +1408,7 @@ err:
 }
 
 static int
-_data_to_ptr (data_t *data, void **val)
+data_to_ptr_common (data_t *data, void **val)
 {
         int ret = 0;
 
@@ -1481,7 +1424,7 @@ err:
 
 
 static int
-_data_to_int8 (data_t *data, int8_t *val)
+data_to_int8_ptr (data_t *data, int8_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1509,7 +1452,7 @@ err:
 }
 
 static int
-_data_to_int16 (data_t *data, int16_t *val)
+data_to_int16_ptr (data_t *data, int16_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1537,7 +1480,7 @@ err:
 }
 
 static int
-_data_to_int32 (data_t *data, int32_t *val)
+data_to_int32_ptr (data_t *data, int32_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1565,7 +1508,7 @@ err:
 }
 
 static int
-_data_to_int64 (data_t *data, int64_t *val)
+data_to_int64_ptr (data_t *data, int64_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1593,7 +1536,7 @@ err:
 }
 
 static int
-_data_to_uint16 (data_t *data, uint16_t *val)
+data_to_uint16_ptr (data_t *data, uint16_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1621,7 +1564,7 @@ err:
 }
 
 static int
-_data_to_uint32 (data_t *data, uint32_t *val)
+data_to_uint32_ptr (data_t *data, uint32_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1649,7 +1592,7 @@ err:
 }
 
 static int
-_data_to_uint64 (data_t *data, uint64_t *val)
+data_to_uint64_ptr (data_t *data, uint64_t *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1677,7 +1620,7 @@ err:
 }
 
 static int
-_data_to_double (data_t *data, double *val)
+data_to_double_ptr (data_t *data, double *val)
 {
         int    ret = 0;
         char * str = NULL;
@@ -1720,7 +1663,7 @@ dict_get_int8 (dict_t *this, char *key, int8_t *val)
                 goto err;
         }
 
-        ret = _data_to_int8 (data, val);
+        ret = data_to_int8_ptr (data, val);
 
 err:
         if (data)
@@ -1765,7 +1708,7 @@ dict_get_int16 (dict_t *this, char *key, int16_t *val)
                 goto err;
         }
 
-        ret = _data_to_int16 (data, val);
+        ret = data_to_int16_ptr (data, val);
 
 err:
         if (data)
@@ -1810,7 +1753,7 @@ dict_get_int32 (dict_t *this, char *key, int32_t *val)
                 goto err;
         }
 
-        ret = _data_to_int32 (data, val);
+        ret = data_to_int32_ptr (data, val);
 
 err:
         if (data)
@@ -1855,7 +1798,7 @@ dict_get_int64 (dict_t *this, char *key, int64_t *val)
                 goto err;
         }
 
-        ret = _data_to_int64 (data, val);
+        ret = data_to_int64_ptr (data, val);
 
 err:
         if (data)
@@ -1900,7 +1843,7 @@ dict_get_uint16 (dict_t *this, char *key, uint16_t *val)
                 goto err;
         }
 
-        ret = _data_to_uint16 (data, val);
+        ret = data_to_uint16_ptr (data, val);
 
 err:
         if (data)
@@ -1945,7 +1888,7 @@ dict_get_uint32 (dict_t *this, char *key, uint32_t *val)
                 goto err;
         }
 
-        ret = _data_to_uint32 (data, val);
+        ret = data_to_uint32_ptr (data, val);
 
 err:
         if (data)
@@ -1991,7 +1934,7 @@ dict_get_uint64 (dict_t *this, char *key, uint64_t *val)
                 goto err;
         }
 
-        ret = _data_to_uint64 (data, val);
+        ret = data_to_uint64_ptr (data, val);
 
 err:
         if (data)
@@ -2036,7 +1979,7 @@ dict_get_double (dict_t *this, char *key, double *val)
                 goto err;
         }
 
-        ret = _data_to_double (data, val);
+        ret = data_to_double_ptr (data, val);
 
 err:
         if (data)
@@ -2070,7 +2013,7 @@ dict_set_static_ptr (dict_t *this, char *key, void *ptr)
         data_t * data = NULL;
         int      ret  = 0;
 
-        data = data_from_static_ptr (ptr);
+        data = data_from_ptr_common (ptr, _gf_true);
         if (!data) {
                 ret = -EINVAL;
                 goto err;
@@ -2120,7 +2063,7 @@ dict_get_ptr (dict_t *this, char *key, void **ptr)
                 goto err;
         }
 
-        ret = _data_to_ptr (data, ptr);
+        ret = data_to_ptr_common (data, ptr);
         if (ret != 0) {
                 goto err;
         }
@@ -2150,7 +2093,7 @@ dict_get_ptr_and_len (dict_t *this, char *key, void **ptr, int *len)
 
 	*len = data->len;
 
-        ret = _data_to_ptr (data, ptr);
+        ret = data_to_ptr_common (data, ptr);
         if (ret != 0) {
                 goto err;
         }
@@ -2168,7 +2111,7 @@ dict_set_ptr (dict_t *this, char *key, void *ptr)
         data_t * data = NULL;
         int      ret  = 0;
 
-        data = data_from_ptr (ptr);
+        data = data_from_ptr_common (ptr, _gf_false);
         if (!data) {
                 ret = -EINVAL;
                 goto err;
@@ -2293,29 +2236,6 @@ out:
         return ret;
 }
 
-/*
-  for malloced strings we should do a free instead of GF_FREE
-*/
-int
-dict_set_dynmstr (dict_t *this, char *key, char *str)
-{
-        data_t * data = NULL;
-        int      ret  = 0;
-
-        data = data_from_dynmstr (str);
-        if (!data) {
-                ret = -EINVAL;
-                goto err;
-        }
-
-        ret = dict_set (this, key, data);
-        if (ret < 0)
-                data_destroy (data);
-
-err:
-        return ret;
-}
-
 
 int
 dict_get_bin (dict_t *this, char *key, void **bin)
@@ -2345,8 +2265,9 @@ err:
 }
 
 
-int
-dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
+static int
+dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
+                     gf_boolean_t is_static)
 {
         data_t * data = NULL;
         int      ret  = 0;
@@ -2362,7 +2283,7 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
                 goto err;
         }
 
-        data->is_static = 0;
+        data->is_static = is_static;
 
         ret = dict_set (this, key, data);
         if (ret < 0)
@@ -2372,30 +2293,17 @@ err:
         return ret;
 }
 
+int
+dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
+{
+        return dict_set_bin_common (this, key, ptr, size, _gf_false);
+}
+
 
 int
 dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
 {
-        data_t * data = NULL;
-        int      ret  = 0;
-
-        if (!ptr || (size > ULONG_MAX)) {
-                ret = -EINVAL;
-                goto err;
-        }
-
-        data = bin_to_data (ptr, size);
-        if (!data) {
-                ret = -EINVAL;
-                goto err;
-        }
-
-        ret = dict_set (this, key, data);
-        if (ret < 0)
-                data_destroy (data);
-
-err:
-        return ret;
+        return dict_set_bin_common (this, key, ptr, size, _gf_true);
 }
 
 
@@ -2472,8 +2380,8 @@ err:
 #define DICT_DATA_HDR_VAL_LEN      4
 
 /**
- * _dict_serialized_length - return the length of serialized dict. This
- *                           procedure has to be called with this->lock held.
+ * dict_serialized_length_lk - return the length of serialized dict. This
+ *                             procedure has to be called with this->lock held.
  *
  * @this  : dict to be serialized
  * @return: success: len
@@ -2481,7 +2389,7 @@ err:
  */
 
 int
-_dict_serialized_length (dict_t *this)
+dict_serialized_length_lk (dict_t *this)
 {
         int ret            = -EINVAL;
         int count          = 0;
@@ -2542,8 +2450,8 @@ out:
 }
 
 /**
- * _dict_serialize - serialize a dictionary into a buffer. This procedure has
- *                   to be called with this->lock held.
+ * dict_serialize_lk - serialize a dictionary into a buffer. This procedure has
+ *                     to be called with this->lock held.
  *
  * @this: dict to serialize
  * @buf:  buffer to serialize into. This must be
@@ -2554,7 +2462,7 @@ out:
  */
 
 int
-_dict_serialize (dict_t *this, char *buf)
+dict_serialize_lk (dict_t *this, char *buf)
 {
         int           ret     = -1;
         data_pair_t * pair    = NULL;
@@ -2654,7 +2562,7 @@ dict_serialized_length (dict_t *this)
 
         LOCK (&this->lock);
         {
-                ret = _dict_serialized_length (this);
+                ret = dict_serialized_length_lk (this);
         }
         UNLOCK (&this->lock);
 
@@ -2686,7 +2594,7 @@ dict_serialize (dict_t *this, char *buf)
 
         LOCK (&this->lock);
         {
-                ret = _dict_serialize (this, buf);
+                ret = dict_serialize_lk (this, buf);
         }
         UNLOCK (&this->lock);
 out:
@@ -2854,7 +2762,7 @@ dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length)
 
         LOCK (&this->lock);
         {
-                len = _dict_serialized_length (this);
+                len = dict_serialized_length_lk (this);
                 if (len < 0) {
                         ret = len;
                         goto unlock;
@@ -2866,7 +2774,7 @@ dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length)
                         goto unlock;
                 }
 
-                ret = _dict_serialize (this, *buf);
+                ret = dict_serialize_lk (this, *buf);
                 if (ret < 0) {
                         GF_FREE (*buf);
                         *buf = NULL;
@@ -2884,7 +2792,7 @@ out:
 }
 
 /**
- * _dict_serialize_value_with_delim: serialize the values in the dictionary
+ * dict_serialize_value_with_delim_lk: serialize the values in the dictionary
  * into a buffer separated by delimiter (except the last)
  *
  * @this      : dictionary to serialize
@@ -2896,8 +2804,8 @@ out:
  *            : -errno -> faliure
  */
 int
-_dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
-                                  char delimiter)
+dict_serialize_value_with_delim_lk (dict_t *this, char *buf, int32_t *serz_len,
+                                    char delimiter)
 {
         int          ret       = -1;
         int32_t      count     = 0;
@@ -2978,7 +2886,8 @@ dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
 
         LOCK (&this->lock);
         {
-                ret = _dict_serialize_value_with_delim (this, buf, serz_len, delimiter);
+                ret = dict_serialize_value_with_delim_lk (this, buf, serz_len,
+                                                          delimiter);
         }
         UNLOCK (&this->lock);
 out:
