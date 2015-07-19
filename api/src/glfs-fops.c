@@ -3799,11 +3799,9 @@ void
 priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 {
         int                ret             = -1;
-        uuid_t             gfid;
         upcall_entry       *u_list         = NULL;
         glusterfs_ctx_t    *ctx            = NULL;
         struct gf_upcall   *upcall_data    = NULL;
-        struct glfs_object *object         = NULL;
 
         gf_log (THIS->name, GF_LOG_DEBUG,
                 "Upcall gfapi callback is called");
