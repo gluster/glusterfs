@@ -981,6 +981,47 @@ err:
         return 0;
 }
 
+int
+dht_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int op_ret, int op_errno, struct gf_lease *lease, dict_t *xdata)
+{
+        DHT_STACK_UNWIND (lease, frame, op_ret, op_errno, lease, xdata);
+
+        return 0;
+}
+
+int
+dht_lease (call_frame_t *frame, xlator_t *this,
+           loc_t *loc, struct gf_lease *lease, dict_t *xdata)
+{
+        xlator_t     *subvol = NULL;
+        int           op_errno = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        subvol = dht_subvol_get_cached (this, loc->inode);
+        if (!subvol) {
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", loc->path);
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        /* TODO: for rebalance, we need to preserve the fop arguments */
+        STACK_WIND (frame, dht_lease_cbk, subvol, subvol->fops->lease,
+                    loc, lease, xdata);
+
+        return 0;
+
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (lease, frame, -1, op_errno, NULL, NULL);
+
+        return 0;
+}
+
 /* Symlinks are currently not migrated, so no need for any check here */
 int
 dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
