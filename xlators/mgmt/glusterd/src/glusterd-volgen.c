@@ -2177,6 +2177,30 @@ out:
 }
 
 static int
+brick_graph_add_leases (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/leases", volinfo->volname);
+        if (!xl) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_FEATURE_ADD_FAIL,
+                        "failed to add features/leases to graph");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                          dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2387,6 +2411,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_fdl, "fdl"},
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
+        {brick_graph_add_leases, "leases"},
         {brick_graph_add_pump, NULL},
         {brick_graph_add_ro, NULL},
         {brick_graph_add_worm, NULL},

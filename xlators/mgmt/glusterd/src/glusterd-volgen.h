@@ -99,6 +99,7 @@ typedef enum {
         GF_XLATOR_POSIX = 0,
         GF_XLATOR_ACL,
         GF_XLATOR_LOCKS,
+        GF_XLATOR_LEASES,
         GF_XLATOR_UPCALL,
         GF_XLATOR_IOT,
         GF_XLATOR_INDEX,
