@@ -941,6 +941,11 @@ int32_t dht_lk (call_frame_t        *frame,
                 int32_t          cmd,
                 struct gf_flock *flock, dict_t *xdata);
 
+int32_t dht_lease (call_frame_t    *frame,
+                   xlator_t        *this,
+                   loc_t           *loc,
+                   struct gf_lease *lease, dict_t *xdata);
+
 int32_t dht_inodelk (call_frame_t *frame, xlator_t *this,
                      const char      *volume, loc_t *loc, int32_t cmd,
                      struct gf_flock *flock, dict_t *xdata);

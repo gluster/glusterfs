@@ -52,6 +52,7 @@ struct xlator_fops fops = {
         .inodelk     = dht_inodelk,
         .finodelk    = dht_finodelk,
         .lk          = dht_lk,
+        .lease       = dht_lease,
 
         /* Inode write operations */
         .fremovexattr = dht_fremovexattr,
