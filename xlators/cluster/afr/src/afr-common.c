@@ -4552,6 +4552,155 @@ out:
         return 0;
 }
 
+int32_t
+afr_lease_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
+                      dict_t *xdata)
+{
+        afr_local_t  *local      = NULL;
+        int           call_count = -1;
+
+        local = frame->local;
+        call_count = afr_frame_return (frame);
+
+        if (call_count == 0)
+                AFR_STACK_UNWIND (lease, frame, local->op_ret, local->op_errno,
+                                  lease, xdata);
+
+        return 0;
+}
+
+int32_t
+afr_lease_unlock (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local      = NULL;
+        afr_private_t *priv       = NULL;
+        int            i          = 0;
+        int            call_count = 0;
+
+        local = frame->local;
+        priv  = this->private;
+
+        call_count = afr_locked_nodes_count (local->cont.lease.locked_nodes,
+                                             priv->child_count);
+
+        if (call_count == 0) {
+                AFR_STACK_UNWIND (lease, frame, local->op_ret, local->op_errno,
+                                  &local->cont.lease.ret_lease, NULL);
+                return 0;
+        }
+
+        local->call_count = call_count;
+
+        local->cont.lease.user_lease.cmd = GF_UNLK_LEASE;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->cont.lease.locked_nodes[i]) {
+                        STACK_WIND (frame, afr_lease_unlock_cbk,
+                                    priv->children[i],
+                                    priv->children[i]->fops->lease,
+                                    &local->loc, &local->cont.lease.user_lease, NULL);
+
+                        if (!--call_count)
+                                break;
+                }
+        }
+
+        return 0;
+}
+
+int32_t
+afr_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
+               dict_t *xdata)
+{
+        afr_local_t   *local       = NULL;
+        afr_private_t *priv        = NULL;
+        int            child_index = -1;
+
+        local = frame->local;
+        priv  = this->private;
+
+        child_index = (long) cookie;
+
+        afr_common_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
+        if (op_ret < 0 && op_errno == EAGAIN) {
+                local->op_ret   = -1;
+                local->op_errno = EAGAIN;
+
+                afr_lease_unlock (frame, this);
+                return 0;
+        }
+
+        if (op_ret == 0) {
+                local->op_ret        = 0;
+                local->op_errno      = 0;
+                local->cont.lease.locked_nodes[child_index] = 1;
+                local->cont.lease.ret_lease = *lease;
+        }
+
+        child_index++;
+        if (child_index < priv->child_count) {
+                STACK_WIND_COOKIE (frame, afr_lease_cbk, (void *) (long) child_index,
+                                   priv->children[child_index],
+                                   priv->children[child_index]->fops->lease,
+                                   &local->loc, &local->cont.lease.user_lease, xdata);
+        } else if  (priv->quorum_count &&
+                   !afr_has_quorum (local->cont.lk.locked_nodes, this)) {
+                local->op_ret   = -1;
+                local->op_errno = afr_final_errno (local, priv);
+
+                afr_lease_unlock (frame, this);
+        } else {
+                if (local->op_ret < 0)
+                        local->op_errno = afr_final_errno (local, priv);
+                AFR_STACK_UNWIND (lease, frame, local->op_ret, local->op_errno,
+                                  &local->cont.lease.ret_lease, NULL);
+        }
+
+        return 0;
+}
+
+int
+afr_lease (call_frame_t *frame, xlator_t *this,
+           loc_t *loc, struct gf_lease *lease, dict_t *xdata)
+{
+        afr_private_t *priv     = NULL;
+        afr_local_t   *local    = NULL;
+        int32_t        op_errno = ENOMEM;
+
+        priv = this->private;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto out;
+
+        local->op = GF_FOP_LEASE;
+        local->cont.lease.locked_nodes = GF_CALLOC (priv->child_count,
+                                                    sizeof (*local->cont.lease.locked_nodes),
+                                                    gf_afr_mt_char);
+
+        if (!local->cont.lease.locked_nodes) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        loc_copy (&local->loc, loc);
+        local->cont.lease.user_lease = *lease;
+        local->cont.lease.ret_lease = *lease;
+
+        STACK_WIND_COOKIE (frame, afr_lease_cbk, (void *) (long) 0,
+                           priv->children[0],
+                           priv->children[0]->fops->lease,
+                           loc, lease, xdata);
+
+        return 0;
+out:
+        AFR_STACK_UNWIND (lease, frame, -1, op_errno, NULL, NULL);
+
+        return 0;
+}
+
 int
 afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, dict_t *xdata)
