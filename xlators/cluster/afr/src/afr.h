@@ -689,6 +689,13 @@ typedef struct _afr_local {
                         int32_t datasync;
                 } fsync;
 
+                struct {
+                        struct gf_lease user_lease;
+                        struct gf_lease ret_lease;
+                        unsigned char *locked_nodes;
+                } lease;
+
+
         } cont;
 
         struct {
