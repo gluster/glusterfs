@@ -162,12 +162,14 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_path (resolve_loc->parent, resolve_loc->name,
                     (char **) &resolve_loc->path);
 
-        dict = dict_copy_with_ref (state->xdata, NULL);
-        if (!dict && state->xdata)
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-                        "BUG: dict allocation failed (pargfid: %s, name: %s), "
-                        "still continuing", uuid_utoa (resolve_loc->gfid),
-                        resolve_loc->name);
+        if (state->xdata) {
+                dict = dict_copy_with_ref (state->xdata, NULL);
+                if (!dict)
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                                "BUG: dict allocation failed (pargfid: %s, name: %s), "
+                                "still continuing", uuid_utoa (resolve_loc->gfid),
+                                resolve_loc->name);
+        }
 
         STACK_WIND (frame, resolve_gfid_entry_cbk,
                     frame->root->client->bound_xl,
@@ -205,12 +207,14 @@ resolve_gfid (call_frame_t *frame)
         resolve_loc->inode = inode_new (state->itable);
         ret = loc_path (resolve_loc, NULL);
 
-        xdata = dict_copy_with_ref (state->xdata, NULL);
-        if (!xdata && state->xdata)
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-                        "BUG: dict allocation failed (gfid: %s), "
-                        "still continuing",
-                        uuid_utoa (resolve_loc->gfid));
+        if (state->xdata) {
+                xdata = dict_copy_with_ref (state->xdata, NULL);
+                if (!xdata)
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                                "BUG: dict allocation failed (gfid: %s), "
+                                "still continuing",
+                                uuid_utoa (resolve_loc->gfid));
+        }
 
         STACK_WIND (frame, resolve_gfid_cbk,
                     frame->root->client->bound_xl,
