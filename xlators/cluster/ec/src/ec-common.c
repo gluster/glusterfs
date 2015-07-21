@@ -240,6 +240,49 @@ void ec_fop_set_error(ec_fop_data_t * fop, int32_t error)
     UNLOCK(&fop->lock);
 }
 
+gf_boolean_t
+ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro)
+{
+    if ((error != 0) && (cbk->op_ret >= 0)) {
+        /* If cbk->op_errno was 0, it means that the fop succeeded and this
+         * error has happened while processing the answer. If the operation was
+         * read-only, there's no problem (i.e. we simply return the generated
+         * error code). However if it caused a modification, we must return EIO
+         * to indicate that the operation has been partially executed. */
+        cbk->op_errno = ro ? error : EIO;
+        cbk->op_ret = -1;
+
+        ec_fop_set_error(cbk->fop, cbk->op_errno);
+    }
+
+    return (cbk->op_ret < 0);
+}
+
+ec_cbk_data_t *
+ec_fop_prepare_answer(ec_fop_data_t *fop, gf_boolean_t ro)
+{
+    ec_cbk_data_t *cbk;
+    int32_t err;
+
+    cbk = fop->answer;
+    if (cbk == NULL) {
+        ec_fop_set_error(fop, EIO);
+
+        return NULL;
+    }
+
+    if (cbk->op_ret < 0) {
+        ec_fop_set_error(fop, cbk->op_errno);
+    }
+
+    err = ec_dict_combine(cbk, EC_COMBINE_XDATA);
+    if (ec_cbk_set_error(cbk, -err, ro)) {
+        return NULL;
+    }
+
+    return cbk;
+}
+
 void ec_sleep(ec_fop_data_t *fop)
 {
     LOCK(&fop->lock);
@@ -597,15 +640,24 @@ void ec_dispatch_one(ec_fop_data_t * fop)
 }
 
 gf_boolean_t
-ec_dispatch_one_retry(ec_fop_data_t *fop, ec_cbk_data_t *cbk)
+ec_dispatch_one_retry(ec_fop_data_t *fop, ec_cbk_data_t **cbk)
 {
-        if ((cbk->op_ret < 0) && ec_is_recoverable_error (cbk->op_errno)) {
-                GF_ASSERT (fop->mask & (1ULL<<cbk->idx));
-                fop->mask ^= (1ULL << cbk->idx);
-                if (fop->mask)
-                        return _gf_true;
+    ec_cbk_data_t *tmp;
+
+    tmp = ec_fop_prepare_answer(fop, _gf_true);
+    if (cbk != NULL) {
+        *cbk = tmp;
+    }
+    if ((tmp != NULL) && (tmp->op_ret < 0) &&
+        ec_is_recoverable_error (tmp->op_errno)) {
+        GF_ASSERT (fop->mask & (1ULL << tmp->idx));
+        fop->mask ^= (1ULL << tmp->idx);
+        if (fop->mask) {
+            return _gf_true;
         }
-        return _gf_false;
+    }
+
+    return _gf_false;
 }
 
 void ec_dispatch_inc(ec_fop_data_t * fop)
@@ -658,18 +710,21 @@ void ec_dispatch_min(ec_fop_data_t * fop)
     }
 }
 
-ec_lock_t *ec_lock_allocate(xlator_t *xl, loc_t *loc)
+ec_lock_t *ec_lock_allocate(ec_fop_data_t *fop, loc_t *loc)
 {
-    ec_t * ec = xl->private;
+    ec_t *ec = fop->xl->private;
     ec_lock_t * lock;
+    int32_t err;
 
     if ((loc->inode == NULL) ||
         (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid)))
     {
-        gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
+        gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_INVALID_INODE,
                 "Trying to lock based on an invalid "
                 "inode");
+
+        __ec_fop_set_error(fop, EINVAL);
 
         return NULL;
     }
@@ -680,10 +735,12 @@ ec_lock_t *ec_lock_allocate(xlator_t *xl, loc_t *loc)
         lock->good_mask = -1ULL;
         INIT_LIST_HEAD(&lock->waiting);
         INIT_LIST_HEAD(&lock->frozen);
-        if (ec_loc_from_loc(xl, &lock->loc, loc) != 0)
-        {
+        err = ec_loc_from_loc(fop->xl, &lock->loc, loc);
+        if (err != 0) {
             mem_put(lock);
             lock = NULL;
+
+            __ec_fop_set_error(fop, -err);
         }
     }
 
@@ -759,7 +816,7 @@ void ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc,
 
     ctx = __ec_inode_get(loc->inode, fop->xl);
     if (ctx == NULL) {
-        __ec_fop_set_error(fop, EIO);
+        __ec_fop_set_error(fop, ENOMEM);
 
         goto unlock;
     }
@@ -793,10 +850,8 @@ void ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc,
         goto insert;
     }
 
-    lock = ec_lock_allocate(fop->xl, loc);
+    lock = ec_lock_allocate(fop, loc);
     if (lock == NULL) {
-        __ec_fop_set_error(fop, EIO);
-
         goto unlock;
     }
 
@@ -825,13 +880,15 @@ void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
                                   uint32_t flags)
 {
     loc_t tmp, *base = NULL;
+    int32_t err;
 
     if (fop->error != 0) {
         return;
     }
 
-    if (ec_loc_parent(fop->xl, loc, &tmp) != 0) {
-        ec_fop_set_error(fop, EIO);
+    err = ec_loc_parent(fop->xl, loc, &tmp);
+    if (err != 0) {
+        ec_fop_set_error(fop, -err);
 
         return;
     }
@@ -849,13 +906,15 @@ void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
 void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags)
 {
     loc_t loc;
+    int32_t err;
 
     if (fop->error != 0) {
         return;
     }
 
-    if (ec_loc_from_fd(fop->xl, &loc, fd) != 0) {
-        ec_fop_set_error(fop, EIO);
+    err = ec_loc_from_fd(fop->xl, &loc, fd);
+    if (err != 0) {
+        ec_fop_set_error(fop, -err);
 
         return;
     }
@@ -937,13 +996,12 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         goto out;
     }
 
-    op_errno = EIO;
-
     LOCK(&lock->loc.inode->lock);
 
-    if (ec_dict_del_array(dict, EC_XATTR_VERSION, ctx->pre_version,
-                          EC_VERSION_SIZE) != 0) {
-        gf_msg (this->name, GF_LOG_ERROR, 0,
+    op_errno = -ec_dict_del_array(dict, EC_XATTR_VERSION, ctx->pre_version,
+                                  EC_VERSION_SIZE);
+    if (op_errno != 0) {
+        gf_msg (this->name, GF_LOG_ERROR, op_errno,
                 EC_MSG_VER_XATTR_GET_FAIL,
                 "Unable to get version xattr");
 
@@ -955,8 +1013,9 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ctx->have_version = _gf_true;
 
     if (lock->loc.inode->ia_type == IA_IFREG) {
-        if (ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size) != 0) {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+        op_errno = -ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size);
+        if (op_errno != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, op_errno,
                     EC_MSG_SIZE_XATTR_GET_FAIL, "Unable to get size xattr");
 
             goto unlock;
@@ -965,11 +1024,20 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
         ctx->have_size = _gf_true;
 
-        if ((ec_dict_del_config(dict, EC_XATTR_CONFIG, &ctx->config) != 0) ||
-            !ec_config_check(parent, &ctx->config)) {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+        op_errno = -ec_dict_del_config(dict, EC_XATTR_CONFIG, &ctx->config);
+        if (op_errno != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, op_errno,
                     EC_MSG_CONFIG_XATTR_GET_FAIL,
                     "Unable to get config xattr");
+
+            goto unlock;
+        }
+        if (!ec_config_check(parent, &ctx->config)) {
+            gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                    EC_MSG_CONFIG_XATTR_INVALID,
+                    "Invalid config xattr");
+
+            op_errno = EINVAL;
 
             goto unlock;
         }
@@ -1008,7 +1076,7 @@ void ec_get_size_version(ec_lock_link_t *link)
     dict_t *dict = NULL;
     uid_t uid;
     gid_t gid;
-    int32_t error = ENOMEM;
+    int32_t error = -ENOMEM;
     uint64_t allzero[EC_VERSION_SIZE] = {0, 0};
 
     lock = link->lock;
@@ -1041,16 +1109,22 @@ void ec_get_size_version(ec_lock_link_t *link)
 
     /* Once we know that an xattrop will be needed, we try to get all available
      * information in a single call. */
-    if ((ec_dict_set_array(dict, EC_XATTR_VERSION, allzero,
-                          EC_VERSION_SIZE) != 0) ||
-        (ec_dict_set_array(dict, EC_XATTR_DIRTY, allzero,
-                           EC_VERSION_SIZE) != 0)) {
+    error = ec_dict_set_array(dict, EC_XATTR_VERSION, allzero,
+                              EC_VERSION_SIZE);
+    if (error == 0) {
+        error = ec_dict_set_array(dict, EC_XATTR_DIRTY, allzero,
+                                  EC_VERSION_SIZE);
+    }
+    if (error != 0) {
         goto out;
     }
 
     if (lock->loc.inode->ia_type == IA_IFREG) {
-        if ((ec_dict_set_number(dict, EC_XATTR_SIZE, 0) != 0) ||
-            (ec_dict_set_number(dict, EC_XATTR_CONFIG, 0) != 0)) {
+        error = ec_dict_set_number(dict, EC_XATTR_SIZE, 0);
+        if (error == 0) {
+            error = ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
+        }
+        if (error != 0) {
             goto out;
         }
     }
@@ -1066,7 +1140,8 @@ void ec_get_size_version(ec_lock_link_t *link)
      * fop.
      */
     if (lock->fd == NULL) {
-        if (ec_loc_from_loc(fop->xl, &loc, &lock->loc) != 0) {
+        error = ec_loc_from_loc(fop->xl, &loc, &lock->loc);
+        if (error != 0) {
             goto out;
         }
         if (gf_uuid_is_null(loc.pargfid)) {
@@ -1101,7 +1176,7 @@ out:
     }
 
     if (error != 0) {
-        ec_fop_set_error(fop, error);
+        ec_fop_set_error(fop, -error);
     }
 }
 
@@ -1298,7 +1373,7 @@ int32_t ec_locked(call_frame_t *frame, void *cookie, xlator_t *this,
         ec_lock_acquired(link);
         ec_lock(fop->parent);
     } else {
-        gf_msg (this->name, GF_LOG_WARNING, 0,
+        gf_msg (this->name, GF_LOG_WARNING, op_errno,
                 EC_MSG_PREOP_LOCK_FAILED,
                 "Failed to complete preop lock");
     }
@@ -1479,7 +1554,7 @@ int32_t ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
     ec_lock_link_t *link = fop->data;
 
     if (op_ret < 0) {
-        gf_msg (this->name, GF_LOG_WARNING, 0,
+        gf_msg (this->name, GF_LOG_WARNING, op_errno,
                 EC_MSG_UNLOCK_FAILED,
                 "entry/inode unlocking failed (%s)",
                 ec_fop_name(link->fop->id));
@@ -1576,6 +1651,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     dict_t * dict;
     uid_t uid;
     gid_t gid;
+    int32_t err = -ENOMEM;
 
     fop = link->fop;
 
@@ -1593,8 +1669,9 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     /* If we don't have version information or it has been modified, we
      * update it. */
     if (!ctx->have_version || (version[0] != 0) || (version[1] != 0)) {
-        if (ec_dict_set_array(dict, EC_XATTR_VERSION,
-                              version, EC_VERSION_SIZE) != 0) {
+        err = ec_dict_set_array(dict, EC_XATTR_VERSION, version,
+                                EC_VERSION_SIZE);
+        if (err != 0) {
             goto out;
         }
     }
@@ -1604,7 +1681,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
          * of the file. */
         GF_ASSERT(ctx->have_size);
 
-        if (ec_dict_set_number(dict, EC_XATTR_SIZE, size) != 0) {
+        err = ec_dict_set_number(dict, EC_XATTR_SIZE, size);
+        if (err != 0) {
             goto out;
         }
     }
@@ -1612,8 +1690,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     /* If we don't have dirty information or it has been modified, we update
      * it. */
     if ((dirty[0] != 0) || (dirty[1] != 0)) {
-        if (ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty,
-                              EC_VERSION_SIZE) != 0) {
+        err = ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty, EC_VERSION_SIZE);
+        if (err != 0) {
             goto out;
         }
     }
@@ -1653,10 +1731,9 @@ out:
         dict_unref(dict);
     }
 
-    ec_fop_set_error(fop, EIO);
+    ec_fop_set_error(fop, -err);
 
-    gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
-            EC_MSG_SIZE_VERS_UPDATE_FAIL,
+    gf_msg (fop->xl->name, GF_LOG_ERROR, -err, EC_MSG_SIZE_VERS_UPDATE_FAIL,
             "Unable to update version and size");
 }
 
@@ -1789,7 +1866,7 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
             lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
                                               ec_unlock_timer_cbk, link);
             if (lock->timer == NULL) {
-                gf_msg(fop->xl->name, GF_LOG_WARNING, 0,
+                gf_msg(fop->xl->name, GF_LOG_WARNING, ENOMEM,
                        EC_MSG_UNLOCK_DELAY_FAILED,
                        "Unable to delay an "
                        "unlock");
