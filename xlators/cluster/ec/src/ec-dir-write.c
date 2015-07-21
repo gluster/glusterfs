@@ -104,6 +104,7 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
     ec_cbk_data_t *cbk;
     ec_fd_t *ctx;
     uint64_t version[2] = {0, 0};
+    int32_t err;
 
     switch (state)
     {
@@ -111,11 +112,18 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             LOCK(&fop->fd->lock);
 
             ctx = __ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) ||
-                (ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0])) != 0) {
+            if (ctx == NULL) {
                 UNLOCK(&fop->fd->lock);
 
-                fop->error = EIO;
+                fop->error = ENOMEM;
+
+                return EC_STATE_REPORT;
+            }
+            err = ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0]);
+            if (err != 0) {
+                UNLOCK(&fop->fd->lock);
+
+                fop->error = -err;
 
                 return EC_STATE_REPORT;
             }
@@ -124,12 +132,10 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
 
             UNLOCK(&fop->fd->lock);
 
-            if (fop->xdata == NULL)
-            {
+            if (fop->xdata == NULL) {
                 fop->xdata = dict_new();
-                if (fop->xdata == NULL)
-                {
-                    fop->error = EIO;
+                if (fop->xdata == NULL) {
+                    fop->error = ENOMEM;
 
                     return EC_STATE_REPORT;
                 }
@@ -144,22 +150,22 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             config.redundancy = ec->redundancy;
             config.chunk_size = EC_METHOD_CHUNK_SIZE;
 
-            if (ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG,
-                                   &config) < 0) {
-                fop->error = EIO;
+            err = ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG, &config);
+            if (err != 0) {
+                fop->error = -err;
 
                 return EC_STATE_REPORT;
             }
-
-            if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
-                                  version, EC_VERSION_SIZE) != 0) {
-                fop->error = EIO;
+            err = ec_dict_set_array(fop->xdata, EC_XATTR_VERSION, version,
+                                    EC_VERSION_SIZE);
+            if (err != 0) {
+                fop->error = -err;
 
                 return EC_STATE_REPORT;
             }
-
-            if (ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0) != 0) {
-                fop->error = EIO;
+            err = ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0);
+            if (err != 0) {
+                fop->error = -err;
 
                 return EC_STATE_REPORT;
             }
@@ -183,43 +189,24 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                int32_t err;
+
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3, cbk->count);
+
+                err = ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                    &cbk->iatt[0]);
+                if (!ec_cbk_set_error(cbk, -err, _gf_false)) {
+                    LOCK(&fop->fd->lock);
+
+                    ctx = __ec_fd_get(fop->fd, fop->xl);
+                    if (ctx != NULL) {
+                        ctx->open |= cbk->mask;
                     }
-                }
-                if (cbk->op_ret >= 0) {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
-                                    cbk->count);
 
-                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
-                                      &cbk->iatt[0]) != 0) {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    } else {
-                        LOCK(&fop->fd->lock);
-
-                        ctx = __ec_fd_get(fop->fd, fop->xl);
-                        if (ctx != NULL) {
-                            ctx->open |= cbk->mask;
-                        }
-
-                        UNLOCK(&fop->fd->lock);
-                    }
+                    UNLOCK(&fop->fd->lock);
                 }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
             }
 
             return EC_STATE_REPORT;
@@ -267,7 +254,7 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -282,7 +269,7 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .create = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(CREATE) %p", frame);
 
@@ -295,8 +282,7 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
                                ec_wind_create, ec_manager_create, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -304,21 +290,17 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->mode[0] = mode;
     fop->mode[1] = umask;
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
@@ -326,11 +308,9 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -342,13 +322,10 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -393,37 +370,19 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret >= 0) {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
-                                    cbk->count);
-                    if (cbk->iatt[0].ia_type == IA_IFREG) {
-                        cbk->iatt[0].ia_size = fop->locks[0].size;
-                    }
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                int32_t err;
 
-                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
-                                      &cbk->iatt[0]) != 0) {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3, cbk->count);
+
+                if (cbk->iatt[0].ia_type == IA_IFREG) {
+                    cbk->iatt[0].ia_size = fop->locks[0].size;
                 }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
+
+                err = ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                    &cbk->iatt[0]);
+                ec_cbk_set_error(cbk, -err, _gf_false);
             }
 
             return EC_STATE_REPORT;
@@ -470,7 +429,7 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -484,7 +443,7 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .link = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(LINK) %p", frame);
 
@@ -494,36 +453,29 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_LINK, 0, target, minimum,
                                ec_wind_link, ec_manager_link, callback, data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
-    if (oldloc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], oldloc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (oldloc != NULL) {
+        if (loc_copy(&fop->loc[0], oldloc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (newloc != NULL)
-    {
-        if (loc_copy(&fop->loc[1], newloc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (newloc != NULL) {
+        if (loc_copy(&fop->loc[1], newloc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -535,13 +487,10 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -569,21 +518,24 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
     uint64_t version[2] = {0, 0};
+    int32_t err;
+
     switch (state)
     {
         case EC_STATE_INIT:
             if (fop->xdata == NULL) {
                 fop->xdata = dict_new();
                 if (fop->xdata == NULL) {
-                    fop->error = EIO;
+                    fop->error = ENOMEM;
 
                     return EC_STATE_REPORT;
                 }
             }
 
-            if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
-                                  version, EC_VERSION_SIZE) != 0) {
-                fop->error = EIO;
+            err = ec_dict_set_array(fop->xdata, EC_XATTR_VERSION, version,
+                                    EC_VERSION_SIZE);
+            if (err != 0) {
+                fop->error = -err;
                 return EC_STATE_REPORT;
             }
 
@@ -602,34 +554,15 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret >= 0) {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
-                                    cbk->count);
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                int32_t err;
 
-                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
-                                      &cbk->iatt[0]) != 0) {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3, cbk->count);
+
+                err = ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                    &cbk->iatt[0]);
+                ec_cbk_set_error(cbk, -err, _gf_false);
             }
 
             return EC_STATE_REPORT;
@@ -676,7 +609,7 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -690,7 +623,7 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .mkdir = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(MKDIR) %p", frame);
 
@@ -702,29 +635,24 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_mkdir, ec_manager_mkdir, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->mode[0] = mode;
     fop->mode[1] = umask;
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -736,13 +664,10 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -778,10 +703,12 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
             if (S_ISREG(fop->mode[0])) {
+                int32_t err;
+
                 if (fop->xdata == NULL) {
                     fop->xdata = dict_new();
                     if (fop->xdata == NULL) {
-                        fop->error = EIO;
+                        fop->error = ENOMEM;
 
                         return EC_STATE_REPORT;
                     }
@@ -796,22 +723,22 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
                 config.redundancy = ec->redundancy;
                 config.chunk_size = EC_METHOD_CHUNK_SIZE;
 
-                if (ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG,
-                                       &config) < 0) {
-                    fop->error = EIO;
+                err = ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG, &config);
+                if (err != 0) {
+                    fop->error = -err;
 
                     return EC_STATE_REPORT;
                 }
-
-                if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
-                                      version, EC_VERSION_SIZE) != 0) {
-                    fop->error = EIO;
+                err = ec_dict_set_array(fop->xdata, EC_XATTR_VERSION, version,
+                                        EC_VERSION_SIZE);
+                if (err != 0) {
+                    fop->error = -err;
 
                     return EC_STATE_REPORT;
                 }
-
-                if (ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0) != 0) {
-                    fop->error = EIO;
+                err = ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0);
+                if (err != 0) {
+                    fop->error = -err;
 
                     return EC_STATE_REPORT;
                 }
@@ -832,34 +759,15 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret >= 0) {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
-                                    cbk->count);
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                int32_t err;
 
-                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
-                                      &cbk->iatt[0]) != 0) {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3, cbk->count);
+
+                err = ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                    &cbk->iatt[0]);
+                ec_cbk_set_error(cbk, -err, _gf_false);
             }
 
             return EC_STATE_REPORT;
@@ -906,7 +814,7 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -920,7 +828,7 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .mknod = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(MKNOD) %p", frame);
 
@@ -932,8 +840,7 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_mknod, ec_manager_mknod, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -941,21 +848,17 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->dev = rdev;
     fop->mode[1] = umask;
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -967,13 +870,10 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -1022,34 +922,13 @@ int32_t ec_manager_rename(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 5,
-                                    cbk->count);
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 5, cbk->count);
 
-                    if (cbk->iatt[0].ia_type == IA_IFREG) {
-                        cbk->iatt[0].ia_size = fop->locks[0].size;
-                    }
+                if (cbk->iatt[0].ia_type == IA_IFREG) {
+                    cbk->iatt[0].ia_size = fop->locks[0].size;
                 }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
             }
 
             return EC_STATE_REPORT;
@@ -1097,7 +976,7 @@ int32_t ec_manager_rename(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -1111,7 +990,7 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .rename = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(RENAME) %p", frame);
 
@@ -1123,36 +1002,29 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_rename, ec_manager_rename, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
-    if (oldloc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], oldloc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (oldloc != NULL) {
+        if (loc_copy(&fop->loc[0], oldloc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (newloc != NULL)
-    {
-        if (loc_copy(&fop->loc[1], newloc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (newloc != NULL) {
+        if (loc_copy(&fop->loc[1], newloc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -1164,13 +1036,10 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -1213,26 +1082,7 @@ int32_t ec_manager_rmdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
-            }
+            ec_fop_prepare_answer(fop, _gf_false);
 
             return EC_STATE_REPORT;
 
@@ -1278,7 +1128,7 @@ int32_t ec_manager_rmdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -1292,7 +1142,7 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .rmdir = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(RMDIR) %p", frame);
 
@@ -1304,28 +1154,23 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_rmdir, ec_manager_rmdir, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->int32 = xflags;
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -1337,13 +1182,10 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL);
     }
 }
 
@@ -1387,34 +1229,15 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret >= 0) {
-                    ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
-                                    cbk->count);
+            cbk = ec_fop_prepare_answer(fop, _gf_false);
+            if (cbk != NULL) {
+                int32_t err;
 
-                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
-                                      &cbk->iatt[0]) != 0) {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3, cbk->count);
+
+                err = ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                    &cbk->iatt[0]);
+                ec_cbk_set_error(cbk, -err, _gf_false);
             }
 
             return EC_STATE_REPORT;
@@ -1462,7 +1285,7 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -1477,7 +1300,7 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .symlink = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(SYMLINK) %p", frame);
 
@@ -1489,39 +1312,32 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_symlink, ec_manager_symlink, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->mode[0] = umask;
 
-    if (linkname != NULL)
-    {
+    if (linkname != NULL) {
         fop->str[0] = gf_strdup(linkname);
-        if (fop->str[0] == NULL)
-        {
+        if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY, "Failed to duplicate a string.");
 
             goto out;
         }
     }
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -1533,13 +1349,10 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
@@ -1583,26 +1396,7 @@ int32_t ec_manager_unlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
-            }
+            ec_fop_prepare_answer(fop, _gf_false);
 
             return EC_STATE_REPORT;
 
@@ -1648,7 +1442,7 @@ int32_t ec_manager_unlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -1662,7 +1456,7 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .unlink = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(UNLINK) %p", frame);
 
@@ -1674,28 +1468,23 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
                                ec_wind_unlink, ec_manager_unlink, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->int32 = xflags;
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -1707,12 +1496,9 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL);
     }
 }

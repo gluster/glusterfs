@@ -164,11 +164,14 @@ int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
     int         ret = -1;
     uint64_t   *ptr = NULL;
     int32_t     vindex;
-    if (value == NULL)
-        return -1;
+
+    if (value == NULL) {
+        return -EINVAL;
+    }
+
     ptr = GF_MALLOC(sizeof(uint64_t) * size, gf_common_mt_char);
     if (ptr == NULL) {
-        return -1;
+        return -ENOMEM;
     }
     for (vindex = 0; vindex < size; vindex++) {
          ptr[vindex] = hton64(value[vindex]);
@@ -187,14 +190,19 @@ int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
     int32_t len;
     int32_t vindex;
     int32_t old_size = 0;
+    int32_t err;
 
-    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0)) {
-        return -1;
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
     }
 
-    if (len > (size * sizeof(uint64_t)) ||
-        (len % sizeof (uint64_t)))
-            return -1;
+    if (len > (size * sizeof(uint64_t)) || (len % sizeof (uint64_t))) {
+        return -EINVAL;
+    }
 
     memset (value, 0, size * sizeof(uint64_t));
     /* 3.6 version ec would have stored version in 64 bit. In that case treat
@@ -222,9 +230,8 @@ int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
     uint64_t * ptr;
 
     ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
-    if (ptr == NULL)
-    {
-        return -1;
+    if (ptr == NULL) {
+        return -ENOMEM;
     }
 
     *ptr = hton64(value);
@@ -239,12 +246,17 @@ int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
 {
     void * ptr;
-    int32_t len;
+    int32_t len, err;
 
-    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0) ||
-        (len != sizeof(uint64_t)))
-    {
-        return -1;
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
+    }
+    if (len != sizeof(uint64_t)) {
+        return -EINVAL;
     }
 
     *value = ntoh64(*(uint64_t *)ptr);
@@ -266,13 +278,13 @@ int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
                 "Trying to store an unsupported config "
                 "version (%u)", config->version);
 
-        return -1;
+        return -EINVAL;
     }
 
     ptr = GF_MALLOC(sizeof(uint64_t), gf_common_mt_char);
     if (ptr == NULL)
     {
-        return -1;
+        return -ENOMEM;
     }
 
     data = ((uint64_t)config->version) << 56;
@@ -295,12 +307,17 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
 {
     void * ptr;
     uint64_t data;
-    int32_t len;
+    int32_t len, err;
 
-    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0) ||
-        (len != sizeof(uint64_t)))
-    {
-        return -1;
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
+    }
+    if (len != sizeof(uint64_t)) {
+        return -EINVAL;
     }
 
     data = ntoh64(*(uint64_t *)ptr);
@@ -313,7 +330,7 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
                 "Found an unsupported config version (%u)",
                 config->version);
 
-        return -1;
+        return -EINVAL;
     }
 
     config->algorithm = (data >> 48) & 0xff;
@@ -327,35 +344,32 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
     return 0;
 }
 
-int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
+gf_boolean_t ec_loc_gfid_check(xlator_t *xl, uuid_t dst, uuid_t src)
 {
-    if (gf_uuid_is_null(src))
-    {
-        return 1;
+    if (gf_uuid_is_null(src)) {
+        return _gf_true;
     }
 
-    if (gf_uuid_is_null(dst))
-    {
+    if (gf_uuid_is_null(dst)) {
         gf_uuid_copy(dst, src);
 
-        return 1;
+        return _gf_true;
     }
 
-    if (gf_uuid_compare(dst, src) != 0)
-    {
+    if (gf_uuid_compare(dst, src) != 0) {
         gf_msg (xl->name, GF_LOG_WARNING, 0,
                 EC_MSG_GFID_MISMATCH,
                 "Mismatching GFID's in loc");
 
-        return 0;
+        return _gf_false;
     }
 
-    return 1;
+    return _gf_true;
 }
 
 int32_t ec_loc_setup_inode(xlator_t *xl, inode_table_t *table, loc_t *loc)
 {
-    int32_t ret = -1;
+    int32_t ret = -EINVAL;
 
     if (loc->inode != NULL) {
         if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid)) {
@@ -378,7 +392,7 @@ out:
 int32_t ec_loc_setup_parent(xlator_t *xl, inode_table_t *table, loc_t *loc)
 {
     char *path, *parent;
-    int32_t ret = -1;
+    int32_t ret = -EINVAL;
 
     if (loc->parent != NULL) {
         if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid)) {
@@ -394,6 +408,8 @@ int32_t ec_loc_setup_parent(xlator_t *xl, inode_table_t *table, loc_t *loc)
                         EC_MSG_NO_MEMORY,
                         "Unable to duplicate path '%s'",
                         loc->path);
+
+                ret = -ENOMEM;
 
                 goto out;
             }
@@ -422,13 +438,16 @@ int32_t ec_loc_setup_path(xlator_t *xl, loc_t *loc)
 {
     uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     char *name;
-    int32_t ret = -1;
+    int32_t ret = -EINVAL;
 
     if (loc->path != NULL) {
         name = strrchr(loc->path, '/');
         if (name == NULL) {
-                ret = 0; /*<gfid:gfid-str>*/
-                goto out;
+            /* Allow gfid paths: <gfid:...> */
+            if (strncmp(loc->path, "<gfid:", 6) == 0) {
+                ret = 0;
+            }
+            goto out;
         }
         if (name == loc->path) {
             if (name[1] == 0) {
@@ -467,7 +486,7 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
 {
     inode_table_t *table = NULL;
     char *str = NULL;
-    int32_t ret = -1;
+    int32_t ret = -ENOMEM;
 
     memset(parent, 0, sizeof(loc_t));
 
@@ -501,17 +520,24 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
         }
     }
 
-    if ((ec_loc_setup_path(xl, parent) != 0) ||
-        (ec_loc_setup_inode(xl, table, parent) != 0) ||
-        (ec_loc_setup_parent(xl, table, parent) != 0)) {
+    ret = ec_loc_setup_path(xl, parent);
+    if (ret == 0) {
+        ret = ec_loc_setup_inode(xl, table, parent);
+    }
+    if (ret == 0) {
+        ret = ec_loc_setup_parent(xl, table, parent);
+    }
+    if (ret != 0) {
         goto out;
     }
 
     if ((parent->inode == NULL) && (parent->path == NULL) &&
         gf_uuid_is_null(parent->gfid)) {
-        gf_msg (xl->name, GF_LOG_ERROR, 0,
+        gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_LOC_PARENT_INODE_MISSING,
                 "Parent inode missing for loc_t");
+
+        ret = -EINVAL;
 
         goto out;
     }
@@ -521,8 +547,7 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
 out:
     GF_FREE(str);
 
-    if (ret != 0)
-    {
+    if (ret != 0) {
         loc_wipe(parent);
     }
 
@@ -533,7 +558,7 @@ int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
                       struct iatt *iatt)
 {
     inode_table_t *table = NULL;
-    int32_t ret = -1;
+    int32_t ret = -EINVAL;
 
     if (inode != NULL) {
         table = inode->table;
@@ -556,13 +581,16 @@ int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
         }
     }
 
-    if ((ec_loc_setup_path(xl, loc) != 0) ||
-        (ec_loc_setup_inode(xl, table, loc) != 0) ||
-        (ec_loc_setup_parent(xl, table, loc) != 0)) {
+    ret = ec_loc_setup_path(xl, loc);
+    if (ret == 0) {
+        ret = ec_loc_setup_inode(xl, table, loc);
+    }
+    if (ret == 0) {
+        ret = ec_loc_setup_parent(xl, table, loc);
+    }
+    if (ret != 0) {
         goto out;
     }
-
-    ret = 0;
 
 out:
     return ret;
@@ -571,7 +599,7 @@ out:
 int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd)
 {
     ec_fd_t * ctx;
-    int32_t ret = -1;
+    int32_t ret = -ENOMEM;
 
     memset(loc, 0, sizeof(*loc));
 
@@ -582,11 +610,10 @@ int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd)
         }
     }
 
-    if (ec_loc_update(xl, loc, fd->inode, NULL) != 0) {
+    ret = ec_loc_update(xl, loc, fd->inode, NULL);
+    if (ret != 0) {
         goto out;
     }
-
-    ret = 0;
 
 out:
     if (ret != 0) {
@@ -598,7 +625,7 @@ out:
 
 int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src)
 {
-    int32_t ret = -1;
+    int32_t ret = -ENOMEM;
 
     memset(dst, 0, sizeof(*dst));
 
@@ -606,11 +633,10 @@ int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src)
         goto out;
     }
 
-    if (ec_loc_update(xl, dst, NULL, NULL) != 0) {
+    ret = ec_loc_update(xl, dst, NULL, NULL);
+    if (ret != 0) {
         goto out;
     }
-
-    ret = 0;
 
 out:
     if (ret != 0) {

@@ -291,16 +291,14 @@ int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
 
     max = *count;
     i = 0;
-    for (ans = cbk; ans != NULL; ans = ans->next)
-    {
-        if (i >= max)
-        {
+    for (ans = cbk; ans != NULL; ans = ans->next) {
+        if (i >= max) {
             gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_INVALID_DICT_NUMS,
                     "Unexpected number of "
                     "dictionaries");
 
-            return 0;
+            return -EINVAL;
         }
 
         dict = (which == EC_COMBINE_XDATA) ? ans->xdata : ans->dict;
@@ -312,46 +310,43 @@ int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
 
     *count = i;
 
-    return 1;
+    return 0;
 }
 
-char * ec_concat_prepare(xlator_t * xl, char ** sep, char ** post,
-                         const char * fmt, va_list args)
+int32_t ec_concat_prepare(xlator_t *xl, char **str, char **sep, char **post,
+                          const char *fmt, va_list args)
 {
-    char * str, * tmp;
+    char *tmp;
     int32_t len;
 
-    len = gf_vasprintf(&str, fmt, args);
-    if (len < 0)
-    {
-        return NULL;
+    len = gf_vasprintf(str, fmt, args);
+    if (len < 0) {
+        return -ENOMEM;
     }
 
-    tmp = strchr(str, '{');
-    if (tmp == NULL)
-    {
+    tmp = strchr(*str, '{');
+    if (tmp == NULL) {
         goto out;
     }
     *tmp++ = 0;
     *sep = tmp;
     tmp = strchr(tmp, '}');
-    if (tmp == NULL)
-    {
+    if (tmp == NULL) {
         goto out;
     }
     *tmp++ = 0;
     *post = tmp;
 
-    return str;
+    return 0;
 
 out:
     gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
             EC_MSG_INVALID_FORMAT,
             "Invalid concat format");
 
-    GF_FREE(str);
+    GF_FREE(*str);
 
-    return NULL;
+    return -EINVAL;
 }
 
 int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
@@ -362,21 +357,20 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
     dict_t * dict;
     va_list args;
     int32_t i, num, len, prelen, postlen, seplen, tmp;
-    int32_t ret = -1;
+    int32_t err;
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key))
-    {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     va_start(args, key);
-    pre = ec_concat_prepare(cbk->fop->xl, &sep, &post, fmt, args);
+    err = ec_concat_prepare(cbk->fop->xl, &pre, &sep, &post, fmt, args);
     va_end(args);
 
-    if (pre == NULL)
-    {
-        return -1;
+    if (err != 0) {
+        return err;
     }
 
     prelen = strlen(pre);
@@ -384,21 +378,20 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
     postlen = strlen(post);
 
     len = prelen + (num - 1) * seplen + postlen + 1;
-    for (i = 0; i < num; i++)
-    {
+    for (i = 0; i < num; i++) {
         len += data[i]->len - 1;
     }
 
+    err = -ENOMEM;
+
     str = GF_MALLOC(len, gf_common_mt_char);
-    if (str == NULL)
-    {
+    if (str == NULL) {
         goto out;
     }
 
     memcpy(str, pre, prelen);
     len = prelen;
-    for (i = 0; i < num; i++)
-    {
+    for (i = 0; i < num; i++) {
         if (i > 0) {
             memcpy(str + len, sep, seplen);
             len += seplen;
@@ -410,58 +403,58 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
     memcpy(str + len, post, postlen + 1);
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (dict_set_dynstr(dict, key, str) != 0)
-    {
+    err = dict_set_dynstr(dict, key, str);
+    if (err != 0) {
         goto out;
     }
 
     str = NULL;
 
-    ret = 0;
-
 out:
     GF_FREE(str);
     GF_FREE(pre);
 
-    return ret;
+    return err;
 }
 
-int32_t ec_dict_data_merge(ec_cbk_data_t * cbk, int32_t which, char * key)
+int32_t ec_dict_data_merge(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t * data[cbk->count];
-    dict_t * dict, * lockinfo, * tmp;
-    char * ptr = NULL;
+    data_t *data[cbk->count];
+    dict_t *dict, *lockinfo, *tmp = NULL;
+    char *ptr = NULL;
     int32_t i, num, len;
-    int32_t ret = -1;
+    int32_t err;
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key))
-    {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     lockinfo = dict_new();
-    if (lockinfo == NULL)
-    {
-        return -1;
+    if (lockinfo == NULL) {
+        return -ENOMEM;
     }
 
-    if (dict_unserialize(data[0]->data, data[0]->len, &lockinfo) != 0)
-    {
+    err = dict_unserialize(data[0]->data, data[0]->len, &lockinfo);
+    if (err != 0) {
         goto out;
     }
 
     for (i = 1; i < num; i++)
     {
         tmp = dict_new();
-        if (tmp == NULL)
-        {
+        if (tmp == NULL) {
+            err = -ENOMEM;
+
             goto out;
         }
-        if ((dict_unserialize(data[i]->data, data[i]->len, &tmp) != 0) ||
-            (dict_copy(tmp, lockinfo) == NULL))
-        {
-            dict_unref(tmp);
+        err = dict_unserialize(data[i]->data, data[i]->len, &tmp);
+        if (err != 0) {
+            goto out;
+        }
+        if (dict_copy(tmp, lockinfo) == NULL) {
+            err = -ENOMEM;
 
             goto out;
         }
@@ -469,35 +462,40 @@ int32_t ec_dict_data_merge(ec_cbk_data_t * cbk, int32_t which, char * key)
         dict_unref(tmp);
     }
 
+    tmp = NULL;
+
     len = dict_serialized_length(lockinfo);
-    if (len < 0)
-    {
+    if (len < 0) {
+        err = len;
+
         goto out;
     }
     ptr = GF_MALLOC(len, gf_common_mt_char);
-    if (ptr == NULL)
-    {
+    if (ptr == NULL) {
+        err = -ENOMEM;
+
         goto out;
     }
-    if (dict_serialize(lockinfo, ptr) != 0)
-    {
+    err = dict_serialize(lockinfo, ptr);
+    if (err != 0) {
         goto out;
     }
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (dict_set_dynptr(dict, key, ptr, len) != 0)
-    {
+    err = dict_set_dynptr(dict, key, ptr, len);
+    if (err != 0) {
         goto out;
     }
 
     ptr = NULL;
 
-    ret = 0;
-
 out:
     GF_FREE(ptr);
     dict_unref(lockinfo);
+    if (tmp != NULL) {
+        dict_unref(tmp);
+    }
 
-    return ret;
+    return err;
 }
 
 int32_t ec_dict_data_uuid(ec_cbk_data_t * cbk, int32_t which, char * key)
@@ -507,27 +505,22 @@ int32_t ec_dict_data_uuid(ec_cbk_data_t * cbk, int32_t which, char * key)
     data_t * data;
 
     min = cbk;
-    for (ans = cbk->next; ans != NULL; ans = ans->next)
-    {
-        if (ans->idx < min->idx)
-        {
+    for (ans = cbk->next; ans != NULL; ans = ans->next) {
+        if (ans->idx < min->idx) {
             min = ans;
         }
     }
 
-    if (min != cbk)
-    {
+    if (min != cbk) {
         src = (which == EC_COMBINE_XDATA) ? min->xdata : min->dict;
         dst = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
 
         data = dict_get(src, key);
-        if (data == NULL)
-        {
-            return -1;
+        if (data == NULL) {
+            return -ENOENT;
         }
-        if (dict_set(dst, key, data) != 0)
-        {
-            return -1;
+        if (dict_set(dst, key, data) != 0) {
+            return -ENOMEM;
         }
     }
 
@@ -538,44 +531,38 @@ int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
     data_t * data[cbk->count];
     dict_t * dict;
-    int32_t i, num;
+    int32_t i, num, err;
     uint32_t max, tmp;
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key))
-    {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     max = data_to_uint32(data[0]);
-    for (i = 1; i < num; i++)
-    {
+    for (i = 1; i < num; i++) {
         tmp = data_to_uint32(data[i]);
-        if (max < tmp)
-        {
+        if (max < tmp) {
             max = tmp;
         }
     }
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (dict_set_uint32(dict, key, max) != 0)
-    {
-        return -1;
-    }
-
-    return 0;
+    return dict_set_uint32(dict, key, max);
 }
 
 int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
     data_t *data[cbk->count];
     dict_t *dict;
-    int32_t i, num;
+    int32_t i, num, err;
     uint64_t max, tmp;
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key)) {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     max = data_to_uint64(data[0]);
@@ -587,11 +574,7 @@ int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
     }
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (dict_set_uint64(dict, key, max) != 0) {
-        return -1;
-    }
-
-    return 0;
+    return dict_set_uint64(dict, key, max);
 }
 
 int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
@@ -601,13 +584,14 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
     ec_t        *ec               = NULL;
     int32_t      i                = 0;
     int32_t      num              = 0;
-    int32_t      ret              = -1;
+    int32_t      err              = 0;
     quota_meta_t size             = {0, };
     quota_meta_t max_size         = {0, };
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key)) {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     if (num == 0) {
@@ -620,9 +604,9 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
      * case, we take the maximum of all received values.
      */
     for (i = 0; i < num; i++) {
-        ret = quota_data_to_meta (data[i], QUOTA_SIZE_KEY, &size);
-        if (ret == -1)
+        if (quota_data_to_meta (data[i], QUOTA_SIZE_KEY, &size) < 0) {
                 continue;
+        }
 
         if (size.size > max_size.size)
                 max_size.size = size.size;
@@ -636,36 +620,29 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
     max_size.size *= ec->fragments;
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (quota_dict_set_meta (dict, key, &max_size, IA_IFDIR) != 0) {
-        return -1;
-    }
-
-    return 0;
+    return quota_dict_set_meta (dict, key, &max_size, IA_IFDIR);
 }
 
 int32_t ec_dict_data_stime(ec_cbk_data_t * cbk, int32_t which, char * key)
 {
     data_t * data[cbk->count];
     dict_t * dict;
-    int32_t i, num;
+    int32_t i, num, err;
 
     num = cbk->count;
-    if (!ec_dict_list(data, &num, cbk, which, key))
-    {
-        return -1;
+    err = ec_dict_list(data, &num, cbk, which, key);
+    if (err != 0) {
+        return err;
     }
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    for (i = 1; i < num; i++)
-    {
-        if (gf_get_max_stime(cbk->fop->xl, dict, key, data[i]) != 0)
-        {
-            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, 0,
-                    EC_MSG_STIME_COMBINE_FAIL,
-                    "STIME combination "
-                    "failed");
+    for (i = 1; i < num; i++) {
+        err = gf_get_max_stime(cbk->fop->xl, dict, key, data[i]);
+        if (err != 0) {
+            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, -err,
+                    EC_MSG_STIME_COMBINE_FAIL, "STIME combination failed");
 
-            return -1;
+            return err;
         }
     }
 
@@ -733,23 +710,24 @@ int32_t ec_dict_combine(ec_cbk_data_t * cbk, int32_t which)
 {
     dict_t * dict;
     ec_dict_combine_t data;
+    int32_t err = 0;
 
     data.cbk = cbk;
     data.which = which;
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if ((dict != NULL) &&
-        (dict_foreach(dict, ec_dict_data_combine, &data) != 0))
-    {
-        gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, 0,
-                EC_MSG_DICT_COMBINE_FAIL,
-                "Dictionary combination "
-                "failed");
+    if (dict != NULL) {
+        err = dict_foreach(dict, ec_dict_data_combine, &data);
+        if (err != 0) {
+            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, -err,
+                    EC_MSG_DICT_COMBINE_FAIL,
+                    "Dictionary combination failed");
 
-        return 0;
+            return err;
+        }
     }
 
-    return 1;
+    return 0;
 }
 
 int32_t ec_vector_compare(struct iovec * dst_vector, int32_t dst_count,

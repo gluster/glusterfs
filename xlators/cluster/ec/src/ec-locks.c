@@ -95,7 +95,7 @@ int32_t ec_lock_unlocked(call_frame_t * frame, void * cookie,
 {
     if (op_ret < 0)
     {
-        gf_msg (this->name, GF_LOG_WARNING, 0,
+        gf_msg (this->name, GF_LOG_WARNING, op_errno,
                 EC_MSG_UNLOCK_FAILED,
                 "Failed to unlock an entry/inode");
     }
@@ -109,7 +109,7 @@ int32_t ec_lock_lk_unlocked(call_frame_t * frame, void * cookie,
 {
     if (op_ret < 0)
     {
-        gf_msg(this->name, GF_LOG_WARNING, 0,
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
                EC_MSG_LK_UNLOCK_FAILED,
                "Failed to unlock an lk");
     }
@@ -227,12 +227,7 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
                     }
                 }
             } else {
-                cbk = fop->answer;
-                if (cbk == NULL) {
-                    ec_fop_set_error(fop, EIO);
-                } else if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
+                ec_fop_prepare_answer(fop, _gf_true);
             }
 
             return EC_STATE_REPORT;
@@ -287,7 +282,7 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE,
                     "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
@@ -303,7 +298,7 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .entrylk = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(ENTRYLK) %p", frame);
 
@@ -315,19 +310,16 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
                                ec_wind_entrylk, ec_manager_entrylk, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->entrylk_cmd = cmd;
     fop->entrylk_type = type;
 
-    if (volume != NULL)
-    {
+    if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);
-        if (fop->str[0] == NULL)
-        {
+        if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -335,22 +327,18 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL,
                     "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (basename != NULL)
-    {
+    if (basename != NULL) {
         fop->str[1] = gf_strdup(basename);
-        if (fop->str[1] == NULL)
-        {
+        if (fop->str[1] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -358,11 +346,9 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -375,13 +361,10 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -451,7 +434,7 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .fentrylk = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(FENTRYLK) %p", frame);
 
@@ -463,8 +446,7 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
                                ec_wind_fentrylk, ec_manager_entrylk, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -473,11 +455,9 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->entrylk_cmd = cmd;
     fop->entrylk_type = type;
 
-    if (volume != NULL)
-    {
+    if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);
-        if (fop->str[0] == NULL)
-        {
+        if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -485,11 +465,9 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL,
                     "Failed to reference a "
@@ -498,11 +476,9 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (basename != NULL)
-    {
+    if (basename != NULL) {
         fop->str[1] = gf_strdup(basename);
-        if (fop->str[1] == NULL)
-        {
+        if (fop->str[1] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -510,11 +486,9 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -527,13 +501,10 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -659,12 +630,7 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                     }
                 }
             } else {
-                cbk = fop->answer;
-                if (cbk == NULL) {
-                    ec_fop_set_error(fop, EIO);
-                } else if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
+                ec_fop_prepare_answer(fop, _gf_true);
             }
 
             return EC_STATE_REPORT;
@@ -719,7 +685,7 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE,
                     "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
@@ -735,7 +701,7 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .inodelk = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(INODELK) %p", frame);
 
@@ -747,18 +713,15 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
                                ec_wind_inodelk, ec_manager_inodelk, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
     fop->int32 = cmd;
 
-    if (volume != NULL)
-    {
+    if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);
-        if (fop->str[0] == NULL)
-        {
+        if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -766,36 +729,30 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL,
                     "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (flock != NULL)
-    {
+    if (flock != NULL) {
         fop->flock.l_type = flock->l_type;
         fop->flock.l_whence = flock->l_whence;
         fop->flock.l_start = flock->l_start;
         fop->flock.l_len = flock->l_len;
         fop->flock.l_pid = flock->l_pid;
         fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0)
-        {
+        if (flock->l_owner.len > 0) {
             memcpy(fop->flock.l_owner.data, flock->l_owner.data,
                    flock->l_owner.len);
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -808,13 +765,10 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -884,7 +838,7 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .finodelk = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(FINODELK) %p", frame);
 
@@ -896,8 +850,7 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
                                ec_wind_finodelk, ec_manager_inodelk, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -905,11 +858,9 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     fop->int32 = cmd;
 
-    if (volume != NULL)
-    {
+    if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);
-        if (fop->str[0] == NULL)
-        {
+        if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
                     "Failed to duplicate a string.");
@@ -917,11 +868,9 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -930,25 +879,21 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (flock != NULL)
-    {
+    if (flock != NULL) {
         fop->flock.l_type = flock->l_type;
         fop->flock.l_whence = flock->l_whence;
         fop->flock.l_start = flock->l_start;
         fop->flock.l_len = flock->l_len;
         fop->flock.l_pid = flock->l_pid;
         fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0)
-        {
+        if (flock->l_owner.len > 0) {
             memcpy(fop->flock.l_owner.data, flock->l_owner.data,
                    flock->l_owner.len);
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -961,13 +906,10 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -1119,12 +1061,7 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                     }
                 }
             } else {
-                cbk = fop->answer;
-                if (cbk == NULL) {
-                    ec_fop_set_error(fop, EIO);
-                } else if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
+                ec_fop_prepare_answer(fop, _gf_true);
             }
 
             return EC_STATE_REPORT;
@@ -1157,7 +1094,7 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE,
                     "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
@@ -1172,7 +1109,7 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .lk = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(LK) %p", frame);
 
@@ -1183,8 +1120,7 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop = ec_fop_data_allocate(frame, this, GF_FOP_LK, EC_FLAG_UPDATE_FD_INODE,
                                target, minimum, ec_wind_lk, ec_manager_lk,
                                callback, data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -1192,11 +1128,9 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     fop->int32 = cmd;
 
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL,
                     "Failed to reference a "
@@ -1205,25 +1139,21 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (flock != NULL)
-    {
+    if (flock != NULL) {
         fop->flock.l_type = flock->l_type;
         fop->flock.l_whence = flock->l_whence;
         fop->flock.l_start = flock->l_start;
         fop->flock.l_len = flock->l_len;
         fop->flock.l_pid = flock->l_pid;
         fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0)
-        {
+        if (flock->l_owner.len > 0) {
             memcpy(fop->flock.l_owner.data, flock->l_owner.data,
                    flock->l_owner.len);
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
                     "Failed to reference a "
@@ -1236,12 +1166,9 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL);
     }
 }

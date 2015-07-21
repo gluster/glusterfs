@@ -1069,9 +1069,8 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                 config.redundancy = ec->redundancy;
                 config.chunk_size = EC_METHOD_CHUNK_SIZE;
 
-                if (ec_dict_set_config(xdata, EC_XATTR_CONFIG,
-                                   &config) < 0) {
-                        ret = -EIO;
+                ret = ec_dict_set_config(xdata, EC_XATTR_CONFIG, &config);
+                if (ret != 0) {
                         goto out;
                 }
         default:
@@ -1725,7 +1724,7 @@ ec_manager_heal_block (ec_fop_data_t *fop, int32_t state)
     case -EC_STATE_REPORT:
         if (fop->cbks.heal) {
             fop->cbks.heal (fop->req_frame, fop, fop->xl, -1,
-                            EIO, 0, 0, 0, NULL);
+                            fop->error, 0, 0, 0, NULL);
         }
 
         return EC_STATE_END;
@@ -1745,7 +1744,7 @@ ec_heal_block (call_frame_t *frame, xlator_t *this, uintptr_t target,
 {
     ec_cbk_t callback = { .heal = func };
     ec_fop_data_t *fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace("ec", 0, "EC(HEAL) %p", frame);
 
@@ -1765,7 +1764,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, EIO, 0, 0, 0, NULL);
+        func(frame, NULL, this, -1, error, 0, 0, 0, NULL);
     }
 }
 
@@ -2350,7 +2349,7 @@ void
 ec_heal_fail (ec_t *ec, ec_fop_data_t *fop)
 {
         if (fop->cbks.heal) {
-            fop->cbks.heal (fop->req_frame, NULL, ec->xl, -1, EIO, 0, 0,
+            fop->cbks.heal (fop->req_frame, NULL, ec->xl, -1, fop->error, 0, 0,
                             0, NULL);
         }
         if (fop)
@@ -2365,6 +2364,7 @@ ec_launch_heal (ec_t *ec, ec_fop_data_t *fop)
         ret = synctask_new (ec->xl->ctx->env, ec_synctask_heal_wrap,
                             ec_heal_done, NULL, fop);
         if (ret < 0) {
+                ec_fop_set_error(fop, ENOMEM);
                 ec_heal_fail (ec, fop);
         }
 }
@@ -2418,8 +2418,9 @@ ec_heal_throttle (xlator_t *this, ec_fop_data_t *fop)
                 if (fop)
                         ec_launch_heal (ec, fop);
         } else {
-               gf_msg_debug (this->name, 0, "Max number of heals are pending, "
-                             "background self-heal rejected");
+                gf_msg_debug (this->name, 0, "Max number of heals are "
+                              "pending, background self-heal rejected");
+                ec_fop_set_error(fop, EBUSY);
                 ec_heal_fail (ec, fop);
         }
 }
@@ -2431,6 +2432,7 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
 {
     ec_cbk_t callback = { .heal = func };
     ec_fop_data_t *fop = NULL;
+    int32_t err = EINVAL;
 
     gf_msg_trace ("ec", 0, "EC(HEAL) %p", frame);
 
@@ -2445,6 +2447,9 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
     fop = ec_fop_data_allocate (frame, this, EC_FOP_HEAL,
                                 EC_FLAG_UPDATE_LOC_INODE, target, minimum,
                                 NULL, NULL, callback, data);
+
+    err = ENOMEM;
+
     if (fop == NULL)
         goto fail;
 
@@ -2459,10 +2464,12 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
 
     ec_heal_throttle (this, fop);
+
     return;
+
 fail:
     if (fop)
             ec_fop_data_release (fop);
     if (func)
-            func (frame, NULL, this, -1, EIO, 0, 0, 0, NULL);
+            func (frame, NULL, this, -1, err, 0, 0, 0, NULL);
 }

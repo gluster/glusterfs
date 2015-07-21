@@ -45,7 +45,7 @@
  */
 
 #define GLFS_EC_COMP_BASE       GLFS_MSGID_COMP_EC
-#define GLFS_NUM_MESSAGES       65
+#define GLFS_NUM_MESSAGES       66
 #define GLFS_MSGID_END          (GLFS_EC_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_EC_COMP_BASE, "Invalid: Start of messages"
@@ -512,6 +512,13 @@
  * @recommendedaction
  */
 #define EC_MSG_CONFIG_XATTR_GET_FAIL        (GLFS_EC_COMP_BASE + 65)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_CONFIG_XATTR_INVALID         (GLFS_EC_COMP_BASE + 66)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

@@ -111,6 +111,7 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
     ec_fd_t *ctx;
+    int32_t err;
 
     switch (state)
     {
@@ -118,11 +119,18 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             LOCK(&fop->fd->lock);
 
             ctx = __ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) ||
-                (ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0])) != 0) {
+            if (ctx == NULL) {
                 UNLOCK(&fop->fd->lock);
 
-                fop->error = EIO;
+                fop->error = ENOMEM;
+
+                return EC_STATE_REPORT;
+            }
+            err = ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0]);
+            if (err != 0) {
+                UNLOCK(&fop->fd->lock);
+
+                fop->error = -err;
 
                 return EC_STATE_REPORT;
             }
@@ -136,38 +144,20 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret >= 0) {
-                    /* Save which subvolumes successfully opened the directory.
-                     * If ctx->open is 0, it means that readdir cannot be
-                     * processed in this directory.
-                     */
-                    LOCK(&fop->fd->lock);
+            cbk = ec_fop_prepare_answer(fop, _gf_true);
+            if (cbk != NULL) {
+                /* Save which subvolumes successfully opened the directory.
+                 * If ctx->open is 0, it means that readdir cannot be
+                 * processed in this directory.
+                 */
+                LOCK(&fop->fd->lock);
 
-                    ctx = __ec_fd_get(fop->fd, fop->xl);
-                    if (ctx != NULL) {
-                        ctx->open |= cbk->mask;
-                    }
+                ctx = __ec_fd_get(fop->fd, fop->xl);
+                if (ctx != NULL) {
+                    ctx->open |= cbk->mask;
+                }
 
-                    UNLOCK(&fop->fd->lock);
-                }
-                if (cbk->op_ret < 0) {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
+                UNLOCK(&fop->fd->lock);
             }
 
             return EC_STATE_REPORT;
@@ -200,7 +190,7 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -214,7 +204,7 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .opendir = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(OPENDIR) %p", frame);
 
@@ -225,26 +215,21 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop = ec_fop_data_allocate(frame, this, GF_FOP_OPENDIR, EC_FLAG_UPDATE_FD,
                                target, minimum, ec_wind_opendir,
                                ec_manager_opendir, callback, data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
-    if (loc != NULL)
-    {
-        if (loc_copy(&fop->loc[0], loc) != 0)
-        {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
+    if (loc != NULL) {
+        if (loc_copy(&fop->loc[0], loc) != 0) {
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
     }
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
@@ -252,11 +237,9 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -268,13 +251,10 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL);
     }
 }
 
@@ -286,11 +266,13 @@ ec_deitransform (xlator_t *this, off_t offset)
         int  client_id = -1;
         ec_t *ec       = this->private;
         char id[32]    = {0};
+        int err;
 
         client_id = gf_deitransform (this, offset);
         sprintf (id, "%d", client_id);
-        if (dict_get_int32 (ec->leaf_to_subvolid, id, &idx)) {
-                idx = -1;
+        err = dict_get_int32 (ec->leaf_to_subvolid, id, &idx);
+        if (err < 0) {
+                idx = err;
                 goto out;
         }
 
@@ -299,6 +281,7 @@ out:
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         EC_MSG_INVALID_REQUEST,
                         "Invalid index %d in readdirp request", client_id);
+                idx = -EINVAL;
         }
         return idx;
 }
@@ -394,17 +377,20 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
             }
 
             if (fop->id == GF_FOP_READDIRP) {
+                    int32_t err;
+
                     if (fop->xdata == NULL) {
                         fop->xdata = dict_new();
                         if (fop->xdata == NULL) {
-                            fop->error = EIO;
+                            fop->error = ENOMEM;
 
                             return EC_STATE_REPORT;
                         }
                     }
 
-                    if (dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0)) {
-                        fop->error = EIO;
+                    err = dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0);
+                    if (err != 0) {
+                        fop->error = -err;
 
                         return EC_STATE_REPORT;
                     }
@@ -419,7 +405,7 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
                 idx = ec_deitransform (fop->xl, fop->offset);
 
                 if (idx < 0) {
-                        fop->error = EIO;
+                        fop->error = -idx;
                         return EC_STATE_REPORT;
                 }
                 fop->mask &= 1ULL << idx;
@@ -436,18 +422,15 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk) {
-                if (ec_dispatch_one_retry (fop, cbk))
-                        return EC_STATE_DISPATCH;
-
-                if ((cbk->op_ret > 0) && (fop->id == GF_FOP_READDIRP)) {
-                    ec_adjust_readdirp (fop->xl->private, cbk->idx,
-                                        &cbk->entries);
-                }
-            } else {
-                ec_fop_set_error(fop, EIO);
+            if (ec_dispatch_one_retry(fop, &cbk)) {
+                return EC_STATE_DISPATCH;
             }
+
+            if ((cbk != NULL) && (cbk->op_ret > 0) &&
+                (fop->id == GF_FOP_READDIRP)) {
+                ec_adjust_readdirp (fop->xl->private, cbk->idx, &cbk->entries);
+            }
+
             return EC_STATE_REPORT;
 
         case EC_STATE_REPORT:
@@ -505,7 +488,7 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
         default:
-            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
                     EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
                     state, ec_fop_name(fop->id));
 
@@ -519,7 +502,7 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .readdir = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(READDIR) %p", frame);
 
@@ -530,8 +513,7 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop = ec_fop_data_allocate(frame, this, GF_FOP_READDIR, 0, target, minimum,
                                ec_wind_readdir, ec_manager_readdir, callback,
                                data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -540,11 +522,9 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->size = size;
     fop->offset = offset;
 
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
@@ -552,11 +532,9 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -568,13 +546,10 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL);
     }
 }
 
@@ -595,7 +570,7 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
 {
     ec_cbk_t callback = { .readdirp = func };
     ec_fop_data_t * fop = NULL;
-    int32_t error = EIO;
+    int32_t error = ENOMEM;
 
     gf_msg_trace ("ec", 0, "EC(READDIRP) %p", frame);
 
@@ -606,8 +581,7 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop = ec_fop_data_allocate(frame, this, GF_FOP_READDIRP, 0, target,
                                minimum, ec_wind_readdirp, ec_manager_readdir,
                                callback, data);
-    if (fop == NULL)
-    {
+    if (fop == NULL) {
         goto out;
     }
 
@@ -616,11 +590,9 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->size = size;
     fop->offset = offset;
 
-    if (fd != NULL)
-    {
+    if (fd != NULL) {
         fop->fd = fd_ref(fd);
-        if (fop->fd == NULL)
-        {
+        if (fop->fd == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
@@ -628,11 +600,9 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
             goto out;
         }
     }
-    if (xdata != NULL)
-    {
+    if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL)
-        {
+        if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
@@ -644,12 +614,9 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
+    if (fop != NULL) {
         ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL);
     }
 }

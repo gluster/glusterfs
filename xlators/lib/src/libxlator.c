@@ -375,7 +375,7 @@ error:
 int
 gf_get_max_stime (xlator_t *this, dict_t *dst, char *key, data_t *value)
 {
-        int ret = -1;
+        int ret = -ENOMEM;
         uint32_t *net_timebuf = NULL;
         uint32_t *value_timebuf = NULL;
         uint32_t host_timebuf[2] = {0,};
@@ -401,7 +401,7 @@ gf_get_max_stime (xlator_t *this, dict_t *dst, char *key, data_t *value)
         if (!value_timebuf) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "key=%s: getting value of stime failed", key);
-                ret = -1;
+                ret = -EINVAL;
                 goto out;
         }
 
