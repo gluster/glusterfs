@@ -24,7 +24,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
 
     if (fop->xl != this)
     {
-        gf_msg (this->name, GF_LOG_ERROR, 0,
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_XLATOR_MISMATCH, "Mismatching xlators between request "
                 "and answer (req=%s, ans=%s).", fop->xl->name, this->name);
 
@@ -32,7 +32,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->frame != frame)
     {
-        gf_msg (this->name, GF_LOG_ERROR, 0,
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_FRAME_MISMATCH, "Mismatching frames between request "
                                          "and answer (req=%p, ans=%p).",
                                          fop->frame, frame);
@@ -41,7 +41,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->id != id)
     {
-        gf_msg (this->name, GF_LOG_ERROR, 0,
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_FOP_MISMATCH, "Mismatching fops between request "
                                          "and answer (req=%d, ans=%d).",
                                          fop->id, id);

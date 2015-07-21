@@ -93,7 +93,7 @@ int32_t ec_prepare_childs(xlator_t * this)
     }
     if (count > EC_MAX_NODES)
     {
-        gf_msg (this->name, GF_LOG_ERROR, 0,
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                 EC_MSG_TOO_MANY_SUBVOLS, "Too many subvolumes");
 
         return EINVAL;
@@ -360,7 +360,7 @@ ec_launch_notify_timer (xlator_t *this, ec_t *ec)
         delay.tv_nsec = 0;
         ec->timer = gf_timer_call_after (this->ctx, delay, ec_notify_cbk, ec);
         if (ec->timer == NULL) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         EC_MSG_TIMER_CREATE_FAIL, "Cannot create timer "
                         "for delayed initialization");
         }
