@@ -198,6 +198,8 @@ static struct argp_option gf_options[] = {
 	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
 	 "Set auxilary group list timeout to SECONDS for fuse translator "
 	 "[default: 300]"},
+        {"resolve-gids", ARGP_RESOLVE_GIDS_KEY, 0, 0,
+         "Resolve all auxilary groups in fuse translator (max 32 otherwise)"},
 	{"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
 	 "Set fuse module's background queue length to N "
 	 "[default: 64]"},
@@ -427,6 +429,16 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
 			goto err;
 		}
 	}
+
+        if (cmd_args->resolve_gids) {
+                ret = dict_set_static_ptr (options, "resolve-gids", "on");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "resolve-gids");
+                        goto err;
+                }
+        }
+
 	if (cmd_args->background_qlen) {
 		ret = dict_set_int32 (options, "background-qlen",
                                       cmd_args->background_qlen);
@@ -1075,6 +1087,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
 		argp_failure(state, -1, 0, "unknown group list timeout %s", arg);
 		break;
+
+        case ARGP_RESOLVE_GIDS_KEY:
+                cmd_args->resolve_gids = 1;
+                break;
+
         case ARGP_FUSE_BACKGROUND_QLEN_KEY:
                 if (!gf_string2int (arg, &cmd_args->background_qlen))
                         break;

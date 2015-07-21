@@ -465,6 +465,7 @@ struct _cmd_args {
         int              congestion_threshold;
         char             *fuse_mountopts;
         int              mem_acct;
+        int              resolve_gids;
 
         /* key args */
         char            *mount_point;
