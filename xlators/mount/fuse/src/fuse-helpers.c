@@ -20,6 +20,8 @@
 #elif defined(CTL_KERN)
 #include <sys/sysctl.h>
 #endif
+#include <pwd.h>
+#include <grp.h>
 
 #include "fuse-bridge.h"
 
@@ -146,51 +148,87 @@ void
 frame_fill_groups (call_frame_t *frame)
 {
 #if defined(GF_LINUX_HOST_OS)
-        char         filename[32];
-        char         line[4096];
-        char        *ptr = NULL;
-        FILE        *fp = NULL;
-        int          idx = 0;
-        long int     id = 0;
-        char        *saveptr = NULL;
-        char        *endptr = NULL;
-        int          ret = 0;
+        xlator_t       *this          = frame->this;
+        fuse_private_t *priv          = this->private;
+        char            filename[32];
+        char            line[4096];
+        char           *ptr           = NULL;
+        FILE           *fp            = NULL;
+        int             idx           = 0;
+        long int        id            = 0;
+        char           *saveptr       = NULL;
+        char           *endptr        = NULL;
+        int             ret           = 0;
+        int             ngroups       = FUSE_MAX_AUX_GROUPS;
+        gid_t           mygroups[GF_MAX_AUX_GROUPS];
 
-        ret = snprintf (filename, sizeof filename, "/proc/%d/status",
-                        frame->root->pid);
-        if (ret >= sizeof filename)
-                goto out;
+        if (priv->resolve_gids) {
+                struct passwd    pwent;
+                char             mystrs[1024];
+                struct passwd   *result;
 
-        fp = fopen (filename, "r");
-        if (!fp)
-                goto out;
-
-        if (call_stack_alloc_groups (frame->root, FUSE_MAX_AUX_GROUPS) != 0)
-                goto out;
-
-        while ((ptr = fgets (line, sizeof line, fp))) {
-                if (strncmp (ptr, "Groups:", 7) != 0)
-                        continue;
-
-                ptr = line + 8;
-
-                for (ptr = strtok_r (ptr, " \t\r\n", &saveptr);
-                     ptr;
-                     ptr = strtok_r (NULL, " \t\r\n", &saveptr)) {
-                        errno = 0;
-                        id = strtol (ptr, &endptr, 0);
-                        if (errno == ERANGE)
-                                break;
-                        if (!endptr || *endptr)
-                                break;
-                        frame->root->groups[idx++] = id;
-                        if (idx == FUSE_MAX_AUX_GROUPS)
-                                break;
+                if (getpwuid_r (frame->root->uid, &pwent, mystrs,
+                                sizeof(mystrs), &result) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "getpwuid_r(%u) "
+                                "failed", frame->root->uid);
+                        return;
                 }
 
-                frame->root->ngrps = idx;
-                break;
+                ngroups = GF_MAX_AUX_GROUPS;
+                if (getgrouplist (result->pw_name, frame->root->gid, mygroups,
+                                  &ngroups) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "could not map %s to "
+                                "group list (ngroups %d, max %d)",
+                                result->pw_name, ngroups, GF_MAX_AUX_GROUPS);
+                        return;
+                }
+
+                if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+                        goto out;
+
+                /* Copy data to the frame. */
+                for (idx = 0; idx < ngroups; ++idx) {
+                        frame->root->groups[idx] = mygroups[idx];
+                }
+                frame->root->ngrps = ngroups;
+        } else {
+                ret = snprintf (filename, sizeof filename, "/proc/%d/status",
+                                frame->root->pid);
+                if (ret >= sizeof filename)
+                        goto out;
+
+                fp = fopen (filename, "r");
+                if (!fp)
+                        goto out;
+
+                if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+                        goto out;
+
+                while ((ptr = fgets (line, sizeof line, fp))) {
+                        if (strncmp (ptr, "Groups:", 7) != 0)
+                                continue;
+
+                        ptr = line + 8;
+
+                        for (ptr = strtok_r (ptr, " \t\r\n", &saveptr);
+                             ptr;
+                             ptr = strtok_r (NULL, " \t\r\n", &saveptr)) {
+                                errno = 0;
+                                id = strtol (ptr, &endptr, 0);
+                                if (errno == ERANGE)
+                                        break;
+                                if (!endptr || *endptr)
+                                        break;
+                                frame->root->groups[idx++] = id;
+                                if (idx == FUSE_MAX_AUX_GROUPS)
+                                        break;
+                        }
+
+                        frame->root->ngrps = idx;
+                        break;
+                }
         }
+
 out:
         if (fp)
                 fclose (fp);

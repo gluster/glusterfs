@@ -5427,6 +5427,8 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
+        GF_OPTION_INIT("resolve-gids", priv->resolve_gids, bool, cleanup_exit);
+
         /* default values seemed to work fine during testing */
         GF_OPTION_INIT ("background-qlen", priv->background_qlen, int32,
                         cleanup_exit);
@@ -5664,6 +5666,10 @@ struct volume_options options[] = {
         { .key = {"gid-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "300"
+        },
+        { .key = {"resolve-gids"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false"
         },
         { .key = {"acl"},
           .type = GF_OPTION_TYPE_BOOL,

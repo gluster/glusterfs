@@ -127,6 +127,9 @@ struct fuse_private {
         /* fini started, helps prevent multiple epoll worker threads
          * firing up the fini routine */
         gf_boolean_t fini_invoked;
+
+        /* resolve gid with getgrouplist() instead of /proc/%d/status */
+        gf_boolean_t resolve_gids;
 };
 typedef struct fuse_private fuse_private_t;
 
