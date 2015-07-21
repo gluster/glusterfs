@@ -1126,14 +1126,17 @@ __glusterd_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         xlator_t                      *this = NULL;
         glusterd_conf_t               *priv = NULL;
         uuid_t                        *txn_id = NULL;
+        call_frame_t                  *frame = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
         priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT(myframe);
 
-        txn_id = &priv->global_txn_id;
+        frame = myframe;
+        txn_id = frame->cookie;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1191,10 +1194,6 @@ out:
                         uuid_utoa (rsp.uuid));
         }
 
-        ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-        gf_msg_debug (this->name, 0, "transaction ID = %s",
-                uuid_utoa (*txn_id));
-
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
@@ -1242,6 +1241,7 @@ out:
         } else {
                 free (rsp.dict.dict_val); //malloced by xdr
         }
+        GF_FREE (frame->cookie);
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -1270,14 +1270,17 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_conf_t               *priv = NULL;
         uuid_t                        *txn_id = NULL;
         glusterd_op_info_t            txn_op_info = {{0},};
+        call_frame_t                  *frame  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
         priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT(myframe);
 
-        txn_id = &priv->global_txn_id;
+        frame = myframe;
+        txn_id = frame->cookie;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1335,9 +1338,6 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         "Received commit ACC from uuid: %s",
                         uuid_utoa (rsp.uuid));
         }
-        ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-        gf_msg_debug (this->name, 0, "transaction ID = %s",
-                uuid_utoa (*txn_id));
 
         ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
@@ -1411,6 +1411,7 @@ out:
         if (dict)
                 dict_unref (dict);
         free (rsp.op_errstr); //malloced by xdr
+        GF_FREE (frame->cookie);
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
@@ -1895,9 +1896,9 @@ glusterd_stage_op (call_frame_t *frame, xlator_t *this,
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
-        call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict = NULL;
         gf_boolean_t                    is_alloc = _gf_true;
+        uuid_t                          *txn_id      = NULL;
 
         if (!this) {
                 goto out;
@@ -1927,13 +1928,34 @@ glusterd_stage_op (call_frame_t *frame, xlator_t *this,
                         "to request buffer");
                 goto out;
         }
-
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame)
+        /* Sending valid transaction ID to peers */
+        ret = dict_get_bin (dict, "transaction_id",
+                            (void **)&txn_id);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_ID_GET_FAIL,
+                       "Failed to get transaction id.");
                 goto out;
+        } else {
+                gf_msg_debug (this->name, 0,
+                        "Transaction_id = %s", uuid_utoa (*txn_id));
+        }
 
-        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+        if (!frame)
+                frame = create_frame (this, this->ctx->pool);
+
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!frame->cookie) {
+                ret = -1;
+                goto out;
+        }
+        gf_uuid_copy (frame->cookie, *txn_id);
+
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_STAGE_OP,
                                        NULL,
                                        this, glusterd_stage_op_cbk,
@@ -1958,6 +1980,7 @@ glusterd_commit_op (call_frame_t *frame, xlator_t *this,
         call_frame_t           *dummy_frame = NULL;
         dict_t                 *dict        = NULL;
         gf_boolean_t            is_alloc    = _gf_true;
+        uuid_t                 *txn_id      = NULL;
 
         if (!this) {
                 goto out;
@@ -1986,12 +2009,34 @@ glusterd_commit_op (call_frame_t *frame, xlator_t *this,
                         "request buffer");
                 goto out;
         }
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame)
+        /* Sending valid transaction ID to peers */
+        ret = dict_get_bin (dict, "transaction_id",
+                            (void **)&txn_id);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_ID_GET_FAIL,
+                       "Failed to get transaction id.");
                 goto out;
+        } else {
+                gf_msg_debug (this->name, 0,
+                        "Transaction_id = %s", uuid_utoa (*txn_id));
+        }
 
-        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+        if (!frame)
+                frame = create_frame (this, this->ctx->pool);
+
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!frame->cookie) {
+                ret = -1;
+                goto out;
+        }
+        gf_uuid_copy (frame->cookie, *txn_id);
+
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        peerinfo->mgmt, GLUSTERD_MGMT_COMMIT_OP,
                                        NULL,
                                        this, glusterd_commit_op_cbk,
