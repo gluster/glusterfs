@@ -846,6 +846,40 @@ br_stub_fsetxattr_resume (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+/**
+ * Handles object reopens. Object reopens can be of 3 types. 2 are from
+ * oneshot crawler and 1 from the regular signer.
+ * ONESHOT CRAWLER:
+ * For those objects which were created before bitrot was enabled. oneshow
+ * crawler crawls the namespace and signs all the objects. It has to do
+ * the versioning before making bit-rot-stub send a sign notification.
+ * So it sends fsetxattr with BR_OBJECT_REOPEN as the value. And bit-rot-stub
+ * upon getting BR_OBJECT_REOPEN value checks if the version has to be
+ * increased or not. By default the version will be increased. But if the
+ * object is modified before BR_OBJECT_REOPEN from oneshot crawler, then
+ * versioning need not be done. In that case simply a success is returned.
+ * SIGNER:
+ * Signer wait for 2 minutes upon getting the notification from bit-rot-stub
+ * and then it sends a dummy write (in reality a fsetxattr) call, to change
+ * the state of the inode from REOPEN_WAIT to SIGN_QUICK. The funny part here
+ * is though the inode's state is REOPEN_WAIT, the call sent by signer is
+ * BR_OBJECT_RESIGN. Once the state is changed to SIGN_QUICK, then yet another
+ * notification is sent upon release (RESIGN would have happened via fsetxattr,
+ * so a fd is needed) and the object is signed truly this time.
+ * There is a challenge in the above RESIGN method by signer. After sending
+ * the 1st notification, the inode could be forgotten before RESIGN request
+ * is received. In that case, the inode's context (the newly looked up inode)
+ * would not indicate the inode as being modified (it would be in the default
+ * state) and because of this, a SIGN_QUICK notification to truly sign the
+ * object would not be sent. So, this is how its handled.
+ * if (request == RESIGN) {
+ *    if (inode->sign_info == NORMAL) {
+ *        mark_inode_non_dirty;
+ *        mark_inode_modified;
+ *    }
+ *    GOBACK (means unwind without doing versioning)
+ * }
+ */
 static void
 br_stub_handle_object_reopen (call_frame_t *frame,
                               xlator_t *this, fd_t *fd, uint32_t val)
@@ -858,6 +892,7 @@ br_stub_handle_object_reopen (call_frame_t *frame,
         gf_boolean_t         modified    = _gf_false;
         br_stub_inode_ctx_t *ctx         = NULL;
         br_stub_local_t     *local       = NULL;
+        gf_boolean_t         goback      = _gf_true;
 
         ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
@@ -865,11 +900,18 @@ br_stub_handle_object_reopen (call_frame_t *frame,
 
         LOCK (&fd->inode->lock);
         {
+                if ((val == BR_OBJECT_REOPEN) && inc_version)
+                        goback = _gf_false;
+                if (val == BR_OBJECT_RESIGN &&
+                    ctx->info_sign == BR_SIGN_NORMAL) {
+                        __br_stub_mark_inode_synced (ctx);
+                        __br_stub_set_inode_modified (ctx);
+                }
                 (void) __br_stub_inode_sign_state (ctx, GF_FOP_FSETXATTR, fd);
         }
         UNLOCK (&fd->inode->lock);
 
-        if ((val == BR_OBJECT_RESIGN) || !inc_version) {
+        if (goback) {
                 op_ret = op_errno = 0;
                 goto unwind;
         }
