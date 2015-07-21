@@ -3735,7 +3735,6 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
         new->skipped_files      = old->skipped_files;
         new->rebalance_failures = old->rebalance_failures;
         new->rebalance_time     = old->rebalance_time;
-        new->dict               = (old->dict ? dict_ref (old->dict) : NULL);
 
         /* glusterd_rebalance_t.{op, id, defrag_cmd} are copied during volume
          * import

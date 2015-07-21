@@ -1656,6 +1656,83 @@ out:
         return ret;
 }
 
+static int
+glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
+                                       dict_t *dict,
+                                       glusterd_volinfo_t *volinfo,
+                                       char **errstr)
+{
+        char                   *brick       = NULL;
+        char                    msg[2048]   = {0,};
+        char                    key[256]    = {0,};
+        glusterd_brickinfo_t   *brickinfo   = NULL;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        int                     i           = 0;
+        int                     ret         = -1;
+
+        /* Check whether all the nodes of the bricks to be removed are
+        * up, if not fail the operation */
+        for (i = 1; i <= brick_count; i++) {
+                snprintf (key, sizeof (key), "brick%d", i);
+                ret = dict_get_str (dict, key, &brick);
+                if (ret) {
+                        snprintf (msg, sizeof (msg),
+                                  "Unable to get %s", key);
+                        *errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                ret =
+                glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
+                                                       &brickinfo);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Incorrect brick "
+                                  "%s for volume %s", brick, volinfo->volname);
+                        *errstr = gf_strdup (msg);
+                        goto out;
+                }
+                /* Do not allow commit if the bricks are not decommissioned
+                 * if its a remove brick commit
+                 */
+                if (cmd == GF_OP_CMD_COMMIT && !brickinfo->decommissioned) {
+                        snprintf (msg, sizeof (msg), "Brick %s "
+                                  "is not decommissioned. "
+                                  "Use start or force option",
+                                  brick);
+                        *errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (glusterd_is_local_brick (THIS, volinfo, brickinfo))
+                        continue;
+
+                rcu_read_lock ();
+                peerinfo = glusterd_peerinfo_find_by_uuid
+                                                (brickinfo->uuid);
+                if (!peerinfo) {
+                        snprintf (msg, sizeof(msg), "Host node of the "
+                                  "brick %s is not in cluster", brick);
+                        *errstr = gf_strdup (msg);
+                        ret = -1;
+                        rcu_read_unlock ();
+                        goto out;
+                }
+                if (!peerinfo->connected) {
+                        snprintf (msg, sizeof(msg), "Host node of the "
+                                  "brick %s is down", brick);
+                        *errstr = gf_strdup (msg);
+                        ret = -1;
+                        rcu_read_unlock ();
+                        goto out;
+                }
+                rcu_read_unlock ();
+        }
+
+out:
+        return ret;
+}
+
 int
 glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 {
@@ -1674,6 +1751,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         char                   *brick       = NULL;
         glusterd_brickinfo_t   *brickinfo   = NULL;
         gsync_status_param_t    param       = {0,};
+        glusterd_peerinfo_t    *peerinfo    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1812,6 +1890,12 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+                ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
+                                                             dict, volinfo,
+                                                             &errstr);
+                if (ret)
+                        goto out;
+
                 if (is_origin_glusterd (dict)) {
                         ret = glusterd_generate_and_set_task_id
                                 (dict, GF_REMOVE_BRICK_TID_KEY);
@@ -1856,36 +1940,11 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                /* Do not allow commit if the bricks are not decommissioned */
-                for ( i = 1; i <= brick_count; i++ ) {
-                        snprintf (key, sizeof (key), "brick%d", i);
-                        ret = dict_get_str (dict, key, &brick);
-                        if (ret) {
-                                snprintf (msg, sizeof (msg),
-                                          "Unable to get %s", key);
-                                errstr = gf_strdup (msg);
-                                goto out;
-                        }
-
-                        ret =
-                        glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
-                                                               &brickinfo);
-                        if (ret) {
-                                snprintf (msg, sizeof (msg), "Incorrect brick "
-                                          "%s for volume %s", brick, volname);
-                                errstr = gf_strdup (msg);
-                                goto out;
-                        }
-                        if ( !brickinfo->decommissioned ) {
-                                snprintf (msg, sizeof (msg), "Brick %s "
-                                          "is not decommissioned. "
-                                          "Use start or force option",
-                                          brick);
-                                errstr = gf_strdup (msg);
-                                ret = -1;
-                                goto out;
-                        }
-                }
+                ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
+                                                             dict, volinfo,
+                                                             &errstr);
+                if (ret)
+                        goto out;
 
                 /* If geo-rep is configured, for this volume, it should be
                  * stopped.
