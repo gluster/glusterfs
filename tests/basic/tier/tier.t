@@ -137,6 +137,11 @@ TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST ! $CLI volume tier $V0 detach commit force
 
 TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+# create a file, make sure it can be deleted after attach tier.
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
+cd $M0
+TEST touch delete_me.txt
+
 
 # stop the volume and restart it. The rebalance daemon should restart.
 TEST $CLI volume stop $V0
@@ -156,10 +161,7 @@ TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
 TEST $CLI volume set $V0 cluster.read-freq-threshold 0
 TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 
-TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
-
 # Basic operations.
-cd $M0
 TEST stat .
 TEST mkdir d1
 TEST [ -d d1 ]
@@ -167,6 +169,7 @@ TEST touch d1/file1
 TEST mkdir d1/d2
 TEST [ -d d1/d2 ]
 TEST find d1
+TEST rm --interactive=never delete_me.txt
 mkdir /tmp/d1
 
 # Create a file. It should be on the fast tier.
@@ -199,7 +202,7 @@ cat d1/data3.txt
 
 sleep $PROMOTE_TIMEOUT
 sleep $DEMOTE_FREQ
-EXPECT_WITHIN $DEMOTE_TIMEOUT "0" check_counters 2 6
+EXPECT_WITHIN $DEMOTE_TIMEOUT "0" check_counters 2 7
 
 # stop gluster, when it comes back info file should have tiered volume
 killall glusterd
