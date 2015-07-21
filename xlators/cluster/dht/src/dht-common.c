@@ -4485,6 +4485,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         xlator_t     *hashed_subvol = 0;
         int           ret    = 0;
         int           readdir_optimize = 0;
+        dht_inode_ctx_t *ctx = NULL;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
@@ -4578,20 +4579,22 @@ list:
                 if (orig_entry->dict)
                         entry->dict = dict_ref (orig_entry->dict);
 
-                /* making sure we set the inode ctx right with layout,
-                   currently possible only for non-directories, so for
-                   directories don't set entry inodes */
-                if (!IA_ISDIR(entry->d_stat.ia_type) && orig_entry->inode) {
-                        ret = dht_layout_preset (this, prev->this,
-                                                 orig_entry->inode);
-                        if (ret)
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        DHT_MSG_LAYOUT_SET_FAILED,
-                                        "failed to link the layout in inode");
-                        entry->inode = inode_ref (orig_entry->inode);
-                } else if (orig_entry->inode) {
-                        dht_inode_ctx_time_update (orig_entry->inode, this,
-                                                   &entry->d_stat, 1);
+                /* For non-directories don't set inode ctx from readdirp cbk,
+                 * let them populate on first lookup, for directories
+                 * don't set entry inodes */
+                if (orig_entry->inode) {
+                        ret = dht_inode_ctx_get (orig_entry->inode, this, &ctx);
+                            if (ret == -1) {
+                                 entry->inode = NULL;
+                            } else {
+                                   entry->inode = inode_ref (orig_entry->inode);
+                                if (IA_ISDIR (entry->d_stat.ia_type)) {
+                                   dht_inode_ctx_time_update (orig_entry->inode,
+                                                       this, &entry->d_stat, 1);
+
+                                }
+
+                            }
                 }
 
                 list_add_tail (&entry->list, &entries.list);
