@@ -139,9 +139,11 @@ struct _ec_lock
 {
     ec_inode_t        *ctx;
     gf_timer_t        *timer;
+    struct list_head   owners;  /* List of owners of this lock. */
     struct list_head   waiting; /* Queue of requests being serviced. */
     struct list_head   frozen;  /* Queue of requests that will be serviced in
                                    the next unlock/lock cycle. */
+    int32_t            exclusive;
     uintptr_t          mask;
     uintptr_t          good_mask;
     uintptr_t          healing;
@@ -149,9 +151,9 @@ struct _ec_lock
     int32_t            refs_frozen;
     int32_t            inserted;
     gf_boolean_t       acquired;
+    gf_boolean_t       getting_size;
     gf_boolean_t       release;
     gf_boolean_t       query;
-    ec_fop_data_t     *owner;
     fd_t              *fd;
     loc_t              loc;
     union
@@ -185,6 +187,7 @@ struct _ec_fop_data
     xlator_t          *xl;
     call_frame_t      *req_frame;    /* frame of the calling xlator */
     call_frame_t      *frame;        /* frame used by this fop */
+    struct list_head   owner_list;   /* member of lock owner list */
     struct list_head   cbk_list;     /* sorted list of groups of answers */
     struct list_head   answer_list;  /* list of answers */
     struct list_head   pending_list; /* member of ec_t.pending_fops */
