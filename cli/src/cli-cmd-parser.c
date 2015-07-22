@@ -1171,6 +1171,12 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 type = GF_QUOTA_OPTION_TYPE_LIST;
 
+                if (words[4] && words[4][0] != '/') {
+                        cli_err ("Please enter absolute path");
+                        ret = -1;
+                        goto out;
+                }
+
                 i = 4;
                 while (i < wordcount) {
                         snprintf (key, 20, "path%d", i-4);
