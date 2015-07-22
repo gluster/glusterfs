@@ -649,7 +649,7 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         loc->path);
                 goto err;
         }
-        if (dict_get (xattr_req, GF_CONTENT_KEY))
+        if ((xattr_req) && (dict_get (xattr_req, GF_CONTENT_KEY)))
                 dict_del (xattr_req, GF_CONTENT_KEY);
 
         STACK_WIND (frame, shard_lookup_cbk, FIRST_CHILD (this),
@@ -1724,7 +1724,9 @@ done:
 int
 shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
+        int               i              = 0;
         int               ret            = -1;
+        int               count          = 0;
         int               call_count     = 0;
         uint32_t          last_block     = 0;
         uint32_t          cur_block      = 0;
@@ -1739,6 +1741,30 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
         local = frame->local;
         local->call_count = call_count = local->num_blocks - 1;
         last_block = local->last_block;
+
+        for (i = 1; i < local->num_blocks; i++) {
+                if (!local->inode_list[i])
+                        continue;
+                count++;
+        }
+
+        if (!count) {
+                /* callcount = 0 implies that all of the shards that need to be
+                 * unlinked are non-existent (in other words the file is full of
+                 * holes). So shard xlator would now proceed to do the final
+                 * unlink on the base file.
+                 */
+                local->num_blocks = 1;
+                if (local->fop == GF_FOP_UNLINK) {
+                        STACK_WIND (frame, shard_unlink_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->unlink,
+                                    &local->loc, local->flags,
+                                    local->xattr_req);
+                } else if (local->fop == GF_FOP_RENAME) {
+                        shard_rename_cbk (frame, this);
+                }
+                return 0;
+        }
 
         while (cur_block <= last_block) {
                 /* The base file is unlinked in the end to mark the
@@ -1803,7 +1829,7 @@ shard_post_lookup_shards_unlink_handler (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
-        if (local->op_ret < 0) {
+        if ((local->op_ret < 0) && (local->op_errno != ENOENT)) {
                 if (local->fop == GF_FOP_UNLINK)
                         SHARD_STACK_UNWIND (unlink, frame, local->op_ret,
                                             local->op_errno, NULL, NULL, NULL);
@@ -1813,6 +1839,8 @@ shard_post_lookup_shards_unlink_handler (call_frame_t *frame, xlator_t *this)
                                             NULL, NULL, NULL);
                 return 0;
         }
+        local->op_ret = 0;
+        local->op_errno = 0;
 
         shard_unlink_shards_do (frame, this,
                                 (local->fop == GF_FOP_RENAME)
