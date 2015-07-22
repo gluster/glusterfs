@@ -3524,7 +3524,7 @@ out:
 
 int32_t
 posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
-                               inode_t *parent, uint64_t ino,
+                               inode_t *parent, struct stat *stbuf,
                                gf_dirent_t *head, char **path,
                                int type, dict_t *xdata, int32_t *op_errno)
 {
@@ -3560,7 +3560,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                 if ((result == NULL) || *op_errno)
                         break;
 
-                if (entry->d_ino != ino)
+                if (entry->d_ino != stbuf->st_ino)
                         continue;
 
                 linked_inode = inode_link (leaf_inode, parent,
@@ -3584,6 +3584,8 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                         gf_entry->dict
                                 = posix_xattr_fill (this, temppath, &loc, NULL,
                                                     -1, xdata, NULL);
+                        iatt_from_stat (&(gf_entry->d_stat), stbuf);
+
                         list_add_tail (&gf_entry->list, &head->list);
                         loc_wipe (&loc);
                 }
@@ -3765,8 +3767,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 dirpath[strlen (dirpath) - 1] = '\0';
 
                 posix_links_in_same_directory (dirpath, nlink_samepgfid,
-                                               leaf_inode,
-                                               parent, stbuf.st_ino, head,
+                                               leaf_inode, parent, &stbuf, head,
                                                path, type, xdata, op_errno);
 
                 if (parent != NULL) {
