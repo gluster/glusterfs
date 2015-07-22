@@ -2,6 +2,8 @@
 
 function main()
 {
+    errors=0;
+
     for pidfile in $(find /var/lib/glusterd/ -iname '*pid');
     do
         pid=$(cat ${pidfile});
@@ -13,7 +15,10 @@ function main()
     # processes are not having a pid file, so get it through 'ps' and
     # handle these processes
     gsyncpid=`ps aux | grep gluster | grep gsync | awk '{print $2}'`;
-    test -n "$gsyncpid" && kill -TERM $gsyncpid;
+    if [ -n "$gsyncpid" ]
+    then
+        kill -TERM $gsyncpid || errors=$(($errors + 1));
+    fi
 
     sleep 5;
 
@@ -27,7 +32,12 @@ function main()
 
     # handle 'KILL' of geo-replication
     gsyncpid=`ps aux | grep gluster | grep gsync | awk '{print $2}'`;
-    test -n "$gsyncpid" && kill -KILL $gsyncpid;
+    if [ -n "$gsyncpid" ]
+    then
+        kill -KILL $gsyncpid || errors=$(($errors + 1));
+    fi
+
+    exit $errors;
 }
 
 main "$@";
