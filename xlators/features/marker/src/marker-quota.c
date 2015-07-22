@@ -2183,9 +2183,9 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
         ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
                              dict, &rsp_dict);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2272,13 +2272,13 @@ mq_create_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc,
                         goto out;
         }
 
-        ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL, NULL);
+        ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
+                              dict, NULL, NULL);
 
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2312,9 +2312,9 @@ mq_lock (xlator_t *this, loc_t *loc, short l_type)
         ret = syncop_inodelk (FIRST_CHILD(this), this->name, loc, F_SETLKW,
                               &lock, NULL, NULL);
         if (ret < 0)
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "inodelk failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "inodelk failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
 
 out:
 
@@ -2345,9 +2345,9 @@ mq_get_dirty (xlator_t *this, loc_t *loc, int32_t *dirty)
         ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
                              dict, &rsp_dict);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2391,7 +2391,7 @@ mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
 
         ret = syncop_setxattr (FIRST_CHILD(this), loc, dict, 0, NULL, NULL);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "setxattr dirty = %d "
                         "failed for %s: %s", dirty, loc->path, strerror (-ret));
                 goto out;
@@ -2458,9 +2458,9 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
                              dict, &rsp_dict);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2527,11 +2527,8 @@ mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         }
 
         ret = _mq_get_metadata (this, loc, contri, size, contribution->gfid);
-        if (ret < 0) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Failed to get "
-                                  "metadata for %s", loc->path);
+        if (ret < 0)
                 goto out;
-        }
 
         if (size) {
                 LOCK (&ctx->lock);
@@ -2560,34 +2557,14 @@ out:
 int32_t
 mq_get_size (xlator_t *this, loc_t *loc, quota_meta_t *size)
 {
-        int32_t         ret      = -1;
-
-        ret = _mq_get_metadata (this, loc, NULL, size, 0);
-        if (ret < 0) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Failed to get "
-                                  "metadata for %s", loc->path);
-                goto out;
-        }
-
-out:
-        return ret;
+        return _mq_get_metadata (this, loc, NULL, size, 0);
 }
 
 int32_t
 mq_get_contri (xlator_t *this, loc_t *loc, quota_meta_t *contri,
                uuid_t contri_gfid)
 {
-        int32_t         ret      = -1;
-
-        ret = _mq_get_metadata (this, loc, contri, NULL, contri_gfid);
-        if (ret < 0) {
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Failed to get "
-                                  "metadata for %s", loc->path);
-                goto out;
-        }
-
-out:
-        return ret;
+        return _mq_get_metadata (this, loc, contri, NULL, contri_gfid);
 }
 
 int32_t
@@ -2642,9 +2619,10 @@ mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                          */
                         ret = 0;
                 } else {
-                        gf_log (this->name, GF_LOG_ERROR, "removexattr %s "
-                                "failed for %s: %s", contri_key, loc->path,
-                                strerror (-ret));
+                        gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                          "removexattr %s failed for %s: %s",
+                                          contri_key, loc->path,
+                                          strerror (-ret));
                         goto out;
                 }
         }
@@ -2706,9 +2684,9 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
                              dict, NULL, NULL);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2765,9 +2743,9 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
                              dict, NULL, NULL);
         if (ret < 0) {
-                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
-                        "for %s: %s", loc->path, strerror (-ret));
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
                 goto out;
         }
 
@@ -2949,15 +2927,12 @@ mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 dirty = _gf_true;
 
                 ret = mq_update_contri (this, &child_loc, contri, &delta);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "contri "
-                                "update failed for %s", child_loc.path);
+                if (ret < 0)
                         goto out;
-                }
 
                 ret = mq_update_size (this, &parent_loc, &delta);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING, "rollback "
+                        gf_log (this->name, GF_LOG_DEBUG, "rollback "
                                 "contri updation");
                         mq_sub_meta (&delta, NULL);
                         mq_update_contri (this, &child_loc, contri, &delta);
