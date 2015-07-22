@@ -139,9 +139,11 @@ struct _ec_lock
 {
     ec_inode_t        *ctx;
     gf_timer_t        *timer;
+    struct list_head   owners;  /* List of owners of this lock. */
     struct list_head   waiting; /* Queue of requests being serviced. */
     struct list_head   frozen;  /* Queue of requests that will be serviced in
                                    the next unlock/lock cycle. */
+    int32_t            exclusive;
     uintptr_t          mask;
     uintptr_t          good_mask;
     uintptr_t          healing;
@@ -149,9 +151,9 @@ struct _ec_lock
     int32_t            refs_frozen;
     int32_t            inserted;
     gf_boolean_t       acquired;
+    gf_boolean_t       getting_size;
     gf_boolean_t       release;
     gf_boolean_t       query;
-    ec_fop_data_t     *owner;
     fd_t              *fd;
     loc_t              loc;
     union
@@ -165,6 +167,7 @@ struct _ec_lock_link
 {
     ec_lock_t        *lock;
     ec_fop_data_t    *fop;
+    struct list_head  owner_list;
     struct list_head  wait_list;
     gf_boolean_t      update[2];
     loc_t            *base;

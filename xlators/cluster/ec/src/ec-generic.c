@@ -890,9 +890,9 @@ void ec_lookup(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_LOOKUP, 0, target, minimum,
-                               ec_wind_lookup, ec_manager_lookup, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_LOOKUP, EC_FLAG_LOCK_SHARED,
+                               target, minimum, ec_wind_lookup,
+                               ec_manager_lookup, callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -1085,9 +1085,9 @@ void ec_statfs(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_STATFS, 0, target, minimum,
-                               ec_wind_statfs, ec_manager_statfs, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_STATFS, EC_FLAG_LOCK_SHARED,
+                               target, minimum, ec_wind_statfs,
+                               ec_manager_statfs, callback, data);
     if (fop == NULL) {
         goto out;
     }

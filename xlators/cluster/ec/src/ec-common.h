@@ -27,6 +27,9 @@ typedef enum {
 
 #define EC_CONFIG_ALGORITHM 0
 
+#define EC_FLAG_LOCK_SHARED       0x0001
+#define EC_FLAG_WAITING_SIZE      0x0002
+
 #define EC_SELFHEAL_BIT 62
 
 #define EC_MINIMUM_ONE   -1
