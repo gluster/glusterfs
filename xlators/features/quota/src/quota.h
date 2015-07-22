@@ -258,12 +258,11 @@ void
 quota_get_limit_dir (call_frame_t *frame, inode_t *cur_inode, xlator_t *this);
 
 int32_t
-quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
-                   char *name, uuid_t par);
+quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this);
 
 inode_t *
 do_quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
-                      quota_dentry_t *dentry);
+                      quota_dentry_t *dentry, gf_boolean_t force);
 int
 quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                      loc_t *loc, struct iatt *buf, int32_t *op_errno);
