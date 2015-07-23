@@ -735,11 +735,19 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                 }
-                if ((strstr(cmd_str, "detach-tier") != NULL) &&
-                    (volinfo->rebal.op != GD_OP_REMOVE_BRICK)) {
-                        snprintf (msg, sizeof(msg), "Detach-tier not started.");
-                        ret = -1;
-                        goto out;
+                if (strstr(cmd_str, "detach-tier") != NULL) {
+                        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                                snprintf (msg, sizeof(msg), "volume %s is not "
+                                          "a tier volume.", volinfo->volname);
+                                ret = -1;
+                                goto out;
+                        }
+                        if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                                snprintf (msg, sizeof(msg), "Detach-tier"
+                                          "not started");
+                                ret = -1;
+                                goto out;
+                        }
                 }
 
                 break;
