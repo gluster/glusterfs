@@ -72,8 +72,12 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 	local = frame->local;
 	inode = local->inode;
 
-	if (err)
-                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, -err, -1, readfn);
+        if (err) {
+                local->op_errno = -err;
+                local->op_ret = -1;
+                read_subvol = -1;
+                goto readfn;
+        }
 
 	ret = afr_inode_get_readable (frame, inode, this, local->readable,
 			              &event_generation,
