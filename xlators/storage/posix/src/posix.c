@@ -370,6 +370,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         char *         real_path = 0;
         struct iatt    statpre     = {0,};
         struct iatt    statpost    = {0,};
+        dict_t        *xattr_rsp   = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -441,13 +442,18 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (xdata)
+                xattr_rsp = posix_xattr_fill (this, real_path, loc, NULL, -1,
+                                              xdata, &statpost);
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno,
-                             &statpre, &statpost, NULL);
+                             &statpre, &statpost, xattr_rsp);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
 
         return 0;
 }
@@ -505,6 +511,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         struct iatt    statpre     = {0,};
         struct iatt    statpost    = {0,};
         struct posix_fd *pfd = NULL;
+        dict_t          *xattr_rsp = NULL;
         int32_t          ret = -1;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -585,13 +592,18 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (xdata)
+                xattr_rsp = posix_xattr_fill (this, NULL, NULL, fd, pfd->fd,
+                                              xdata, &statpost);
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno,
-                             &statpre, &statpost, NULL);
+                             &statpre, &statpost, xattr_rsp);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
 
         return 0;
 }

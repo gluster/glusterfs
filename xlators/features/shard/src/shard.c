@@ -3465,13 +3465,54 @@ shard_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 }
 
 int
-shard_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+shard_post_setattr_handler (call_frame_t *frame, xlator_t *this)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (local->fop == GF_FOP_SETATTR) {
+                SHARD_STACK_UNWIND (setattr, frame, local->op_ret,
+                                    local->op_errno, &local->prebuf,
+                                    &local->postbuf, local->xattr_rsp);
+        } else if (local->fop == GF_FOP_FSETATTR) {
+                SHARD_STACK_UNWIND (fsetattr, frame, local->op_ret,
+                                    local->op_errno, &local->prebuf,
+                                    &local->postbuf, local->xattr_rsp);
+        }
+
+        return 0;
+}
+
+int
+shard_common_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
-        /* To-Do: Call fsetattr on all shards. */
-        SHARD_STACK_UNWIND (setattr, frame, op_ret, op_errno, prebuf, postbuf,
-                            xdata);
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret < 0) {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
+                goto unwind;
+        }
+
+        local->prebuf = *prebuf;
+        if (shard_modify_size_and_block_count (&local->prebuf, xdata)) {
+                local->op_ret = -1;
+                local->op_errno = EINVAL;
+                goto unwind;
+        }
+        if (xdata)
+                local->xattr_rsp = dict_ref (xdata);
+        local->postbuf = *postbuf;
+        local->postbuf.ia_size = local->prebuf.ia_size;
+        local->postbuf.ia_blocks = local->prebuf.ia_blocks;
+
+unwind:
+        local->handler (frame, this);
         return 0;
 }
 
@@ -3479,20 +3520,55 @@ int
 shard_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        STACK_WIND (frame, shard_setattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
+        int                ret        = -1;
+        uint64_t           block_size = 0;
+        shard_local_t     *local      = NULL;
+
+        if ((IA_ISDIR (loc->inode->ia_type)) ||
+            (IA_ISLNK (loc->inode->ia_type))) {
+                STACK_WIND (frame, default_setattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr, loc, stbuf,
+                            valid, xdata);
+                return 0;
+        }
+
+        ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
+                        "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
+                goto err;
+        }
+
+        if (!block_size) {
+                STACK_WIND (frame, default_setattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr, loc, stbuf,
+                            valid, xdata);
+                return 0;
+        }
+
+        local = mem_get0 (this->local_pool);
+        if (!local)
+                goto err;
+
+        frame->local = local;
+
+        local->handler = shard_post_setattr_handler;
+        local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
+        if (!local->xattr_req)
+                goto err;
+        local->fop = GF_FOP_SETATTR;
+
+        SHARD_MD_READ_FOP_INIT_REQ_DICT (this, local->xattr_req,
+                                         local->loc.gfid, local, err);
+
+        STACK_WIND (frame, shard_common_setattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid,
+                    local->xattr_req);
 
         return 0;
-}
 
-int
-shard_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                   struct iatt *postbuf, dict_t *xdata)
-{
-        /* To-Do: Call fsetattr on all shards. */
-        SHARD_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, prebuf, postbuf,
-                            xdata);
+err:
+        SHARD_STACK_UNWIND (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 }
 
@@ -3500,9 +3576,57 @@ int
 shard_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        STACK_WIND (frame, shard_fsetattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
+        int                ret        = -1;
+        uint64_t           block_size = 0;
+        shard_local_t     *local      = NULL;
 
+        if ((IA_ISDIR (fd->inode->ia_type)) ||
+            (IA_ISLNK (fd->inode->ia_type))) {
+                STACK_WIND (frame, default_fsetattr_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD (this)->fops->fsetattr, fd, stbuf,
+                            valid, xdata);
+                return 0;
+        }
+
+        ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
+                        "from inode ctx of %s", uuid_utoa (fd->inode->gfid));
+                goto err;
+        }
+
+        if (!block_size) {
+                STACK_WIND (frame, default_fsetattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fsetattr, fd, stbuf,
+                            valid, xdata);
+                return 0;
+        }
+
+        if (!this->itable)
+                this->itable = fd->inode->table;
+
+        local = mem_get0 (this->local_pool);
+        if (!local)
+                goto err;
+
+        frame->local = local;
+
+        local->handler = shard_post_setattr_handler;
+        local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
+        if (!local->xattr_req)
+                goto err;
+        local->fop = GF_FOP_FSETATTR;
+
+        SHARD_MD_READ_FOP_INIT_REQ_DICT (this, local->xattr_req,
+                                         fd->inode->gfid, local, err);
+
+        STACK_WIND (frame, shard_common_setattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid,
+                    local->xattr_req);
+        return 0;
+
+err:
+        SHARD_STACK_UNWIND (fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 }
 
