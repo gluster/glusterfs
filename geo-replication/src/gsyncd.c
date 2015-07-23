@@ -62,14 +62,16 @@ str2argv (char *str, char ***argv)
         char *p         = NULL;
         char *savetok   = NULL;
         char *temp      = NULL;
+        char *temp1     = NULL;
         int argc        = 0;
         size_t argv_len = 32;
         int ret         = 0;
+        int i           = 0;
 
         assert (str);
         temp = str = strdup (str);
         if (!str)
-                return -1;
+                goto error;
 
         *argv = calloc (argv_len, sizeof (**argv));
         if (!*argv)
@@ -86,7 +88,10 @@ str2argv (char *str, char ***argv)
                         if (ret == -1)
                                 goto error;
                 }
-                (*argv)[argc - 1] = p;
+                temp1 = strdup (p);
+                if (!temp1)
+                        goto error;
+                (*argv)[argc - 1] = temp1;
         }
 
         free(temp);
@@ -95,6 +100,9 @@ str2argv (char *str, char ***argv)
  error:
         fprintf (stderr, "out of memory\n");
         free(temp);
+        for (i = 0; i < argc - 1; i++)
+                free((*argv)[i]);
+        free(*argv);
         return -1;
 }
 
@@ -346,6 +354,7 @@ main (int argc, char **argv)
         struct invocable *i     = NULL;
         char             *b     = NULL;
         char             *sargv = NULL;
+        int               j     = 0;
 
 #ifdef USE_LIBGLUSTERFS
         glusterfs_ctx_t *ctx = NULL;
@@ -410,6 +419,8 @@ main (int argc, char **argv)
         fprintf (stderr, "invoking %s in restricted SSH session is not allowed\n",
                  b);
 
+        for (j = 1; j < argc; j++)
+                free(argv[j]);
         free(argv);
         return 1;
 }
