@@ -23,35 +23,40 @@
 #include "socket.h"
 #include "common-utils.h"
 
+static void
+_assign_port (struct sockaddr *sockaddr, uint16_t port)
+{
+        switch (sockaddr->sa_family) {
+        case AF_INET6:
+                ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
+                break;
+
+        case AF_INET_SDP:
+        case AF_INET:
+                ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
+                break;
+        }
+}
+
 static int32_t
 af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
-                                 socklen_t sockaddr_len, int ceiling)
+                                 socklen_t sockaddr_len, uint32_t ceiling)
 {
         int32_t        ret        = -1;
         uint16_t      port        = ceiling - 1;
         // by default assume none of the ports are blocked and all are available
-        gf_boolean_t  ports[1024] = {_gf_false,};
+        gf_boolean_t  ports[GF_PORT_MAX] = {_gf_false,};
         int           i           = 0;
 
-        ret = gf_process_reserved_ports (ports);
+        ret = gf_process_reserved_ports (ports, ceiling);
         if (ret != 0) {
-                for (i = 0; i < 1024; i++)
+                for (i = 0; i < GF_PORT_MAX; i++)
                         ports[i] = _gf_false;
         }
 
         while (port)
         {
-                switch (sockaddr->sa_family)
-                {
-                case AF_INET6:
-                        ((struct sockaddr_in6 *)sockaddr)->sin6_port = htons (port);
-                        break;
-
-                case AF_INET_SDP:
-                case AF_INET:
-                        ((struct sockaddr_in *)sockaddr)->sin_port = htons (port);
-                        break;
-                }
+                _assign_port (sockaddr, port);
                 // ignore the reserved ports
                 if (ports[port] == _gf_true) {
                         port--;
@@ -440,12 +445,21 @@ client_bind (rpc_transport_t *this,
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
                                                        *sockaddr_len, GF_CLIENT_PORT_CEILING);
-                }
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "cannot bind inet socket (%d) to port less than %d (%s)",
-                                sock, GF_CLIENT_PORT_CEILING, strerror (errno));
-                        ret = 0;
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "cannot bind inet socket (%d) to port less than %d (%s)",
+                                        sock, GF_CLIENT_PORT_CEILING, strerror (errno));
+                                ret = 0;
+                        }
+                } else {
+                        ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
+                                                       *sockaddr_len, GF_PORT_MAX);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "failed while binding to less than %d (%s)",
+                                        GF_PORT_MAX, strerror (errno));
+                                ret = 0;
+                        }
                 }
                 break;
 
