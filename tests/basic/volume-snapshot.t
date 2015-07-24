@@ -119,12 +119,14 @@ EXPECT 'Started' snapshot_status ${V1}_snap;
 TEST kill_glusterd 2
 deactivate_snapshots
 TEST start_glusterd 2
-sleep 10
+#Wait for glusterd handsahke complete/check status of cluster.
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Success" snapshot_snap_status ${V0}_snap "Brick\ Running" "No"
 TEST kill_glusterd 2
 activate_snapshots
 TEST start_glusterd 2
-sleep 10
+#Wait for glusterd handsahke complete/check status of cluster.
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Success" snapshot_snap_status ${V0}_snap "Brick\ Running" "Yes"
 
 TEST snapshot_exists 1 ${V0}_snap
