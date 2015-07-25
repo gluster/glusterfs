@@ -1283,7 +1283,7 @@ client3_3_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1) {
                 if ((ENODATA == rsp.op_errno) || (ENOATTR == rsp.op_errno))
-                        loglevel = 0;
+                        loglevel = GF_LOG_DEBUG;
                 else
                         loglevel = GF_LOG_WARNING;
 
