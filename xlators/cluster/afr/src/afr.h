@@ -257,6 +257,7 @@ struct afr_reply {
 	int	valid;
 	int32_t	op_ret;
 	int32_t	op_errno;
+	dict_t *xattr;/*For xattrop*/
 	dict_t *xdata;
 	struct iatt poststat;
 	struct iatt postparent;
@@ -563,11 +564,8 @@ typedef struct _afr_local {
 
                 struct {
                         dict_t *xattr;
+                        gf_xattrop_flags_t optype;
                 } xattrop;
-
-                struct {
-                        dict_t *xattr;
-                } fxattrop;
 
                 /* dir write */
 
@@ -728,6 +726,8 @@ typedef struct _afr_local {
         /* extra data for fops */
         dict_t         *xdata_req;
         dict_t         *xdata_rsp;
+
+        dict_t         *xattr_rsp; /*for [f]xattrop*/
 
         mode_t          umask;
         int             xflag;
