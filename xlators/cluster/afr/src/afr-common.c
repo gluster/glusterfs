@@ -1221,6 +1221,11 @@ afr_replies_wipe (struct afr_reply *replies, int count)
                         dict_unref (replies[i].xdata);
                         replies[i].xdata = NULL;
                 }
+
+                if (replies[i].xattr) {
+                        dict_unref (replies[i].xattr);
+                        replies[i].xattr = NULL;
+                }
         }
 }
 
@@ -1272,6 +1277,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
+
+        if (local->xattr_rsp)
+                dict_unref (local->xattr_rsp);
 
         if (local->dict)
                 dict_unref (local->dict);
@@ -1349,10 +1357,6 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         { /* xattrop */
                 if (local->cont.xattrop.xattr)
                         dict_unref (local->cont.xattrop.xattr);
-        }
-        { /* fxattrop */
-                if (local->cont.fxattrop.xattr)
-                        dict_unref (local->cont.fxattrop.xattr);
         }
         { /* symlink */
                 GF_FREE (local->cont.symlink.linkpath);
@@ -2899,166 +2903,6 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 	return 0;
 out:
 	AFR_STACK_UNWIND (fsyncdir, frame, -1, op_errno, NULL);
-
-        return 0;
-}
-
-/* }}} */
-
-/* {{{ xattrop */
-
-int32_t
-afr_xattrop_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno,
-                 dict_t *xattr, dict_t *xdata)
-{
-        afr_local_t *local = NULL;
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0) {
-                        if (!local->cont.xattrop.xattr)
-                                local->cont.xattrop.xattr = dict_ref (xattr);
-
-			if (!local->xdata_rsp && xdata)
-				local->xdata_rsp = dict_ref (xdata);
-
-                        local->op_ret = 0;
-                }
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (xattrop, frame, local->op_ret, local->op_errno,
-                local->cont.xattrop.xattr, local->xdata_rsp);
-
-        return 0;
-}
-
-
-int32_t
-afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
-{
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = ENOMEM;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-		goto out;
-
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_xattrop_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->xattrop,
-                                    loc, optype, xattr, xdata);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
-
-        return 0;
-}
-
-/* }}} */
-
-/* {{{ fxattrop */
-
-int32_t
-afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
-                  xlator_t *this, int32_t op_ret, int32_t op_errno,
-                  dict_t *xattr, dict_t *xdata)
-{
-        afr_local_t *local = NULL;
-
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0) {
-                        if (!local->cont.fxattrop.xattr)
-                                local->cont.fxattrop.xattr = dict_ref (xattr);
-
-			if (!local->xdata_rsp && xdata)
-				local->xdata_rsp = dict_ref (xdata);
-                        local->op_ret = 0;
-                }
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (fxattrop, frame, local->op_ret, local->op_errno,
-                                  local->cont.fxattrop.xattr, local->xdata_rsp);
-
-        return 0;
-}
-
-
-int32_t
-afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
-{
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = 0;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-                goto out;
-
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_fxattrop_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->fxattrop,
-                                    fd, optype, xattr, xdata);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
 
         return 0;
 }

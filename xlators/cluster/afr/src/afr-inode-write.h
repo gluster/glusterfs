@@ -79,4 +79,12 @@ afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 int
 afr_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
              off_t len, dict_t *xdata);
+
+int32_t
+afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata);
+
+int32_t
+afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata);
 #endif /* __INODE_WRITE_H__ */
