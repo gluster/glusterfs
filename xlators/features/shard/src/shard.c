@@ -3184,7 +3184,7 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
 
         STACK_WIND (frame, shard_writev_mkdir_dot_shard_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir, &local->dot_shard_loc,
-                    0755, 0, xattr_req);
+                    0777, 0, xattr_req);
         dict_unref (xattr_req);
         return 0;
 
