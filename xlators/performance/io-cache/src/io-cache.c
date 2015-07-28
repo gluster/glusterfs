@@ -26,7 +26,7 @@ ioc_get_priority (ioc_table_t *table, const char *path);
 struct volume_options options[];
 
 
-static inline uint32_t
+static uint32_t
 ioc_hashfn (void *data, int len)
 {
         off_t offset;
@@ -39,7 +39,7 @@ ioc_hashfn (void *data, int len)
 /* TODO: This function is not used, uncomment when we find a
          usage for this function.
 
-static inline ioc_inode_t *
+static ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
         ioc_table_t *table = NULL;
@@ -53,7 +53,7 @@ ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 }
 
 
-static inline ioc_inode_t *
+static ioc_inode_t *
 ioc_get_inode (dict_t *dict, char *name)
 {
         ioc_inode_t *ioc_inode      = NULL;
@@ -494,7 +494,7 @@ out:
         return ret;
 }
 
-static inline uint32_t
+static uint32_t
 is_match (const char *path, const char *pattern)
 {
         int32_t ret = 0;

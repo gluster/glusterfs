@@ -2259,7 +2259,7 @@ out:
         return ret;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 marker_xattr_cleanup_cmd (dict_t *dict)
 {
         return (dict_get (dict, VIRTUAL_QUOTA_XATTR_CLEANUP_KEY) != NULL);

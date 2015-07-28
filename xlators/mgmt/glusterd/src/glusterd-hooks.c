@@ -59,7 +59,7 @@ char glusterd_hook_dirnames[GD_OP_MAX][256] =
 };
 #undef EMPTY
 
-static inline gf_boolean_t
+static gf_boolean_t
 glusterd_is_hook_enabled (char *script)
 {
         return (script[0] == 'S' && (fnmatch ("*.rpmsave", script, 0) != 0)

@@ -46,7 +46,7 @@ rbuf_list_t *rbuf_current_buffer (rbuf_t *rbuf)
         return rbuf->current;
 }
 
-static inline void
+static void
 rlist_mark_waiting (rbuf_list_t *rlist)
 {
         LOCK (&rlist->c_lock);
@@ -56,44 +56,44 @@ rlist_mark_waiting (rbuf_list_t *rlist)
         UNLOCK (&rlist->c_lock);
 }
 
-static inline int
+static int
 __rlist_has_waiter (rbuf_list_t *rlist)
 {
         return (rlist->awaiting == _gf_true);
 }
 
-static inline void *
+static void *
 rbuf_alloc_rvec ()
 {
         return GF_CALLOC (1, RLIST_IOV_MELDED_ALLOC_SIZE, gf_common_mt_rvec_t);
 }
 
-static inline void
+static void
 rlist_reset_vector_usage (rbuf_list_t *rlist)
 {
         rlist->used = 1;
 }
 
-static inline void
+static void
 rlist_increment_vector_usage (rbuf_list_t *rlist)
 {
         rlist->used++;
 }
 
-static inline void
+static void
 rlist_increment_total_usage (rbuf_list_t *rlist)
 {
         rlist->total++;
 }
 
-static inline int
+static int
 rvec_in_watermark_range (rbuf_list_t *rlist)
 {
         return ((rlist->total >= RVEC_LOW_WATERMARK_COUNT)
                     && (rlist->total <= RVEC_HIGH_WATERMARK_COUNT));
 }
 
-static inline void
+static void
 rbuf_reset_rvec (rbuf_iovec_t *rvec)
 {
         /* iov_base is _never_ modified */
@@ -101,7 +101,7 @@ rbuf_reset_rvec (rbuf_iovec_t *rvec)
 }
 
 /* TODO: alloc multiple rbuf_iovec_t */
-static inline int
+static int
 rlist_add_new_vec (rbuf_list_t *rlist)
 {
         rbuf_iovec_t *rvec = NULL;
@@ -123,7 +123,7 @@ rlist_add_new_vec (rbuf_list_t *rlist)
         return 0;
 }
 
-static inline void
+static void
 rlist_free_rvec (rbuf_iovec_t *rvec)
 {
         if (!rvec)
@@ -132,7 +132,7 @@ rlist_free_rvec (rbuf_iovec_t *rvec)
         GF_FREE (rvec);
 }
 
-static inline void
+static void
 rlist_purge_all_rvec (rbuf_list_t *rlist)
 {
         rbuf_iovec_t *rvec = NULL;
@@ -145,7 +145,7 @@ rlist_purge_all_rvec (rbuf_list_t *rlist)
         }
 }
 
-static inline void
+static void
 rlist_shrink_rvec (rbuf_list_t *rlist, unsigned long long shrink)
 {
         rbuf_iovec_t *rvec = NULL;
@@ -156,7 +156,7 @@ rlist_shrink_rvec (rbuf_list_t *rlist, unsigned long long shrink)
         }
 }
 
-static inline void
+static void
 rbuf_purge_rlist (rbuf_t *rbuf)
 {
         rbuf_list_t *rlist = NULL;
@@ -257,7 +257,7 @@ rbuf_dtor (rbuf_t *rbuf)
         GF_FREE (rbuf);
 }
 
-static inline char *
+static char *
 rbuf_adjust_write_area (struct iovec *iov, size_t bytes)
 {
         char *wbuf = NULL;
@@ -267,7 +267,7 @@ rbuf_adjust_write_area (struct iovec *iov, size_t bytes)
         return wbuf;
 }
 
-static inline char *
+static char *
 rbuf_alloc_write_area (rbuf_list_t *rlist, size_t bytes)
 {
         int           ret = 0;
@@ -324,7 +324,7 @@ rbuf_reserve_write_area (rbuf_t *rbuf, size_t bytes, void **opaque)
         return wbuf;
 }
 
-static inline void
+static void
 rbuf_notify_waiter (rbuf_list_t *rlist)
 {
         pthread_mutex_lock (&rlist->b_lock);
@@ -411,7 +411,7 @@ rbuf_get_buffer (rbuf_t *rbuf,
  * routine (for buffer consumption).
  */
 
-static inline void
+static void
 __rbuf_wait_for_writers (rbuf_list_t *rlist)
 {
         while (rlist->completed != rlist->pending)
@@ -422,7 +422,7 @@ __rbuf_wait_for_writers (rbuf_list_t *rlist)
 #define M_E 2.7
 #endif
 
-static inline void
+static void
 rlist_shrink_vector (rbuf_list_t *rlist)
 {
         unsigned long long shrink = 0;

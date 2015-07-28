@@ -2875,7 +2875,7 @@ out:
         return volinfo;
 }
 
-static inline void
+static void
 glusterd_store_set_options_path (glusterd_conf_t *conf, char *path, size_t len)
 {
         snprintf (path, len, "%s/options", conf->workdir);

@@ -43,7 +43,7 @@ struct br_fsscan_entry {
  * NOTE: On success @xattr is not unref'd as @sign points
  * to the dictionary value.
  */
-static inline int32_t
+static int32_t
 bitd_fetch_signature (xlator_t *this, br_child_t *child,
                       fd_t *fd, dict_t **xattr, br_isignature_out_t **sign)
 {
@@ -131,7 +131,7 @@ bitd_scrub_post_compute_check (xlator_t *this,
 
 }
 
-static inline int32_t
+static int32_t
 bitd_signature_staleness (xlator_t *this,
                           br_child_t *child, fd_t *fd,
                           int *stale, unsigned long *version)
@@ -191,7 +191,7 @@ bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
         return ret;
 }
 
-/* static inline int */
+/* static int */
 int
 bitd_compare_ckum (xlator_t *this,
                    br_isignature_out_t *sign,
@@ -429,13 +429,13 @@ wait_for_scrubbing (xlator_t *this, struct br_scanfs *fsscan)
         pthread_cleanup_pop (0);
 }
 
-static inline void
+static void
 _br_fsscan_inc_entry_count (struct br_scanfs *fsscan)
 {
         fsscan->entries++;
 }
 
-static inline void
+static void
 _br_fsscan_dec_entry_count (struct br_scanfs *fsscan)
 {
         if (--fsscan->entries == 0) {
@@ -554,7 +554,7 @@ br_fsscan_deactivate (xlator_t *this, br_child_t *child)
         return 0;
 }
 
-static inline void
+static void
 br_fsscanner_log_time (xlator_t *this, br_child_t *child, const char *sfx)
 {
         struct timeval tv = {0,};
@@ -589,7 +589,7 @@ br_fsscanner_wait_until_kicked (struct br_scanfs *fsscan)
         pthread_cleanup_pop (0);
 }
 
-static inline void
+static void
 br_fsscanner_entry_control (xlator_t *this, br_child_t *child)
 {
         struct br_scanfs *fsscan = &child->fsscan;
@@ -603,7 +603,7 @@ br_fsscanner_entry_control (xlator_t *this, br_child_t *child)
         UNLOCK (&child->lock);
 }
 
-static inline void
+static void
 br_fsscanner_exit_control (xlator_t *this, br_child_t *child)
 {
         struct br_scanfs *fsscan = &child->fsscan;
@@ -690,7 +690,7 @@ br_kickstart_scanner (struct gf_tw_timer_list *timer,
 
 }
 
-static inline uint32_t
+static uint32_t
 br_fsscan_calculate_delta (uint32_t times)
 {
         return times;
@@ -905,7 +905,7 @@ br_scrubber_calc_scale (xlator_t *this,
 
 }
 
-static inline br_child_t *
+static br_child_t *
 _br_scrubber_get_next_child (struct br_scrubber *fsscrub)
 {
         br_child_t *child = NULL;
@@ -916,7 +916,7 @@ _br_scrubber_get_next_child (struct br_scrubber *fsscrub)
         return child;
 }
 
-static inline void
+static void
 _br_scrubber_get_entry (br_child_t *child, struct br_fsscan_entry **fsentry)
 {
         struct br_scanfs *fsscan = &child->fsscan;
@@ -928,7 +928,7 @@ _br_scrubber_get_entry (br_child_t *child, struct br_fsscan_entry **fsentry)
         list_del_init (&(*fsentry)->list);
 }
 
-static inline void
+static void
 _br_scrubber_find_scrubbable_entry (struct br_scrubber *fsscrub,
                                      struct br_fsscan_entry **fsentry)
 {
@@ -1159,7 +1159,7 @@ br_scrubber_configure (xlator_t *this, br_private_t *priv,
         return ret;
 }
 
-static inline int32_t
+static int32_t
 br_scrubber_fetch_option (xlator_t *this,
                           char *opt, dict_t *options, char **value)
 {

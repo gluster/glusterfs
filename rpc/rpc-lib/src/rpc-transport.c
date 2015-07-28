@@ -546,7 +546,7 @@ out:
 
 
 
-inline int
+int
 rpc_transport_register_notify (rpc_transport_t *trans,
                                rpc_transport_notify_t notify, void *mydata)
 {

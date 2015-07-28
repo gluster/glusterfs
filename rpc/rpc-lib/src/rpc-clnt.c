@@ -772,7 +772,7 @@ out:
 }
 
 
-inline void
+void
 rpc_clnt_set_connected (rpc_clnt_connection_t *conn)
 {
         if (!conn) {
@@ -955,7 +955,7 @@ rpc_clnt_connection_deinit (rpc_clnt_connection_t *conn)
 }
 
 
-static inline int
+static int
 rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                           dict_t *options, char *name)
 {

@@ -2485,7 +2485,7 @@ out:
  * nr
  */
 
-inline int32_t
+int32_t
 gf_roundup_power_of_two (int32_t nr)
 {
         int32_t result = 1;
@@ -2509,7 +2509,7 @@ out:
  * power of two is returned.
  */
 
-inline int32_t
+int32_t
 gf_roundup_next_power_of_two (int32_t nr)
 {
         int32_t result = 1;
@@ -3390,7 +3390,7 @@ out:
         return running;
 }
 
-static inline int
+static int
 dht_is_linkfile_key (dict_t *this, char *key, data_t *value, void *data)
 {
         gf_boolean_t *linkfile_key_found = NULL;
@@ -3406,7 +3406,7 @@ out:
 }
 
 
-inline gf_boolean_t
+gf_boolean_t
 dht_is_linkfile (struct iatt *buf, dict_t *dict)
 {
         gf_boolean_t linkfile_key_found = _gf_false;

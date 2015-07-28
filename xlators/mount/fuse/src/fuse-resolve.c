@@ -393,7 +393,7 @@ out:
 }
 
 
-static inline int
+static int
 fuse_migrate_fd_error (xlator_t *this, fd_t *fd)
 {
         fuse_fd_ctx_t *fdctx = NULL;

@@ -1312,7 +1312,7 @@ out:
         return ret;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 cli_is_key_spl (char *key)
 {
         return (strcmp (key, "group") == 0);

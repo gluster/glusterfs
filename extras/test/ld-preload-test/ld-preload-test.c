@@ -51,7 +51,7 @@
 
 
 #define PRELOAD_ERRNO_VERF      6449
-inline void
+void
 check_err(int ret, char *call, int tabs)
 {
         while (tabs > 0) {

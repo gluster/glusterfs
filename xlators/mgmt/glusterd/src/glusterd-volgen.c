@@ -243,7 +243,7 @@ xlator_get_option (xlator_t *xl, char *key, char **value)
         return dict_get_str (xl->options, key, value);
 }
 
-static inline xlator_t *
+static xlator_t *
 first_of (volgen_graph_t *graph)
 {
         return (xlator_t *)graph->graph.first;

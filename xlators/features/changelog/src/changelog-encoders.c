@@ -128,7 +128,7 @@ del_entry_free_fn (void *data)
  * try to write all data in one shot
  */
 
-static inline void
+static void
 changelog_encode_write_xtra (changelog_log_data_t *cld,
                              char *buffer, size_t *off, gf_boolean_t encode)
 {

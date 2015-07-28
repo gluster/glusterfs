@@ -320,7 +320,7 @@ err:
 /* this procedure can only pass 4 arguments to registered notifyfn. To send more
  * arguments call wrapper->notify directly.
  */
-static inline void
+static void
 rpcsvc_program_notify (rpcsvc_listener_t *listener, rpcsvc_event_t event,
                        void *data)
 {
@@ -343,7 +343,7 @@ out:
 }
 
 
-static inline int
+static int
 rpcsvc_accept (rpcsvc_t *svc, rpc_transport_t *listen_trans,
                rpc_transport_t *new_trans)
 {
@@ -1350,7 +1350,7 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
 
 
 /* Register the program with the local portmapper service. */
-inline int
+int
 rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port)
 {
         int                ret   = -1; /* FAIL */
@@ -1373,7 +1373,7 @@ out:
 }
 
 
-inline int
+int
 rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 {
         int ret = -1;
@@ -1557,7 +1557,7 @@ out:
 }
 
 
-inline int
+int
 rpcsvc_transport_peername (rpc_transport_t *trans, char *hostname, int hostlen)
 {
         if (!trans) {
@@ -1568,7 +1568,7 @@ rpcsvc_transport_peername (rpc_transport_t *trans, char *hostname, int hostlen)
 }
 
 
-inline int
+int
 rpcsvc_transport_peeraddr (rpc_transport_t *trans, char *addrstr, int addrlen,
                            struct sockaddr_storage *sa, socklen_t sasize)
 {
@@ -1817,7 +1817,7 @@ out:
 }
 
 
-inline int
+int
 rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
 {
         int               ret                = -1;

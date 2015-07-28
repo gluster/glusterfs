@@ -996,7 +996,7 @@ afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
 
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 afr_is_entrylk (afr_internal_lock_t *int_lock,
                 afr_transaction_type trans_type)
 {

@@ -231,7 +231,7 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
 }
 
 
-static inline struct rbthash_bucket *
+static struct rbthash_bucket *
 rbthash_entry_bucket (rbthash_table_t *tbl, rbthash_entry_t * entry)
 {
         int     nbucket = 0;
@@ -312,7 +312,7 @@ err:
         return ret;
 }
 
-static inline struct rbthash_bucket *
+static struct rbthash_bucket *
 rbthash_key_bucket (rbthash_table_t *tbl, void *key, int keylen)
 {
         uint32_t        keyhash = 0;

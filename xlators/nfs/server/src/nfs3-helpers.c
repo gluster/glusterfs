@@ -258,7 +258,7 @@ nfs3_errno_to_nfsstat3 (int errnum)
  * 0 which means something came wrong from upper layer(s). If it
  * happens by any means, then set NFS3 status to NFS3ERR_SERVERFAULT.
  */
-inline nfsstat3
+nfsstat3
 nfs3_cbk_errno_status (int32_t op_ret, int32_t op_errno)
 {
         if ((op_ret == -1) && (op_errno == 0)) {
@@ -3936,7 +3936,7 @@ __nfs3_fh_auth_get_peer (const rpcsvc_request_t *req, char *peer)
  *          -EACCES for completely unauthorized fop
  *          -EROFS  for unauthorized write operations (rm, mkdir, write)
  */
-inline int
+int
 nfs3_fh_auth_nfsop (nfs3_call_state_t *cs, gf_boolean_t is_write_op)
 {
         struct nfs_state    *nfs = NULL;

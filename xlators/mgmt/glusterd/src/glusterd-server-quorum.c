@@ -176,7 +176,7 @@ out:
         return reconfigured;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 _is_contributing_to_quorum (gd_quorum_contrib_t contrib)
 {
         if ((contrib == QUORUM_UP) || (contrib == QUORUM_DOWN))
@@ -184,7 +184,7 @@ _is_contributing_to_quorum (gd_quorum_contrib_t contrib)
         return _gf_false;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 _does_quorum_meet (int active_count, int quorum_count)
 {
         return (active_count >= quorum_count);

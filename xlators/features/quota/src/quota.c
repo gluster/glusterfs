@@ -185,7 +185,7 @@ out:
 }
 
 
-static inline quota_local_t *
+static quota_local_t *
 quota_local_new ()
 {
         quota_local_t *local = NULL;
@@ -268,7 +268,7 @@ quota_dentry_del (quota_inode_ctx_t *ctx, const char *name, uuid_t par)
         UNLOCK (&ctx->lock);
 }
 
-static inline inode_t*
+static inode_t*
 __quota_inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
 {
         inode_t *parent            = NULL;
@@ -278,7 +278,7 @@ __quota_inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
         return parent;
 }
 
-static inline inode_t*
+static inode_t*
 quota_inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
 {
         inode_t *parent            = NULL;
@@ -509,7 +509,7 @@ out:
                 inode_unref (cur_inode);
 }
 
-static inline void
+static void
 quota_link_count_decrement (call_frame_t *frame)
 {
         call_frame_t   *tmpframe   = NULL;
@@ -553,7 +553,7 @@ out:
         return;
 }
 
-static inline void
+static void
 quota_handle_validate_error (call_frame_t *frame, int32_t op_ret,
                              int32_t op_errno)
 {
@@ -649,7 +649,7 @@ unwind:
 }
 
 
-static inline uint64_t
+static uint64_t
 quota_time_elapsed (struct timeval *now, struct timeval *then)
 {
         return (now->tv_sec - then->tv_sec);
@@ -674,7 +674,7 @@ quota_timeout (struct timeval *tv, int32_t timeout)
 /* Return: 1 if new entry added
  *         0 no entry added
  */
-static inline int32_t
+static int32_t
 quota_add_parent (struct list_head *list, char *name, uuid_t pgfid)
 {
         quota_dentry_t *entry = NULL;
@@ -706,7 +706,7 @@ out:
  * context and add unique parent to the list
  * Returns number of dentry added to the list
  */
-static inline int32_t
+static int32_t
 quota_add_parents_from_ctx (quota_inode_ctx_t *ctx, struct list_head *list)
 {
         int                ret     = 0;
@@ -1407,7 +1407,7 @@ out:
         return parent;
 }
 
-static inline int
+static int
 quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
                   int64_t *soft_lim, int64_t *object_hard_limit,
                   int64_t *object_soft_limit)

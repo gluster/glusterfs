@@ -591,7 +591,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
-static inline void
+static void
 do_forget(xlator_t *this, uint64_t unique, uint64_t nodeid, uint64_t nlookup)
 {
 	inode_t *fuse_inode = fuse_ino_to_inode(nodeid, this);

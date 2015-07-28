@@ -62,7 +62,7 @@ typedef ssize_t (*mnt3_serializer) (struct iovec outmsg, void *args);
 extern void *
 mount3udp_thread (void *argv);
 
-static inline void
+static void
 mnt3_export_free (struct mnt3_export *exp)
 {
         if (!exp)
@@ -202,7 +202,7 @@ out:
  *
  * Not for external use.
  */
-inline void
+void
 __mountdict_remove (struct mount3_state *ms, struct mountentry *me)
 {
         dict_del (ms->mountdict, me->hashkey);
@@ -1890,7 +1890,7 @@ out:
  * a write operation.
  *
  */
-inline int
+int
 mnt3_check_cached_fh (struct mount3_state *ms, struct nfs3_fh *fh,
                       const char *host_addr, gf_boolean_t is_write_op)
 {

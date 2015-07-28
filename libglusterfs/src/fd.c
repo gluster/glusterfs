@@ -303,7 +303,7 @@ out:
 }
 
 
-inline void
+void
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
         fd_t *fdptr = NULL;
@@ -350,7 +350,7 @@ unlock_out:
 }
 
 
-inline void
+void
 gf_fdptr_put (fdtable_t *fdtable, fd_t *fd)
 {
         fdentry_t *fde   = NULL;
