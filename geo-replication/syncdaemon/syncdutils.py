@@ -489,15 +489,7 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
 
 
 def lstat(e):
-    try:
-        return os.lstat(e)
-    except (IOError, OSError):
-        ex = sys.exc_info()[1]
-        if ex.errno == ENOENT:
-            return ex.errno
-        else:
-            raise
-
+    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE])
 
 class NoPurgeTimeAvailable(Exception):
     pass
