@@ -162,53 +162,40 @@ out:
         return ret;
 }
 
-static dict_t *__input_params;
-static dict_t *__config_params;
+typedef struct {
+        dict_t  *iparams;
+        dict_t  *cparams;
+        int64_t result;
+} gf_auth_args_t;
 
-int
-map (dict_t *this, char *key, data_t *value, void *data)
+static int
+gf_auth_one_method (dict_t *this, char *key, data_t *value, void *data)
 {
-        dict_t *res = data;
-        auth_fn_t authenticate;
-        auth_handle_t *handle = NULL;
+        gf_auth_args_t  *args   = data;
+        auth_handle_t   *handle = NULL;
 
-        if (value && (handle = data_to_ptr (value)) &&
-            (authenticate = handle->authenticate)) {
-                dict_set (res, key,
-                          int_to_data (authenticate (__input_params,
-                                                     __config_params)));
-        } else {
-                dict_set (res, key, int_to_data (AUTH_DONT_CARE));
-        }
-        return 0;
-}
-
-int
-reduce (dict_t *this, char *key, data_t *value, void *data)
-{
-        int64_t val = 0;
-        int64_t *res = data;
-        if (!data)
+        if (!value) {
                 return 0;
-
-        val = data_to_int64 (value);
-        switch (val)
-        {
-        case AUTH_ACCEPT:
-                if (AUTH_DONT_CARE == *res)
-                        *res = AUTH_ACCEPT;
-                break;
-
-        case AUTH_REJECT:
-                *res = AUTH_REJECT;
-                break;
-
-        case AUTH_DONT_CARE:
-                break;
         }
-        return 0;
-}
 
+        handle = data_to_ptr (value);
+        if (!handle || !handle->authenticate) {
+                return 0;
+        }
+
+        switch (handle->authenticate (args->iparams, args->cparams)) {
+        case AUTH_ACCEPT:
+                if (args->result != AUTH_REJECT) {
+                        args->result = AUTH_ACCEPT;
+                }
+                /* FALLTHROUGH */
+        default:
+                return 0;
+        case AUTH_REJECT:
+                args->result = AUTH_REJECT;
+                return -1;
+        }
+}
 
 auth_result_t
 gf_authenticate (dict_t *input_params,
@@ -216,18 +203,16 @@ gf_authenticate (dict_t *input_params,
                  dict_t *auth_modules)
 {
         char *name = NULL;
-        dict_t *results = NULL;
-        int64_t result = AUTH_DONT_CARE;
         data_t *peerinfo_data = NULL;
+        gf_auth_args_t  args;
 
-        results = get_new_dict ();
-        __input_params = input_params;
-        __config_params = config_params;
+        args.iparams = input_params;
+        args.cparams = config_params;
+        args.result = AUTH_DONT_CARE;
 
-        dict_foreach (auth_modules, map, results);
+        dict_foreach (auth_modules, gf_auth_one_method, &args);
 
-        dict_foreach (results, reduce, &result);
-        if (AUTH_DONT_CARE == result) {
+        if (AUTH_DONT_CARE == args.result) {
                 peerinfo_data = dict_get (input_params, "peer-info-name");
 
                 if (peerinfo_data) {
@@ -237,11 +222,10 @@ gf_authenticate (dict_t *input_params,
                 gf_msg ("auth", GF_LOG_ERROR, 0, PS_MSG_REMOTE_CLIENT_REFUSED,
                         "no authentication module is interested in "
                         "accepting remote-client %s", name);
-                result = AUTH_REJECT;
+                args.result = AUTH_REJECT;
         }
 
-        dict_destroy (results);
-        return result;
+        return args.result;
 }
 
 void
