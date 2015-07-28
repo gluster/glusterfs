@@ -843,12 +843,15 @@ log_newer()
         msg=$2
         logdir=`$CLI --print-logdir`
 
+        local x_ifs=$IFS
         IFS="["
         for date in `grep -hr "$msg" $logdir | grep -v "G_LOG" | awk -F '[\]]' '{print $1}'` ; do
                 if [ `date -d "$date" +%s` -gt $ts ] ; then
+                        IFS=$x_ifs
                         return 0;
                 fi
         done 2>/dev/null
+        IFS=$x_ifs
         return 1
 }
 
