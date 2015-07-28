@@ -2351,7 +2351,7 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
 }
 
 /* Destroy barrier related condition variables and locks */
-static inline void
+static void
 changelog_barrier_pthread_destroy (changelog_priv_t *priv)
 {
         pthread_mutex_destroy (&priv->bn.bnotify_mutex);

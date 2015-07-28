@@ -17,7 +17,7 @@
  *                      Util functions
  *
  * ***************************************************************************/
-inline gf_sql_connection_t *
+gf_sql_connection_t *
 gf_sql_connection_init ()
 {
         gf_sql_connection_t *gf_sql_conn = NULL;
@@ -33,7 +33,7 @@ gf_sql_connection_init ()
         return gf_sql_conn;
 }
 
-inline void
+void
 gf_sql_connection_fini (gf_sql_connection_t **sql_connection)
 {
         if (!sql_connection)
@@ -42,7 +42,7 @@ gf_sql_connection_fini (gf_sql_connection_t **sql_connection)
         *sql_connection = NULL;
 }
 
-inline const char *
+const char *
 gf_sql_jm2str (gf_sql_journal_mode_t jm)
 {
         switch (jm) {
@@ -64,7 +64,7 @@ gf_sql_jm2str (gf_sql_journal_mode_t jm)
         return NULL;
 }
 
-inline gf_sql_journal_mode_t
+gf_sql_journal_mode_t
 gf_sql_str2jm (const char *jm_str)
 {
         if (!jm_str) {
@@ -85,7 +85,7 @@ gf_sql_str2jm (const char *jm_str)
         return gf_sql_jm_invalid;
 }
 
-inline const char *
+const char *
 gf_sql_av_t2str (gf_sql_auto_vacuum_t sql_av)
 {
         switch (sql_av) {
@@ -101,7 +101,7 @@ gf_sql_av_t2str (gf_sql_auto_vacuum_t sql_av)
         return NULL;
 }
 
-inline gf_sql_auto_vacuum_t
+gf_sql_auto_vacuum_t
 gf_sql_str2av_t (const char *av_str)
 {
         if (!av_str) {
@@ -116,7 +116,7 @@ gf_sql_str2av_t (const char *av_str)
         return gf_sql_sync_invalid;
 }
 
-inline const char *
+const char *
 gf_sync_t2str (gf_sql_sync_t sql_sync)
 {
         switch (sql_sync) {
@@ -132,7 +132,7 @@ gf_sync_t2str (gf_sql_sync_t sql_sync)
         return NULL;
 }
 
-inline gf_sql_sync_t
+gf_sql_sync_t
 gf_sql_str2sync_t (const char *sync_str)
 {
         if (!sync_str) {
@@ -149,7 +149,7 @@ gf_sql_str2sync_t (const char *sync_str)
 
 
 /*TODO replace GF_CALLOC by mem_pool or iobuff if required for performace */
-static inline char *
+static char *
 sql_stmt_init ()
 {
         char *sql_stmt = NULL;
@@ -168,7 +168,7 @@ out:
 }
 
 /*TODO replace GF_FREE by mem_pool or iobuff if required for performace */
-static inline void
+static void
 sql_stmt_fini (char **sql_stmt)
 {
         GF_FREE (*sql_stmt);
@@ -288,7 +288,7 @@ out:
 
 
 
-static inline int
+static int
 apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
 {
         int ret = -1;

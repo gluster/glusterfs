@@ -25,7 +25,7 @@ dht_free_mig_info (void *data)
         return;
 }
 
-static inline int
+static int
 dht_inode_ctx_set_mig_info (xlator_t *this, inode_t *inode,
                             xlator_t *src_subvol, xlator_t *dst_subvol)
 {

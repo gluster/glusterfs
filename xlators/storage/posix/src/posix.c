@@ -3231,7 +3231,7 @@ _handle_setxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
 }
 
 #ifdef GF_DARWIN_HOST_OS
-static inline int
+static int
 map_xattr_flags(int flags)
 {
         /* DARWIN has different defines on XATTR_ flags.

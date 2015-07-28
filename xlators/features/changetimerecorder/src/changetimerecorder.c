@@ -79,7 +79,7 @@ What is pending:
 /* This function doesnot write anything to the db,
  * just created the local variable
  * for the frame and sets values for the ctr_db_record */
-static inline int
+static int
 ctr_lookup_wind(call_frame_t                    *frame,
                 xlator_t                        *this,
                 gf_ctr_inode_context_t          *ctr_inode_cx)
@@ -154,7 +154,7 @@ out:
 
 /* This function inserts the ctr_db_record populated by ctr_lookup_wind
  * in to the db. It also destroys the frame->local created by ctr_lookup_wind */
-static inline int
+static int
 ctr_lookup_unwind (call_frame_t          *frame,
                    xlator_t              *this)
 {

@@ -27,7 +27,7 @@ __index_dequeue (struct list_head *callstubs)
         return stub;
 }
 
-inline static void
+static void
 __index_enqueue (struct list_head *callstubs, call_stub_t *stub)
 {
         list_add_tail (&stub->list, callstubs);
@@ -539,7 +539,7 @@ xattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr,
         return;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 index_xattrop_track (xlator_t *this, gf_xattrop_flags_t flags, dict_t *dict)
 {
         index_priv_t *priv = this->private;

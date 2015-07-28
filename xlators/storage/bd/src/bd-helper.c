@@ -565,7 +565,7 @@ out:
         return ret;
 }
 
-inline void
+void
 bd_update_amtime(struct iatt *iatt, int flag)
 {
         struct timespec ts = {0, };

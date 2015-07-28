@@ -42,7 +42,7 @@ changelog_event_dispatch_cbk (struct rpc_req *req,
 }
 
 /* dispatcher RPC */
-inline int
+int
 changelog_dispatch_vec (call_frame_t *frame, xlator_t *this,
                         struct rpc_clnt *rpc, struct ev_rpc_vec *vec)
 {
@@ -243,7 +243,7 @@ changelog_ev_cleanup_connections (xlator_t *this, changelog_clnt_t *c_clnt)
  * a performance bottleneck.
  */
 
-static inline changelog_rpc_clnt_t *
+static changelog_rpc_clnt_t *
 get_client (changelog_clnt_t *c_clnt, struct list_head **next)
 {
         changelog_rpc_clnt_t *crpc = NULL;
@@ -262,7 +262,7 @@ get_client (changelog_clnt_t *c_clnt, struct list_head **next)
         return crpc;
 }
 
-static inline void
+static void
 put_client (changelog_clnt_t *c_clnt, changelog_rpc_clnt_t *crpc)
 {
         LOCK (&c_clnt->active_lock);

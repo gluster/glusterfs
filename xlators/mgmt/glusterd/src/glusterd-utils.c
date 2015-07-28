@@ -4715,7 +4715,7 @@ glusterd_calc_dist_leaf_count (int rcount, int scount)
         return (rcount ? rcount : 1) * (scount ? scount : 1);
 }
 
-inline int
+int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
 {
     int rcount = volinfo->replica_count;
@@ -5567,7 +5567,7 @@ out:
         return ret;
 }
 
-inline int
+int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *src, glusterd_brickinfo_t *dst)
 {

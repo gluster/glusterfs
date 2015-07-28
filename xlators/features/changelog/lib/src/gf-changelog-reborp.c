@@ -93,55 +93,6 @@ gf_changelog_connection_janitor (void *arg)
         return NULL;
 }
 
-static inline void
-__gf_changelog_set_conn_state (gf_changelog_t *entry,
-                               gf_changelog_conn_state_t state)
-{
-        entry->connstate = state;
-}
-
-/**
- * state check login to gaurd access object after free
- */
-static inline void
-gf_changelog_check_event (gf_private_t *priv,
-                          gf_changelog_t *entry, rpcsvc_event_t event)
-{
-        gf_boolean_t needfree = _gf_false;
-        gf_changelog_conn_state_t laststate;
-        /**
-         * need to handle couple of connection states to gaurd correct
-         * freeing of object.
-         */
-        LOCK (&entry->statelock);
-        {
-                laststate = entry->connstate;
-                if (event == RPCSVC_EVENT_ACCEPT) {
-                        __gf_changelog_set_conn_state
-                                (entry, GF_CHANGELOG_CONN_STATE_ACCEPTED);
-
-                        if (laststate == GF_CHANGELOG_CONN_STATE_DISCONNECTED)
-                                needfree = _gf_true;
-                }
-
-                if (event == RPCSVC_EVENT_DISCONNECT) {
-                        __gf_changelog_set_conn_state
-                                (entry, GF_CHANGELOG_CONN_STATE_DISCONNECTED);
-
-                        if (laststate == GF_CHANGELOG_CONN_STATE_ACCEPTED)
-                                needfree = _gf_true;
-                }
-        }
-        UNLOCK (&entry->statelock);
-
-        /**
-         * TODO:
-         * Handle the  race between ACCEPT and DISCONNECT in the
-         * reconnect code. So purging of entry is deliberately
-         * avoided here. It will be handled in the reconnect code.
-         */
-}
-
 int
 gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
                                    rpcsvc_event_t event, void *data)
@@ -180,8 +131,6 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
         default:
                 break;
         }
-
-        /* gf_changelog_check_event (priv, entry, event); */
 
         return 0;
 }
@@ -238,7 +187,7 @@ gf_changelog_invoke_callback (gf_changelog_t *entry,
  * dynamically allocated and ordered.
  */
 
-inline int
+int
 __is_expected_sequence (struct gf_event_list *ev, struct gf_event *event)
 {
         return (ev->next_seq == event->seq);

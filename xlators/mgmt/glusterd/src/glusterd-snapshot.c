@@ -8991,7 +8991,7 @@ glusterd_handle_snapshot (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, glusterd_handle_snapshot_fn);
 }
 
-static inline void
+static void
 glusterd_free_snap_op (glusterd_snap_op_t *snap_op)
 {
         if (snap_op) {
@@ -9002,7 +9002,7 @@ glusterd_free_snap_op (glusterd_snap_op_t *snap_op)
         }
 }
 
-static inline void
+static void
 glusterd_free_missed_snapinfo (glusterd_missed_snap_info *missed_snapinfo)
 {
         glusterd_snap_op_t *snap_opinfo = NULL;

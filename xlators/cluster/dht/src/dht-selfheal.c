@@ -383,7 +383,7 @@ out:
         return fixit;
 }
 
-inline int
+int
 dht_layout_span (dht_layout_t *layout)
 {
         int i = 0, count = 0;
@@ -1362,7 +1362,7 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
         return start;
 }
 
-static inline int
+static int
 dht_get_layout_count (xlator_t *this, dht_layout_t *layout, int new_layout)
 {
         int i = 0;

@@ -19,7 +19,7 @@
  */
 #define TRACE_STAT_TO_STR(buf, str) trace_stat_to_str (buf, str, sizeof (str))
 
-static inline void
+static void
 trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 {
         char     atime_buf[256]    = {0,};

@@ -18,19 +18,19 @@
 #include "locks.h"
 #include "common.h"
 
-inline void
+void
 __delete_inode_lock (pl_inode_lock_t *lock)
 {
         list_del_init (&lock->list);
 }
 
-static inline void
+static void
 __pl_inodelk_ref (pl_inode_lock_t *lock)
 {
         lock->ref++;
 }
 
-inline void
+void
 __pl_inodelk_unref (pl_inode_lock_t *lock)
 {
         lock->ref--;
@@ -41,7 +41,7 @@ __pl_inodelk_unref (pl_inode_lock_t *lock)
 }
 
 /* Check if 2 inodelks are conflicting on type. Only 2 shared locks don't conflict */
-static inline int
+static int
 inodelk_type_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
         if (l2->fl_type == F_WRLCK || l1->fl_type == F_WRLCK)
@@ -115,7 +115,7 @@ inodelk_overlap (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 }
 
 /* Returns true if the 2 inodelks have the same owner */
-static inline int
+static int
 same_inodelk_owner (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
         return (is_same_lkowner (&l1->owner, &l2->owner) &&
@@ -826,7 +826,7 @@ pl_finodelk (call_frame_t *frame, xlator_t *this,
 
 }
 
-static inline int32_t
+static int32_t
 __get_inodelk_dom_count (pl_dom_list_t *dom)
 {
         pl_inode_lock_t     *lock   = NULL;

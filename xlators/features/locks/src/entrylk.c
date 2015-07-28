@@ -93,7 +93,7 @@ names_conflict (const char *n1, const char *n2)
 }
 
 
-static inline int
+static int
 __same_entrylk_owner (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 {
         return (is_same_lkowner (&l1->owner, &l2->owner) &&
@@ -101,7 +101,7 @@ __same_entrylk_owner (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 }
 
 /* Just as in inodelk, allow conflicting name locks from same (lk_owner, conn)*/
-static inline int
+static int
 __conflicting_entrylks (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 {
         if (names_conflict (l1->basename, l2->basename)

@@ -688,13 +688,13 @@ void set_local_io_params_ftruncate(call_frame_t *frame,
 	}
 }
 
-static inline void submit_head(call_frame_t *frame, xlator_t *this)
+static void submit_head(call_frame_t *frame, xlator_t *this)
 {
 	crypt_local_t *local = frame->local;
 	submit_partial(frame, this, local->fd, HEAD_ATOM);
 }
 
-static inline void submit_tail(call_frame_t *frame, xlator_t *this)
+static void submit_tail(call_frame_t *frame, xlator_t *this)
 {
 	crypt_local_t *local = frame->local;
 	submit_partial(frame, this, local->fd, TAIL_ATOM);
@@ -725,14 +725,14 @@ static void submit_data(call_frame_t *frame, xlator_t *this)
  * heplers called by writev_cbk, fruncate_cbk in ordered mode
  */
 
-static inline int32_t should_submit_hole(crypt_local_t *local)
+static int32_t should_submit_hole(crypt_local_t *local)
 {
 	struct avec_config *conf = &local->hole_conf;
 
 	return conf->avec != NULL;
 }
 
-static inline int32_t should_resume_submit_hole(crypt_local_t *local)
+static int32_t should_resume_submit_hole(crypt_local_t *local)
 {
 	struct avec_config *conf = &local->hole_conf;
 
@@ -749,7 +749,7 @@ static inline int32_t should_resume_submit_hole(crypt_local_t *local)
 		return conf->cursor < conf->acount;
 }
 
-static inline int32_t should_resume_submit_data(call_frame_t *frame)
+static int32_t should_resume_submit_data(call_frame_t *frame)
 {
 	crypt_local_t *local = frame->local;
 	struct avec_config *conf = &local->data_conf;
@@ -762,7 +762,7 @@ static inline int32_t should_resume_submit_data(call_frame_t *frame)
 	return 0;
 }
 
-static inline int32_t should_submit_data_after_hole(crypt_local_t *local)
+static int32_t should_submit_data_after_hole(crypt_local_t *local)
 {
 	return local->data_conf.avec != NULL;
 }

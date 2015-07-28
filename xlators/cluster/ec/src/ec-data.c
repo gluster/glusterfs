@@ -108,7 +108,7 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
  * heal to complete as healing big file/directory could take a while. Which
  * will lead to hang on the mount.
  */
-static inline gf_boolean_t
+static gf_boolean_t
 ec_needs_graceful_completion (ec_fop_data_t *fop)
 {
         if ((fop->id != EC_FOP_HEAL) && (fop->id != EC_FOP_FHEAL))

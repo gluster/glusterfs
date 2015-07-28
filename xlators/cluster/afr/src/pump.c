@@ -132,7 +132,7 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
 }
 
 static uint64_t pump_pid = 0;
-static inline void
+static void
 pump_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 {
         afr_update_loc_gfids (loc, iatt, parent);

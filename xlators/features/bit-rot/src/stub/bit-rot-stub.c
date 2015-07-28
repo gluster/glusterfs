@@ -148,7 +148,7 @@ fini (xlator_t *this)
 	return;
 }
 
-static inline int
+static int
 br_stub_alloc_versions (br_version_t **obuf,
                         br_signature_t **sbuf, size_t signaturelen)
 {
@@ -178,13 +178,13 @@ br_stub_alloc_versions (br_version_t **obuf,
         return -1;
 }
 
-static inline void
+static void
 br_stub_dealloc_versions (void *mem)
 {
         GF_FREE (mem);
 }
 
-static inline br_stub_local_t *
+static br_stub_local_t *
 br_stub_alloc_local (xlator_t *this)
 {
         br_stub_private_t *priv = this->private;
@@ -192,13 +192,13 @@ br_stub_alloc_local (xlator_t *this)
         return mem_get0 (priv->local_pool);
 }
 
-static inline void
+static void
 br_stub_dealloc_local (br_stub_local_t *ptr)
 {
         mem_put (ptr);
 }
 
-static inline int
+static int
 br_stub_prepare_version_request (xlator_t *this, dict_t *dict,
                                 br_version_t *obuf, unsigned long oversion)
 {
@@ -211,7 +211,7 @@ br_stub_prepare_version_request (xlator_t *this, dict_t *dict,
                                     (void *)obuf, sizeof (br_version_t));
 }
 
-static inline int
+static int
 br_stub_prepare_signing_request (dict_t *dict,
                                  br_signature_t *sbuf,
                                  br_isignature_t *sign, size_t signaturelen)
@@ -230,7 +230,7 @@ br_stub_prepare_signing_request (dict_t *dict,
  * context, hence the inode is marked dirty. this routine also
  * initializes the transient inode version.
  */
-static inline int
+static int
 br_stub_init_inode_versions (xlator_t *this, fd_t *fd, inode_t *inode,
                              unsigned long version, gf_boolean_t markdirty,
                              gf_boolean_t bad_object)
@@ -271,7 +271,7 @@ free_ctx:
 /**
  * modify the ongoing version of an inode.
  */
-static inline int
+static int
 br_stub_mod_inode_versions (xlator_t *this,
                             fd_t *fd, inode_t *inode, unsigned long version)
 {
@@ -296,7 +296,7 @@ unblock:
         return ret;
 }
 
-static inline void
+static void
 br_stub_fill_local (br_stub_local_t *local,
                     call_stub_t *stub, fd_t *fd, inode_t *inode, uuid_t gfid,
                     int versioningtype, unsigned long memversion)
@@ -311,7 +311,7 @@ br_stub_fill_local (br_stub_local_t *local,
         gf_uuid_copy (local->u.context.gfid, gfid);
 }
 
-static inline void
+static void
 br_stub_cleanup_local (br_stub_local_t *local)
 {
         local->fopstub = NULL;
@@ -597,7 +597,7 @@ br_stub_fd_versioning (xlator_t *this, call_frame_t *frame,
         return ret;
 }
 
-static inline int
+static int
 br_stub_perform_incversioning (xlator_t *this,
                                call_frame_t *frame, call_stub_t *stub,
                                fd_t *fd, br_stub_inode_ctx_t *ctx)
@@ -703,7 +703,7 @@ orderq (struct list_head *elem1, struct list_head *elem2)
         return (s1->v > s2->v);
 }
 
-static inline int
+static int
 br_stub_compare_sign_version (xlator_t *this,
                               inode_t *inode,
                               br_signature_t *sbuf,
@@ -753,7 +753,7 @@ br_stub_compare_sign_version (xlator_t *this,
         return ret;
 }
 
-static inline int
+static int
 br_stub_prepare_signature (xlator_t *this,
                            dict_t *dict, inode_t *inode,
                            br_isignature_t *sign, int *fakesuccess)
@@ -1447,7 +1447,7 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static inline void
+static void
 br_stub_send_stub_init_time (call_frame_t *frame, xlator_t *this)
 {
         int op_ret = 0;
@@ -2268,7 +2268,7 @@ unwind:
  * successfully allocate the dict? Posix does not treat call back xdata
  * creattion failure as the lookup failure.
  */
-static inline int32_t
+static int32_t
 br_stub_lookup_version (xlator_t *this,
                         uuid_t gfid, inode_t *inode, dict_t *xattr)
 {
@@ -2571,7 +2571,7 @@ br_stub_noop (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static inline void
+static void
 br_stub_send_ipc_fop (xlator_t *this, fd_t *fd, unsigned long releaseversion,
                       int sign_info)
 {

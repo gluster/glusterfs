@@ -66,7 +66,7 @@ out:
         return ret_lock;
 }
 
-static inline int
+static int
 __same_owner_reservelk (posix_lock_t *l1, posix_lock_t *l2)
 {
         return (is_same_lkowner (&l1->owner, &l2->owner));

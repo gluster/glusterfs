@@ -187,7 +187,7 @@ changelog_rpc_clnt_cleanup (changelog_rpc_clnt_t *crpc)
         GF_FREE (crpc);
 }
 
-static inline changelog_rpc_clnt_t *
+static changelog_rpc_clnt_t *
 changelog_rpc_clnt_init (xlator_t *this,
                          changelog_probe_req *rpc_req, changelog_clnt_t *c_clnt)
 {

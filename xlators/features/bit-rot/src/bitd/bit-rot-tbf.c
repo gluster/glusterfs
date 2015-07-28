@@ -55,7 +55,7 @@ typedef struct br_tbf_throttle {
  */
 #define BR_TBF_TOKENGEN_INTERVAL_USEC  600000
 
-static inline br_tbf_throttle_t *
+static br_tbf_throttle_t *
 br_tbf_init_throttle (unsigned long tokens_required)
 {
         br_tbf_throttle_t *throttle = NULL;
@@ -137,7 +137,7 @@ void *br_tbf_tokengenerator (void *arg)
  * under br_tbf_mod() context) and br_tbf_throttle(). *bucket is
  * updated _after_ all the required variables are initialized.
  */
-static inline int32_t
+static int32_t
 br_tbf_init_bucket (br_tbf_t *tbf, br_tbf_opspec_t *spec)
 {
         int ret = 0;
