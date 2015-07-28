@@ -557,6 +557,7 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int                ret           = 0;
         uint64_t           size          = 0;
+        void              *bsize         = NULL;
         void              *size_attr     = NULL;
         shard_inode_ctx_t  ctx_tmp       = {0,};
         uint64_t           size_array[4];
@@ -576,9 +577,9 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          *    already initialised to all zeroes, nothing more needs to be done.
          */
         if (shard_inode_ctx_get_block_size (inode, this, &size)) {
-                ret = dict_get_uint64 (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &size);
+                ret = dict_get_ptr (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
                 if (!ret) {
-                        ctx_tmp.block_size = ntoh64 (size);
+                        ctx_tmp.block_size = ntoh64 (*((uint64_t *)bsize));
                         ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
                                                         buf->ia_type);
                         ctx_tmp.rdev = buf->ia_rdev;
