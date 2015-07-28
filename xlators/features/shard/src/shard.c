@@ -2511,11 +2511,13 @@ shard_post_mknod_readv_handler (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        if (!local->eexist_count)
+        if (!local->eexist_count) {
                 shard_readv_do (frame, this);
-        else
+        } else {
+                local->call_count = local->eexist_count;
                 shard_common_lookup_shards (frame, this, local->loc.inode,
                                         shard_post_lookup_shards_readv_handler);
+        }
         return 0;
 }
 
