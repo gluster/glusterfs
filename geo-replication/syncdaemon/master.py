@@ -1003,13 +1003,6 @@ class GMasterChangelogMixin(GMasterCommon):
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
-                    chkpt_time = gconf.configinterface.get_realtime(
-                        "checkpoint")
-                    checkpoint_time = 0
-                    if chkpt_time is not None:
-                        checkpoint_time = int(chkpt_time)
-
-                    self.status.set_last_synced(xtl, checkpoint_time)
                     map(self.changelog_done_func, changes)
                     self.archive_and_purge_changelogs(changes)
 
@@ -1037,13 +1030,6 @@ class GMasterChangelogMixin(GMasterCommon):
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
-                    chkpt_time = gconf.configinterface.get_realtime(
-                        "checkpoint")
-                    checkpoint_time = 0
-                    if chkpt_time is not None:
-                        checkpoint_time = int(chkpt_time)
-
-                    self.status.set_last_synced(xtl, checkpoint_time)
                     map(self.changelog_done_func, changes)
                     self.archive_and_purge_changelogs(changes)
                 break
@@ -1067,6 +1053,15 @@ class GMasterChangelogMixin(GMasterCommon):
             path = self.FLAT_DIR_HIERARCHY
         if not stime == URXTIME:
             self.sendmark(path, stime)
+
+        # Update last_synced_time in status file based on stime
+        chkpt_time = gconf.configinterface.get_realtime(
+            "checkpoint")
+        checkpoint_time = 0
+        if chkpt_time is not None:
+            checkpoint_time = int(chkpt_time)
+
+        self.status.set_last_synced(stime, checkpoint_time)
 
     def update_worker_remote_node(self):
         node = sys.argv[-1]
