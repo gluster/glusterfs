@@ -4538,9 +4538,10 @@ unlock:
                 array = NULL;
         }
 
-        array = NULL;
-
 out:
+        if (array)
+                GF_FREE (array);
+
         return op_ret;
 }
 
