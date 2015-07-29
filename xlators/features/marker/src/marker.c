@@ -1575,6 +1575,9 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         lock.l_type   = F_WRLCK;
         lock.l_whence = SEEK_SET;
 
+        if (is_lk_owner_null (&frame->root->lk_owner))
+                set_lk_owner_from_ptr (&frame->root->lk_owner, frame->root);
+
         STACK_WIND (frame,
                     marker_rename_inodelk_cbk,
                     FIRST_CHILD(this),
