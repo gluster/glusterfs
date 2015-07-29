@@ -4291,7 +4291,9 @@ shard_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
 {
         /* TBD */
-        SHARD_STACK_UNWIND (fallocate, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
+                "fallocate called on %s.", uuid_utoa (fd->inode->gfid));
+        SHARD_STACK_UNWIND (fallocate, frame, -1, ENOTSUP, NULL, NULL, NULL);
         return 0;
 }
 
@@ -4300,7 +4302,9 @@ shard_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
               size_t len, dict_t *xdata)
 {
         /* TBD */
-        SHARD_STACK_UNWIND (discard, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
+                "discard called on %s.", uuid_utoa (fd->inode->gfid));
+        SHARD_STACK_UNWIND (discard, frame, -1, ENOTSUP, NULL, NULL, NULL);
         return 0;
 }
 
@@ -4309,7 +4313,9 @@ shard_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 off_t len, dict_t *xdata)
 {
         /* TBD */
-        SHARD_STACK_UNWIND (zerofill, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
+                "zerofill called on %s.", uuid_utoa (fd->inode->gfid));
+        SHARD_STACK_UNWIND (zerofill, frame, -1, ENOTSUP, NULL, NULL, NULL);
         return 0;
 }
 

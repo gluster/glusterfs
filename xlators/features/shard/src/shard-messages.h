@@ -40,7 +40,7 @@
  */
 
 #define GLFS_COMP_BASE_SHARD      GLFS_MSGID_COMP_SHARD
-#define GLFS_NUM_MESSAGES         16
+#define GLFS_NUM_MESSAGES         17
 #define GLFS_MSGID_END          (GLFS_COMP_BASE_SHARD + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_SHARD, "Invalid: Start of messages"
@@ -165,6 +165,13 @@
  * @recommendedaction
 */
 #define SHARD_MSG_UPDATE_FILE_SIZE_FAILED            (GLFS_COMP_BASE_SHARD + 16)
+
+/*!
+ * @messageid 133017
+ * @diagnosis The operation invoked is not supported.
+ * @recommendedaction Use other syscalls to write to the file.
+*/
+#define SHARD_MSG_FOP_NOT_SUPPORTED                  (GLFS_COMP_BASE_SHARD + 17)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_SHARD_MESSAGES_H_ */
