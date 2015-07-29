@@ -798,7 +798,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */
@@ -987,7 +987,7 @@ _gf_msg_plain (gf_loglevel_t level, const char *fmt, ...)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         va_start (ap, fmt);
@@ -1023,7 +1023,7 @@ _gf_msg_vplain (gf_loglevel_t level, const char *fmt, va_list ap)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         ret = vasprintf (&msg, fmt, ap);
@@ -1055,7 +1055,7 @@ _gf_msg_plain_nomem (gf_loglevel_t level, const char *msg)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         ret = _gf_msg_plain_internal (level, msg);
@@ -1087,7 +1087,7 @@ _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         bt_size = backtrace (array, ((stacksize <= 200)? stacksize : 200));
@@ -1174,7 +1174,7 @@ _gf_msg_nomem (const char *domain, const char *file,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         if (!domain || !file || !function) {
@@ -2043,7 +2043,7 @@ _gf_msg (const char *domain, const char *file, const char *function,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         if (trace) {
@@ -2124,7 +2124,7 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */
