@@ -195,6 +195,8 @@ function is_bad_test ()
 {
     local name=$1
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
+              ./tests/basic/tier/tier_lookup_heal.t \
+              ./tests/basic/tier/bug-1214222-directories_miising_after_attach_tier.t \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
