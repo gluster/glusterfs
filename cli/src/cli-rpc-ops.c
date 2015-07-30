@@ -2920,16 +2920,19 @@ static int
 print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
                                char *sl_str, quota_limits_t *limits,
                                quota_meta_t *used_space, gf_boolean_t sl,
-                               gf_boolean_t hl)
+                               gf_boolean_t hl, double sl_num)
 {
         int32_t         ret          = -1;
         char           *used_str     = NULL;
         char           *avail_str    = NULL;
         char           *hl_str       = NULL;
+        char           *sl_val       = NULL;
 
         hl_str = gf_uint64_2human_readable (limits->hl);
         used_str = gf_uint64_2human_readable (used_space->size);
         avail_str = gf_uint64_2human_readable (avail);
+
+        sl_val = gf_uint64_2human_readable (sl_num);
 
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_quota_xml_output (local, path, hl_str,
@@ -2945,12 +2948,12 @@ print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
         }
 
         if (!used_str) {
-                cli_out ("%-40s %7s %9s %11"PRIu64 "%9"PRIu64" %15s %18s",
-                         path, hl_str, sl_str, used_space->size, avail,
+                cli_out ("%-40s %7s %7s(%s) %8"PRIu64 "%9"PRIu64" %15s %18s",
+                         path, hl_str, sl_str, sl_val, used_space->size, avail,
                          sl ? "Yes" : "No", hl ? "Yes" : "No");
         } else {
-                cli_out ("%-40s %7s %9s %11s %7s %15s %20s", path, hl_str,
-                         sl_str, used_str, avail_str, sl ? "Yes" : "No",
+                cli_out ("%-40s %7s %7s(%s) %8s %7s %15s %20s", path, hl_str,
+                         sl_str, sl_val, used_str, avail_str, sl ? "Yes" : "No",
                          hl ? "Yes" : "No");
         }
 
@@ -2967,9 +2970,10 @@ static int
 print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                                char *sl_str, quota_limits_t *limits,
                                quota_meta_t *used_space, gf_boolean_t sl,
-                               gf_boolean_t hl)
+                               gf_boolean_t hl, double sl_num)
 {
         int32_t         ret       = -1;
+        int64_t         sl_val    = sl_num;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_quota_object_xml_output (local, path, sl_str, limits,
@@ -2984,8 +2988,8 @@ print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                 goto out;
         }
 
-        cli_out ("%-40s %9"PRIu64" %9s %10"PRIu64" %10"PRIu64" %11"PRIu64
-                 " %15s %20s", path, limits->hl, sl_str,
+        cli_out ("%-40s %9"PRIu64" %9s(%"PRId64") %10"PRIu64" %10"PRIu64
+                 "%11"PRIu64" %15s %20s", path, limits->hl, sl_str, sl_val,
                  used_space->file_count, used_space->dir_count,
                  avail, sl ? "Yes" : "No", hl ? "Yes" : "No");
 
@@ -3023,7 +3027,6 @@ print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
                           limits->sl);
                 sl_final = percent_str;
         }
-
         if (type == GF_QUOTA_OPTION_TYPE_LIST)
                 used_size = used_space->size;
         else
@@ -3044,11 +3047,13 @@ print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
         if (type == GF_QUOTA_OPTION_TYPE_LIST)
                 ret = print_quota_list_usage_output (local, path, avail,
                                                      sl_final, limits,
-                                                     used_space, sl, hl);
+                                                     used_space, sl, hl,
+                                                     sl_num);
         else
                 ret = print_quota_list_object_output (local, path, avail,
                                                       sl_final, limits,
-                                                      used_space, sl, hl);
+                                                      used_space, sl, hl,
+                                                      sl_num);
 
         return ret;
 }
