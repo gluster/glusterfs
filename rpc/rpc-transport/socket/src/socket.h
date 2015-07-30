@@ -13,6 +13,13 @@
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#ifdef ERR_R_DH_LIB
+#include <openssl/dh.h>
+#endif
+#ifdef ERR_R_ECDH_LIB
+#include <openssl/objects.h>
+#include <openssl/ecdh.h>
+#endif
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
