@@ -758,18 +758,18 @@ print_quota_list_header (int type)
 {
         if (type == GF_QUOTA_OPTION_TYPE_LIST) {
                 cli_out ("                  Path                   Hard-limit "
-                         "Soft-limit   Used  Available  Soft-limit exceeded?"
-                         " Hard-limit exceeded?");
+                         " Soft-limit      Used  Available  Soft-limit "
+                         "exceeded? Hard-limit exceeded?");
                 cli_out ("-----------------------------------------------------"
                          "-----------------------------------------------------"
-                         "-----------------");
+                         "---------------------");
         } else {
                 cli_out ("                  Path                   Hard-limit  "
-                         "Soft-limit     Files       Dirs     Available  "
+                         " Soft-limit      Files       Dirs     Available  "
                          "Soft-limit exceeded? Hard-limit exceeded?");
                 cli_out ("-----------------------------------------------------"
                          "-----------------------------------------------------"
-                         "-----------------------------------");
+                         "-------------------------------------");
         }
 }
 
