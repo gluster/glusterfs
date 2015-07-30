@@ -37,6 +37,20 @@
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 
+#define RPC_SET_OPT(XL, CLI_OPT, XLATOR_OPT, ERROR_CMD) do {            \
+        char   *_value = NULL;                                          \
+                                                                        \
+        if (dict_get_str (set_dict, CLI_OPT, &_value) == 0) {           \
+                if (xlator_set_option (XL,                              \
+                    "transport.socket." XLATOR_OPT, _value) != 0) {     \
+                        gf_msg ("glusterd", GF_LOG_WARNING, errno,      \
+                                GD_MSG_XLATOR_SET_OPT_FAIL,             \
+                                "failed to set " XLATOR_OPT);           \
+                        ERROR_CMD;                                      \
+                }                                                       \
+        }                                                               \
+} while (0 /* CONSTCOND */)
+
 /*********************************************
  *
  * xlator generation / graph manipulation API
@@ -2071,25 +2085,14 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
         }
 
-        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cert-depth", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
-                                GD_MSG_XLATOR_SET_OPT_FAIL,
-                                "failed to set ssl-cert-depth");
-                        return -1;
-                }
-        }
-
-        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cipher-list", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
-                                GD_MSG_XLATOR_SET_OPT_FAIL,
-                                "failed to set ssl-cipher-list");
-                        return -1;
-                }
-        }
+        RPC_SET_OPT(xl, SSL_OWN_CERT_OPT,   "ssl-own-cert",         return -1);
+        RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      return -1);
+        RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          return -1);
+        RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         return -1);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", return -1);
+        RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      return -1);
+        RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         return -1);
+        RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         return -1);
 
         if (username) {
                 memset (key, 0, sizeof (key));
@@ -2165,26 +2168,22 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (NULL == ptranst)
                         return -1;
 
-                if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
-                        ret = xlator_set_option (rbxl, "ssl-cert-depth", value);
-                        if (ret) {
-                                gf_msg ("glusterd", GF_LOG_WARNING, errno,
-                                        GD_MSG_DICT_GET_FAILED,
-                                        "failed to set ssl-cert-depth");
-                                return -1;
-                        }
-                }
-
-                if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
-                        ret = xlator_set_option (rbxl, "ssl-cipher-list",
-                                                 value);
-                        if (ret) {
-                                gf_msg ("glusterd", GF_LOG_WARNING, errno,
-                                        GD_MSG_DICT_GET_FAILED,
-                                        "failed to set ssl-cipher-list");
-                                return -1;
-                        }
-                }
+                RPC_SET_OPT(rbxl, SSL_OWN_CERT_OPT,   "ssl-own-cert",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_CA_LIST_OPT,    "ssl-ca-list",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_CRL_PATH_OPT,   "ssl-crl-path",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_DH_PARAM_OPT,   "ssl-dh-param",
+                            return -1);
+                RPC_SET_OPT(rbxl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",
+                            return -1);
 
                 if (username) {
                         ret = xlator_set_option (rbxl, "username", username);
@@ -2743,25 +2742,14 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cert-depth", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
-                                GD_MSG_DICT_GET_FAILED,
-                                "failed to set ssl-cert-depth");
-                        goto err;
-                }
-        }
-
-        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cipher-list", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
-                                GD_MSG_DICT_GET_FAILED,
-                                "failed to set ssl-cipher-list");
-                        goto err;
-                }
-        }
+        RPC_SET_OPT(xl, SSL_OWN_CERT_OPT,   "ssl-own-cert",         goto err);
+        RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      goto err);
+        RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          goto err);
+        RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         goto err);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", goto err);
+        RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      goto err);
+        RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         goto err);
+        RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         goto err);
 
         return xl;
 err:
@@ -5007,25 +4995,14 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         if (ret)
                 return -1;
 
-        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cert-depth", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
-                                GD_MSG_XLATOR_SET_OPT_FAIL,
-                                "failed to set ssl-cert-depth");
-                        return -1;
-                }
-        }
-
-        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cipher-list", value);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
-                                GD_MSG_XLATOR_SET_OPT_FAIL,
-                                "failed to set ssl-cipher-list");
-                        return -1;
-                }
-        }
+        RPC_SET_OPT(xl, SSL_OWN_CERT_OPT,   "ssl-own-cert",         return -1);
+        RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      return -1);
+        RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          return -1);
+        RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         return -1);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", return -1);
+        RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      return -1);
+        RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         return -1);
+        RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         return -1);
 
         username = glusterd_auth_get_username (volinfo);
         passwd = glusterd_auth_get_password (volinfo);

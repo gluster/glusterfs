@@ -44,73 +44,12 @@
 #define SSL_OWN_CERT_OPT    "transport.socket.ssl-own-cert"
 #define SSL_PRIVATE_KEY_OPT "transport.socket.ssl-private-key"
 #define SSL_CA_LIST_OPT     "transport.socket.ssl-ca-list"
+#define SSL_CERT_DEPTH_OPT  "transport.socket.ssl-cert-depth"
+#define SSL_CIPHER_LIST_OPT "transport.socket.ssl-cipher-list"
+#define SSL_DH_PARAM_OPT    "transport.socket.ssl-dh-param"
+#define SSL_EC_CURVE_OPT    "transport.socket.ssl-ec-curve"
+#define SSL_CRL_PATH_OPT    "transport.socket.ssl-crl-path"
 #define OWN_THREAD_OPT      "transport.socket.own-thread"
-
-/*
- * This list was derived by taking the cipher list "HIGH:!SSLv2" (the previous
- * default) and excluding CBC entries to mitigate the "POODLE" attack.  It
- * should be re-evaluated in light of each future vulnerability, as those are
- * discovered.
- */
-static char *default_cipher_list =
-        "ECDHE-RSA-AES256-GCM-SHA384:"
-        "ECDHE-ECDSA-AES256-GCM-SHA384:"
-        "ECDHE-RSA-AES256-SHA384:"
-        "ECDHE-ECDSA-AES256-SHA384:"
-        "ECDHE-RSA-AES256-SHA:"
-        "ECDHE-ECDSA-AES256-SHA:"
-        "DHE-DSS-AES256-GCM-SHA384:"
-        "DHE-RSA-AES256-GCM-SHA384:"
-        "DHE-RSA-AES256-SHA256:"
-        "DHE-DSS-AES256-SHA256:"
-        "DHE-RSA-AES256-SHA:"
-        "DHE-DSS-AES256-SHA:"
-        "DHE-RSA-CAMELLIA256-SHA:"
-        "DHE-DSS-CAMELLIA256-SHA:"
-        "AECDH-AES256-SHA:"
-        "ADH-AES256-GCM-SHA384:"
-        "ADH-AES256-SHA256:"
-        "ADH-AES256-SHA:"
-        "ADH-CAMELLIA256-SHA:"
-        "ECDH-RSA-AES256-GCM-SHA384:"
-        "ECDH-ECDSA-AES256-GCM-SHA384:"
-        "ECDH-RSA-AES256-SHA384:"
-        "ECDH-ECDSA-AES256-SHA384:"
-        "ECDH-RSA-AES256-SHA:"
-        "ECDH-ECDSA-AES256-SHA:"
-        "AES256-GCM-SHA384:"
-        "AES256-SHA256:"
-        "AES256-SHA:"
-        "CAMELLIA256-SHA:"
-        "ECDHE-RSA-AES128-GCM-SHA256:"
-        "ECDHE-ECDSA-AES128-GCM-SHA256:"
-        "ECDHE-RSA-AES128-SHA256:"
-        "ECDHE-ECDSA-AES128-SHA256:"
-        "ECDHE-RSA-AES128-SHA:"
-        "ECDHE-ECDSA-AES128-SHA:"
-        "DHE-DSS-AES128-GCM-SHA256:"
-        "DHE-RSA-AES128-GCM-SHA256:"
-        "DHE-RSA-AES128-SHA256:"
-        "DHE-DSS-AES128-SHA256:"
-        "DHE-RSA-AES128-SHA:"
-        "DHE-DSS-AES128-SHA:"
-        "DHE-RSA-CAMELLIA128-SHA:"
-        "DHE-DSS-CAMELLIA128-SHA:"
-        "AECDH-AES128-SHA:"
-        "ADH-AES128-GCM-SHA256:"
-        "ADH-AES128-SHA256:"
-        "ADH-AES128-SHA:"
-        "ADH-CAMELLIA128-SHA:"
-        "ECDH-RSA-AES128-GCM-SHA256:"
-        "ECDH-ECDSA-AES128-GCM-SHA256:"
-        "ECDH-RSA-AES128-SHA256:"
-        "ECDH-ECDSA-AES128-SHA256:"
-        "ECDH-RSA-AES128-SHA:"
-        "ECDH-ECDSA-AES128-SHA:"
-        "AES128-GCM-SHA256:"
-        "AES128-SHA256:"
-        "AES128-SHA:"
-        "CAMELLIA128-SHA";      /* no colon for last entry */
 
 /* TBD: do automake substitutions etc. (ick) to set these. */
 #if !defined(DEFAULT_ETC_SSL)
@@ -127,6 +66,7 @@ static char *default_cipher_list =
 #    define DEFAULT_ETC_SSL "/etc/ssl"
 #  endif
 #endif
+
 #if !defined(DEFAULT_CERT_PATH)
 #define DEFAULT_CERT_PATH   DEFAULT_ETC_SSL "/glusterfs.pem"
 #endif
@@ -136,6 +76,12 @@ static char *default_cipher_list =
 #if !defined(DEFAULT_CA_PATH)
 #define DEFAULT_CA_PATH     DEFAULT_ETC_SSL "/glusterfs.ca"
 #endif
+#if !defined(DEFAULT_VERIFY_DEPTH)
+#define DEFAULT_VERIFY_DEPTH 1
+#endif
+#define DEFAULT_CIPHER_LIST "EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
+#define DEFAULT_DH_PARAM   DEFAULT_ETC_SSL "/dhparam.pem"
+#define DEFAULT_EC_CURVE   "prime256v1"
 
 #define POLL_MASK_INPUT  (POLLIN | POLLPRI)
 #define POLL_MASK_OUTPUT (POLLOUT)
@@ -3774,9 +3720,11 @@ socket_init (rpc_transport_t *this)
         uint32_t          timeout = 0;
         uint32_t          backlog = 0;
 	int               session_id = 0;
-        int32_t           cert_depth = 1;
-        char             *cipher_list = default_cipher_list;
-        int               ret;
+        int32_t           cert_depth = DEFAULT_VERIFY_DEPTH;
+        char             *cipher_list = DEFAULT_CIPHER_LIST;
+        char             *dh_param = DEFAULT_DH_PARAM;
+        char             *ec_curve = DEFAULT_EC_CURVE;
+        char             *crl_path = NULL;
 
         if (this->private) {
                 gf_log_callingfn (this->name, GF_LOG_ERROR,
@@ -3958,6 +3906,18 @@ socket_init (rpc_transport_t *this)
 	}
         priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
+	if (dict_get_str(this->options,SSL_CRL_PATH_OPT,&optstr) == 0) {
+                if (!priv->ssl_enabled) {
+                        gf_log(this->name,GF_LOG_WARNING,
+                               "%s specified without %s (ignored)",
+                               SSL_CRL_PATH_OPT, SSL_ENABLED_OPT);
+		}
+		if (strcasecmp(optstr, "NULL") == 0)
+			crl_path = NULL;
+		else
+			crl_path = optstr;
+	}
+
         gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO: GF_LOG_DEBUG,
                "SSL support on the I/O path is %s",
                priv->ssl_enabled ? "ENABLED" : "NOT enabled");
@@ -3982,16 +3942,26 @@ socket_init (rpc_transport_t *this)
                "using %s polling thread",
 	       priv->own_thread ? "private" : "system");
 
-        if (!dict_get_int32 (this->options, "ssl-cert-depth", &cert_depth)) {
+        if (!dict_get_int32 (this->options, SSL_CERT_DEPTH_OPT, &cert_depth)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "using certificate depth %d", cert_depth);
         }
-        if (!dict_get_str (this->options, "ssl-cipher-list", &cipher_list)) {
+        if (!dict_get_str (this->options, SSL_CIPHER_LIST_OPT, &cipher_list)) {
                 gf_log (this->name, GF_LOG_INFO,
                         "using cipher list %s", cipher_list);
         }
+        if (!dict_get_str (this->options, SSL_DH_PARAM_OPT, &dh_param)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using DH parameters %s", dh_param);
+        }
+        if (!dict_get_str (this->options, SSL_EC_CURVE_OPT, &ec_curve)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using EC curve %s", ec_curve);
+        }
 
 	if (priv->ssl_enabled || priv->mgmt_ssl) {
+                BIO *bio = NULL;
+
                 /*
                  * The right time to check this is after all of our relevant
                  * fields have been set, but before we start issuing OpenSSL
@@ -4006,17 +3976,93 @@ socket_init (rpc_transport_t *this)
 
 #if HAVE_TLSV1_2_METHOD
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
-#else /* old openssl */
-#warning TLSv1.2 is not available, using insecure TLSv1 support
-		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();
+#else
+/*
+ * Nobody should use an OpenSSL so old it does not support TLS 1.2.
+ * If that is really required, build with -DUSE_INSECURE_OPENSSL
+ */
+#ifndef USE_INSECURE_OPENSSL
+#error Old and insecure OpenSSL, use -DUSE_INSECURE_OPENSSL to use it anyway
+#endif
+		/* SSLv23_method uses highest available protocol */
+		priv->ssl_meth = (SSL_METHOD *)SSLv23_method();
 #endif
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
+                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv2);
+                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv3);
+                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_TICKET);
+                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_COMPRESSION);
+
+		if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
+			gf_log(this->name,GF_LOG_ERROR,
+			       "failed to open %s, "
+			       "DH ciphers are disabled", dh_param);
+		}
+
+		if (bio != NULL) {
+#ifdef ERR_R_DH_LIB
+                        DH *dh;
+                        unsigned long err;
+
+                        dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+                        BIO_free(bio);
+                        if (dh != NULL) {
+				SSL_CTX_set_options(priv->ssl_ctx,
+						    SSL_OP_SINGLE_DH_USE);
+				SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
+				DH_free(dh);
+                        } else {
+                                err = ERR_get_error();
+                                gf_log(this->name,GF_LOG_ERROR,
+                                       "failed to read DH param from %s: %s "
+                                       "DH ciphers are disabled.",
+                                       dh_param, ERR_error_string(err, NULL));
+                        }
+#else /* ERR_R_DH_LIB */
+                        BIO_free(bio);
+                        gf_log(this->name, GF_LOG_ERROR,
+                               "OpenSSL has no DH support");
+#endif /* ERR_R_DH_LIB */
+                }
+
+                if (ec_curve != NULL) {
+#ifdef ERR_R_ECDH_LIB
+                        EC_KEY *ecdh = NULL;
+                        int nid;
+                        unsigned long err;
+
+                        nid = OBJ_sn2nid(ec_curve);
+                        if (nid != 0)
+                                ecdh = EC_KEY_new_by_curve_name(nid);
+
+                        if (ecdh != NULL) {
+				SSL_CTX_set_options(priv->ssl_ctx,
+						    SSL_OP_SINGLE_ECDH_USE);
+				SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
+				EC_KEY_free(ecdh);
+                        } else {
+                                err = ERR_get_error();
+                                gf_log(this->name, GF_LOG_ERROR,
+                                       "failed to load EC curve %s: %s. "
+				       "ECDH ciphers are disabled.",
+                                       ec_curve, ERR_error_string(err, NULL));
+			}
+#else /* ERR_R_ECDH_LIB */
+                        gf_log(this->name, GF_LOG_ERROR,
+                               "OpenSSL has no ECDH support");
+#endif /* ERR_R_ECDH_LIB */
+                }
+
+		/* This must be done after DH and ECDH setups */
                 if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
                         gf_log(this->name,GF_LOG_ERROR,
                                "failed to find any valid ciphers");
                         goto err;
                 }
+
+		SSL_CTX_set_options(priv->ssl_ctx,
+                                    SSL_OP_CIPHER_SERVER_PREFERENCE);
 
 		if (!SSL_CTX_use_certificate_chain_file(priv->ssl_ctx,
 							priv->ssl_own_cert)) {
@@ -4034,7 +4080,8 @@ socket_init (rpc_transport_t *this)
 		}
 
 		if (!SSL_CTX_load_verify_locations(priv->ssl_ctx,
-						   priv->ssl_ca_list,0)) {
+						   priv->ssl_ca_list,
+						   crl_path)) {
 			gf_log(this->name,GF_LOG_ERROR,
 			       "could not load CA list");
 			goto err;
@@ -4043,6 +4090,19 @@ socket_init (rpc_transport_t *this)
 #if (OPENSSL_VERSION_NUMBER < 0x00905100L)
 		SSL_CTX_set_verify_depth(ctx,cert_depth);
 #endif
+
+		if (crl_path) {
+#ifdef X509_V_FLAG_CRL_CHECK_ALL
+			X509_STORE *x509store;
+
+			x509store  = SSL_CTX_get_cert_store(priv->ssl_ctx);
+			X509_STORE_set_flags(x509store,
+			    X509_V_FLAG_CRL_CHECK|X509_V_FLAG_CRL_CHECK_ALL);
+#else
+			gf_log(this->name,GF_LOG_ERROR,
+			       "OpenSSL version does not support CRL");
+#endif
+		}
 
 		priv->ssl_session_id = ++session_id;
 		SSL_CTX_set_session_id_context(priv->ssl_ctx,
@@ -4197,20 +4257,60 @@ struct volume_options options[] = {
 	{ .key   = {SSL_CA_LIST_OPT},
 	  .type  = GF_OPTION_TYPE_STR
 	},
+	{ .key   = {SSL_CERT_DEPTH_OPT},
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	{ .key   = {SSL_CIPHER_LIST_OPT},
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	{ .key   = {SSL_DH_PARAM_OPT},
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	{ .key   = {SSL_EC_CURVE_OPT},
+	  .type  = GF_OPTION_TYPE_STR
+	},
+	{ .key   = {SSL_CRL_PATH_OPT},
+	  .type  = GF_OPTION_TYPE_STR
+	},
 	{ .key   = {OWN_THREAD_OPT},
 	  .type  = GF_OPTION_TYPE_BOOL
 	},
-        { .key = {"ssl-cert-depth"},
-          .type = GF_OPTION_TYPE_INT,
+        { .key   = {"ssl-own-cert"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "SSL certificate. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-private-key"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "SSL private key. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-ca-list"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "SSL CA list. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-cert-depth"},
+          .type  = GF_OPTION_TYPE_INT,
           .description = "Maximum certificate-chain depth.  If zero, the "
                          "peer's certificate itself must be in the local "
                          "certificate list.  Otherwise, there may be up to N "
                          "signing certificates between the peer's and the "
                          "local list.  Ignored if SSL is not enabled."
         },
-        { .key = {"ssl-cipher-list"},
-          .type = GF_OPTION_TYPE_STR,
-          .description = "Allowed SSL ciphers  Ignored if SSL is not enabled."
+        { .key   = {"ssl-cipher-list"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "Allowed SSL ciphers. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-dh-param"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "DH parameters file. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-ec-curve"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "ECDH curve name. Ignored if SSL is not enabled."
+        },
+        { .key   = {"ssl-crl-path"},
+          .type  = GF_OPTION_TYPE_STR,
+          .description = "Path to directory containing CRL. "
+                         "Ignored if SSL is not enabled."
         },
         { .key = {NULL} }
 };

@@ -40,8 +40,14 @@
 #define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
 #define NFS_DISABLE_OPT_KEY "nfs.*.disable"
 
+#define SSL_OWN_CERT_OPT    "ssl.own-cert"
+#define SSL_PRIVATE_KEY_OPT "ssl.private-key"
+#define SSL_CA_LIST_OPT     "ssl.ca-list"
+#define SSL_CRL_PATH_OPT    "ssl.crl-path"
 #define SSL_CERT_DEPTH_OPT  "ssl.certificate-depth"
 #define SSL_CIPHER_LIST_OPT "ssl.cipher-list"
+#define SSL_DH_PARAM_OPT    "ssl.dh-param"
+#define SSL_EC_CURVE_OPT    "ssl.ec-curve"
 
 
 typedef enum {
