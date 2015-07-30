@@ -14,7 +14,7 @@ conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.con
 voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterd.vol
 scriptsdir = $(datadir)/glusterfs/scripts
-scripts_DATA = post-upgrade-script-for-quota.sh \
+scripts_SCRIPTS = post-upgrade-script-for-quota.sh \
 	pre-upgrade-script-for-quota.sh stop-all-gluster-processes.sh
 
 EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
