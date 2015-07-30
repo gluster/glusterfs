@@ -1135,7 +1135,7 @@ out:
 int
 gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                   char **op_errstr, uuid_t txn_id,
-                  glusterd_op_info_t *txn_opinfo)
+                  glusterd_op_info_t *txn_opinfo, gf_boolean_t cluster_lock)
 {
         int                     ret         = -1;
         int                     peer_cnt    = 0;
@@ -1163,7 +1163,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                         continue;
 
 
-                if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                if (cluster_lock) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
                         gd_syncop_mgmt_lock (peerinfo, &args,
@@ -1464,7 +1464,7 @@ int
 gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
                     char *volname, gf_boolean_t is_acquired, uuid_t txn_id,
-                    glusterd_op_info_t *txn_opinfo)
+                    glusterd_op_info_t *txn_opinfo, gf_boolean_t cluster_lock)
 {
         glusterd_peerinfo_t    *peerinfo    = NULL;
         uuid_t                  tmp_uuid    = {0};
@@ -1488,7 +1488,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         synctask_barrier_init((&args));
         peer_cnt = 0;
 
-        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+        if (cluster_lock) {
                 rcu_read_lock ();
                 cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                              uuid_list) {
@@ -1575,7 +1575,7 @@ out:
                  * and clear the op */
 
                 glusterd_op_clear_op (op);
-                if (conf->op_version < GD_OP_VERSION_3_6_0)
+                if (cluster_lock)
                         glusterd_unlock (MY_UUID);
                 else {
                         if (type) {
@@ -1729,6 +1729,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         uuid_t                      *txn_id          = NULL;
         glusterd_op_info_t          txn_opinfo       = {{0},};
         uint32_t                    op_errno         = 0;
+        gf_boolean_t                cluster_lock     = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1774,8 +1775,11 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 goto out;
         }
 
+        if (conf->op_version < GD_OP_VERSION_3_6_0)
+                cluster_lock = _gf_true;
+
         /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+        if (cluster_lock) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1848,9 +1852,9 @@ local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        if (volname || (conf->op_version < GD_OP_VERSION_3_6_0) || is_global) {
+        if (volname || cluster_lock || is_global) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr, *txn_id,
-                                        &txn_opinfo);
+                                        &txn_opinfo, cluster_lock);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_PEER_LOCK_FAIL,
@@ -1890,11 +1894,13 @@ out:
                 if (global)
                         (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
                                                    op_errstr, global, is_acquired,
-                                                   *txn_id, &txn_opinfo);
+                                                   *txn_id, &txn_opinfo,
+                                                   cluster_lock);
                 else
                         (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
                                                    op_errstr, volname, is_acquired,
-                                                   *txn_id, &txn_opinfo);
+                                                   *txn_id, &txn_opinfo,
+                                                   cluster_lock);
 
 
                 /* Clearing the transaction opinfo */
