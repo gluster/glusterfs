@@ -211,7 +211,7 @@ function run_all ()
     | while read t; do
 	old_cores=$(ls /core.* 2> /dev/null | wc -l)
         retval=0
-        prove -f --timer $t
+        prove -mf --timer $t
         TMP_RES=$?
         if [ ${TMP_RES} -ne 0 ] ; then
             echo "$t: bad status $TMP_RES"
@@ -227,6 +227,12 @@ function run_all ()
 	    if is_bad_test $t; then
 		echo  "Ignoring failure from known-bad test $t"
 	    else
+                echo
+                echo "Running failed test $t in debug mode"
+                echo "Just for debug data, does not change test result"
+                echo
+                bash -x $t
+                echo
 		return $retval
 	    fi
         fi
