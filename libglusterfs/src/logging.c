@@ -292,18 +292,6 @@ log_buf_init (log_buf_t *buf, const char *domain, const char *file,
               int errnum, uint64_t msgid, char **appmsgstr, int graph_id)
 {
         int ret = -1;
-        xlator_t        *old_THIS;
-        extern xlator_t global_xlator;
-
-        /*
-         * The current translator will be put in the block header for any
-         * memory block we allocate here.  Unfortunately, these objects might
-         * outlive the current translator, and if we then try to dereference
-         * that pointer we go BOOM.  Since this is really a global structure,
-         * use the global translator.
-         */
-        old_THIS = THIS;
-        THIS = &global_xlator;
 
         if (!buf || !domain || !file || !function || !appmsgstr || !*appmsgstr)
                 goto out;
@@ -334,7 +322,6 @@ log_buf_init (log_buf_t *buf, const char *domain, const char *file,
 
         ret = 0;
 out:
-        THIS = old_THIS;
         return ret;
 }
 
