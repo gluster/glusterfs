@@ -1,5 +1,5 @@
 scriptsdir = $(datadir)/glusterfs/scripts
-scripts_DATA =  gsync-upgrade.sh generate-gfid-file.sh get-gfid.sh \
+scripts_SCRIPTS =  gsync-upgrade.sh generate-gfid-file.sh get-gfid.sh \
         slave-upgrade.sh
 
 scripts_PROGRAMS = gsync-sync-gfid
