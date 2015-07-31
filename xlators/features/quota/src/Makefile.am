@@ -1,8 +1,8 @@
 xlator_LTLIBRARIES = quota.la quotad.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-quota_la_LDFLAGS = -module -avoid-version
-quotad_la_LDFLAGS = -module -avoid-version
+quota_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+quotad_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/features/quota/src/quotad.sym
 
 quota_la_SOURCES = quota.c quota-enforcer-client.c
 quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
@@ -20,4 +20,6 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 CLEANFILES =
+
+EXTRA_DIST = quotad.sym
 

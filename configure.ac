@@ -1279,6 +1279,8 @@ AC_SUBST(CFLAGS)
 dnl libglusterfs.so uses math functions
 GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
+GF_XLATOR_DEFAULT_LDFLAGS='-module -avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym'
+
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
@@ -1289,6 +1291,7 @@ AC_SUBST(RLLIBS)
 AC_SUBST(LIBAIO)
 AC_SUBST(AM_MAKEFLAGS)
 AC_SUBST(AM_LIBTOOLFLAGS)
+AC_SUBST(GF_XLATOR_DEFAULT_LDFLAGS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)

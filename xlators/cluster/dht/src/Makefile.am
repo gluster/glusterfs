@@ -18,17 +18,16 @@ nufa_la_SOURCES = $(dht_common_source) nufa.c
 switch_la_SOURCES = $(dht_common_source) switch.c
 tier_la_SOURCES = $(dht_common_source) tier.c
 
-dht_la_LDFLAGS = -module -avoid-version
+dht_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/cluster/dht/src/dht.sym
 dht_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-nufa_la_LDFLAGS = -module -avoid-version
+nufa_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/cluster/dht/src/nufa.sym
 nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-switch_la_LDFLAGS = -module -avoid-version
+switch_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/cluster/dht/src/switch.sym
 switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-
-tier_la_LDFLAGS = -module -avoid-version
+tier_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/cluster/dht/src/tier.sym
 tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h dht-helper.h tier.h\
@@ -42,6 +41,8 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-DLIBGFDB_VERSION=\"$(LIBGFDB_VERSION)\"
 
 CLEANFILES =
+
+EXTRA_DIST = dht.sym nufa.sym switch.sym tier.sym
 
 uninstall-local:
 	rm -f $(DESTDIR)$(xlatordir)/distribute.so

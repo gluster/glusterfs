@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = bit-rot.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-bit_rot_la_LDFLAGS = -module -avoid-version
+bit_rot_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 		 -I$(top_srcdir)/rpc/xdr/src/ \
