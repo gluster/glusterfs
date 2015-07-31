@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = filter.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/features
 
-filter_la_LDFLAGS = -module -avoid-version
+filter_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 filter_la_SOURCES = filter.c
 filter_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la 

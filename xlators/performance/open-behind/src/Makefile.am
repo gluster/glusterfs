@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = open-behind.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
-open_behind_la_LDFLAGS = -module -avoid-version
+open_behind_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 open_behind_la_SOURCES = open-behind.c
 open_behind_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

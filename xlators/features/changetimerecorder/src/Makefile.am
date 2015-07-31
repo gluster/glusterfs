@@ -5,7 +5,7 @@ if BUILD_GFDB
    xlator_LTLIBRARIES = changetimerecorder.la
 endif
 
-changetimerecorder_la_LDFLAGS = -module -avoid-version
+changetimerecorder_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 changetimerecorder_la_SOURCES = changetimerecorder.c ctr-helper.c ctr-xlator-ctx.c
 
