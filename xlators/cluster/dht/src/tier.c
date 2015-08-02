@@ -1104,6 +1104,7 @@ tier_init (xlator_t *this)
         int               freq           = 0;
         dht_conf_t       *conf           = NULL;
         gf_defrag_info_t *defrag         = NULL;
+        char             *voldir         = NULL;
 
         ret = dht_init(this);
         if (ret) {
@@ -1173,21 +1174,44 @@ tier_init (xlator_t *this)
 
         defrag->read_freq_threshold = freq;
 
-        ret = gf_asprintf(&promotion_qfile, "%s/%s-%d",
+        ret = gf_asprintf(&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
-                          PROMOTION_QFILE,
-                          getpid());
+                          this->name);
         if (ret < 0)
                 goto out;
 
-        ret = gf_asprintf(&demotion_qfile, "%s/%s-%d",
+        ret = mkdir_p(voldir, 0777, _gf_true);
+        if (ret == -1 && errno != EEXIST) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_LOG_TIER_ERROR,
+                       "tier_init failed");
+
+                GF_FREE(voldir);
+                goto out;
+        }
+
+        GF_FREE(voldir);
+
+        ret = gf_asprintf(&promotion_qfile, "%s/%s/%s-%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
+                          this->name,
+                          PROMOTION_QFILE,
+                          this->name);
+        if (ret < 0)
+                goto out;
+
+        ret = gf_asprintf(&demotion_qfile, "%s/%s/%s-%s",
+                          DEFAULT_VAR_RUN_DIRECTORY,
+                          this->name,
                           DEMOTION_QFILE,
-                          getpid());
+                          this->name);
         if (ret < 0) {
                 GF_FREE(promotion_qfile);
                 goto out;
         }
+
+        unlink(promotion_qfile);
+        unlink(demotion_qfile);
 
         gf_msg(this->name, GF_LOG_INFO, 0,
                DHT_MSG_LOG_TIER_STATUS,
