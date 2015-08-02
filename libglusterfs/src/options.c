@@ -183,13 +183,13 @@ xlator_option_validate_bool (xlator_t *xl, const char *key, const char *value,
 {
         int          ret = -1;
         char         errstr[256];
-        gf_boolean_t bool;
+        gf_boolean_t is_valid;
 
 
         /* Check if the value is one of
            '0|1|on|off|no|yes|true|false|enable|disable' */
 
-        if (gf_string2boolean (value, &bool) != 0) {
+        if (gf_string2boolean (value, &is_valid) != 0) {
                 snprintf (errstr, 256,
                           "option %s %s: '%s' is not a valid boolean value",
                           key, value, value);
