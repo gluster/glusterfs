@@ -2372,6 +2372,8 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         char                       *brick_mount_dir = NULL;
         char                        key[PATH_MAX]   = "";
         char                       *volname         = NULL;
+        char                       *str             = NULL;
+        gf_boolean_t                option          = _gf_false;
         int                         flags           = 0;
         glusterd_volinfo_t         *volinfo         = NULL;
         glusterd_brickinfo_t       *brickinfo       = NULL;
@@ -2421,6 +2423,28 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                                 }
                                 strncpy (brickinfo->mount_dir, brick_mount_dir,
                                          sizeof(brickinfo->mount_dir));
+                        }
+                }
+        }
+
+        ret = dict_get_str (conf->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL, &str);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED, "Global dict not present.");
+                ret = 0;
+
+        } else {
+                ret = gf_string2boolean (str, &option);
+                /* Check if the feature is enabled and set nfs-disable to true */
+                if (option) {
+                        gf_msg_debug (this->name, 0, "NFS-Ganesha is enabled");
+                        /* Gluster-nfs should not start when NFS-Ganesha is enabled*/
+                        ret = dict_set_str (volinfo->dict, "nfs.disable", "on");
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED, "Failed to set nfs.disable for"
+                                        "volume %s", volname);
+                                goto out;
                         }
                 }
         }
