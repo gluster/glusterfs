@@ -1838,7 +1838,6 @@ gf_defrag_task (void *opaque)
         struct dht_container    *iterator       = NULL;
         gf_defrag_info_t        *defrag         = NULL;
         int                      ret            = 0;
-        gf_boolean_t             true           = _gf_true;
 
 
         defrag = (gf_defrag_info_t *)opaque;
@@ -1861,7 +1860,7 @@ gf_defrag_task (void *opaque)
           crawler does not go far ahead in filling up the queue.
         */
 
-        while (true) {
+        while (_gf_true) {
 
                 if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                         goto out;
