@@ -4212,16 +4212,19 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
                 return 0;
         }
 
+        set_dict = dict_copy (volinfo->dict, NULL);
+        if (!set_dict)
+                return -1;
+
         if (mod_dict) {
-                set_dict = dict_copy (volinfo->dict, NULL);
-                if (!set_dict)
-                        return -1;
                  dict_copy (mod_dict, set_dict);
                  /* XXX dict_copy swallows errors */
-        } else {
-                set_dict = volinfo->dict;
         }
 
+        /* Rebalance is always a trusted client*/
+        ret = dict_set_uint32 (set_dict, "trusted-client", GF_CLIENT_TRUSTED);
+        if (ret)
+                return -1;
 
         ret = volgen_graph_build_clients (&graph, volinfo, set_dict, NULL);
         if (volinfo->type == GF_CLUSTER_TYPE_TIER)
@@ -4251,13 +4254,12 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
 out:
         volgen_graph_free (&graph);
 
-        if (mod_dict)
-                dict_destroy (set_dict);
-
+        dict_destroy (set_dict);
 
         return ret;
-
 }
+
+
 static int
 build_shd_volume_graph (xlator_t *this, volgen_graph_t *graph,
                         glusterd_volinfo_t *volinfo,
