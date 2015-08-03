@@ -193,12 +193,16 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+        unsigned char *data = NULL;
+        unsigned char *metadata = NULL;
 	int read_subvol = -1;
 	int event_generation = 0;
 	int ret = -1;
 
 	priv = this->private;
 	local = frame->local;
+        data = alloca0 (priv->child_count);
+        metadata = alloca0 (priv->child_count);
 
 	afr_read_txn_wipe (frame, this);
 
@@ -213,10 +217,16 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 goto read;
         }
 
-
 	local->transaction.type = type;
-	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
-					      &event_generation, type);
+        if (local->op == GF_FOP_FSTAT || local->op == GF_FOP_STAT) {
+                ret = afr_inode_read_subvol_get (inode, this, data, metadata,
+                                                 &event_generation);
+                AFR_INTERSECT (local->readable, data, metadata,
+                               priv->child_count);
+        } else {
+                ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
+                                                      &event_generation, type);
+        }
 	if (ret == -1)
 		/* very first transaction on this inode */
 		goto refresh;

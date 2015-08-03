@@ -363,7 +363,8 @@ afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         if (inode->ia_type == IA_IFDIR) {
                 /* For directories, allow even if it is in data split-brain. */
-                if (type == AFR_METADATA_TRANSACTION) {
+                if (type == AFR_METADATA_TRANSACTION ||
+                    local->op == GF_FOP_STAT || local->op == GF_FOP_FSTAT) {
                         if (!metadata_count)
                                 return -EIO;
                 }
@@ -1503,6 +1504,40 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
 
 }
 
+int
+afr_read_subvol_decide (inode_t *inode, xlator_t *this,
+                        afr_read_subvol_args_t *args)
+{
+        int data_subvol  = -1;
+        int mdata_subvol = -1;
+
+        data_subvol = afr_data_subvol_get (inode, this,
+                                           0, 0, args);
+        mdata_subvol = afr_metadata_subvol_get (inode, this,
+                                                0, 0, args);
+        if (data_subvol == -1 || mdata_subvol == -1)
+                return -1;
+
+        return data_subvol;
+}
+
+static inline int
+afr_first_up_child (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t       *priv  = NULL;
+        afr_local_t         *local = NULL;
+        int                  i     = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++)
+                if (local->replies[i].valid &&
+                    local->replies[i].op_ret == 0)
+                        return i;
+        return 0;
+}
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1618,13 +1653,13 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
                 gf_uuid_copy (args.gfid, read_gfid);
                 args.ia_type = ia_type;
 		if (afr_replies_interpret (frame, this, local->inode)) {
-			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0, &args);
+                        read_subvol = afr_read_subvol_decide (local->inode,
+                                                              this, &args);
 			afr_inode_read_subvol_reset (local->inode, this);
 			goto cant_interpret;
 		} else {
-			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0, &args);
+                        read_subvol = afr_data_subvol_get (local->inode, this,
+                                                           0, 0, &args);
 		}
 	} else {
 	cant_interpret:
@@ -1632,7 +1667,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
                         if (spb_choice >= 0)
                                 read_subvol = spb_choice;
                         else
-                                read_subvol = 0;
+                                read_subvol = afr_first_up_child (frame, this);
                 }
 		dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
 	}
@@ -1644,7 +1679,7 @@ unwind:
                 if (spb_choice >= 0)
                         read_subvol = spb_choice;
                 else
-                        read_subvol = 0;
+                        read_subvol = afr_first_up_child (frame, this);
         }
         par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
                                                       readable);
@@ -2024,10 +2059,14 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local = NULL;
 	int                 i = -1;
 	int                 op_errno = 0;
-	int                 read_subvol = 0;
+	int                 spb_choice = -1;
+	int                 read_subvol = -1;
 
         priv  = this->private;
         local = frame->local;
+
+        afr_inode_split_brain_choice_get (local->inode, this,
+                                          &spb_choice);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
@@ -2046,27 +2085,25 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
 
 	afr_replies_interpret (frame, this, local->inode);
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
+	read_subvol = afr_read_subvol_decide (local->inode, this, NULL);
 	if (read_subvol == -1) {
 	        gf_msg (this->name, GF_LOG_WARNING, 0,
                         AFR_MSG_READ_SUBVOL_ERROR, "no read subvols for %s",
 			local->loc.path);
 
-		for (i = 0; i < priv->child_count; i++) {
-			if (!local->replies[i].valid ||
-			    local->replies[i].op_ret == -1)
-				continue;
-			read_subvol = i;
-			break;
-		}
+                if (spb_choice >= 0) {
+                        read_subvol = spb_choice;
+                } else {
+                        read_subvol = afr_first_up_child (frame, this);
+                }
 	}
 
 unwind:
 	if (read_subvol == -1) {
-                afr_inode_split_brain_choice_get (local->inode, this,
-                                                        &read_subvol);
-                if (read_subvol == -1)
-                        read_subvol = 0;
+                if (spb_choice >= 0)
+                        read_subvol = spb_choice;
+                else
+                        read_subvol = afr_first_up_child (frame, this);
         }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
