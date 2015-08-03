@@ -2369,21 +2369,22 @@ client_check_event_threads (xlator_t *this, clnt_conf_t *conf, int32_t old,
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-	clnt_conf_t *conf              = NULL;
-	int          ret               = -1;
-        int          subvol_ret        = 0;
-        char        *old_remote_subvol = NULL;
-        char        *new_remote_subvol = NULL;
-        char        *old_remote_host   = NULL;
-        char        *new_remote_host   = NULL;
-        int32_t      new_nthread       = 0;
+	clnt_conf_t *conf                       = NULL;
+	int          ret                        = -1;
+        int          subvol_ret                 = 0;
+        char        *old_remote_subvol          = NULL;
+        char        *new_remote_subvol          = NULL;
+        char        *old_remote_host            = NULL;
+        char        *new_remote_host            = NULL;
+        int32_t      new_nthread                = 0;
+        struct rpc_clnt_config rpc_config       = {0,};
 
 	conf = this->private;
 
         GF_OPTION_RECONF ("frame-timeout", conf->rpc_conf.rpc_timeout,
                           options, int32, out);
 
-        GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
+        GF_OPTION_RECONF ("ping-timeout", rpc_config.ping_timeout,
                           options, int32, out);
 
         GF_OPTION_RECONF ("event-threads", new_nthread, options,
@@ -2424,6 +2425,10 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
                 }
         }
+
+        /* Reconfiguring client xlator's @rpc with new frame-timeout
+         * and ping-timeout */
+        rpc_clnt_reconfig (conf->rpc, &rpc_config);
 
         GF_OPTION_RECONF ("filter-O_DIRECT", conf->filter_o_direct,
                           options, bool, out);

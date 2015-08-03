@@ -125,6 +125,7 @@ struct rpc_clnt_config {
         int    rpc_timeout;
         int    remote_port;
         char * remote_host;
+        int    ping_timeout;
 };
 
 
