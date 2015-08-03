@@ -1793,6 +1793,21 @@ out:
 void
 rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
 {
+        if (config->ping_timeout) {
+                if (config->ping_timeout != rpc->conn.ping_timeout)
+                        gf_log (rpc->conn.name, GF_LOG_INFO,
+                                "changing ping timeout to %d (from %d)",
+                                config->ping_timeout,
+                                rpc->conn.ping_timeout);
+
+                pthread_mutex_lock (&rpc->conn.lock);
+                {
+                rpc->conn.ping_timeout = config->ping_timeout;
+                }
+                pthread_mutex_unlock (&rpc->conn.lock);
+
+        }
+
         if (config->rpc_timeout) {
                 if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
                         gf_log (rpc->conn.name, GF_LOG_INFO,
