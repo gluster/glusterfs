@@ -147,7 +147,9 @@ Other bits of code:
 
 Doc
 M: Humble Chirammal <hchiramm@redhat.com>
-M: Lalatendu Mohanty <lmohanty@redhat.com>
+M: Raghavendra Talur <rtalur@redhat.com>
+M: Prashanth Pai <ppai@redhat.com>
+M: Shravan Chandrashekar <shravantc99@gmail.com>
 S: Maintained
 F: doc/
 
