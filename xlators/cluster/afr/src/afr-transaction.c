@@ -493,18 +493,14 @@ afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
-        int pre_op_count = 0;
         int i = 0;
 
         local = frame->local;
 	priv = this->private;
 
-        pre_op_count = AFR_COUNT (local->transaction.pre_op, priv->child_count);
-        if (pre_op_count < priv->child_count)
-                return _gf_false;
-
         for (i = 0; i < priv->child_count; i++) {
-                if (local->transaction.failed_subvols[i])
+                if (local->transaction.pre_op[i] &&
+                    local->transaction.failed_subvols[i])
                         return _gf_false;
         }
 
@@ -1156,14 +1152,9 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		goto err;
 	}
 
-	if (call_count > 1 &&
-	    (local->transaction.type == AFR_DATA_TRANSACTION ||
+	if ((local->transaction.type == AFR_DATA_TRANSACTION ||
 	     !local->optimistic_change_log)) {
 
-		/* If we are performing change on only one subvol, no
-		   need to mark dirty, because we are setting the pending
-		   counts already anyways
-		*/
 		local->dirty[idx] = hton32(1);
 
 		ret = dict_set_static_bin (xdata_req, AFR_DIRTY, local->dirty,
