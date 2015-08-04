@@ -214,7 +214,6 @@ ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_boolean_t    _is_heal_needed         = _gf_false;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
-        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, dict, out);
 
         /* if the lookup failed lookup dont do anything*/
         if (op_ret == -1) {
