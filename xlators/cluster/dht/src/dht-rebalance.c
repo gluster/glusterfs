@@ -2562,6 +2562,118 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
         return 0;
 }
 
+
+
+/* Function for doing a named lookup on file inodes during an attach tier
+ * So that a hardlink lookup heal i.e gfid to parent gfid lookup heal
+ * happens on pre-existing data. This is required so that the ctr database has
+ * hardlinks of all the exisitng file in the volume. CTR xlator on the
+ * brick/server side does db update/insert of the hardlink on a namelookup.
+ * Currently the namedlookup is done synchronous to the fixlayout that is
+ * triggered by attach tier. This is not performant, adding more time to
+ * fixlayout. The performant approach is record the hardlinks on a compressed
+ * datastore and then do the namelookup asynchronously later, giving the ctr db
+ * eventual consistency
+ * */
+int
+gf_fix_layout_tier_attach_lookup (xlator_t *this,
+                                 loc_t *parent_loc,
+                                 gf_dirent_t *file_dentry)
+{
+        int                      ret            = -1;
+        dict_t                  *lookup_xdata   = NULL;
+        dht_conf_t              *conf           = NULL;
+        loc_t                    file_loc       = {0,};
+        struct iatt              iatt           = {0,};
+
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, parent_loc, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, file_dentry, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        if (!parent_loc->inode) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "%s/%s parent is NULL", parent_loc->path,
+                        file_dentry->d_name);
+                goto out;
+        }
+
+
+        conf   = this->private;
+
+        loc_wipe (&file_loc);
+
+        if (gf_uuid_is_null (file_dentry->d_stat.ia_gfid)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "%s/%s gfid not present", parent_loc->path,
+                        file_dentry->d_name);
+                goto out;
+        }
+
+        gf_uuid_copy (file_loc.gfid, file_dentry->d_stat.ia_gfid);
+
+        if (gf_uuid_is_null (parent_loc->gfid)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "%s/%s"
+                        " gfid not present", parent_loc->path,
+                        file_dentry->d_name);
+                goto out;
+        }
+
+        gf_uuid_copy (file_loc.pargfid, parent_loc->gfid);
+
+
+        ret = dht_build_child_loc (this, &file_loc, parent_loc,
+                                                file_dentry->d_name);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "Child loc build failed");
+                ret = -1;
+                goto out;
+        }
+
+        lookup_xdata = dict_new ();
+        if (!lookup_xdata) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "Failed creating lookup dict for %s",
+                        file_dentry->d_name);
+                goto out;
+        }
+
+        ret = dict_set_int32 (lookup_xdata, CTR_ATTACH_TIER_LOOKUP, 1);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to set lookup flag");
+                goto out;
+        }
+
+        gf_uuid_copy (file_loc.parent->gfid, parent_loc->gfid);
+
+        /* Sending lookup to cold tier only */
+        ret = syncop_lookup (conf->subvolumes[0], &file_loc, &iatt,
+                        NULL, lookup_xdata, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "%s lookup failed", file_loc.path);
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+
+        loc_wipe (&file_loc);
+
+        if (lookup_xdata)
+                dict_unref (lookup_xdata);
+
+        return ret;
+}
+
+
 int
 gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                   dict_t *fix_layout, dict_t *migrate_data)
@@ -2576,6 +2688,8 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         off_t                    offset         = 0;
         struct iatt              iatt           = {0,};
         inode_t                 *linked_inode   = NULL, *inode = NULL;
+
+
 
         ret = syncop_lookup (this, loc, &iatt, NULL, NULL, NULL);
         if (ret) {
@@ -2638,10 +2752,22 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (!strcmp (entry->d_name, ".") ||
                             !strcmp (entry->d_name, ".."))
                                 continue;
+                        if (!IA_ISDIR (entry->d_stat.ia_type)) {
 
-                        if (!IA_ISDIR (entry->d_stat.ia_type))
+                                /* If its a fix layout during the attach
+                                 * tier operation do lookups on files
+                                 * on cold subvolume so that there is a
+                                 * CTR DB Lookup Heal triggered on existing
+                                 * data.
+                                 * */
+                                if (defrag->cmd ==
+                                        GF_DEFRAG_CMD_START_TIER) {
+                                        gf_fix_layout_tier_attach_lookup
+                                                (this, loc, entry);
+                                }
+
                                 continue;
-
+                        }
                         loc_wipe (&entry_loc);
 
                         ret =dht_build_child_loc (this, &entry_loc, loc,

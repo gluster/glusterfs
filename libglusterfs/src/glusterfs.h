@@ -239,6 +239,8 @@
 #define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
 #define CTR_REQUEST_LINK_COUNT_XDATA  "ctr_request_link_count"
 
+#define CTR_ATTACH_TIER_LOOKUP    "ctr_attach_tier_lookup"
+
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
 #define GF_LOG_LRU_BUFSIZE_MAX 20

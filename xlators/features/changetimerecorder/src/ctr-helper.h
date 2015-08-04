@@ -284,10 +284,12 @@ do {\
  * */
 #define CTR_IS_INTERNAL_FOP(frame, dict)\
         (AFR_SELF_HEAL_FOP (frame) \
-        || REBALANCE_FOP (frame) \
-        || TIER_REBALANCE_FOP (frame) \
+        || (REBALANCE_FOP (frame) && dict && \
+            !dict_get (dict, CTR_ATTACH_TIER_LOOKUP)) \
+        || (TIER_REBALANCE_FOP (frame) && dict && \
+           !dict_get (dict, CTR_ATTACH_TIER_LOOKUP)) \
         || (dict && \
-        dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)))
+            dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)))
 
 /**
  * ignore internal fops for all clients except AFR self-heal daemon
