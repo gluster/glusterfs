@@ -714,9 +714,12 @@ client3_3_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING,
-                        gf_error_to_errno (rsp.op_errno),
-                        PC_MSG_REMOTE_OP_FAILED, "remote operation failed");
+                if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                gf_error_to_errno (rsp.op_errno),
+                                PC_MSG_REMOTE_OP_FAILED,
+                                "remote operation failed");
+                }
         }
         CLIENT_STACK_UNWIND (rmdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &preparent,
