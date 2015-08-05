@@ -107,6 +107,7 @@ ${SECRET_PEM} root@${new_node} "$SERVICE_MAN nfs-ganesha ${action}"
         fi
 }
 
+
 check_cluster_exists()
 {
     local name=${1}
@@ -794,6 +795,16 @@ deletenode_delete_resources()
 }
 
 
+deletenode_update_haconfig()
+{
+    local name="VIP_${1}"
+    local clean_name=${name//[-.]/_}
+
+    ha_servers=$(echo ${HA_SERVERS} | sed -e "s/ /,/")
+    sed -i -e "s/^HA_CLUSTER_NODES=.*$/HA_CLUSTER_NODES=\"${ha_servers// /,}\"/" -e "s/^${clean_name}=.*$//" -e "/^$/d" ${HA_CONFDIR}/ganesha-ha.conf
+}
+
+
 setup_state_volume()
 {
     local mnt=${HA_VOL_MNT}
@@ -951,7 +962,8 @@ main()
         #from the entries in the ganesha-ha.conf file. Adding the
         #newly added node to the file so that the resources specfic
         #to this node is correctly recreated in the future.
-        echo "VIP_$node=\"$vip\"" >> ${HA_CONFDIR}/ganesha-ha.conf
+        clean_node=${node//[-.]/_}
+        echo "VIP_$clean_node=\"${vip}\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
         NEW_NODES="$HA_CLUSTER_NODES,$node"
 
@@ -976,8 +988,7 @@ $HA_CONFDIR/ganesha-ha.conf
             logger "warning: pcs cluster node remove ${node} failed"
         fi
 
-        ha_servers=$(echo ${HA_SERVERS} | sed -e "s/ /,/")
-        sed -i "s/^HA_CLUSTER_NODES=.*$/HA_CLUSTER_NODES=\"${ha_servers// /,}\"/" ${HA_CONFDIR}/ganesha-ha.conf
+        deletenode_update_haconfig ${node}
 
         setup_copy_config ${HA_SERVERS}
 

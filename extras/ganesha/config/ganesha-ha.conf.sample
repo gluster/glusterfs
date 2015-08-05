@@ -18,5 +18,5 @@ HA_CLUSTER_NODES="server1,server2,..."
 # Virtual IPs for each of the nodes specified above.
 VIP_server1="10.0.2.1"
 VIP_server2="10.0.2.2"
-#VIP_server1.lab.redhat.com="10.0.2.1"
-#VIP_server2.lab.redhat.com="10.0.2.2"
+#VIP_server1_lab_redhat_com="10.0.2.1"
+#VIP_server2_lab_redhat_com="10.0.2.2"
