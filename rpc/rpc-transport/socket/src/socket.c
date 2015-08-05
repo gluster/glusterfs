@@ -4110,6 +4110,14 @@ socket_init (rpc_transport_t *this)
 					       sizeof(priv->ssl_session_id));
 
 		SSL_CTX_set_verify(priv->ssl_ctx,SSL_VERIFY_PEER,0);
+
+                /*
+                 * Since glusterfs shares the same settings for client-side
+                 * and server-side of SSL, we need to ignore any certificate
+                 * usage specification (SSL client vs SSL server), otherwise
+                 * SSL connexions will fail with 'unsupported cerritifcate"
+                 */
+                SSL_CTX_set_purpose(priv->ssl_ctx, X509_PURPOSE_ANY);
 	}
 
         if (priv->own_thread) {
