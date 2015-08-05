@@ -676,10 +676,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           ret  = -1;
         int           is_dir = 0;
         int           is_linkfile = 0;
+        int           follow_link = 0;
         call_frame_t *copy          = NULL;
         dht_local_t  *copy_local    = NULL;
         char gfid[GF_UUID_BUF_SIZE] = {0};
         uint32_t      vol_commit_hash = 0;
+        xlator_t      *subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -770,17 +772,10 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 is_dir = check_is_dir (inode, stbuf, xattr);
                 is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                                  conf->link_xattr_name);
-
                 if (is_linkfile) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                DHT_MSG_REVALIDATE_CBK_INFO,
-                                "Revalidate: linkfile found %s, (gfid = %s)",
-                                local->loc.path, gfid);
-                        local->return_estale = 1;
-
+                        follow_link = 1;
                         goto unlock;
                 }
-
                 if (is_dir) {
                         ret = dht_dir_has_layout (xattr, conf->xattr_name);
                         if (ret >= 0) {
@@ -828,6 +823,23 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 unlock:
         UNLOCK (&frame->lock);
+
+        if (follow_link) {
+                gf_uuid_copy (local->gfid, stbuf->ia_gfid);
+
+                subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
+                if (!subvol) {
+                        op_errno = ESTALE;
+                        local->op_ret = -1;
+                } else {
+
+                        STACK_WIND (frame, dht_lookup_linkfile_cbk,
+                        subvol, subvol->fops->lookup,
+                        &local->loc, local->xattr_req);
+                        return 0;
+                }
+        }
+
 out:
         this_call_cnt = dht_frame_return (frame);
 
