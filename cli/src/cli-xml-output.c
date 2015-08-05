@@ -4526,8 +4526,12 @@ cli_xml_snapshot_info_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                 (xmlChar *) "description",
                                                 "%s", buffer);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                (xmlChar *) "description",
+                                                "%s", "");
         }
+        XML_RET_CHECK_AND_GOTO (ret, out);
 
         snprintf (key_buffer, sizeof (key_buffer), "%s.snap-time", keyprefix);
 

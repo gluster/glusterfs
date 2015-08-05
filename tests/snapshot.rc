@@ -431,6 +431,20 @@ function uss_count_snap_displayed() {
         ls $path/.snaps | wc -l
 }
 
+#return specific fields of xml output
+function get-cmd-field-xml()
+{
+        local cli=$CLI_1;
+        if [ "$cli" = "" ]; then
+            cli=$CLI
+        fi
+
+        COMMAND=$1
+        PATTERN=$2
+
+        $cli $COMMAND --xml | xmllint --format - | grep $PATTERN
+}
+
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2
