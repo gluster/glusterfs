@@ -13,6 +13,7 @@
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/x509v3.h>
 #ifdef ERR_R_DH_LIB
 #include <openssl/dh.h>
 #endif
