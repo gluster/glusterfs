@@ -1424,6 +1424,26 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 } else if (exists > 0) {
                         if (key_fixed)
                                 key = key_fixed;
+
+                        /* 'gluster volume set/reset <VOLNAME>
+                         * features.quota/features.inode-quota' should
+                         * not be allowed as it is deprecated.
+                         * Setting and resetting quota/inode-quota features
+                         * should be allowed only through 'gluster volume quota
+                         * <VOLNAME> enable/disable'.
+                         * But, 'gluster volume set features.quota-deem-statfs'
+                         * can be turned on/off when quota is enabled.
+                         */
+
+                        if (strcmp (VKEY_FEATURES_INODE_QUOTA, key) == 0 ||
+                            strcmp (VKEY_FEATURES_QUOTA, key) == 0) {
+                                snprintf (msg, sizeof (msg), "'gluster volume "
+                                          "reset <VOLNAME> %s' is deprecated. "
+                                          "Use 'gluster volume quota <VOLNAME> "
+                                          "disable' instead.", key);
+                                ret = -1;
+                                goto out;
+                        }
                         ALL_VOLUME_OPTION_CHECK (volname, key, ret,
                                                  op_errstr, out);
                 }
@@ -1779,6 +1799,17 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 
         GF_ASSERT (data);
         is_force = (int32_t*)data;
+
+        /* Keys which has the flag OPT_FLAG_NEVER_RESET
+         * should not be deleted
+         */
+
+        if (_gf_true == glusterd_check_voloption_flags (key,
+                                                OPT_FLAG_NEVER_RESET)) {
+                if (*is_force != 1)
+                        *is_force = *is_force | GD_OP_PROTECTED;
+                goto out;
+        }
 
         if (*is_force != 1) {
                 if (_gf_true == glusterd_check_voloption_flags (key,
