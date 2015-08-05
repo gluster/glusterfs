@@ -10808,14 +10808,22 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_UNSUPPORTED_VERSION,
-                        "One or more clients "
-                        "don't support the required op-version");
+                        "Client %s is running with min_op_version as %d and "
+                        "max_op_version as %d and don't support the required "
+                        "op-version %d", xprt->peerinfo.identifier,
+                        xprt->peerinfo.min_op_version,
+                        xprt->peerinfo.max_op_version, op_version);
                 if (op_errstr)
-                        ret = gf_asprintf (op_errstr, "One or more connected "
-                                           "clients cannot support the feature "
-                                           "being set. These clients need to be"
-                                           " upgraded or disconnected before "
-                                           "running this command again");
+                        ret = gf_asprintf (op_errstr, "One of the client %s is "
+                                           "running with op-version %d and "
+                                           "doesn't support the required "
+                                           "op-version %d. This client needs to"
+                                           " be upgraded or disconnected "
+                                           "before running this command again",
+                                           xprt->peerinfo.identifier,
+                                           xprt->peerinfo.max_op_version,
+                                           op_version);
+
                 return -1;
         }
         return 0;
