@@ -53,6 +53,7 @@ INVALID_JOBNAME = 13
 INVALID_VOLNAME = 14
 INVALID_SCHEDULE = 15
 INVALID_ARG = 16
+VOLUME_DOES_NOT_EXIST = 17
 
 def output(msg):
     print("%s: %s" % (SCRIPT_NAME, msg))
@@ -324,6 +325,34 @@ def update_current_scheduler(data):
     return ret
 
 
+def isVolumePresent(volname):
+    success = False
+    if volname == "":
+        log.debug("No volname given")
+        return success
+
+    cli = ["gluster",
+           "volume",
+           "info",
+           volname]
+    log.debug("Running command '%s'", " ".join(cli))
+
+    p = subprocess.Popen(cli, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    rv = p.returncode
+
+    log.debug("Command '%s' returned '%d'", " ".join(cli), rv)
+
+    if rv:
+        log.error("Command output:")
+        log.error(err)
+    else:
+        success = True;
+
+    return success
+
+
 def add_schedules(jobname, schedule, volname):
     log.info("Adding snapshot schedules.")
     ret = load_tasks_from_file()
@@ -335,22 +364,31 @@ def add_schedules(jobname, schedule, volname):
             output(print_str)
             ret = JOB_ALREADY_EXISTS
         else:
-            tasks[jobname] = schedule + ":" + volname
-            ret = write_tasks_to_file()
-            if ret == 0:
-                # Create a LOCK_FILE for the job
-                job_lockfile = LOCK_FILE_DIR + jobname
-                try:
-                    f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK, 0644)
-                    os.close(f)
-                except OSError as (errno, strerror):
-                    log.error("Failed to open %s. Error: %s.",
-                              job_lockfile, strerror)
-                    ret = INTERNAL_ERROR
-                    return ret
-                log.info("Successfully added snapshot schedule %s" % jobname)
-                output("Successfully added snapshot schedule")
-                ret = 0
+            if not isVolumePresent(volname):
+                print_str = ("Volume %s does not exist. Create %s and retry." %
+                             (volname, volname))
+                log.error(print_str)
+                output(print_str)
+                ret = VOLUME_DOES_NOT_EXIST
+            else:
+                tasks[jobname] = schedule + ":" + volname
+                ret = write_tasks_to_file()
+                if ret == 0:
+                    # Create a LOCK_FILE for the job
+                    job_lockfile = LOCK_FILE_DIR + jobname
+                    try:
+                        f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK,
+                                    0644)
+                        os.close(f)
+                    except OSError as (errno, strerror):
+                        log.error("Failed to open %s. Error: %s.",
+                                  job_lockfile, strerror)
+                        ret = INTERNAL_ERROR
+                        return ret
+                    log.info("Successfully added snapshot schedule %s" %
+                             jobname)
+                    output("Successfully added snapshot schedule")
+                    ret = 0
     else:
         print_str = "Failed to add snapshot schedule. " \
                     "Error: Failed to load tasks from "+GCRON_ENABLED
@@ -401,11 +439,19 @@ def edit_schedules(jobname, schedule, volname):
     ret = load_tasks_from_file()
     if ret == 0:
         if jobname in tasks:
-            tasks[jobname] = schedule+":"+volname
-            ret = write_tasks_to_file()
-            if ret == 0:
-                log.info("Successfully edited snapshot schedule %s" % jobname)
-                output("Successfully edited snapshot schedule")
+            if not isVolumePresent(volname):
+                print_str = ("Volume %s does not exist. Create %s and retry." %
+                             (volname, volname))
+                log.error(print_str)
+                output(print_str)
+                ret = VOLUME_DOES_NOT_EXIST
+            else:
+                tasks[jobname] = schedule+":"+volname
+                ret = write_tasks_to_file()
+                if ret == 0:
+                    log.info("Successfully edited snapshot schedule %s" %
+                             jobname)
+                    output("Successfully edited snapshot schedule")
         else:
             print_str = ("Failed to edit %s. Error: No such "
                          "job scheduled" % jobname)
