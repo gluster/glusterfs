@@ -421,7 +421,7 @@ out:
 
 static inline int
 __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struct iatt *stbuf,
-                                 dict_t *dict, fd_t **dst_fd, dict_t *xattr)
+                                 fd_t **dst_fd, dict_t *xattr)
 {
         xlator_t    *this = NULL;
         int          ret  = -1;
@@ -429,9 +429,14 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         struct iatt  new_stbuf = {0,};
         struct iatt  check_stbuf= {0,};
         dht_conf_t  *conf = NULL;
+        dict_t      *dict = NULL;
 
         this = THIS;
         conf = this->private;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
         ret = dict_set_static_bin (dict, "gfid-req", stbuf->ia_gfid, 16);
         if (ret) {
@@ -563,6 +568,9 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
+
         return ret;
 }
 
@@ -1074,7 +1082,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
-                                               dict, &dst_fd, xattr);
+                                               &dst_fd, xattr);
         if (ret)
                 goto out;
 
