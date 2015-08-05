@@ -168,9 +168,9 @@ void ec_flush(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FLUSH, EC_FLAG_UPDATE_FD,
-                               target, minimum, ec_wind_flush,
-                               ec_manager_flush, callback, data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FLUSH, 0, target, minimum,
+                               ec_wind_flush, ec_manager_flush, callback,
+                               data);
     if (fop == NULL) {
         goto out;
     }
@@ -393,9 +393,9 @@ void ec_fsync(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FSYNC, EC_FLAG_UPDATE_FD,
-                               target, minimum, ec_wind_fsync,
-                               ec_manager_fsync, callback, data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FSYNC, 0, target, minimum,
+                               ec_wind_fsync, ec_manager_fsync, callback,
+                               data);
     if (fop == NULL) {
         goto out;
     }
@@ -584,9 +584,9 @@ void ec_fsyncdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FSYNCDIR, EC_FLAG_UPDATE_FD,
-                               target, minimum, ec_wind_fsyncdir,
-                               ec_manager_fsyncdir, callback, data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FSYNCDIR, 0, target,
+                               minimum, ec_wind_fsyncdir, ec_manager_fsyncdir,
+                               callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -1326,8 +1326,7 @@ void ec_xattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_XATTROP,
-                               EC_FLAG_UPDATE_LOC_INODE, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_XATTROP, 0, target, minimum,
                                ec_wind_xattrop, ec_manager_xattrop, callback,
                                data);
     if (fop == NULL) {
@@ -1399,10 +1398,9 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FXATTROP,
-                               EC_FLAG_UPDATE_FD_INODE, target, minimum,
-                               ec_wind_fxattrop, ec_manager_xattrop, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FXATTROP, 0, target,
+                               minimum, ec_wind_fxattrop, ec_manager_xattrop,
+                               callback, data);
     if (fop == NULL) {
         goto out;
     }

@@ -42,77 +42,6 @@ int32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
     return idx;
 }
 
-uintptr_t ec_inode_good(inode_t * inode, xlator_t * xl)
-{
-    ec_inode_t * ctx;
-    uintptr_t bad = 0;
-
-    ctx = ec_inode_get(inode, xl);
-    if (ctx != NULL)
-    {
-        bad = ctx->bad;
-    }
-
-    return ~bad;
-}
-
-uintptr_t ec_fd_good(fd_t * fd, xlator_t * xl)
-{
-    ec_fd_t * ctx;
-    uintptr_t bad = 0;
-
-    ctx = ec_fd_get(fd, xl);
-    if (ctx != NULL)
-    {
-        bad = ctx->bad;
-    }
-
-    return ~bad;
-}
-
-uintptr_t ec_update_inode(ec_fop_data_t * fop, inode_t * inode, uintptr_t good,
-                          uintptr_t bad)
-{
-    ec_inode_t * ctx = NULL;
-
-    if (inode != NULL)
-    {
-        LOCK(&inode->lock);
-
-        ctx = __ec_inode_get(inode, fop->xl);
-        if (ctx != NULL)
-        {
-            ctx->bad &= ~good;
-            bad |= ctx->bad;
-            ctx->bad = bad;
-        }
-
-        UNLOCK(&inode->lock);
-    }
-
-    return bad;
-}
-
-uintptr_t ec_update_fd(ec_fop_data_t * fop, fd_t * fd, uintptr_t good,
-                       uintptr_t bad)
-{
-    ec_fd_t * ctx = NULL;
-
-    LOCK(&fd->lock);
-
-    ctx = __ec_fd_get(fd, fop->xl);
-    if (ctx != NULL)
-    {
-        ctx->bad &= ~good;
-        bad |= ctx->bad;
-        ctx->bad = bad;
-    }
-
-    UNLOCK(&fd->lock);
-
-    return bad;
-}
-
 int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
                        int32_t op_ret, int32_t op_errno, uintptr_t mask,
                        uintptr_t good, uintptr_t bad, dict_t * xdata)
@@ -145,6 +74,10 @@ void ec_check_status(ec_fop_data_t * fop)
     ec_t * ec = fop->xl->private;
     int32_t partial = 0;
 
+    if (!ec_fop_needs_heal(fop)) {
+        return;
+    }
+
     if (fop->answer->op_ret >= 0) {
         if ((fop->id == GF_FOP_LOOKUP) ||
             (fop->id == GF_FOP_STAT) || (fop->id == GF_FOP_FSTAT)) {
@@ -154,16 +87,13 @@ void ec_check_status(ec_fop_data_t * fop)
         }
     }
 
-    if (!ec_fop_needs_heal(fop)) {
-        return;
-    }
-
     gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
             EC_MSG_OP_FAIL_ON_SUBVOLS,
             "Operation failed on some "
             "subvolumes (up=%lX, mask=%lX, "
             "remaining=%lX, good=%lX, bad=%lX)",
-            ec->xl_up, fop->mask, fop->remaining, fop->good, fop->bad);
+            ec->xl_up, fop->mask, fop->remaining, fop->good,
+            ec->xl_up & ~(fop->remaining | fop->good));
 
     if (fop->use_fd)
     {
@@ -185,43 +115,31 @@ void ec_check_status(ec_fop_data_t * fop)
     }
 }
 
-void ec_update_bad(ec_fop_data_t * fop, uintptr_t good)
+void ec_update_good(ec_fop_data_t *fop, uintptr_t good)
 {
-    ec_t *ec = fop->xl->private;
-    uintptr_t bad;
+    fop->good = good;
 
-    /*Don't let fops that do dispatch_one() to update bad*/
-    if (fop->expected == 1)
-            return;
-
-    bad = ec->xl_up & ~(fop->remaining | good);
-    fop->bad |= bad;
-    fop->good |= good;
-
-    if (fop->parent == NULL)
-    {
-        if ((fop->flags & EC_FLAG_UPDATE_LOC_PARENT) != 0)
-        {
-            ec_update_inode(fop, fop->loc[0].parent, good, bad);
-        }
-        if ((fop->flags & EC_FLAG_UPDATE_LOC_INODE) != 0)
-        {
-            ec_update_inode(fop, fop->loc[0].inode, good, bad);
-        }
-        ec_update_inode(fop, fop->loc[1].inode, good, bad);
-        if ((fop->flags & EC_FLAG_UPDATE_FD_INODE) != 0)
-        {
-            ec_update_inode(fop, fop->fd->inode, good, bad);
-        }
-        if ((fop->flags & EC_FLAG_UPDATE_FD) != 0)
-        {
-            ec_update_fd(fop, fop->fd, good, bad);
-        }
-
+    /* Fops that are executed only on one brick do not have enough information
+     * to decide if healing is needed or not. */
+    if ((fop->expected != 1) && (fop->parent == NULL)) {
         ec_check_status(fop);
     }
 }
 
+void ec_lock_update_good(ec_lock_t *lock, ec_fop_data_t *fop)
+{
+    /* Fops that are executed only on one brick do not have enough information
+     * to update the global mask of good bricks. */
+    if (fop->expected == 1) {
+        return;
+    }
+
+    /* When updating the good mask of the lock, we only take into
+     * consideration those bits corresponding to the bricks where
+     * the fop has been executed. */
+    lock->good_mask &= ~fop->mask | fop->remaining;
+    lock->good_mask |= fop->good;
+}
 
 void __ec_fop_set_error(ec_fop_data_t * fop, int32_t error)
 {
@@ -410,12 +328,12 @@ void ec_complete(ec_fop_data_t * fop)
 
     UNLOCK(&fop->lock);
 
-    /* ec_update_bad() locks inode->lock. This may cause deadlocks with
-       fop->lock when used in another order. Since ec_update_bad() will not
+    /* ec_update_good() locks inode->lock. This may cause deadlocks with
+       fop->lock when used in another order. Since ec_update_good() will not
        be called more than once for each fop, it can be called from outside
        the fop->lock locked region. */
     if (update) {
-        ec_update_bad(fop, cbk->mask);
+        ec_update_good(fop, cbk->mask);
     }
 
     if (resume)
@@ -459,7 +377,6 @@ ec_internal_op (ec_fop_data_t *fop)
 int32_t ec_child_select(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
-    uintptr_t mask = 0;
     int32_t first = 0, num = 0;
 
     ec_fop_cleanup(fop);
@@ -472,39 +389,15 @@ int32_t ec_child_select(ec_fop_data_t * fop)
             fop->mask &= (fop->parent->mask & ~fop->parent->healing);
     }
 
-    mask = ec->xl_up;
-    if (fop->parent == NULL)
-    {
-        if ((fop->flags & EC_FLAG_UPDATE_LOC_PARENT) && fop->loc[0].parent)
-            mask &= ec_inode_good(fop->loc[0].parent, fop->xl);
-
-        if ((fop->flags & EC_FLAG_UPDATE_LOC_INODE) && fop->loc[0].inode) {
-            mask &= ec_inode_good(fop->loc[0].inode, fop->xl);
-        }
-
-        if ((fop->flags & EC_FLAG_UPDATE_LOC_INODE) && fop->loc[1].inode) {
-            mask &= ec_inode_good(fop->loc[1].inode, fop->xl);
-        }
-
-        if (fop->fd) {
-            if ((fop->flags & EC_FLAG_UPDATE_FD_INODE) && fop->fd->inode) {
-                mask &= ec_inode_good(fop->fd->inode, fop->xl);
-            }
-            if (fop->flags & fop->flags & EC_FLAG_UPDATE_FD) {
-                    mask &= ec_fd_good(fop->fd, fop->xl);
-            }
-        }
-    }
-
-    if ((fop->mask & ~mask) != 0)
+    if ((fop->mask & ~ec->xl_up) != 0)
     {
         gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
                 EC_MSG_OP_EXEC_UNAVAIL,
                 "Executing operation with "
                 "some subvolumes unavailable "
-                "(%lX)", fop->mask & ~mask);
+                "(%lX)", fop->mask & ~ec->xl_up);
 
-        fop->mask &= mask;
+        fop->mask &= ec->xl_up;
     }
 
     switch (fop->minimum)
@@ -614,7 +507,6 @@ void ec_dispatch_start(ec_fop_data_t * fop)
 {
     fop->answer = NULL;
     fop->good = 0;
-    fop->bad = 0;
 
     INIT_LIST_HEAD(&fop->cbk_list);
 
@@ -1053,6 +945,8 @@ unlock:
     UNLOCK(&lock->loc.inode->lock);
 out:
     if (op_errno == 0) {
+        /* We don't allow the main fop to be executed on bricks that have not
+         * succeeded the initial xattrop. */
         parent->mask &= fop->good;
 
         /*As of now only data healing marks bricks as healing*/
@@ -1135,7 +1029,7 @@ void ec_get_size_version(ec_lock_link_t *link)
     /* For normal fops, ec_[f]xattrop() must succeed on at least
      * EC_MINIMUM_MIN bricks, however when this is called as part of a
      * self-heal operation the mask of target bricks (fop->mask) could
-     * contain less than EC_MINIMUM_MIN bricks, causing the lookup to
+     * contain less than EC_MINIMUM_MIN bricks, causing the xattrop to
      * always fail. Thus we always use the same minimum used for the main
      * fop.
      */
@@ -1607,10 +1501,12 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
                EC_MSG_SIZE_VERS_UPDATE_FAIL,
                "Failed to update version and size");
     } else {
-        fop->parent->mask &= fop->good;
+        fop->parent->good &= fop->good;
         link = fop->data;
         lock = link->lock;
         ctx = lock->ctx;
+
+        ec_lock_update_good(lock, fop);
 
         if (ec_dict_del_array(xattr, EC_XATTR_VERSION, ctx->post_version,
                               EC_VERSION_SIZE) == 0) {
@@ -1710,11 +1606,11 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     fop->frame->root->gid = 0;
 
     if (link->lock->fd == NULL) {
-            ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+            ec_xattrop(fop->frame, fop->xl, fop->good, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, &link->lock->loc,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     } else {
-            ec_fxattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+            ec_fxattrop(fop->frame, fop->xl, fop->good, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, link->lock->fd,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     }
@@ -1906,6 +1802,13 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 {
     GF_ASSERT(fop->lock_count == 1);
 
+    /* In normal circumstances, ec_update_info() is called after having
+     * executed a normal fop, and it uses fop->good to update only those bricks
+     * that succeeded. In this case we haven't executed any fop, so fop->good
+     * is 0. We use the current good mask of the lock itself to send the
+     * updates.*/
+    fop->good = fop->locks[0].lock->good_mask;
+
     ec_update_info(&fop->locks[0]);
 }
 
@@ -1956,19 +1859,19 @@ void ec_lock_reuse(ec_fop_data_t *fop)
         if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
             if (link->update[0]) {
                 ctx->post_version[0]++;
-                if (ec->node_mask & ~fop->mask) {
+                if (ec->node_mask & ~fop->good) {
                     ctx->dirty[0]++;
                 }
             }
             if (link->update[1]) {
                 ctx->post_version[1]++;
-                if (ec->node_mask & ~fop->mask) {
+                if (ec->node_mask & ~fop->good) {
                     ctx->dirty[1]++;
                 }
             }
         }
 
-        lock->good_mask &= fop->mask;
+        ec_lock_update_good(lock, fop);
 
         link = NULL;
         if (!list_empty(&lock->waiting))

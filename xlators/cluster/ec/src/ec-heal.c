@@ -292,8 +292,8 @@ void ec_fheal(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     if (ctx != NULL)
     {
-        gf_msg_trace ("ec", 0, "FHEAL ctx: flags=%X, open=%lX, bad=%lX",
-               ctx->flags, ctx->open, ctx->bad);
+        gf_msg_trace ("ec", 0, "FHEAL ctx: flags=%X, open=%lX", ctx->flags,
+                      ctx->open);
         ec_heal(frame, this, target, minimum, func, data, &ctx->loc, partial,
                 xdata);
     }
@@ -1751,8 +1751,7 @@ ec_heal_block (call_frame_t *frame, xlator_t *this, uintptr_t target,
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate (frame, this, EC_FOP_HEAL,
-                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
+    fop = ec_fop_data_allocate (frame, this, EC_FOP_HEAL, 0, target, minimum,
                                 NULL, ec_manager_heal_block, callback,
                                 heal);
     if (fop == NULL)
@@ -2444,8 +2443,7 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     if (frame && frame->local)
             goto fail;
-    fop = ec_fop_data_allocate (frame, this, EC_FOP_HEAL,
-                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
+    fop = ec_fop_data_allocate (frame, this, EC_FOP_HEAL, 0, target, minimum,
                                 NULL, NULL, callback, data);
 
     err = ENOMEM;

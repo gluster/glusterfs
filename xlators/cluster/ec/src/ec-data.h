@@ -58,7 +58,6 @@ struct _ec_config
 
 struct _ec_fd
 {
-    uintptr_t bad;
     loc_t     loc;
     uintptr_t open;
     int32_t   flags;
@@ -66,7 +65,6 @@ struct _ec_fd
 
 struct _ec_inode
 {
-    uintptr_t         bad;
     ec_lock_t        *inode_lock;
     gf_boolean_t      have_info;
     gf_boolean_t      have_config;
@@ -206,7 +204,6 @@ struct _ec_fop_data
     uintptr_t          remaining;
     uintptr_t          received; /* Mask of responses */
     uintptr_t          good;
-    uintptr_t          bad;
 
     ec_wind_f          wind;
     ec_handler_f       handler;

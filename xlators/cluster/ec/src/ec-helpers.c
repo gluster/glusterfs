@@ -88,7 +88,7 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
            fop->expected, fop->error, fop->state,
            ec_bin(str1, sizeof(str1), fop->mask, ec->nodes),
            ec_bin(str2, sizeof(str2), fop->remaining, ec->nodes),
-           ec_bin(str3, sizeof(str3), fop->bad, ec->nodes), msg);
+           ec_bin(str3, sizeof(str3), fop->good, ec->nodes), msg);
 
     if (ret >= 0)
     {

@@ -277,9 +277,7 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_CREATE,
-                               EC_FLAG_UPDATE_LOC_PARENT |
-                               EC_FLAG_UPDATE_FD_INODE, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_CREATE, 0, target, minimum,
                                ec_wind_create, ec_manager_create, callback,
                                data);
     if (fop == NULL) {
@@ -631,8 +629,7 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKDIR,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKDIR, 0, target, minimum,
                                ec_wind_mkdir, ec_manager_mkdir, callback,
                                data);
     if (fop == NULL) {
@@ -836,8 +833,7 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKNOD,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKNOD, 0, target, minimum,
                                ec_wind_mknod, ec_manager_mknod, callback,
                                data);
     if (fop == NULL) {
@@ -998,8 +994,7 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_RENAME,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_RENAME, 0, target, minimum,
                                ec_wind_rename, ec_manager_rename, callback,
                                data);
     if (fop == NULL) {
@@ -1150,8 +1145,7 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_RMDIR,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_RMDIR, 0, target, minimum,
                                ec_wind_rmdir, ec_manager_rmdir, callback,
                                data);
     if (fop == NULL) {
@@ -1308,8 +1302,7 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_SYMLINK,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_SYMLINK, 0, target, minimum,
                                ec_wind_symlink, ec_manager_symlink, callback,
                                data);
     if (fop == NULL) {
@@ -1464,8 +1457,7 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_UNLINK,
-                               EC_FLAG_UPDATE_LOC_PARENT, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_UNLINK, 0, target, minimum,
                                ec_wind_unlink, ec_manager_unlink, callback,
                                data);
     if (fop == NULL) {
