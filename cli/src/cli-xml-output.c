@@ -123,8 +123,15 @@ cli_xml_output_common (xmlTextWriterPtr writer, int op_ret, int op_errno,
                                                "%d", op_errno);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"opErrstr",
-                                                "%s", op_errstr);
+        if (op_errstr)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"opErrstr",
+                                                       "%s", op_errstr);
+        else
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"opErrstr",
+                                                       "%s", "");
+
         XML_RET_CHECK_AND_GOTO (ret, out);
 
 out:
