@@ -212,9 +212,9 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_OPENDIR, EC_FLAG_UPDATE_FD,
-                               target, minimum, ec_wind_opendir,
-                               ec_manager_opendir, callback, data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_OPENDIR, 0, target, minimum,
+                               ec_wind_opendir, ec_manager_opendir, callback,
+                               data);
     if (fop == NULL) {
         goto out;
     }
