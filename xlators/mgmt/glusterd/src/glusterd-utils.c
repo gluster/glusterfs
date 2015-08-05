@@ -9557,6 +9557,28 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                         }
                 }
 
+                /* Option 'features.quota-deem-statfs' should not be turned off
+                 * with 'gluster volume reset <VOLNAME>', since quota features
+                 * can be reset only with 'gluster volume quota <VOLNAME>
+                 * disable'.
+                 */
+
+                if (!option || !strcmp ("features.quota-deem-statfs", option)) {
+                        if (glusterd_is_volume_quota_enabled(volinfo)) {
+                                ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                            "features.quota-deem-statfs", "on");
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                GD_MSG_DICT_SET_FAILED,
+                                                "Failed to set option "
+                                                "'features.quota-deem-statfs' "
+                                                "on volume %s",
+                                                volinfo->volname);
+                                        goto out;
+                                }
+                        }
+                }
+
         }
 out:
         return ret;
