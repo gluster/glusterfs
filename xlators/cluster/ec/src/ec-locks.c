@@ -58,7 +58,7 @@ int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
                     fop->answer = cbk;
                 }
 
-                ec_update_bad(fop, locked);
+                ec_update_good(fop, locked);
 
                 error = 0;
             } else {
@@ -306,8 +306,7 @@ void ec_entrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_ENTRYLK,
-                               EC_FLAG_UPDATE_LOC_INODE, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_ENTRYLK, 0, target, minimum,
                                ec_wind_entrylk, ec_manager_entrylk, callback,
                                data);
     if (fop == NULL) {
@@ -442,10 +441,9 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FENTRYLK,
-                               EC_FLAG_UPDATE_FD_INODE, target, minimum,
-                               ec_wind_fentrylk, ec_manager_entrylk, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FENTRYLK, 0, target,
+                               minimum, ec_wind_fentrylk, ec_manager_entrylk,
+                               callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -709,8 +707,7 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_INODELK,
-                               EC_FLAG_UPDATE_LOC_INODE, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_INODELK, 0, target, minimum,
                                ec_wind_inodelk, ec_manager_inodelk, callback,
                                data);
     if (fop == NULL) {
@@ -846,10 +843,9 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_FINODELK,
-                               EC_FLAG_UPDATE_FD_INODE, target, minimum,
-                               ec_wind_finodelk, ec_manager_inodelk, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FINODELK, 0, target,
+                               minimum, ec_wind_finodelk, ec_manager_inodelk,
+                               callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -1117,9 +1113,8 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_LK, EC_FLAG_UPDATE_FD_INODE,
-                               target, minimum, ec_wind_lk, ec_manager_lk,
-                               callback, data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_LK, 0, target, minimum,
+                               ec_wind_lk, ec_manager_lk, callback, data);
     if (fop == NULL) {
         goto out;
     }
