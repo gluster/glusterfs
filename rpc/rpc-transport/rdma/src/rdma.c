@@ -716,6 +716,10 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 }
                 priv->device = trav;
                 trav->context = ibctx;
+
+                trav->next = rdma_ctx->device;
+                rdma_ctx->device = trav;
+
                 iobuf_pool->device[iobuf_pool->rdma_device_count] = trav;
                 iobuf_pool->mr_list[iobuf_pool->rdma_device_count++] = &trav->all_mr;
                 trav->request_ctx_pool
@@ -738,9 +742,6 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 }
 
                 trav->device_name = gf_strdup (device_name);
-
-                trav->next = rdma_ctx->device;
-                rdma_ctx->device = trav;
 
                 trav->send_chan = ibv_create_comp_channel (trav->context);
                 if (!trav->send_chan) {
@@ -858,6 +859,7 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
 out:
 
         if (trav != NULL) {
+                rdma_ctx->device = trav->next;
                 gf_rdma_destroy_posts (this);
                 mem_pool_destroy (trav->ioq_pool);
                 mem_pool_destroy (trav->request_ctx_pool);
