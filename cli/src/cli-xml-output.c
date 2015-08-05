@@ -3322,6 +3322,106 @@ out:
 #endif
 
 int
+cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
+                enum gf_task_types task_type)
+{
+#if (HAVE_LIB_XML)
+
+        int                     ret = -1;
+        int                     count = 0;
+        char                    *node_name = NULL;
+        char                    *status_str  = NULL;
+        uint64_t                promoted     = 0;
+        uint64_t                demoted      = 0;
+        int                     i = 1;
+        char                    key[1024] = {0,};
+        gf_defrag_status_t      status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
+
+
+        GF_VALIDATE_OR_GOTO ("cli", dict, out);
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "count not set");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"nodeCount",
+                                               "%d", count);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        while (i <= count) {
+                promoted = 0;
+                node_name = NULL;
+                demoted = 0;
+
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"nodeName",
+                                                       "%s", node_name);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "promoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &promoted);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"promoted"
+                                                       "Files", "%"PRIu64,
+                                                       promoted);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "demoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &demoted);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"demoted"
+                                                       "Files", "%"PRIu64,
+                                                       demoted);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+
+                status_str = cli_vol_task_status_str[status_rcd];
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"statusStr",
+                                                       "%s", status_str);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                i++;
+        }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+#else
+        return 0;
+
+#endif
+}
+
+
+
+
+int
 cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
                               int op_errno, char *op_errstr)
 {
@@ -3355,7 +3455,14 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
                                                "%d", op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
+        if (GF_DEFRAG_CMD_STATUS_TIER == op) {
+                ret = cli_xml_output_vol_tier_status (writer,
+                                dict, GF_TASK_TYPE_REBALANCE);
+                if (ret)
+                        goto out;
+                }
         if ((GF_DEFRAG_CMD_STOP == op) || (GF_DEFRAG_CMD_STATUS == op)) {
+
                 ret = cli_xml_output_vol_rebalance_status (writer, dict,
                                                       GF_TASK_TYPE_REBALANCE);
                 if (ret)
