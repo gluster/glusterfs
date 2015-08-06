@@ -550,18 +550,35 @@ err:
         return 0;
 }
 
+static void
+shard_inode_ctx_set_if_absent (inode_t *inode, xlator_t *this, dict_t *xdata,
+                               struct iatt *buf)
+{
+        int                ret           = 0;
+        uint64_t           size          = 0;
+        void              *bsize         = NULL;
+        shard_inode_ctx_t  ctx_tmp       = {0,};
+
+        if (shard_inode_ctx_get_block_size (inode, this, &size)) {
+                ret = dict_get_ptr (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
+                if (!ret) {
+                        ctx_tmp.block_size = ntoh64 (*((uint64_t *)bsize));
+                        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
+                                                        buf->ia_type);
+                        ctx_tmp.rdev = buf->ia_rdev;
+                }
+                ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
+                                "inode ctx for %s", uuid_utoa (buf->ia_gfid));
+        }
+}
+
 int
 shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-        int                ret           = 0;
-        uint64_t           size          = 0;
-        void              *bsize         = NULL;
-        void              *size_attr     = NULL;
-        shard_inode_ctx_t  ctx_tmp       = {0,};
-        uint64_t           size_array[4];
-
         if (op_ret < 0)
                 goto unwind;
 
@@ -576,31 +593,15 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          *    (which are anyway don't cares) in inode ctx. Since @ctx_tmp is
          *    already initialised to all zeroes, nothing more needs to be done.
          */
-        if (shard_inode_ctx_get_block_size (inode, this, &size)) {
-                ret = dict_get_ptr (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
-                if (!ret) {
-                        ctx_tmp.block_size = ntoh64 (*((uint64_t *)bsize));
-                        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
-                                                        buf->ia_type);
-                        ctx_tmp.rdev = buf->ia_rdev;
-                }
-                ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
-                                "inode ctx for %s", uuid_utoa (buf->ia_gfid));
-        }
+
+        (void) shard_inode_ctx_set_if_absent (inode, this, xdata, buf);
 
         /* Also, if the file is sharded, get the file size and block cnt xattr,
          * and store them in the stbuf appropriately.
          */
 
-        ret = dict_get_ptr (xdata, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
-        if (!ret) {
-                memcpy (size_array, size_attr, sizeof (size_array));
-
-                buf->ia_size = ntoh64 (size_array[0]);
-                buf->ia_blocks = ntoh64 (size_array[2]);
-        }
+        if (dict_get (xdata, GF_XATTR_SHARD_FILE_SIZE))
+                shard_modify_size_and_block_count (buf, xdata);
 
 unwind:
         SHARD_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
@@ -3403,6 +3404,12 @@ shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (dict_get (entry->dict, GF_XATTR_SHARD_FILE_SIZE))
                         shard_modify_size_and_block_count (&entry->d_stat,
                                                            entry->dict);
+
+                if (!entry->inode)
+                        continue;
+
+                shard_inode_ctx_set_if_absent (entry->inode, this, entry->dict,
+                                               &entry->d_stat);
         }
 
         local->op_ret = op_ret;
@@ -3438,6 +3445,7 @@ int
 shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                off_t offset, int whichop, dict_t *xdata)
 {
+        int             ret      = 0;
         shard_local_t  *local    = NULL;
 
         local = mem_get0 (this->local_pool);
@@ -3463,6 +3471,17 @@ shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
                 SHARD_MD_READ_FOP_INIT_REQ_DICT (this, local->xattr_req,
                                                  fd->inode->gfid, local, err);
+                ret = dict_set_uint64 (local->xattr_req,
+                                       GF_XATTR_SHARD_BLOCK_SIZE, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
+                                "dict value: key:%s, directory gfid=%s",
+                                GF_XATTR_SHARD_BLOCK_SIZE,
+                                uuid_utoa (fd->inode->gfid));
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto err;
+                }
 
                 STACK_WIND (frame, shard_readdir_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdirp, fd, size, offset,
