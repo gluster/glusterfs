@@ -1078,7 +1078,7 @@ gd_build_local_xaction_peers_list (struct list_head *peers,
 int
 gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                   char **op_errstr, int npeers, uuid_t txn_id,
-                  struct list_head *peers)
+                  struct list_head *peers, gf_boolean_t cluster_lock)
 {
         int                     ret         = -1;
         int                     peer_cnt    = 0;
@@ -1096,7 +1096,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         synctask_barrier_init((&args));
         peer_cnt = 0;
         list_for_each_local_xaction_peers (peerinfo, peers) {
-                if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                if (cluster_lock) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
                         gd_syncop_mgmt_lock (peerinfo, &args,
@@ -1333,7 +1333,8 @@ int
 gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
                     int npeers, char *volname, gf_boolean_t is_acquired,
-                    uuid_t txn_id, struct list_head *peers)
+                    uuid_t txn_id, struct list_head *peers,
+                    gf_boolean_t cluster_lock)
 {
         glusterd_peerinfo_t    *peerinfo    = NULL;
         uuid_t                  tmp_uuid    = {0};
@@ -1360,7 +1361,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         synctask_barrier_init((&args));
         peer_cnt = 0;
 
-        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+        if (cluster_lock) {
                 list_for_each_local_xaction_peers (peerinfo, peers) {
                         /* Only unlock peers that were locked */
                         if (peerinfo->locked) {
@@ -1403,7 +1404,7 @@ out:
                  * and clear the op */
 
                 glusterd_op_clear_op (op);
-                if (conf->op_version < GD_OP_VERSION_3_6_0)
+                if (cluster_lock)
                         glusterd_unlock (MY_UUID);
                 else {
                         if (volname) {
@@ -1531,6 +1532,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         uuid_t                      *txn_id          = NULL;
         struct list_head            xaction_peers    = {0,};
         glusterd_op_info_t          txn_opinfo       = {{0},};
+        gf_boolean_t                cluster_lock     = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1576,8 +1578,11 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 goto out;
         }
 
+        if (conf->op_version < GD_OP_VERSION_3_6_0)
+                cluster_lock = _gf_true;
+
         /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+        if (cluster_lock) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1632,9 +1637,10 @@ local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
+        if (volname || cluster_lock) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr,
-                                        npeers, *txn_id, &xaction_peers);
+                                        npeers, *txn_id, &xaction_peers,
+                                        cluster_lock);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Locking Peers Failed.");
@@ -1673,7 +1679,7 @@ out:
                                            op_ctx, op_errstr,
                                            npeers, volname,
                                            is_acquired, *txn_id,
-                                           &xaction_peers);
+                                           &xaction_peers, cluster_lock);
 
                 /* Clearing the transaction opinfo */
                 ret = glusterd_clear_txn_opinfo (txn_id);
