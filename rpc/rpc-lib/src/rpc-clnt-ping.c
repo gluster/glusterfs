@@ -84,9 +84,13 @@ rpc_clnt_remove_ping_timer_locked (struct rpc_clnt *rpc)
                 return 1;
 
         }
-        gf_log_callingfn ("", GF_LOG_DEBUG, "%s: ping timer event "
-                          "already removed",
-                           conn->trans->peerinfo.identifier);
+
+        /* This is to account for rpc_clnt_disable that might have set
+         *  conn->trans to NULL. */
+        if (conn->trans)
+                gf_log_callingfn ("", GF_LOG_DEBUG, "%s: ping timer event "
+                                  "already removed",
+                                   conn->trans->peerinfo.identifier);
 
         return 0;
 }
