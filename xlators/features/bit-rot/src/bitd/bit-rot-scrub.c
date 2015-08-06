@@ -691,15 +691,9 @@ br_kickstart_scanner (struct gf_tw_timer_list *timer,
 }
 
 static inline uint32_t
-br_fsscan_calculate_delta (uint32_t boot, uint32_t now, uint32_t times)
+br_fsscan_calculate_delta (uint32_t times)
 {
-        uint32_t secs = 0;
-        uint32_t diff = 0;
-
-        diff = (now - boot);
-        secs = times * ((diff / times) + 1);
-
-        return (secs - diff);
+        return times;
 }
 
 #define BR_SCRUB_HOURLY     (60 * 60)
@@ -709,25 +703,25 @@ br_fsscan_calculate_delta (uint32_t boot, uint32_t now, uint32_t times)
 #define BR_SCRUB_MONTHLY    (30 * 24 * 60 * 60)
 
 static unsigned int
-br_fsscan_calculate_timeout (uint32_t boot, uint32_t now, scrub_freq_t freq)
+br_fsscan_calculate_timeout (scrub_freq_t freq)
 {
         uint32_t timo = 0;
 
         switch (freq) {
         case BR_FSSCRUB_FREQ_HOURLY:
-                timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_HOURLY);
+                timo = br_fsscan_calculate_delta (BR_SCRUB_HOURLY);
                 break;
         case BR_FSSCRUB_FREQ_DAILY:
-                timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_DAILY);
+                timo = br_fsscan_calculate_delta (BR_SCRUB_DAILY);
                 break;
         case BR_FSSCRUB_FREQ_WEEKLY:
-                timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_WEEKLY);
+                timo = br_fsscan_calculate_delta (BR_SCRUB_WEEKLY);
                 break;
         case BR_FSSCRUB_FREQ_BIWEEKLY:
-                timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_BIWEEKLY);
+                timo = br_fsscan_calculate_delta (BR_SCRUB_BIWEEKLY);
                 break;
         case BR_FSSCRUB_FREQ_MONTHLY:
-                timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_MONTHLY);
+                timo = br_fsscan_calculate_delta (BR_SCRUB_MONTHLY);
                 break;
         default:
                 timo = 0;
@@ -754,8 +748,7 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child)
         (void) gettimeofday (&tv, NULL);
         fsscan->boot = tv.tv_sec;
 
-        timo = br_fsscan_calculate_timeout (fsscan->boot,
-                                            fsscan->boot, fsscrub->frequency);
+        timo = br_fsscan_calculate_timeout (fsscrub->frequency);
         if (timo == 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
                         "BUG: Zero schedule timeout");
@@ -803,8 +796,7 @@ br_fsscan_activate (xlator_t *this, br_child_t *child)
         fsscrub = &priv->fsscrub;
 
         (void) gettimeofday (&now, NULL);
-        timo = br_fsscan_calculate_timeout (fsscan->boot,
-                                            now.tv_sec, fsscrub->frequency);
+        timo = br_fsscan_calculate_timeout (fsscrub->frequency);
         if (timo == 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
                         "BUG: Zero schedule timeout");
@@ -839,8 +831,7 @@ br_fsscan_reschedule (xlator_t *this, br_child_t *child)
         fsscrub = &priv->fsscrub;
 
         (void) gettimeofday (&now, NULL);
-        timo = br_fsscan_calculate_timeout (fsscan->boot,
-                                            now.tv_sec, fsscrub->frequency);
+        timo = br_fsscan_calculate_timeout (fsscrub->frequency);
         if (timo == 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_ZERO_TIMEOUT_BUG,
                         "BUG: Zero schedule timeout");
