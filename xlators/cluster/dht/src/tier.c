@@ -350,6 +350,8 @@ tier_migrate_using_query_file (void *_args)
                                 goto error;
                         }
 
+                        gf_uuid_copy (loc.gfid, loc.inode->gfid);
+
                         ret = syncop_setxattr (this, &loc, migrate_data, 0,
                                                NULL, NULL);
                         if (ret) {
