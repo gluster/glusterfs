@@ -5,4 +5,6 @@ For information about contributing to GlusterFS, please follow the below link :
 
 The development guidelines are detailed in [Development Workflow.](http://www.gluster.org/community/documentation/index.php/Simplified_dev_workflow)
 
+The GlusterFS documentation can be found at [Documentation](http://gluster.readthedocs.org/en/latest)
+
 For more info, please visit http://www.gluster.org/.
