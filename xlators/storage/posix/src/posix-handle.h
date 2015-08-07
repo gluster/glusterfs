@@ -255,7 +255,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                              const size_t handle_size,
                              const char *priv_base_path,
                              inode_table_t *table, inode_t **parent,
-                             dict_t *xdata);
+                             dict_t *xdata, int32_t *op_errno);
 int
 posix_handle_path_safe (xlator_t *this, uuid_t gfid, const char *basename,
                         char *buf, size_t len);
