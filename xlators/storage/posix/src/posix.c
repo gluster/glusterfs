@@ -3515,7 +3515,8 @@ posix_get_ancestry_directory (xlator_t *this, inode_t *leaf_inode,
                                            type | POSIX_ANCESTRY_PATH,
                                            leaf_inode->gfid,
                                            handle_size, priv->base_path,
-                                           leaf_inode->table, &inode, xdata);
+                                           leaf_inode->table, &inode, xdata,
+                                           op_errno);
         if (ret < 0)
                 goto out;
 
@@ -3771,7 +3772,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                                                       handle_size,
                                                       priv->base_path,
                                                       leaf_inode->table,
-                                                      &parent, xdata);
+                                                      &parent, xdata, op_errno);
                 if (op_ret < 0) {
                         goto next;
                 }
