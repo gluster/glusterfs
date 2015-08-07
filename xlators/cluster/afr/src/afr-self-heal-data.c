@@ -680,7 +680,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		source = ret;
 
-                if (priv->arbiter_count == 1 && source == ARBITER_BRICK_INDEX &&
+                if (AFR_IS_ARBITER_BRICK(priv, source) &&
                     AFR_COUNT (sources, priv->child_count) == 1) {
                         did_sh = _gf_false;
                         goto unlock;
