@@ -1777,6 +1777,7 @@ ec_heal_block_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fop->heal = NULL;
         heal->fop = NULL;
+        heal->error = op_ret < 0 ? op_errno : 0;
         syncbarrier_wake (heal->data);
         return 0;
 }
@@ -1787,6 +1788,9 @@ ec_sync_heal_block (call_frame_t *frame, xlator_t *this, ec_heal_t *heal)
         ec_heal_block (frame, this, heal->bad|heal->good, EC_MINIMUM_ONE,
                        ec_heal_block_done, heal);
         syncbarrier_wait (heal->data, 1);
+        if (heal->error != 0) {
+                return -heal->error;
+        }
         if (heal->bad == 0)
                 return -ENOTCONN;
         return 0;
@@ -1812,6 +1816,11 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         pool = ec->xl->ctx->iobuf_pool;
         heal->total_size = size;
         heal->size = iobpool_default_pagesize (pool);
+        /* We need to adjust the size to a multiple of the stripe size of the
+         * volume. Otherwise writes would need to fill gaps (head and/or tail)
+         * with existent data from the bad bricks. This could be garbage on a
+         * damaged file or it could fail if there aren't enough bricks. */
+        heal->size -= heal->size % ec->stripe_size;
         heal->bad       = ec_char_array_to_mask (healed_sinks, ec->nodes);
         heal->good      = ec_char_array_to_mask (sources, ec->nodes);
         heal->iatt.ia_type = IA_IFREG;
