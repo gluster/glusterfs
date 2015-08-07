@@ -645,7 +645,7 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	for (i = 0; i < priv->child_count; i++) {
 		if (data_accused[i])
 			continue;
-                if ((priv->arbiter_count == 1) && (i == ARBITER_BRICK_INDEX))
+                if (AFR_IS_ARBITER_BRICK(priv, i))
                         continue;
 		if (replies[i].poststat.ia_size < maxsize)
 			data_accused[i] = 1;
@@ -1732,8 +1732,7 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         if (is_local) {
                 /* Don't set arbiter as read child. */
-                if ((priv->arbiter_count == 1) &&
-                    (child_index == ARBITER_BRICK_INDEX))
+                if (AFR_IS_ARBITER_BRICK(priv, child_index))
                         goto out;
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         AFR_MSG_LOCAL_CHILD, "selecting local read_child %s",
@@ -3616,6 +3615,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 	if (!local)
 		goto out;
 
+        if (priv->arbiter_count == 1 && local->child_up[ARBITER_BRICK_INDEX])
+                local->call_count--;
         call_count = local->call_count;
 	if (!call_count) {
 		op_errno = ENOTCONN;
@@ -3624,6 +3625,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
+                        if (AFR_IS_ARBITER_BRICK(priv, i))
+                                continue;
                         STACK_WIND (frame, afr_statfs_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->statfs,
