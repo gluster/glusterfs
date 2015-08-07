@@ -140,7 +140,7 @@ function G_LOG()
         do
                 echo $string>>$i
         done
-}
+} 2> /dev/null
 
 function test_header()
 {
