@@ -97,7 +97,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                              gf_dirent_t *head, int type, uuid_t gfid,
                              const size_t handle_size,
                              const char *priv_base_path, inode_table_t *itable,
-                             inode_t **parent, dict_t *xdata)
+                             inode_t **parent, dict_t *xdata, int32_t *op_errno)
 {
         char        *linkname   = NULL; /* "../../<gfid[0]>/<gfid[1]/"
                                          "<gfidstr>/<NAME_MAX>" */
@@ -112,6 +112,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         uuid_t       tmp_gfid   = {0, };
 
         if (!path || !parent || !priv_base_path || gf_uuid_is_null (gfid)) {
+                *op_errno = EINVAL;
                 goto out;
         }
 
@@ -133,6 +134,8 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 ret = posix_make_ancestral_node (priv_base_path, path, pathsize,
                                                  head, "/", &iabuf, inode, type,
                                                  xdata);
+                if (ret < 0)
+                        *op_errno = ENOMEM;
                 return ret;
         }
 
@@ -144,9 +147,12 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         len = readlink (dir_handle, linkname, PATH_MAX);
         if (len < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
-                        "could not read the link from the gfid handle %s ",
-                        dir_handle);
+                gf_msg (this->name, (errno == ENOENT || errno == ESTALE)
+                        ? GF_LOG_DEBUG:GF_LOG_ERROR, errno,
+                        P_MSG_READLINK_FAILED, "could not read the link from "
+                        "the gfid handle %s ", dir_handle);
+                ret = -1;
+                *op_errno = errno;
                 goto out;
         }
 
@@ -160,7 +166,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         ret = posix_make_ancestryfromgfid (this, path, pathsize, head, type,
                                            tmp_gfid, handle_size,
                                            priv_base_path, itable, parent,
-                                           xdata);
+                                           xdata, op_errno);
         if (ret < 0) {
                 goto out;
         }
@@ -169,6 +175,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
         if (inode == NULL) {
+                *op_errno = ESTALE;
                 ret = -1;
                 goto out;
         }
