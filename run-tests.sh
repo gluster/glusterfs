@@ -197,6 +197,8 @@ function is_bad_test ()
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
               ./tests/basic/tier/tier_lookup_heal.t \
               ./tests/basic/tier/bug-1214222-directories_miising_after_attach_tier.t \
+              ./tests/bugs/snapshot/bug-1109889.t \
+              ./tests/bugs/distribute/bug-1066798.t \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
