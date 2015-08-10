@@ -16,6 +16,7 @@ import urllib
 import json
 import time
 from datetime import datetime
+from errno import EACCES, EAGAIN
 
 DEFAULT_STATUS = "N/A"
 MONITOR_STATUS = ("Created", "Started", "Paused", "Stopped")
@@ -113,7 +114,7 @@ def set_monitor_status(status_file, status):
 
 
 class GeorepStatus(object):
-    def __init__(self, monitor_status_file, brick):
+    def __init__(self, monitor_status_file, brick, monitor_pid_file=None):
         self.work_dir = os.path.dirname(monitor_status_file)
         self.monitor_status_file = monitor_status_file
         self.filename = os.path.join(self.work_dir,
@@ -126,6 +127,7 @@ class GeorepStatus(object):
         os.close(fd)
         self.brick = brick
         self.default_values = get_default_values()
+        self.monitor_pid_file = monitor_pid_file
 
     def _update(self, mergerfunc):
         with LockedOpen(self.filename, 'r+') as f:
@@ -253,6 +255,19 @@ class GeorepStatus(object):
             except ValueError:
                 pass
         monitor_status = self.get_monitor_status()
+
+        # Verifying whether monitor process running and adjusting status
+        if monitor_status in ["Started", "Paused"]:
+            try:
+                with open(self.monitor_pid_file, "r+") as f:
+                    fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    monitor_status = "Stopped"
+            except (IOError, OSError) as e:
+                if e.errno in (EACCES, EAGAIN):
+                    # cannot grab. so, monitor process still running..move on
+                    pass
+                else:
+                    raise
 
         if monitor_status in ["Created", "Paused", "Stopped"]:
             data["worker_status"] = monitor_status
