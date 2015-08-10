@@ -98,7 +98,7 @@ function check_counters {
 
     $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
 
-    cat /tmp/tc.txt | grep -o '[0-9*]' | while read line; do
+    cat /tmp/tc.txt | grep -o '[0-9]*' | while read line; do
         if [ $index == 0 ]; then
             index=1
             test $line -ne $1 && echo "1" > /tmp/tc2.txt
