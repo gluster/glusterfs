@@ -128,6 +128,9 @@ struct fuse_private {
 
         /* for using fuse-kernel readdirp*/
         gf_boolean_t use_readdirp;
+
+        /* resolve gid with getgrouplist() instead of /proc/%d/status */
+        gf_boolean_t resolve_gids;
 };
 typedef struct fuse_private fuse_private_t;
 

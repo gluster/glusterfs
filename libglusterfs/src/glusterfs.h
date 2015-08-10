@@ -418,6 +418,7 @@ struct _cmd_args {
         int              background_qlen;
         int              congestion_threshold;
         char             *fuse_mountopts;
+        int              resolve_gids;
 
         /* key args */
         char            *mount_point;

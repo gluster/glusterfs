@@ -177,6 +177,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --aux-gfid-mount");
     fi
 
+    if [ -n "$resolve_gids" ]; then
+        cmd_line=$(echo "$cmd_line --resolve-gids");
+    fi
+
     if [ -n "$no_root_squash" ]; then
         cmd_line=$(echo "$cmd_line --no-root-squash");
     fi
@@ -500,6 +504,9 @@ without_options()
             if [ ${uname_s} = "Linux" ]; then
                 aux_gfid_mount=1
             fi
+            ;;
+        "resolve-gids")
+            resolve_gids=1
             ;;
          # "mount -t glusterfs" sends this, but it's useless.
         "rw")
