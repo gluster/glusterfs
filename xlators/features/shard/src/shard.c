@@ -2551,8 +2551,11 @@ shard_common_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 done:
         call_count = shard_call_count_return (frame);
-        if (call_count == 0)
+        if (call_count == 0) {
+                frame->root->uid = local->uid;
+                frame->root->gid = local->gid;
                 local->post_mknod_handler (frame, this);
+        }
 
         return 0;
 }
@@ -2581,8 +2584,13 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
         fd = local->fd;
         shard_idx_iter = local->first_block;
         last_block = local->last_block;
-        call_count = local->call_count;
+        call_count = local->call_count = local->create_count;
         local->post_mknod_handler = post_mknod_handler;
+
+        local->uid = frame->root->uid;
+        local->gid = frame->root->gid;
+        frame->root->uid = local->prebuf.ia_uid;
+        frame->root->gid = local->prebuf.ia_gid;
 
         ret = shard_inode_ctx_get_all (fd->inode, this, &ctx_tmp);
         if (ret) {
@@ -2697,11 +2705,13 @@ shard_post_resolve_readv_handler (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        if (local->call_count)
+        if (local->call_count) {
+                local->create_count = local->call_count;
                 shard_common_resume_mknod (frame, this,
                                            shard_post_mknod_readv_handler);
-        else
+        } else {
                 shard_readv_do (frame, this);
+        }
 
         return 0;
 }
@@ -3033,6 +3043,48 @@ next:
 }
 
 int
+shard_post_lookup_shards_writev_handler (call_frame_t *frame, xlator_t *this)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (local->op_ret < 0) {
+                SHARD_STACK_UNWIND (writev, frame, local->op_ret,
+                                    local->op_errno, NULL, NULL, NULL);
+                return 0;
+        }
+
+        shard_writev_do (frame, this);
+
+        return 0;
+}
+
+int
+shard_post_mknod_writev_handler (call_frame_t *frame, xlator_t *this)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (local->op_ret < 0) {
+                SHARD_STACK_UNWIND (writev, frame, local->op_ret,
+                                    local->op_errno, NULL, NULL, NULL);
+                return 0;
+        }
+
+        if (!local->eexist_count) {
+                shard_writev_do (frame, this);
+        } else {
+                local->call_count = local->eexist_count;
+                shard_common_lookup_shards (frame, this, local->loc.inode,
+                                       shard_post_lookup_shards_writev_handler);
+        }
+
+        return 0;
+}
+
+int
 shard_post_lookup_writev_handler (call_frame_t *frame, xlator_t *this)
 {
         shard_local_t *local = NULL;
@@ -3053,50 +3105,11 @@ shard_post_lookup_writev_handler (call_frame_t *frame, xlator_t *this)
         if (local->offset > local->prebuf.ia_size)
                 local->hole_size = local->offset - local->prebuf.ia_size;
 
-        shard_writev_do (frame, this);
-
-        return 0;
-}
-
-int
-shard_post_lookup_shards_writev_handler (call_frame_t *frame, xlator_t *this)
-{
-        shard_local_t *local = NULL;
-
-        local = frame->local;
-
-        if (local->op_ret < 0) {
-                SHARD_STACK_UNWIND (writev, frame, local->op_ret,
-                                    local->op_errno, NULL, NULL, NULL);
-                return 0;
-        }
-
-        shard_lookup_base_file (frame, this, &local->loc,
-                                shard_post_lookup_writev_handler);
-        return 0;
-}
-
-int
-shard_post_mknod_writev_handler (call_frame_t *frame, xlator_t *this)
-{
-        shard_local_t *local = NULL;
-
-        local = frame->local;
-
-        if (local->op_ret < 0) {
-                SHARD_STACK_UNWIND (writev, frame, local->op_ret,
-                                    local->op_errno, NULL, NULL, NULL);
-                return 0;
-        }
-
-        if (!local->eexist_count) {
-                shard_lookup_base_file (frame, this, &local->loc,
-                                        shard_post_lookup_writev_handler);
-        } else {
-                local->call_count = local->eexist_count;
-                shard_common_lookup_shards (frame, this, local->loc.inode,
-                                       shard_post_lookup_shards_writev_handler);
-        }
+        if (local->create_count)
+                shard_common_resume_mknod (frame, this,
+                                           shard_post_mknod_writev_handler);
+        else
+                shard_writev_do (frame, this);
 
         return 0;
 }
@@ -3114,12 +3127,10 @@ shard_post_resolve_writev_handler (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        if (local->call_count)
-                shard_common_resume_mknod (frame, this,
-                                           shard_post_mknod_writev_handler);
-        else
-                shard_lookup_base_file (frame, this, &local->loc,
-                                        shard_post_lookup_writev_handler);
+        local->create_count = local->call_count;
+
+        shard_lookup_base_file (frame, this, &local->loc,
+                                shard_post_lookup_writev_handler);
         return 0;
 }
 

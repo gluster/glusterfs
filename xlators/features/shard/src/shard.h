@@ -144,9 +144,12 @@ typedef struct shard_local {
         int num_blocks;
         int call_count;
         int eexist_count;
+        int create_count;
         int xflag;
         int count;
         uint32_t flags;
+        uint32_t uid;
+        uint32_t gid;
         uint64_t block_size;
         uint64_t dst_block_size;
         off_t offset;
