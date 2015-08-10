@@ -615,7 +615,8 @@ def main_i():
     status_get = rconf.get('status_get')
     if status_get:
         for brick in gconf.path:
-            brick_status = GeorepStatus(gconf.state_file, brick)
+            brick_status = GeorepStatus(gconf.state_file, brick,
+                                        getattr(gconf, "pid_file", None))
             checkpoint_time = int(getattr(gconf, "checkpoint", "0"))
             brick_status.print_status(checkpoint_time=checkpoint_time)
         return
