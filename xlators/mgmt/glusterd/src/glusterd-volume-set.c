@@ -1037,11 +1037,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "diagnostics.brick-log-level",
           .voltype     = "debug/io-stats",
+          .value       = "INFO",
           .option      = "!brick-log-level",
           .op_version  = 1
         },
         { .key        = "diagnostics.client-log-level",
           .voltype    = "debug/io-stats",
+          .value      = "INFO",
           .option     = "!client-log-level",
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
