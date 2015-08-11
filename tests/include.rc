@@ -525,6 +525,16 @@ function cleanup()
 	return 0
 }
 
+function force_terminate () {
+        local ret=$?;
+        >&2 echo -e "\nreceived external"\
+                        "signal --`kill -l $ret`--, calling 'cleanup' ...\n";
+        cleanup;
+        exit $ret;
+}
+
+trap force_terminate INT TERM HUP
+
 function volinfo_field()
 {
     local vol=$1;
