@@ -4920,7 +4920,7 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int
-glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
+glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx, int32_t op_errno)
 {
         int                             ret = -1;
         glusterd_friend_sm_event_t      *new_event = NULL;
@@ -4956,7 +4956,7 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
                         goto out;
                 }
 
-                glusterd_xfer_cli_probe_resp (req, -1, ENOTCONN, errstr,
+                glusterd_xfer_cli_probe_resp (req, -1, op_errno, errstr,
                                               peerinfo->hostname,
                                               peerinfo->port, dict);
 
@@ -4983,6 +4983,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         xlator_t             *this        = NULL;
         glusterd_conf_t      *conf        = NULL;
         int                   ret         = 0;
+        int32_t               op_errno    = ENOTCONN;
         glusterd_peerinfo_t  *peerinfo    = NULL;
         glusterd_peerctx_t   *peerctx     = NULL;
         gf_boolean_t         quorum_action = _gf_false;
@@ -5075,6 +5076,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                 }
                         }
 
+                        op_errno = GF_PROBE_ANOTHER_CLUSTER;
                         ret = 0;
                 }
 
@@ -5089,7 +5091,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 *  fails, and notify cli. Happens only during probe.
                 */
                 if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT) {
-                        glusterd_friend_remove_notify (peerctx);
+                        glusterd_friend_remove_notify (peerctx, op_errno);
                         goto out;
                 }
 
