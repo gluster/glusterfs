@@ -153,10 +153,10 @@ enum gfapi_callback_type {
 /* Handle based operations */
 /* Operations that generate handles */
 struct glfs_object *glfs_h_lookupat (struct glfs *fs,
-				     struct glfs_object *parent,
-				     const char *path,
-                                     struct stat *stat) __THROW
-        GFAPI_PUBLIC(glfs_h_lookupat, 3.4.0);
+                                     struct glfs_object *parent,
+                                     const char *path,
+                                     struct stat *stat, int follow) __THROW
+        GFAPI_PUBLIC(glfs_h_lookupat, 3.7.4);
 
 struct glfs_object *glfs_h_creat (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, int flags, mode_t mode,

@@ -98,7 +98,6 @@ GFAPI_3.4.2 {
 		glfs_setfsuid;
 		glfs_setfsgid;
 		glfs_setfsgroups;
-		glfs_h_lookupat;
 		glfs_h_creat;
 		glfs_h_mkdir;
 		glfs_h_mknod;
@@ -163,3 +162,8 @@ GFAPI_PRIVATE_3.7.0 {
 		glfs_resolve;
 		glfs_process_upcall_event;
 } GFAPI_3.7.0;
+
+GFAPI_3.7.4 {
+	global:
+		glfs_h_lookupat;
+} GFAPI_PRIVATE_3.7.0;

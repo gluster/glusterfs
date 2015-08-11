@@ -89,7 +89,7 @@ _pub_glfs_dup _glfs_dup$GFAPI_3.4.0
 _pub_glfs_setfsuid _glfs_setfsuid$GFAPI_3.4.2
 _pub_glfs_setfsgid _glfs_setfsgid$GFAPI_3.4.2
 _pub_glfs_setfsgroups _glfs_setfsgroups$GFAPI_3.4.2
-_pub_glfs_h_lookupat _glfs_h_lookupat$GFAPI_3.4.2
+_pub_glfs_h_lookupat34 _glfs_h_lookupat$GFAPI_3.4.2
 _pub_glfs_h_creat _glfs_h_creat$GFAPI_3.4.2
 _pub_glfs_h_mkdir _glfs_h_mkdir$GFAPI_3.4.2
 _pub_glfs_h_mknod _glfs_h_mknod$GFAPI_3.4.2
@@ -138,3 +138,5 @@ _priv_glfs_free_from_ctx _glfs_free_from_ctx$GFAPI_PRIVATE_3.7.0
 _priv_glfs_new_from_ctx _glfs_new_from_ctx$GFAPI_PRIVATE_3.7.0
 _priv_glfs_resolve _glfs_resolve$GFAPI_PRIVATE_3.7.0
 _priv_glfs_process_upcall_event _glfs_process_upcall_event$GFAPI_PRIVATE_3.7.0
+
+_pub_glfs_h_lookupat _glfs_h_lookupat$GFAPI_3.7.4
