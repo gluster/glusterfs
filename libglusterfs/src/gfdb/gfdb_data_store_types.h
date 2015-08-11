@@ -84,11 +84,11 @@ typedef enum gf_db_operation {
 typedef  struct timeval gfdb_time_t;
 
 /*Convert time into  seconds*/
-static inline long int
+static inline uint64_t
 gfdb_time_2_usec(gfdb_time_t *gfdb_time)
 {
         GF_ASSERT(gfdb_time);
-        return gfdb_time->tv_sec * GFDB_MICROSEC + gfdb_time->tv_usec;
+        return ((uint64_t) gfdb_time->tv_sec * GFDB_MICROSEC) + gfdb_time->tv_usec;
 }
 
 

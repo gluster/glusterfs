@@ -665,7 +665,7 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
         char *query_str                         =       NULL;
         gf_sql_connection_t *sql_conn           =       db_conn;
         sqlite3_stmt *prep_stmt                 =       NULL;
-        long int  from_time_usec                =       0;
+        uint64_t  from_time_usec                =       0;
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, query_callback, out);
@@ -759,7 +759,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
         char *query_str                         =       NULL;
         gf_sql_connection_t *sql_conn           =       db_conn;
         sqlite3_stmt *prep_stmt                 =       NULL;
-        long int  for_time_usec                =       0;
+        uint64_t  for_time_usec                 =       0;
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, query_callback, out);
@@ -863,7 +863,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
         char *query_str                         =       NULL;
         gf_sql_connection_t *sql_conn           =       db_conn;
         sqlite3_stmt *prep_stmt                 =       NULL;
-        long int  from_time_usec                =       0;
+        uint64_t  from_time_usec                =       0;
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, query_callback, out);
@@ -993,7 +993,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         char *query_str                         =       NULL;
         gf_sql_connection_t *sql_conn           =       db_conn;
         sqlite3_stmt *prep_stmt                 =       NULL;
-        long int  for_time_usec                 =       0;
+        uint64_t  for_time_usec                 =       0;
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, query_callback, out);
