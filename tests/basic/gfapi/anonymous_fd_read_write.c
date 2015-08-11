@@ -54,7 +54,7 @@ main (int argc, char *argv[])
         ret = glfs_init (fs);
         LOG_ERR("glfs_init", ret);
 
-        root = glfs_h_lookupat (fs, NULL, "/", &sb);
+        root = glfs_h_lookupat (fs, NULL, "/", &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of / ,%s\n",
                          strerror (errno));

@@ -288,7 +288,7 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         fs = parent_ctx->fs;
 
         object = glfs_h_lookupat (fs, parent_object, loc->name,
-                                  &statbuf);
+                                  &statbuf, 0);
         if (!object) {
                 gf_log (this->name, GF_LOG_DEBUG, "failed to do lookup and "
                         "get the handle for entry %s (path: %s)", loc->name,

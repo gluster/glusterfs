@@ -216,7 +216,7 @@ test_h_unlink (void)
         printf ("glfs_h_unlink tests: In Progress\n");
 
         /* Prepare tests */
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -350,7 +350,7 @@ test_h_getsetattrs (void)
         printf("glfs_h_getattrs and setattrs tests: In Progress\n");
 
         /* Prepare tests */
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -447,7 +447,7 @@ test_h_truncate (void)
         printf("glfs_h_truncate tests: In Progress\n");
 
         /* Prepare tests */
-        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -585,7 +585,7 @@ test_h_links (void)
         printf("glfs_h_link(s) tests: In Progress\n");
 
         /* Prepare tests */
-        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -729,7 +729,7 @@ test_h_rename (void)
         printf("glfs_h_rename tests: In Progress\n");
 
         /* Prepare tests */
-        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        root = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -904,7 +904,7 @@ test_h_performance (void)
         printf("glfs_h_performance tests: In Progress\n");
 
         /* Prepare tests */
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, NULL, strerror (errno));
@@ -940,7 +940,7 @@ test_h_performance (void)
                         goto out;
                 }
 
-                leaf = glfs_h_lookupat (fs, dir, my_file_name, &sb);
+                leaf = glfs_h_lookupat (fs, dir, my_file_name, &sb, 0);
                 if (leaf != NULL) {
                         fprintf (stderr, "glfs_h_lookup: exists %s\n",
                                  my_file_name);
@@ -1114,7 +1114,7 @@ test_handleops (int argc, char *argv[])
         /* glfs_lookupat test */
         printf ("glfs_h_lookupat tests: In Progress\n");
         /* start at root of the volume */
-        root = glfs_h_lookupat (fs, NULL, "/", &sb);
+        root = glfs_h_lookupat (fs, NULL, "/", &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          "/", NULL, strerror (errno));
@@ -1124,7 +1124,7 @@ test_handleops (int argc, char *argv[])
         peek_stat (&sb);
 
         /* lookup a parent within root */
-        parent = glfs_h_lookupat (fs, root, parent_name, &sb);
+        parent = glfs_h_lookupat (fs, root, parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          parent_name, root, strerror (errno));
@@ -1134,7 +1134,7 @@ test_handleops (int argc, char *argv[])
         peek_stat (&sb);
 
         /* lookup a leaf/child within the parent */
-        leaf = glfs_h_lookupat (fs, parent, leaf_name, &sb);
+        leaf = glfs_h_lookupat (fs, parent, leaf_name, &sb, 0);
         if (leaf == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          leaf_name, parent, strerror (errno));
@@ -1149,7 +1149,7 @@ test_handleops (int argc, char *argv[])
         glfs_h_close (parent); parent = NULL;
 
         /* check absolute paths */
-        root = glfs_h_lookupat (fs, NULL, "/", &sb);
+        root = glfs_h_lookupat (fs, NULL, "/", &sb, 0);
         if (root == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          "/", NULL, strerror (errno));
@@ -1158,7 +1158,7 @@ test_handleops (int argc, char *argv[])
         }
         peek_stat (&sb);
 
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, root, strerror (errno));
@@ -1167,7 +1167,7 @@ test_handleops (int argc, char *argv[])
         }
         peek_stat (&sb);
 
-        leaf = glfs_h_lookupat (fs, NULL, full_leaf_name, &sb);
+        leaf = glfs_h_lookupat (fs, NULL, full_leaf_name, &sb, 0);
         if (leaf == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_leaf_name, parent, strerror (errno));
@@ -1180,7 +1180,7 @@ test_handleops (int argc, char *argv[])
         glfs_h_close (leaf); leaf = NULL;
 
         /* check multiple component paths */
-        leaf = glfs_h_lookupat (fs, root, relative_leaf_name, &sb);
+        leaf = glfs_h_lookupat (fs, root, relative_leaf_name, &sb, 0);
         if (leaf == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          relative_leaf_name, parent, strerror (errno));
@@ -1236,7 +1236,7 @@ test_handleops (int argc, char *argv[])
 
         /* Create tests */
         printf ("glfs_h_creat tests: In Progress\n");
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, root, strerror (errno));
@@ -1284,7 +1284,7 @@ test_handleops (int argc, char *argv[])
         printf ("glfs_h_extract_handle and glfs_h_create_from_handle tests: In Progress\n");
         /* TODO: Change the lookup to creat below for a GIFD recovery falure,
          * that needs to be fixed */
-        leaf = glfs_h_lookupat (fs, parent, leaf_name1, &sb);
+        leaf = glfs_h_lookupat (fs, parent, leaf_name1, &sb, 0);
         if (leaf == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          leaf_name1, parent, strerror (errno));
@@ -1355,7 +1355,7 @@ test_handleops (int argc, char *argv[])
                 goto out;
         }
 
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, root, strerror (errno));
@@ -1399,7 +1399,7 @@ test_handleops (int argc, char *argv[])
                 goto out;
         }
 
-        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb);
+        parent = glfs_h_lookupat (fs, NULL, full_parent_name, &sb, 0);
         if (parent == NULL) {
                 fprintf (stderr, "glfs_h_lookupat: error on lookup of %s: from (%p),%s\n",
                          full_parent_name, root, strerror (errno));
