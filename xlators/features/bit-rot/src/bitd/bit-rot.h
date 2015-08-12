@@ -137,6 +137,9 @@ struct br_scrubber {
          */
         scrub_freq_t frequency;
 
+        gf_boolean_t frequency_reconf;
+        gf_boolean_t throttle_reconf;
+
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
 
