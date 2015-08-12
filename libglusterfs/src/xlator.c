@@ -976,8 +976,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
 
         /* Some crude way to change the log-level of process */
         if (!strcmp (name, "trusted.glusterfs.set-log-level")) {
-                /* */
-                gf_log ("glusterfs", gf_log_get_loglevel(),
+                gf_msg ("glusterfs", gf_log_get_loglevel(), 0,
+                        LG_MSG_SET_LOG_LEVEL,
                         "setting log level to %d (old-value=%d)",
                         log_level, gf_log_get_loglevel());
                 gf_log_set_loglevel (log_level);
@@ -987,7 +987,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
 
         if (!strcmp (name, "trusted.glusterfs.fuse.set-log-level")) {
                 /* */
-                gf_log (this->name, gf_log_get_xl_loglevel (this),
+                gf_msg (this->name, gf_log_get_xl_loglevel (this), 0,
+                        LG_MSG_SET_LOG_LEVEL,
                         "setting log level to %d (old-value=%d)",
                         log_level, gf_log_get_xl_loglevel (this));
                 gf_log_set_xl_loglevel (this, log_level);
@@ -1006,7 +1007,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
                 snprintf (key, 1024, "trusted.glusterfs.%s.set-log-level",
                           trav->name);
                 if (fnmatch (name, key, FNM_NOESCAPE) == 0) {
-                        gf_log (trav->name, gf_log_get_xl_loglevel (trav),
+                        gf_msg (trav->name, gf_log_get_xl_loglevel (trav), 0,
+                                LG_MSG_SET_LOG_LEVEL,
                                 "setting log level to %d (old-value=%d)",
                                 log_level, gf_log_get_xl_loglevel (trav));
                         gf_log_set_xl_loglevel (trav, log_level);
