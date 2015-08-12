@@ -246,51 +246,65 @@ grep Export_Id | cut -d " " -f8`
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+                scp -q -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${HA_CONFDIR}/exports/export.$VOL.conf \
 ${current_host}:${HA_CONFDIR}/exports/
-                grep Export_Id $HA_CONFDIR/exports/export.$VOL.conf | \
-                while read entry;
-                do
-                        export_id=$(echo $entry | awk -F"[=,;]" '{print$2}')
-                        ssh -oPasswordAuthentication=no \
--oStrictHostKeyChecking=no -i  ${SECRET_PEM} root@${current_host} \
-"dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
-uint16:$export_id"
-                        sleep 1
-                        ssh -oPasswordAuthentication=no \
--oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
-"dbus-send  --system --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.AddExport string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Export_Id=$export_id)\""
-                        if [ $? -ne 0 ]; then
-                                echo "warning: refresh-config failed on" \
-                                     " ${current_host}"
-                        fi
-                done
+                output=$(ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} root@${current_host} "dbus-send --print-reply --system \
+--dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id 2>&1")
+                 ret=$?
+                 logger <<< "${output}"
+                 if [ ${ret} -ne 0 ]; then
+                        echo "Error: refresh-config failed on ${current_host}."
+                        exit 1
+                 fi
+                 sleep 1
+                 output=$(ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} root@${current_host} "dbus-send  --system \
+--dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
+string:\"EXPORT(Path=/$VOL)\" 2>&1")
+                 ret=$?
+                 logger <<< "${output}"
+               if [ ${ret} -ne 0 ]; then
+                    echo "Error: refresh-config failed on ${current_host}."
+                    exit 1
+               else
+                    echo "Refresh-config completed on ${current_host}."
+               fi
             fi
             shift
         done
     else
-        echo "warning: refresh-config failed on ${1}"
+        echo "Error: refresh-config failed. Passwordless ssh is not enabled."
+        exit 1
     fi
 
 #Run the same command on the localhost,
-        grep Export_Id $HA_CONFDIR/exports/export.$VOL.conf | \
-        while read entry;
-        do
-                export_id=$(echo $entry | awk -F"[=,;]" '{print$2}')
-                dbus-send --print-reply --system \
-                --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
-                org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
-                sleep 1
-                dbus-send  --system \
-                --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-                org.ganesha.nfsd.exportmgr.AddExport  \
-                string:$HA_CONFDIR/exports/export.$VOL.conf \
-                string:"EXPORT(Export_Id=$export_id)"
-        done
+        output=$(dbus-send --print-reply --system \
+--dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id 2>&1)
+        ret=$?
+        logger <<< "${output}"
+        if [ ${ret} -ne 0 ]; then
+                echo "Error: refresh-config failed on localhost."
+                exit 1
+        fi
+        sleep 1
+        output=$(dbus-send  --system \
+--dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
+string:"EXPORT(Path=/$VOL)" 2>&1)
+        ret=$?
+        logger <<< "${output}"
+        if [ ${ret} -ne 0 ] ; then
+                echo "Error: refresh-config failed on localhost."
+                exit 1
+        else
+                echo "Success: refresh-config completed."
+        fi
+
 }
 
 copy_export_config ()
