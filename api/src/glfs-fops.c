@@ -3803,8 +3803,8 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
         glusterfs_ctx_t    *ctx            = NULL;
         struct gf_upcall   *upcall_data    = NULL;
 
-        gf_log (THIS->name, GF_LOG_DEBUG,
-                "Upcall gfapi callback is called");
+        gf_msg_debug (THIS->name, 0,
+                      "Upcall gfapi callback is called");
 
         if (!fs || !data)
                 goto out;
@@ -3829,15 +3829,15 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 
         upcall_data = (struct gf_upcall *)data;
 
-        gf_log (THIS->name, GF_LOG_TRACE, "Upcall gfapi gfid = %s"
-                "ret = %d", (char *)(upcall_data->gfid), ret);
+        gf_msg_trace (THIS->name, 0, "Upcall gfapi gfid = %s"
+                      "ret = %d", (char *)(upcall_data->gfid), ret);
 
         u_list = GF_CALLOC (1, sizeof(*u_list),
                             glfs_mt_upcall_entry_t);
 
         if (!u_list) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Upcall entry allocation"
-                        "failed.");
+                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+                        "Upcall entry allocation failed.");
                 goto out;
         }
 

@@ -1938,10 +1938,10 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                          *
                          * Applications will ignore this notification
                          * as up_arg->object will be NULL */
-                        gf_log (subvol->name, GF_LOG_WARNING,
-                                "handle creation of %s failed: %s",
-                                uuid_utoa (upcall_data->gfid),
-                                strerror (errno));
+                        gf_msg (subvol->name, GF_LOG_WARNING, errno,
+                                API_MSG_CREATE_HANDLE_FAILED,
+                                "handle creation of %s failed",
+                                uuid_utoa (upcall_data->gfid));
 
                         reason = GFAPI_CBK_EVENT_NULL;
                         break;
