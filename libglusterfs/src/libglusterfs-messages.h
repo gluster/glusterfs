@@ -36,7 +36,7 @@
  */
 
 #define GLFS_LG_BASE            GLFS_MSGID_COMP_LIBGLUSTERFS
-#define GLFS_LG_NUM_MESSAGES    201
+#define GLFS_LG_NUM_MESSAGES    204
 #define GLFS_LG_MSGID_END       (GLFS_LG_BASE + GLFS_LG_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_lg GLFS_LG_BASE, "Invalid: Start of messages"
@@ -1715,6 +1715,30 @@
  *
  */
 #define LG_MSG_LOCK_FAILURE                              (GLFS_LG_BASE + 201)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define LG_MSG_SET_LOG_LEVEL                             (GLFS_LG_BASE + 202)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define LG_MSG_VERIFY_PLATFORM                           (GLFS_LG_BASE + 203)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define LG_MSG_RUNNER_LOG                                (GLFS_LG_BASE + 204)
 
 /*!
  * @messageid
