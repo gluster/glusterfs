@@ -830,6 +830,9 @@ br_fsscan_reschedule (xlator_t *this, br_child_t *child)
         fsscan = &child->fsscan;
         fsscrub = &priv->fsscrub;
 
+        if (!fsscrub->frequency_reconf)
+                return 0;
+
         (void) gettimeofday (&now, NULL);
         timo = br_fsscan_calculate_timeout (fsscrub->frequency);
         if (timo == 0) {
@@ -1185,6 +1188,7 @@ br_scrubber_handle_throttle (xlator_t *this, br_private_t *priv,
         scrub_throttle_t nthrottle = BR_SCRUB_THROTTLE_VOID;
 
         fsscrub = &priv->fsscrub;
+        fsscrub->throttle_reconf = _gf_false;
 
         ret = br_scrubber_fetch_option (this, "scrub-throttle", options, &tmp);
         if (ret)
@@ -1208,6 +1212,9 @@ br_scrubber_handle_throttle (xlator_t *this, br_private_t *priv,
         ret = br_scrubber_configure (this, priv, fsscrub, nthrottle);
         if (ret)
                 goto error_return;
+
+        if (fsscrub->throttle != nthrottle)
+                fsscrub->throttle_reconf = _gf_true;
 
         fsscrub->throttle = nthrottle;
         return 0;
@@ -1246,6 +1253,7 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv,
         struct br_scrubber *fsscrub = NULL;
 
         fsscrub = &priv->fsscrub;
+        fsscrub->frequency_reconf = _gf_true;
 
         ret = br_scrubber_fetch_option (this, "scrub-freq", options, &tmp);
         if (ret)
@@ -1269,7 +1277,11 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv,
         } else
                 goto error_return;
 
-        fsscrub->frequency = frequency;
+        if (fsscrub->frequency == frequency)
+                fsscrub->frequency_reconf = _gf_false;
+        else
+                fsscrub->frequency = frequency;
+
         return 0;
 
  error_return:
@@ -1297,10 +1309,12 @@ static void br_scrubber_log_option (xlator_t *this,
         if (scrubstall)
                 return; /* logged as pause */
 
-        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_TUNABLE, "SCRUB "
-                "TUNABLES:: [Frequency: %s, Throttle: %s]",
-                scrub_freq_str[fsscrub->frequency],
-                scrub_throttle_str[fsscrub->throttle]);
+        if (fsscrub->frequency_reconf || fsscrub->throttle_reconf) {
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_TUNABLE,
+                        "SCRUB TUNABLES:: [Frequency: %s, Throttle: %s]",
+                        scrub_freq_str[fsscrub->frequency],
+                        scrub_throttle_str[fsscrub->throttle]);
+        }
 }
 
 int32_t
