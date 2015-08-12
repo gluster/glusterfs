@@ -2095,11 +2095,11 @@ server_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%"PRId64": IPC%"PRId64" (%s) ==> (%s)",
+                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                        PS_MSG_SERVER_IPC_INFO,
+                        "%"PRId64": IPC%"PRId64" (%s)",
                         frame->root->unique, state->resolve.fd_no,
-                        uuid_utoa (state->resolve.gfid),
-                        strerror (op_errno));
+                        uuid_utoa (state->resolve.gfid));
                 goto out;
         }
 

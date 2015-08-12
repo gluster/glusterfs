@@ -457,10 +457,9 @@ out:
                 inode_unref (inode);
 
         if (ret != 0)
-                gf_msg ("server", GF_LOG_DEBUG, 0,
-                        PS_MSG_ANONYMOUS_FD_CREATE_FAILED, "inode for the gfid"
-                        "(%s) is not found. anonymous fd creation failed",
-                        uuid_utoa (resolve->gfid));
+                gf_msg_debug ("server", 0, "inode for the gfid"
+                              "(%s) is not found. anonymous fd creation failed",
+                              uuid_utoa (resolve->gfid));
         return ret;
 }
 

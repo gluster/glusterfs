@@ -102,7 +102,8 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                 xdr_size = xdr_sizeof (xdrproc, arg);
                 iob = iobuf_get2 (req->svc->ctx->iobuf_pool, xdr_size);
                 if (!iob) {
-                        gf_log_callingfn (THIS->name, GF_LOG_ERROR,
+                        gf_msg_callingfn (THIS->name, GF_LOG_ERROR, ENOMEM,
+                                          PS_MSG_NO_MEMORY,
                                           "Failed to get iobuf");
                         goto ret;
                 };
@@ -120,7 +121,9 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                         /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
                            failure of RPC return values.. client should get
                            notified about this, so there are no missing frames */
-                        gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
+                        gf_msg_callingfn ("", GF_LOG_ERROR, 0,
+                                          PS_MSG_ENCODE_MSG_FAILED,
+                                          "Failed to encode message");
                         req->rpc_err = GARBAGE_ARGS;
                         retlen = 0;
                 }
@@ -192,12 +195,15 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
          */
         iobuf_unref (iob);
         if (ret == -1) {
-                gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
+                gf_msg_callingfn ("", GF_LOG_ERROR, 0,
+                                  PS_MSG_REPLY_SUBMIT_FAILED,
+                                  "Reply submission failed");
                 if (frame && client && !lk_heal) {
                         server_connection_cleanup (frame->this, client,
                                                   INTERNAL_LOCKS | POSIX_LOCKS);
                 } else {
-                        gf_log_callingfn ("", GF_LOG_ERROR,
+                        gf_msg_callingfn ("", GF_LOG_ERROR, 0,
+                                          PS_MSG_REPLY_SUBMIT_FAILED,
                                           "Reply submission failed");
                         /* TODO: Failure of open(dir), create, inodelk, entrylk
                            or lk fops send failure must be handled specially. */
@@ -483,7 +489,8 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         server_ctx_t        *serv_ctx   = NULL;
 
         if (!xl || !data) {
-                gf_log_callingfn ("server", GF_LOG_WARNING,
+                gf_msg_callingfn ("server", GF_LOG_WARNING, 0,
+                                  PS_MSG_RPC_NOTIFY_ERROR,
                                   "Calling rpc_notify without initializing");
                 goto out;
         }
@@ -724,7 +731,8 @@ reconfigure (xlator_t *this, dict_t *options)
         conf = this->private;
 
         if (!conf) {
-                gf_log_callingfn (this->name, GF_LOG_DEBUG, "conf == null!!!");
+                gf_msg_callingfn (this->name, GF_LOG_DEBUG, EINVAL,
+                                  PS_MSG_INVALID_ENTRY, "conf == null!!!");
                 goto out;
         }
 
@@ -1153,7 +1161,8 @@ server_process_event_upcall (xlator_t *this, void *data)
                 xdrproc = (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req;
                 break;
         default:
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        PS_MSG_INVALID_ENTRY,
                         "Received invalid upcall event(%d)",
                         upcall_data->event_type);
                 goto out;
@@ -1206,7 +1215,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 ret = server_process_event_upcall (this, data);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_SERVER_EVENT_UPCALL_FAILED,
                                 "server_process_event_upcall failed");
                         goto out;
                 }
