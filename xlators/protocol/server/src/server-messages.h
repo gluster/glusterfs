@@ -40,7 +40,7 @@
  */
 
 #define GLFS_PS_BASE                GLFS_MSGID_COMP_PS
-#define GLFS_NUM_MESSAGES           83
+#define GLFS_NUM_MESSAGES           88
 #define GLFS_MSGID_END              (GLFS_PS_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messages with message IDs */
 #define glfs_msg_start_x GLFS_PS_BASE, "Invalid: Start of messages"
@@ -793,6 +793,43 @@
  *
  */
 
+#define PS_MSG_ENCODE_MSG_FAILED                (GLFS_PS_BASE + 84)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PS_MSG_REPLY_SUBMIT_FAILED              (GLFS_PS_BASE + 85)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PS_MSG_RPC_NOTIFY_ERROR                  (GLFS_PS_BASE + 86)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PS_MSG_SERVER_EVENT_UPCALL_FAILED       (GLFS_PS_BASE + 87)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PS_MSG_SERVER_IPC_INFO                  (GLFS_PS_BASE + 88)
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
