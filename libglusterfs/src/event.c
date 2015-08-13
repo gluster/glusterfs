@@ -121,7 +121,14 @@ event_dispatch (struct event_pool *event_pool)
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_dispatch (event_pool);
+        if (ret)
+                goto out;
 
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->dispatched = 1;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
 out:
         return ret;
 }
