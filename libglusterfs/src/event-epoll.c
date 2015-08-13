@@ -791,7 +791,11 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
 
                 oldthreadcount = event_pool->eventthreadcount;
 
-                if (oldthreadcount < value) {
+                /* Start 'worker' threads as necessary only if event_dispatch()
+                 * was called before. If event_dispatch() was not called, there
+                 * will be no epoll 'worker' threads running yet. */
+
+                if (event_pool->dispatched && oldthreadcount < value) {
                         /* create more poll threads */
                         for (i = oldthreadcount; i < value; i++) {
                                 /* Start a thread if the index at this location
