@@ -1059,7 +1059,9 @@ ra_priv_dump (xlator_t *this)
 
         conf = this->private;
         if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING, "conf null in xlator");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READ_AHEAD_MSG_XLATOR_CONF_NULL,
+                        "conf null in xlator");
                 goto out;
         }
 
@@ -1217,7 +1219,8 @@ fini (xlator_t *this)
         */
         if (!((conf->files.next == &conf->files)
                    && (conf->files.prev == &conf->files))) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        READ_AHEAD_MSG_UNDESTROYED_FILE_FOUND,
                        "undestroyed read ahead file structures found");
         }
 

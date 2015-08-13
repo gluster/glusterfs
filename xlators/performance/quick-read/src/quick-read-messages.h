@@ -40,7 +40,7 @@
  */
 
 #define GLFS_QUICK_READ_BASE                    GLFS_MSGID_COMP_QUICK_READ
-#define GLFS_QUICK_READ_NUM_MESSAGES            7
+#define GLFS_QUICK_READ_NUM_MESSAGES            8
 #define GLFS_MSGID_END                          (GLFS_QUICK_READ_BASE +\
                                               GLFS_QUICK_READ_NUM_MESSAGES + 1)
 
@@ -104,6 +104,15 @@
  */
 
 #define QUICK_READ_MSG_INVALID_CONFIG           (GLFS_QUICK_READ_BASE + 7)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define QUICK_READ_MSG_LRU_NOT_EMPTY            (GLFS_QUICK_READ_BASE + 8)
 
 /*!
  * @messageid

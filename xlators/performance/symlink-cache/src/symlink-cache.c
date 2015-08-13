@@ -187,7 +187,8 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct iatt *buf)
 		inode_ctx_get (inode, this, &tmp_sc);
 
 		if (!tmp_sc) {
-			gf_log (this->name, GF_LOG_ERROR,
+			gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SYMLINK_CACHE_MSG_NO_MEMORY,
 				"out of memory :(");
 			return 0;
 		}

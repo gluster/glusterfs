@@ -1067,8 +1067,9 @@ qr_inode_table_destroy (qr_private_t *priv)
                  * that is fixed, log the assert as warning.
                 GF_ASSERT (list_empty (&priv->table.lru[i]));*/
                 if (!list_empty (&priv->table.lru[i])) {
-                        gf_log ("quick-read", GF_LOG_INFO,
-                               "quick read inode table lru not empty");
+                        gf_msg ("quick-read", GF_LOG_INFO, 0,
+                                QUICK_READ_MSG_LRU_NOT_EMPTY,
+                                "quick read inode table lru not empty");
                 }
         }
 

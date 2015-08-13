@@ -40,7 +40,7 @@
  */
 
 #define GLFS_IO_CACHE_BASE                   GLFS_MSGID_COMP_IO_CACHE
-#define GLFS_IO_CACHE_NUM_MESSAGES           6
+#define GLFS_IO_CACHE_NUM_MESSAGES           9
 #define GLFS_MSGID_END  (GLFS_IO_CACHE_BASE + GLFS_IO_CACHE_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -103,6 +103,32 @@
 
 #define IO_CACHE_MSG_INODE_NULL        (GLFS_IO_CACHE_BASE + 6)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define IO_CACHE_MSG_PAGE_WAIT_VALIDATE         (GLFS_IO_CACHE_BASE + 7)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define IO_CACHE_MSG_STR_COVERSION_FAILED       (GLFS_IO_CACHE_BASE + 8)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define IO_CACHE_MSG_WASTED_COPY                (GLFS_IO_CACHE_BASE + 9)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

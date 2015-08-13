@@ -467,7 +467,8 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (!page) {
                                 /* page was flushed */
                                 /* some serious bug ? */
-                                gf_log (frame->this->name, GF_LOG_WARNING,
+                                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                                        IO_CACHE_MSG_WASTED_COPY,
                                         "wasted copy: %"PRId64"[+%"PRId64"] "
                                         "ioc_inode=%p", offset,
                                         table->page_size, ioc_inode);
