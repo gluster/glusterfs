@@ -355,8 +355,11 @@ server_connection_cleanup (xlator_t *this, client_t *client,
                 cd_ret = gf_client_disconnect (client);
         }
 
-        if (fdentries != NULL)
+        if (fdentries != NULL) {
+                gf_msg_debug (this->name, 0, "Performing cleanup on %d "
+                              "fdentries", fd_count);
                 ret = do_fd_cleanup (this, client, fdentries, fd_count);
+        }
         else
                 gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
                         "no fdentries to clean");
@@ -1058,6 +1061,9 @@ server_cancel_grace_timer (xlator_t *this, client_t *client)
         LOCK (&serv_ctx->fdtable_lock);
         {
                 if (serv_ctx->grace_timer) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                        PS_MSG_GRACE_TIMER_CANCELLED,
+                                        "Cancelling the grace timer");
                         timer = serv_ctx->grace_timer;
                         serv_ctx->grace_timer = NULL;
                 }
