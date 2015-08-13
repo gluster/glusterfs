@@ -2020,6 +2020,8 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 break;
         }
         case RPC_CLNT_DISCONNECT:
+                gf_msg_debug (this->name, 0, "got RPC_CLNT_DISCONNECT");
+
                 if (!conf->lk_heal)
                         client_mark_fd_bad (this);
                 else

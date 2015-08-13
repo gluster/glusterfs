@@ -40,7 +40,7 @@
  */
 
 #define GLFS_PS_BASE                GLFS_MSGID_COMP_PS
-#define GLFS_NUM_MESSAGES           82
+#define GLFS_NUM_MESSAGES           83
 #define GLFS_MSGID_END              (GLFS_PS_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messages with message IDs */
 #define glfs_msg_start_x GLFS_PS_BASE, "Invalid: Start of messages"
@@ -776,6 +776,15 @@
  */
 
 #define PS_MSG_FILE_OP_FAILED                   (GLFS_PS_BASE + 82)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define PS_MSG_GRACE_TIMER_CANCELLED            (GLFS_PS_BASE + 83)
 
 /*!
  * @messageid
