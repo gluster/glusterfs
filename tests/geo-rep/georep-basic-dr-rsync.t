@@ -63,27 +63,63 @@ TEST $GEOREP_CLI $master $slave start
 sleep 10
 EXPECT 2 check_status_num_rows "Active"
 EXPECT 2 check_status_num_rows "Passive"
-TEST data_tests "hybrid"                            #20
+
+#DATA_TESTS HYBRID
+sleep 10
+TEST regular_file_ok ${slave_mnt}/hybrid_f1         #20
+TEST directory_ok ${slave_mnt}/$hybrid_d1
+TEST rename_ok ${slave_mnt}/hybrid_f3 ${slave_mnt}/hybrid_f4
+TEST rename_ok ${slave_mnt}/hybrid_d3 ${slave_mnt}/hybrid_d4
+TEST symlink_ok hybrid_f1 ${slave_mnt}/hybrid_sl1
+TEST hardlink_file_ok ${slave_mnt}/hybrid_f1 ${slave_mnt}/hybrid_hl1 #25
+TEST unlink_ok ${slave_mnt}/hybrid_f2
+TEST unlink_ok ${slave_mnt}/hybrid_d2
+TEST data_ok ${slave_mnt}/hybrid_f1 "HelloWorld!"
+
 
 #Check History Crawl.
 TEST $GEOREP_CLI $master $slave stop
-TEST create_data "history"
+TEST create_data "history"                          #30
 TEST $GEOREP_CLI $master $slave start
 sleep 10
 EXPECT 2 check_status_num_rows "Active"
-EXPECT 2 check_status_num_rows "Passive"           #25
-TEST data_tests "history"
+EXPECT 2 check_status_num_rows "Passive"
+
+
+
+#data_tests "history"
+sleep 10
+TEST regular_file_ok ${slave_mnt}/history_f1
+TEST directory_ok ${slave_mnt}/history_d1           #35
+TEST rename_ok ${slave_mnt}/history_f3 ${slave_mnt}/history_f4
+TEST rename_ok ${slave_mnt}/history_d3 ${slave_mnt}/history_d4
+TEST symlink_ok history_f1 ${slave_mnt}/history_sl1
+TEST hardlink_file_ok ${slave_mnt}/history_f1 ${slave_mnt}/history_hl1
+TEST unlink_ok ${slave_mnt}/history_f2           #40
+TEST unlink_ok ${slave_mnt}/history_d2
+TEST data_ok ${slave_mnt}/history_f1 "HelloWorld!"
 
 #Check History Crawl.
 TEST create_data "changelog"
 sleep 15
 TEST check_status "Changelog Crawl"
-TEST data_tests "changelog"
+
+#data_tests "changelog"
+sleep 10
+TEST regular_file_ok ${slave_mnt}/changelog_f1      #45
+TEST directory_ok ${slave_mnt}/changelog_d1
+TEST rename_ok ${slave_mnt}/changelog_f3 ${slave_mnt}/changelog_f4
+TEST rename_ok ${slave_mnt}/changelog_d3 ${slave_mnt}/changelog_d4
+TEST symlink_ok changelog_f1 ${slave_mnt}/changelog_sl1
+TEST hardlink_file_ok ${slave_mnt}/changelog_f1 ${slave_mnt}/changelog_hl1 #50
+TEST unlink_ok ${slave_mnt}/changelog_f2
+TEST unlink_ok ${slave_mnt}/changelog_d2
+TEST data_ok ${slave_mnt}/changelog_f1 "HelloWorld!"
 
 #Stop Geo-rep
-TEST $GEOREP_CLI $master $slave stop                #30
+TEST $GEOREP_CLI $master $slave stop
 
 #Delete Geo-rep
-TEST $GEOREP_CLI $master $slave delete
+TEST $GEOREP_CLI $master $slave delete             #55
 
 cleanup;
