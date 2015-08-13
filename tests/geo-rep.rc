@@ -40,10 +40,12 @@ function create_data()
 	ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1
 
 	# Symlink
-	ln -s ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_sl1
+        cd ${master_mnt}
+	ln -s ${prefix}_f1 ${prefix}_sl1
+        cd -
 
 	# data
-	echo "Hello World!" >> ${master_mnt}/${prefix}_f1
+	echo "HelloWorld!" >> ${master_mnt}/${prefix}_f1
 
 	# UNLINK
 	rm ${master_mnt}/${prefix}_f2
@@ -100,8 +102,10 @@ function hardlink_file_ok()
 function data_ok()
 {
 	path=$1
-	data1=$2
+	data1="$2"
         data2=$(cat $path)
+        echo "data1:$data1"
+        echo "data2:$data2"
         if test "X$data1" != "X$data2"
         then
                 return 1
@@ -110,13 +114,14 @@ function data_ok()
 
 function symlink_ok()
 {
-	local orig_file_name=$(basename $1)
+	local orig_file_name=$1
 	local symlink_file=$2
+
 
 	local file_type=$(stat --format "%F" "$symlink_file")
 	if test "X$file_type" != "Xsymbolic link"; then return 1; fi
 
-	local fname=$(stat $symlink_file --format "%N")
+	local fname=$(readlink $symlink_file)
 	if test "X$fname" != "X$orig_file_name"; then return 1; fi
 }
 
@@ -136,48 +141,12 @@ function rename_ok()
 	fi
 }
 
-function data_tests()
-{
-        local prefix=$1
-
-	sleep 10
-        #Regular file checking
-	regular_file_ok ${slave_mnt}/${prefix}_f1
-	if test $? != 0; then return $?; fi
-
-        #Directory checking
-	directory_ok ${slave_mnt}/${prefix}_d1
-	if test $? != 0; then return $?; fi
-
-        #Rename file/dir checking
-	rename_ok ${slave_mnt}/${prefix}_f3 ${slave_mnt}/${prefix}_f4
-	if test $? != 0; then return $?; fi
-	rename_ok ${slave_mnt}/${prefix}_d3 ${slave_mnt}/${prefix}_d4
-	if test $? != 0; then return $?; fi
-
-        #Symlink
-	symlink_ok ${slave_mnt}/${prefix}_f1 ${slave_mnt}/${prefix}_sl1
-	if test $? != 0; then return $?; fi
-
-        #Hardlink
-	hardlink_file_ok ${slave_mnt}/${prefix}_f1 ${slave_mnt}/${prefix}_hl1
-	if test $? != 0; then return $?; fi
-
-        #Unlink/rmdir checking
-        unlink_ok ${slave_mnt}/${prefix}_f2
-	if test $? != 0; then return $?; fi
-        unlink_ok ${slave_mnt}/${prefix}_d2
-	if test $? != 0; then return $?; fi
-
-        #Data
-	data_ok ${master_mnt}/${prefix}_f1 "Hello World!"
-	if test $? != 0; then return $?; fi
-}
-
 function create_georep_session()
 {
         $CLI system:: execute gsec_create
-	if test $? != 0; then return $?; fi
+	rc=$?
+	if test $rc != 0; then return $rc; fi
         $CLI volume geo-rep $master $slave create push-pem
-	if test $? != 0; then return $?; fi
+	rc=$?
+	if test $rc != 0; then return $rc; fi
 }
