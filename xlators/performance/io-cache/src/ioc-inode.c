@@ -47,7 +47,8 @@ ptr_to_str (void *ptr)
 
         ret = gf_asprintf (&str, "%p", ptr);
         if (-1 == ret) {
-                gf_log ("io-cache", GF_LOG_WARNING,
+                gf_msg ("io-cache", GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_STR_COVERSION_FAILED,
                         "asprintf failed while converting ptr to str");
                 str = NULL;
                 goto out;
@@ -95,7 +96,8 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                 cache_still_valid = 0;
 
         if (!waiter) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_PAGE_WAIT_VALIDATE,
                         "cache validate called without any "
                         "page waiting to be validated");
         }

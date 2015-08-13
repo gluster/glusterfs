@@ -40,7 +40,7 @@
  */
 
 #define GLFS_READ_AHEAD_BASE                   GLFS_MSGID_COMP_READ_AHEAD
-#define GLFS_READ_AHEAD_NUM_MESSAGES           4
+#define GLFS_READ_AHEAD_NUM_MESSAGES           6
 #define GLFS_MSGID_END  (GLFS_READ_AHEAD_BASE +\
          GLFS_READ_AHEAD_NUM_MESSAGES + 1)
 
@@ -86,6 +86,23 @@
 
 #define READ_AHEAD_MSG_FD_CONTEXT_NOT_SET        (GLFS_READ_AHEAD_BASE + 4)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define READ_AHEAD_MSG_UNDESTROYED_FILE_FOUND   (GLFS_READ_AHEAD_BASE + 5)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define READ_AHEAD_MSG_XLATOR_CONF_NULL         (GLFS_READ_AHEAD_BASE + 6)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
