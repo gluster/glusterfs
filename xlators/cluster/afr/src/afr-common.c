@@ -3886,7 +3886,6 @@ afr_notify (xlator_t *this, int32_t event,
         int             idx                 = -1;
         int             ret                 = -1;
         int             call_psh            = 0;
-        int             up_child            = -1;
         dict_t          *input              = NULL;
         dict_t          *output             = NULL;
         gf_boolean_t    had_quorum          = _gf_false;
@@ -3947,7 +3946,6 @@ afr_notify (xlator_t *this, int32_t event,
                         priv->child_up[idx] = 1;
 
                         call_psh = 1;
-                        up_child = idx;
                         for (i = 0; i < priv->child_count; i++)
                                 if (priv->child_up[i] == 1)
                                         up_children++;
@@ -4083,22 +4081,18 @@ afr_notify (xlator_t *this, int32_t event,
         if (propagate)
                 ret = default_notify (this, event, data);
 
-        if (!had_heard_from_all && have_heard_from_all && priv->shd.iamshd) {
-                /*
-                 * Since self-heal is supposed to be launched only after
-                 * the responses from all the bricks are collected,
-                 * launch self-heals now on all up subvols.
+        if ((!had_heard_from_all) || call_psh) {
+                /* Launch self-heal on all local subvolumes if:
+                 * a) We have_heard_from_all for the first time
+                 * b) Already heard from everyone, but we now got a child-up
+                 *    event.
                  */
-                for (i = 0; i < priv->child_count; i++)
-                        if (priv->child_up[i])
-                                afr_selfheal_childup (this, i);
-        } else if (have_heard_from_all && call_psh && priv->shd.iamshd) {
-                /*
-                 * Already heard from everyone. Just launch heal on now up
-                 * subvolume.
-                 */
-                 afr_selfheal_childup (this, up_child);
-	}
+                if (have_heard_from_all && priv->shd.iamshd) {
+                        for (i = 0; i < priv->child_count; i++)
+                                if (priv->child_up[i])
+                                        afr_selfheal_childup (this, i);
+                }
+        }
 out:
         return ret;
 }
