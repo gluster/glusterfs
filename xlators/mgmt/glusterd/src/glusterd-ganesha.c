@@ -224,7 +224,6 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         char                            *str                    = NULL;
         int                             dict_count              = 0;
         int                             flags                   = 0;
-        char                            errstr[2048]            = {0, } ;
         glusterd_volinfo_t              *volinfo                = NULL;
         glusterd_conf_t                 *priv                   = NULL;
         xlator_t                        *this                   = NULL;
@@ -676,7 +675,6 @@ int
 start_ganesha (char **op_errstr)
 {
         int                     ret                        = -1;
-        char                    key[1024]                  = {0,};
         char                    *hostname                  = NULL;
         dict_t *vol_opts                                   = NULL;
         glusterd_volinfo_t *volinfo                        = NULL;

@@ -1843,7 +1843,6 @@ glusterd_store_global_info (xlator_t *this)
         char                    path[PATH_MAX]          = {0,};
         gf_store_handle_t       *handle                 = NULL;
         char                    *uuid_str               = NULL;
-        char                     buf[256]               = {0, };
 
         conf = this->private;
 

@@ -3612,8 +3612,6 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                                        "%s-tier-%d"};
         char                    *stripe_args[]      = {"cluster/stripe",
                                                        "%s-stripe-%d"};
-        char                    *disperse_args[]    = {"cluster/disperse",
-                                                       "%s-disperse-%d"};
         char                    option[32]          = "";
         int                     rclusters           = 0;
         int                     clusters            = 0;
