@@ -388,7 +388,6 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
 {
         int                      ret  = -1;
         gd1_mgmt_v3_lock_req     req  = {{0},};
-        glusterd_conf_t         *conf = THIS->private;
         uuid_t                  *peerid = NULL;
 
         GF_ASSERT(op_ctx);
@@ -492,7 +491,6 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
 {
         int                          ret  = -1;
         gd1_mgmt_v3_unlock_req       req  = {{0},};
-        glusterd_conf_t             *conf = THIS->private;
         uuid_t                      *peerid = NULL;
 
         GF_ASSERT(op_ctx);
@@ -607,7 +605,6 @@ gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
 {
         int                       ret = -1;
         gd1_mgmt_cluster_lock_req req  = {{0},};
-        glusterd_conf_t           *conf = THIS->private;
         uuid_t                    *peerid = NULL;
 
         gf_uuid_copy (req.uuid, my_uuid);
@@ -705,7 +702,6 @@ gd_syncop_mgmt_unlock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
 {
         int                         ret     = -1;
         gd1_mgmt_cluster_unlock_req req     = {{0},};
-        glusterd_conf_t             *conf   = THIS->private;
         uuid_t                      *peerid = NULL;
 
         gf_uuid_copy (req.uuid, my_uuid);
@@ -837,7 +833,6 @@ gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
                          dict_t *dict_out, dict_t *op_ctx)
 {
         gd1_mgmt_stage_op_req *req  = NULL;
-        glusterd_conf_t       *conf = THIS->private;
         int                   ret   = -1;
         uuid_t                *peerid = NULL;
 
@@ -1130,7 +1125,6 @@ gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
                           uuid_t my_uuid, uuid_t recv_uuid,
                           int op, dict_t *dict_out, dict_t *op_ctx)
 {
-        glusterd_conf_t        *conf = THIS->private;
         gd1_mgmt_commit_op_req *req  = NULL;
         int                    ret  = -1;
         uuid_t                 *peerid = NULL;

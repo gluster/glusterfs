@@ -504,7 +504,6 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
                  uuid_t recv_uuid)
 {
         gd1_mgmt_v3_lock_req     req  = {{0},};
-        glusterd_conf_t         *conf = THIS->private;
         int32_t                  ret  = -1;
         xlator_t                *this = NULL;
         uuid_t                  *peerid = NULL;
@@ -809,7 +808,6 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
 {
         int32_t                  ret   = -1;
         gd1_mgmt_v3_pre_val_req  req   = {{0},};
-        glusterd_conf_t         *conf  = THIS->private;
         xlator_t                *this  = NULL;
         uuid_t                  *peerid = NULL;
 
@@ -1100,7 +1098,6 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
 {
         int32_t                   ret  = -1;
         gd1_mgmt_v3_brick_op_req  req  = {{0},};
-        glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
         uuid_t                   *peerid = {0,};
 
@@ -1349,7 +1346,6 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
 {
         int32_t                  ret  = -1;
         gd1_mgmt_v3_commit_req   req  = {{0},};
-        glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
         uuid_t                  *peerid = NULL;
 
@@ -1580,7 +1576,6 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
 {
         int32_t                   ret  = -1;
         gd1_mgmt_v3_post_val_req  req  = {{0},};
-        glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
         uuid_t                   *peerid = NULL;
 
@@ -1799,7 +1794,6 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
 {
         int32_t                  ret  = -1;
         gd1_mgmt_v3_unlock_req   req  = {{0},};
-        glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
         uuid_t                  *peerid = NULL;
 
