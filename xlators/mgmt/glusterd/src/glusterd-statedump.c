@@ -188,7 +188,6 @@ glusterd_dump_priv (xlator_t *this)
         int                   index                    = 1;
         glusterd_conf_t      *priv                     = NULL;
         char                  key[GF_DUMP_MAX_BUF_LEN] = {0,};
-        char                  subkey[50]               = {0,};
         glusterd_peerinfo_t  *peerinfo                 = NULL;
         glusterd_volinfo_t   *volinfo                  = NULL;
 

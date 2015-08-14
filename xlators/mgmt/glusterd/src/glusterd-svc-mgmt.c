@@ -149,7 +149,6 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         glusterd_conf_t     *priv                       = NULL;
         xlator_t            *this                       = NULL;
         char                 valgrind_logfile[PATH_MAX] = {0};
-        char                 glusterd_uuid_option[1024] = {0};
 
         this = THIS;
         GF_ASSERT (this);

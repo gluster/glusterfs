@@ -2828,7 +2828,6 @@ out:
 int32_t
 glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
 {
-        struct mntent         save_entry           = {0,};
         int32_t               brick_count          = -1;
         int32_t               ret                  = -1;
         int32_t               err                  = 0;
@@ -6977,7 +6976,6 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         char               *volname              = NULL;
         xlator_t           *this                 = NULL;
         int                 ret                  = -1;
-        char                err_str[PATH_MAX]    = {0,};
         glusterd_conf_t    *conf                 = NULL;
         int                 config_command       = 0;
         uint64_t            hard_limit           = 0;
