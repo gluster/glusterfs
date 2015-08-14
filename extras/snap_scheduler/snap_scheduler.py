@@ -451,8 +451,8 @@ def initialise_scheduler():
 
     os.symlink(GCRON_TASKS, GCRON_CROND_TASK)
 
-    log.info("Successfully inited snapshot scheduler for this node")
-    output("Successfully inited snapshot scheduler for this node")
+    log.info("Successfully initialised snapshot scheduler for this node")
+    output("Successfully initialised snapshot scheduler for this node")
 
     ret = 0
     return ret
