@@ -765,7 +765,6 @@ glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
 {
         gf_xl_afr_op_t                  heal_op = GF_SHD_OP_INVALID;
         int                             ret = 0;
-        xlator_t                        *this = THIS;
         char                            *key = NULL;
         char                            *value = NULL;
 

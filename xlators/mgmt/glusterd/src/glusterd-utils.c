@@ -1616,7 +1616,6 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
         char                    *brickid = NULL;
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
-        glusterd_conf_t         *priv = THIS->private;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -10585,7 +10584,6 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
         char                 *cmd               = NULL;
         struct mntent        *entry             = NULL;
         struct mntent         save_entry        = {0,};
-        runner_t              runner            = {0,};
         xlator_t             *this              = NULL;
 
         this = THIS;
