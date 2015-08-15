@@ -104,7 +104,7 @@ typedef struct clnt_conf {
         uint16_t               lk_version; /* this variable is used to distinguish
                                               client-server transaction while
                                               performing lock healing */
-        struct timespec        grace_ts;
+        uint32_t               grace_timeout;
         gf_timer_t            *grace_timer;
         gf_boolean_t           grace_timer_needed; /* The state of this flag will
                                                       be used to decide whether

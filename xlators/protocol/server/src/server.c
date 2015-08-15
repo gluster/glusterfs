@@ -487,6 +487,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         server_conf_t       *conf       = NULL;
         client_t            *client     = NULL;
         server_ctx_t        *serv_ctx   = NULL;
+        struct timespec     grace_ts    = {0, };
 
         if (!xl || !data) {
                 gf_msg_callingfn ("server", GF_LOG_WARNING, 0,
@@ -569,6 +570,9 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         goto out;
                 }
 
+                grace_ts.tv_sec = conf->grace_timeout;
+                grace_ts.tv_nsec = 0;
+
                 LOCK (&serv_ctx->fdtable_lock);
                 {
                         if (!serv_ctx->grace_timer) {
@@ -580,7 +584,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
                                 serv_ctx->grace_timer =
                                         gf_timer_call_after (this->ctx,
-                                                             conf->grace_ts,
+                                                             grace_ts,
                                                              grace_time_handler,
                                                              client);
                         }
@@ -665,36 +669,22 @@ int
 server_init_grace_timer (xlator_t *this, dict_t *options,
                          server_conf_t *conf)
 {
-        char      timestr[64]    = {0,};
         int32_t   ret            = -1;
-        int32_t   grace_timeout  = -1;
-        char     *lk_heal        = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        conf->lk_heal = _gf_false;
-
-        ret = dict_get_str (options, "lk-heal", &lk_heal);
-        if (!ret)
-                gf_string2boolean (lk_heal, &conf->lk_heal);
+        GF_OPTION_RECONF ("lk-heal", conf->lk_heal, options, bool, out);
 
         gf_msg_debug (this->name, 0, "lk-heal = %s",
                       (conf->lk_heal) ? "on" : "off");
 
-        ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
-        if (!ret)
-                conf->grace_ts.tv_sec = grace_timeout;
-        else
-                conf->grace_ts.tv_sec = 10;
+        GF_OPTION_RECONF ("grace-timeout", conf->grace_timeout,
+                                                options, uint32, out);
 
-        gf_time_fmt (timestr, sizeof timestr, conf->grace_ts.tv_sec,
-                     gf_timefmt_s);
-        gf_msg_debug (this->name, 0, "Server grace timeout value = %s",
-                      timestr);
-
-        conf->grace_ts.tv_nsec  = 0;
+        gf_msg_debug (this->name, 0, "Server grace timeout value = %d",
+                                conf->grace_timeout);
 
         ret = 0;
 out:
@@ -1339,6 +1329,7 @@ struct volume_options options[] = {
          .type = GF_OPTION_TYPE_INT,
          .min  = 10,
          .max  = 1800,
+         .default_value = "10",
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,

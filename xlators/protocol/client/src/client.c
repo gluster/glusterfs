@@ -177,9 +177,13 @@ int32_t
 client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
 {
         int32_t  ret = -1;
+        struct timespec grace_ts = {0, };
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        grace_ts.tv_sec = conf->grace_timeout;
+        grace_ts.tv_nsec = 0;
 
         pthread_mutex_lock (&conf->lock);
         {
@@ -196,7 +200,7 @@ client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
 
                         conf->grace_timer =
                                 gf_timer_call_after (this->ctx,
-                                                     conf->grace_ts,
+                                                     grace_ts,
                                                      client_grace_timeout,
                                                      conf->rpc);
                 }
@@ -2320,36 +2324,22 @@ int
 client_init_grace_timer (xlator_t *this, dict_t *options,
                          clnt_conf_t *conf)
 {
-        char      timestr[64]    = {0,};
-        char     *lk_heal        = NULL;
         int32_t   ret            = -1;
-        int32_t   grace_timeout  = -1;
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        conf->lk_heal = _gf_false;
-
-        ret = dict_get_str (options, "lk-heal", &lk_heal);
-        if (!ret)
-                gf_string2boolean (lk_heal, &conf->lk_heal);
+        GF_OPTION_RECONF ("lk-heal", conf->lk_heal, options, bool, out);
 
         gf_msg_debug (this->name, 0, "lk-heal = %s",
                       (conf->lk_heal) ? "on" : "off");
 
-        ret = dict_get_int32 (options, "grace-timeout", &grace_timeout);
-        if (!ret)
-                conf->grace_ts.tv_sec = grace_timeout;
-        else
-                conf->grace_ts.tv_sec = 10;
+        GF_OPTION_RECONF ("grace-timeout", conf->grace_timeout,
+                                                options, uint32, out);
 
-        conf->grace_ts.tv_nsec  = 0;
-
-        gf_time_fmt (timestr, sizeof timestr, conf->grace_ts.tv_sec,
-                     gf_timefmt_s);
-        gf_msg_debug (this->name, 0, "Client grace timeout value = %s",
-                      timestr);
+        gf_msg_debug (this->name, 0, "Client grace timeout value = %d",
+                                conf->grace_timeout);
 
         ret = 0;
 out:
