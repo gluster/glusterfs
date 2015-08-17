@@ -2067,8 +2067,6 @@ gf_cli_ganesha_cbk (struct rpc_req *req, struct iovec *iov,
         int                  ret   = -1;
         dict_t               *dict = NULL;
         char                 *help_str = NULL;
-        char                 msg[1024] = {0,};
-        char                 tmp_str[512] = {0,};
 
         GF_ASSERT (myframe);
 

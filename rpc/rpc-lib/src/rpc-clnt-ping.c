@@ -174,7 +174,6 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t              *this    = NULL;
         rpc_clnt_connection_t *conn    = NULL;
         call_frame_t          *frame   = NULL;
-        struct timespec       timeout  = {0, };
         int                   unref    = 0;
 
         if (!myframe) {
@@ -264,7 +263,6 @@ rpc_clnt_start_ping (void *rpc_ptr)
 {
         struct rpc_clnt         *rpc         = NULL;
         rpc_clnt_connection_t   *conn        = NULL;
-        struct timespec          timeout     = {0, };
         int                      frame_count = 0;
         int                      unref       = 0;
 
