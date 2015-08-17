@@ -198,6 +198,9 @@ function is_bad_test ()
               ./tests/basic/tier/bug-1214222-directories_miising_after_attach_tier.t \
               ./tests/bugs/snapshot/bug-1109889.t \
               ./tests/bugs/distribute/bug-1066798.t \
+              ./tests/basic/mount-nfs-auth.t \
+              ./tests/geo-rep/georep-basic-dr-rsync.t \
+              ./tests/geo-rep/georep-basic-dr-tarssh.t \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
