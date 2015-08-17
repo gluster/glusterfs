@@ -103,7 +103,6 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
         xlator_t       *this     = NULL;
         gf_private_t   *priv     = NULL;
         gf_changelog_t *entry    = NULL;
-        char sock[UNIX_PATH_MAX] = {0,};
 
         if (!(event == RPCSVC_EVENT_ACCEPT ||
               event == RPCSVC_EVENT_DISCONNECT))

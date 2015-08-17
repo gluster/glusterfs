@@ -4293,7 +4293,6 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int64_t            blocks       = 0;
         quota_inode_ctx_t *ctx          = NULL;
         int                ret          = 0;
-        quota_local_t     *local        = frame->local;
 
         inode = cookie;
 
