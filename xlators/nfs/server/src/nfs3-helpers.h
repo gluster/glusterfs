@@ -245,33 +245,38 @@ extern int
 nfs3_cached_inode_opened (xlator_t *nfsxl, inode_t *inode);
 
 extern void
-nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat);
+nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
+                     const char *path);
 
 extern void
-nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath);
+nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat,
+                       char *linkpath, const char *path);
 
 extern void
-nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
-                   int is_eof, struct iovec *vec, int32_t vcount);
+nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat,
+                   count3 count, int is_eof, struct iovec *vec,
+                   int32_t vcount, const char *path);
 
 extern void
 nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
-                    int stable, uint64_t wverf);
+                    int stable, uint64_t wverf, const char *path);
 
 extern void
 nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
-                    struct nfs3_fh *newfh);
+                    struct nfs3_fh *newfh, const char *path);
 
 extern void
 nfs3_log_readdir_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
-                      count3 count, int is_eof);
+                      count3 count, int is_eof, const char *path);
 
 extern void
 nfs3_log_readdirp_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
-                       count3 dircount, count3 maxcount, int is_eof);
+                       count3 dircount, count3 maxcount, int is_eof,
+                       const char *path);
 
 extern void
-nfs3_log_commit_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t wverf);
+nfs3_log_commit_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t wverf,
+                     const char *path);
 
 extern void
 nfs3_log_common_call (uint32_t xid, char *op, struct nfs3_fh *fh);
