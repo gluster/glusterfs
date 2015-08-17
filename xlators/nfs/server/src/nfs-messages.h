@@ -53,7 +53,7 @@
 
 /*------------*/
 
-#define NFS_MSG_SVC_LOOKUP               (GLFS_NFS_BASE + 1)
+#define NFS_MSG_UNUSED_1                (GLFS_NFS_BASE + 1)
 /*!
  * @messageid
  * @diagnosis
@@ -61,7 +61,7 @@
  *
  */
 
-#define NFS_MSG_SVC_PAR_LOOKUP          (GLFS_NFS_BASE + 2)
+#define NFS_MSG_UNUSED_2                (GLFS_NFS_BASE + 2)
 /*!
  * @messageid
  * @diagnosis
@@ -109,7 +109,7 @@
  *
  */
 
-#define NFS_MSG_ACCESS_CBK              (GLFS_NFS_BASE + 8)
+#define NFS_MSG_UNUSED_8                (GLFS_NFS_BASE + 8)
 /*!
  * @messageid
  * @diagnosis
@@ -117,7 +117,7 @@
  *
  */
 
-#define NFS_MSG_READLINK_CBK            (GLFS_NFS_BASE + 9)
+#define NFS_MSG_UNUSED_9                (GLFS_NFS_BASE + 9)
 /*!
  * @messageid
  * @diagnosis
@@ -133,7 +133,7 @@
  *
  */
 
-#define NFS_MSG_READ_CBK                (GLFS_NFS_BASE + 11)
+#define NFS_MSG_UNUSED_11               (GLFS_NFS_BASE + 11)
 /*!
  * @messageid
  * @diagnosis
@@ -156,7 +156,7 @@
  *
  */
 
-#define NFS_MSG_FSYNC_CBK               (GLFS_NFS_BASE + 14)
+#define NFS_MSG_UNUSED_14               (GLFS_NFS_BASE + 14)
 /*!
  * @messageid
  * @diagnosis
@@ -164,7 +164,7 @@
  *
  */
 
-#define NFS_MSG_WRITE_CBK               (GLFS_NFS_BASE + 15)
+#define NFS_MSG_UNUSED_15               (GLFS_NFS_BASE + 15)
 /*!
  * @messageid
  * @diagnosis
@@ -188,7 +188,7 @@
  *
  */
 
-#define NFS_MSG_CREATE_SETATTR_CBK      (GLFS_NFS_BASE + 18)
+#define NFS_MSG_UNUSED_18               (GLFS_NFS_BASE + 18)
 /*!
  * @messageid
  * @diagnosis
@@ -196,7 +196,7 @@
  *
  */
 
-#define NFS_MSG_CREATE_CBK              (GLFS_NFS_BASE + 19)
+#define NFS_MSG_UNUSED_19               (GLFS_NFS_BASE + 19)
 /*!
  * @messageid
  * @diagnosis
@@ -204,7 +204,7 @@
  *
  */
 
-#define NFS_MSG_CREATE_STAT_CBK         (GLFS_NFS_BASE + 20)
+#define NFS_MSG_UNUSED_20               (GLFS_NFS_BASE + 20)
 /*!
  * @messageid
  * @diagnosis
@@ -220,7 +220,8 @@
  * @recommendedaction
  *
  */
-#define NFS_MSG_MKDIR_SETATTR_CBK       (GLFS_NFS_BASE + 22)
+
+#define NFS_MSG_UNUSED_22               (GLFS_NFS_BASE + 22)
 /*!
  * @messageid
  * @diagnosis
@@ -228,8 +229,7 @@
  *
  */
 
-
-#define NFS_MSG_MKDIR_CBK               (GLFS_NFS_BASE + 23)
+#define NFS_MSG_UNUSED_23               (GLFS_NFS_BASE + 23)
 /*!
  * @messageid
  * @diagnosis
@@ -245,7 +245,7 @@
  *
  */
 
-#define NFS_MSG_SYMLINK_CBK             (GLFS_NFS_BASE + 25)
+#define NFS_MSG_UNUSED_25               (GLFS_NFS_BASE + 25)
 /*!
  * @messageid
  * @diagnosis
@@ -261,7 +261,7 @@
  *
  */
 
-#define NFS_MSG_MKNOD_CBK               (GLFS_NFS_BASE + 27)
+#define NFS_MSG_UNUSED_27               (GLFS_NFS_BASE + 27)
 /*!
  * @messageid
  * @diagnosis
@@ -286,7 +286,7 @@
  */
 
 
-#define NFS_MSG_REMOVE_CBK              (GLFS_NFS_BASE + 30)
+#define NFS_MSG_UNUSED_30               (GLFS_NFS_BASE + 30)
 /*!
  * @messageid
  * @diagnosis
@@ -310,7 +310,7 @@
  *
  */
 
-#define NFS_MSG_RENAME_CBK              (GLFS_NFS_BASE + 33)
+#define NFS_MSG_UNUSED_33               (GLFS_NFS_BASE + 33)
 /*!
  * @messageid
  * @diagnosis
@@ -326,7 +326,7 @@
  *
  */
 
-#define NFS_MSG_LINK_CBK                (GLFS_NFS_BASE + 35)
+#define NFS_MSG_UNUSED_35               (GLFS_NFS_BASE + 35)
 /*!
  * @messageid
  * @diagnosis
@@ -342,7 +342,7 @@
  *
  */
 
-#define NFS_MSG_READDIR_FSTAT_CBK       (GLFS_NFS_BASE + 37)
+#define NFS_MSG_UNUSED_37               (GLFS_NFS_BASE + 37)
 /*!
  * @messageid
  * @diagnosis
@@ -350,7 +350,7 @@
  *
  */
 
-#define NFS_MSG_READDIR_CBK             (GLFS_NFS_BASE + 38)
+#define NFS_MSG_UNUSED_38               (GLFS_NFS_BASE + 38)
 /*!
  * @messageid
  * @diagnosis
@@ -374,7 +374,7 @@
  *
  */
 
-#define NFS_MSG_FSSTAT_STAT_CBK         (GLFS_NFS_BASE + 41)
+#define NFS_MSG_UNUSED_41               (GLFS_NFS_BASE + 41)
 /*!
  * @messageid
  * @diagnosis
@@ -382,7 +382,7 @@
  *
  */
 
-#define NFS_MSG_FSSTAT_STATFS_CBK       (GLFS_NFS_BASE + 42)
+#define NFS_MSG_UNUSED_42               (GLFS_NFS_BASE + 42)
 /*!
  * @messageid
  * @diagnosis
@@ -397,7 +397,7 @@
  *
  */
 
-#define NFS_MSG_FSINFO_CBK              (GLFS_NFS_BASE + 44)
+#define NFS_MSG_UNUSED_44               (GLFS_NFS_BASE + 44)
 /*!
  * @messageid
  * @diagnosis
@@ -413,7 +413,7 @@
  *
  */
 
-#define NFS_MSG_PATHCONF_CBK            (GLFS_NFS_BASE + 46)
+#define NFS_MSG_UNUSED_46               (GLFS_NFS_BASE + 46)
 /*!
  * @messageid
  * @diagnosis
@@ -429,7 +429,7 @@
  *
  */
 
-#define NFS_MSG_COMMIT_CBK              (GLFS_NFS_BASE + 48)
+#define NFS_MSG_UNUSED_48               (GLFS_NFS_BASE + 48)
 /*!
  * @messageid
  * @diagnosis
@@ -637,7 +637,7 @@
  *
  */
 
-#define NFS_MSG_GETATTR_LOOKUP_CBK      (GLFS_NFS_BASE + 75)
+#define NFS_MSG_UNUSED_75               (GLFS_NFS_BASE + 75)
 /*!
  * @messageid
  * @diagnosis
@@ -645,7 +645,7 @@
  *
  */
 
-#define NFS_MSG_GETATTR_STAT_CBK        (GLFS_NFS_BASE + 76)
+#define NFS_MSG_UNUSED_76               (GLFS_NFS_BASE + 76)
 /*!
  * @messageid
  * @diagnosis
@@ -669,7 +669,7 @@
  *
  */
 
-#define NFS_MSG_TRUNCATE_CBK            (GLFS_NFS_BASE + 79)
+#define NFS_MSG_UNUSED_79               (GLFS_NFS_BASE + 79)
 /*!
  * @messageid
  * @diagnosis
@@ -677,7 +677,7 @@
  *
  */
 
-#define NFS_MSG_SETATTR_STAT_CBK        (GLFS_NFS_BASE + 80)
+#define NFS_MSG_UNUSED_80               (GLFS_NFS_BASE + 80)
 /*!
  * @messageid
  * @diagnosis
@@ -709,7 +709,7 @@
  *
  */
 
-#define NFS_MSG_SETATTR_CBK             (GLFS_NFS_BASE + 84)
+#define NFS_MSG_UNUSED_84               (GLFS_NFS_BASE + 84)
 /*!
  * @messageid
  * @diagnosis
