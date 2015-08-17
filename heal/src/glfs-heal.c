@@ -535,6 +535,27 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 }
 
 int
+_validate_directory (dict_t *xattr_req, char *file)
+{
+        int heal_op = -1;
+        int ret = 0;
+
+        ret = dict_get_int32 (xattr_req, "heal-op", &heal_op);
+        if (ret)
+                return ret;
+
+        if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) {
+                printf ("'bigger-file' not a valid option for directories.\n");
+                ret = -1;
+        } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
+                printf ("'source-brick' option used on a directory (%s). "
+                        "Performing conservative merge.\n", file);
+        }
+
+        return ret;
+}
+
+int
 glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                            char *file, dict_t *xattr_req)
 {
@@ -556,7 +577,7 @@ glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 gf_uuid_parse (path, loc.gfid);
                 loc.path = gf_strdup (uuid_utoa (loc.gfid));
                 loc.inode = inode_new (rootloc->inode->table);
-                ret = syncop_lookup (xl, &loc, 0, 0, xattr_req, &xattr_rsp);
+                ret = syncop_lookup (xl, &loc, &iatt, 0, xattr_req, &xattr_rsp);
                 if (ret) {
                         op_errno = -ret;
                         printf ("Lookup failed on %s:%s.\n", file,
@@ -580,6 +601,11 @@ retry:
                 }
         }
 
+        if (iatt.ia_type == IA_IFDIR) {
+                ret = _validate_directory (xattr_req, file);
+                if (ret)
+                        goto out;
+        }
         ret = syncop_getxattr (xl, &loc, &xattr_rsp, GF_AFR_HEAL_SBRAIN,
                                xattr_req, NULL);
         if (ret) {
