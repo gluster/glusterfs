@@ -1263,26 +1263,13 @@ class_methods_t class_methods = {
 
 
 struct xlator_fops fops = {
+
         .lookup      = dht_lookup,
         .create      = dht_create,
         .mknod       = dht_mknod,
 
-        .stat        = dht_stat,
-        .fstat       = dht_fstat,
-        .truncate    = dht_truncate,
-        .ftruncate   = dht_ftruncate,
-        .access      = dht_access,
-        .readlink    = dht_readlink,
-        .setxattr    = dht_setxattr,
-        .getxattr    = dht_getxattr,
-        .removexattr = dht_removexattr,
         .open        = dht_open,
-        .readv       = dht_readv,
-        .writev      = dht_writev,
-        .flush       = dht_flush,
-        .fsync       = dht_fsync,
         .statfs      = dht_statfs,
-        .lk          = dht_lk,
         .opendir     = dht_opendir,
         .readdir     = dht_readdir,
         .readdirp    = dht_readdirp,
@@ -1293,13 +1280,38 @@ struct xlator_fops fops = {
         .mkdir       = dht_mkdir,
         .rmdir       = dht_rmdir,
         .rename      = dht_rename,
-        .inodelk     = dht_inodelk,
-        .finodelk    = dht_finodelk,
         .entrylk     = dht_entrylk,
         .fentrylk    = dht_fentrylk,
+
+        /* Inode read operations */
+        .stat        = dht_stat,
+        .fstat       = dht_fstat,
+        .access      = dht_access,
+        .readlink    = dht_readlink,
+        .getxattr    = dht_getxattr,
+        .fgetxattr    = dht_fgetxattr,
+        .readv       = dht_readv,
+        .flush       = dht_flush,
+        .fsync       = dht_fsync,
+        .inodelk     = dht_inodelk,
+        .finodelk    = dht_finodelk,
+        .lk          = dht_lk,
+
+        /* Inode write operations */
+        .fremovexattr = dht_fremovexattr,
+        .removexattr = dht_removexattr,
+        .setxattr    = dht_setxattr,
+        .fsetxattr   = dht_fsetxattr,
+        .truncate    = dht_truncate,
+        .ftruncate   = dht_ftruncate,
+        .writev      = dht_writev,
         .xattrop     = dht_xattrop,
         .fxattrop    = dht_fxattrop,
         .setattr     = dht_setattr,
+        .fsetattr    = dht_fsetattr,
+        .fallocate   = dht_fallocate,
+        .discard     = dht_discard,
+        .zerofill    = dht_zerofill,
 };
 
 
