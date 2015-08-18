@@ -867,6 +867,29 @@ setup_state_volume()
 }
 
 
+status()
+{
+    local regex_str="^ ${1}"; shift
+    local status_file=$(mktemp)
+
+    while [[ ${1} ]]; do
+
+        regex_str="${regex_str}|^ ${1}"
+
+        shift
+    done
+
+    pcs status | egrep "^Online:" > ${status_file}
+
+    echo >> ${status_file}
+
+    pcs status | egrep "${regex_str}" | sed -e "s/\t/ /" | cut -d ' ' -f 2,4 >> ${status_file}
+
+    cat ${status_file}
+
+    rm -f ${status_file}
+}
+
 
 main()
 {
@@ -1000,7 +1023,9 @@ $HA_CONFDIR/ganesha-ha.conf
         ;;
 
     status | --status)
-        exec pcs status
+        determine_servers "status"
+
+        status ${HA_SERVERS}
         ;;
 
     refresh-config | --refresh-config)
