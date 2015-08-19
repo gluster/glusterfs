@@ -3803,8 +3803,8 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                         default:
                                 if (op_errno != 0)
                                         snprintf (errstr, len, "Probe returned "
-                                                  "with unknown errno %d",
-                                                  op_errno);
+                                                  "with %s",
+                                                  strerror (op_errno));
                                 break;
                 }
         } else {
@@ -3858,7 +3858,7 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
 
                         default:
                                 snprintf (errstr, len, "Probe returned with "
-                                          "unknown errno %d", op_errno);
+                                          "%s", strerror (op_errno));
                                 break;
                 }
         }
@@ -3954,7 +3954,7 @@ set_deprobe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                 break;
                         default:
                                 snprintf (errstr, len, "Detach returned with "
-                                          "unknown errno %d", op_errno);
+                                          "%s", strerror (op_errno));
                                 break;
 
                 }
