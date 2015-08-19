@@ -111,6 +111,23 @@
         }                                                                     \
 } while (0)
 
+#define SHARD_SET_ROOT_FS_ID(frame, local) do {                               \
+                if (!local->is_set_fsid) {                                    \
+                        local->uid = frame->root->uid;                        \
+                        local->gid = frame->root->gid;                        \
+                        frame->root->uid = 0;                                 \
+                        frame->root->gid = 0;                                 \
+                        local->is_set_fsid = _gf_true;                        \
+                }                                                             \
+} while (0)
+
+#define SHARD_UNSET_ROOT_FS_ID(frame, local) do {                             \
+                if (local->is_set_fsid) {                                     \
+                        frame->root->uid = local->uid;                        \
+                        frame->root->gid = local->gid;                        \
+                        local->is_set_fsid = _gf_false;                       \
+                }                                                             \
+} while (0)
 
 typedef struct shard_priv {
         uint64_t block_size;
@@ -179,6 +196,7 @@ typedef struct shard_local {
         struct iobref *iobref;
         struct iobuf *iobuf;
         gf_dirent_t entries_head;
+        gf_boolean_t is_set_fsid;
         gf_boolean_t list_inited;
         gf_boolean_t is_write_extending;
         shard_post_fop_handler_t handler;
