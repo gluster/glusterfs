@@ -913,6 +913,8 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
 
+        SHARD_UNSET_ROOT_FS_ID (frame, local);
+
         if (op_ret < 0) {
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
@@ -947,6 +949,19 @@ shard_truncate_last_shard (call_frame_t *frame, xlator_t *this, inode_t *inode)
         shard_local_t  *local                 = NULL;
 
         local = frame->local;
+
+        /* A NULL inode could be due to the fact that the last shard which
+         * needs to be truncated does not exist due to it lying in a hole
+         * region. So the only thing left to do in that case would be an
+         * update to file size xattr.
+         */
+        if (!inode) {
+                shard_update_file_size (frame, this, NULL, &local->loc,
+                                       shard_post_update_size_truncate_handler);
+                return 0;
+        }
+
+        SHARD_SET_ROOT_FS_ID (frame, local);
 
         loc.inode = inode_ref (inode);
         gf_uuid_copy (loc.gfid, inode->gfid);
@@ -1012,6 +1027,8 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
         local->call_count = call_count;
         i = 1;
+
+        SHARD_SET_ROOT_FS_ID (frame, local);
         while (cur_block <= last_block) {
                 if (!local->inode_list[i]) {
                         cur_block++;
@@ -1145,7 +1162,9 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
         if (op_ret < 0) {
                 /* Ignore absence of shards in the backend in truncate fop. */
                 if (((local->fop == GF_FOP_TRUNCATE) ||
-                    (local->fop == GF_FOP_FTRUNCATE)) && (op_errno == ENOENT))
+                    (local->fop == GF_FOP_FTRUNCATE) ||
+                    (local->fop == GF_FOP_RENAME) ||
+                    (local->fop == GF_FOP_UNLINK)) && (op_errno == ENOENT))
                         goto done;
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
@@ -1711,6 +1730,8 @@ shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 done:
         call_count = shard_call_count_return (frame);
         if (call_count == 0) {
+                SHARD_UNSET_ROOT_FS_ID (frame, local);
+
                 if (local->fop == GF_FOP_UNLINK)
                         shard_unlink_base_file (frame, this);
                 else if (local->fop == GF_FOP_RENAME)
@@ -1767,6 +1788,8 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 }
                 return 0;
         }
+
+        SHARD_SET_ROOT_FS_ID (frame, local);
 
         while (cur_block <= last_block) {
                 /* The base file is unlinked in the end to mark the
@@ -2377,6 +2400,7 @@ out:
                 fd_unref (anon_fd);
         call_count = shard_call_count_return (frame);
         if (call_count == 0) {
+                SHARD_UNSET_ROOT_FS_ID (frame, local);
                 if (local->op_ret < 0) {
                         SHARD_STACK_UNWIND (readv, frame, local->op_ret,
                                             local->op_errno, NULL, 0, NULL,
@@ -2422,6 +2446,8 @@ shard_readv_do (call_frame_t *frame, xlator_t *this)
         last_block = local->last_block;
         remaining_size = local->total_size;
         local->call_count = call_count = local->num_blocks;
+
+        SHARD_SET_ROOT_FS_ID (frame, local);
 
         while (cur_block <= last_block) {
                 if (wind_failed) {
@@ -2552,8 +2578,7 @@ shard_common_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 done:
         call_count = shard_call_count_return (frame);
         if (call_count == 0) {
-                frame->root->uid = local->uid;
-                frame->root->gid = local->gid;
+                SHARD_UNSET_ROOT_FS_ID (frame, local);
                 local->post_mknod_handler (frame, this);
         }
 
@@ -2587,10 +2612,7 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
         call_count = local->call_count = local->create_count;
         local->post_mknod_handler = post_mknod_handler;
 
-        local->uid = frame->root->uid;
-        local->gid = frame->root->gid;
-        frame->root->uid = local->prebuf.ia_uid;
-        frame->root->gid = local->prebuf.ia_gid;
+        SHARD_SET_ROOT_FS_ID (frame, local);
 
         ret = shard_inode_ctx_get_all (fd->inode, this, &ctx_tmp);
         if (ret) {
@@ -2676,6 +2698,7 @@ err:
          * This block is for handling failure in shard_inode_ctx_get_all().
          * Failures in the while-loop are handled within the loop.
          */
+        SHARD_UNSET_ROOT_FS_ID (frame, local);
         post_mknod_handler (frame, this);
         return 0;
 }
@@ -2925,6 +2948,7 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = shard_call_count_return (frame);
         if (call_count == 0) {
+                SHARD_UNSET_ROOT_FS_ID (frame, local);
                 if (local->op_ret < 0) {
                         SHARD_STACK_UNWIND (writev, frame, local->written_size,
                                             local->op_errno, NULL, NULL, NULL);
@@ -2974,10 +2998,13 @@ shard_writev_do (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count = local->num_blocks;
         last_block = local->last_block;
 
+        SHARD_SET_ROOT_FS_ID (frame, local);
+
         if (dict_set_uint32 (local->xattr_req,
                              GLUSTERFS_WRITE_UPDATE_ATOMIC, 4)) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
+                local->call_count = 1;
                 shard_writev_do_cbk (frame, (void *)(long)0, this, -1, ENOMEM,
                                      NULL, NULL, NULL);
                 return 0;
@@ -3152,6 +3179,8 @@ shard_writev_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
 
+        SHARD_UNSET_ROOT_FS_ID (frame, local);
+
         if (op_ret == -1) {
                 if (op_errno != EEXIST) {
                         goto unwind;
@@ -3201,9 +3230,11 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
                 goto err;
         }
 
+        SHARD_SET_ROOT_FS_ID (frame, local);
+
         STACK_WIND (frame, shard_writev_mkdir_dot_shard_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir, &local->dot_shard_loc,
-                    0777, 0, xattr_req);
+                    0755, 0, xattr_req);
         dict_unref (xattr_req);
         return 0;
 
