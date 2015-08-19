@@ -84,10 +84,10 @@
         asm(".symver priv_"STR(fn)", "STR(fn)"@@GFAPI_PRIVATE_"STR(ver))
 
 #define GFAPI_SYMVER_PUBLIC(fn1, fn2, ver) \
-        asm(".symver pub_"STR(fn1)", "STR(fn2)"@@GFAPI_"STR(ver))
+        asm(".symver pub_"STR(fn1)", "STR(fn2)"@GFAPI_"STR(ver))
 
 #define GFAPI_SYMVER_PRIVATE(fn1, fn2, ver) \
-        asm(".symver priv_"STR(fn1)", "STR(fn2)"@@GFAPI_PRIVATE_"STR(ver))
+        asm(".symver priv_"STR(fn1)", "STR(fn2)"@GFAPI_PRIVATE_"STR(ver))
 #define STR(str) #str
 #else
 #ifndef GFAPI_PUBLIC
