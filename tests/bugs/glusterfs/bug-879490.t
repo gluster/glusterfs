@@ -25,7 +25,7 @@ function peer_probe()
     $CLI peer probe a.b.c.d --xml | xmllint --format - | grep "<opErrstr>"
 }
 
-EXPECT "  <opErrstr>Probe returned with unknown errno 107</opErrstr>" peer_probe
+EXPECT "  <opErrstr>Probe returned with Transport endpoint is not connected</opErrstr>" peer_probe
 
 ## Finish up
 TEST $CLI volume stop $V0;
