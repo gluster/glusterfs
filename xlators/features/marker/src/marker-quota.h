@@ -86,6 +86,7 @@ struct quota_inode_ctx {
         int8_t                 dirty;
         gf_boolean_t           create_status;
         gf_boolean_t           updation_status;
+        gf_boolean_t           dirty_status;
         gf_lock_t              lock;
         struct list_head       contribution_head;
 };
