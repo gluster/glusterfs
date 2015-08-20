@@ -776,7 +776,7 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_SNAPSHOT_OP_SUCCESS      (GLUSTERD_COMP_BASE + 91)
+#define GD_MSG_OP_SUCCESS      (GLUSTERD_COMP_BASE + 91)
 
 /*!
  * @messageid
