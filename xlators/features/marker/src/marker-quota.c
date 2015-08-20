@@ -64,111 +64,129 @@ out:
         return ret;
 }
 
+static void
+mq_set_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                   gf_boolean_t status)
+{
+        LOCK (&ctx->lock);
+        {
+                *flag = status;
+        }
+        UNLOCK (&ctx->lock);
+}
+
+static void
+mq_test_and_set_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                            gf_boolean_t *status)
+{
+        gf_boolean_t    temp    = _gf_false;
+
+        LOCK (&ctx->lock);
+        {
+                temp = *status;
+                *status = *flag;
+                *flag = temp;
+        }
+        UNLOCK (&ctx->lock);
+}
+
+static void
+mq_get_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                   gf_boolean_t *status)
+{
+        LOCK (&ctx->lock);
+        {
+                *status = *flag;
+        }
+        UNLOCK (&ctx->lock);
+}
+
 int32_t
 mq_get_ctx_updation_status (quota_inode_ctx_t *ctx,
                             gf_boolean_t *status)
 {
-        int32_t   ret = -1;
-
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
         GF_VALIDATE_OR_GOTO ("marker", status, out);
 
-        LOCK (&ctx->lock);
-        {
-                *status = ctx->updation_status;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_get_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
-
 
 int32_t
 mq_set_ctx_updation_status (quota_inode_ctx_t *ctx,
                             gf_boolean_t status)
 {
-        int32_t   ret = -1;
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
 
-        if (ctx == NULL)
-                goto out;
-
-        LOCK (&ctx->lock);
-        {
-                ctx->updation_status = status;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_set_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
 
 int32_t
 mq_test_and_set_ctx_updation_status (quota_inode_ctx_t *ctx,
                                      gf_boolean_t *status)
 {
-        int32_t         ret     = -1;
-        gf_boolean_t    temp    = _gf_false;
-
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
         GF_VALIDATE_OR_GOTO ("marker", status, out);
 
-        LOCK (&ctx->lock);
-        {
-                temp = *status;
-                *status = ctx->updation_status;
-                ctx->updation_status = temp;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_test_and_set_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
 
 int32_t
 mq_set_ctx_create_status (quota_inode_ctx_t *ctx,
                           gf_boolean_t status)
 {
-        int32_t   ret = -1;
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
 
-        if (ctx == NULL)
-                goto out;
-
-        LOCK (&ctx->lock);
-        {
-                ctx->create_status = status;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_set_ctx_status (ctx, &ctx->create_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
 
 int32_t
 mq_test_and_set_ctx_create_status (quota_inode_ctx_t *ctx,
                                    gf_boolean_t *status)
 {
-        int32_t         ret     = -1;
-        gf_boolean_t    temp    = _gf_false;
-
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
         GF_VALIDATE_OR_GOTO ("marker", status, out);
 
-        LOCK (&ctx->lock);
-        {
-                temp = *status;
-                *status = ctx->create_status;
-                ctx->create_status = temp;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_test_and_set_ctx_status (ctx, &ctx->create_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
+}
+
+int32_t
+mq_set_ctx_dirty_status (quota_inode_ctx_t *ctx,
+                         gf_boolean_t status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+
+        mq_set_ctx_status (ctx, &ctx->dirty_status, status);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
+mq_test_and_set_ctx_dirty_status (quota_inode_ctx_t *ctx,
+                                  gf_boolean_t *status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", status, out);
+
+        mq_test_and_set_ctx_status (ctx, &ctx->dirty_status, status);
+        return 0;
+out:
+        return -1;
 }
 
 void
@@ -2401,6 +2419,7 @@ mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
                         "%s", loc->path);
+                ret = 0;
                 goto out;
         }
 
@@ -2833,14 +2852,21 @@ mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
         quota_inode_ctx_t    *ctxtmp  = NULL;
 
         if (origin_loc == NULL || origin_loc->inode == NULL ||
-            (gf_uuid_is_null(origin_loc->gfid) &&
-             gf_uuid_is_null(origin_loc->inode->gfid)))
+            gf_uuid_is_null(origin_loc->inode->gfid))
                 goto out;
 
         loc_copy (loc, origin_loc);
 
         if (gf_uuid_is_null (loc->gfid))
                 gf_uuid_copy (loc->gfid, loc->inode->gfid);
+
+        if (!loc_is_root(loc) && loc->parent == NULL) {
+                loc->parent = inode_parent (loc->inode, 0, NULL);
+                if (loc->parent == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         if (ctx)
                 ret = mq_inode_ctx_get (loc->inode, this, ctx);
@@ -2985,6 +3011,7 @@ mq_reduce_parent_size_task (void *opaque)
 {
         int32_t                  ret           = -1;
         quota_inode_ctx_t       *ctx           = NULL;
+        quota_inode_ctx_t       *parent_ctx    = NULL;
         inode_contribution_t    *contribution  = NULL;
         quota_meta_t             delta         = {0, };
         quota_meta_t             contri        = {0, };
@@ -3003,13 +3030,6 @@ mq_reduce_parent_size_task (void *opaque)
         contri = args->contri;
         this = args->this;
         THIS = this;
-
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret < 0) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for"
-                                  " the node %s is NULL", loc->path);
-                goto out;
-        }
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &parent_loc);
         if (ret < 0) {
@@ -3033,6 +3053,14 @@ mq_reduce_parent_size_task (void *opaque)
                 delta.dir_count = contri.dir_count;
         } else {
                 remove_xattr = _gf_true;
+
+                ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+                if (ret < 0) {
+                        gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for"
+                                          " the node %s is NULL", loc->path);
+                        goto out;
+                }
+
                 contribution = mq_get_contribution_node (loc->parent, ctx);
                 if (contribution == NULL) {
                         ret = -1;
@@ -3072,8 +3100,20 @@ mq_reduce_parent_size_task (void *opaque)
                 goto out;
 
 out:
-        if (dirty && ret >= 0)
-                ret = mq_mark_dirty (this, &parent_loc, 0);
+        if (dirty) {
+                if (ret < 0) {
+                        /* On failure clear dirty status flag.
+                         * In the next lookup inspect_directory_xattr
+                         * can set the status flag and fix the
+                         * dirty directory
+                         */
+                        ret = mq_inode_ctx_get (parent_loc.inode, this,
+                                                &parent_ctx);
+                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                } else {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                }
+        }
 
         if (locked)
                 ret = mq_lock (this, &parent_loc, F_UNLCK);
@@ -3108,12 +3148,6 @@ mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
                 goto out;
         }
 
-        if (loc.parent == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "parent is NULL for %s, "
-                        "aborting reduce parent size txn", loc.path);
-                goto out;
-        }
-
         ret = mq_synctask1 (this, mq_reduce_parent_size_task, _gf_true, &loc,
                             contri);
 out:
@@ -3136,6 +3170,7 @@ mq_initiate_quota_task (void *opaque)
         loc_t                 *loc        = NULL;
         inode_contribution_t  *contri     = NULL;
         quota_inode_ctx_t     *ctx        = NULL;
+        quota_inode_ctx_t     *parent_ctx = NULL;
         inode_t               *tmp_parent = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", opaque, out);
@@ -3303,8 +3338,20 @@ mq_initiate_quota_task (void *opaque)
         }
 
 out:
-        if (ret >= 0 && dirty)
-                ret = mq_mark_dirty (this, &parent_loc, 0);
+        if (dirty) {
+                if (ret < 0) {
+                        /* On failure clear dirty status flag.
+                         * In the next lookup inspect_directory_xattr
+                         * can set the status flag and fix the
+                         * dirty directory
+                         */
+                        ret = mq_inode_ctx_get (parent_loc.inode, this,
+                                                &parent_ctx);
+                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                } else {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                }
+        }
 
         if (locked)
                 ret = mq_lock (this, &parent_loc, F_UNLCK);
@@ -3338,12 +3385,6 @@ _mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
 
         if (loc_is_root(&loc)) {
                 ret = 0;
-                goto out;
-        }
-
-        if (loc.parent == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "parent is NULL for %s, "
-                        "aborting updation txn", loc.path);
                 goto out;
         }
 
@@ -3409,6 +3450,7 @@ mq_update_dirty_inode_task (void *opaque)
         quota_synctask_t     *args           = NULL;
         xlator_t             *this           = NULL;
         loc_t                *loc            = NULL;
+        quota_inode_ctx_t    *ctx            = NULL;
 
         GF_ASSERT (opaque);
 
@@ -3416,6 +3458,10 @@ mq_update_dirty_inode_task (void *opaque)
         loc = &args->loc;
         this = args->this;
         THIS = this;
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0)
+                goto out;
 
         ret = mq_lock (this, loc, F_WRLCK);
         if (ret < 0)
@@ -3526,8 +3572,16 @@ out:
         if (fd)
                 fd_unref (fd);
 
-        if (ret >= 0 && dirty)
+        if (ret < 0) {
+                /* On failure clear dirty status flag.
+                 * In the next lookup inspect_directory_xattr
+                 * can set the status flag and fix the
+                 * dirty directory
+                 */
+                mq_set_ctx_dirty_status (ctx, _gf_false);
+        } else if (dirty) {
                 mq_mark_dirty (this, loc, 0);
+        }
 
         if (locked)
                 mq_lock (this, loc, F_UNLCK);
@@ -3541,15 +3595,23 @@ out:
 }
 
 int32_t
-mq_update_dirty_inode_txn (xlator_t *this, loc_t *loc)
+mq_update_dirty_inode_txn (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx)
 {
-        int32_t          ret            = -1;
+        int32_t          ret        = -1;
+        gf_boolean_t     status     = _gf_true;
 
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
+        ret = mq_test_and_set_ctx_dirty_status (ctx, &status);
+        if (ret < 0 || status == _gf_true)
+                goto out;
+
         ret = mq_synctask (this, mq_update_dirty_inode_task, _gf_true, loc);
 out:
+        if (ret < 0 && status == _gf_false)
+                mq_set_ctx_dirty_status (ctx, _gf_false);
+
         return ret;
 }
 
@@ -3564,6 +3626,7 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
         quota_meta_t          contri                       = {0, };
         quota_meta_t          delta                        = {0, };
         char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        gf_boolean_t          status                       = _gf_false;
 
         ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
         if (ret < 0) {
@@ -3603,15 +3666,21 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
                 ctx->size = size.size;
                 ctx->file_count = size.file_count;
                 ctx->dir_count = size.dir_count;
+                ctx->dirty = dirty;
         }
         UNLOCK (&ctx->lock);
+
+        ret = mq_get_ctx_updation_status (ctx, &status);
+        if (ret < 0 || status == _gf_true) {
+                /* If the update txn is in progress abort inspection */
+                ret = 0;
+                goto out;
+        }
 
         mq_compute_delta (&delta, &size, &contri);
 
         if (dirty) {
-                if (ctx->dirty == 0)
-                        ret = mq_update_dirty_inode_txn (this, loc);
-
+                ret = mq_update_dirty_inode_txn (this, loc, ctx);
                 goto out;
         }
 
@@ -3620,6 +3689,7 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
                 mq_initiate_quota_txn (this, loc);
 
         ret = 0;
+        goto out;
 
 create_xattr:
         if (ret < 0)
@@ -3639,6 +3709,7 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
         quota_meta_t          contri                       = {0, };
         quota_meta_t          delta                        = {0, };
         char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        gf_boolean_t          status                       = _gf_false;
 
         LOCK (&ctx->lock);
         {
@@ -3668,6 +3739,13 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
                         contribution->dir_count = contri.dir_count;
                 }
                 UNLOCK (&contribution->lock);
+
+                ret = mq_get_ctx_updation_status (ctx, &status);
+                if (ret < 0 || status == _gf_true) {
+                        /* If the update txn is in progress abort inspection */
+                        ret = 0;
+                        goto out;
+                }
 
                 mq_compute_delta (&delta, &size, &contri);
                 if (!quota_meta_is_null (&delta))
