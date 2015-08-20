@@ -361,6 +361,11 @@ glusterd_get_trusted_client_filepath (char *filepath,
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
 
+int32_t
+glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
+                                   glusterd_volinfo_t **dup_volinfo,
+                                   gf_boolean_t is_hot_tier,
+                                   const char *new_name);
 void
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo);
 
@@ -638,6 +643,8 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
 gf_boolean_t
 glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo);
 
+inline gf_boolean_t
+glusterd_is_shd_compatible_type (int type);
 
 gf_boolean_t
 glusterd_are_all_volumes_stopped ();
