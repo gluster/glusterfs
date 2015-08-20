@@ -2824,6 +2824,57 @@ out:
 }
 
 static int
+volgen_graph_build_clients_for_tier_shd (volgen_graph_t *graph,
+                            glusterd_volinfo_t *volinfo,
+                            dict_t *set_dict)
+{
+        int                     ret             = 0;
+        glusterd_volinfo_t     *dup_volinfo     = NULL;
+        gf_boolean_t            is_hot_tier     = _gf_false;
+        gf_boolean_t            is_hot_shd      = _gf_false;
+        gf_boolean_t            is_cold_shd     = _gf_false;
+
+        is_cold_shd = glusterd_is_shd_compatible_type
+                              (volinfo->tier_info.cold_type);
+        is_hot_shd = glusterd_is_shd_compatible_type
+                              (volinfo->tier_info.hot_type);
+
+        if (is_cold_shd && is_hot_shd) {
+                ret = volgen_graph_build_clients (graph, volinfo,
+                                                  set_dict, NULL);
+                return ret;
+        }
+
+        if (is_cold_shd) {
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                        is_hot_tier,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+                ret = volgen_graph_build_clients (graph, dup_volinfo,
+                                                  set_dict, NULL);
+                if (ret)
+                        goto out;
+        }
+        if (is_hot_shd) {
+                is_hot_tier = _gf_true;
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                        is_hot_tier,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+                ret = volgen_graph_build_clients (graph, dup_volinfo,
+                                                  set_dict, NULL);
+                if (ret)
+                        goto out;
+       }
+out:
+        if (dup_volinfo)
+                glusterd_volinfo_delete (dup_volinfo);
+        return ret;
+}
+
+static int
 volgen_link_bricks (volgen_graph_t *graph,
                     glusterd_volinfo_t *volinfo, char *xl_type,
                     char *xl_namefmt, size_t child_count,
@@ -2860,7 +2911,7 @@ volgen_link_bricks (volgen_graph_t *graph,
                         break;
         }
 
-        ret = j;
+        ret = j - start_count;
 out:
         return ret;
 }
@@ -3236,16 +3287,25 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
         char            option[32]           = {0};
         int             start_count = 0;
 
-        if (volinfo->tier_info.cur_tier_hot &&
-            volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
+        if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
                 start_count = volinfo->tier_info.cold_brick_count /
                               volinfo->tier_info.cold_replica_count;
-        clusters = volgen_link_bricks_from_list_tail_start (graph, volinfo,
+        if (volinfo->tier_info.cur_tier_hot)
+                clusters = volgen_link_bricks_from_list_head_start (graph,
+                                                volinfo,
                                                 replicate_args[0],
                                                 replicate_args[1],
                                                 volinfo->brick_count,
                                                 volinfo->replica_count,
                                                 start_count);
+        else
+                clusters = volgen_link_bricks_from_list_tail (graph,
+                                                volinfo,
+                                                replicate_args[0],
+                                                replicate_args[1],
+                                                volinfo->brick_count,
+                                                volinfo->replica_count);
+
         if (clusters < 0)
                 goto out;
 
@@ -3472,6 +3532,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         int                st_dist_leaf_count = 0;
         int                st_type = 0;
         int                dist_count = 0;
+        int                start_count = 0;
         char              *decommissioned_children = NULL;
 
         st_brick_count     = volinfo->brick_count;
@@ -3502,6 +3563,10 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
 
         dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
 
+        if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE) {
+                start_count = volinfo->tier_info.cold_brick_count /
+                              volinfo->tier_info.cold_replica_count;
+        }
         if (volinfo->dist_leaf_count != 1) {
                 ret = volgen_link_bricks_from_list_head_start
                         (graph, volinfo,
@@ -3509,8 +3574,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
                          "%s-replicate-%d",
                          volinfo->brick_count,
                          volinfo->replica_count,
-                         volinfo->tier_info.cold_brick_count/
-                         volinfo->tier_info.cold_replica_count);
+                         start_count);
                 if (ret != -1)
                         volgen_link_bricks_from_list_tail (graph,  volinfo,
                                                            "cluster/distribute",
@@ -4170,6 +4234,9 @@ volgen_get_shd_key (glusterd_volinfo_t *volinfo)
         case GF_CLUSTER_TYPE_DISPERSE:
                 key = "cluster.disperse-self-heal-daemon";
                 break;
+        case GF_CLUSTER_TYPE_TIER:
+                key = "cluster.tier-self-heal-daemon";
+                break;
         default:
                 key = NULL;
                 break;
@@ -4235,16 +4302,10 @@ out:
 }
 
 static int
-build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                    dict_t *set_dict)
+build_afr_ec_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo)
 {
-        int     ret = 0;
-        int     clusters = -1;
 
-        ret = volgen_graph_build_clients (graph, volinfo, set_dict, NULL);
-        if (ret)
-                goto out;
-
+        int clusters = -1;
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
@@ -4254,6 +4315,86 @@ build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         case GF_CLUSTER_TYPE_DISPERSE:
                 clusters = volgen_graph_build_ec_clusters (graph, volinfo);
                 break;
+        }
+        return clusters;
+}
+
+static int
+build_afr_ec_clusters_for_tier (volgen_graph_t *graph,
+                                 glusterd_volinfo_t *volinfo,
+                                 dict_t *set_dict)
+{
+        int                     ret                 = 0;
+        glusterd_volinfo_t      *dup_volinfo[2]     = {NULL, NULL};
+        int                     clusters            = 0;
+        int                     i                   = 0;
+        volgen_graph_t          hot_graph           = {0};
+        volgen_graph_t          cold_cgraph         = {0};
+        gf_boolean_t            is_hot_tier         = _gf_false;
+
+        if (glusterd_is_shd_compatible_type (volinfo->tier_info.cold_type)) {
+                ret = glusterd_create_sub_tier_volinfo (volinfo,
+                                                        &dup_volinfo[0],
+                                                        is_hot_tier,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+        }
+        if (glusterd_is_shd_compatible_type (volinfo->tier_info.hot_type)) {
+                is_hot_tier = _gf_true;
+                ret = glusterd_create_sub_tier_volinfo (volinfo,
+                                                        &dup_volinfo[1],
+                                                        is_hot_tier,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+                dup_volinfo[1]->tier_info.cur_tier_hot = 1;
+        }
+
+        for (i = 0; i < 2; i++) {
+                if (!dup_volinfo[i])
+                        continue;
+                ret = build_afr_ec_clusters (graph, dup_volinfo[i]);
+                if (ret < 0)
+                        goto out;
+                clusters += ret;
+        }
+        ret = 0;
+out:
+        for (i = 0; i < 2; i++) {
+                if (dup_volinfo[i])
+                        glusterd_volinfo_delete (dup_volinfo[i]);
+        }
+
+        if (ret)
+                clusters = -1;
+
+        return clusters;
+}
+
+
+
+static int
+build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *set_dict)
+{
+        int     ret = 0;
+        int     clusters = -1;
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = volgen_graph_build_clients_for_tier_shd (graph, volinfo,
+                                                               set_dict);
+                if (ret)
+                        goto out;
+
+                clusters = build_afr_ec_clusters_for_tier (graph, volinfo,
+                                                           set_dict);
+        } else {
+                ret = volgen_graph_build_clients (graph, volinfo,
+                                                  set_dict, NULL);
+                if (ret)
+                        goto out;
+                clusters = build_afr_ec_clusters (graph, volinfo);
         }
 out:
         return clusters;
@@ -4408,14 +4549,14 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         }
 
         cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                ret = build_shd_volume_graph (this, graph, voliter, mod_dict,
-                                              set_dict, graph_check,
-                                              &valid_config);
-
+                ret = build_shd_volume_graph (this, graph, voliter,
+                                              mod_dict, set_dict,
+                                              graph_check, &valid_config);
                 ret = dict_reset (set_dict);
                 if (ret)
                         goto out;
         }
+
 out:
         if (set_dict)
                 dict_unref (set_dict);

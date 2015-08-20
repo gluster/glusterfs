@@ -626,6 +626,84 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
 out:
         return ret;
 }
+int32_t
+glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
+                                  glusterd_volinfo_t **dup_volinfo,
+                                  gf_boolean_t is_hot_tier,
+                                  const char *new_volname)
+{
+        glusterd_brickinfo_t *brickinfo       = NULL;
+        glusterd_brickinfo_t *brickinfo_dup   = NULL;
+        gd_tier_info_t       *tier_info       = NULL;
+        int                   i               = 0;
+        int                   ret             = -1;
+
+        tier_info = &(volinfo->tier_info);
+
+        ret = glusterd_volinfo_dup (volinfo, dup_volinfo, _gf_true);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOL_OP_FAILED,
+                        "Failed to create volinfo");
+                return ret;
+        }
+
+        (*dup_volinfo)->is_snap_volume   = volinfo->is_snap_volume;
+        (*dup_volinfo)->status           = volinfo->status;
+        memcpy (&(*dup_volinfo)->tier_info, &volinfo->tier_info,
+                sizeof (volinfo->tier_info));
+
+        strcpy ((*dup_volinfo)->volname, new_volname);
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                i++;
+
+                if (is_hot_tier) {
+                        if (i > volinfo->tier_info.hot_brick_count)
+                                break;
+                } else {
+                        if (i <= volinfo->tier_info.hot_brick_count)
+                                continue;
+                }
+
+                ret = glusterd_brickinfo_new (&brickinfo_dup);
+                if (ret) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_NEW_INFO_FAIL, "Failed to create "
+                                "new brickinfo");
+                        goto out;
+                }
+
+
+                glusterd_brickinfo_dup (brickinfo, brickinfo_dup);
+                cds_list_add_tail (&brickinfo_dup->brick_list,
+                              &((*dup_volinfo)->bricks));
+        }
+
+        if (is_hot_tier) {
+            (*dup_volinfo)->type             = tier_info->hot_type;
+            (*dup_volinfo)->replica_count    = tier_info->hot_replica_count;
+            (*dup_volinfo)->brick_count      = tier_info->hot_brick_count;
+            (*dup_volinfo)->dist_leaf_count  =
+                                   glusterd_get_dist_leaf_count(*dup_volinfo);
+
+        } else {
+            (*dup_volinfo)->type             = tier_info->cold_type;
+            (*dup_volinfo)->replica_count    = tier_info->cold_replica_count;
+            (*dup_volinfo)->disperse_count   = tier_info->cold_disperse_count;
+            (*dup_volinfo)->redundancy_count = tier_info->cold_redundancy_count;
+            (*dup_volinfo)->dist_leaf_count  = tier_info->cold_dist_leaf_count;
+            (*dup_volinfo)->brick_count      = tier_info->cold_brick_count;
+        }
+out:
+        if (ret && *dup_volinfo) {
+                glusterd_volinfo_delete (*dup_volinfo);
+                *dup_volinfo = NULL;
+        }
+
+        return ret;
+
+}
+
 /*
  * gd_vol_is_geo_rep_active:
  *      This function checks for any running geo-rep session for
@@ -6301,9 +6379,9 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
 }
 
 gf_boolean_t
-glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo)
+glusterd_is_shd_compatible_type (int type)
 {
-        switch (volinfo->type) {
+        switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
         case GF_CLUSTER_TYPE_DISPERSE:
@@ -6311,6 +6389,22 @@ glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo)
 
         }
         return _gf_false;
+}
+
+gf_boolean_t
+glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo)
+{
+
+        int     ret     = 0;
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = glusterd_is_shd_compatible_type
+                                         (volinfo->tier_info.cold_type) |
+                      glusterd_is_shd_compatible_type
+                                         (volinfo->tier_info.hot_type);
+                return ret;
+        }
+        return glusterd_is_shd_compatible_type (volinfo->type);
 }
 
 int
