@@ -5970,7 +5970,7 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
                 goto out;
         } else
                 gf_msg (this->name, GF_LOG_INFO, 0,
-                        GD_MSG_SNAPSHOT_OP_SUCCESS, "Successfully marked "
+                        GD_MSG_OP_SUCCESS, "Successfully marked "
                         "snap %s for decommission.", snap->snapname);
 
         if (is_origin_glusterd (dict) == _gf_true) {
@@ -7722,6 +7722,12 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                                               glusterd_volinfo_t, snapvol_list);
                 snap = tmp_volinfo->snapshot;
                 GF_ASSERT (snap);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_SOFT_LIMIT_REACHED, "Soft-limit "
+                        "(value = %"PRIu64") of volume %s is reached. "
+                        "Deleting snapshot %s.", limit, volinfo->volname,
+                        snap->snapname);
 
                 LOCK (&snap->lock);
                 {
