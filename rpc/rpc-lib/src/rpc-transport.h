@@ -210,6 +210,8 @@ struct rpc_transport {
         int                        bind_insecure;
         void                      *dl_handle; /* handle of dlopen() */
         char                      *ssl_name;
+        dict_t                    *clnt_options; /* store options received from
+                                                  * client */
 };
 
 struct rpc_transport_ops {
