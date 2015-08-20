@@ -710,6 +710,7 @@ reconfigure (xlator_t *this, dict_t *options)
         server_conf_t            *conf =NULL;
         rpcsvc_t                 *rpc_conf;
         rpcsvc_listener_t        *listeners;
+        rpc_transport_t          *xprt = NULL;
         int                       inode_lru_limit;
         gf_boolean_t              trace;
         data_t                   *data;
@@ -778,6 +779,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 /* logging already done in validate_auth_options function. */
                 goto out;
         }
+
         dict_foreach (this->options, _delete_auth_opt, this->options);
         dict_foreach (options, _copy_auth_opt, this->options);
 
@@ -805,8 +807,41 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         }
 
-        (void) rpcsvc_set_allow_insecure (rpc_conf, options);
-        (void) rpcsvc_set_root_squash (rpc_conf, options);
+        ret = rpcsvc_auth_reconf (rpc_conf, options);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "Failed to reconfigure authentication");
+                goto out;
+        }
+
+        GF_OPTION_RECONF ("dynamic-auth", conf->dync_auth, options,
+                        bool, out);
+
+        if (conf->dync_auth) {
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                                /* check for client authorization */
+                                ret = gf_authenticate (xprt->clnt_options,
+                                                options, conf->auth_modules);
+                                if (ret == AUTH_ACCEPT) {
+                                        gf_msg (this->name, GF_LOG_TRACE, 0,
+                                               PS_MSG_CLIENT_ACCEPTED,
+                                               "authorized client, hence we "
+                                               "continue with this connection");
+                                } else {
+                                        gf_msg (this->name, GF_LOG_INFO,
+                                                EACCES,
+                                                PS_MSG_AUTHENTICATE_ERROR,
+                                                "unauthorized client, hence "
+                                                "terminating the connection %s",
+                                                xprt->peerinfo.identifier);
+                                        rpc_transport_disconnect(xprt);
+                                }
+                        }
+                }
+                pthread_mutex_unlock (&conf->mutex);
+        }
 
         ret = rpcsvc_set_outstanding_rpc_limit (rpc_conf, options,
                                          RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
@@ -957,6 +992,12 @@ init (xlator_t *this)
                         "Failed to initialize group cache.");
                 goto out;
         }
+        ret = dict_get_str_boolean (this->options, "dynamic-auth",
+                        _gf_true);
+        if (ret == -1)
+                conf->dync_auth = _gf_true;
+        else
+                conf->dync_auth = ret;
 
         /* RPC related */
         conf->rpc = rpcsvc_init (this, this->ctx, this->options, 0);
@@ -1364,7 +1405,6 @@ struct volume_options options[] = {
                          "requests from a client. 0 means no limit (can "
                          "potentially run out of memory)"
         },
-
         { .key   = {"manage-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
@@ -1385,6 +1425,13 @@ struct volume_options options[] = {
                          " responses faster, depending on available processing"
                          " power. Range 1-32 threads."
         },
-
+        { .key   = {"dynamic-auth"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description   = "When 'on' perform dynamic authentication of volume "
+                           "options in order to allow/terminate client "
+                           "transport connection immediately in response to "
+                           "*.allow | *.reject volume set options."
+        },
         { .key   = {NULL} },
 };

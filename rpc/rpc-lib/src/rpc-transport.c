@@ -458,6 +458,8 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
+        if (this->clnt_options)
+                dict_unref (this->clnt_options);
         if (this->options)
                 dict_unref (this->options);
 	if (this->fini)

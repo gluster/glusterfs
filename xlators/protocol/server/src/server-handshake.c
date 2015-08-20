@@ -598,6 +598,8 @@ server_setvolume (rpcsvc_request_t *req)
                                conf->auth_modules);
 
         if (ret == AUTH_ACCEPT) {
+                /* Store options received from client side */
+                req->trans->clnt_options = dict_ref(params);
 
                 gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_CLIENT_ACCEPTED,
                         "accepted client from %s (version: %s)",
