@@ -241,8 +241,8 @@ bitd_compare_ckum (xlator_t *this,
                 goto dictfree;
         }
 
-        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_MARK_CORRUPTED, "Marking %s"
-                " [GFID: %s | Brick: %s] as corrupted..", loc->path,
+        gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_MARK_CORRUPTED, "Marking"
+                " %s [GFID: %s | Brick: %s] as corrupted..", loc->path,
                 uuid_utoa (linked_inode->gfid), child->brick_path);
         ret = syncop_fsetxattr (child->xl, fd, xattr, 0, NULL, NULL);
         if (ret)
