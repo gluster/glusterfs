@@ -4436,6 +4436,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
         glusterd_conf_t    *conf    = NULL;
         char               *volname = NULL;
         glusterd_volinfo_t *volinfo = NULL;
+        char            *port = 0;
+        int             i = 0;
+        char            key[1024] = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -4494,6 +4497,17 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                  ret = dict_get_str (op_ctx, "volname", &volname);
                  if (ret)
                         goto out;
+
+                 for (i = 0; i <= brick_index_max; i++) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "brick%d.rdma_port", i);
+                        ret = dict_get_str (op_ctx, key, &port);
+                        if (ret) {
+                                ret = dict_set_str (op_ctx, key, "\0");
+                                if (ret)
+                                        goto out;
+                         }
+                 }
 
                  glusterd_volinfo_find (volname, &volinfo);
                  if (conf->op_version < GD_OP_VERSION_3_7_0 &&
