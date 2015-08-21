@@ -211,6 +211,7 @@ AC_CONFIG_FILES([Makefile
                 extras/ocf/volume
                 extras/LinuxRPM/Makefile
                 extras/geo-rep/Makefile
+                extras/firewalld/Makefile
                 extras/hook-scripts/add-brick/Makefile
                 extras/hook-scripts/add-brick/pre/Makefile
                 extras/hook-scripts/add-brick/post/Makefile
@@ -730,6 +731,22 @@ fi
 AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
 # end CDC xlator secion
+
+#start firewalld section
+BUILD_FIREWALLD="no"
+AC_ARG_ENABLE([firewalld],
+              AC_HELP_STRING([--enable-firewalld],
+                             [enable installation configuration for firewalld]),
+              [BUILD_FIREWALLD="${enableval}"], [BUILD_FIREWALLD="no"])
+
+if test "x${BUILD_FIREWALLD}" = "xyes"; then
+        if !(which firewalld 1>/dev/null 2>&1) ; then
+                BUILD_FIREWALLD="no (firewalld not installed)"
+        fi
+fi
+AM_CONDITIONAL([USE_FIREWALLD],test ["x${BUILD_FIREWALLD}" =  "xyes"])
+
+#endof firewald section
 
 # Data tiering requires sqlite
 AC_ARG_ENABLE([tiering],
@@ -1351,4 +1368,5 @@ echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
+echo "firewalld-config     : $BUILD_FIREWALLD"
 echo

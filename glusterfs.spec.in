@@ -89,6 +89,10 @@
 %global _with_systemd true
 %endif
 
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 7 )
+%global _with_firewalld --enable-firewalld
+%endif
+
 %if 0%{?_tmpfilesdir:1}
 %define _with_tmpfilesdir --with-tmpfilesdir=%{_tmpfilesdir}
 %else
@@ -227,6 +231,10 @@ BuildRequires:    glib2-devel
 %endif
 %if ( 0%{!?_without_georeplication:1} )
 BuildRequires:    libattr-devel
+%endif
+
+%if (0%{?_with_firewalld:1})
+BuildRequires:    firewalld
 %endif
 
 Obsoletes:        hekafs
@@ -595,6 +603,7 @@ This package provides the translators needed on any GlusterFS client.
         %{?_without_epoll} \
         %{?_without_fusermount} \
         %{?_without_georeplication} \
+        %{?_with_firewalld} \
         %{?_without_ocf} \
         %{?_without_qemu_block} \
         %{?_without_rdma} \
@@ -875,6 +884,15 @@ if [ -e /etc/ld.so.conf.d/glusterfs.conf ]; then
     rm -f /etc/ld.so.conf.d/glusterfs.conf
     /sbin/ldconfig
 fi
+
+%if (0%{?_with_firewalld:1})
+#reload service files if firewalld running
+if $(systemctl is-active firewalld 1>/dev/null 2>&1); then
+  #firewalld-filesystem is not available for rhel7, so command used for reload.
+  firewall-cmd  --reload
+fi
+%endif
+
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
@@ -931,6 +949,15 @@ fi
 
 %postun api
 /sbin/ldconfig
+
+%postun server
+%if (0%{?_with_firewalld:1})
+#reload service files if firewalld running
+if $(systemctl is-active firewalld 1>/dev/null 2>&1); then
+    firewall-cmd  --reload
+fi
+%endif
+
 
 %postun libs
 /sbin/ldconfig
@@ -1232,10 +1259,17 @@ fi
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
 
+%if ( 0%{?_with_firewalld:1} )
+/usr/lib/firewalld/services/glusterfs.xml
+%endif
+
 
 %changelog
 * Tue Sep 1 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - erroneous ghost of ../hooks/1/delete causes install failure (#1258975)
+
+* Tue Aug 25 2015 Anand Nekkunti <anekkunt@redhat.com>
+- adding glusterfs-firewalld service (#1253967)
 
 * Tue Aug 18 2015 Niels de Vos <ndevos@redhat.com>
 - Include missing directories for glusterfind hooks scripts (#1225465)
