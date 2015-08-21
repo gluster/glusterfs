@@ -62,7 +62,8 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
 # testing bug 1215122, ie should fail if replica count and bricks are not compatible.
-TEST ! $CLI volume attach-tier $V0 replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+TEST ! $CLI volume tier $V0 attach replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 TEST $CLI volume start $V0
 
@@ -74,9 +75,16 @@ TEST $CLI volume set $V0 features.ctr-enabled on
 TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 
 #testing bug #1228112, glusterd crashed when trying to detach-tier commit force on a non-tiered volume.
-TEST ! $CLI volume detach-tier $V0 commit force
+TEST ! $CLI volume tier $V0 detach commit force
 
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+# stop the volume and restart it. The rebalance daemon should restart.
+TEST $CLI volume stop $V0
+TEST $CLI volume start $V0
+
+sleep_first_cycle
+$CLI volume tier $V0 status
 
 #Tier options expect non-negative value
 TEST ! $CLI volume set $V0 cluster.tier-promote-frequency -1
@@ -135,9 +143,9 @@ TEST glusterd
 # Test rebalance commands
 TEST $CLI volume rebalance $V0 tier status
 
-TEST $CLI volume detach-tier $V0 start
+TEST $CLI volume tier $V0 detach start
 
-TEST $CLI volume detach-tier $V0 commit force
+TEST $CLI volume tier $V0 detach commit force
 
 EXPECT "0" file_on_slow_tier d1/data.txt
 
