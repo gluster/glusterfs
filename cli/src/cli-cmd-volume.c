@@ -893,7 +893,7 @@ out:
 }
 
 int
-cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
+do_cli_cmd_volume_attach_tier (struct cli_state *state,
                                 struct cli_cmd_word *word, const char **words,
                                 int wordcount)
 {
@@ -975,7 +975,7 @@ out:
 }
 
 int
-cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
+do_cli_cmd_volume_detach_tier (struct cli_state *state,
                               struct cli_cmd_word *word, const char **words,
                               int wordcount)
 {
@@ -1036,6 +1036,77 @@ out:
         }
 
         CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
+cli_cmd_volume_tier_cbk (struct cli_state *state,
+                         struct cli_cmd_word *word, const char **words,
+                         int wordcount)
+{
+        int                      ret     = -1;
+        call_frame_t            *frame   = NULL;
+        dict_t                  *options = NULL;
+        char                    *volname = NULL;
+        rpc_clnt_procedure_t    *proc    = NULL;
+        cli_local_t             *local   = NULL;
+        int                      i       = 0;
+
+        if (wordcount < 4) {
+                cli_usage_out (word->pattern);
+                goto out;
+        }
+
+        if (!strcmp(words[1], "detach-tier")) {
+                ret = do_cli_cmd_volume_detach_tier (state, word,
+                                                     words, wordcount);
+                goto out;
+        } else if (!strcmp(words[3], "detach")) {
+                for (i = 3; i < wordcount; i++)
+                        words[i] = words[i+1];
+
+                ret = do_cli_cmd_volume_detach_tier (state, word,
+                                                     words, wordcount-1);
+                goto out;
+
+        } else if (!strcmp(words[1], "attach-tier")) {
+                ret = do_cli_cmd_volume_attach_tier (state, word,
+                                                     words, wordcount);
+                goto out;
+        } else if (!strcmp(words[3], "attach")) {
+                for (i = 3; i < wordcount; i++)
+                        words[i] = words[i+1];
+
+                ret = do_cli_cmd_volume_attach_tier (state, word,
+                                                     words, wordcount-1);
+                goto out;
+        }
+
+        ret = cli_cmd_volume_tier_parse (words, wordcount, &options);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_TIER];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_out ("Tier command failed");
+        }
+        if (options)
+                dict_unref (options);
 
         return ret;
 }
@@ -2584,14 +2655,24 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
+        { "volume tier <VOLNAME> status\n"
+        "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>...\n"
+        "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
+        cli_cmd_volume_tier_cbk,
+        "Tier translator specific operations."},
+
         { "volume attach-tier <VOLNAME> [<replica COUNT>] <NEW-BRICK>...",
-          cli_cmd_volume_attach_tier_cbk,
-          "attach tier to volume <VOLNAME>"},
+        cli_cmd_volume_tier_cbk,
+          "NOTE: this is old syntax, will be depreciated in next release. "
+          "Please use gluster volume tier <vol> attach "
+          "[<replica COUNT>] <NEW-BRICK>..."},
 
         { "volume detach-tier <VOLNAME> "
           " <start|stop|status|commit|[force]>",
-          cli_cmd_volume_detach_tier_cbk,
-          "detach tier from volume <VOLNAME>"},
+        cli_cmd_volume_tier_cbk,
+          "NOTE: this is old syntax, will be depreciated in next release. "
+          "Please use gluster volume tier <vol> detach "
+          "{start|stop|commit} [force]"},
 
         { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,

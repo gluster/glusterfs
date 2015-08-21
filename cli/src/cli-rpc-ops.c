@@ -4351,6 +4351,39 @@ out:
 }
 
 int32_t
+gf_cli_tier (call_frame_t *frame, xlator_t *this,
+             void *data)
+{
+        int                       ret = 0;
+        int32_t                   command = 0;
+        int32_t                   cmd = 0;
+        gf_cli_req                req =  { {0,} };
+        gf_cli_req                status_req = { {0,} };
+        dict_t                    *dict = NULL;
+        char                     *volname = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_defrag_volume_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_DEFRAG_VOLUME, this, cli_rpc_prog,
+                               NULL);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        GF_FREE (status_req.dict.dict_val);
+
+        return ret;
+}
+
+int32_t
 gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
@@ -10726,7 +10759,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GET_VOL_OPT]      = {"GET_VOL_OPT", gf_cli_get_vol_opt},
         [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot},
         [GLUSTER_CLI_ATTACH_TIER]      = {"ATTACH_TIER", gf_cli_attach_tier},
-        [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier}
+        [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier},
+        [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier}
 };
 
 struct rpc_clnt_program cli_prog = {
