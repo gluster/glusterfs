@@ -58,6 +58,9 @@ enum cli_snap_config_set_types {
 };
 typedef enum cli_snap_config_set_types cli_snap_config_set_types;
 
+int
+cli_cmd_validate_volume (char *volname);
+
 static const char *
 id_sel (void *wcon)
 {
@@ -1680,6 +1683,71 @@ out:
 
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse add-brick CLI");
+                if (dict)
+                        dict_destroy (dict);
+        }
+
+        return ret;
+}
+
+int32_t
+cli_cmd_volume_tier_parse (const char **words, int wordcount,
+                           dict_t **options)
+{
+        dict_t  *dict    = NULL;
+        char    *volname = NULL;
+        char    *word    = NULL;
+        int      ret     = -1;
+        int32_t  command = GF_OP_CMD_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (wordcount != 4) {
+                gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                ret = -1;
+                goto out;
+        }
+
+        volname = (char *)words[2];
+
+        GF_ASSERT (volname);
+
+        ret = cli_cmd_validate_volume (volname);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to validate volume name");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volname);
+
+        if (ret)
+                goto out;
+
+        volname = (char *)words[2];
+
+        word = (char *)words[3];
+        if (!strcmp(word, "status"))
+                command = GF_DEFRAG_CMD_STATUS_TIER;
+        else {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "rebalance-command", command);
+        if (ret)
+                goto out;
+
+        *options = dict;
+out:
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse tier CLI");
                 if (dict)
                         dict_destroy (dict);
         }

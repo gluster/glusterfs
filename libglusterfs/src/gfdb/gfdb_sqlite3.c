@@ -308,7 +308,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
                         GF_SQL_DEFAULT_PAGE_SIZE);
         sql_conn->page_size = atoi(temp_str);
         /*Apply page_size on the sqlite db*/
-        GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "page_size", "%ld",
+        GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "page_size", "%zd",
                         sql_conn->page_size, ret, out);
 
 
@@ -322,7 +322,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
                         GF_SQL_DEFAULT_CACHE_SIZE);
         sql_conn->cache_size = atoi(temp_str);
         /*Apply cache size on the sqlite db*/
-        GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "cache_size", "%ld",
+        GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "cache_size", "%zd",
                         sql_conn->cache_size, ret, out);
 
 
@@ -354,7 +354,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
                 sql_conn->wal_autocheckpoint = atoi(temp_str);
                 /*Apply wal auto check point to the sqlite db*/
                 GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "wal_autocheckpoint",
-                        "%ld", sql_conn->wal_autocheckpoint, ret, out);
+                        "%zd", sql_conn->wal_autocheckpoint, ret, out);
         }
 
 
@@ -703,7 +703,7 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
-                        "%ld : %s", from_time_usec,
+                        "%"PRIu64" : %s", from_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -714,7 +714,7 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
-                        "%ld : %s ", from_time_usec,
+                        "%"PRIu64" : %s ", from_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -788,7 +788,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -799,7 +799,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -885,7 +885,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
-                        "%ld : %s", from_time_usec,
+                        "%"PRIu64" : %s", from_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -908,7 +908,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
-                        "%ld : %s", from_time_usec,
+                        "%"PRIu64" : %s", from_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -1030,7 +1030,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -1052,7 +1052,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -1065,7 +1065,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -1087,7 +1087,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
-                        "%ld : %s", for_time_usec,
+                        "%"PRIu64" : %s", for_time_usec,
                         sqlite3_errmsg(sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
