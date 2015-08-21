@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+<short>glusterfs-static</short>
+<description>Default ports for gluster-distributed storage</description>
+<port protocol="tcp" port="24007"/>    <!--For glusterd -->
+<port protocol="tcp" port="24008"/>    <!--For glusterd RDMA port management -->
+<port protocol="tcp" port="38465"/>    <!--Gluster NFS service -->
+<port protocol="tcp" port="38466"/>    <!--Gluster NFS service -->
+<port protocol="tcp" port="38467"/>    <!--Gluster NFS service -->
+<port protocol="tcp" port="38468"/>    <!--Gluster NFS service -->
+<port protocol="tcp" port="38469"/>    <!--Gluster NFS service -->
+<port protocol="tcp" port="49152-49664"/>  <!--512 ports for bricks -->
+</service>
