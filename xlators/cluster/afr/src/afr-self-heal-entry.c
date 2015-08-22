@@ -443,7 +443,9 @@ __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
-            || !sources_count || afr_does_witness_exist (this, witness)) {
+            || !sources_count || afr_does_witness_exist (this, witness)
+            || (sources_count == priv->child_count &&
+                priv->did_discovery == _gf_false)) {
 
                 memset (sources, 0, sizeof (*sources) * priv->child_count);
                 afr_mark_active_sinks (this, sources, locked_on, healed_sinks);

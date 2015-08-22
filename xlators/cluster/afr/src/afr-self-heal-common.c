@@ -1763,8 +1763,10 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                     afr_is_metadata_set (this, replies[i].xdata))
 			*metadata_selfheal = _gf_true;
 
-		if (entry_selfheal && afr_is_entry_set (this, replies[i].xdata))
-			*entry_selfheal = _gf_true;
+		if (priv->did_discovery == _gf_false ||
+                    (entry_selfheal &&
+                     afr_is_entry_set (this, replies[i].xdata)))
+                        *entry_selfheal = _gf_true;
 
 		valid_cnt++;
 		if (valid_cnt == 1) {
@@ -1919,6 +1921,7 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
 {
 	int ret = 0;
 	int i = 0;
+    int source_count = 0;
 	afr_private_t *priv = NULL;
 	dict_t *xattr = NULL;
 	int **changelog = NULL;
@@ -1937,11 +1940,26 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
         if (!changelog)
                 goto out;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
-			continue;
-		afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
-	}
+        /* Pre-compute how many sources we have, if we made it in here
+         * without any sources defined, we are doing a conservative
+         * merge
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i]) {
+                        source_count++;
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                /* If there are no sources we are doing a conservative
+                 * merge.  In such a case ensure we mark the changelog
+                 * on all replicas.
+                 */
+                if (!sources[i] && source_count) {
+                        continue;
+                }
+                afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
+            }
 out:
         if (changelog)
                 afr_matrix_cleanup (changelog, priv->child_count);

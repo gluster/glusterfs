@@ -1085,7 +1085,8 @@ refresh_done:
 int
 afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 {
-	call_frame_t *heal_frame = NULL;
+	afr_private_t *priv = NULL;
+    call_frame_t *heal_frame = NULL;
 	afr_local_t *local = NULL;
         gf_boolean_t start_heal = _gf_false;
         afr_local_t *heal_local = NULL;
@@ -1094,13 +1095,15 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 	int err = 0;
 
 	local = frame->local;
+    priv = this->private;
 
 	ret = afr_replies_interpret (frame, this, local->refreshinode,
                                      &start_heal);
 
 	err = afr_inode_refresh_err (frame, this);
 
-	if (ret && afr_selfheal_enabled (this) && start_heal) {
+	if (priv->did_discovery == _gf_false ||
+        (afr_selfheal_enabled (this) && start_heal)) {
                 heal_frame = copy_frame (frame);
                 if (!heal_frame)
                         goto refresh_done;
@@ -2580,6 +2583,8 @@ unwind:
                         local->op_errno = ENOTCONN;
         }
 
+    priv->did_discovery = _gf_true;
+
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
 			  local->replies[read_subvol].xdata,
@@ -2612,7 +2617,7 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->replies[child_index].xdata = dict_ref (xdata);
 	}
 
-        if (local->do_discovery && (op_ret == 0))
+        if (local->do_local_discovery && (op_ret == 0))
                 afr_attempt_local_discovery (this, child_index);
 
         if (xdata) {
@@ -2717,12 +2722,12 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 		if (!priv->root_inode)
 			priv->root_inode = inode_ref (loc->inode);
 
-		if (priv->choose_local && !priv->did_discovery) {
+		if (priv->choose_local && !priv->did_local_discovery) {
 			/* Logic to detect which subvolumes of AFR are
 			   local, in order to prefer them for reads
 			*/
-			local->do_discovery = _gf_true;
-                        priv->did_discovery = _gf_true;
+			local->do_local_discovery = _gf_true;
+                        priv->did_local_discovery = _gf_true;
                 }
 	}
 
@@ -4951,6 +4956,7 @@ afr_notify (xlator_t *this, int32_t event,
          * that we could end up issuing N lookups to the first subvolume, and
          * O(N^2) overall, but N is small for AFR so it shouldn't be an issue.
          */
+        priv->did_local_discovery = _gf_false;
         priv->did_discovery = _gf_false;
         latency_samples = child_xlator->client_latency.count;
 

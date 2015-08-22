@@ -292,6 +292,7 @@ reconfigure (xlator_t *this, dict_t *options)
         if (afr_set_favorite_child_policy (priv, fav_child_policy) == -1)
                 goto out;
 
+        priv->did_local_discovery = _gf_false;
         priv->did_discovery = _gf_false;
 
         ret = 0;

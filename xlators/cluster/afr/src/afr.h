@@ -163,6 +163,7 @@ typedef struct _afr_private {
 	uint32_t               event_generation;
 
         gf_boolean_t           choose_local;
+        gf_boolean_t           did_local_discovery;
         gf_boolean_t           did_discovery;
         uint64_t               sh_readdir_size;
         gf_boolean_t           ensure_durability;
@@ -813,6 +814,7 @@ typedef struct _afr_local {
         mode_t          umask;
         int             xflag;
         gf_boolean_t    do_discovery;
+        gf_boolean_t    do_local_discovery;
 	struct afr_reply *replies;
 
         /* For  client side background heals. */
