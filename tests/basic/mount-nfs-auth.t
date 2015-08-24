@@ -246,8 +246,12 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 TEST export_allow_this_host_ro
 TEST netgroup_deny_this_host
 
-EXPECT "Y" check_mount_success $V0
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "N" small_write # Writes should not be allowed
+## Restart the nfs server to avoid spurious failure(BZ1256352)
+$CLI vol stop $V0
+$CLI vol start $V0
+
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT "N" small_write # Writes should not be allowed
 TEST ! create      # Create should not be allowed
 TEST stat_nfs      # Stat should be allowed
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
