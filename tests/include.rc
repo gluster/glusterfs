@@ -128,19 +128,21 @@ function dbg()
 
 function G_LOG()
 {
-     local logdir=`$CLI --print-logdir`
-     test -d $logdir
+     local g_log_logdir;
+     g_log_logdir=`$CLI --print-logdir`
+     test -d $g_log_logdir
      if [ $? != 0 ]; then
         return
      fi
-     local string="++++++++++ G_LOG:$0: TEST: $1 $2 ++++++++++"
-     string="`date -u +["%F %T.%N"]`:$string"
-     local i
-     for i in `find $logdir/ -type f`;
+     local g_log_string;
+     g_log_string="++++++++++ G_LOG:$0: TEST: $1 $@ ++++++++++"
+     g_log_string="`date -u +["%F %T.%6N"]`:$g_log_string"
+     local g_log_filename
+     for  g_log_filename in `find $g_log_logdir/ -type f -name \*.log`;
         do
-                echo $string>>$i
+                echo "$g_log_string" >> "$g_log_filename"
         done
-} 2> /dev/null
+}
 
 function test_header()
 {
@@ -193,7 +195,7 @@ function _EXPECT()
         shift;
         local a=""
 
-        G_LOG $TESTLINE "$*";
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -227,7 +229,7 @@ function _EXPECT_NOT()
         shift;
         local a=""
 
-        G_LOG $TESTLINE "$*";
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -245,7 +247,7 @@ function _EXPECT_KEYWORD()
 {
         TESTLINE=$1;
         shift;
-        G_LOG $TESTLINE "$*";
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -261,7 +263,7 @@ function _TEST()
         shift;
         local redirect=""
 
-        G_LOG $TESTLINE "$*";
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         if [ "$1" = "!" ]; then
@@ -281,7 +283,7 @@ function _EXPECT_WITHIN()
         local timeout=$1
         shift;
 
-        G_LOG $TESTLINE "$*";
+        G_LOG $TESTLINE "$@";
         test_header "$@"
 
         e=$1;
