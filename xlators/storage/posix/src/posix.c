@@ -4841,6 +4841,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         int                   op_errno = 0;
         gf_xattrop_flags_t    optype   = 0;
         char                 *array    = NULL;
+        char                 *dst_data = NULL;
         inode_t              *inode    = NULL;
         xlator_t             *this     = NULL;
         posix_xattr_filler_t *filler   = NULL;
@@ -4904,6 +4905,11 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                         goto unlock;
                 }
 
+                if (size == -1 && optype == GF_XATTROP_GET_AND_SET) {
+                        GF_FREE (array);
+                        array = NULL;
+                }
+
                 /* We only write back the xattr if it has been really modified
                  * (i.e. v->data is not all 0's). Otherwise we return its value
                  * but we don't update anything.
@@ -4911,7 +4917,8 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                  * If the xattr does not exist, a value of all 0's is returned
                  * without creating it. */
                 size = v->len;
-                if (mem_0filled(v->data, v->len) == 0)
+                if (optype != GF_XATTROP_GET_AND_SET &&
+                    mem_0filled(v->data, v->len) == 0)
                         goto unlock;
 
                 switch (optype) {
@@ -4919,12 +4926,18 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                 case GF_XATTROP_ADD_ARRAY:
                         __add_array ((int32_t *) array,
                                      (int32_t *) v->data, v->len / 4);
+                        dst_data = array;
                         break;
 
                 case GF_XATTROP_ADD_ARRAY64:
                         __add_long_array ((int64_t *) array,
                                           (int64_t *) v->data,
                                           v->len / 8);
+                        dst_data = array;
+                        break;
+
+                case GF_XATTROP_GET_AND_SET:
+                        dst_data = v->data;
                         break;
 
                 default:
@@ -4940,10 +4953,10 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
 
                 if (filler->real_path) {
                         size = sys_lsetxattr (filler->real_path, k,
-                                              array, v->len, 0);
+                                              dst_data, v->len, 0);
                 } else {
                         size = sys_fsetxattr (filler->fdnum, k,
-                                              (char *)array,
+                                              (char *)dst_data,
                                               v->len, 0);
                 }
                 op_errno = errno;
@@ -4969,8 +4982,8 @@ unlock:
                                 k, strerror (op_errno));
                 op_ret = -1;
                 goto out;
-        } else {
-                op_ret = dict_set_bin (d, k, array, v->len);
+        } else if (array) {
+                op_ret = dict_set_bin (filler->xattr, k, array, v->len);
                 if (op_ret) {
                         if (filler->real_path)
                                 gf_msg_debug (this->name, 0,
@@ -5020,6 +5033,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         struct posix_fd      *pfd       = NULL;
         inode_t              *inode     = NULL;
         posix_xattr_filler_t  filler    = {0,};
+        dict_t               *xdata     = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (xattr, out);
@@ -5052,11 +5066,19 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 inode = fd->inode;
         }
 
+        xdata = dict_new ();
+        if (xdata == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         filler.this = this;
         filler.fdnum = _fd;
         filler.real_path = real_path;
         filler.flags = (int)optype;
         filler.inode = inode;
+        filler.xattr = xdata;
 
         op_ret = dict_foreach (xattr, _posix_handle_xattr_keyvalue_pair,
                                &filler);
@@ -5064,7 +5086,11 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
 out:
 
-        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr, NULL);
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xdata, xdata);
+
+        if (xdata)
+                dict_unref (xdata);
+
         return 0;
 }
 
