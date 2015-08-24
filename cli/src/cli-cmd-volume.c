@@ -1376,18 +1376,6 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         CLI_LOCAL_INIT (local, words, frame, xdata);
         proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
 
-        if (!(global_state->mode & GLUSTER_MODE_XML)) {
-                print_quota_list_header (type);
-        } else {
-                ret = cli_xml_output_vol_quota_limit_list_begin
-                        (local, 0, 0, NULL);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Error in printing "
-                                "xml output");
-                        goto out;
-                }
-        }
-
         gfid_str = GF_CALLOC (1, gf_common_mt_char, 64);
         if (!gfid_str) {
                 ret = -1;

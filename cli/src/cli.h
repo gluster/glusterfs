@@ -146,6 +146,7 @@ struct cli_local {
         xmlDocPtr               doc;
         int                     vol_count;
 #endif
+        gf_lock_t               lock;
 };
 
 struct cli_volume_status {
