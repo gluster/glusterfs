@@ -5005,8 +5005,22 @@ out:
          * See dht_iatt_merge for reference.
          */
         DHT_STRIP_PHASE1_FLAGS (stbuf);
-        DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, stbuf,
-                          preparent, postparent, xdata);
+
+        if (local && local->lock.locks) {
+                /* store op_errno for failure case*/
+                local->op_errno = op_errno;
+                local->refresh_layout_unlock (frame, this, op_ret);
+
+                if (op_ret == 0) {
+                        DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno,
+                                          inode, stbuf, preparent, postparent,
+                                          xdata);
+                }
+        } else {
+                DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode,
+                                  stbuf, preparent, postparent, xdata);
+        }
+
         return 0;
 }
 
@@ -5039,23 +5053,268 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        DHT_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                          NULL);
+        if (local->lock.locks)
+                local->refresh_layout_unlock (frame, this, -1);
+
         return 0;
 }
+
+int
+dht_mknod_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
+                                 xlator_t *subvol, loc_t *loc, dev_t rdev,
+                                 mode_t mode, mode_t umask, dict_t *params)
+{
+        dht_local_t     *local          = NULL;
+        xlator_t        *avail_subvol   = NULL;
+
+        local = frame->local;
+
+        if (!dht_is_subvol_filled (this, subvol)) {
+                gf_msg_debug (this->name, 0,
+                              "creating %s on %s", loc->path,
+                              subvol->name);
+
+                STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol,
+                                   subvol, subvol->fops->mknod, loc, mode,
+                                   rdev, umask, params);
+        } else {
+                avail_subvol = dht_free_disk_available_subvol (this, subvol, local);
+
+                if (avail_subvol != subvol) {
+                        local->params = dict_ref (params);
+                        local->rdev = rdev;
+                        local->mode = mode;
+                        local->umask = umask;
+                        local->cached_subvol = avail_subvol;
+                        local->hashed_subvol = subvol;
+
+                        gf_msg_debug (this->name, 0,
+                                      "creating %s on %s (link at %s)", loc->path,
+                                      avail_subvol->name, subvol->name);
+
+                        dht_linkfile_create (frame,
+                                             dht_mknod_linkfile_create_cbk,
+                                             this, avail_subvol, subvol, loc);
+
+                        goto out;
+                }
+
+                gf_msg_debug (this->name, 0,
+                              "creating %s on %s", loc->path, subvol->name);
+
+                STACK_WIND_COOKIE (frame, dht_newfile_cbk,
+                                   (void *)subvol, subvol,
+                                   subvol->fops->mknod, loc, mode,
+                                   rdev, umask, params);
+
+        }
+out:
+        return 0;
+}
+
+
+int32_t
+dht_mknod_do (call_frame_t *frame)
+{
+        dht_local_t     *local          = NULL;
+        dht_layout_t    *refreshed      = NULL;
+        xlator_t        *subvol         = NULL;
+        xlator_t        *this           = NULL;
+        dht_conf_t      *conf           = NULL;
+        dht_methods_t   *methods        = NULL;
+
+        local = frame->local;
+
+        this = THIS;
+
+        conf = this->private;
+
+        GF_VALIDATE_OR_GOTO (this->name, conf, err);
+
+        methods = conf->methods;
+
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
+
+        /* We don't need parent_loc anymore */
+        loc_wipe (&local->loc);
+
+        loc_copy (&local->loc, &local->loc2);
+
+        loc_wipe (&local->loc2);
+
+        refreshed = local->selfheal.refreshed_layout;
+
+        subvol = methods->layout_search (this, refreshed, local->loc.name);
+
+        if (!subvol) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED, "no subvolume in "
+                        "layout for path=%s", local->loc.path);
+                local->op_errno = ENOENT;
+                goto err;
+        }
+
+        dht_mknod_wind_to_avail_subvol (frame, this, subvol, &local->loc,
+                                         local->rdev, local->mode,
+                                         local->umask, local->params);
+        return 0;
+err:
+        local->refresh_layout_unlock (frame, this, -1);
+
+        return 0;
+}
+
+
+int32_t
+dht_mknod_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+int32_t
+dht_mknod_finish (call_frame_t *frame, xlator_t *this, int op_ret)
+{
+        dht_local_t  *local      = NULL, *lock_local = NULL;
+        call_frame_t *lock_frame = NULL;
+        int           lock_count = 0;
+
+        local = frame->local;
+        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
+        if (lock_count == 0)
+                goto done;
+
+        lock_frame = copy_frame (frame);
+        if (lock_frame == NULL) {
+                goto done;
+        }
+
+        lock_local = dht_local_init (lock_frame, &local->loc, NULL,
+                                     lock_frame->root->op);
+        if (lock_local == NULL) {
+                goto done;
+        }
+
+        lock_local->lock.locks = local->lock.locks;
+        lock_local->lock.lk_count = local->lock.lk_count;
+
+        local->lock.locks = NULL;
+        local->lock.lk_count = 0;
+
+        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
+                            lock_local->lock.lk_count,
+                            dht_mknod_unlock_cbk);
+        lock_frame = NULL;
+
+done:
+        if (lock_frame != NULL) {
+                DHT_STACK_DESTROY (lock_frame);
+        }
+
+        if (op_ret == 0)
+                return 0;
+
+        DHT_STACK_UNWIND (mknod, frame, op_ret, local->op_errno, NULL, NULL,
+                          NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+dht_mknod_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t     *local = NULL;
+
+        local = frame->local;
+
+        if (!local) {
+                goto err;
+        }
+
+        if (op_ret < 0) {
+                gf_msg ("DHT", GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
+                        "mknod lock failed for file: %s", local->loc2.name);
+
+                local->op_errno = op_errno;
+
+                goto err;
+        }
+
+        local->refresh_layout_unlock = dht_mknod_finish;
+
+        local->refresh_layout_done = dht_mknod_do;
+
+        dht_refresh_layout (frame);
+
+        return 0;
+err:
+        dht_mknod_finish (frame, this, -1);
+        return 0;
+}
+
+int32_t
+dht_mknod_lock (call_frame_t *frame, xlator_t *subvol)
+{
+        dht_local_t     *local          = NULL;
+        int              count  = 1,    ret = -1;
+        dht_lock_t     **lk_array       = NULL;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO (frame->this->name, frame->local, err);
+
+        local = frame->local;
+
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+
+        if (lk_array == NULL)
+                goto err;
+
+        lk_array[0] = dht_lock_new (frame->this, subvol, &local->loc, F_RDLCK,
+                                    DHT_LAYOUT_HEAL_DOMAIN);
+
+        if (lk_array[0] == NULL)
+                goto err;
+
+        local->lock.locks = lk_array;
+        local->lock.lk_count = count;
+
+        ret = dht_blocking_inodelk (frame, lk_array, count,
+                                    dht_mknod_lock_cbk);
+
+        if (ret < 0) {
+                local->lock.locks = NULL;
+                local->lock.lk_count = 0;
+                goto err;
+        }
+
+        return 0;
+err:
+        if (lk_array != NULL) {
+                dht_lock_array_free (lk_array, count);
+                GF_FREE (lk_array);
+        }
+
+        return -1;
+}
+
 
 int
 dht_mknod (call_frame_t *frame, xlator_t *this,
            loc_t *loc, mode_t mode, dev_t rdev, mode_t umask, dict_t *params)
 {
-        xlator_t    *subvol = NULL;
-        int          op_errno = -1;
-        xlator_t    *avail_subvol = NULL;
-        dht_local_t *local = NULL;
+        xlator_t       *subvol     = NULL;
+        int             op_errno   = -1;
+        int             i          = 0;
+        int             ret        = 0;
+        dht_local_t    *local      = NULL;
+        dht_conf_t     *conf       = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
+
+        conf = this->private;
 
         dht_get_du_info (frame, this, loc);
 
@@ -5074,42 +5333,77 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        if (!dht_is_subvol_filled (this, subvol)) {
-                gf_msg_trace (this->name, 0,
-                              "creating %s on %s", loc->path,
-                              subvol->name);
+        /* Post remove-brick, the client layout may not be in sync with
+        * disk layout because of lack of lookup. Hence,a mknod call
+        * may fall on the decommissioned brick.  Hence, if the
+        * hashed_subvol is part of decommissioned bricks  list, do a
+        * lookup on parent dir. If a fix-layout is already done by the
+        * remove-brick process, the parent directory layout will be in
+        * sync with that of the disk. If fix-layout is still ending
+        * on the parent directory, we can let the file get created on
+        * the decommissioned brick which will be eventually migrated to
+        * non-decommissioned brick based on the new layout.
+        */
 
-                STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol,
-                                   subvol, subvol->fops->mknod, loc, mode,
-                                   rdev, umask, params);
-        } else {
+        if (conf->decommission_subvols_cnt) {
+            for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (conf->decommissioned_bricks[i] &&
+                        conf->decommissioned_bricks[i] == subvol) {
 
-                avail_subvol = dht_free_disk_available_subvol (this, subvol,
-                                                               local);
-                if (avail_subvol != subvol) {
-                        /* Choose the minimum filled volume, and create the
-                           files there */
+                        gf_msg_debug (this->name, 0, "hashed subvol:%s is "
+                                      "part of decommission brick list for "
+                                      "file: %s", subvol->name, loc->path);
+
+                        /* dht_refresh_layout needs directory info in
+                         * local->loc. Hence, storing the parent_loc in
+                         * local->loc and storing the create context in
+                         * local->loc2. We will restore this information
+                         * in dht_creation do */
+
+                        ret = loc_copy (&local->loc2, &local->loc);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_NO_MEMORY,
+                                        "loc_copy failed %s", loc->path);
+
+                                goto err;
+                        }
 
                         local->params = dict_ref (params);
-                        local->cached_subvol = avail_subvol;
-                        local->mode = mode;
                         local->rdev = rdev;
+                        local->mode = mode;
                         local->umask = umask;
-                        dht_linkfile_create (frame,
-                                             dht_mknod_linkfile_create_cbk,
-                                             this, avail_subvol, subvol, loc);
-                } else {
-                        gf_msg_trace (this->name, 0,
-                                      "creating %s on %s", loc->path,
-                                      subvol->name);
 
-                        STACK_WIND_COOKIE (frame, dht_newfile_cbk,
-                                           (void *)subvol, subvol,
-                                           subvol->fops->mknod, loc, mode,
-                                           rdev, umask, params);
-                }
+                        loc_wipe (&local->loc);
+
+                        ret = dht_build_parent_loc (this, &local->loc, loc,
+                                                                 &op_errno);
+
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_NO_MEMORY,
+                                        "parent loc build failed");
+                                goto err;
+                        }
+
+                        ret = dht_mknod_lock (frame, subvol);
+
+                        if (ret < 0) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_INODE_LK_ERROR,
+                                        "locking parent failed");
+                                goto err;
+                        }
+
+                        goto done;
+               }
+            }
         }
 
+        dht_mknod_wind_to_avail_subvol (frame, this, subvol, loc, rdev, mode,
+                                        umask, params);
+
+done:
         return 0;
 
 err:

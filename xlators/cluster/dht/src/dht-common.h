@@ -1073,4 +1073,9 @@ dht_layout_missing_dirs (dht_layout_t *layout);
 
 int
 dht_refresh_layout (call_frame_t *frame);
+
+int
+dht_build_parent_loc (xlator_t *this, loc_t *parent, loc_t *child,
+                                                 int32_t *op_errno);
+
 #endif/* _DHT_H */
