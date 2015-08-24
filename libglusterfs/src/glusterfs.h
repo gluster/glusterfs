@@ -372,7 +372,8 @@ typedef enum {
         GF_XATTROP_ADD_ARRAY,
         GF_XATTROP_ADD_ARRAY64,
         GF_XATTROP_OR_ARRAY,
-        GF_XATTROP_AND_ARRAY
+        GF_XATTROP_AND_ARRAY,
+        GF_XATTROP_GET_AND_SET
 } gf_xattrop_flags_t;
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
