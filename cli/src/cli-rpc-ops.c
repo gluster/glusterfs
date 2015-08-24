@@ -3232,7 +3232,8 @@ out:
 }
 
 int
-print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
+print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict,
+                              int32_t list_count)
 {
         char             *path          = NULL;
         char             *default_sl    = NULL;
@@ -3244,10 +3245,10 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
         quota_limits_t  *size_limits    = NULL;
         int32_t          type           = 0;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         gd_rsp_dict = local->dict;
-
-        GF_ASSERT (frame);
 
         ret = dict_get_int32 (rsp_dict, "type", &type);
         if (ret) {
@@ -3306,10 +3307,35 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
                 goto out;
         }
 
+        if (list_count == 0) {
+                if (!(global_state->mode & GLUSTER_MODE_XML)) {
+                        print_quota_list_header (type);
+                } else {
+                        ret = cli_xml_output_vol_quota_limit_list_begin
+                                (local, 0, 0, NULL);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR, "Error in "
+                                        "printing xml output");
+                                goto out;
+                        }
+                }
+        }
+
         ret = print_quota_list_output (local, path, default_sl, &limits,
                                        &used_space, type);
 out:
         return ret;
+}
+
+void*
+cli_cmd_broadcast_response_detached (void *opaque)
+{
+        int32_t ret = 0;
+
+        ret = (intptr_t) opaque;
+        cli_cmd_broadcast_response (ret);
+
+        return NULL;
 }
 
 int
@@ -3321,12 +3347,41 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
         int                ret         = -1;
         dict_t            *dict        = NULL;
         call_frame_t      *frame       = NULL;
+        cli_local_t       *local       = NULL;
+        dict_t            *gd_rsp_dict = NULL;
+        int32_t            list_count  = 0;
+        pthread_t          th_id       = {0, };
 
-        if (-1 == req->rpc_status) {
+        frame = myframe;
+        GF_ASSERT (frame);
+
+        local = frame->local;
+        gd_rsp_dict = local->dict;
+
+        LOCK (&local->lock);
+        {
+                ret = dict_get_int32 (gd_rsp_dict, "quota-list-count",
+                                      &list_count);
+                if (ret)
+                        list_count = 0;
+                ret = dict_set_int32 (gd_rsp_dict, "quota-list-count",
+                                      list_count + 1);
+        }
+        UNLOCK (&local->lock);
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                        "quota-list-count in dict");
                 goto out;
         }
 
-        frame = myframe;
+        if (-1 == req->rpc_status) {
+                if (list_count == 0)
+                        cli_err ("Connection failed. Please check if quota "
+                                 "daemon is operational.");
+                ret = -1;
+                goto out;
+        }
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
@@ -3357,11 +3412,36 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                                 "unserialize req-buffer to dictionary");
                         goto out;
                 }
-                print_quota_list_from_quotad (frame, dict);
+                print_quota_list_from_quotad (frame, dict, list_count);
         }
 
 out:
-        cli_cmd_broadcast_response (ret);
+        /* Bad Fix: CLI holds the lock to process a command.
+         * When processing quota list command, below sequence of steps executed
+         * in the same thread and causing deadlock
+         *
+         * 1) CLI holds the lock
+         * 2) Send rpc_clnt_submit request to quotad for quota usage
+         * 3) If quotad is down, rpc_clnt_submit invokes cbk function with error
+         * 4) cbk function cli_quotad_getlimit_cbk invokes
+         *    cli_cmd_broadcast_response which tries to hold lock to broadcast
+         *    the results and hangs, because same thread has already holding
+         *    the lock
+         *
+         * Broadcasting response in a seperate thread which is not a
+         * good fix. This needs to be re-visted with better solution
+         */
+        if (ret == -1) {
+                ret = pthread_create (&th_id, NULL,
+                                cli_cmd_broadcast_response_detached,
+                                (void *)-1);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR, "pthread_create failed: "
+                                "%s", strerror (errno));
+        } else {
+                cli_cmd_broadcast_response (ret);
+        }
+
         if (dict)
                 dict_unref (dict);
 
