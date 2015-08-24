@@ -201,7 +201,9 @@ function is_bad_test ()
               ./tests/basic/mount-nfs-auth.t \
               ./tests/geo-rep/georep-basic-dr-rsync.t \
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
-	      ; do
+              ./tests/basic/afr/arbiter-statfs.t \
+              ./tests/basic/tier/tier.t \
+              ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
     return 1				  # bash: non-zero means false/failure
