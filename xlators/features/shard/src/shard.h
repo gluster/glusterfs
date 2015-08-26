@@ -180,6 +180,7 @@ typedef struct shard_local {
         struct iobuf *iobuf;
         gf_dirent_t entries_head;
         gf_boolean_t list_inited;
+        gf_boolean_t is_write_extending;
         shard_post_fop_handler_t handler;
         shard_post_lookup_shards_fop_handler_t pls_fop_handler;
         shard_post_resolve_fop_handler_t post_res_handler;
