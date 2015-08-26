@@ -5506,15 +5506,16 @@ glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (err_str);
         GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
-        ret = dict_get_int32 (dict, "delete-cmd", &delete_cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &delete_cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_COMMAND_NOT_FOUND, "Failed to get delete-cmd");
+                        GD_MSG_COMMAND_NOT_FOUND, "Failed to get sub-cmd");
                 goto out;
         }
 
         switch (delete_cmd) {
         case GF_SNAP_DELETE_TYPE_SNAP:
+        case GF_SNAP_DELETE_TYPE_ITER:
                 ret = glusterd_handle_snapshot_delete_type_snap (req, op, dict,
                                                                  err_str,
                                                                  op_errno, len);
@@ -5647,7 +5648,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "status-cmd", &cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED,
@@ -7531,7 +7532,7 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
         conf = this->private;
 
         GF_ASSERT (conf);
-        ret = dict_get_int32 (dict, "status-cmd", &cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED,
@@ -7539,7 +7540,7 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = dict_set_int32 (rsp_dict, "status-cmd", cmd);
+        ret = dict_set_int32 (rsp_dict, "sub-cmd", cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
