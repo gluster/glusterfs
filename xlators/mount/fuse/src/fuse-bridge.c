@@ -1205,6 +1205,47 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 static int
+fuse_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        fuse_state_t *state = NULL;
+        fuse_in_header_t *finh = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (frame->root);
+
+        state =  frame->root->state;
+        finh  =  state->finh;
+
+        fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
+
+        if (op_ret == 0) {
+                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
+                        "%"PRIu64": %s() %s => 0", frame->root->unique,
+                        gf_fop_list[frame->root->op],
+                        state->loc.path ? state->loc.path : "ERR");
+
+                send_fuse_err (this, finh, 0);
+        } else {
+                gf_log ("glusterfs-fuse",
+                        (ENODATA == op_errno) ? GF_LOG_DEBUG : GF_LOG_WARNING,
+                        "%"PRIu64": %s() of %s on %s => -1 (%s)",
+                        frame->root->unique,
+                        gf_fop_list[frame->root->op],
+                        state->name ? state->name : "",
+                        state->loc.path ? state->loc.path : "ERR",
+                        strerror (op_errno));
+
+                send_fuse_err (this, finh, op_errno);
+        }
+
+        free_fuse_state (state);
+        STACK_DESTROY (frame->root);
+
+        return 0;
+}
+
+static int
 fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -3549,14 +3590,14 @@ fuse_removexattr_resume (fuse_state_t *state)
                         "%"PRIu64": REMOVEXATTR %p/%"PRIu64" (%s)", state->finh->unique,
                         state->fd, state->finh->nodeid, state->name);
 
-                FUSE_FOP (state, fuse_err_cbk, GF_FOP_FREMOVEXATTR,
+                FUSE_FOP (state, fuse_removexattr_cbk, GF_FOP_FREMOVEXATTR,
                           fremovexattr, state->fd, state->name, state->xdata);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": REMOVEXATTR %s/%"PRIu64" (%s)", state->finh->unique,
                         state->loc.path, state->finh->nodeid, state->name);
 
-                FUSE_FOP (state, fuse_err_cbk, GF_FOP_REMOVEXATTR,
+                FUSE_FOP (state, fuse_removexattr_cbk, GF_FOP_REMOVEXATTR,
                           removexattr, &state->loc, state->name, state->xdata);
         }
 }
