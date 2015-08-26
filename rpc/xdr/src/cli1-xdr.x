@@ -189,13 +189,15 @@ enum gf1_cli_snapshot_config {
 enum  gf1_cli_snapshot_status {
         GF_SNAP_STATUS_TYPE_ALL = 0,
         GF_SNAP_STATUS_TYPE_SNAP,
-        GF_SNAP_STATUS_TYPE_VOL
+        GF_SNAP_STATUS_TYPE_VOL,
+        GF_SNAP_STATUS_TYPE_ITER
 };
 
 enum gf1_cli_snapshot_delete {
         GF_SNAP_DELETE_TYPE_ALL  = 0,
         GF_SNAP_DELETE_TYPE_SNAP = 1,
-        GF_SNAP_DELETE_TYPE_VOL  = 2
+        GF_SNAP_DELETE_TYPE_VOL  = 2,
+        GF_SNAP_DELETE_TYPE_ITER = 3
 };
 
 struct gf_cli_req {
