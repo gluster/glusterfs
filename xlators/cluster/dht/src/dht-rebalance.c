@@ -2154,7 +2154,8 @@ int static
 gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                      loc_t *loc, dht_conf_t *conf, gf_defrag_info_t *defrag,
                      fd_t *fd, dict_t *migrate_data,
-                     struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req)
+                     struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
+                     int *should_commit_hash)
 {
         int                     ret             = -1;
         char                    is_linkfile     = 0;
@@ -2282,6 +2283,20 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed:%s lookup failed",
                                 entry_loc.path);
+
+                        if (-ret != ENOENT && -ret != ESTALE) {
+
+                                defrag->total_failures++;
+
+                                if (conf->decommission_in_progress) {
+                                        ret = -1;
+                                        goto out;
+                                } else {
+                                       *should_commit_hash = 0;
+                                        continue;
+                                }
+                        }
+
                         continue;
                 }
 
@@ -2308,6 +2323,20 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed:%s lookup failed",
                                 entry_loc.path);
+
+                        if (-ret != ENOENT && -ret != ESTALE) {
+
+                                defrag->total_failures++;
+
+                                if (conf->decommission_in_progress) {
+                                        ret = -1;
+                                        goto out;
+                                } else {
+                                        *should_commit_hash = 0;
+                                        continue;
+                                }
+                        }
+
                         continue;
                 }
 
@@ -2437,6 +2466,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         int                      dfc_index         = 0;
         int                      throttle_up       = 0;
         struct dir_dfmeta       *dir_dfmeta        = NULL;
+        int                      should_commit_hash = 1;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
@@ -2607,7 +2637,8 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         ret = gf_defrag_get_entry (this, dfc_index, &container,
                                                    loc, conf, defrag, fd,
                                                    migrate_data, dir_dfmeta,
-                                                   xattr_req);
+                                                   xattr_req,
+                                                   &should_commit_hash);
                         if (ret) {
                                 gf_log ("DHT", GF_LOG_INFO, "Found critical "
                                         "error from gf_defrag_get_entry");
@@ -2663,8 +2694,12 @@ out:
 
         if (fd)
                 fd_unref (fd);
-        return ret;
 
+        if (ret == 0 && should_commit_hash == 0) {
+                ret = 2;
+        }
+
+        return ret;
 }
 int
 gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
@@ -2849,6 +2884,14 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         off_t                    offset         = 0;
         struct iatt              iatt           = {0,};
         inode_t                 *linked_inode   = NULL, *inode = NULL;
+        dht_conf_t              *conf           = NULL;
+        int                      should_commit_hash = 1;
+
+        conf = this->private;
+        if (!conf) {
+                ret = -1;
+                goto out;
+        }
 
 
 
@@ -2863,8 +2906,23 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
             (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
                 ret = gf_defrag_process_dir (this, defrag, loc, migrate_data);
-                if (ret)
-                        goto out;
+
+                if (ret && ret != 2) {
+                        defrag->total_failures++;
+
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
+                                "gf_defrag_process_dir failed for directory: %s"
+                                , loc->path);
+
+                        if (conf->decommission_in_progress) {
+                                goto out;
+                        }
+
+                        should_commit_hash = 0;
+                } else if (ret == 2) {
+                        should_commit_hash = 0;
+                }
         }
 
         gf_msg_trace (this->name, 0, "fix layout called on %s", loc->path);
@@ -2931,13 +2989,23 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         }
                         loc_wipe (&entry_loc);
 
-                        ret =dht_build_child_loc (this, &entry_loc, loc,
+                        ret = dht_build_child_loc (this, &entry_loc, loc,
                                                   entry->d_name);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Child loc"
-                                        " build failed");
-                                ret = -1;
-                                goto out;
+                                        " build failed for entry: %s",
+                                        entry->d_name);
+
+                                if (conf->decommission_in_progress) {
+                                        defrag->defrag_status =
+                                        GF_DEFRAG_STATUS_FAILED;
+
+                                        goto out;
+                                } else {
+                                        should_commit_hash = 0;
+
+                                        continue;
+                                }
                         }
 
                         if (gf_uuid_is_null (entry->d_stat.ia_gfid)) {
@@ -2975,10 +3043,17 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         ret = syncop_lookup (this, &entry_loc, &iatt, NULL,
                                              NULL, NULL);
+                        /*Check whether it is ENOENT or ESTALE*/
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s"
-                                        " lookup failed", entry_loc.path);
-                                ret = -1;
+                                        " lookup failed with %d",
+                                        entry_loc.path, -ret);
+
+                                if (!conf->decommission_in_progress &&
+                                    -ret != ENOENT && -ret != ESTALE) {
+                                        should_commit_hash = 0;
+                                }
+
                                 continue;
                         }
 
@@ -2987,30 +3062,71 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Setxattr "
                                         "failed for %s", entry_loc.path);
-                                defrag->defrag_status =
-                                GF_DEFRAG_STATUS_FAILED;
-                                defrag->total_failures ++;
-                                ret = -1;
-                                goto out;
+
+                                defrag->total_failures++;
+
+                                /*Don't go for fix-layout of child subtree if"
+                                  fix-layout failed*/
+                                if (conf->decommission_in_progress) {
+                                        defrag->defrag_status =
+                                        GF_DEFRAG_STATUS_FAILED;
+
+                                        ret = -1;
+
+                                        goto out;
+                                } else {
+                                        continue;
+                                }
                         }
+
+
+                        /* A return value of 2 means, either process_dir or
+                         * lookup of a dir failed. Hence, don't commit hash
+                         * for the current directory*/
+
                         ret = gf_defrag_fix_layout (this, defrag, &entry_loc,
                                                     fix_layout, migrate_data);
 
-                        if (ret) {
+                        if (ret && ret != 2) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LAYOUT_FIX_FAILED,
                                         "Fix layout failed for %s",
                                         entry_loc.path);
+
                                 defrag->total_failures++;
-                                ret = -1;
-                                goto out;
+
+                                if (conf->decommission_in_progress) {
+                                        defrag->defrag_status =
+                                        GF_DEFRAG_STATUS_FAILED;
+
+                                        ret = -1;
+
+                                        goto out;
+                                } else {
+                                        /* Let's not commit-hash if
+                                         * gf_defrag_fix_layout failed*/
+                                        continue;
+                                }
                         }
 
-                        if (gf_defrag_settle_hash (this, defrag, &entry_loc,
+                        if (ret != 2 &&
+                            gf_defrag_settle_hash (this, defrag, &entry_loc,
                             fix_layout) != 0) {
                                 defrag->total_failures++;
+
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_SETTLE_HASH_FAILED,
+                                        "Settle hash failed for %s",
+                                        entry_loc.path);
+
                                 ret = -1;
-                                goto out;
+
+                                if (conf->decommission_in_progress) {
+                                        defrag->defrag_status =
+                                        GF_DEFRAG_STATUS_FAILED;
+
+                                        goto out;
+                                }
                         }
                 }
                 gf_dirent_free (&entries);
@@ -3027,6 +3143,10 @@ out:
 
         if (fd)
                 fd_unref (fd);
+
+        if (ret == 0 && should_commit_hash == 0) {
+                ret = 2;
+        }
 
         return ret;
 
@@ -3223,13 +3343,14 @@ gf_defrag_start_crawl (void *data)
 
         ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
                                     migrate_data);
-        if (ret) {
+        if (ret && ret != 2) {
                 defrag->total_failures++;
                 ret = -1;
                 goto out;
         }
 
-        if (gf_defrag_settle_hash (this, defrag, &loc, fix_layout) != 0) {
+        if (ret != 2 &&
+            gf_defrag_settle_hash (this, defrag, &loc, fix_layout) != 0) {
                 defrag->total_failures++;
                 ret = -1;
                 goto out;
