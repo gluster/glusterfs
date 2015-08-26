@@ -2929,6 +2929,13 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         SHARD_STACK_UNWIND (writev, frame, local->written_size,
                                             local->op_errno, NULL, NULL, NULL);
                 } else {
+                        if (local->is_write_extending)
+                                local->delta_size = (local->offset +
+                                                     local->total_size) -
+                                                    local->prebuf.ia_size;
+                        else
+                                local->delta_size = 0;
+                        local->hole_size = 0;
                         if (xdata)
                                 local->xattr_rsp = dict_ref (xdata);
                         shard_update_file_size (frame, this, local->fd, NULL,
@@ -3102,8 +3109,8 @@ shard_post_lookup_writev_handler (call_frame_t *frame, xlator_t *this)
         /* At this point, calculate the size of the hole if it is going to be
          * created as part of this write.
          */
-        if (local->offset > local->prebuf.ia_size)
-                local->hole_size = local->offset - local->prebuf.ia_size;
+        if (local->offset + local->total_size > local->prebuf.ia_size)
+                local->is_write_extending = _gf_true;
 
         if (local->create_count)
                 shard_common_resume_mknod (frame, this,
