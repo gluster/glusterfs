@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           109
+#define GLFS_DHT_NUM_MESSAGES           111
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1011,13 +1011,28 @@
 #define DHT_MSG_TIER_PAUSED             (GLFS_DHT_BASE + 108)
 
 /*
- * @messageid 109108
+ * @messageid 109109
  * @diagnosis
  * @recommendedaction None
  */
 
 #define DHT_MSG_TIER_RESUME             (GLFS_DHT_BASE + 109)
 
+
+/* @messageid 109110
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_SETTLE_HASH_FAILED       (GLFS_DHT_BASE + 110)
+
+/*
+ * @messageid 109111
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_DEFRAG_PROCESS_DIR_FAILED    (GLFS_DHT_BASE + 111)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
