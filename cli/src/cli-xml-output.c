@@ -4101,65 +4101,6 @@ out:
         return ret;
 }
 
-/* This function will generate snapshot delete output in xml format.
- *
- * @param writer        xmlTextWriterPtr
- * @param doc           xmlDocPtr
- * @param dict          dict containing delete output
- *
- * @return 0 on success and -1 on failure
- */
-static int
-cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
-{
-        int     ret             = -1;
-        char   *str_value       = NULL;
-
-        GF_ASSERT (writer);
-        GF_ASSERT (doc);
-        GF_ASSERT (dict);
-
-        /* <snapDelete> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapDelete");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* <snapshot> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, "snapname", &str_value);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
-                goto out;
-        }
-
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
-                                               "%s", str_value);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, "snapuuid", &str_value);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
-                goto out;
-        }
-
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
-                                               "%s", str_value);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* </snapshot> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* </snapDelete> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = 0;
-out:
-
-        return ret;
-}
 
 /* This function will generate snapshot restore output in xml format.
  *
@@ -4912,7 +4853,7 @@ cli_xml_snapshot_status (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapStatus");
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = dict_get_int32 (dict, "status-cmd", &status_cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &status_cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
                 goto out;
@@ -5342,6 +5283,81 @@ out:
 }
 #endif /* HAVE_LIB_XML */
 
+/* This function will generate snapshot delete output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing delete output
+ * @param rsp           cli response
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict,
+                         gf_cli_rsp *rsp)
+{
+        int     ret             = -1;
+#ifdef HAVE_LIB_XML
+        char   *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto xmlend;
+        }
+
+        if (!rsp->op_ret) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "status",
+                                                       "Success");
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "status",
+                                                       "Failure");
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+
+                ret = cli_xml_output_common (writer, rsp->op_ret,
+                                             rsp->op_errno,
+                                             rsp->op_errstr);
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+        }
+
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, xmlend);
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto xmlend;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+xmlend:
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+
+        return ret;
+}
+
 int
 cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
                                   char *op_errstr)
@@ -5400,6 +5416,70 @@ out:
 #endif
 }
 
+int
+cli_xml_output_snap_delete_begin (cli_local_t *local, int op_ret, int op_errno,
+                                  char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int ret = -1;
+        int delete_cmd = -1;
+
+        GF_ASSERT (local);
+
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &delete_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get sub-cmd");
+                goto out;
+        }
+
+        ret = cli_xml_output_common (local->writer, op_ret, op_errno,
+                                             op_errstr);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapStatus> */
+        ret = xmlTextWriterStartElement (local->writer,
+                                         (xmlChar *) "snapDelete");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshots> */
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"snapshots");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+int
+cli_xml_output_snap_delete_end (cli_local_t *local)
+{
+#if (HAVE_LIB_XML)
+        int     ret = -1;
+
+        GF_ASSERT (local);
+
+        /* </snapshots> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapDelete> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO(ret, out);
+
+        ret = cli_end_xml_output (local->writer, local->doc);
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
 /* This function will generate xml output for all the snapshot commands
  *
  * @param cmd_type      command type
@@ -5447,14 +5527,6 @@ cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to create "
                                 "xml output for snapshot create command");
-                        goto out;
-                }
-                break;
-        case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = cli_xml_snapshot_delete (writer, doc, dict);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
-                                "xml output for snapshot delete command");
                         goto out;
                 }
                 break;
@@ -5526,6 +5598,96 @@ out:
 #else
         return 0;
 #endif /* HAVE_LIB_XML */
+}
+
+int
+cli_xml_snapshot_begin_composite_op (cli_local_t *local)
+{
+        int ret         = -1;
+#ifdef HAVE_LIB_XML
+        int cmd         = -1;
+        int type        =  -1;
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "sub-cmd");
+                ret = 0;
+                goto out;
+        }
+
+        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+            cmd == GF_SNAP_DELETE_TYPE_SNAP){
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapshot "
+                        "command type from dictionary");
+                goto out;
+        }
+
+        if (GF_SNAP_OPTION_TYPE_STATUS == type)
+                ret = cli_xml_output_snap_status_begin (local, 0, 0, NULL);
+        else if (GF_SNAP_OPTION_TYPE_DELETE == type)
+                ret = cli_xml_output_snap_delete_begin (local, 0, 0, NULL);
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Error creating xml output");
+                goto out;
+        }
+
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+cli_xml_snapshot_end_composite_op (cli_local_t *local)
+{
+        int ret         = -1;
+#ifdef HAVE_LIB_XML
+        int cmd         = -1;
+        int type        = -1;
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "sub-cmd");
+                ret = 0;
+                goto out;
+        }
+
+        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+            cmd == GF_SNAP_DELETE_TYPE_SNAP){
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapshot "
+                        "command type from dictionary");
+                goto out;
+        }
+
+        if (GF_SNAP_OPTION_TYPE_STATUS == type)
+                ret = cli_xml_output_snap_status_end (local);
+        else if (GF_SNAP_OPTION_TYPE_DELETE == type)
+                ret = cli_xml_output_snap_delete_end (local);
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Error creating xml "
+                                "output");
+                goto out;
+        }
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+        return ret;
 }
 
 int

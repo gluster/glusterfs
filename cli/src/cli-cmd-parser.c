@@ -4306,7 +4306,7 @@ cli_snap_delete_parse (dict_t *dict, const char **words, int wordcount,
                 }
         }
 
-        ret = dict_set_int32 (dict, "delete-cmd", cmd);
+        ret = dict_set_int32 (dict, "sub-cmd", cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not save "
                         "type of snapshot delete");
@@ -4386,7 +4386,7 @@ cli_snap_status_parse (dict_t *dict, const char **words, int wordcount)
 
 out:
         if (ret == 0) {
-                ret = dict_set_int32 (dict, "status-cmd", cmd);
+                ret = dict_set_int32 (dict, "sub-cmd", cmd);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Could not save cmd "
                                 "of snapshot status");

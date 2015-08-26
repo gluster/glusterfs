@@ -423,6 +423,24 @@ int
 cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict);
 
 int
+cli_xml_output_common (xmlTextWriterPtr writer, int op_ret, int op_errno,
+                       char *op_errstr);
+int
+cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict,
+                        gf_cli_rsp *rsp);
+int
+cli_xml_snapshot_begin_composite_op (cli_local_t *local);
+
+int
+cli_xml_snapshot_end_composite_op (cli_local_t *local);
+
+int
+cli_xml_output_snap_delete_begin (cli_local_t *local, int op_ret, int op_errno,
+                                  char *op_errstr);
+int
+cli_xml_output_snap_delete_end (cli_local_t *local);
+
+int
 cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
                                   char *op_errstr);
 int

@@ -8694,17 +8694,32 @@ cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
         GF_ASSERT (rsp);
         GF_ASSERT (dict);
 
-        if (rsp->op_ret) {
-                cli_err ("snapshot delete: failed: %s",
-                        rsp->op_errstr ? rsp->op_errstr :
-                        "Please check log file for details");
-                ret = rsp->op_ret;
-                goto out;
+        local = frame->local;
+
+        ret = dict_get_int32 (dict, "sub-cmd", &delete_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get sub-cmd");
+                goto end;
         }
 
-        ret = dict_get_int32 (dict, "delete-cmd", &delete_cmd);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not get delete-cmd");
+        if ((global_state->mode & GLUSTER_MODE_XML) &&
+            (delete_cmd == GF_SNAP_DELETE_TYPE_SNAP)) {
+                ret = cli_xml_output_snap_delete_begin (local, rsp->op_ret,
+                                                        rsp->op_errno,
+                                                        rsp->op_errstr);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for delete");
+                        goto end;
+                }
+        }
+
+
+        if (rsp->op_ret && !(global_state->mode & GLUSTER_MODE_XML)) {
+                        cli_err ("snapshot delete: failed: %s",
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                 "Please check log file for details");
+                ret = rsp->op_ret;
                 goto out;
         }
 
@@ -8727,17 +8742,37 @@ cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "snapname", &snap_name);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
-                goto out;
-        }
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_snapshot_delete (local->writer, local->doc,
+                                               dict, rsp);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot delete command");
+                        goto out;
+                }
+                /* Error out in case of the op already failed */
+                if (rsp->op_ret) {
+                        ret = rsp->op_ret;
+                        goto out;
+                }
+        } else {
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
+                        goto out;
+                }
 
-        cli_out ("snapshot delete: %s: snap removed successfully",
-                 snap_name);
+                cli_out ("snapshot delete: %s: snap removed successfully",
+                         snap_name);
+        }
         ret = 0;
 
 out:
+        if ((global_state->mode & GLUSTER_MODE_XML) &&
+            (delete_cmd == GF_SNAP_DELETE_TYPE_SNAP)) {
+                ret = cli_xml_output_snap_delete_end (local);
+        }
+end:
         return ret;
 }
 
@@ -9465,8 +9500,8 @@ cli_populate_req_dict_for_delete (dict_t *snap_dict, dict_t *dict, size_t index)
         GF_ASSERT (snap_dict);
         GF_ASSERT (dict);
 
-        ret = dict_set_int32 (snap_dict, "delete-cmd",
-                              GF_SNAP_DELETE_TYPE_SNAP);
+        ret = dict_set_int32 (snap_dict, "sub-cmd",
+                              GF_SNAP_DELETE_TYPE_ITER);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not save command "
                         "type in snap dictionary");
@@ -9518,7 +9553,7 @@ cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index) {
         GF_ASSERT (snap_dict);
         GF_ASSERT (dict);
 
-        ret = dict_set_uint32 (snap_dict, "status-cmd",
+        ret = dict_set_uint32 (snap_dict, "sub-cmd",
                                GF_SNAP_STATUS_TYPE_SNAP);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not save command "
@@ -9605,7 +9640,7 @@ cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "status-cmd", &status_cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &status_cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
                 goto out;
@@ -9690,9 +9725,10 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        /* Snapshot status command is handled separately */
+        /* Snapshot status and delete command is handled separately */
         if (global_state->mode & GLUSTER_MODE_XML &&
-            GF_SNAP_OPTION_TYPE_STATUS != type) {
+            GF_SNAP_OPTION_TYPE_STATUS != type &&
+            GF_SNAP_OPTION_TYPE_DELETE != type) {
                 ret = cli_xml_output_snapshot (type, dict, rsp.op_ret,
                                                rsp.op_errno, rsp.op_errstr);
                 if (ret) {
@@ -9958,10 +9994,10 @@ gf_cli_snapshot_for_delete (call_frame_t *frame, xlator_t *this,
 
         options = data;
 
-        ret = dict_get_int32 (local->dict, "delete-cmd", &cmd);
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to get "
-                        "delete-cmd");
+                        "sub-cmd");
                 goto out;
         }
 
@@ -9979,7 +10015,18 @@ gf_cli_snapshot_for_delete (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (snapcount == 0) {
+        if (global_state->mode & GLUSTER_MODE_XML) {
+#ifdef HAVE_LIB_XML
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                (xmlChar *)"snapCount",
+                                                "%d", snapcount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to write "
+                                "xml element \"snapCount\"");
+                        goto out;
+                }
+#endif /* HAVE_LIB_XML */
+        } else if (snapcount == 0) {
                 cli_out ("No snapshots present");
                 goto out;
         }
@@ -10072,9 +10119,9 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         options = data;
 
-        ret = dict_get_int32 (local->dict, "status-cmd", &cmd);
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get status-cmd");
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get sub-cmd");
                 goto out;
         }
 
@@ -10093,7 +10140,7 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (snapcount == 0) {
+        if (snapcount == 0 && !(global_state->mode & GLUSTER_MODE_XML)) {
                 cli_out ("No snapshots present");
         }
 
@@ -10164,12 +10211,11 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
 
         ret = dict_get_int32 (local->dict, "type", &type);
 
-        if (GF_SNAP_OPTION_TYPE_STATUS == type &&
-            global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_snap_status_begin (local, 0, 0, NULL);
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_snapshot_begin_composite_op (local);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Error creating xml "
-                                "output");
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to begin "
+                                "snapshot xml composite op");
                         goto out;
                 }
         }
@@ -10182,7 +10228,7 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "cli_to_glusterd for "
                         "snapshot failed");
-                goto out;
+                goto xmlend;
         }
 
         if (GF_SNAP_OPTION_TYPE_STATUS == type) {
@@ -10190,17 +10236,9 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "cli to glusterd "
                                 "for snapshot status command failed");
-                        goto out;
                 }
 
-                if (global_state->mode & GLUSTER_MODE_XML) {
-                        ret = cli_xml_output_snap_status_end (local);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Error creating "
-                                        "xml output");
-                                goto out;
-                        }
-                }
+                goto xmlend;
         }
 
         if (GF_SNAP_OPTION_TYPE_DELETE == type) {
@@ -10208,12 +10246,22 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "cli to glusterd "
                                 "for snapshot delete command failed");
-                        goto out;
                 }
+
+                goto xmlend;
         }
 
         ret = 0;
 
+xmlend:
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_snapshot_end_composite_op (local);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to end "
+                                "snapshot xml composite op");
+                        goto out;
+                }
+        }
 out:
         if (ret && local && GF_SNAP_OPTION_TYPE_STATUS == type) {
                 tmp_ret = dict_get_str (local->dict, "op_err_str", &err_str);
@@ -10229,6 +10277,11 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                /* XML mode handles its own error */
+                ret = 0;
+        }
         return ret;
 }
 
