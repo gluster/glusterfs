@@ -176,6 +176,50 @@ Deactivates the mentioned snapshot.
 .TP
 \fB\ snapshot help \fR
 Display help for the snapshot commands.
+.SS "Self-heal Commands"
+.TP
+\fB\ volume heal <VOLNAME>\fR
+Triggers index self heal for the files that need healing.
+
+.TP
+\fB\ volume heal  <VOLNAME> [enable | disable]\fR
+Enable/disable self-heal-daemon for volume <VOLNAME>.
+
+.TP
+\fB\ volume heal <VOLNAME> full\fR
+Triggers self heal on all the files.
+
+.TP
+\fB\ volume heal <VOLNAME> info \fR
+Lists the files that need healing.
+
+.TP
+\fB\ volume heal <VOLNAME> info split-brain \fR
+Lists the files which are in split-brain state.
+
+.TP
+\fB\ volume heal <VOLNAME> statistics \fR
+Lists the crawl statistics.
+
+.TP
+\fB\ volume heal <VOLNAME> statistics heal-count \fR
+Displays the count of files to be healed.
+
+.TP
+\fB\ volume heal <VOLNAME> statistics heal-count replica <HOSTNAME:BRICKNAME> \fR
+Displays the number of files to be healed from a particular replica subvolume to which the brick <HOSTNAME:BRICKNAME> belongs.
+
+.TP
+\fB\ volume heal <VOLNAME> split-brain bigger-file <FILE> \fR
+Performs healing of <FILE> which is in split-brain by choosing the bigger file in the replica as source.
+
+.TP
+\fB\ volume heal <VOLNAME> split-brain source-brick <HOSTNAME:BRICKNAME> \fR
+Selects <HOSTNAME:BRICKNAME> as the source for all the files that are in split-brain in that replica and heals them.
+
+.TP
+\fB\ volume heal <VOLNAME> split-brain source-brick <HOSTNAME:BRICKNAME> <FILE> \fR
+Selects the split-brained <FILE> present in <HOSTNAME:BRICKNAME> as source and completes heal.
 .SS "Other Commands"
 .TP
 \fB\ help \fR
