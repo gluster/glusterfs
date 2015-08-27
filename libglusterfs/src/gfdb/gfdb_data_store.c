@@ -678,6 +678,40 @@ find_recently_changed_files_freq(gfdb_conn_node_t *_conn_node,
 
 }
 
+
+
+/*Libgfdb API Function: Clear the heat for all the files
+ *
+ *  Arguments:
+ *    _conn_node              : GFDB Connection node
+ *
+ * Returns : if successful return 0 or
+ *           -ve value in case of failure
+ **/
+
+int
+clear_files_heat (gfdb_conn_node_t *_conn_node) {
+        int ret = 0;
+        gfdb_db_operations_t *db_operations_t   = NULL;
+        void *gf_db_connection                  = NULL;
+
+        CHECK_CONN_NODE(_conn_node);
+
+        db_operations_t = &_conn_node->gfdb_connection.gfdb_db_operations;
+        gf_db_connection = _conn_node->gfdb_connection.gf_db_connection;
+
+        if (db_operations_t->clear_files_heat_op) {
+                ret =  db_operations_t->clear_files_heat_op (gf_db_connection);
+                if (ret) {
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED,
+                                "Clear files heat operation failed!");
+                }
+        }
+
+        return ret;
+}
+
 void get_gfdb_methods (gfdb_methods_t *methods)
 {
         methods->init_db = init_db;
@@ -686,5 +720,4 @@ void get_gfdb_methods (gfdb_methods_t *methods)
         methods->find_recently_changed_files = find_recently_changed_files;
         methods->find_unchanged_for_time_freq = find_unchanged_for_time_freq;
         methods->find_recently_changed_files_freq = find_recently_changed_files_freq;
-        methods->dbpath = strdup(GFDB_SQL_PARAM_DBPATH);
 }

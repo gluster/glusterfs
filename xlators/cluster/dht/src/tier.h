@@ -31,6 +31,7 @@
 #define TIMER_SECS 3600
 
 #include "gfdb_data_store.h"
+#include "gfdb_sqlite3.h"
 #include <ctype.h>
 #include <sys/stat.h>
 
@@ -56,10 +57,16 @@ typedef struct _gfdb_brick_dict_info {
         query_cbk_args_t       *_query_cbk_args;
 } _gfdb_brick_dict_info_t;
 
+typedef struct brick_list {
+        xlator_t          *xlator;
+        char              *brick_db_path;
+        struct list_head  list;
+} brick_list_t;
+
 typedef struct _dm_thread_args {
         xlator_t                *this;
         gf_defrag_info_t        *defrag;
-        dict_t                  *brick_list;
+        struct list_head        *brick_list;
         int                     freq_time;
         int                     return_value;
 } promotion_args_t, demotion_args_t;

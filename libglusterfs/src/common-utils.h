@@ -126,6 +126,7 @@ enum _gf_client_pid
 
 enum _gf_xlator_ipc_targets {
         GF_IPC_TARGET_CHANGELOG = 0,
+        GF_IPC_TARGET_CTR = 1
 };
 
 typedef enum _gf_boolean gf_boolean_t;

@@ -236,6 +236,19 @@ typedef int (*find_recently_changed_files_freq_t) (gfdb_conn_node_t *_conn_node,
                                                    int read_freq_thresold,
                                                    gf_boolean_t _clear_counters);
 
+
+
+/*Libgfdb API Function: Clear the heat for all the files
+ *
+ * Arguments:
+ *  _conn_node              : GFDB Connection node
+ *
+ * Returns : if successful return 0 or
+ *          -ve value in case of failure
+ **/
+int
+clear_files_heat (gfdb_conn_node_t *_conn_node);
+
 typedef struct gfdb_methods_s {
         init_db_t init_db;
         fini_db_t fini_db;
@@ -249,5 +262,6 @@ typedef struct gfdb_methods_s {
 void get_gfdb_methods (gfdb_methods_t *methods);
 
 typedef void (*get_gfdb_methods_t) (gfdb_methods_t *methods);
+
 
 #endif

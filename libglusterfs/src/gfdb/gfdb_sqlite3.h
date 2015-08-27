@@ -279,6 +279,8 @@ int gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
                                         int read_freq_cnt,
                                         gf_boolean_t clear_counters);
 
+int gf_sqlite3_clear_files_heat (void *db_conn);
+
 void gf_sqlite3_fill_db_operations (gfdb_db_operations_t  *gfdb_db_ops);
 
 #endif

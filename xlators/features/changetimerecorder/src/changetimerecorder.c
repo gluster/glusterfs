@@ -1379,6 +1379,36 @@ out:
                     fd, size, off, flags, xdata);
         return 0;
 }
+
+/*******************************ctr_ipc****************************************/
+
+/* IPC Call from tier migrator to clear the heat on the DB */
+int32_t
+ctr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        int ret                         = -1;
+        gf_ctr_private_t *_priv         = NULL;
+
+        GF_ASSERT(this);
+        _priv = this->private;
+        GF_ASSERT (_priv);
+        GF_ASSERT(_priv->_db_conn);
+
+        if (op != GF_IPC_TARGET_CTR)
+                goto wind;
+
+        ret = clear_files_heat (_priv->_db_conn);
+
+        STACK_UNWIND_STRICT (ipc, frame, ret, 0, NULL);
+        return 0;
+
+ wind:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+        return 0;
+}
+
+
 /******************************************************************************/
 
 int
@@ -1596,7 +1626,9 @@ struct xlator_fops fops = {
         .writev      = ctr_writev,
         .setattr      = ctr_setattr,
         /*read fops*/
-        .readv       = ctr_readv
+        .readv       = ctr_readv,
+        /* IPC call*/
+        .ipc          = ctr_ipc
 };
 
 struct xlator_cbks cbks = {
