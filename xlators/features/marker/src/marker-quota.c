@@ -2387,6 +2387,72 @@ out:
 }
 
 int32_t
+mq_get_set_dirty (xlator_t *this, loc_t *loc, int32_t dirty,
+                  int32_t *prev_dirty)
+{
+        int32_t              ret              = -1;
+        int8_t               value            = 0;
+        quota_inode_ctx_t   *ctx              = NULL;
+        dict_t              *dict             = NULL;
+        dict_t              *rsp_dict         = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", prev_dirty, out);
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
+                        "%s", loc->path);
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, dirty);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_set failed");
+                goto out;
+        }
+
+        ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_GET_AND_SET,
+                              dict, NULL, &rsp_dict);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                          ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                          "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        *prev_dirty = 0;
+        if (rsp_dict) {
+                ret = dict_get_int8 (rsp_dict, QUOTA_DIRTY_KEY, &value);
+                if (ret == 0)
+                        *prev_dirty = value;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->dirty = dirty;
+        }
+        UNLOCK (&ctx->lock);
+        ret = 0;
+out:
+        if (dict)
+                dict_unref (dict);
+
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+
+int32_t
 mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
 {
         int32_t            ret      = -1;
@@ -2396,8 +2462,17 @@ mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
+                        "%s", loc->path);
+                ret = 0;
+                goto out;
+        }
+
         dict = dict_new ();
         if (!dict) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
                 goto out;
         }
@@ -2413,14 +2488,6 @@ mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "setxattr dirty = %d "
                         "failed for %s: %s", dirty, loc->path, strerror (-ret));
-                goto out;
-        }
-
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
-                        "%s", loc->path);
-                ret = 0;
                 goto out;
         }
 
@@ -3011,6 +3078,7 @@ int32_t
 mq_reduce_parent_size_task (void *opaque)
 {
         int32_t                  ret           = -1;
+        int32_t                  prev_dirty    = 0;
         quota_inode_ctx_t       *ctx           = NULL;
         quota_inode_ctx_t       *parent_ctx    = NULL;
         inode_contribution_t    *contribution  = NULL;
@@ -3080,7 +3148,7 @@ mq_reduce_parent_size_task (void *opaque)
                 UNLOCK (&contribution->lock);
         }
 
-        ret = mq_mark_dirty (this, &parent_loc, 1);
+        ret = mq_get_set_dirty (this, &parent_loc, 1, &prev_dirty);
         if (ret < 0)
                 goto out;
         dirty = _gf_true;
@@ -3102,11 +3170,13 @@ mq_reduce_parent_size_task (void *opaque)
 
 out:
         if (dirty) {
-                if (ret < 0) {
+                if (ret < 0 || prev_dirty) {
                         /* On failure clear dirty status flag.
                          * In the next lookup inspect_directory_xattr
                          * can set the status flag and fix the
-                         * dirty directory
+                         * dirty directory.
+                         * Do the same if dir was dirty before
+                         * the txn
                          */
                         ret = mq_inode_ctx_get (parent_loc.inode, this,
                                                 &parent_ctx);
@@ -3160,6 +3230,7 @@ int
 mq_initiate_quota_task (void *opaque)
 {
         int32_t                ret        = -1;
+        int32_t                prev_dirty = 0;
         loc_t                  child_loc  = {0,};
         loc_t                  parent_loc = {0,};
         gf_boolean_t           locked     = _gf_false;
@@ -3300,7 +3371,8 @@ mq_initiate_quota_task (void *opaque)
                 if (quota_meta_is_null (&delta))
                         goto out;
 
-                ret = mq_mark_dirty (this, &parent_loc, 1);
+                prev_dirty = 0;
+                ret = mq_get_set_dirty (this, &parent_loc, 1, &prev_dirty);
                 if (ret < 0)
                         goto out;
                 dirty = _gf_true;
@@ -3318,8 +3390,10 @@ mq_initiate_quota_task (void *opaque)
                         goto out;
                 }
 
-                ret = mq_mark_dirty (this, &parent_loc, 0);
-                dirty = _gf_false;
+                if (prev_dirty == 0) {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                        dirty = _gf_false;
+                }
 
                 ret = mq_lock (this, &parent_loc, F_UNLCK);
                 locked = _gf_false;
@@ -3340,11 +3414,13 @@ mq_initiate_quota_task (void *opaque)
 
 out:
         if (dirty) {
-                if (ret < 0) {
+                if (ret < 0 || prev_dirty) {
                         /* On failure clear dirty status flag.
                          * In the next lookup inspect_directory_xattr
                          * can set the status flag and fix the
-                         * dirty directory
+                         * dirty directory.
+                         * Do the same if the dir was dirty before
+                         * txn
                          */
                         ret = mq_inode_ctx_get (parent_loc.inode, this,
                                                 &parent_ctx);
