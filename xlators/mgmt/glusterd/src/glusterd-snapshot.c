@@ -5241,6 +5241,16 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                                 origin_vol->volname);
                         goto out;
                 }
+
+
+        }
+
+        ret = glusterd_copy_nfs_ganesha_file (origin_vol, snap_vol);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_OP_FAILED, "Failed to copy export "
+                        "file for volume %s", origin_vol->volname);
+                goto out;
         }
         glusterd_auth_set_username (snap_vol, username);
         glusterd_auth_set_password (snap_vol, password);
@@ -9627,6 +9637,16 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         "Failed to restore "
                         "geo-rep files for snap %s",
                         snap_vol->snapshot->snapname);
+        }
+
+        ret = glusterd_restore_nfs_ganesha_file (orig_vol, snap);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_SNAP_RESTORE_FAIL,
+                        "Failed to restore "
+                        "nfs-ganesha export file for snap %s",
+                        snap_vol->snapshot->snapname);
+                goto out;
         }
 
         ret = glusterd_copy_quota_files (snap_vol, orig_vol, &conf_present);
