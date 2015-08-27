@@ -1067,7 +1067,7 @@ void posix_dump_buffer (xlator_t *this, const char *real_path, const char *key,
 
 int
 posix_handle_pair (xlator_t *this, const char *real_path,
-                   char *key, data_t *value, int flags)
+                   char *key, data_t *value, int flags, struct iatt *stbuf)
 {
         int sys_ret = -1;
         int ret     = 0;
@@ -1079,7 +1079,12 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                 ret = posix_set_file_contents (this, real_path, key, value,
                                                flags);
         } else if (GF_POSIX_ACL_REQUEST (key)) {
+                if (stbuf && IS_DHT_LINKFILE_MODE (stbuf))
+                        goto out;
                 ret = posix_pacl_set (real_path, key, value->data);
+        } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key))
+                   && stbuf && IS_DHT_LINKFILE_MODE (stbuf)) {
+                goto out;
         } else {
                 sys_ret = sys_lsetxattr (real_path, key, value->data,
                                          value->len, flags);
@@ -1130,13 +1135,16 @@ out:
 
 int
 posix_fhandle_pair (xlator_t *this, int fd,
-                    char *key, data_t *value, int flags)
+                    char *key, data_t *value, int flags, struct iatt *stbuf)
 {
         int sys_ret = -1;
         int ret     = 0;
 
         if (XATTR_IS_PATHINFO (key)) {
                 ret = -EACCES;
+                goto out;
+        } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key))
+                   && stbuf && IS_DHT_LINKFILE_MODE (stbuf)) {
                 goto out;
         }
 
@@ -1520,7 +1528,7 @@ _handle_entry_create_keyvalue_pair (dict_t *d, char *k, data_t *v,
         }
 
         ret = posix_handle_pair (filler->this, filler->real_path, k, v,
-                                 XATTR_CREATE);
+                                 XATTR_CREATE, filler->stbuf);
         if (ret < 0) {
                 errno = -ret;
                 return -1;
@@ -1541,6 +1549,7 @@ posix_entry_create_xattr_set (xlator_t *this, const char *path,
 
         filler.this = this;
         filler.real_path = path;
+        filler.stbuf = NULL;
 
         ret = dict_foreach (dict, _handle_entry_create_keyvalue_pair, &filler);
 

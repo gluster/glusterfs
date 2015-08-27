@@ -199,7 +199,7 @@ cat d1/data3.txt
 
 sleep $PROMOTE_TIMEOUT
 sleep $DEMOTE_FREQ
-EXPECT "0" check_counters 2 6
+EXPECT_WITHIN $DEMOTE_TIMEOUT "0" check_counters 2 6
 
 # stop gluster, when it comes back info file should have tiered volume
 killall glusterd
