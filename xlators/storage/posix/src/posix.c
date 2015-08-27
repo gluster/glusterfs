@@ -3226,7 +3226,7 @@ _handle_setxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         filler = tmp;
 
         return posix_handle_pair (filler->this, filler->real_path, k, v,
-                                  filler->flags);
+                                  filler->flags, filler->stbuf);
 }
 
 #ifdef GF_DARWIN_HOST_OS
@@ -3300,6 +3300,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_pstat(this, loc->gfid, real_path, &stbuf);
+
         op_ret = -1;
 
         dict_del (dict, GFID_XATTR_KEY);
@@ -3307,6 +3309,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         filler.real_path = real_path;
         filler.this = this;
+        filler.stbuf = &stbuf;
+
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
 #else
@@ -4464,7 +4468,7 @@ _handle_fsetxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         filler = tmp;
 
         return posix_fhandle_pair (filler->this, filler->fdnum, k, v,
-                                   filler->flags);
+                                   filler->flags, filler->stbuf);
 }
 
 int32_t
@@ -4497,11 +4501,14 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
         _fd = pfd->fd;
 
+        posix_fdstat (this, pfd->fd, &stbuf);
+
         dict_del (dict, GFID_XATTR_KEY);
         dict_del (dict, GF_XATTR_VOL_ID_KEY);
 
         filler.fdnum = _fd;
         filler.this = this;
+        filler.stbuf = &stbuf;
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
 #else

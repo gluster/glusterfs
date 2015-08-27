@@ -202,9 +202,9 @@ int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
 dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
                           fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,
-                       data_t *value, int flags);
+                       data_t *value, int flags, struct iatt *stbuf);
 int posix_fhandle_pair (xlator_t *this, int fd, char *key, data_t *value,
-                        int flags);
+                        int flags, struct iatt *stbuf);
 void posix_spawn_janitor_thread (xlator_t *this);
 int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                              const char *name, char **contents);

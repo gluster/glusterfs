@@ -1277,6 +1277,40 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
         }
 
+        /* Posix acls are not set on DHT linkto files as part of the initial
+         * initial xattrs set on the dst file, so these need
+         * to be set on the dst file after the linkto attrs are removed.
+         * TODO: Optimize this.
+         */
+        if (xattr) {
+                dict_unref (xattr);
+                xattr = NULL;
+        }
+
+        ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed:"
+                        "%s: failed to get xattr from %s (%s)",
+                        loc->path, from->name, strerror (-ret));
+                ret = -1;
+        } else {
+                ret = syncop_setxattr (to, loc, xattr, 0, NULL, NULL);
+                if (ret < 0) {
+                        /* Potential problem here where Posix ACLs will
+                         * not be set on the target file */
+
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed:"
+                                "%s: failed to set xattr on %s (%s)",
+                                loc->path, to->name, strerror (-ret));
+                        ret = -1;
+                }
+        }
+
+
         /* The src file is being unlinked after this so we don't need
            to clean it up */
         clean_src = _gf_false;
