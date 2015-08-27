@@ -17,6 +17,7 @@
 #include "iatt.h"
 #include "glusterfs.h"
 #include "xlator.h"
+#include "defaults.h"
 #include "logging.h"
 #include "common-utils.h"
 #include <time.h>
