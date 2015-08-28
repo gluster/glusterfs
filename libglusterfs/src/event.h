@@ -57,7 +57,6 @@ struct event_pool {
                                                      * and live status */
         int destroy;
         int activethreadcount;
-        char dispatched; /* Is set if event_dispatch was called */
 };
 
 struct event_ops {

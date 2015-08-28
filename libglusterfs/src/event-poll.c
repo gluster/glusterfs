@@ -493,10 +493,6 @@ int
 event_reconfigure_threads_poll (struct event_pool *event_pool, int value)
 {
         /* No-op for poll */
-        /* One could check event_pool->dispatched before creating threads when
-         * multi-threaded poll based support is implemented.
-         * event_pool->dispatch indicates if event_dispatch was called.
-         * */
 
         return 0;
 }

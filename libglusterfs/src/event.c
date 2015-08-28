@@ -124,10 +124,6 @@ event_dispatch (struct event_pool *event_pool)
         if (ret)
                 goto out;
 
-        pthread_mutex_lock (&event_pool->mutex);
-        {
-                event_pool->dispatched = 1;
-        }
         pthread_mutex_unlock (&event_pool->mutex);
 out:
         return ret;
