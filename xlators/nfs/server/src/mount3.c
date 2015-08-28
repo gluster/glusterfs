@@ -1083,6 +1083,21 @@ err:
         return ret;
 }
 
+int __mnt3_resolve_subdir (mnt3_resolve_t *mres);
+
+/*
+ * Per the AFR2 comments, this function performs the "fresh" lookup
+ * by deleting the inode from cache and calling __mnt3_resolve_subdir
+ * again.
+ */
+int __mnt3_fresh_lookup (mnt3_resolve_t *mres) {
+        inode_unlink (mres->resolveloc.inode,
+                mres->resolveloc.parent, mres->resolveloc.name);
+        strncpy (mres->remainingdir, mres->resolveloc.path,
+                strlen(mres->resolveloc.path));
+        nfs_loc_wipe (&mres->resolveloc);
+        return __mnt3_resolve_subdir (mres);
+}
 
 int32_t
 mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1107,7 +1122,11 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mres = frame->local;
         ms = mres->mstate;
         mntxl = (xlator_t *)cookie;
-        if (op_ret == -1) {
+        if (op_ret == -1 && op_errno == ESTALE) {
+                /* Nuke inode from cache and try the LOOKUP
+                 * request again. */
+                return __mnt3_fresh_lookup (mres);
+        } else if (op_ret == -1) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, op_errno,
                         NFS_MSG_RESOLVE_SUBDIR_FAIL, "path=%s (%s)",
                         mres->resolveloc.path, strerror (op_errno));
