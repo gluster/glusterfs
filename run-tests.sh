@@ -196,7 +196,8 @@ function is_bad_test ()
     local name=$1
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
               ./tests/basic/mount-nfs-auth.t\
-	      ; do
+              ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
+              ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
     return 1				  # bash: non-zero means false/failure
