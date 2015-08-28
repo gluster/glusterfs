@@ -765,6 +765,23 @@ event_dispatch_epoll (struct event_pool *event_pool)
 	return ret;
 }
 
+/**
+ * @param event_pool  event_pool on which fds of interest are registered for
+ *                     events.
+ *
+ * @return  1 if at least one epoll worker thread is spawned, 0 otherwise
+ *
+ * NB This function SHOULD be called under event_pool->mutex.
+ */
+
+static int
+event_pool_dispatched_unlocked (struct event_pool *event_pool)
+{
+        return (event_pool->pollers[0] != 0);
+
+}
+
+
 int
 event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
 {
@@ -795,7 +812,8 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
                  * was called before. If event_dispatch() was not called, there
                  * will be no epoll 'worker' threads running yet. */
 
-                if (event_pool->dispatched && oldthreadcount < value) {
+                if (event_pool_dispatched_unlocked(event_pool)
+                    && (oldthreadcount < value)) {
                         /* create more poll threads */
                         for (i = oldthreadcount; i < value; i++) {
                                 /* Start a thread if the index at this location
