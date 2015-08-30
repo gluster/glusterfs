@@ -5203,7 +5203,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
 out:
 
-        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xdata, xdata);
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xdata, NULL);
 
         if (xdata)
                 dict_unref (xdata);

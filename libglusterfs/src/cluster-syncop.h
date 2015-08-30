@@ -123,6 +123,12 @@ cluster_fxattrop (xlator_t **subvols, unsigned char *on, int numsubvols,
                   gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata);
 
 int32_t
+cluster_xattrop (xlator_t **subvols, unsigned char *on, int numsubvols,
+                 default_args_cbk_t *replies, unsigned char *output,
+                 call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata);
+
+int32_t
 cluster_fstat (xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata);
