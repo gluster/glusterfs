@@ -35,10 +35,6 @@ int
 dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
 
 int
-dht_rmdir_unlock (call_frame_t *frame, xlator_t *this);
-
-
-int
 dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
 {
         int              ret            = -1;
@@ -4528,6 +4524,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  * corresponding hashed subvolume will take care of the
                  * directory entry.
                  */
+
                         if (readdir_optimize) {
                                 if (prev->this == local->first_up_subvol)
                                         goto list;
@@ -5012,7 +5009,7 @@ out:
         if (local && local->lock.locks) {
                 /* store op_errno for failure case*/
                 local->op_errno = op_errno;
-                local->refresh_layout_unlock (frame, this, op_ret, 0);
+                local->refresh_layout_unlock (frame, this, op_ret);
 
                 if (op_ret == 0) {
                         DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno,
@@ -5073,7 +5070,7 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         return 0;
 err:
         if (local && local->lock.locks) {
-                local->refresh_layout_unlock (frame, this, -1, 0);
+                local->refresh_layout_unlock (frame, this, -1);
         } else {
                 DHT_STACK_UNWIND (mknod, frame, -1,
                                   op_errno, NULL, NULL, NULL,
@@ -5182,7 +5179,7 @@ dht_mknod_do (call_frame_t *frame)
                                          local->umask, local->params);
         return 0;
 err:
-        local->refresh_layout_unlock (frame, this, -1, 0);
+        local->refresh_layout_unlock (frame, this, -1);
 
         return 0;
 }
@@ -5197,7 +5194,7 @@ dht_mknod_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-dht_mknod_finish (call_frame_t *frame, xlator_t *this, int op_ret, int invoke_cbk)
+dht_mknod_finish (call_frame_t *frame, xlator_t *this, int op_ret)
 {
         dht_local_t  *local      = NULL, *lock_local = NULL;
         call_frame_t *lock_frame = NULL;
@@ -5272,7 +5269,7 @@ dht_mknod_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 err:
-        dht_mknod_finish (frame, this, -1, 0);
+        dht_mknod_finish (frame, this, -1);
         return 0;
 }
 
@@ -5303,7 +5300,7 @@ dht_mknod_lock (call_frame_t *frame, xlator_t *subvol)
         local->lock.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE, dht_mknod_lock_cbk);
+                                    dht_mknod_lock_cbk);
 
         if (ret < 0) {
                 local->lock.locks = NULL;
@@ -5831,7 +5828,7 @@ out:
         if (local && local->lock.locks) {
                 /* store op_errno for failure case*/
                 local->op_errno = op_errno;
-                local->refresh_layout_unlock (frame, this, op_ret, 0);
+                local->refresh_layout_unlock (frame, this, op_ret);
 
                 if (op_ret == 0) {
                         DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd,
@@ -5890,7 +5887,7 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         return 0;
 err:
         if (local && local->lock.locks) {
-                local->refresh_layout_unlock (frame, this, -1, 0);
+                local->refresh_layout_unlock (frame, this, -1);
         } else {
                 DHT_STACK_UNWIND (create, frame, -1,
                                   op_errno, NULL, NULL, NULL,
@@ -6058,7 +6055,7 @@ dht_create_do (call_frame_t *frame)
                                          local->umask, local->fd, local->params);
         return 0;
 err:
-        local->refresh_layout_unlock (frame, this, -1, 0);
+        local->refresh_layout_unlock (frame, this, -1);
 
         return 0;
 }
@@ -6072,7 +6069,7 @@ dht_create_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-dht_create_finish (call_frame_t *frame, xlator_t *this, int op_ret, int invoke_cbk)
+dht_create_finish (call_frame_t *frame, xlator_t *this, int op_ret)
 {
         dht_local_t  *local      = NULL, *lock_local = NULL;
         call_frame_t *lock_frame = NULL;
@@ -6147,7 +6144,7 @@ dht_create_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 err:
-        dht_create_finish (frame, this, -1, 0);
+        dht_create_finish (frame, this, -1);
         return 0;
 }
 
@@ -6178,7 +6175,7 @@ dht_create_lock (call_frame_t *frame, xlator_t *subvol)
         local->lock.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE, dht_create_lock_cbk);
+                                    dht_create_lock_cbk);
 
         if (ret < 0) {
                 local->lock.locks = NULL;
@@ -6638,7 +6635,6 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
                if (local->need_selfheal) {
-                        dht_rmdir_unlock (frame, this);
                         local->layout =
                                 dht_layout_get (this, local->loc.inode);
 
@@ -6662,7 +6658,6 @@ unlock:
                                                            1);
                         }
 
-                        dht_rmdir_unlock (frame, this);
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
                                           local->op_errno, &local->preparent,
                                           &local->postparent, NULL);
@@ -6731,7 +6726,6 @@ unlock:
 
         if (done) {
                 if (local->need_selfheal && local->fop_succeeded) {
-                        dht_rmdir_unlock (frame, this);
                         local->layout =
                                 dht_layout_get (this, local->loc.inode);
 
@@ -6766,7 +6760,6 @@ unlock:
 
                         }
 
-                        dht_rmdir_unlock (frame, this);
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
                                           local->op_errno, &local->preparent,
                                           &local->postparent, NULL);
@@ -6778,110 +6771,11 @@ unlock:
 
 
 int
-dht_rmdir_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-        DHT_STACK_DESTROY (frame);
-        return 0;
-}
-
-
-int
-dht_rmdir_unlock (call_frame_t *frame, xlator_t *this)
-{
-        dht_local_t  *local      = NULL, *lock_local = NULL;
-        call_frame_t *lock_frame = NULL;
-        int           lock_count = 0;
-
-        local = frame->local;
-        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
-
-        if (lock_count == 0)
-                goto done;
-
-        lock_frame = copy_frame (frame);
-        if (lock_frame == NULL)
-                goto done;
-
-        lock_local = dht_local_init (lock_frame, &local->loc, NULL,
-                                     lock_frame->root->op);
-        if (lock_local == NULL)
-                goto done;
-
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
-
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
-                            dht_rmdir_unlock_cbk);
-        lock_frame = NULL;
-
-done:
-        if (lock_frame != NULL) {
-                DHT_STACK_DESTROY (lock_frame);
-        }
-
-        return 0;
-}
-
-
-int
-dht_rmdir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-        dht_local_t  *local = NULL;
-        dht_conf_t   *conf  = NULL;
-        int           i     = 0;
-
-        VALIDATE_OR_GOTO (this->private, err);
-
-        conf = this->private;
-        local = frame->local;
-
-        if (op_ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_INODE_LK_ERROR,
-                        "acquiring inodelk failed rmdir for %s)",
-                        local->loc.path);
-
-                local->op_ret = -1;
-                local->op_errno = (op_errno == EAGAIN) ? EBUSY : op_errno;
-                goto err;
-        }
-
-        for (i = 0; i < conf->subvolume_cnt; i++) {
-                if (local->hashed_subvol &&
-                    (local->hashed_subvol == conf->subvolumes[i]))
-                        continue;
-
-                STACK_WIND (frame, dht_rmdir_cbk,
-                            conf->subvolumes[i],
-                            conf->subvolumes[i]->fops->rmdir,
-                            &local->loc, local->flags, NULL);
-        }
-
-        return 0;
-
-err:
-        /* No harm in calling an extra rmdir unlock */
-        dht_rmdir_unlock (frame, this);
-        DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
-                          &local->preparent, &local->postparent, NULL);
-
-        return 0;
-}
-
-
-int
 dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 {
         dht_local_t  *local = NULL;
         dht_conf_t   *conf = NULL;
-        dht_lock_t   **lk_array = NULL;
-        int           i = 0, ret = -1;
-        int           count = 1;
+        int           i = 0;
         xlator_t     *hashed_subvol = NULL;
         char gfid[GF_UUID_BUF_SIZE] ={0};
 
@@ -6894,6 +6788,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
                 goto err;
 
         local->call_cnt = conf->subvolume_cnt;
+
 
         /* first remove from non-hashed_subvol */
         hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
@@ -6918,49 +6813,20 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        count = conf->subvolume_cnt;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (hashed_subvol &&
+                    (hashed_subvol == conf->subvolumes[i]))
+                        continue;
 
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
-        if (lk_array == NULL) {
-                local->op_ret = -1;
-                local->op_errno = ENOMEM;
-                goto err;
-        }
-
-        for (i = 0; i < count; i++) {
-                lk_array[i] = dht_lock_new (frame->this,
-                                            conf->subvolumes[i],
-                                            &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
-                if (lk_array[i] == NULL) {
-                        local->op_ret = -1;
-                        local->op_errno = EINVAL;
-                        goto err;
-                }
-        }
-
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
-
-        ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE,
-                                    dht_rmdir_lock_cbk);
-        if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
-                local->op_ret = -1;
-                local->op_errno = errno ? errno : EINVAL;
-                goto err;
+                STACK_WIND (frame, dht_rmdir_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->rmdir,
+                            &local->loc, local->flags, NULL);
         }
 
         return 0;
 
 err:
-        if (lk_array != NULL) {
-                dht_lock_array_free (lk_array, count);
-                GF_FREE (lk_array);
-        }
-
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);
         return 0;
