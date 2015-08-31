@@ -1789,13 +1789,12 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 return 0;
         }
 
+        local->call_count = call_count = count;
+        cur_block = 1;
         SHARD_SET_ROOT_FS_ID (frame, local);
 
         while (cur_block <= last_block) {
-                /* The base file is unlinked in the end to mark the
-                 * successful completion of the fop.
-                 */
-                if (cur_block == 0) {
+                if (!local->inode_list[cur_block]) {
                         cur_block++;
                         continue;
                 }
