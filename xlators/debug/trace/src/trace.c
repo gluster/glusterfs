@@ -2286,6 +2286,8 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               off_t offset, uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         trace_conf_t    *conf = NULL;
+        int i = 0;
+        size_t total_size = 0;
 
         conf = this->private;
 
@@ -2293,12 +2295,15 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto out;
         if (trace_fop_names[GF_FOP_WRITE].enabled) {
                 char     string[4096]  =  {0,};
+                for (i = 0; i < count; i++)
+                        total_size += vector[i].iov_len;
+
                 snprintf (string, sizeof (string),
                           "%"PRId64": gfid=%s fd=%p, count=%d, "
-                          " offset=%"PRId64" flags=0%x)",
+                          " offset=%"PRId64" flags=0%x write_size=%lu",
                           frame->root->unique,
                           uuid_utoa (fd->inode->gfid), fd, count,
-                          offset, flags);
+                          offset, flags, total_size);
 
                 frame->local = fd->inode->gfid;
 
