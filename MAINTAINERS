@@ -78,16 +78,27 @@ M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
+Changetimerecorder
+M: Dan Lambright <dlambrig@redhat.com>
+S: Maintained
+F: xlators/features/changetimerecorder/
+
 Distributed Hashing Table (DHT)
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/
 
+Erasure Coding
+M: Pranith Karampuri <pkarampu@redhat.com>
+M: Xavier Hernandez  <xhernandez@datalab.es>
+S: Maintained
+F: xlators/cluster/ec/
+
 FUSE Bridge
 M: Anand Avati <avati@redhat.com>
-M: Brian Foster <bfoster@redhat.com>
-M: Csaba Henk <chenk@redhat.com>
+M: Niels de Vos <ndevos@redhat.com>
+M: Raghavendra Bhat <rabhat@redhat.com>
 S: Maintained
 F: xlators/mount/
 
@@ -142,6 +153,11 @@ F: xlators/features/changetimerecorder
 F: libglusterfs/src/gfdb
 W: http://www.gluster.org/community/documentation/index.php/Features/data-classification
 
+Upcall
+M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+F: xlators/features/upcall/
+
 Other bits of code:
 -------------------
 
@@ -171,9 +187,21 @@ M: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: api/
 
+libgfdb
+M: Dan Lambright <dlambrig@redhat.com>
+S: Maintained
+F: libglusterfs/src/gfdb/
+
+libglusterfs
+M: Niels de Vos <ndevos@redhat.com>
+M: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: libglusterfs/
+
 Management Daemon
 M: Krishnan Parthasarathi <kparthas@redhat.com>
 M: Kaushal Madappa <kmadapp@redhat.com>
+M: Atin Mukherjee <amukherj@redhat.com>
 S: Maintained
 F: cli/
 F: xlators/mgmt/
@@ -184,6 +212,11 @@ M: Anand Avati <avati@redhat.com>
 S: Maintained
 F: rpc/
 
+Snapshot
+M: Rajesh Joesh <rjoseph@redhat.com>
+S: Maintained
+F: xlators/mgmt/glusterd/src/glusterd-snap*
+F: extras/snap-scheduler.py
 
 Distribution Specific:
 ----------------------
@@ -276,3 +309,5 @@ M: Amar Tumballi <amarts@gmail.com>
 M: Chris Hertel <chertel@redhat.com>
 M: M. Mohan Kumar <mohan@in.ibm.com>
 M: Shishir Gowda <gowda.shishir@gmail.com>
+M: Brian Foster <bfoster@redhat.com>
+M: Csaba Henk <chenk@redhat.com>
