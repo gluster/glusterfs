@@ -1197,6 +1197,8 @@ fi
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
 
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
@@ -1212,8 +1214,6 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/pre
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
-       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
@@ -1234,6 +1234,9 @@ fi
 
 
 %changelog
+* Tue Sep 1 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- erroneous ghost of ../hooks/1/delete causes install failure (#1258975)
+
 * Tue Aug 18 2015 Niels de Vos <ndevos@redhat.com>
 - Include missing directories for glusterfind hooks scripts (#1225465)
 
