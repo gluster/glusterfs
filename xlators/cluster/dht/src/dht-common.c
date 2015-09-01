@@ -26,13 +26,16 @@
 
 int run_defrag = 0;
 
-int dht_link2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
+int dht_link2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame,
+               int ret);
 
 int
-dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
+                  int ret);
 
 int
-dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
+               int ret);
 
 int
 dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
@@ -3379,9 +3382,10 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        local->op_ret = 0;
-
+        local->op_ret = op_ret;
         local->rebalance.target_op_fn = dht_setxattr2;
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
 
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
@@ -3398,7 +3402,7 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_setxattr2 (this, subvol2, frame);
+                        dht_setxattr2 (this, subvol2, frame, 0);
                         return 0;
                 }
 
@@ -3408,8 +3412,6 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        if (local->rebalance.xdata)
-                dict_unref (local->rebalance.xdata);
 
         if (local->fop == GF_FOP_SETXATTR) {
                 DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno, NULL);
@@ -3482,7 +3484,7 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         } else {
 
                 local->call_cnt = 1;
-                local->rebalance.xdata = dict_ref (xattr);
+                local->rebalance.xattr = dict_ref (xattr);
                 local->rebalance.flags = flags;
 
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
@@ -3565,27 +3567,42 @@ out:
 
 
 int
-dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t  *local  = NULL;
         int          op_errno = EINVAL;
 
-        if (!frame || !frame->local || !subvol)
+        if (!frame || !frame->local)
                 goto err;
 
         local = frame->local;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
+                                  local->op_errno, local->rebalance.xdata);
+                return 0;
+        }
+
+        if (subvol == NULL)
+                goto err;
+
+        op_errno = local->op_errno;
 
         local->call_cnt = 2; /* This is the second attempt */
 
         if (local->fop == GF_FOP_SETXATTR) {
                 STACK_WIND (frame, dht_file_setxattr_cbk, subvol,
                             subvol->fops->setxattr, &local->loc,
-                            local->rebalance.xdata, local->rebalance.flags,
+                            local->rebalance.xattr, local->rebalance.flags,
                             NULL);
         } else {
                 STACK_WIND (frame, dht_file_setxattr_cbk, subvol,
                             subvol->fops->fsetxattr, local->fd,
-                            local->rebalance.xdata, local->rebalance.flags,
+                            local->rebalance.xattr, local->rebalance.flags,
                             NULL);
         }
 
@@ -3832,7 +3849,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         } else {
 
-                local->rebalance.xdata = dict_ref (xattr);
+                local->rebalance.xattr = dict_ref (xattr);
                 local->rebalance.flags = flags;
                 local->call_cnt = 1;
 
@@ -3896,6 +3913,8 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = 0;
 
         local->rebalance.target_op_fn = dht_removexattr2;
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
 
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
@@ -3912,7 +3931,7 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_removexattr2 (this, subvol2, frame);
+                        dht_removexattr2 (this, subvol2, frame, 0);
                         return 0;
                 }
 
@@ -3932,7 +3951,8 @@ out:
 }
 
 int
-dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
+                  int ret)
 {
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
@@ -3943,6 +3963,17 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
         local = frame->local;
 
         local->call_cnt = 2; /* This is the second attempt */
+
+        if (we_are_not_migrating (ret)) {
+
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (removexattr, frame, local->op_ret,
+                                  local->op_errno, local->rebalance.xdata);
+                return 0;
+        }
 
         if (local->fop == GF_FOP_REMOVEXATTR) {
                 STACK_WIND (frame, dht_file_removexattr_cbk, subvol,
@@ -5602,8 +5633,12 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->inode = inode_ref (inode);
         }
 
+        local->op_ret = op_ret;
         local->op_errno = op_errno;
         local->rebalance.target_op_fn = dht_link2;
+        dht_set_local_rebalance (this, local, stbuf, preparent,
+                                 postparent, xdata);
+
         /* Check if the rebalance phase2 is true */
         if (IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
@@ -5614,7 +5649,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (!ret)
                                 return 0;
                 } else {
-                        dht_link2 (this, subvol, frame);
+                        dht_link2 (this, subvol, frame, 0);
                         return 0;
                 }
         }
@@ -5624,7 +5659,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
                                                   &subvol);
                 if (subvol) {
-                        dht_link2 (this, subvol, frame);
+                        dht_link2 (this, subvol, frame, 0);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -5642,7 +5677,7 @@ out:
 
 
 int
-dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local  = NULL;
         int          op_errno = EINVAL;
@@ -5652,6 +5687,19 @@ dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
                 goto err;
 
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (link, frame, local->op_ret, op_errno,
+                                  local->inode,
+                                  &local->stbuf, &local->preparent,
+                                  &local->postparent, NULL);
+                return 0;
+        }
+
         if (subvol == NULL) {
                 op_errno = EINVAL;
                 goto err;
@@ -7854,4 +7902,44 @@ int32_t dht_migration_needed(xlator_t *this)
 
 out:
         return ret;
+}
+
+
+
+/*
+This function should not be called more then once during a FOP
+handling path. It is valid only for for ops on files
+*/
+int32_t dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
+                                 struct iatt *stbuf,
+                                 struct iatt *prebuf, struct iatt *postbuf,
+                                 dict_t *xdata)
+{
+
+        if (!local)
+                return -1;
+
+        if (local->rebalance.set) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_REBAL_STRUCT_SET,
+                        "local->rebalance already set");
+        }
+
+
+        if (stbuf)
+                memcpy (&local->rebalance.stbuf, stbuf, sizeof (struct iatt));
+
+        if (prebuf)
+                memcpy (&local->rebalance.prebuf, prebuf, sizeof (struct iatt));
+
+        if (postbuf)
+                memcpy (&local->rebalance.postbuf, postbuf,
+                        sizeof (struct iatt));
+
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
+
+        local->rebalance.set = 1;
+
+        return 0;
 }

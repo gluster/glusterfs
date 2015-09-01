@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           104
+#define GLFS_DHT_NUM_MESSAGES           106
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -978,5 +978,20 @@
 
 #define DHT_MSG_COMMIT_HASH_INFO       (GLFS_DHT_BASE + 104)
 
+/*
+ * @messageid 109105
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_REBAL_STRUCT_SET       (GLFS_DHT_BASE + 105)
+
+/*
+ * @messageid 109106
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_HAS_MIGINFO             (GLFS_DHT_BASE + 106)
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
