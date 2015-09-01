@@ -132,17 +132,6 @@ dht_frame_return (call_frame_t *frame)
         return this_call_cnt;
 }
 
-/*
- * A slightly "updated" version of the algorithm described in the commit log
- * is used here.
- *
- * The only enhancement is that:
- *
- * - The number of bits used by the backend filesystem for HUGE d_off which
- *   is described as 63, and
- * - The number of bits used by the d_off presented by the transformation
- *   upwards which is described as 64, are both made "configurable."
- */
 
 int
 dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
@@ -454,6 +443,12 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         GF_FREE (local->newpath);
 
         GF_FREE (local->key);
+
+        if (local->rebalance.xdata)
+                dict_unref (local->rebalance.xdata);
+
+        if (local->rebalance.xattr)
+                dict_unref (local->rebalance.xattr);
 
         GF_FREE (local->rebalance.vector);
 
@@ -886,7 +881,12 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 }
 
 
-
+/*
+ op_ret values :
+  0 : Success.
+ -1 : Failure.
+  1 : File is being migrated but not by this DHT layer.
+*/
 
 static int
 dht_migration_complete_check_done (int op_ret, call_frame_t *frame, void *data)
@@ -896,7 +896,7 @@ dht_migration_complete_check_done (int op_ret, call_frame_t *frame, void *data)
 
         local = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret != 0)
                 goto out;
 
         if (local->cached_subvol == NULL) {
@@ -907,7 +907,7 @@ dht_migration_complete_check_done (int op_ret, call_frame_t *frame, void *data)
         subvol = local->cached_subvol;
 
 out:
-        local->rebalance.target_op_fn (THIS, subvol, frame);
+        local->rebalance.target_op_fn (THIS, subvol, frame, op_ret);
 
         return 0;
 }
@@ -960,15 +960,35 @@ dht_migration_complete_check_task (void *data)
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         }
 
+
         /*
-         * temporary check related to tier promoting/demoting the file;
-         * the lower level DHT detects the migration (due to sticky
-         * bits) when it is the responsibility of the tier translator
-         * to complete the rebalance transaction. It will be corrected
-         * when rebalance and tier migration are fixed to work together.
+         * Each DHT xlator layer has its own name for the linkto xattr.
+         * If the file mode bits indicate the the file is being migrated but
+         * this layer's linkto xattr is not set, it means that another
+         * DHT layer is migrating the file. In this case, return 1 so
+         * the mode bits can be passed on to the higher layer for appropriate
+         * action.
          */
-        if (strcmp(this->parents->xlator->type, "cluster/tier") == 0) {
-                ret = 0;
+        if (-ret == ENODATA) {
+                /* This DHT translator is not migrating this file */
+
+                ret = inode_ctx_reset1 (inode, this, &tmp_miginfo);
+                if (tmp_miginfo) {
+
+                        /* This can be a problem if the file was
+                         * migrated by two different layers. Raise
+                         * a warning here.
+                         */
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_HAS_MIGINFO,
+                                "%s: Found miginfo in the inode ctx",
+                                tmp_loc.path ? tmp_loc.path :
+                                uuid_utoa (tmp_loc.gfid));
+
+                        miginfo = (void *)tmp_miginfo;
+                        GF_REF_PUT (miginfo);
+                }
+                ret = 1;
                 goto out;
         }
 
@@ -1094,7 +1114,14 @@ dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame)
         return ret;
 
 }
+
 /* During 'in-progress' state, both nodes should have the file */
+/*
+ op_ret values :
+  0 : Success
+ -1 : Failure.
+  1 : File is being migrated but not by this DHT layer.
+*/
 static int
 dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
 {
@@ -1104,7 +1131,7 @@ dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
 
         local = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret != 0)
                 goto out;
 
         inode = local->loc.inode ? local->loc.inode : local->fd->inode;
@@ -1120,7 +1147,7 @@ dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
         }
 
 out:
-        local->rebalance.target_op_fn (THIS, dst_subvol, frame);
+        local->rebalance.target_op_fn (THIS, dst_subvol, frame, op_ret);
 
         return 0;
 }
@@ -1142,6 +1169,9 @@ dht_rebalance_inprogress_task (void *data)
         inode_t      *inode    = NULL;
         fd_t         *iter_fd  = NULL;
         int           open_failed = 0;
+        uint64_t      tmp_miginfo  = 0;
+        dht_migrate_info_t *miginfo     = NULL;
+
 
         this  = THIS;
         frame = data;
@@ -1165,6 +1195,35 @@ dht_rebalance_inprogress_task (void *data)
         } else {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
                                         conf->link_xattr_name, NULL, NULL);
+        }
+
+        /*
+         * Each DHT xlator layer has its own name for the linkto xattr.
+         * If the file mode bits indicate the the file is being migrated but
+         * this layer's linkto xattr is not present, it means that another
+         * DHT layer is migrating the file. In this case, return 1 so
+         * the mode bits can be passed on to the higher layer for appropriate
+         * action.
+         */
+
+        if (-ret == ENODATA) {
+                /* This DHT layer is not migrating this file */
+                ret = inode_ctx_reset1 (inode, this, &tmp_miginfo);
+                if (tmp_miginfo) {
+                        /* This can be a problem if the file was
+                         * migrated by two different layers. Raise
+                         * a warning here.
+                         */
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_HAS_MIGINFO,
+                                "%s: Found miginfo in the inode ctx",
+                                tmp_loc.path ? tmp_loc.path :
+                                uuid_utoa (tmp_loc.gfid));
+                        miginfo = (void *)tmp_miginfo;
+                        GF_REF_PUT (miginfo);
+                }
+                ret = 1;
+                goto out;
         }
 
         if (ret < 0) {

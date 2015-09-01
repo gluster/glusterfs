@@ -37,7 +37,7 @@ typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
                                        int32_t       op_ret, int32_t op_errno,
                                        dict_t       *xdata);
 typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, xlator_t *dst_node,
-                                    call_frame_t    *frame);
+                                    call_frame_t    *frame, int ret);
 
 typedef int (*dht_refresh_layout_unlock) (call_frame_t *frame, xlator_t *this,
                                          int op_ret);
@@ -116,8 +116,12 @@ struct dht_rebalance_ {
         struct iobref       *iobref;
         struct iovec        *vector;
         struct iatt          stbuf;
+        struct iatt          prebuf;
+        struct iatt          postbuf;
         dht_defrag_cbk_fn_t  target_op_fn;
         dict_t              *xdata;
+        dict_t              *xattr;
+        int32_t              set;
 };
 
 /**
@@ -547,6 +551,8 @@ typedef struct dht_migrate_info {
 #define check_is_dir(i,s,x) (IA_ISDIR(s->ia_type))
 
 #define layout_is_sane(layout) ((layout) && (layout->cnt > 0))
+
+#define we_are_not_migrating(x)   ((x) == 1)
 
 #define DHT_STACK_UNWIND(fop, frame, params ...) do {           \
                 dht_local_t *__local = NULL;                    \
@@ -1077,5 +1083,10 @@ dht_refresh_layout (call_frame_t *frame);
 int
 dht_build_parent_loc (xlator_t *this, loc_t *parent, loc_t *child,
                                                  int32_t *op_errno);
+
+int32_t dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
+                                 struct iatt *stbuf,
+                                 struct iatt *prebuf,
+                                 struct iatt *postbuf, dict_t *xdata);
 
 #endif/* _DHT_H */
