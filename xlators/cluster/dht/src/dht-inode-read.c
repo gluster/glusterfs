@@ -15,13 +15,22 @@
 
 #include "dht-common.h"
 
-int dht_access2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_readv2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_attr2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_open2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_flush2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_lk2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
-int dht_fsync2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
+int dht_access2 (xlator_t *this, xlator_t *dst_node,
+                 call_frame_t *frame, int ret);
+int dht_readv2 (xlator_t *this, xlator_t *dst_node,
+                call_frame_t *frame, int ret);
+int dht_attr2 (xlator_t *this, xlator_t *dst_node,
+               call_frame_t *frame, int ret);
+int dht_open2 (xlator_t *this, xlator_t *dst_node,
+               call_frame_t *frame, int ret);
+int dht_flush2 (xlator_t *this, xlator_t *dst_node,
+                call_frame_t *frame, int ret);
+int dht_lk2 (xlator_t *this, xlator_t *dst_node,
+             call_frame_t *frame, int ret);
+int dht_fsync2 (xlator_t *this, xlator_t *dst_node,
+                call_frame_t *frame, int ret);
+
+
 
 int
 dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -58,7 +67,7 @@ out:
 }
 
 int
-dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
@@ -68,6 +77,14 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = ENOENT;
+
+        if (we_are_not_migrating (ret)) {
+                /* This DHT layer is not migrating the file */
+                DHT_STACK_UNWIND (open, frame, -1, local->op_errno,
+                                  NULL, NULL);
+                return 0;
+
+        }
 
         if (subvol == NULL)
                 goto out;
@@ -80,9 +97,10 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
         return 0;
 
 out:
-        DHT_STACK_UNWIND (stat, frame, -1, op_errno, NULL, NULL);
+        DHT_STACK_UNWIND (open, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
+
 
 int
 dht_open (call_frame_t *frame, xlator_t *this,
@@ -155,6 +173,8 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 
         local->op_errno = op_errno;
+        local->op_ret = op_ret;
+
         /* Check if the rebalance phase2 is true */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
@@ -162,13 +182,15 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!subvol) {
                         /* Phase 2 of migration */
                         local->rebalance.target_op_fn = dht_attr2;
+                        dht_set_local_rebalance (this, local, NULL, NULL,
+                                                 stbuf, xdata);
                         ret = dht_rebalance_complete_check (this, frame);
                         if (!ret)
                                 return 0;
                 } else {
                         /* value is already set in fd_ctx, that means no need
                            to check for whether its complete or not. */
-                        dht_attr2 (this, subvol, frame);
+                        dht_attr2 (this, subvol, frame, 0);
                         return 0;
                 }
         }
@@ -181,7 +203,7 @@ err:
 }
 
 int
-dht_attr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_attr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
@@ -191,6 +213,19 @@ dht_attr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
                 goto out;
 
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (stat, frame, local->op_ret, op_errno,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
+
+
         if (subvol == NULL)
                 goto out;
 
@@ -382,7 +417,8 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t *local      = NULL;
         int          ret        = 0;
-        xlator_t    *subvol = 0;
+        xlator_t    *src_subvol = 0;
+        xlator_t    *dst_subvol = 0;
 
         local = frame->local;
         if (!local) {
@@ -401,23 +437,31 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_errno = op_errno;
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 /* File would be migrated to other node */
-                ret = dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL,
-                                                  &subvol);
-                if (!subvol) {
+                ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
+                                                  &src_subvol,
+                                                  &dst_subvol);
+
+                if (dht_mig_info_is_invalid (local->cached_subvol,
+                                             src_subvol, dst_subvol)) {
+                        local->op_ret = op_ret;
                         local->rebalance.target_op_fn = dht_readv2;
+                        dht_set_local_rebalance (this, local, NULL, NULL,
+                                                 stbuf, xdata);
+
                         ret = dht_rebalance_complete_check (this, frame);
                         if (!ret)
                                 return 0;
                 } else {
                         /* value is already set in fd_ctx, that means no need
                            to check for whether its complete or not. */
-                        dht_readv2 (this, subvol, frame);
+                        dht_readv2 (this, dst_subvol, frame, 0);
                         return 0;
                 }
         }
 
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref, xdata);
 
@@ -425,7 +469,7 @@ out:
 }
 
 int
-dht_readv2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_readv2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local  = NULL;
         int          op_errno = EINVAL;
@@ -435,6 +479,18 @@ dht_readv2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
                 goto out;
 
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (readv, frame, local->op_ret, op_errno,
+                                  NULL, 0, &local->rebalance.postbuf,
+                                  NULL, local->rebalance.xdata);
+                return 0;
+        }
+
         if (subvol == NULL)
                 goto out;
 
@@ -450,6 +506,7 @@ out:
         DHT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
         return 0;
 }
+
 
 int
 dht_readv (call_frame_t *frame, xlator_t *this,
@@ -543,7 +600,7 @@ out:
 }
 
 int
-dht_access2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_access2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
@@ -553,6 +610,17 @@ dht_access2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
                 goto out;
 
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+
+                DHT_STACK_UNWIND (access, frame, -1, op_errno, NULL);
+                return 0;
+        }
+
         if (subvol == NULL)
                 goto out;
 
@@ -629,7 +697,7 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* If context is set, then send flush() it to the destination */
         dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
         if (subvol) {
-                dht_flush2 (this, subvol, frame);
+                dht_flush2 (this, subvol, frame, 0);
                 return 0;
         }
 
@@ -640,7 +708,7 @@ out:
 }
 
 int
-dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -652,7 +720,6 @@ dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         op_errno = local->op_errno;
 
-        dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
         if (subvol == NULL)
                 goto out;
 
@@ -718,7 +785,8 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         call_frame_t *prev = NULL;
         int           ret = -1;
         inode_t      *inode = NULL;
-        xlator_t     *subvol = 0;
+        xlator_t     *src_subvol = 0;
+        xlator_t     *dst_subvol = 0;
 
         local = frame->local;
         prev = cookie;
@@ -741,9 +809,15 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         local->op_errno = op_errno;
         inode = local->fd->inode;
-        dht_inode_ctx_get_mig_info (this, inode, NULL, &subvol);
-        if (!subvol) {
+
+        dht_inode_ctx_get_mig_info (this, inode, &src_subvol, &dst_subvol);
+
+        if (dht_mig_info_is_invalid (local->cached_subvol,
+                                              src_subvol, dst_subvol)) {
+
                 local->rebalance.target_op_fn = dht_fsync2;
+                dht_set_local_rebalance (this, local, NULL, prebuf,
+                                         postbuf, xdata);
 
                 /* Check if the rebalance phase1 is true */
                 if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
@@ -760,13 +834,14 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 if (!ret)
                         return 0;
         } else {
-                dht_fsync2 (this, subvol, frame);
+                dht_fsync2 (this, dst_subvol, frame, 0);
                 return 0;
         }
 
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (fsync, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 
@@ -774,7 +849,7 @@ out:
 }
 
 int
-dht_fsync2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_fsync2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -784,6 +859,18 @@ dht_fsync2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (fsync, frame, local->op_ret,
+                                  op_errno, &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;

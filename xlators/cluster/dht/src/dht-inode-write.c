@@ -16,12 +16,18 @@
 
 #include "dht-common.h"
 
-int dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
-int dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
-int dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
-int dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
-int dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
-int dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_writev2 (xlator_t *this, xlator_t *subvol,
+                 call_frame_t *frame, int ret);
+int dht_truncate2 (xlator_t *this, xlator_t *subvol,
+                   call_frame_t *frame, int ret);
+int dht_setattr2 (xlator_t *this, xlator_t *subvol,
+                  call_frame_t *frame, int ret);
+int dht_fallocate2 (xlator_t *this, xlator_t *subvol,
+                    call_frame_t *frame, int ret);
+int dht_discard2 (xlator_t *this, xlator_t *subvol,
+                  call_frame_t *frame, int ret);
+int dht_zerofill2 (xlator_t *this, xlator_t *subvol,
+                   call_frame_t *frame, int ret);
 
 int
 dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -63,7 +69,15 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->rebalance.target_op_fn = dht_writev2;
 
+        local->op_ret = op_ret;
         local->op_errno = op_errno;
+
+        /* We might need to pass the stbuf information to the higher DHT
+         * layer for appropriate handling.
+         */
+
+        dht_set_local_rebalance (this, local, NULL, prebuf, postbuf, xdata);
+
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
@@ -80,7 +94,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_writev2 (this, subvol2, frame);
+                        dht_writev2 (this, subvol2, frame, 0);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -99,7 +113,7 @@ out:
 }
 
 int
-dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -109,6 +123,19 @@ dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (writev, frame, local->op_ret,
+                                  local->op_errno, &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
+
 
         if (subvol == NULL)
                 goto out;
@@ -220,7 +247,15 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->rebalance.target_op_fn = dht_truncate2;
 
+        local->op_ret = op_ret;
         local->op_errno = op_errno;
+
+        /* We might need to pass the stbuf information to the higher DHT
+         * layer for appropriate handling.
+         */
+
+        dht_set_local_rebalance (this, local, NULL, prebuf, postbuf, xdata);
+
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
@@ -238,7 +273,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               src_subvol, dst_subvol)) {
-                        dht_truncate2 (this, dst_subvol, frame);
+                        dht_truncate2 (this, dst_subvol, frame, 0);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -249,6 +284,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (truncate, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 err:
@@ -257,7 +293,7 @@ err:
 
 
 int
-dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -267,6 +303,16 @@ dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        /* This dht xlator is not migrating the file  */
+        if (we_are_not_migrating (ret)) {
+
+                DHT_STACK_UNWIND (truncate, frame, local->op_ret,
+                                  local->op_errno, &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;
@@ -411,7 +457,12 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 goto out;
         }
+
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
         local->rebalance.target_op_fn = dht_fallocate2;
+
+        dht_set_local_rebalance (this, local, NULL, prebuf, postbuf, xdata);
 
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
@@ -429,7 +480,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               src_subvol, dst_subvol)) {
-                        dht_fallocate2 (this, dst_subvol, frame);
+                        dht_fallocate2 (this, dst_subvol, frame, 0);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -440,6 +491,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (fallocate, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 err:
@@ -447,7 +499,7 @@ err:
 }
 
 int
-dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -457,6 +509,19 @@ dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (fallocate, frame, local->op_ret,
+                                  local->op_errno,
+                                  &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;
@@ -555,7 +620,12 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 goto out;
         }
+
         local->rebalance.target_op_fn = dht_discard2;
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+
+        dht_set_local_rebalance (this, local, NULL, prebuf, postbuf, xdata);
 
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
@@ -573,7 +643,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid(local->cached_subvol,
                                              src_subvol, dst_subvol)) {
-                        dht_discard2 (this, dst_subvol, frame);
+                        dht_discard2 (this, dst_subvol, frame, 0);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -584,6 +654,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (discard, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 err:
@@ -591,7 +662,7 @@ err:
 }
 
 int
-dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -601,6 +672,19 @@ dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (discard, frame, local->op_ret,
+                                  local->op_errno,
+                                  &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;
@@ -694,7 +778,13 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 goto out;
         }
+
         local->rebalance.target_op_fn = dht_zerofill2;
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+
+        dht_set_local_rebalance (this, local, NULL, prebuf, postbuf, xdata);
+
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
@@ -711,7 +801,7 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_zerofill2 (this, subvol2, frame);
+                        dht_zerofill2 (this, subvol2, frame, 0);
                         return 0;
                 }
 
@@ -723,6 +813,7 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (zerofill, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 err:
@@ -730,7 +821,7 @@ err:
 }
 
 int
-dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -741,6 +832,20 @@ dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
         local = frame->local;
 
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (zerofill, frame, local->op_ret,
+                                  local->op_errno,
+                                  &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;
@@ -754,6 +859,7 @@ dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
         return 0;
 
 out:
+
         DHT_STACK_UNWIND (zerofill, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
@@ -826,10 +932,18 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->call_cnt != 1)
                 goto out;
 
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+
         local->rebalance.target_op_fn = dht_setattr2;
+
 
         /* Phase 2 of migration */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
+
+                dht_set_local_rebalance (this, local, NULL, prebuf,
+                                         postbuf, xdata);
+
                 ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
                         return 0;
@@ -842,6 +956,7 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
         DHT_STRIP_PHASE1_FLAGS (prebuf);
+
         DHT_STACK_UNWIND (setattr, frame, op_ret, op_errno,
                           prebuf, postbuf, xdata);
 
@@ -849,7 +964,7 @@ out:
 }
 
 int
-dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
+dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
         dht_local_t *local    = NULL;
         int32_t      op_errno = EINVAL;
@@ -859,6 +974,19 @@ dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         local = frame->local;
         op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                DHT_STACK_UNWIND (setattr, frame, local->op_ret,
+                                  local->op_errno,
+                                  &local->rebalance.prebuf,
+                                  &local->rebalance.postbuf,
+                                  local->rebalance.xdata);
+                return 0;
+        }
 
         if (subvol == NULL)
                 goto out;
