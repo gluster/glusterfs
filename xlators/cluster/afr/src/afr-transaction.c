@@ -731,20 +731,6 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	if (need_undirty)
-		local->dirty[idx] = hton32(-1);
-	else
-		local->dirty[idx] = hton32(0);
-
-	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
-				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
-	if (ret) {
-		local->op_ret = -1;
-		local->op_errno = ENOMEM;
-		afr_changelog_post_op_done (frame, this);
-		goto out;
-	}
-
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->transaction.failed_subvols[i])
 			local->pending[i][idx] = hton32(1);
@@ -752,6 +738,20 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 
 	ret = afr_set_pending_dict (priv, xattr, local->pending);
 	if (ret < 0) {
+		local->op_ret = -1;
+		local->op_errno = ENOMEM;
+		afr_changelog_post_op_done (frame, this);
+		goto out;
+	}
+
+        if (need_undirty)
+		local->dirty[idx] = hton32(-1);
+	else
+		local->dirty[idx] = hton32(0);
+
+	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
+				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
+	if (ret) {
 		local->op_ret = -1;
 		local->op_errno = ENOMEM;
 		afr_changelog_post_op_done (frame, this);
