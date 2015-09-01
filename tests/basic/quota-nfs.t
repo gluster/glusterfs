@@ -17,6 +17,7 @@ TEST $CLI volume create $V0 $H0:$B0/brick1;
 EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume set $V0 network.inode-lru-limit 1
+TEST $CLI volume set $V0 performance.nfs.write-behind off
 
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
@@ -34,6 +35,17 @@ TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 
 TEST $QDD $N0/$deep/newfile_1 256 20
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $N0/$deep/file
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $N0/$deep/newfile_1
+
+#Unmount and mount to flush the data
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+TEST mount_nfs $H0:/$V0 $N0
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $N0/$deep/file
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $N0/$deep/newfile_1
+
 # wait for write behind to complete.
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" quotausage "/"
 
@@ -42,7 +54,7 @@ TEST ! $QDD $N0/$deep/newfile_2 256 400
 TEST rm -f $N0/$deep/newfile_2
 
 ## Before killing daemon to avoid deadlocks
-umount_nfs $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
