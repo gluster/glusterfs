@@ -65,7 +65,7 @@ EXPECT 2 check_status_num_rows "Active"
 EXPECT 2 check_status_num_rows "Passive"
 
 #DATA_TESTS HYBRID
-sleep 10
+sleep 15
 TEST regular_file_ok ${slave_mnt}/hybrid_f1         #20
 TEST directory_ok ${slave_mnt}/$hybrid_d1
 TEST rename_ok ${slave_mnt}/hybrid_f3 ${slave_mnt}/hybrid_f4
@@ -88,7 +88,7 @@ EXPECT 2 check_status_num_rows "Passive"
 
 
 #data_tests "history"
-sleep 10
+sleep 15
 TEST regular_file_ok ${slave_mnt}/history_f1
 TEST directory_ok ${slave_mnt}/history_d1           #35
 TEST rename_ok ${slave_mnt}/history_f3 ${slave_mnt}/history_f4
@@ -105,7 +105,7 @@ sleep 15
 TEST check_status "Changelog Crawl"
 
 #data_tests "changelog"
-sleep 10
+sleep 15
 TEST regular_file_ok ${slave_mnt}/changelog_f1      #45
 TEST directory_ok ${slave_mnt}/changelog_d1
 TEST rename_ok ${slave_mnt}/changelog_f3 ${slave_mnt}/changelog_f4
