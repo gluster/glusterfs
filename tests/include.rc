@@ -408,20 +408,49 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
-        # unmount filesystems before killing daemons to avoid deadllocks
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
-        for m in $MOUNTPOINTS;
-        do
-                umount $m
+
+        # Prepare flags for umount
+        case `uname -s` in
+        Linux)
+                flag="-l"
+                ;;
+        NetBSD)
+                flag="-f -R"
+                ;;
+        FreeBSD|Darwin)
+                flag="-f"
+                ;;
+        *)
+                flag=""
+                ;;
+        esac
+
+        # Clean up all client mounts
+        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
+                umount $flag $m
         done
 
+        # Unmount all well known mount points
+        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
+        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
+
+
+        # unmount all stale mounts from /tmp, This is a temporary work around
+        # till the stale mount in /tmp is found.
+        umount $flag /tmp/mnt* 2>/dev/null
+
+
+        # Kill all gluster processes with SIGTERM
         killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
-                umount $m
-        done
         test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
-        # allow completion of signal handlers for SIGTERM before issue SIGKILL
+
+        # Wait a second for SIGTERM to work
         sleep 1
+
+        # Send SIGKILL to all gluster processes that are still running
         killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
         test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
 
@@ -437,8 +466,18 @@ function cleanup()
         ## nfs_acl
         rpcinfo -d 100227 3 2>/dev/null || true;
 
+        # unmount brick filesystems after killing daemons
+        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        for m in $MOUNTPOINTS;
+        do
+                umount $flag $m
+        done
+
+        # Cleanup lvm
         type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
+        # Destroy loop devices
+        # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
                 LOOPDEVICES=`losetup -a | grep "$B0/" | \
@@ -471,34 +510,16 @@ function cleanup()
         esac
 
         # remove contents of "GLUSTERD_WORKDIR" except hooks directory.
-        find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
-        -o -exec rm -rf '{}' ';'
+        if [ -n $GLUSTERD_WORKDIR ]
+        then
+                find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
+                -o -exec rm -rf '{}' ';'
+        else
+                echo "GLUSTERD_WORKDIR is not set"
+        fi
 
-        rm -rf $B0/* /etc/glusterd/*;
-
-        # unmount all stale mounts from /tmp, This is a temporary work around
-        # till the stale mount in /tmp is found.
-        case `uname -s` in
-        Linux)
-                flag="-l"
-                ;;
-        NetBSD)
-                flag="-f -R"
-                ;;
-        FreeBSD|Darwin)
-                flag="-f"
-                ;;
-        *)
-                flag=""
-                ;;
-        esac
-        umount $flag /tmp/mnt* 2>/dev/null
-        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
-        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
-        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
-        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
-        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
-
+        # Complete cleanup time
+        rm -rf "$B0/*" "/etc/glusterd/*";
         rm -rf $WORKDIRS
         leftover=""
         for d in $WORKDIRS ; do
