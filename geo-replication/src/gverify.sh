@@ -17,34 +17,53 @@ function SSHM()
 	"$@";
 }
 
-function cmd_master()
+function get_inode_num()
 {
-    VOL=$1;
-    local cmd_line;
-    cmd_line=$(cat <<EOF
-function do_verify() {
-v=\$1;
-d=\$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
-glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id \$v -l $slave_log_file \$d;
-i=\$(stat -c "%i" \$d);
-if [[ "\$i" -ne "1" ]]; then
-echo 0:0;
-exit 1;
-fi;
-cd \$d;
-disk_size=\$(df -P -B1 \$d | tail -1 | awk "{print \\\$2}");
-used_size=\$(df -P -B1 \$d | tail -1 | awk "{print \\\$3}");
-umount -l \$d;
-rmdir \$d;
-ver=\$(gluster --version | head -1 | cut -f2 -d " ");
-echo \$disk_size:\$used_size:\$ver;
-};
-cd /tmp;
-[ x$VOL != x ] && do_verify $VOL;
-EOF
-);
+    local os
+    case `uname -s` in
+        NetBSD) os="NetBSD";;
+        Linux)  os="Linux";;
+        *)      os="Default";;
+    esac
 
-echo $cmd_line;
+    if [[ "X$os" = "XNetBSD" ]]; then
+        echo $(stat -f "%i" "$1")
+    else
+        echo $(stat -c "%i" "$1")
+    fi
+}
+
+function umount_lazy()
+{
+    local os
+    case `uname -s` in
+        NetBSD) os="NetBSD";;
+        Linux)  os="Linux";;
+        *)      os="Default";;
+    esac
+
+    if [[ "X$os" = "XNetBSD" ]]; then
+        umount -f -R "$1"
+    else
+        umount -l "$1"
+    fi;
+}
+
+function disk_usage()
+{
+    local os
+    case `uname -s` in
+        NetBSD) os="NetBSD";;
+        Linux)  os="Linux";;
+        *)      os="Default";;
+    esac
+
+    if [[ "X$os" = "XNetBSD" ]]; then
+        echo $(df -P "$1")
+    else
+        echo $(df -P -B1 "$1")
+    fi;
+
 }
 
 function cmd_slave()
@@ -65,9 +84,28 @@ echo $cmd_line;
 function master_stats()
 {
     MASTERVOL=$1;
-    local cmd_line;
-    cmd_line=$(cmd_master $MASTERVOL);
-    bash -c "$cmd_line";
+    local d;
+    local i;
+    local disk_size;
+    local used_size;
+    local ver;
+    local m_status;
+
+    d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
+    glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $slave_log_file $d;
+    i=$(get_inode_num $d);
+    if [[ "$i" -ne "1" ]]; then
+        echo 0:0;
+        exit 1;
+    fi;
+    cd $d;
+    disk_size=$(disk_usage $d | tail -1 | awk "{print \$2}");
+    used_size=$(disk_usage $d | tail -1 | awk "{print \$3}");
+    umount_lazy $d;
+    rmdir $d;
+    ver=$(gluster --version | head -1 | cut -f2 -d " ");
+    m_status=$(echo "$disk_size:$used_size:$ver");
+    echo $m_status
 }
 
 
@@ -82,16 +120,16 @@ function slave_stats()
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
     glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
-    i=$(stat -c "%i" $d);
+    i=$(get_inode_num $d);
     if [[ "$i" -ne "1" ]]; then
         echo 0:0;
         exit 1;
     fi;
     cd $d;
-    disk_size=$(df -P -B1 $d | tail -1 | awk "{print \$2}");
-    used_size=$(df -P -B1 $d | tail -1 | awk "{print \$3}");
+    disk_size=$(disk_usage $d | tail -1 | awk "{print \$2}");
+    used_size=$(disk_usage $d | tail -1 | awk "{print \$3}");
     no_of_files=$(find $d -maxdepth 1 -path "$d/.trashcan" -prune -o -path "$d" -o -print0 -quit);
-    umount -l $d;
+    umount_lazy $d;
     rmdir $d;
 
     cmd_line=$(cmd_slave);
@@ -104,11 +142,11 @@ function ping_host ()
 {
     ### Use bash internal socket support
     {
-        exec 400<>/dev/tcp/$1/$2
+        exec 100<>/dev/tcp/$1/$2
         if [ $? -ne '0' ]; then
             return 1;
         else
-            exec 400>&-
+            exec 100>&-
             return 0;
         fi
     } 1>&2 2>/dev/null
