@@ -97,7 +97,7 @@ manage_service ()
 {
         local action=${1}
         local new_node=${2}
-        if [ "$SERVICE_MAN" == "/usr/sbin/systemctl" ]
+        if [ "$SERVICE_MAN" == "/usr/bin/systemctl" ]
         then
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} root@${new_node} "$SERVICE_MAN  ${action} nfs-ganesha"
