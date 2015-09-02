@@ -315,14 +315,27 @@ copy_export_config ()
     local short_host=$(hostname -s)
     # avoid prompting for password, even with password-less scp
     # scp $host1:$file $host2:$file prompts for the password
-    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+    # Ideally all the existing nodes in the cluster should have same
+    # copy of the configuration files. Maybe for sanity check, copy
+    # the state from HA_VOL_SERVER?
+    if [ "${HA_VOL_SERVER}" == $(hostname) ]
+    then
+        cp ${GANESHA_CONF} ${tganesha_conf}
+    else
+        scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${HA_VOL_SERVER}:${GANESHA_CONF} $short_host:${tganesha_conf}
+    fi
     scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${tganesha_conf} ${new_node}:${GANESHA_CONF}
     rm -f ${tganesha_conf}
 
-    scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+    if [ "${HA_VOL_SERVER}" == $(hostname) ]
+    then
+        cp -r ${HA_CONFDIR}/exports ${tganesha_exports}
+    else
+        scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ $short_host:${tganesha_exports}
+    fi
     scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${tganesha_exports}/exports ${new_node}:${HA_CONFDIR}/
     rm -rf ${tganesha_exports}
