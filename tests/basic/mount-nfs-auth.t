@@ -31,7 +31,11 @@ V0L1="$V0/L1"
 V0L2="$V0L1/L2"
 V0L3="$V0L2/L3"
 
+NETGROUP_COMPLEX_ALLOW="storage storage.region\nstorage.region (1.2.3.4,,)\nngtop ng1\nng1 ($H0,,)"
+EXPORT_COMPLEX_RO_ALLOW="/$V0L1 @storage(sec=sys,rw,anonuid=0) @ngtop(sec=sys,ro,anonuid=0)"
+
 # Other variations for allow & deny
+EXPORT_ALLOW_NETGROUP_RO="/$V0 @ngtop(sec=sys,ro,anonuid=0)"
 EXPORT_ALLOW_RO="/$V0 $H0(sec=sys,ro,anonuid=0) @ngtop(sec=sys,ro,anonuid=0)"
 EXPORT_ALLOW_L1="/$V0L1 $H0(sec=sys,rw,anonuid=0) @ngtop(sec=sys,rw,anonuid=0)"
 EXPORT_WILDCARD="/$V0 *(sec=sys,rw,anonuid=0) @ngtop(sec=sys,rw,anonuid=0)"
@@ -68,12 +72,24 @@ function export_allow_this_host_ro () {
         printf "$EXPORT_ALLOW_RO\n" > ${NFSDIR}/exports
 }
 
+function export_allow_netgroup_ro () {
+        printf "$EXPORT_ALLOW_NETGROUP_RO\n" > ${NFSDIR}/exports
+}
+
 function netgroup_allow_this_host () {
         printf "$NETGROUP_ALLOW\n" > ${NFSDIR}/netgroups
 }
 
 function netgroup_deny_this_host () {
         printf "$NETGROUP_DENY\n" > ${NFSDIR}/netgroups
+}
+
+function netgroup_complex_allow() {
+        printf "$NETGROUP_COMPLEX_ALLOW\n" > ${NFSDIR}/netgroup
+}
+
+function export_complex_ro_allow() {
+        printf "$EXPORT_COMPLEX_RO_ALLOW\n" > ${NFSDIR}/exports
 }
 
 function create_vol () {
@@ -265,6 +281,29 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "N" small_write # Writes should not be allowed
+TEST ! create      # Create should not be allowed
+TEST stat_nfs      # Stat should be allowed
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
+TEST export_allow_netgroup_ro
+TEST netgroup_allow_this_host
+sleep $AUTH_REFRESH_SLEEP
+
+TEST do_mount $V0
+TEST ! small_write # Writes should not be allowed
+TEST ! create      # Create should not be allowed
+TEST stat_nfs      # Stat should be allowed
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
+# This test checks the case where the exports file
+# has a 'rw' perm set for a netgroup followed
+# by a 'ro' perm for a different netgroup.
+TEST netgroup_complex_allow
+TEST export_complex_ro_allow
+sleep $AUTH_REFRESH_SLEEP
+
+TEST do_mount $V0L1
+TEST ! small_write # Writes should not be allowed
 TEST ! create      # Create should not be allowed
 TEST stat_nfs      # Stat should be allowed
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0

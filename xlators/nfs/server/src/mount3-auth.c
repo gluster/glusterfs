@@ -429,6 +429,15 @@ __export_dir_lookup_netgroup (dict_t *dict, char *key, data_t *val,
 
         GF_ASSERT ((*key == '@'));
 
+        /**
+         * If at any point in time as we search through the dictionaries,
+         * if we were marked as "Found", we should exit out immediately
+         * and not set anything else in this struct.
+         */
+        if (ngsa->found) {
+                goto out;
+        }
+
         /* We use ++key here because keys start with '@' for ngs */
         ngentry = ng_file_get_netgroup (nfile, (key + 1));
         if (!ngentry) {
@@ -451,10 +460,6 @@ __export_dir_lookup_netgroup (dict_t *dict, char *key, data_t *val,
                 dict_foreach (ngentry->netgroup_hosts, __netgroup_dict_search,
                               ngsa);
         }
-
-        /* If the above search was successful, just return */
-        if (ngsa->found)
-                goto out;
 
         /* Run through the netgroups dict */
         if (ngentry->netgroup_ngs) {
