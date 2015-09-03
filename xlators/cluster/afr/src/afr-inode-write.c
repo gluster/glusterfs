@@ -112,10 +112,17 @@ __afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
 			dict_t *xattr, dict_t *xdata)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
 
         local = frame->local;
+        priv = this->private;
 
 	local->replies[child_index].valid = 1;
+
+        if (AFR_IS_ARBITER_BRICK(priv, child_index) && op_ret == 1)
+                op_ret = iov_length (local->cont.writev.vector,
+                                     local->cont.writev.count);
+
 	local->replies[child_index].op_ret = op_ret;
 	local->replies[child_index].op_errno = op_errno;
 
@@ -325,6 +332,24 @@ unlock:
         return 0;
 }
 
+static int
+afr_arbiter_writev_wind (call_frame_t *frame, xlator_t *this, int subvol)
+{
+        afr_local_t *local = frame->local;
+        afr_private_t *priv = this->private;
+        static char byte = 0xFF;
+        static struct iovec vector = {&byte, 1};
+        int32_t count = 1;
+
+        STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) (long) subvol,
+			   priv->children[subvol],
+			   priv->children[subvol]->fops->writev,
+			   local->fd, &vector, count, local->cont.writev.offset,
+			   local->cont.writev.flags, local->cont.writev.iobref,
+			   local->xdata_req);
+
+        return 0;
+}
 
 int
 afr_writev_wind (call_frame_t *frame, xlator_t *this, int subvol)
@@ -334,6 +359,11 @@ afr_writev_wind (call_frame_t *frame, xlator_t *this, int subvol)
 
         local = frame->local;
         priv = this->private;
+
+        if (AFR_IS_ARBITER_BRICK(priv, subvol)) {
+                afr_arbiter_writev_wind (frame, this, subvol);
+                return 0;
+        }
 
 	STACK_WIND_COOKIE (frame, afr_writev_wind_cbk, (void *) (long) subvol,
 			   priv->children[subvol],
