@@ -26,7 +26,7 @@ TEST MOUNT_LOOP $LO3 $B0/${V0}3
 TEST $CLI volume create $V0 replica 3 arbiter 1 $H0:$B0/${V0}{1,2,3};
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
-free_space=$(df /home | tail -1 | awk '{ print $4}')
+free_space=$(df -P $M0 | tail -1 | awk '{ print $4}')
 TEST [ $free_space -gt 100000 ]
 TEST force_umount $M0
 TEST $CLI volume stop $V0
