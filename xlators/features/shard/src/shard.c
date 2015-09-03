@@ -2362,6 +2362,12 @@ shard_readv_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        /* If shard has already seen a failure here before, there is no point
+         * in aggregating subsequent reads, so just go to out.
+         */
+        if (local->op_ret < 0)
+                goto out;
+
         if (op_ret < 0) {
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
@@ -2408,8 +2414,8 @@ out:
                         if (xdata)
                                 local->xattr_rsp = dict_ref (xdata);
                         vec.iov_base = local->iobuf->ptr;
-                        vec.iov_len = local->op_ret;
-                        SHARD_STACK_UNWIND (readv, frame, local->op_ret,
+                        vec.iov_len = local->total_size;
+                        SHARD_STACK_UNWIND (readv, frame, local->total_size,
                                             local->op_errno, &vec, 1,
                                             &local->prebuf, local->iobref,
                                             local->xattr_rsp);
