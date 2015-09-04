@@ -5038,10 +5038,10 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         dht_local_t  *local = NULL;
         xlator_t     *cached_subvol = NULL;
 
+        local = frame->local;
         if (op_ret == -1)
                 goto err;
 
-        local = frame->local;
         if (!local || !local->cached_subvol) {
                 op_errno = EINVAL;
                 goto err;
@@ -5836,12 +5836,12 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         dht_local_t  *local = NULL;
         xlator_t     *cached_subvol = NULL;
 
+        local = frame->local;
         if (op_ret == -1) {
                 local->op_errno = op_errno;
                 goto err;
         }
 
-        local = frame->local;
         cached_subvol = local->cached_subvol;
 
         STACK_WIND (frame, dht_create_cbk,
