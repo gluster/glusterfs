@@ -5038,19 +5038,32 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                                struct iatt *preparent, struct iatt *postparent,
                                dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        xlator_t     *cached_subvol = NULL;
+        dht_local_t     *local          = NULL;
+        xlator_t        *cached_subvol  = NULL;
+        dht_conf_t      *conf           = NULL;
 
         local = frame->local;
-        if (op_ret == -1)
-                goto err;
 
         if (!local || !local->cached_subvol) {
                 op_errno = EINVAL;
                 goto err;
         }
 
+        if (op_ret == -1)
+                goto err;
+
+        conf = this->private;
+        if (!conf) {
+                local->op_errno =  EINVAL;
+                goto err;
+        }
+
         cached_subvol = local->cached_subvol;
+
+        if (local->params) {
+                 dict_del (local->params, conf->link_xattr_name);
+                 dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
+        }
 
         STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)cached_subvol,
                            cached_subvol, cached_subvol->fops->mknod,
@@ -5059,8 +5072,13 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        if (local->lock.locks)
+        if (local && local->lock.locks) {
                 local->refresh_layout_unlock (frame, this, -1);
+        } else {
+                DHT_STACK_UNWIND (mknod, frame, -1,
+                                  op_errno, NULL, NULL, NULL,
+                                  NULL, NULL);
+        }
 
         return 0;
 }
@@ -5836,16 +5854,33 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                                 struct iatt *preparent, struct iatt *postparent,
                                 dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        xlator_t     *cached_subvol = NULL;
+        dht_local_t     *local             = NULL;
+        xlator_t        *cached_subvol     = NULL;
+        dht_conf_t      *conf              = NULL;
 
         local = frame->local;
+        if (!local) {
+                op_errno = EINVAL;
+                goto err;
+        }
+
         if (op_ret == -1) {
                 local->op_errno = op_errno;
                 goto err;
         }
 
+        conf = this->private;
+        if (!conf) {
+                local->op_errno = EINVAL;
+                goto err;
+        }
+
         cached_subvol = local->cached_subvol;
+
+        if (local->params) {
+                dict_del (local->params, conf->link_xattr_name);
+                dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
+        }
 
         STACK_WIND (frame, dht_create_cbk,
                     cached_subvol, cached_subvol->fops->create,
@@ -5853,9 +5888,15 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                     local->umask, local->fd, local->params);
 
         return 0;
+
 err:
-        if (local->lock.locks)
+        if (local && local->lock.locks) {
                 local->refresh_layout_unlock (frame, this, -1);
+        } else {
+                DHT_STACK_UNWIND (create, frame, -1,
+                                  op_errno, NULL, NULL, NULL,
+                                  NULL, NULL, NULL);
+        }
 
         return 0;
 }
