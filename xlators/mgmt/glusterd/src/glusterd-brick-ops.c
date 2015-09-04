@@ -1692,16 +1692,28 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         goto out;
                 }
                 /* Do not allow commit if the bricks are not decommissioned
-                 * if its a remove brick commit
+                 * if its a remove brick commit or detach-tier commit
                  */
-                if (cmd == GF_OP_CMD_COMMIT && !brickinfo->decommissioned) {
-                        snprintf (msg, sizeof (msg), "Brick %s "
-                                  "is not decommissioned. "
-                                  "Use start or force option",
-                                  brick);
-                        *errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
+                if (!brickinfo->decommissioned) {
+                        if (cmd == GF_OP_CMD_COMMIT) {
+                                snprintf (msg, sizeof (msg), "Brick %s "
+                                          "is not decommissioned. "
+                                          "Use start or force option", brick);
+                                *errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        if (cmd == GF_OP_CMD_DETACH_COMMIT) {
+                                snprintf (msg, sizeof (msg), "Brick's in Hot "
+                                          "tier is not decommissioned yet. Use "
+                                          "gluster volume detach-tier <VOLNAME>"
+                                          " <start | commit | [force]>"
+                                          " command instead");
+                                *errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
                 }
 
                 if (glusterd_is_local_brick (THIS, volinfo, brickinfo))
