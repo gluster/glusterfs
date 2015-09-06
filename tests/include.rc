@@ -539,6 +539,20 @@ function cleanup()
                 echo
                 return 1;
         fi >&2
+
+        # tar logs at the start and end of every test
+        if [ -n $LOGDIR ]
+        then
+                tarname=$(basename $0 .t)
+                tar -rvf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
+                        --exclude="*.tar" \
+                        && \
+                find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
+                                        -o -exec rm -rf '{}' ';'
+        else
+                echo "LOGDIR is not set"
+        fi
+
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
 	# value becomes their exit value.  While it's not great for the mkdir
