@@ -12,6 +12,7 @@
 #define _GLOBALS_H
 
 #define GF_DEFAULT_BASE_PORT 24007
+#define GF_DEFAULT_VOLFILE_TRANSPORT "tcp"
 
 #define GD_OP_VERSION_KEY     "operating-version"
 #define GD_MIN_OP_VERSION_KEY "minimum-operating-version"
