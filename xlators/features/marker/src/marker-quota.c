@@ -991,7 +991,7 @@ mq_inode_creation_done (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (local != NULL) {
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, NULL);
         }
 
         QUOTA_STACK_DESTROY (frame, this);
@@ -2914,10 +2914,19 @@ mq_synctask (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn, loc_t *loc)
 
 int32_t
 mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
-                    quota_inode_ctx_t **ctx)
+                    quota_inode_ctx_t **ctx, struct iatt *buf)
 {
         int32_t               ret     = -1;
         quota_inode_ctx_t    *ctxtmp  = NULL;
+
+        if (buf) {
+                if (buf->ia_type == IA_IFREG && IS_DHT_LINKFILE_MODE(buf))
+                        goto out;
+
+                if (buf->ia_type != IA_IFREG && buf->ia_type != IA_IFLNK &&
+                    buf->ia_type != IA_IFDIR)
+                        goto out;
+        }
 
         if (origin_loc == NULL || origin_loc->inode == NULL ||
             gf_uuid_is_null(origin_loc->inode->gfid))
@@ -3018,20 +3027,21 @@ out:
                 mq_set_ctx_create_status (ctx, _gf_false);
 
         if (need_txn)
-                ret = mq_initiate_quota_blocking_txn (this, loc);
+                ret = mq_initiate_quota_blocking_txn (this, loc, NULL);
 
         return ret;
 }
 
 static int
-_mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
+_mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, struct iatt *buf,
+                       gf_boolean_t spawn)
 {
         int32_t                  ret        = -1;
         quota_inode_ctx_t       *ctx        = NULL;
         gf_boolean_t             status     = _gf_true;
         loc_t                    loc        = {0, };
 
-        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx, buf);
         if (ret < 0)
                 goto out;
 
@@ -3049,27 +3059,27 @@ out:
 }
 
 int
-mq_create_xattrs_txn (xlator_t *this, loc_t *loc)
+mq_create_xattrs_txn (xlator_t *this, loc_t *loc, struct iatt *buf)
 {
         int32_t                  ret        = -1;
 
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = _mq_create_xattrs_txn (this, loc, _gf_true);
+        ret = _mq_create_xattrs_txn (this, loc, buf, _gf_true);
 out:
         return ret;
 }
 
 int
-mq_create_xattrs_blocking_txn (xlator_t *this, loc_t *loc)
+mq_create_xattrs_blocking_txn (xlator_t *this, loc_t *loc, struct iatt *buf)
 {
         int32_t                  ret        = -1;
 
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = _mq_create_xattrs_txn (this, loc, _gf_false);
+        ret = _mq_create_xattrs_txn (this, loc, buf, _gf_false);
 out:
         return ret;
 }
@@ -3190,7 +3200,7 @@ out:
                 ret = mq_lock (this, &parent_loc, F_UNLCK);
 
         if (ret >= 0)
-                ret = mq_initiate_quota_blocking_txn (this, &parent_loc);
+                ret = mq_initiate_quota_blocking_txn (this, &parent_loc, NULL);
 
         loc_wipe (&parent_loc);
 
@@ -3210,7 +3220,7 @@ mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
 
-        ret = mq_prevalidate_txn (this, origin_loc, &loc, NULL);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, NULL, NULL);
         if (ret < 0)
                 goto out;
 
@@ -3449,14 +3459,15 @@ out:
 }
 
 int
-_mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
+_mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc, struct iatt *buf,
+                        gf_boolean_t spawn)
 {
         int32_t                 ret          = -1;
         quota_inode_ctx_t      *ctx          = NULL;
         gf_boolean_t            status       = _gf_true;
         loc_t                   loc          = {0,};
 
-        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx, buf);
         if (ret < 0)
                 goto out;
 
@@ -3480,7 +3491,7 @@ out:
 }
 
 int
-mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
+mq_initiate_quota_txn (xlator_t *this, loc_t *loc, struct iatt *buf)
 {
         int32_t                 ret          = -1;
 
@@ -3488,13 +3499,13 @@ mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = _mq_initiate_quota_txn (this, loc, _gf_true);
+        ret = _mq_initiate_quota_txn (this, loc, buf, _gf_true);
 out:
         return ret;
 }
 
 int
-mq_initiate_quota_blocking_txn (xlator_t *this, loc_t *loc)
+mq_initiate_quota_blocking_txn (xlator_t *this, loc_t *loc, struct iatt *buf)
 {
         int32_t                 ret          = -1;
 
@@ -3502,7 +3513,7 @@ mq_initiate_quota_blocking_txn (xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
 
-        ret = _mq_initiate_quota_txn (this, loc, _gf_false);
+        ret = _mq_initiate_quota_txn (this, loc, buf, _gf_false);
 out:
         return ret;
 }
@@ -3667,7 +3678,7 @@ out:
         loc_wipe(&child_loc);
 
         if (updated)
-                mq_initiate_quota_blocking_txn (this, loc);
+                mq_initiate_quota_blocking_txn (this, loc, NULL);
 
         return ret;
 }
@@ -3764,14 +3775,14 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
 
         if (!loc_is_root(loc) &&
             !quota_meta_is_null (&delta))
-                mq_initiate_quota_txn (this, loc);
+                mq_initiate_quota_txn (this, loc, NULL);
 
         ret = 0;
         goto out;
 
 create_xattr:
         if (ret < 0)
-                ret = mq_create_xattrs_txn (this, loc);
+                ret = mq_create_xattrs_txn (this, loc, NULL);
 
 out:
         return ret;
@@ -3808,7 +3819,7 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
         ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
                                     IA_IFREG, _gf_true);
         if (ret < 0) {
-                ret = mq_create_xattrs_txn (this, loc);
+                ret = mq_create_xattrs_txn (this, loc, NULL);
         } else {
                 LOCK (&contribution->lock);
                 {
@@ -3827,7 +3838,7 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
 
                 mq_compute_delta (&delta, &size, &contri);
                 if (!quota_meta_is_null (&delta))
-                        mq_initiate_quota_txn (this, loc);
+                        mq_initiate_quota_txn (this, loc, NULL);
         }
         /* TODO: revist this code when fixing hardlinks */
 
@@ -3844,15 +3855,7 @@ mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
         loc_t                 loc             = {0, };
         inode_contribution_t *contribution    = NULL;
 
-        if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
-            || (buf.ia_type == IA_IFLNK) || (buf.ia_type == IA_IFDIR)) {
-                /* do healing only for these type of files */
-        } else {
-                ret = 0;
-                goto out;
-        }
-
-        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx, &buf);
         if (ret < 0)
                 goto out;
 
@@ -4282,7 +4285,7 @@ mq_rename_update_newpath (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        mq_initiate_quota_txn (this, loc);
+        mq_initiate_quota_txn (this, loc, NULL);
 out:
 
         if (contribution)

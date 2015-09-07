@@ -617,7 +617,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_create_xattrs_txn (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc, NULL);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -692,7 +692,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_create_xattrs_txn (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc, buf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -763,7 +763,7 @@ marker_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -986,7 +986,7 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_QUOTA) {
                 if (!local->skip_txn)
-                        mq_create_xattrs_txn (this, &local->loc);
+                        mq_create_xattrs_txn (this, &local->loc, buf);
         }
 
 
@@ -1076,7 +1076,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 newloc.name++;
         newloc.parent = inode_ref (local->loc.parent);
 
-        mq_create_xattrs_txn (this, &newloc);
+        mq_create_xattrs_txn (this, &newloc, &local->buf);
 
         loc_wipe (&newloc);
 
@@ -1224,6 +1224,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto quota_err;
                 }
 
+                local->buf = *buf;
                 stub = fop_rename_cbk_stub (frame, default_rename_cbk, op_ret,
                                             op_errno, buf, preoldparent,
                                             postoldparent, prenewparent,
@@ -1593,7 +1594,7 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1662,7 +1663,7 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1734,7 +1735,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA) {
-                mq_create_xattrs_txn (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc, buf);
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -1809,7 +1810,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
-                mq_create_xattrs_txn (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc, buf);
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -1882,7 +1883,7 @@ marker_fallocate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1951,7 +1952,7 @@ marker_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -2018,7 +2019,7 @@ marker_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc);
+                mq_initiate_quota_txn (this, &local->loc, postbuf);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);

@@ -96,6 +96,7 @@ struct marker_local{
         gid_t           gid;
         int32_t         ref;
         int32_t         ia_nlink;
+        struct iatt     buf;
         gf_lock_t       lock;
         mode_t          mode;
         int32_t         err;
