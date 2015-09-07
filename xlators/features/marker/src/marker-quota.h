@@ -127,13 +127,13 @@ int32_t
 mq_set_inode_xattr (xlator_t *, loc_t *);
 
 int
-mq_initiate_quota_txn (xlator_t *, loc_t *);
+mq_initiate_quota_txn (xlator_t *, loc_t *, struct iatt *);
 
 int
-mq_initiate_quota_blocking_txn (xlator_t *, loc_t *);
+mq_initiate_quota_blocking_txn (xlator_t *, loc_t *, struct iatt *);
 
 int
-mq_create_xattrs_txn (xlator_t *this, loc_t *loc);
+mq_create_xattrs_txn (xlator_t *this, loc_t *loc, struct iatt *buf);
 
 int32_t
 mq_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
