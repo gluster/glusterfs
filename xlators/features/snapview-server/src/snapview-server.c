@@ -1241,7 +1241,6 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
         GF_VALIDATE_OR_GOTO ("svs", this, out);
         GF_VALIDATE_OR_GOTO (this->name, glfd, out);
         GF_VALIDATE_OR_GOTO (this->name, entries, out);
-        GF_VALIDATE_OR_GOTO (this->name, buf, out);
 
         while (filled_size < size) {
                 in_case = glfs_telldir (glfd);
@@ -1282,9 +1281,10 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
                         entry->d_off = glfs_telldir (glfd);
                         entry->d_ino = de.d_ino;
                         entry->d_type = de.d_type;
-                        iatt_from_stat (buf, &statbuf);
-                        if (readdirplus)
+                        if (readdirplus) {
+                                iatt_from_stat (buf, &statbuf);
                                 entry->d_stat = *buf;
+                        }
                         list_add_tail (&entry->list, &entries->list);
 
                         filled_size += this_size;
