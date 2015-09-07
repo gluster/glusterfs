@@ -67,13 +67,17 @@ def node_cmd(host, host_uuid, task, cmd, args, opts):
         if not localdir:
             # prefix with ssh command if not local node
             cmd = ["ssh",
+                   "-oNumberOfPasswordPrompts=0",
+                   "-oStrictHostKeyChecking=no",
                    "-i", pem_key_path,
                    "root@%s" % host] + cmd
 
         execute(cmd, exit_msg="%s - %s failed" % (host, task), logger=logger)
 
-        if opts.get("copy_outfile", False):
+        if opts.get("copy_outfile", False) and not localdir:
             cmd_copy = ["scp",
+                        "-oNumberOfPasswordPrompts=0",
+                        "-oStrictHostKeyChecking=no",
                         "-i", pem_key_path,
                         "root@%s:/%s" % (host, opts.get("node_outfile")),
                         os.path.dirname(opts.get("node_outfile"))]
