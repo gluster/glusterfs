@@ -2319,7 +2319,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int                      start_remove  = 0;
         uint32_t                 commit_hash   = 0;
         int                      defrag_cmd    = 0;
-
+        int                      detach_commit = 0;
+        void                    *tier_info     = NULL;
         this = THIS;
         GF_ASSERT (this);
 
@@ -2443,6 +2444,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_DETACH_COMMIT:
         case GF_OP_CMD_DETACH_COMMIT_FORCE:
                 glusterd_op_perform_detach_tier (volinfo);
+                detach_commit = 1;
                 /* fall through */
 
         case GF_OP_CMD_COMMIT_FORCE:
@@ -2532,6 +2534,13 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 i++;
         }
+
+        if (detach_commit) {
+                 /* Clear related information from volinfo */
+                tier_info = ((void *)(&volinfo->tier_info));
+                memset (tier_info, 0, sizeof (volinfo->tier_info));
+        }
+
         if (start_remove)
                 volinfo->rebal.dict = dict_ref (bricks_dict);
 
@@ -2625,9 +2634,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 if (GLUSTERD_STATUS_STARTED == volinfo->status)
                         ret = glusterd_svcs_manager (volinfo);
         }
-
 out:
-        if (ret && err_str[0] && op_errstr)
+       if (ret && err_str[0] && op_errstr)
                 *op_errstr = gf_strdup (err_str);
 
         GF_FREE (brick_tmpstr);
