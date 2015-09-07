@@ -24,6 +24,32 @@
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 #define SHARD_INODE_LRU_LIMIT 4096
 
+/**
+ *  Bit masks for the valid flag, which is used while updating ctx
+**/
+#define SHARD_MASK_BLOCK_SIZE          (1 << 0)
+#define SHARD_MASK_PROT                (1 << 1)
+#define SHARD_MASK_NLINK               (1 << 2)
+#define SHARD_MASK_UID                 (1 << 3)
+#define SHARD_MASK_GID                 (1 << 4)
+#define SHARD_MASK_SIZE                (1 << 6)
+#define SHARD_MASK_BLOCKS              (1 << 7)
+#define SHARD_MASK_TIMES               (1 << 8)
+#define SHARD_MASK_OTHERS              (1 << 9)
+
+#define SHARD_INODE_WRITE_MASK (SHARD_MASK_SIZE | SHARD_MASK_BLOCKS         \
+                                                | SHARD_MASK_TIMES)
+
+#define SHARD_LOOKUP_MASK (SHARD_MASK_PROT | SHARD_MASK_NLINK | SHARD_MASK_UID \
+                           | SHARD_MASK_GID | SHARD_MASK_TIMES                 \
+                           | SHARD_MASK_OTHERS)
+
+#define SHARD_ALL_MASK (SHARD_MASK_BLOCK_SIZE | SHARD_MASK_PROT               \
+                        | SHARD_MASK_NLINK | SHARD_MASK_UID | SHARD_MASK_GID  \
+                        | SHARD_MASK_SIZE | SHARD_MASK_BLOCKS                 \
+                        | SHARD_MASK_TIMES | SHARD_MASK_OTHERS)
+
+
 #define get_lowest_block(off, shard_size) ((off) / (shard_size))
 #define get_highest_block(off, len, shard_size) \
         (((((off)+(len)) == 0)?0:((off)+(len)-1)) / (shard_size))
@@ -130,6 +156,19 @@
                 }                                                             \
 } while (0)
 
+#define SHARD_TIME_UPDATE(ctx_sec, ctx_nsec, new_sec, new_nsec) do {          \
+                if (ctx_sec == new_sec)                                       \
+                        ctx_nsec = new_nsec = max (new_nsec, ctx_nsec);       \
+                else if (ctx_sec > new_sec) {                                 \
+                        new_sec = ctx_sec;                                    \
+                        new_nsec = ctx_nsec;                                  \
+                } else {                                                      \
+                        ctx_sec = new_sec;                                    \
+                        ctx_nsec = new_nsec;                                  \
+                }                                                             \
+        } while (0)
+
+
 typedef struct shard_priv {
         uint64_t block_size;
         uuid_t dot_shard_gfid;
@@ -199,7 +238,6 @@ typedef struct shard_local {
         gf_dirent_t entries_head;
         gf_boolean_t is_set_fsid;
         gf_boolean_t list_inited;
-        gf_boolean_t is_write_extending;
         shard_post_fop_handler_t handler;
         shard_post_lookup_shards_fop_handler_t pls_fop_handler;
         shard_post_resolve_fop_handler_t post_res_handler;
@@ -213,10 +251,9 @@ typedef struct shard_local {
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
-        uint32_t rdev;
         uint64_t block_size; /* The block size with which this inode is
                                 sharded */
-        mode_t mode;
+        struct iatt stat;
 } shard_inode_ctx_t;
 
 #endif /* __SHARD_H__ */

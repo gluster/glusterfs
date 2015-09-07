@@ -74,10 +74,9 @@ __shard_inode_ctx_get (inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
         return ret;
 }
 
-
 int
-__shard_inode_ctx_set (inode_t *inode, xlator_t *this,
-                       shard_inode_ctx_t *ctx_in)
+__shard_inode_ctx_set (inode_t *inode, xlator_t *this, struct iatt *stbuf,
+                       uint64_t block_size, int32_t valid)
 {
         int                 ret = -1;
         shard_inode_ctx_t  *ctx = NULL;
@@ -86,27 +85,65 @@ __shard_inode_ctx_set (inode_t *inode, xlator_t *this,
         if (ret)
                 return ret;
 
-        ctx->block_size = ctx_in->block_size;
-        ctx->mode = ctx_in->mode;
-        ctx->rdev = ctx_in->rdev;
+        if (valid & SHARD_MASK_BLOCK_SIZE)
+                ctx->block_size = block_size;
+
+        if (!stbuf)
+                return 0;
+
+        if (valid & SHARD_MASK_PROT)
+                ctx->stat.ia_prot = stbuf->ia_prot;
+
+        if (valid & SHARD_MASK_NLINK)
+                ctx->stat.ia_nlink = stbuf->ia_nlink;
+
+        if (valid & SHARD_MASK_UID)
+                ctx->stat.ia_uid = stbuf->ia_uid;
+
+        if (valid & SHARD_MASK_GID)
+                ctx->stat.ia_gid = stbuf->ia_gid;
+
+        if (valid & SHARD_MASK_SIZE)
+                ctx->stat.ia_size = stbuf->ia_size;
+
+        if (valid & SHARD_MASK_BLOCKS)
+                ctx->stat.ia_blocks = stbuf->ia_blocks;
+
+        if (valid & SHARD_MASK_TIMES) {
+                SHARD_TIME_UPDATE (ctx->stat.ia_mtime, ctx->stat.ia_mtime_nsec,
+                                   stbuf->ia_mtime, stbuf->ia_mtime_nsec);
+                SHARD_TIME_UPDATE (ctx->stat.ia_ctime, ctx->stat.ia_ctime_nsec,
+                                   stbuf->ia_ctime, stbuf->ia_ctime_nsec);
+                SHARD_TIME_UPDATE (ctx->stat.ia_atime, ctx->stat.ia_atime_nsec,
+                                   stbuf->ia_atime, stbuf->ia_atime_nsec);
+        }
+
+        if (valid & SHARD_MASK_OTHERS) {
+                ctx->stat.ia_ino = stbuf->ia_ino;
+                gf_uuid_copy (ctx->stat.ia_gfid, stbuf->ia_gfid);
+                ctx->stat.ia_dev = stbuf->ia_dev;
+                ctx->stat.ia_type = stbuf->ia_type;
+                ctx->stat.ia_rdev = stbuf->ia_rdev;
+                ctx->stat.ia_blksize = stbuf->ia_blksize;
+        }
 
         return 0;
 }
 
 int
-shard_inode_ctx_set_all (inode_t *inode, xlator_t *this,
-                         shard_inode_ctx_t *ctx_in)
+shard_inode_ctx_set (inode_t *inode, xlator_t *this, struct iatt *stbuf,
+                     uint64_t block_size, int32_t valid)
 {
         int ret = -1;
 
         LOCK (&inode->lock);
         {
-                ret = __shard_inode_ctx_set (inode, this, ctx_in);
+                ret = __shard_inode_ctx_set (inode, this, stbuf, block_size,
+                                             valid);
         }
         UNLOCK (&inode->lock);
 
         return ret;
-
 }
 
 int
@@ -158,10 +195,7 @@ __shard_inode_ctx_get_all (inode_t *inode, xlator_t *this,
 
         ctx = (shard_inode_ctx_t *) ctx_uint;
 
-        ctx_out->block_size = ctx->block_size;
-        ctx_out->mode = ctx->mode;
-        ctx_out->rdev = ctx->rdev;
-
+        memcpy (ctx_out, ctx, sizeof (shard_inode_ctx_t));
         return 0;
 }
 
@@ -341,6 +375,7 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, dict_t *dict,
                             dict_t *xdata)
 {
+        inode_t       *inode = NULL;
         shard_local_t *local = NULL;
 
         local = frame->local;
@@ -350,6 +385,20 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = op_errno;
                 goto err;
         }
+
+        if (shard_modify_size_and_block_count (&local->postbuf, xdata)) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                goto err;
+        }
+
+        if ((local->fd) && (local->fd->inode))
+                inode = local->fd->inode;
+        else if (local->loc.inode)
+                inode = local->loc.inode;
+
+        shard_inode_ctx_set (inode, this, &local->postbuf, 0,
+                             SHARD_INODE_WRITE_MASK);
 
 err:
         local->post_update_size_handler (frame, this);
@@ -402,13 +451,20 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!xattr_req) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                goto err;
+                goto out;
         }
 
         if (fd)
                 inode = fd->inode;
         else
                 inode = loc->inode;
+
+        /* If both size and block count have not changed, then skip the xattrop.
+         */
+        if ((local->delta_size + local->hole_size == 0) &&
+            (local->delta_blocks == 0)) {
+                goto out;
+        }
 
         ret = shard_set_size_attrs (local->delta_size + local->hole_size,
                                     local->delta_blocks, &size_attr);
@@ -417,7 +473,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         " %s", uuid_utoa (inode->gfid));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                goto err;
+                goto out;
         }
 
         ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_FILE_SIZE, size_attr,
@@ -429,7 +485,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 GF_FREE (size_attr);
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                goto err;
+                goto out;
         }
 
         if (fd)
@@ -446,7 +502,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         dict_unref (xattr_req);
         return 0;
 
-err:
+out:
         if (xattr_req)
                 dict_unref (xattr_req);
         handler (frame, this);
@@ -551,27 +607,31 @@ err:
 }
 
 static void
-shard_inode_ctx_set_if_absent (inode_t *inode, xlator_t *this, dict_t *xdata,
-                               struct iatt *buf)
+shard_inode_ctx_update (inode_t *inode, xlator_t *this, dict_t *xdata,
+                        struct iatt *buf)
 {
         int                ret           = 0;
         uint64_t           size          = 0;
         void              *bsize         = NULL;
-        shard_inode_ctx_t  ctx_tmp       = {0,};
 
         if (shard_inode_ctx_get_block_size (inode, this, &size)) {
+                /* Fresh lookup */
                 ret = dict_get_ptr (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
-                if (!ret) {
-                        ctx_tmp.block_size = ntoh64 (*((uint64_t *)bsize));
-                        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
-                                                        buf->ia_type);
-                        ctx_tmp.rdev = buf->ia_rdev;
-                }
-                ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
-                                "inode ctx for %s", uuid_utoa (buf->ia_gfid));
+                if (!ret)
+                        size = ntoh64 (*((uint64_t *)bsize));
+                /* If the file is sharded, set its block size, otherwise just
+                 * set 0.
+                 */
+
+                shard_inode_ctx_set (inode, this, buf, size,
+                                     SHARD_MASK_BLOCK_SIZE);
         }
+        /* If the file is sharded, also set the remaining attributes,
+         * except for ia_size and ia_blocks.
+         */
+        if (size)
+                shard_inode_ctx_set (inode, this, buf, 0, SHARD_LOOKUP_MASK);
+
 }
 
 int
@@ -594,7 +654,7 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          *    already initialised to all zeroes, nothing more needs to be done.
          */
 
-        (void) shard_inode_ctx_set_if_absent (inode, this, xdata, buf);
+        (void) shard_inode_ctx_update (inode, this, xdata, buf);
 
         /* Also, if the file is sharded, get the file size and block cnt xattr,
          * and store them in the stbuf appropriately.
@@ -673,7 +733,10 @@ shard_lookup_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *buf, dict_t *xdata,
                             struct iatt *postparent)
 {
+        int                ret    = -1;
+        int32_t            mask   = SHARD_INODE_WRITE_MASK;
         shard_local_t     *local  = NULL;
+        shard_inode_ctx_t  ctx    = {0,};
 
         local = frame->local;
 
@@ -690,6 +753,19 @@ shard_lookup_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
+        if (shard_inode_ctx_get_all (inode, this, &ctx))
+                mask = SHARD_ALL_MASK;
+
+        ret = shard_inode_ctx_set (inode, this, &local->prebuf, 0, mask);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set inode write "
+                        "params into inode ctx for %s",
+                        uuid_utoa (buf->ia_gfid));
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                goto unwind;
+        }
+
 unwind:
         local->handler (frame, this);
         return 0;
@@ -699,21 +775,32 @@ int
 shard_lookup_base_file (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         shard_post_fop_handler_t handler)
 {
-        shard_local_t      *local     = NULL;
-        dict_t             *xattr_req = NULL;
+        int                 ret         = -1;
+        shard_local_t      *local       = NULL;
+        shard_inode_ctx_t   ctx         = {0,};
+        dict_t             *xattr_req   = NULL;
 
         local = frame->local;
         local->handler = handler;
+
+        ret = shard_inode_ctx_get_all (loc->inode, this, &ctx);
+        /* By this time, inode ctx should have been created either in create,
+         * mknod, readdirp or lookup. If not it is a bug!
+         */
+        if ((ret == 0) && (ctx.stat.ia_size > 0)) {
+                local->prebuf = ctx.stat;
+                goto out;
+        }
 
         xattr_req = dict_new ();
         if (!xattr_req) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                goto err;
+                goto out;
         }
 
         SHARD_MD_READ_FOP_INIT_REQ_DICT (this, xattr_req, loc->gfid,
-                                         local, err);
+                                         local, out);
 
         STACK_WIND (frame, shard_lookup_base_file_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
@@ -721,7 +808,7 @@ shard_lookup_base_file (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dict_unref (xattr_req);
         return 0;
 
-err:
+out:
         if (xattr_req)
                 dict_unref (xattr_req);
         handler (frame, this);
@@ -1502,6 +1589,10 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+/* TO-DO:
+ * Fix updates to size and block count with racing write(s) and truncate(s).
+ */
+
 int
 shard_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 dict_t *xdata)
@@ -1608,17 +1699,14 @@ shard_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int                ret     = -1;
         shard_local_t     *local   = NULL;
-        shard_inode_ctx_t  ctx_tmp = {0,};
 
         local = frame->local;
 
         if (op_ret == -1)
                 goto unwind;
 
-        ctx_tmp.block_size = ntoh64 (local->block_size);
-        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot, buf->ia_type);
-        ctx_tmp.rdev = buf->ia_rdev;
-        ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
+        ret = shard_inode_ctx_set (inode, this, buf, ntoh64 (local->block_size),
+                                   SHARD_ALL_MASK);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING, "Failed to set inode ctx "
                         "for %s", uuid_utoa (inode->gfid));
@@ -2278,22 +2366,17 @@ shard_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int             ret        = -1;
         shard_local_t  *local      = NULL;
-        shard_inode_ctx_t ctx_tmp = {0,};
 
         local = frame->local;
 
         if (op_ret == -1)
                 goto unwind;
 
-        ctx_tmp.block_size = ntoh64 (local->block_size);
-        ctx_tmp.mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
-        ctx_tmp.rdev = stbuf->ia_rdev;
-        ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set block size "
-                        "for %s in inode ctx", uuid_utoa (inode->gfid));
-                goto unwind;
-        }
+        ret = shard_inode_ctx_set (inode, this, stbuf,
+                                   ntoh64 (local->block_size), SHARD_ALL_MASK);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to set inode ctx "
+                        "for %s", uuid_utoa (inode->gfid));
 
 unwind:
         SHARD_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf,
@@ -2600,6 +2683,7 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
         int                 ret            = 0;
         int                 call_count     = 0;
         char                path[PATH_MAX] = {0,};
+        mode_t              mode           = 0;
         char               *bname          = NULL;
         shard_priv_t       *priv           = NULL;
         shard_inode_ctx_t   ctx_tmp        = {0,};
@@ -2627,6 +2711,7 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
                 local->op_errno = ENOMEM;
                 goto err;
         }
+        mode = st_mode_from_ia (ctx_tmp.stat.ia_prot, ctx_tmp.stat.ia_type);
 
         while (shard_idx_iter <= last_block) {
                 if (local->inode_list[i]) {
@@ -2686,7 +2771,7 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
                                    (void *) (long) shard_idx_iter,
                                    FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mknod, &loc,
-                                   ctx_tmp.mode, ctx_tmp.rdev, 0, xattr_req);
+                                   mode, ctx_tmp.stat.ia_rdev, 0, xattr_req);
                 loc_wipe (&loc);
                 dict_unref (xattr_req);
 
@@ -2929,10 +3014,52 @@ shard_post_update_size_writev_handler (call_frame_t *frame, xlator_t *this)
 }
 
 int
+__shard_get_delta_size_from_inode_ctx (shard_local_t *local, inode_t *inode,
+                                       xlator_t *this)
+{
+        int                 ret      = -1;
+        uint64_t            ctx_uint = 0;
+        shard_inode_ctx_t  *ctx      = NULL;
+
+        ret = __inode_ctx_get (inode, this, &ctx_uint);
+        if (ret < 0)
+                return ret;
+
+        ctx = (shard_inode_ctx_t *) ctx_uint;
+
+        if (local->offset + local->total_size > ctx->stat.ia_size) {
+                local->delta_size = (local->offset + local->total_size) -
+                                    ctx->stat.ia_size;
+                ctx->stat.ia_size += (local->delta_size);
+        } else {
+                local->delta_size = 0;
+        }
+
+        return 0;
+}
+
+int
+shard_get_delta_size_from_inode_ctx (shard_local_t *local, inode_t *inode,
+                                     xlator_t *this)
+{
+        int ret = -1;
+
+        LOCK (&inode->lock);
+        {
+                ret = __shard_get_delta_size_from_inode_ctx (local, inode,
+                                                             this);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
+}
+
+int
 shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
+        int             ret        = 0;
         int             call_count = 0;
         fd_t           *anon_fd    = cookie;
         shard_local_t  *local      = NULL;
@@ -2946,6 +3073,14 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->written_size += op_ret;
                 local->delta_blocks += (postbuf->ia_blocks - prebuf->ia_blocks);
                 local->delta_size += (postbuf->ia_size - prebuf->ia_size);
+                ret = shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
+                                           SHARD_MASK_TIMES);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
+                                "times in the inode ctx. Shard = %s, base file "
+                                "gfid = %s", uuid_utoa (postbuf->ia_gfid),
+                                uuid_utoa (local->fd->inode->gfid));
+                }
         }
 
         if (anon_fd)
@@ -2958,12 +3093,9 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         SHARD_STACK_UNWIND (writev, frame, local->op_ret,
                                             local->op_errno, NULL, NULL, NULL);
                 } else {
-                        if (local->is_write_extending)
-                                local->delta_size = (local->offset +
-                                                     local->total_size) -
-                                                    local->prebuf.ia_size;
-                        else
-                                local->delta_size = 0;
+                        shard_get_delta_size_from_inode_ctx (local,
+                                                             local->fd->inode,
+                                                             this);
                         local->hole_size = 0;
                         if (xdata)
                                 local->xattr_rsp = dict_ref (xdata);
@@ -3137,12 +3269,6 @@ shard_post_lookup_writev_handler (call_frame_t *frame, xlator_t *this)
         }
 
         local->postbuf = local->prebuf;
-
-        /* At this point, calculate the size of the hole if it is going to be
-         * created as part of this write.
-         */
-        if (local->offset + local->total_size > local->prebuf.ia_size)
-                local->is_write_extending = _gf_true;
 
         if (local->create_count)
                 shard_common_resume_mknod (frame, this,
@@ -3462,8 +3588,8 @@ shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!entry->inode)
                         continue;
 
-                shard_inode_ctx_set_if_absent (entry->inode, this, entry->dict,
-                                               &entry->d_stat);
+                shard_inode_ctx_update (entry->inode, this, entry->dict,
+                                        &entry->d_stat);
         }
 
         local->op_ret = op_ret;
