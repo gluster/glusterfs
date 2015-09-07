@@ -2827,11 +2827,11 @@ static int
 volgen_link_bricks (volgen_graph_t *graph,
                     glusterd_volinfo_t *volinfo, char *xl_type,
                     char *xl_namefmt, size_t child_count,
-                    size_t sub_count,
+                    size_t sub_count, size_t start_count,
                     xlator_t *trav)
 {
         int             i = 0;
-        int             j = 0;
+        int             j = start_count;
         xlator_t        *xl  = NULL;
         char            *volname = NULL;
         int             ret     = -1;
@@ -2866,6 +2866,50 @@ out:
 }
 
 static int
+volgen_link_bricks_from_list_tail_start (volgen_graph_t *graph,
+                                         glusterd_volinfo_t *volinfo,
+                                         char *xl_type,
+                                         char *xl_namefmt, size_t child_count,
+                                         size_t sub_count, size_t start_count)
+{
+        xlator_t *trav = NULL;
+        size_t     cnt = child_count;
+
+        if (!cnt)
+                return -1;
+
+        for (trav = first_of(graph); --cnt; trav = trav->next)
+                ;
+
+        return volgen_link_bricks (graph,  volinfo,
+                                   xl_type,
+                                   xl_namefmt,
+                                   child_count,
+                                   sub_count, start_count,
+                                   trav);
+}
+
+static int
+volgen_link_bricks_from_list_head_start (volgen_graph_t *graph,
+                                         glusterd_volinfo_t *volinfo,
+                                         char *xl_type,
+                                         char *xl_namefmt, size_t child_count,
+                                         size_t sub_count, size_t start_count)
+{
+        xlator_t *trav = NULL;
+
+        for (trav = first_of(graph); trav->next; trav = trav->next)
+                ;
+
+        return volgen_link_bricks (graph,  volinfo,
+                                   xl_type,
+                                   xl_namefmt,
+                                   child_count,
+                                   sub_count, start_count,
+                                   trav);
+}
+
+static int
 volgen_link_bricks_from_list_tail (volgen_graph_t *graph,
                              glusterd_volinfo_t *volinfo,
                              char *xl_type,
@@ -2875,6 +2919,9 @@ volgen_link_bricks_from_list_tail (volgen_graph_t *graph,
         xlator_t *trav = NULL;
         size_t     cnt = child_count;
 
+        if (!cnt)
+                return -1;
+
         for (trav = first_of(graph); --cnt; trav = trav->next)
                 ;
 
@@ -2882,7 +2929,7 @@ volgen_link_bricks_from_list_tail (volgen_graph_t *graph,
                                    xl_type,
                                    xl_namefmt,
                                    child_count,
-                                   sub_count,
+                                   sub_count, 0,
                                    trav);
 }
 
@@ -2901,7 +2948,7 @@ volgen_link_bricks_from_list_head (volgen_graph_t *graph,
                                    xl_type,
                                    xl_namefmt,
                                    child_count,
-                                   sub_count,
+                                   sub_count, 0,
                                    trav);
 }
 
@@ -3104,7 +3151,7 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         else
                 name_fmt = "%s-dht";
 
-        clusters = volgen_link_bricks_from_list_tail (graph,  volinfo,
+        clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
                                                 voltype,
                                                 name_fmt,
                                                 child_count,
@@ -3145,12 +3192,19 @@ volgen_graph_build_ec_clusters (volgen_graph_t *graph,
                                                        "%s-disperse-%d"};
         xlator_t                *ec                 = NULL;
         char                    option[32]          = {0};
+        int                     start_count         = 0;
 
-        clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
-                                                disperse_args[0],
-                                                disperse_args[1],
-                                                volinfo->brick_count,
-                                                volinfo->disperse_count);
+        if (volinfo->tier_info.cur_tier_hot &&
+            volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_DISPERSE)
+                start_count = volinfo->tier_info.cold_brick_count/
+                              volinfo->tier_info.cold_disperse_count;
+
+        clusters = volgen_link_bricks_from_list_tail_start (graph, volinfo,
+                                                        disperse_args[0],
+                                                        disperse_args[1],
+                                                        volinfo->brick_count,
+                                                        volinfo->disperse_count,
+                                                        start_count);
         if (clusters < 0)
                 goto out;
 
@@ -3180,12 +3234,18 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
                                                 "%s-replicate-%d"};
         xlator_t        *afr                 = NULL;
         char            option[32]           = {0};
+        int             start_count = 0;
 
-        clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
+        if (volinfo->tier_info.cur_tier_hot &&
+            volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
+                start_count = volinfo->tier_info.cold_brick_count /
+                              volinfo->tier_info.cold_replica_count;
+        clusters = volgen_link_bricks_from_list_tail_start (graph, volinfo,
                                                 replicate_args[0],
                                                 replicate_args[1],
                                                 volinfo->brick_count,
-                                                volinfo->replica_count);
+                                                volinfo->replica_count,
+                                                start_count);
         if (clusters < 0)
                 goto out;
 
@@ -3226,6 +3286,7 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
         int                     ret                 = -1;
         xlator_t               *ec                  = NULL;
         xlator_t               *client              = NULL;
+        char                    tmp_volname[GD_VOLUME_NAME_MAX] = {0, };
 
         if (!volinfo->dist_leaf_count)
                 goto out;
@@ -3295,9 +3356,17 @@ build_distribute:
                 ret = -1;
                 goto out;
         }
-
+        if (volinfo->tier_info.hot_brick_count) {
+                strcpy (tmp_volname, volinfo->volname);
+                if (volinfo->tier_info.cur_tier_hot)
+                        strcat (volinfo->volname, "-hot");
+                else
+                        strcat (volinfo->volname, "-cold");
+        }
         ret = volgen_graph_build_dht_cluster (graph, volinfo,
                                               dist_count, is_quotad);
+        if (volinfo->tier_info.hot_brick_count)
+                strcpy (volinfo->volname, tmp_volname);
         if (ret)
                 goto out;
 
@@ -3402,7 +3471,6 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         int                st_disperse_count = 0;
         int                st_dist_leaf_count = 0;
         int                st_type = 0;
-        char               st_volname[GD_VOLUME_NAME_MAX];
         int                dist_count = 0;
         char              *decommissioned_children = NULL;
 
@@ -3411,7 +3479,6 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         st_disperse_count  = volinfo->disperse_count;
         st_type            = volinfo->type;
         st_dist_leaf_count = volinfo->dist_leaf_count;
-        strcpy(st_volname, volinfo->volname);
 
         volinfo->dist_leaf_count = volinfo->tier_info.cold_dist_leaf_count;
         volinfo->brick_count    = volinfo->tier_info.cold_brick_count;
@@ -3419,7 +3486,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->disperse_count = volinfo->tier_info.cold_disperse_count;
         volinfo->redundancy_count = volinfo->tier_info.cold_redundancy_count;
         volinfo->type           = volinfo->tier_info.cold_type;
-        sprintf (volinfo->volname, "%s-cold", st_volname);
+        volinfo->tier_info.cur_tier_hot = 0;
 
         ret = volume_volgen_graph_build_clusters (graph, volinfo, is_quotad);
         if (ret)
@@ -3431,28 +3498,29 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->replica_count  = volinfo->tier_info.hot_replica_count;
         volinfo->dist_leaf_count = glusterd_get_dist_leaf_count(volinfo);
         volinfo->disperse_count = 0;
-
-        sprintf (volinfo->volname, "%s-hot", st_volname);
+        volinfo->tier_info.cur_tier_hot = 1;
 
         dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
 
         if (volinfo->dist_leaf_count != 1) {
-                ret = volgen_link_bricks_from_list_head
+                ret = volgen_link_bricks_from_list_head_start
                         (graph, volinfo,
                          "cluster/replicate",
                          "%s-replicate-%d",
                          volinfo->brick_count,
-                         volinfo->replica_count);
+                         volinfo->replica_count,
+                         volinfo->tier_info.cold_brick_count/
+                         volinfo->tier_info.cold_replica_count);
                 if (ret != -1)
                         volgen_link_bricks_from_list_tail (graph,  volinfo,
                                                            "cluster/distribute",
-                                                           "%s-dht",
+                                                           "%s-hot-dht",
                                                            dist_count,
                                                            dist_count);
         } else {
                 ret = volgen_link_bricks_from_list_head (graph,  volinfo,
                                                  "cluster/distribute",
-                                                 "%s-dht",
+                                                 "%s-hot-dht",
                                                  dist_count,
                                                  dist_count);
         }
@@ -3465,15 +3533,15 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         if (!is_quotad) {
 
                 xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s-%s",
-                                              st_volname, "tier-dht");
+                                              volinfo->volname, "tier-dht");
         } else {
                 xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s",
-                                              st_volname);
+                                              volinfo->volname);
         }
         if (!xl)
                 goto out;
 
-        gf_asprintf(&rule, "%s-hot-dht", st_volname);
+        gf_asprintf(&rule, "%s-hot-dht", volinfo->volname);
 
         ret = xlator_set_option(xl, "rule", rule);
         if (ret)
@@ -3505,7 +3573,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->disperse_count  = st_disperse_count;
         volinfo->type            = st_type;
         volinfo->dist_leaf_count = st_dist_leaf_count;
-        strcpy(volinfo->volname, st_volname);
+        volinfo->tier_info.cur_tier_hot = 0;
 
         return ret;
 }

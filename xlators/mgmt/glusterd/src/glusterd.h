@@ -316,6 +316,7 @@ typedef struct tier_info_ {
         int                       hot_replica_count;
         int                       promoted;
         int                       demoted;
+        uint16_t                  cur_tier_hot;
 } gd_tier_info_t;
 
 struct glusterd_volinfo_ {
@@ -331,7 +332,12 @@ struct glusterd_volinfo_ {
                                             the volume which is snapped. In
                                             case of a non-snap volume, this
                                             field will be initialized as N/A */
-        char                      volname[GD_VOLUME_NAME_MAX];
+        char                      volname[GD_VOLUME_NAME_MAX + 5];
+                                        /* An extra 5 bytes are allocated.
+                                         * Reason is, As part of the tiering
+                                         * volfile generation code, we are
+                                         * temporarily appending either hot
+                                         * or cold */
         int                       type;
         int                       brick_count;
         uint64_t                  snap_count;
