@@ -351,9 +351,12 @@ pub_glfs_unset_volfile_server (struct glfs *fs, const char *transport,
 {
         cmd_args_t       *cmd_args = NULL;
         server_cmdline_t *server = NULL;
+        server_cmdline_t *tmp = NULL;
+        char             *transport_val = NULL;
+        int               port_val = 0;
         int               ret = -1;
 
-        if (!transport || !host || !port) {
+        if (!fs || !host) {
                 errno = EINVAL;
                 return ret;
         }
@@ -362,10 +365,30 @@ pub_glfs_unset_volfile_server (struct glfs *fs, const char *transport,
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         cmd_args = &fs->ctx->cmd_args;
-        list_for_each_entry(server, &cmd_args->curr_server->list, list) {
+
+        if (transport) {
+                transport_val = gf_strdup (transport);
+        } else {
+                transport_val = gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
+        }
+
+        if (!transport_val) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        if (port) {
+                port_val = port;
+        } else {
+                port_val = GF_DEFAULT_BASE_PORT;
+        }
+
+        list_for_each_entry_safe (server, tmp,
+                                  &cmd_args->curr_server->list,
+                                  list) {
                 if ((!strcmp(server->volfile_server, host) &&
-                     !strcmp(server->transport, transport) &&
-                     (server->port == port))) {
+                     !strcmp(server->transport, transport_val) &&
+                     (server->port == port_val))) {
                         list_del (&server->list);
                         ret = 0;
                         goto out;
@@ -373,6 +396,7 @@ pub_glfs_unset_volfile_server (struct glfs *fs, const char *transport,
         }
 
 out:
+        GF_FREE (transport_val);
         __GLFS_EXIT_FS;
 
 invalid_fs:
@@ -421,13 +445,20 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
 
         if (transport) {
                 server->transport = gf_strdup (transport);
-                if (!server->transport) {
-                        errno = ENOMEM;
-                        goto out;
-                }
+        } else {
+                server->transport = gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
         }
 
-        server->port = port;
+        if (!server->transport) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        if (port) {
+                server->port = port;
+        } else {
+                server->port = GF_DEFAULT_BASE_PORT;
+        }
 
         if (!cmd_args->volfile_server) {
                 cmd_args->volfile_server = server->volfile_server;
@@ -437,9 +468,9 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
         }
 
         list_for_each_entry(tmp, &cmd_args->volfile_servers, list) {
-                if ((!strcmp(tmp->volfile_server, host) &&
-                     !strcmp(tmp->transport, transport) &&
-                     (tmp->port == port))) {
+                if ((!strcmp(tmp->volfile_server, server->volfile_server) &&
+                     !strcmp(tmp->transport, server->transport) &&
+                     (tmp->port == server->port))) {
                         errno = EEXIST;
                         ret = -1;
                         goto out;
