@@ -30,8 +30,22 @@ SERVICE_MAN="DISTRO_NOT_FOUND"
 RHEL6_PCS_CNAME_OPTION="--name"
 SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
 
+# Try loading the config from any of the distro
+# specific configuration locations
+if [ -f /etc/sysconfig/ganesha ]
+        then
+        . /etc/sysconfig/ganesha
+fi
+if [ -f /etc/conf.d/ganesha ]
+        then
+        . /etc/conf.d/ganesha
+fi
+if [ -f /etc/default/ganesha ]
+        then
+        . /etc/default/ganesha
+fi
+
 GANESHA_CONF=
-CONFFILE=
 
 function find_rhel7_conf
 {
@@ -50,14 +64,9 @@ function find_rhel7_conf
          done
 }
 
-cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
-eval $(echo ${cfgline} | grep -F ^CONFFILE=)
-
 if [ -z $CONFFILE ]
         then
-        cfgline=$(grep ^OPTIONS= /etc/sysconfig/ganesha)
-        eval $(echo ${cfgline} | grep -F ^OPTIONS=)
-        find_rhel7_conf $cfgline
+        find_rhel7_conf $OPTIONS
 
 fi
 
