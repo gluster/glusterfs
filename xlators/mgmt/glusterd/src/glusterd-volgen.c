@@ -19,6 +19,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "graph-utils.h"
+#include "common-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-hooks.h"
 #include "trie.h"
@@ -3290,6 +3291,7 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
         if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
                 start_count = volinfo->tier_info.cold_brick_count /
                               volinfo->tier_info.cold_replica_count;
+
         if (volinfo->tier_info.cur_tier_hot)
                 clusters = volgen_link_bricks_from_list_head_start (graph,
                                                 volinfo,
@@ -3567,6 +3569,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
                 start_count = volinfo->tier_info.cold_brick_count /
                               volinfo->tier_info.cold_replica_count;
         }
+
         if (volinfo->dist_leaf_count != 1) {
                 ret = volgen_link_bricks_from_list_head_start
                         (graph, volinfo,
@@ -4222,20 +4225,17 @@ nfs_option_handler (volgen_graph_t *graph,
 }
 
 char*
-volgen_get_shd_key (glusterd_volinfo_t *volinfo)
+volgen_get_shd_key (int type)
 {
         char    *key = NULL;
 
-        switch (volinfo->type) {
+        switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 key = "cluster.self-heal-daemon";
                 break;
         case GF_CLUSTER_TYPE_DISPERSE:
                 key = "cluster.disperse-self-heal-daemon";
-                break;
-        case GF_CLUSTER_TYPE_TIER:
-                key = "cluster.tier-self-heal-daemon";
                 break;
         default:
                 key = NULL;
@@ -4274,21 +4274,50 @@ volgen_graph_set_iam_shd (volgen_graph_t *graph)
 }
 
 static int
+prepare_shd_volume_options_for_tier (glusterd_volinfo_t *volinfo,
+                                     dict_t *set_dict)
+{
+        int             ret             = -1;
+        char           *key             = NULL;
+
+        key = volgen_get_shd_key (volinfo->tier_info.cold_type);
+        if (key) {
+                ret = dict_set_str (set_dict, key, "enable");
+                if (ret)
+                        goto out;
+        }
+
+        key = volgen_get_shd_key (volinfo->tier_info.hot_type);
+        if (key) {
+                ret = dict_set_str (set_dict, key, "enable");
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+static int
 prepare_shd_volume_options (glusterd_volinfo_t *volinfo,
                             dict_t *mod_dict, dict_t *set_dict)
 {
         char    *key = NULL;
         int     ret = 0;
 
-        key = volgen_get_shd_key (volinfo);
-        if (!key) {
-                ret = -1;
-                goto out;
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = prepare_shd_volume_options_for_tier (volinfo, set_dict);
+                if (ret)
+                        goto out;
+        } else {
+                key = volgen_get_shd_key (volinfo->type);
+                if (!key) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_str (set_dict, key, "enable");
+                if (ret)
+                        goto out;
         }
-
-        ret = dict_set_str (set_dict, key, "enable");
-        if (ret)
-                goto out;
 
         ret = dict_set_uint32 (set_dict, "trusted-client", GF_CLIENT_TRUSTED);
         if (ret)
@@ -4398,6 +4427,42 @@ build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 out:
         return clusters;
+}
+
+gf_boolean_t
+is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict)
+{
+
+        char            *shd_key                = NULL;
+        gf_boolean_t    shd_enabled             = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+        case GF_CLUSTER_TYPE_DISPERSE:
+                shd_key = volgen_get_shd_key (volinfo->type);
+                shd_enabled = dict_get_str_boolean (dict, shd_key,
+                                                    _gf_true);
+                break;
+        case GF_CLUSTER_TYPE_TIER:
+                shd_key = volgen_get_shd_key (volinfo->tier_info.cold_type);
+                if (shd_key)
+                        shd_enabled = dict_get_str_boolean (dict, shd_key,
+                                                            _gf_true);
+
+                shd_key = volgen_get_shd_key (volinfo->tier_info.hot_type);
+                if (shd_key)
+                        shd_enabled |= dict_get_str_boolean (dict, shd_key,
+                                                            _gf_true);
+
+                break;
+        default:
+                break;
+        }
+out:
+        return shd_enabled;
 }
 
 static int

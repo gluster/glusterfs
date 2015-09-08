@@ -412,6 +412,16 @@ validate_disperse_heal_enable_disable (glusterd_volinfo_t *volinfo,
                                        char **op_errstr)
 {
         int                  ret = 0;
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+               if (volinfo->tier_info.cold_type != GF_CLUSTER_TYPE_DISPERSE &&
+                   volinfo->tier_info.hot_type != GF_CLUSTER_TYPE_DISPERSE) {
+                        gf_asprintf (op_errstr, "Volume %s is not containing "
+                                     "disperse type", volinfo->volname);
+
+                       return -1;
+               } else
+                       return 0;
+        }
 
         if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
                 gf_asprintf (op_errstr, "Volume %s is not of disperse type",

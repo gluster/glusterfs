@@ -1538,7 +1538,6 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         char                   msg[2048]      = {0,};
         char                  *volname        = NULL;
         char                  *brick          = NULL;
-        char                  *shd_key        = NULL;
         xlator_t              *this           = NULL;
         glusterd_conf_t       *priv           = NULL;
         glusterd_brickinfo_t  *brickinfo      = NULL;
@@ -1619,10 +1618,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 }
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
                 if (glusterd_is_shd_compatible_volume (volinfo)) {
-                        shd_key = volgen_get_shd_key(volinfo);
-                        shd_enabled = dict_get_str_boolean (vol_opts,
-                                                     shd_key,
-                                                     _gf_true);
+                        shd_enabled = is_self_heal_enabled (volinfo, vol_opts);
                 } else {
                         ret = -1;
                         snprintf (msg, sizeof (msg),
@@ -3077,7 +3073,6 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         uint32_t                cmd             = 0;
         char                   *volname         = NULL;
         char                   *brick           = NULL;
-        char                   *shd_key         = NULL;
         xlator_t               *this            = NULL;
         glusterd_volinfo_t     *volinfo         = NULL;
         glusterd_brickinfo_t   *brickinfo       = NULL;
@@ -3250,12 +3245,9 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                                 other_count++;
                                 node_count++;
                         }
-                        if (glusterd_is_shd_compatible_volume (volinfo)) {
-                                shd_key = volgen_get_shd_key (volinfo);
-                                shd_enabled = dict_get_str_boolean (vol_opts,
-                                                     shd_key,
-                                                     _gf_true);
-                        }
+
+                        if (glusterd_is_shd_compatible_volume (volinfo))
+                                shd_enabled = is_self_heal_enabled (volinfo, vol_opts);
                         if (shd_enabled) {
                                 ret = glusterd_add_node_to_dict
                                         (priv->shd_svc.name, rsp_dict,
@@ -6055,13 +6047,13 @@ out:
 
 int
 _select_hxlator_with_matching_brick (xlator_t *this,
-                                     glusterd_volinfo_t *volinfo, dict_t *dict)
+                                     glusterd_volinfo_t *volinfo, dict_t *dict,
+                                     int *index)
 {
         char                    *hostname = NULL;
         char                    *path = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv   = NULL;
-        int                     index = 1;
         int                     hxl_children = 0;
 
         priv = this->private;
@@ -6071,6 +6063,8 @@ _select_hxlator_with_matching_brick (xlator_t *this,
                 return -1;
 
         hxl_children = _get_hxl_children_count (volinfo);
+        if ((*index) == 0)
+                (*index)++;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (gf_uuid_is_null (brickinfo->uuid))
@@ -6078,28 +6072,30 @@ _select_hxlator_with_matching_brick (xlator_t *this,
 
                 if (!gf_uuid_compare (MY_UUID, brickinfo->uuid)) {
                         _add_hxlator_to_dict (dict, volinfo,
-                                              (index - 1)/hxl_children, 0);
+                                              ((*index) - 1)/hxl_children, 0);
                         return 1;
                 }
-                index++;
+                (*index)++;
         }
 
         return 0;
 }
-int
+void
 _select_hxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
-                                    dict_t *dict)
+                                    dict_t *dict, int *index,
+                                    int *hxlator_count)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv   = NULL;
-        int                     index = 1;
-        int                     hxlator_count = 0;
         int                     hxl_children = 0;
         gf_boolean_t            add     = _gf_false;
         int                     cmd_replica_index = -1;
 
         priv = this->private;
         hxl_children = _get_hxl_children_count (volinfo);
+
+        if ((*index) == 0)
+                (*index)++;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (gf_uuid_is_null (brickinfo->uuid))
@@ -6108,35 +6104,35 @@ _select_hxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
                 if (!gf_uuid_compare (MY_UUID, brickinfo->uuid))
                         add = _gf_true;
 
-                if (index % hxl_children == 0) {
+                if ((*index) % hxl_children == 0) {
                         if (add) {
-                                _add_hxlator_to_dict (dict, volinfo,
-                                                      (index - 1)/hxl_children,
-                                                      hxlator_count);
-                                hxlator_count++;
+                              _add_hxlator_to_dict (dict, volinfo,
+                                                    ((*index) - 1)/hxl_children,
+                                                    (*hxlator_count));
+                                (*hxlator_count)++;
                         }
                         add = _gf_false;
                 }
 
-                index++;
+                (*index)++;
         }
 
-        return hxlator_count;
 }
 
 int
 _select_hxlators_for_full_self_heal (xlator_t *this,
                                      glusterd_volinfo_t *volinfo,
-                                     dict_t *dict)
+                                     dict_t *dict, int *index,
+                                     int *hxlator_count)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv   = NULL;
-        int                     index = 1;
-        int                     hxlator_count = 0;
         int                     hxl_children = 0;
         uuid_t                  candidate = {0};
 
         priv = this->private;
+        if ((*index) == 0)
+                (*index)++;
         if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
                 hxl_children = volinfo->disperse_count;
         } else {
@@ -6150,19 +6146,19 @@ _select_hxlators_for_full_self_heal (xlator_t *this,
                 if (gf_uuid_compare (brickinfo->uuid, candidate) > 0)
                         gf_uuid_copy (candidate, brickinfo->uuid);
 
-                if (index % hxl_children == 0) {
+                if ((*index) % hxl_children == 0) {
                         if (!gf_uuid_compare (MY_UUID, candidate)) {
                                 _add_hxlator_to_dict (dict, volinfo,
-                                                      (index-1)/hxl_children,
-                                                      hxlator_count);
-                                hxlator_count++;
+                                                      ((*index)-1)/hxl_children,
+                                                      (*hxlator_count));
+                                (*hxlator_count)++;
                         }
                         gf_uuid_clear (candidate);
                 }
 
-                index++;
+                (*index)++;
         }
-        return hxlator_count;
+        return *hxlator_count;
 }
 
 
@@ -6223,13 +6219,13 @@ out:
 
 static int
 fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
-                                  cli_cmd_type type, dict_t *req_dict)
+                                  cli_cmd_type type, int *index,
+                                  dict_t *req_dict)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         char                    msg[1024] = {0,};
         char                    key[1024]  = {0,};
         char                    value[1024] = {0,};
-        int                     index = 0;
         int                     ret = 0;
         xlator_t               *this = NULL;
         int                     cmd_replica_index = -1;
@@ -6255,18 +6251,18 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                         (void)glusterd_resolve_brick (brickinfo);
 
                 if (gf_uuid_compare (MY_UUID, brickinfo->uuid)) {
-                        index++;
+                        (*index)++;
                         continue;
                 }
 
                 if (type == PER_HEAL_XL) {
-                      if (cmd_replica_index != (index/volinfo->replica_count)) {
-                              index++;
+                   if (cmd_replica_index != ((*index)/volinfo->replica_count)) {
+                              (*index)++;
                               continue;
-                        }
+                   }
 
                 }
-                snprintf (key, sizeof (key), "%d-status",index);
+                snprintf (key, sizeof (key), "%d-status", (*index));
                 snprintf (value, sizeof (value), "%s %s",msg,
                           uuid_utoa(MY_UUID));
                 ret = dict_set_dynstr (dict, key, gf_strdup(value));
@@ -6276,7 +6272,7 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                                 "set the dictionary for shd status msg");
                         goto out;
                 }
-                snprintf (key, sizeof (key), "%d-shd-status",index);
+                snprintf (key, sizeof (key), "%d-shd-status", (*index));
                 ret = dict_set_str (dict, key, "off");
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -6285,13 +6281,104 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
-                index++;
+                (*index)++;
         }
 
 out:
         return ret;
 
 }
+int
+glusterd_shd_select_brick_xlator (dict_t *dict, gf_xl_afr_op_t heal_op,
+                                  glusterd_volinfo_t *volinfo, int *index,
+                                  int *hxlator_count, dict_t *rsp_dict)
+{
+        int                                     ret = -1;
+        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
+        char                                    msg[2048] = {0,};
+        glusterd_pending_node_t                 *pending_node = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+
+        switch (heal_op) {
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        if (!priv->shd_svc.online) {
+                if (!rsp_dict) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_NULL, "Received "
+                                "empty ctx.");
+                        goto out;
+                }
+
+                ret = fill_shd_status_for_local_bricks (rsp_dict,
+                                                        volinfo,
+                                                        ALL_HEAL_XL,
+                                                        index,
+                                                        dict);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
+                                "fill the shd status for the local "
+                                "bricks");
+                goto out;
+        }
+        break;
+
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        if (!priv->shd_svc.online) {
+                if (!rsp_dict) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_NULL, "Received "
+                                "empty ctx.");
+                        goto out;
+                }
+                ret = fill_shd_status_for_local_bricks (rsp_dict,
+                                                        volinfo,
+                                                        PER_HEAL_XL,
+                                                        index,
+                                                        dict);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
+                                "fill the shd status for the local"
+                                " bricks.");
+                goto out;
+
+        }
+        break;
+
+        default:
+                break;
+        }
+
+
+        switch (heal_op) {
+        case GF_SHD_OP_HEAL_FULL:
+                _select_hxlators_for_full_self_heal (this, volinfo, dict,
+                                                     index, hxlator_count);
+                break;
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                 (*hxlator_count) += _select_hxlator_with_matching_brick (this,
+                                                                       volinfo,
+                                                                       dict,
+                                                                       index);
+                break;
+        default:
+                 _select_hxlators_with_local_bricks (this, volinfo, dict,
+                                                      index, hxlator_count);
+                break;
+        }
+        ret = (*hxlator_count);
+out:
+        return ret;
+}
+
 
 static int
 glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
@@ -6302,11 +6389,13 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         char                                    *volname = NULL;
         glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
+        glusterd_volinfo_t                      *dup_volinfo = NULL;
         xlator_t                                *this = NULL;
         char                                    msg[2048] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
         gf_xl_afr_op_t                          heal_op = GF_SHD_OP_INVALID;
         int                                     hxlator_count = 0;
+        int                                     index = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6331,80 +6420,55 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
+        ret = dict_get_int32 (dict, "heal-op", (int32_t *)&heal_op);
         if (ret || (heal_op == GF_SHD_OP_INVALID)) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "heal op invalid");
                 goto out;
         }
-
-        switch (heal_op) {
-        case GF_SHD_OP_INDEX_SUMMARY:
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
-        if (!priv->shd_svc.online) {
-                if (!rsp_dict) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_OPCTX_NULL, "Received "
-                                "empty ctx.");
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                         _gf_false, volname);
+                if (ret < 0)
                         goto out;
-                }
 
-                ret = fill_shd_status_for_local_bricks (rsp_dict,
-                                                        volinfo,
-                                                        ALL_HEAL_XL,
-                                                        dict);
-                if (ret)
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
-                                "fill the shd status for the local "
-                                "bricks");
-                goto out;
-        }
-        break;
-
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-        if (!priv->shd_svc.online) {
-                if (!rsp_dict) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_OPCTX_NULL, "Received "
-                                "empty ctx.");
+                ret = glusterd_shd_select_brick_xlator (dict, heal_op,
+                                                        dup_volinfo,
+                                                        &index, &hxlator_count,
+                                                        rsp_dict);
+                glusterd_volinfo_delete (dup_volinfo);
+                if (ret < 0)
                         goto out;
-                }
-                ret = fill_shd_status_for_local_bricks (rsp_dict,
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                        _gf_true, volname);
+                if (ret < 0)
+                        goto out;
+                ret = glusterd_shd_select_brick_xlator (dict, heal_op,
+                                                        dup_volinfo,
+                                                        &index, &hxlator_count,
+                                                        rsp_dict);
+                glusterd_volinfo_delete (dup_volinfo);
+                if (ret < 0)
+                        goto out;
+        } else {
+                ret = glusterd_shd_select_brick_xlator (dict, heal_op,
                                                         volinfo,
-                                                        PER_HEAL_XL,
-                                                        dict);
-                if (ret)
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
-                                "fill the shd status for the local"
-                                " bricks.");
+                                                        &index, &hxlator_count,
+                                                        rsp_dict);
+                if (ret < 0)
+                        goto out;
+        }
+
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
                 goto out;
-
-        }
-        break;
-
-        default:
-                break;
-        }
-
-
-        switch (heal_op) {
-        case GF_SHD_OP_HEAL_FULL:
-                hxlator_count = _select_hxlators_for_full_self_heal (this,
-                                                                     volinfo,
-                                                                     dict);
-                break;
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                hxlator_count = _select_hxlator_with_matching_brick (this,
-                                                                     volinfo,
-                                                                     dict);
-                break;
-        default:
-                hxlator_count = _select_hxlators_with_local_bricks (this,
-                                                                    volinfo,
-                                                                    dict);
-                break;
+        } else {
+                pending_node->node = &(priv->shd_svc);
+                pending_node->type = GD_NODE_SHD;
+                cds_list_add_tail (&pending_node->list, selected);
+                pending_node = NULL;
         }
 
         if (!hxlator_count)
@@ -6421,17 +6485,6 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        pending_node = GF_CALLOC (1, sizeof (*pending_node),
-                                  gf_gld_mt_pending_node_t);
-        if (!pending_node) {
-                ret = -1;
-                goto out;
-        } else {
-                pending_node->node = &(priv->shd_svc);
-                pending_node->type = GD_NODE_SHD;
-                cds_list_add_tail (&pending_node->list, selected);
-                pending_node = NULL;
-        }
 
 out:
         gf_msg_debug (THIS->name, 0, "Returning ret %d", ret);
