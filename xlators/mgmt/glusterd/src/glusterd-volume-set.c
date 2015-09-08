@@ -2188,16 +2188,24 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "disperse.background-heals",
           .voltype     = "cluster/disperse",
           .op_version  = GD_OP_VERSION_3_7_3,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "disperse.heal-wait-qlength",
           .voltype     = "cluster/disperse",
           .op_version  = GD_OP_VERSION_3_7_3,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
         {
           .key         = "dht.force-readdirp",
           .voltype     = "cluster/distribute",
           .option      = "use-readdirp",
           .op_version  = GD_OP_VERSION_3_7_5,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "disperse.read-policy",
+          .voltype     = "cluster/disperse",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
         { .key         = NULL
         }
