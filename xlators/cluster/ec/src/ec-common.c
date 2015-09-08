@@ -9,6 +9,7 @@
 */
 
 #include "byte-order.h"
+#include "hashfn.h"
 
 #include "ec-mem-types.h"
 #include "ec-data.h"
@@ -19,6 +20,25 @@
 #include "ec-method.h"
 #include "ec.h"
 #include "ec-messages.h"
+
+uint32_t
+ec_select_first_by_read_policy (ec_t *ec, ec_fop_data_t *fop)
+{
+        if (ec->read_policy == EC_ROUND_ROBIN) {
+                return ec->idx;
+        } else if (ec->read_policy == EC_GFID_HASH) {
+                if (fop->use_fd) {
+                        return SuperFastHash((char *)fop->fd->inode->gfid,
+                                   sizeof(fop->fd->inode->gfid)) % ec->nodes;
+                } else {
+                        if (gf_uuid_is_null (fop->loc[0].gfid))
+                                loc_gfid (&fop->loc[0], fop->loc[0].gfid);
+                        return SuperFastHash((char *)fop->loc[0].gfid,
+                                   sizeof(fop->loc[0].gfid)) % ec->nodes;
+                }
+        }
+        return 0;
+}
 
 int32_t ec_child_valid(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
@@ -415,12 +435,13 @@ int32_t ec_child_select(ec_fop_data_t * fop)
             fop->minimum = 1;
     }
 
-    first = ec->idx;
-    if (++first >= ec->nodes)
-    {
-        first = 0;
+    if (ec->read_policy == EC_ROUND_ROBIN) {
+            first = ec->idx;
+            if (++first >= ec->nodes) {
+                first = 0;
+            }
+            ec->idx = first;
     }
-    ec->idx = first;
 
     /*Unconditionally wind on healing subvolumes*/
     fop->mask |= fop->healing;
@@ -518,14 +539,12 @@ void ec_dispatch_start(ec_fop_data_t * fop)
 
 void ec_dispatch_one(ec_fop_data_t * fop)
 {
-    ec_t * ec = fop->xl->private;
-
     ec_dispatch_start(fop);
 
     if (ec_child_select(fop))
     {
         fop->expected = 1;
-        fop->first = ec->idx;
+        fop->first = ec_select_first_by_read_policy (fop->xl->private, fop);
 
         ec_dispatch_next(fop, fop->first);
     }
@@ -589,7 +608,7 @@ void ec_dispatch_min(ec_fop_data_t * fop)
     if (ec_child_select(fop))
     {
         fop->expected = count = ec->fragments;
-        fop->first = ec->idx;
+        fop->first = ec_select_first_by_read_policy (fop->xl->private, fop);
         idx = fop->first - 1;
         mask = 0;
         while (count-- > 0)

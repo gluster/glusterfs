@@ -25,6 +25,12 @@
 
 #define EC_VERSION_SIZE 2
 
+typedef enum {
+        EC_ROUND_ROBIN,
+        EC_GFID_HASH,
+        EC_READ_POLICY_MAX
+} ec_read_policy_t;
+
 struct _ec
 {
     xlator_t *        xl;
@@ -58,6 +64,7 @@ struct _ec
     ec_self_heald_t   shd;
     char              vol_uuid[UUID_SIZE + 1];
     dict_t           *leaf_to_subvolid;
+    ec_read_policy_t  read_policy;
 };
 
 void ec_pending_fops_completed(ec_t *ec);
