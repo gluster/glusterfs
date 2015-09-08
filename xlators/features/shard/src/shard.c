@@ -823,6 +823,10 @@ shard_post_fstat_handler (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
+        if (local->op_ret >= 0)
+                shard_inode_ctx_set (local->fd->inode, this, &local->prebuf, 0,
+                                     SHARD_LOOKUP_MASK);
+
         SHARD_STACK_UNWIND (fstat, frame, local->op_ret, local->op_errno,
                             &local->prebuf, local->xattr_rsp);
         return 0;
@@ -834,6 +838,10 @@ shard_post_stat_handler (call_frame_t *frame, xlator_t *this)
         shard_local_t *local = NULL;
 
         local = frame->local;
+
+        if (local->op_ret >= 0)
+                shard_inode_ctx_set (local->loc.inode, this, &local->prebuf, 0,
+                                     SHARD_LOOKUP_MASK);
 
         SHARD_STACK_UNWIND (stat, frame, local->op_ret, local->op_errno,
                             &local->prebuf, local->xattr_rsp);
@@ -902,6 +910,7 @@ shard_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         frame->local = local;
 
         local->handler = shard_post_stat_handler;
+        loc_copy (&local->loc, loc);
         local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
         if (!local->xattr_req)
                 goto err;
@@ -956,6 +965,7 @@ shard_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         frame->local = local;
 
         local->handler = shard_post_fstat_handler;
+        local->fd = fd_ref (fd);
         local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
         if (!local->xattr_req)
                 goto err;
@@ -996,6 +1006,7 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
                                struct iatt *prebuf, struct iatt *postbuf,
                                dict_t *xdata)
 {
+        inode_t       *inode = NULL;
         shard_local_t *local = NULL;
 
         local = frame->local;
@@ -1013,6 +1024,10 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
         local->delta_size = local->postbuf.ia_size - local->prebuf.ia_size;
         local->delta_blocks = postbuf->ia_blocks - prebuf->ia_blocks;
         local->hole_size = 0;
+
+        inode = (local->fop == GF_FOP_TRUNCATE) ? local->loc.inode
+                                                : local->fd->inode;
+        shard_inode_ctx_set (inode, this, postbuf, 0, SHARD_MASK_TIMES);
 
         shard_update_file_size (frame, this, NULL, &local->loc,
                                 shard_post_update_size_truncate_handler);
@@ -1742,6 +1757,60 @@ err:
                             NULL, NULL);
         return 0;
 
+}
+
+int32_t
+shard_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, struct iatt *preparent,
+                  struct iatt *postparent,
+                  dict_t *xdata)
+{
+        if (op_ret < 0)
+                goto err;
+
+        shard_inode_ctx_set (inode, this, buf, 0,
+                             SHARD_MASK_NLINK | SHARD_MASK_TIMES);
+
+        SHARD_STACK_UNWIND (link, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent, xdata);
+        return 0;
+err:
+        SHARD_STACK_UNWIND (link, frame, op_ret, op_errno, inode, NULL, NULL,
+                            NULL, NULL);
+        return 0;
+}
+
+int32_t
+shard_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+              dict_t *xdata)
+{
+        int                ret        = -1;
+        uint64_t           block_size = 0;
+
+        ret = shard_inode_ctx_get_block_size (oldloc->inode, this, &block_size);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
+                        "from inode ctx of %s",
+                        uuid_utoa (oldloc->inode->gfid));
+                goto err;
+        }
+
+        if (!block_size) {
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->link, oldloc, newloc,
+                                 xdata);
+                return 0;
+        }
+
+        STACK_WIND (frame, shard_link_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+        return 0;
+
+err:
+        SHARD_STACK_UNWIND (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+                            NULL);
+        return 0;
 }
 
 int
@@ -3865,10 +3934,18 @@ shard_post_setattr_handler (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (local->fop == GF_FOP_SETATTR) {
+                if (local->op_ret >= 0)
+                        shard_inode_ctx_set (local->loc.inode, this,
+                                             &local->postbuf, 0,
+                                             SHARD_LOOKUP_MASK);
                 SHARD_STACK_UNWIND (setattr, frame, local->op_ret,
                                     local->op_errno, &local->prebuf,
                                     &local->postbuf, local->xattr_rsp);
         } else if (local->fop == GF_FOP_FSETATTR) {
+                if (local->op_ret >= 0)
+                        shard_inode_ctx_set (local->fd->inode, this,
+                                             &local->postbuf, 0,
+                                             SHARD_LOOKUP_MASK);
                 SHARD_STACK_UNWIND (fsetattr, frame, local->op_ret,
                                     local->op_errno, &local->prebuf,
                                     &local->postbuf, local->xattr_rsp);
@@ -3950,6 +4027,7 @@ shard_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!local->xattr_req)
                 goto err;
         local->fop = GF_FOP_SETATTR;
+        loc_copy (&local->loc, loc);
 
         SHARD_MD_READ_FOP_INIT_REQ_DICT (this, local->xattr_req,
                                          local->loc.gfid, local, err);
@@ -4009,6 +4087,7 @@ shard_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!local->xattr_req)
                 goto err;
         local->fop = GF_FOP_FSETATTR;
+        local->fd = fd_ref (fd);
 
         SHARD_MD_READ_FOP_INIT_REQ_DICT (this, local->xattr_req,
                                          fd->inode->gfid, local, err);
@@ -4221,6 +4300,7 @@ struct xlator_fops fops = {
         .readdirp    = shard_readdirp,
         .create      = shard_create,
         .mknod       = shard_mknod,
+        .link        = shard_link,
         .unlink      = shard_unlink,
         .rename      = shard_rename,
 };
