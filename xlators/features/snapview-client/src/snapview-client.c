@@ -541,7 +541,7 @@ svc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         STACK_WIND_TAIL (frame, subvolume, subvolume->fops->statfs,
                          temp_loc, xdata);
-        if (temp_loc)
+        if (temp_loc == &root_loc)
                 loc_wipe (temp_loc);
 
         wind = _gf_true;
