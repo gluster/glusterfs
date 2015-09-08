@@ -5,10 +5,24 @@
 #An export file specific to a volume
 #is created in GANESHA_DIR/exports.
 
+# Try loading the config from any of the distro
+# specific configuration locations
+if [ -f /etc/sysconfig/ganesha ]
+        then
+        . /etc/sysconfig/ganesha
+fi
+if [ -f /etc/conf.d/ganesha ]
+        then
+        . /etc/conf.d/ganesha
+fi
+if [ -f /etc/default/ganesha ]
+        then
+        . /etc/default/ganesha
+fi
+
 GANESHA_DIR=${1%/}
 VOL=$2
 CONF=
-CONFFILE=
 
 function check_cmd_status()
 {
@@ -42,14 +56,8 @@ function find_rhel7_conf
          done
 }
 
-cfgline=$(grep ^CONFFILE= /etc/sysconfig/ganesha)
-eval $(echo ${cfgline} | grep -F ^CONFFILE=)
-
-if [ -z $CONFFILE ]
-        then
-        cfgline=$(grep ^OPTIONS= /etc/sysconfig/ganesha)
-        eval $(echo ${cfgline} | grep -F ^OPTIONS=)
-        find_rhel7_conf $cfgline
+if [ -z $CONFFILE ]; then
+        find_rhel7_conf $OPTIONS
 
 fi
 CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
