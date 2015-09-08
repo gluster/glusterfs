@@ -21,6 +21,11 @@
 #include "ec-messages.h"
 #include "ec-heald.h"
 
+static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
+        [EC_ROUND_ROBIN] = "round-robin",
+        [EC_GFID_HASH] = "gfid-hash",
+        [EC_READ_POLICY_MAX] = NULL
+};
 #define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
 /* The maximum number of nodes is derived from the maximum allowed fragments
  * using the rule that redundancy cannot be equal or greater than the number
@@ -231,10 +236,24 @@ ec_configure_background_heal_opts (ec_t *ec, int background_heals,
         ec->background_heals = background_heals;
 }
 
+int
+ec_assign_read_policy (ec_t *ec, char *read_policy)
+{
+        int read_policy_idx = -1;
+
+        read_policy_idx = gf_get_index_by_elem (ec_read_policies, read_policy);
+        if (read_policy_idx < 0 || read_policy_idx >= EC_READ_POLICY_MAX)
+                return -1;
+
+        ec->read_policy = read_policy_idx;
+        return 0;
+}
+
 int32_t
 reconfigure (xlator_t *this, dict_t *options)
 {
         ec_t     *ec              = this->private;
+        char     *read_policy     = NULL;
         uint32_t heal_wait_qlen   = 0;
         uint32_t background_heals = 0;
 
@@ -250,6 +269,10 @@ reconfigure (xlator_t *this, dict_t *options)
                           int32, failed);
         ec_configure_background_heal_opts (ec, background_heals,
                                            heal_wait_qlen);
+        GF_OPTION_RECONF ("read-policy", read_policy, options, str, failed);
+        if (ec_assign_read_policy (ec, read_policy))
+                goto failed;
+
         return 0;
 failed:
         return -1;
@@ -514,7 +537,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 int32_t
 init (xlator_t *this)
 {
-    ec_t *ec = NULL;
+    ec_t *ec          = NULL;
+    char *read_policy = NULL;
 
     if (this->parents == NULL)
     {
@@ -576,6 +600,9 @@ init (xlator_t *this)
     GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
     ec_configure_background_heal_opts (ec, ec->background_heals,
                                        ec->heal_wait_qlen);
+    GF_OPTION_INIT ("read-policy", read_policy, str, failed);
+    if (ec_assign_read_policy (ec, read_policy))
+            goto failed;
 
     if (ec->shd.iamshd)
             ec_selfheal_daemon_init (this);
@@ -1191,6 +1218,7 @@ int32_t ec_dump_private(xlator_t *this)
     gf_proc_dump_write("heal-wait-qlength", "%d", ec->heal_wait_qlen);
     gf_proc_dump_write("healers", "%d", ec->healers);
     gf_proc_dump_write("heal-waiters", "%d", ec->heal_waiters);
+    gf_proc_dump_write("read-policy", "%s", ec_read_policies[ec->read_policy]);
 
     return 0;
 }
@@ -1297,6 +1325,15 @@ struct volume_options options[] =
       .default_value = "600",
       .description = "time interval for checking the need to self-heal "
                      "in self-heal-daemon"
+    },
+    { .key = {"read-policy" },
+      .type = GF_OPTION_TYPE_STR,
+      .value = {"round-robin", "gfid-hash"},
+      .default_value = "round-robin",
+      .description = "inode-read fops happen only on 'k' number of bricks in"
+              " n=k+m disperse subvolume. 'round-robin' selects the read"
+              " subvolume using round-robin algo. 'gfid-hash' selects read"
+              " subvolume based on hash of the gfid of that file/directory.",
     },
     { }
 };
