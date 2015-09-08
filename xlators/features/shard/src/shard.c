@@ -3570,6 +3570,149 @@ shard_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
+int32_t
+shard_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                     const char *name, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*", name, op_errno, out);
+        dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
+        dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->removexattr, loc, name,
+                         xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+shard_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                      const char *name, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*", name, op_errno, out);
+        dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
+        dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fremovexattr, fd, name,
+                         xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (fremovexattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+shard_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     dict_t *xdata)
+{
+        dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
+        dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
+
+        SHARD_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, dict, xdata);
+        return 0;
+}
+
+
+int32_t
+shard_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, dict_t *dict,
+                    dict_t *xdata)
+{
+        dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
+        dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
+
+        SHARD_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, xdata);
+        return 0;
+}
+
+int32_t
+shard_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                  const char *name, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        if ((name) && (!strncmp (name, SHARD_XATTR_PREFIX,
+                      strlen (SHARD_XATTR_PREFIX)))) {
+                op_errno = ENODATA;
+                goto out;
+        }
+
+        STACK_WIND (frame, shard_getxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+shard_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                   const char *name, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        if ((name) && (!strncmp (name, SHARD_XATTR_PREFIX,
+                      strlen (SHARD_XATTR_PREFIX)))) {
+                op_errno = ENODATA;
+                goto out;
+        }
+
+        STACK_WIND (frame, shard_fgetxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+int32_t
+shard_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
+                   int32_t flags, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict, op_errno, out);
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
+                         xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int32_t
+shard_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+                  int32_t flags, dict_t *xdata)
+{
+        int op_errno = EINVAL;
+
+        GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict, op_errno, out);
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                         xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
 int
 shard_post_setattr_handler (call_frame_t *frame, xlator_t *this)
 {
@@ -3915,12 +4058,18 @@ struct xlator_fops fops = {
         .fsync       = shard_fsync,
         .stat        = shard_stat,
         .fstat       = shard_fstat,
+        .getxattr    = shard_getxattr,
+        .fgetxattr   = shard_fgetxattr,
         .readv       = shard_readv,
         .writev      = shard_writev,
         .truncate    = shard_truncate,
         .ftruncate   = shard_ftruncate,
+        .setxattr    = shard_setxattr,
+        .fsetxattr   = shard_fsetxattr,
         .setattr     = shard_setattr,
         .fsetattr    = shard_fsetattr,
+        .removexattr = shard_removexattr,
+        .fremovexattr = shard_fremovexattr,
         .fallocate   = shard_fallocate,
         .discard     = shard_discard,
         .zerofill    = shard_zerofill,

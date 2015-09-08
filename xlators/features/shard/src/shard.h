@@ -18,6 +18,7 @@
 #define GF_SHARD_DIR ".shard"
 #define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
 #define SHARD_MAX_BLOCK_SIZE  (4 * GF_UNIT_TB)
+#define SHARD_XATTR_PREFIX "trusted.glusterfs.shard."
 #define GF_XATTR_SHARD_BLOCK_SIZE "trusted.glusterfs.shard.block-size"
 #define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
