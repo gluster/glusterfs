@@ -669,14 +669,73 @@ out:
 
         return ret;
 }
-
 int
 glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 {
         return glusterd_big_locked_handler (req,
                                             __glusterd_handle_cli_delete_volume);
 }
+static char*
+_get_shd_key (int type)
+{
+        char            *key               = NULL;
 
+        switch (type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                key = "cluster.self-heal-daemon";
+                break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                key = "cluster.disperse-self-heal-daemon";
+                break;
+        default:
+                key = NULL;
+                break;
+        }
+        return key;
+}
+static int
+glusterd_handle_shd_option_for_tier (glusterd_volinfo_t *volinfo,
+                                     char *value, dict_t *dict)
+{
+        int             count           = 0;
+        char            dict_key[1024]  = {0, };
+        char           *key             = NULL;
+        int             ret             = 0;
+
+        key = _get_shd_key (volinfo->tier_info.cold_type);
+        if (key) {
+                count++;
+                snprintf (dict_key, sizeof (dict_key), "key%d", count);
+                ret = dict_set_str (dict, dict_key, key);
+                if (ret)
+                        goto out;
+                snprintf (dict_key, sizeof (dict_key), "value%d", count);
+                ret = dict_set_str (dict, dict_key, value);
+                if (ret)
+                        goto out;
+        }
+
+        key = _get_shd_key (volinfo->tier_info.hot_type);
+        if (key) {
+                count++;
+                snprintf (dict_key, sizeof (dict_key), "key%d", count);
+                ret = dict_set_str (dict, dict_key, key);
+                if (ret)
+                        goto out;
+                snprintf (dict_key, sizeof (dict_key), "value%d", count);
+                ret = dict_set_str (dict, dict_key, value);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_int32 (dict, "count", count);
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+}
 static int
 glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
                                      glusterd_volinfo_t *volinfo)
@@ -699,22 +758,30 @@ glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
                 goto out;
         }
 
-        key = volgen_get_shd_key (volinfo);
-        if (!key) {
-                ret = -1;
-                goto out;
-        }
-
-        /* Convert this command to volume-set command based on volume type */
-        ret = dict_set_str (dict, "key1", key);
-        if (ret)
-                goto out;
-
         if (heal_op == GF_SHD_OP_HEAL_ENABLE) {
                 value = "enable";
         } else if (heal_op == GF_SHD_OP_HEAL_DISABLE) {
                 value = "disable";
         }
+
+       /* Convert this command to volume-set command based on volume type */
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = glusterd_handle_shd_option_for_tier (volinfo, value,
+                                                           dict);
+                if (!ret)
+                        goto set_volume;
+                goto out;
+        }
+
+        key = volgen_get_shd_key (volinfo->type);
+        if (!key) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "key1", key);
+        if (ret)
+                goto out;
 
         ret = dict_set_str (dict, "value1", value);
         if (ret)
@@ -724,6 +791,7 @@ glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
         if (ret)
                 goto out;
 
+set_volume:
         ret = glusterd_op_begin_synctask (req, GD_OP_SET_VOLUME, dict);
 
 out:
@@ -1822,9 +1890,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 ret = 0;
                 goto out;
         }
-
-        enabled = dict_get_str_boolean (opt_dict, volgen_get_shd_key (volinfo),
-                                        1);
+        enabled = is_self_heal_enabled (volinfo, opt_dict);
         if (!enabled) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Self-heal-daemon is "

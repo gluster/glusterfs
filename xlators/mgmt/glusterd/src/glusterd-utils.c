@@ -6368,14 +6368,24 @@ out:
         return ret;
 }
 
+static inline int
+is_replica_volume (int type)
+{
+        if (type == GF_CLUSTER_TYPE_REPLICATE ||
+            type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
+                return 1;
+        return 0;
+}
 gf_boolean_t
 glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
 {
         gf_boolean_t    replicates = _gf_false;
-        if (volinfo && ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ||
-            (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)))
-                replicates = _gf_true;
-        return replicates;
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                replicates = is_replica_volume (volinfo->tier_info.cold_type) |
+                             is_replica_volume (volinfo->tier_info.hot_type);
+                return replicates;
+       }
+       return is_replica_volume ((volinfo->type));
 }
 
 gf_boolean_t
