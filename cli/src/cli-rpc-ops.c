@@ -2935,9 +2935,9 @@ print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
         sl_val = gf_uint64_2human_readable (sl_num);
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_quota_xml_output (local, path, hl_str,
-                                            sl_str, used_str,
-                                            avail_str, sl ? "Yes" : "No",
+                ret = cli_quota_xml_output (local, path, limits->hl,
+                                            sl_str, sl_num, used_space->size,
+                                            avail, sl ? "Yes" : "No",
                                             hl ? "Yes" : "No");
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to "
@@ -2976,8 +2976,8 @@ print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
         int64_t         sl_val    = sl_num;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_quota_object_xml_output (local, path, sl_str, limits,
-                                                   used_space, avail,
+                ret = cli_quota_object_xml_output (local, path, sl_str, sl_val,
+                                                   limits, used_space, avail,
                                                    sl ? "Yes" : "No",
                                                    hl ? "Yes" : "No");
                 if (ret) {

@@ -6184,9 +6184,9 @@ out:
 }
 
 int
-cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
-                      char *sl_final, void *used, void *avail, char *sl,
-                      char *hl)
+cli_quota_xml_output (cli_local_t *local, char *path, int64_t hl_str,
+                      char *sl_final, int64_t sl_num, int64_t used,
+                      int64_t avail, char *sl, char *hl)
 {
 #if (HAVE_LIB_XML)
         int     ret             = -1;
@@ -6201,34 +6201,27 @@ cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"hard_limit",
-                                               "%s", hl_str);
+                                               "%"PRIu64, hl_str);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
-                                              (xmlChar *)"soft_limit",
+                                              (xmlChar *)"soft_limit_percent",
                                                "%s", sl_final);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        if ((char *)used) {
-                ret = xmlTextWriterWriteFormatElement
-                        (local->writer, (xmlChar *)"used_space", "%s",
-                        (char *)used);
-        } else {
-                ret = xmlTextWriterWriteFormatElement
-                        (local->writer, (xmlChar *)"user_space", "%11"PRIu64,
-                        *(long unsigned int *)used);
-        }
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"soft_limit_value",
+                                               "%"PRIu64, sl_num);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        if ((char *)avail) {
-                ret = xmlTextWriterWriteFormatElement
-                        (local->writer, (xmlChar *)"avail_space", "%s",
-                        (char *)avail);
-        } else {
-                ret = xmlTextWriterWriteFormatElement
-                        (local->writer, (xmlChar *)"avail_space", "%11"PRIu64,
-                        *(long unsigned int *)avail);
-        }
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"used_space",
+                                               "%"PRIu64, used);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"avail_space",
+                                               "%"PRIu64, avail);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
@@ -6254,8 +6247,9 @@ out:
 
 int
 cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
-                             quota_limits_t *limits, quota_meta_t *used_space,
-                             int64_t avail, char *sl, char *hl)
+                             int64_t sl_val, quota_limits_t *limits,
+                             quota_meta_t *used_space, int64_t avail,
+                             char *sl, char *hl)
 {
 #if (HAVE_LIB_XML)
         int     ret             = -1;
@@ -6274,8 +6268,13 @@ cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
-                                              (xmlChar *)"soft_limit",
+                                              (xmlChar *)"soft_limit_percent",
                                                "%s", sl_str);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"soft_limit_value",
+                                               "%"PRIu64, sl_val);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
