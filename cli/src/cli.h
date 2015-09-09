@@ -398,14 +398,15 @@ cli_quota_list_xml_error (cli_local_t *local, char *path,
                           char *errstr);
 
 int
-cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
-                      char *sl_final, void *used, void *avail,
-                      char *sl, char *hl);
+cli_quota_xml_output (cli_local_t *local, char *path, int64_t hl_str,
+                      char *sl_final, int64_t sl_num, int64_t used,
+                      int64_t avail, char *sl, char *hl);
 
 int
 cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
-                             quota_limits_t *limits, quota_meta_t *used_space,
-                             int64_t avail, char *sl, char *hl);
+                             int64_t sl_val, quota_limits_t *limits,
+                             quota_meta_t *used_space, int64_t avail,
+                             char *sl, char *hl);
 
 int
 cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
