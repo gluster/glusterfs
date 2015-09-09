@@ -2955,7 +2955,7 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 SHARD_UNSET_ROOT_FS_ID (frame, local);
                 if (local->op_ret < 0) {
-                        SHARD_STACK_UNWIND (writev, frame, local->written_size,
+                        SHARD_STACK_UNWIND (writev, frame, local->op_ret,
                                             local->op_errno, NULL, NULL, NULL);
                 } else {
                         if (local->is_write_extending)
