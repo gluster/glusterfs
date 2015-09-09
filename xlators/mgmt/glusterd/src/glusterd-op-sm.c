@@ -2955,6 +2955,7 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         GF_ASSERT (this);
 
         switch (op) {
+        case GD_OP_DETACH_TIER:
         case GD_OP_REMOVE_BRICK:
                 snprintf (key, sizeof (key), "task%d", index);
                 ret = _add_remove_bricks_to_dict (dict, volinfo, key);
@@ -2964,6 +2965,7 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
                                 "Failed to add remove bricks to dict");
                         goto out;
                 }
+        case GD_OP_TIER_MIGRATE:
         case GD_OP_REBALANCE:
                 uuid_str = gf_strdup (uuid_utoa (volinfo->rebal.rebalance_id));
                 status = volinfo->rebal.defrag_status;
@@ -3027,8 +3029,19 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
         GF_ASSERT (this);
 
         if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
-                ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
-                                         tasks);
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        if (volinfo->rebal.op == GD_OP_REMOVE_BRICK)
+                                ret = _add_task_to_dict (rsp_dict, volinfo,
+                                                         GD_OP_DETACH_TIER,
+                                                         tasks);
+                        else if (volinfo->rebal.op == GD_OP_REBALANCE)
+                                ret = _add_task_to_dict (rsp_dict, volinfo,
+                                                         GD_OP_TIER_MIGRATE,
+                                                         tasks);
+                } else
+                ret = _add_task_to_dict (rsp_dict, volinfo,
+                                         volinfo->rebal.op, tasks);
+
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
@@ -4499,16 +4512,15 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         goto out;
 
                  for (i = 0; i <= brick_index_max; i++) {
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "brick%d.rdma_port", i);
-                        ret = dict_get_str (op_ctx, key, &port);
-                        if (ret) {
-                                ret = dict_set_str (op_ctx, key, "\0");
-                                if (ret)
-                                        goto out;
+                         memset (key, 0, sizeof (key));
+                         snprintf (key, sizeof (key), "brick%d.rdma_port", i);
+                         ret = dict_get_str (op_ctx, key, &port);
+                         if (ret) {
+                                 ret = dict_set_str (op_ctx, key, "\0");
+                                 if (ret)
+                                         goto out;
                          }
                  }
-
                  glusterd_volinfo_find (volname, &volinfo);
                  if (conf->op_version < GD_OP_VERSION_3_7_0 &&
                      volinfo->transport_type == GF_TRANSPORT_RDMA) {
@@ -5425,7 +5437,6 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 case GD_OP_RESET_VOLUME:
                         ret = glusterd_op_stage_reset_volume (dict, op_errstr);
                         break;
-
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_stage_remove_brick (dict, op_errstr);
                         break;
@@ -6899,7 +6910,6 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 ret = glusterd_bricks_select_stop_volume (dict, op_errstr,
                                                           selected);
                 break;
-
         case GD_OP_REMOVE_BRICK:
                 ret = glusterd_bricks_select_remove_brick (dict, op_errstr,
                                                            selected);
