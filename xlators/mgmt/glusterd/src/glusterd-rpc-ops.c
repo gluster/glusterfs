@@ -58,6 +58,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         ctx = op_ctx;
 
         switch (op) {
+        case GD_OP_DETACH_TIER:
         case GD_OP_REMOVE_BRICK:
         {
                 if (ctx)
@@ -70,6 +71,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                         errstr = "Error while resetting options";
                 break;
         }
+        case GD_OP_TIER_MIGRATE:
         case GD_OP_REBALANCE:
         case GD_OP_DEFRAG_BRICK_VOLUME:
         {

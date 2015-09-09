@@ -88,6 +88,8 @@ typedef enum glusterd_op_ {
         GD_OP_DEFRAG_VOLUME,
         GD_OP_ADD_BRICK,
         GD_OP_REMOVE_BRICK,
+        GD_OP_DETACH_TIER,
+        GD_OP_TIER_MIGRATE,
         GD_OP_REPLACE_BRICK,
         GD_OP_SET_VOLUME,
         GD_OP_RESET_VOLUME,
