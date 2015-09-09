@@ -3234,7 +3234,7 @@ glusterd_copy_file (const char *source, const char *destination)
                 goto out;
         }
 
-        dest_fd = open (destination, O_CREAT | O_RDWR, dest_mode);
+        dest_fd = creat (destination, dest_mode);
         if (dest_fd < 0) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
