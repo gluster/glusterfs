@@ -2670,7 +2670,7 @@ struct cli_cmd volume_cmds[] = {
           "[<replica COUNT>] <NEW-BRICK>..."},
 
         { "volume detach-tier <VOLNAME> "
-          " <start|stop|status|commit|[force]>",
+          " <start|stop|status|commit|force>",
         cli_cmd_volume_tier_cbk,
           "NOTE: this is old syntax, will be depreciated in next release. "
           "Please use gluster volume tier <vol> detach "

@@ -27,7 +27,7 @@ TEST ! $CLI volume detach-tier $V0 commit
 
 ## detach-tier commit operation with force option on volume $V0
 ## should succeed
-TEST  $CLI volume detach-tier $V0 commit force
+TEST  $CLI volume detach-tier $V0 force
 
 ## Again performing attach-tier operation on volume $V0
 TEST $CLI volume attach-tier $V0 $H0:$B0/${V0}{5..6}
