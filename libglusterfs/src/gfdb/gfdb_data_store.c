@@ -712,6 +712,12 @@ clear_files_heat (gfdb_conn_node_t *_conn_node) {
         return ret;
 }
 
+static const
+char *get_db_path_key()
+{
+        return GFDB_SQL_PARAM_DBPATH;
+}
+
 void get_gfdb_methods (gfdb_methods_t *methods)
 {
         methods->init_db = init_db;
@@ -720,4 +726,6 @@ void get_gfdb_methods (gfdb_methods_t *methods)
         methods->find_recently_changed_files = find_recently_changed_files;
         methods->find_unchanged_for_time_freq = find_unchanged_for_time_freq;
         methods->find_recently_changed_files_freq = find_recently_changed_files_freq;
+        methods->get_db_path_key = get_db_path_key;
 }
+
