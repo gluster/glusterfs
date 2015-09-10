@@ -2386,10 +2386,14 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                count = glusterd_set_detach_bricks(dict, volinfo);
+
         /* Save the list of bricks for later usage only on starting a
          * remove-brick. Right now this is required for displaying the task
          * parameters with task status in volume status.
          */
+
         if (start_remove) {
                 bricks_dict = dict_new ();
                 if (!bricks_dict) {
@@ -2404,9 +2408,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         }
-
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
-                count = glusterd_set_detach_bricks(dict, volinfo);
 
         while ( i <= count) {
                 snprintf (key, 256, "brick%d", i);
