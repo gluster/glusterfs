@@ -42,6 +42,19 @@ enum argp_option_keys {
 	ARGP_PORT_KEY = 'p',
 };
 
+typedef enum {
+        COLD_BRICK_COUNT,
+        COLD_TYPE,
+        COLD_DIST_COUNT,
+        COLD_REPLICA_COUNT,
+        COLD_DISPERSE_COUNT,
+        COLD_REDUNDANCY_COUNT,
+        HOT_BRICK_COUNT,
+        HOT_TYPE,
+        HOT_REPLICA_COUNT,
+        MAX
+} values;
+
 #define GLUSTER_MODE_SCRIPT    (1 << 0)
 #define GLUSTER_MODE_ERR_FATAL (1 << 1)
 #define GLUSTER_MODE_XML       (1 << 2)
