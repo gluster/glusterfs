@@ -470,8 +470,9 @@ tier_process_brick_cbk (brick_list_t *local_brick, void *args) {
                         "DB Params cannot initialized!");
                 goto out;
         }
-        SET_DB_PARAM_TO_DICT(this->name, params_dict, GFDB_SQL_PARAM_DBPATH,
-                                db_path, ret, out);
+        SET_DB_PARAM_TO_DICT(this->name, params_dict,
+                             (char *) gfdb_methods.get_db_path_key(),
+                             db_path, ret, out);
 
         /*Get the db connection*/
         conn_node = gfdb_methods.init_db((void *)params_dict, dht_tier_db_type);

@@ -236,7 +236,8 @@ typedef int (*find_recently_changed_files_freq_t) (gfdb_conn_node_t *_conn_node,
                                                    int read_freq_thresold,
                                                    gf_boolean_t _clear_counters);
 
-
+typedef const
+char *(*get_db_path_key_t)();
 
 /*Libgfdb API Function: Clear the heat for all the files
  *
@@ -256,7 +257,10 @@ typedef struct gfdb_methods_s {
         find_recently_changed_files_t find_recently_changed_files;
         find_unchanged_for_time_freq_t find_unchanged_for_time_freq;
         find_recently_changed_files_freq_t find_recently_changed_files_freq;
+        /* Do not expose dbpath directly. Expose it via an */
+        /* access function: get_db_path_key(). */
         char *dbpath;
+        get_db_path_key_t get_db_path_key;
 } gfdb_methods_t;
 
 void get_gfdb_methods (gfdb_methods_t *methods);

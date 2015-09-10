@@ -31,7 +31,6 @@
 #define TIMER_SECS 3600
 
 #include "gfdb_data_store.h"
-#include "gfdb_sqlite3.h"
 #include <ctype.h>
 #include <sys/stat.h>
 
