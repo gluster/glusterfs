@@ -79,7 +79,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (open, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -136,8 +135,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
@@ -197,7 +194,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0,
                              NULL, NULL, NULL);
 
@@ -253,7 +249,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (lk, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -310,7 +305,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
@@ -373,7 +367,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
@@ -435,7 +428,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (rename, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL, NULL);
 
@@ -493,7 +485,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
@@ -550,7 +541,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (link, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL);
 
@@ -609,7 +599,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
@@ -669,7 +658,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL);
 
@@ -733,7 +721,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (create, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL, NULL);
 
@@ -792,7 +779,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (lookup, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL);
 
@@ -849,7 +835,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (stat, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -878,7 +863,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (fstat, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -907,7 +891,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
@@ -963,7 +946,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (access, frame, -1, op_errno, NULL);
 
         return 0;
@@ -1020,7 +1002,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (readlink, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
@@ -1081,7 +1062,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (mknod, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL);
 
@@ -1143,7 +1123,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (symlink, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, NULL);
 
@@ -1200,7 +1179,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (opendir, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -1256,7 +1234,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (statfs, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -1312,7 +1289,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -1341,7 +1317,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (readdirp, frame, -1, op_errno, NULL, NULL);
 
         return 0;
@@ -1370,7 +1345,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
@@ -1428,7 +1402,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (fallocate, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
@@ -1486,7 +1459,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (discard, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
@@ -1544,7 +1516,6 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         UPCALL_STACK_UNWIND (zerofill, frame, -1, op_errno, NULL,
                              NULL, NULL);
 
