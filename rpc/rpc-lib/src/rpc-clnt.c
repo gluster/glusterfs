@@ -947,14 +947,6 @@ out:
         return ret;
 }
 
-
-void
-rpc_clnt_connection_deinit (rpc_clnt_connection_t *conn)
-{
-        return;
-}
-
-
 static int
 rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                           dict_t *options, char *name)
