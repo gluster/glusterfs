@@ -990,8 +990,10 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         strcpy (brick_list, " ");
 
+        /* subvol match is not required for tiered volume*/
         if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
-            (volinfo->subvol_count > 1)) {
+             (volinfo->type != GF_CLUSTER_TYPE_TIER) &&
+             (volinfo->subvol_count > 1)) {
                 ret = subvol_matcher_init (&subvols, volinfo->subvol_count);
                 if (ret)
                         goto out;
@@ -1031,13 +1033,19 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                     (volinfo->brick_count <= volinfo->dist_leaf_count))
                         continue;
 
-                /* Find which subvolume the brick belongs to */
-                subvol_matcher_update (subvols, volinfo, brickinfo);
+                /* Find which subvolume the brick belongs to.
+                 * subvol match is not required for tiered volume
+                 *
+                 */
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER)
+                        subvol_matcher_update (subvols, volinfo, brickinfo);
         }
 
         /* Check if the bricks belong to the same subvolumes.*/
-        if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
-            (volinfo->subvol_count > 1)) {
+        /* subvol match is not required for tiered volume*/
+         if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
+             (volinfo->type != GF_CLUSTER_TYPE_TIER) &&
+             (volinfo->subvol_count > 1)) {
                 ret = subvol_matcher_verify (subvols, volinfo,
                                              err_str, sizeof(err_str),
                                              vol_type, replica_count);
