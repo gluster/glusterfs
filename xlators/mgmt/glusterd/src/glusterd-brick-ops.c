@@ -1724,7 +1724,7 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                 snprintf (msg, sizeof (msg), "Brick's in Hot "
                                           "tier is not decommissioned yet. Use "
                                           "gluster volume detach-tier <VOLNAME>"
-                                          " <start | commit | [force]>"
+                                          " <start | commit | force>"
                                           " command instead");
                                 *errstr = gf_strdup (msg);
                                 ret = -1;
