@@ -1777,19 +1777,9 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
                 return -1;
         }
 
-        if (!((wordcount == 4) || (wordcount == 5))) {
+        if (wordcount != 4) {
                 ret = -1;
                 goto out;
-        }
-
-        if (wordcount == 5) {
-                word = (char *)words[4];
-                if (!strcmp(word, "force"))
-                        force = 1;
-                else {
-                        ret = -1;
-                        goto out;
-                }
         }
 
         word = (char *)words[3];
@@ -1799,10 +1789,9 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         if (!strcmp(word, "start")) {
                 command = GF_OP_CMD_DETACH_START;
         } else if (!strcmp(word, "commit")) {
-                if (force)
-                        command = GF_OP_CMD_DETACH_COMMIT_FORCE;
-                else
-                        command = GF_OP_CMD_DETACH_COMMIT;
+                command = GF_OP_CMD_DETACH_COMMIT;
+        } else if (!strcmp(word, "force")) {
+                command = GF_OP_CMD_DETACH_COMMIT_FORCE;
         } else if (!strcmp(word, "stop"))
                 command = GF_OP_CMD_STOP_DETACH_TIER;
         else if (!strcmp(word, "status"))
