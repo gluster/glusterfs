@@ -1529,6 +1529,30 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 ret = -1;
                 goto out;
         }
+
+        if (dict_get(dict, "attach-tier")) {
+
+                /*
+                 * This check is needed because of add/remove brick
+                 * is not supported on a tiered volume. So once a tier
+                 * is attached we cannot commit or stop the remove-brick
+                 * task. Please change this comment once we start supporting
+                 * add/remove brick on a tiered volume.
+                 */
+                if (!gd_is_remove_brick_committed (volinfo)) {
+
+                        snprintf (msg, sizeof (msg), "An earlier remove-brick "
+                                  "task exists for volume %s. Either commit it"
+                                  " or stop it before attaching a tier.",
+                                  volinfo->volname);
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OLD_REMOVE_BRICK_EXISTS, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
                 gf_msg ("glusterd", GF_LOG_ERROR, errno,
