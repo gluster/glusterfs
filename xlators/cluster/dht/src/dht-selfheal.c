@@ -306,6 +306,7 @@ dht_selfheal_layout_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (op_ret < 0) {
+                local->op_errno = op_errno;
                 goto err;
         }
 
