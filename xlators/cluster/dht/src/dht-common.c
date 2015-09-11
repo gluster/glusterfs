@@ -5046,12 +5046,15 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                local->op_errno = op_errno;
                 goto err;
+        }
 
         conf = this->private;
         if (!conf) {
                 local->op_errno =  EINVAL;
+                op_errno = EINVAL;
                 goto err;
         }
 
@@ -5069,9 +5072,13 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        if (local->lock.locks)
+        if (local && local->lock.locks) {
                 local->refresh_layout_unlock (frame, this, -1, 0);
-
+        } else {
+                DHT_STACK_UNWIND (mknod, frame, -1,
+                                  op_errno, NULL, NULL, NULL,
+                                  NULL, NULL);
+        }
         return 0;
 }
 
@@ -5864,6 +5871,7 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         conf = this->private;
         if (!conf) {
                 local->op_errno = EINVAL;
+                op_errno = EINVAL;
                 goto err;
         }
 
@@ -5881,9 +5889,13 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        if (local->lock.locks)
+        if (local && local->lock.locks) {
                 local->refresh_layout_unlock (frame, this, -1, 0);
-
+        } else {
+                DHT_STACK_UNWIND (create, frame, -1,
+                                  op_errno, NULL, NULL, NULL,
+                                  NULL, NULL, NULL);
+        }
         return 0;
 }
 
