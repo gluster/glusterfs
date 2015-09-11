@@ -34,6 +34,7 @@ enum gf_dht_mem_types_ {
         gf_dht_mt_container_t,
         gf_dht_mt_octx_t,
         gf_dht_mt_miginfo_t,
+        gf_tier_mt_bricklist_t,
         gf_dht_mt_end
 };
 #endif

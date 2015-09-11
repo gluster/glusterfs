@@ -170,7 +170,8 @@ typedef int (*find_recently_changed_files_t) (gfdb_conn_node_t *_conn_node,
                                               gfdb_time_t *from_time);
 
 
-
+typedef const
+char * (*get_db_path_t) ();
 
 /*Libgfdb API Function: Query records/files that have not changed/accessed
  *                      from a time in past to current time, with
@@ -241,6 +242,19 @@ typedef int (*find_recently_changed_files_freq_t) (gfdb_conn_node_t *_conn_node,
                                                    int read_freq_thresold,
                                                    gf_boolean_t _clear_counters);
 
+
+
+/*Libgfdb API Function: Clear the heat for all the files
+ *
+ * Arguments:
+ *  _conn_node              : GFDB Connection node
+ *
+ * Returns : if successful return 0 or
+ *          -ve value in case of failure
+ **/
+int
+clear_files_heat (gfdb_conn_node_t *_conn_node);
+
 typedef struct gfdb_methods_s {
         init_db_t init_db;
         fini_db_t fini_db;
@@ -249,10 +263,12 @@ typedef struct gfdb_methods_s {
         find_unchanged_for_time_freq_t find_unchanged_for_time_freq;
         find_recently_changed_files_freq_t find_recently_changed_files_freq;
         char *dbpath;
+        get_db_path_t get_db_path;
 } gfdb_methods_t;
 
 void get_gfdb_methods (gfdb_methods_t *methods);
 
 typedef void (*get_gfdb_methods_t) (gfdb_methods_t *methods);
+
 
 #endif

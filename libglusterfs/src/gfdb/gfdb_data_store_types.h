@@ -654,6 +654,7 @@ typedef int
                                         gf_boolean_t _clear_counters);
 
 
+typedef int (*gfdb_clear_files_heat_t)(void *db_conn);
 
 
 /*Data structure holding all the above plugin function pointers*/
@@ -669,9 +670,8 @@ typedef struct gfdb_db_operations {
                                         find_unchanged_for_time_freq_op;
         gfdb_find_recently_changed_files_freq_t
                                         find_recently_changed_files_freq_op;
+        gfdb_clear_files_heat_t clear_files_heat_op;
 } gfdb_db_operations_t;
-
-
 
 /*******************************************************************************
  *

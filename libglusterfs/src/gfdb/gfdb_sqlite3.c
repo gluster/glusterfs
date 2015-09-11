@@ -248,6 +248,8 @@ gf_sqlite3_fill_db_operations(gfdb_db_operations_t  *gfdb_db_ops)
                         gf_sqlite3_find_unchanged_for_time_freq;
         gfdb_db_ops->find_recently_changed_files_freq_op =
                         gf_sqlite3_find_recently_changed_files_freq;
+
+        gfdb_db_ops->clear_files_heat_op = gf_sqlite3_clear_files_heat;
 }
 
 
@@ -1116,3 +1118,26 @@ out:
         sqlite3_finalize(prep_stmt);
         return ret;
 }
+
+
+int
+gf_sqlite3_clear_files_heat (void *db_conn)
+{
+        int ret = -1;
+        gf_sql_connection_t *sql_conn           =       db_conn;
+
+        CHECK_SQL_CONN (sql_conn, out);
+
+        ret = gf_sql_clear_counters (sql_conn);
+        if (ret) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_CLEAR_COUNTER_FAILED, "Failed clearing "
+                        "files heat!");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+

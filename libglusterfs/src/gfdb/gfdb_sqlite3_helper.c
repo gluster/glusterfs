@@ -1195,10 +1195,10 @@ gf_sql_clear_counters (gf_sql_connection_t *sql_conn)
 
         CHECK_SQL_CONN (sql_conn, out);
 
-        query_str = "BEGIN;UPDATE "
+        query_str = "UPDATE "
                     GF_FILE_TABLE
                     " SET " GF_COL_READ_FREQ_CNTR " = 0 , "
-                    GF_COL_WRITE_FREQ_CNTR " = 0 ;COMMIT;";
+                    GF_COL_WRITE_FREQ_CNTR " = 0 ;";
 
         ret = sqlite3_exec (sql_conn->sqlite3_db_conn, query_str, NULL, NULL,
                                 &sql_strerror);

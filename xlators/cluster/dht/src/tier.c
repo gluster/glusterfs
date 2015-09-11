@@ -31,7 +31,7 @@ static void *libhandle;
 static gfdb_methods_t gfdb_methods;
 
 #define DB_QUERY_RECORD_SIZE 4096
-
+#define  PROMOTION_CYCLE_CNT 4
 
 
 static int
@@ -440,8 +440,7 @@ out:
  * It picks up each bricks db and queries for eligible files for migration.
  * The list of eligible files are populated in appropriate query files*/
 static int
-tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
-                        void *args) {
+tier_process_brick_cbk (brick_list_t *local_brick, void *args) {
         int ret                                         = -1;
         char *db_path                                   = NULL;
         query_cbk_args_t *query_cbk_args              	= NULL;
@@ -460,8 +459,12 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
         GF_VALIDATE_OR_GOTO (this->name,
                              gfdb_brick_dict_info->_query_cbk_args, out);
 
-        GF_VALIDATE_OR_GOTO (this->name, value, out);
-        db_path = data_to_str(value);
+        GF_VALIDATE_OR_GOTO (this->name, local_brick, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local_brick->xlator, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local_brick->brick_db_path, out);
+        db_path = local_brick->brick_db_path;
 
         /*Preparing DB parameters before init_db i.e getting db connection*/
         params_dict = dict_new ();
@@ -471,7 +474,7 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                         "DB Params cannot initialized!");
                 goto out;
         }
-        SET_DB_PARAM_TO_DICT(this->name, params_dict, gfdb_methods.dbpath,
+        SET_DB_PARAM_TO_DICT(this->name, params_dict, (char *) gfdb_methods.get_db_path(),
                                 db_path, ret, out);
 
         /*Get the db connection*/
@@ -539,7 +542,17 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                                 DHT_MSG_LOG_TIER_ERROR,
                                 "FATAL: query from db failed");
                         goto out;
-                }
+        }
+
+        /*Clear the heat on the DB entries*/
+        ret = syncop_ipc (local_brick->xlator, GF_IPC_TARGET_CTR, NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR, "Failed clearing the heat "
+                        "on db %s", local_brick->brick_db_path);
+                goto out;
+        }
+
         ret = 0;
 out:
         if (query_cbk_args->queryFILE) {
@@ -559,6 +572,7 @@ tier_build_migration_qfile (demotion_args_t *args,
         _gfdb_brick_dict_info_t         gfdb_brick_dict_info;
         gfdb_time_t                     time_in_past;
         int                             ret = -1;
+        brick_list_t                    *local_brick = NULL;
 
         /*
          *  The first time this function is called, query file will
@@ -589,14 +603,18 @@ tier_build_migration_qfile (demotion_args_t *args,
         gfdb_brick_dict_info.time_stamp = &time_in_past;
         gfdb_brick_dict_info._gfdb_promote = is_promotion;
         gfdb_brick_dict_info._query_cbk_args = query_cbk_args;
-        ret = dict_foreach (args->brick_list, tier_process_brick_cbk,
-                            &gfdb_brick_dict_info);
-        if (ret) {
-                gf_msg (args->this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_BRICK_QUERY_FAILED,
-                        "Brick query failed\n");
-                goto out;
+
+        list_for_each_entry (local_brick, args->brick_list, list) {
+                ret = tier_process_brick_cbk (local_brick,
+                                                &gfdb_brick_dict_info);
+                if (ret) {
+                        gf_msg (args->this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_BRICK_QUERY_FAILED,
+                                "Brick query failed\n");
+                        goto out;
+                }
         }
+        ret = 0;
 out:
         return ret;
 }
@@ -701,19 +719,19 @@ out:
 }
 
 static int
-tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
+tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
 {
         xlator_list_t  *child = NULL;
         char           *rv        = NULL;
         char           *rh        = NULL;
         char           localhost[256] = {0};
-        char           *db_path = "";
         char           *brickname = NULL;
         char            db_name[PATH_MAX] = "";
         int             ret = 0;
+        brick_list_t    *local_brick = NULL;
 
         GF_VALIDATE_OR_GOTO ("tier", xl, out);
-        GF_VALIDATE_OR_GOTO ("tier", bricklist, out);
+        GF_VALIDATE_OR_GOTO ("tier", local_bricklist_head, out);
 
         gethostname (localhost, sizeof (localhost));
 
@@ -728,27 +746,38 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
 
                if (gf_is_local_addr (rh)) {
 
+                       local_brick = GF_CALLOC (1, sizeof(brick_list_t),
+                                                gf_tier_mt_bricklist_t);
+                        if (!local_brick) {
+                                goto out;
+                        }
+
                         ret = dict_get_str(xl->options, "remote-subvolume",
                                            &rv);
                         if (ret < 0)
                                 goto out;
+
                         brickname = strrchr(rv, '/') + 1;
                         snprintf(db_name, sizeof(db_name), "%s.db",
                                  brickname);
-                        db_path = GF_CALLOC (PATH_MAX, 1, gf_common_mt_char);
-                        if (!db_path) {
+
+                        local_brick->brick_db_path =
+                                GF_CALLOC (PATH_MAX, 1, gf_common_mt_char);
+                        if (!local_brick->brick_db_path) {
                                 gf_msg ("tier", GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
                                         "Failed. to allocate memory for bricklist");
                                 goto out;
                         }
 
-                        sprintf(db_path, "%s/%s/%s", rv,
+                        sprintf(local_brick->brick_db_path, "%s/%s/%s", rv,
                                 GF_HIDDEN_PATH,
                                 db_name);
-                        if (dict_add_dynstr_with_alloc(bricklist, "brick",
-                                                       db_path))
-                                goto out;
+
+                        local_brick->xlator = xl;
+
+                        list_add_tail (&(local_brick->list),
+                                               local_bricklist_head);
 
                         ret = 0;
                         goto out;
@@ -756,17 +785,48 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
         }
 
         for (child = xl->children; child; child = child->next) {
-                ret = tier_get_bricklist(child->xlator, bricklist);
+                ret = tier_get_bricklist(child->xlator, local_bricklist_head);
+                if (ret) {
+                        goto out;
+                }
         }
+
+        ret = 0;
 out:
+
+        if (ret) {
+                if (local_brick) {
+                        GF_FREE (local_brick->brick_db_path);
+                }
+                GF_FREE (local_brick);
+        }
+
         return ret;
 }
+
+void
+clear_bricklist (struct list_head *brick_list)
+{
+        brick_list_t  *local_brick      = NULL;
+        brick_list_t  *temp             = NULL;
+
+        if (list_empty(brick_list)) {
+                return;
+        }
+
+        list_for_each_entry_safe (local_brick, temp, brick_list, list) {
+                list_del (&local_brick->list);
+                GF_FREE (local_brick->brick_db_path);
+                GF_FREE (local_brick);
+        }
+}
+
 
 int
 tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 {
-        dict_t       *bricklist_cold = NULL;
-        dict_t       *bricklist_hot = NULL;
+        struct list_head bricklist_hot = { 0 };
+        struct list_head bricklist_cold = { 0 };
         dht_conf_t   *conf     = NULL;
         gfdb_time_t  current_time;
         int freq_promote = 0;
@@ -783,16 +843,11 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
         conf   = this->private;
 
-        bricklist_cold = dict_new();
-        if (!bricklist_cold)
-                return -1;
+        INIT_LIST_HEAD ((&bricklist_hot));
+        INIT_LIST_HEAD ((&bricklist_cold));
 
-        bricklist_hot = dict_new();
-        if (!bricklist_hot)
-                return -1;
-
-        tier_get_bricklist (conf->subvolumes[0], bricklist_cold);
-        tier_get_bricklist (conf->subvolumes[1], bricklist_hot);
+        tier_get_bricklist (conf->subvolumes[0], &bricklist_cold);
+        tier_get_bricklist (conf->subvolumes[1], &bricklist_hot);
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d"
@@ -860,7 +915,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
                 if (is_demotion_triggered) {
                         demotion_args.this = this;
-                        demotion_args.brick_list = bricklist_hot;
+                        demotion_args.brick_list = &bricklist_hot;
                         demotion_args.defrag = defrag;
                         demotion_args.freq_time = freq_demote;
                         ret_demotion = pthread_create (&demote_thread,
@@ -876,9 +931,9 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
                 if (is_promotion_triggered) {
                         promotion_args.this = this;
-                        promotion_args.brick_list = bricklist_cold;
+                        promotion_args.brick_list = &bricklist_cold;
                         promotion_args.defrag = defrag;
-                        promotion_args.freq_time = freq_promote;
+                        promotion_args.freq_time = freq_promote *  PROMOTION_CYCLE_CNT;
                         ret_promotion = pthread_create (&promote_thread,
                                                 NULL, &tier_promote,
                                                 &promotion_args);
@@ -927,8 +982,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         ret = 0;
 out:
 
-        dict_unref(bricklist_cold);
-        dict_unref(bricklist_hot);
+        clear_bricklist (&bricklist_cold);
+        clear_bricklist (&bricklist_hot);
 
         return ret;
 }
