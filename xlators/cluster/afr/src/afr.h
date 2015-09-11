@@ -750,6 +750,11 @@ typedef struct afr_spbc_timeout {
         int          spb_child_index;
 } afr_spbc_timeout_t;
 
+typedef struct afr_spb_status {
+        call_frame_t *frame;
+        loc_t        *loc;
+} afr_spb_status_t;
+
 typedef struct afr_read_subvol_args {
         ia_type_t ia_type;
         uuid_t gfid;
@@ -1045,14 +1050,16 @@ gf_boolean_t
 afr_is_xattr_ignorable (char *key);
 
 int
-afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   dict_t *xdata);
+afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc);
 
 int
 afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc);
 
 int
-afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc);
+afr_get_split_brain_status (void *opaque);
+
+int
+afr_get_split_brain_status_cbk (int ret, call_frame_t *frame, void *opaque);
 
 int
 afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,

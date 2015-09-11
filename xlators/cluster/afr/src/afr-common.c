@@ -4583,8 +4583,7 @@ out:
 }
 
 int
-afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   dict_t *xdata)
+afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         gf_boolean_t    data_selfheal     = _gf_false;
         gf_boolean_t    metadata_selfheal = _gf_false;
@@ -4709,7 +4708,14 @@ out:
 }
 
 int
-afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
+afr_get_split_brain_status_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+        GF_FREE (opaque);
+        return 0;
+}
+
+int
+afr_get_split_brain_status (void *opaque)
 {
         gf_boolean_t      d_spb             = _gf_false;
         gf_boolean_t      m_spb             = _gf_false;
@@ -4722,7 +4728,15 @@ afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
         inode_t          *inode             = NULL;
         afr_private_t    *priv              = NULL;
         xlator_t         **children         = NULL;
+        call_frame_t     *frame             = NULL;
+        xlator_t         *this              = NULL;
+        loc_t            *loc               = NULL;
+        afr_spb_status_t *data              = NULL;
 
+        data     = opaque;
+        frame    = data->frame;
+        this     = frame->this;
+        loc      = data->loc;
         priv     = this->private;
         children = priv->children;
 
@@ -4772,14 +4786,20 @@ afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         goto out;
                 }
                 ret = dict_set_dynstr (dict, GF_AFR_SBRAIN_STATUS, status);
-                if (ret)
+                if (ret) {
+                        op_errno = -ret;
+                        ret = -1;
                         goto out;
+                }
         } else {
                 ret = dict_set_str (dict, GF_AFR_SBRAIN_STATUS,
                                     "The file is not under data or"
                                     " metadata split-brain");
-                if (ret)
+                if (ret) {
+                        op_errno = -ret;
+                        ret = -1;
                         goto out;
+                }
         }
 
         ret = 0;

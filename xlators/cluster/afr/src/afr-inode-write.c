@@ -1337,6 +1337,7 @@ afr_handle_split_brain_commands (xlator_t *this, call_frame_t *frame,
                                 " synctask. Aborting split-brain choice set"
                                 " for %s", loc->name);
                         ret = 1;
+                        op_errno = ENOMEM;
                         goto out;
                 }
                 ret = 0;
@@ -1360,6 +1361,8 @@ out:
         /* key was correct but value was invalid when ret == 1 */
         if (ret == 1) {
                 AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+                if (data)
+                        GF_FREE (data);
                 ret = 0;
         }
         return ret;
