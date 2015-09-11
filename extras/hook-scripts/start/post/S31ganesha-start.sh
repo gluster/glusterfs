@@ -113,7 +113,10 @@ function start_ganesha()
                         cut -d"=" -f2)
         if [ "$ganesha_value" = "on" -a "$is_exported" = "no" ]
         then
-                write_conf $VOL > $GANESHA_DIR/exports/export.$VOL.conf
+                if [ ! -e $GANESHA_DIR/exports/export.$VOL.conf ]
+                then
+                        write_conf $VOL > $GANESHA_DIR/exports/export.$VOL.conf
+                fi
                 start_ganesha $VOL
         else
                 exit 0
