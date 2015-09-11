@@ -1424,6 +1424,59 @@ afr_marker_populate_args (call_frame_t *frame, int type, int *gauge,
         return priv->child_count;
 }
 
+static int
+afr_handle_heal_xattrs (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                        const char *heal_op)
+{
+        int                     ret     = -1;
+        afr_spb_status_t       *data    = NULL;
+
+        if (!strcmp (heal_op, GF_HEAL_INFO)) {
+                afr_get_heal_info (frame, this, loc);
+                ret = 0;
+                goto out;
+        }
+
+        if (!strcmp (heal_op, GF_AFR_HEAL_SBRAIN)) {
+                afr_heal_splitbrain_file (frame, this, loc);
+                ret = 0;
+                goto out;
+        }
+
+        if (!strcmp (heal_op, GF_AFR_SBRAIN_STATUS)) {
+                data = GF_CALLOC (1, sizeof (*data), gf_afr_mt_spb_status_t);
+                if (!data) {
+                        ret = 1;
+                        goto out;
+                }
+                data->frame = frame;
+                data->loc = loc;
+                ret = synctask_new (this->ctx->env,
+                                    afr_get_split_brain_status,
+                                    afr_get_split_brain_status_cbk,
+                                    NULL, data);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN_STATUS,
+                                "Failed to create"
+                                " synctask. Unable to fetch split-brain status"
+                                " for %s.", loc->name);
+                        ret = 1;
+                        goto out;
+                }
+                goto out;
+        }
+
+out:
+        if (ret == 1) {
+                AFR_STACK_UNWIND (getxattr, frame, -1, ENOMEM, NULL, NULL);
+                if (data)
+                        GF_FREE (data);
+                ret = 0;
+        }
+        return ret;
+}
+
 int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *name, dict_t *xdata)
@@ -1473,20 +1526,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                             afr_marker_populate_args) == 0)
                 return 0;
 
-        if (!strcmp (name, GF_HEAL_INFO)) {
-                afr_get_heal_info (frame, this, loc, xdata);
+        ret = afr_handle_heal_xattrs (frame, this, &local->loc, name);
+        if (ret == 0)
                 return 0;
-        }
 
-        if (!strcmp (name, GF_AFR_HEAL_SBRAIN)) {
-                afr_heal_splitbrain_file (frame, this, loc);
-                return 0;
-        }
-
-        if (!strcmp (name, GF_AFR_SBRAIN_STATUS)) {
-                afr_get_split_brain_status (frame, this, loc);
-                return 0;
-        }
         /*
          * Special xattrs which need responses from all subvols
          */
