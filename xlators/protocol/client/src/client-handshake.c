@@ -130,7 +130,7 @@ client_notify_parents_child_up (xlator_t *this)
         int          ret  = 0;
 
         conf = this->private;
-        ret = client_notify_dispatch (this, GF_EVENT_CHILD_UP, NULL);
+        ret = client_notify_dispatch_uniq (this, GF_EVENT_CHILD_UP, NULL);
         if (ret)
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         PC_MSG_CHILD_UP_NOTIFY_FAILED, "notify of CHILD_UP "
