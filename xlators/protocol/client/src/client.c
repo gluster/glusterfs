@@ -50,7 +50,7 @@ out:
         return 0;
 }
 
-static int
+int
 client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...)
 {
         clnt_conf_t     *conf = this->private;
@@ -1981,27 +1981,14 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         {
                 conf->connected = 1;
                 // connect happened, send 'get_supported_versions' mop
-                ret = dict_get_str (this->options, "disable-handshake",
-                                    &handshake);
 
                 gf_msg_debug (this->name, 0, "got RPC_CLNT_CONNECT");
 
-                if ((ret < 0) || (strcasecmp (handshake, "on"))) {
-                        ret = client_handshake (this, rpc);
-                        if (ret)
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        PC_MSG_HANDSHAKE_RETURN, "handshake "
-                                        "msg returned %d", ret);
-                } else {
-                        //conf->rpc->connected = 1;
-                        ret = client_notify_dispatch_uniq (this,
-                                                           GF_EVENT_CHILD_UP,
-                                                           NULL);
-                        if (ret)
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        PC_MSG_CHILD_UP_NOTIFY_FAILED,
-                                        "CHILD_UP notify failed");
-                }
+                ret = client_handshake (this, rpc);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PC_MSG_HANDSHAKE_RETURN, "handshake "
+                                "msg returned %d", ret);
 
                 /* Cancel grace timer if set */
                 pthread_mutex_lock (&conf->lock);
