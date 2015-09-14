@@ -2203,6 +2203,7 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
         char            *next_version   = NULL;
         gf_boolean_t    quorum_action   = _gf_false;
         uint32_t        op_version      = 0;
+        glusterd_volinfo_t  *volinfo    = NULL;
 
         conf = this->private;
         ret = dict_get_str (dict, "key1", &key);
@@ -2254,6 +2255,12 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                         GD_MSG_OP_VERS_STORE_FAIL,
                                         "Failed to store op-version.");
                         }
+                }
+                cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                        ret = glusterd_store_volinfo
+                                (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                        if (ret)
+                                goto out;
                 }
                 /* No need to save cluster.op-version in conf->opts
                  */
