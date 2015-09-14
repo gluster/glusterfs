@@ -755,6 +755,12 @@ typedef struct afr_spb_status {
         loc_t        *loc;
 } afr_spb_status_t;
 
+typedef struct afr_replace_brick_args {
+        call_frame_t *frame;
+        loc_t loc;
+        int rb_index;
+} afr_replace_brick_args_t;
+
 typedef struct afr_read_subvol_args {
         ia_type_t ia_type;
         uuid_t gfid;

@@ -1134,27 +1134,45 @@ out:
 }
 
 int
-_afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
-                           int rb_index)
+_afr_handle_replace_brick_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+        afr_replace_brick_args_t *data = NULL;
+
+        data = opaque;
+        loc_wipe (&data->loc);
+        GF_FREE (data);
+        return 0;
+}
+
+int
+_afr_handle_replace_brick (void *opaque)
 {
 
         afr_local_t     *local          = NULL;
         afr_private_t   *priv           = NULL;
+        int              rb_index       = -1;
         int              ret            = -1;
         int              op_errno       = ENOMEM;
+        call_frame_t    *frame          = NULL;
+        xlator_t        *this           = NULL;
+        afr_replace_brick_args_t *data  = NULL;
 
+        data = opaque;
+        frame = data->frame;
+        rb_index = data->rb_index;
+        this = frame->this;
         priv = this->private;
 
         local = AFR_FRAME_INIT (frame, op_errno);
         if (!local)
                 goto out;
 
-        loc_copy (&local->loc, loc);
+        loc_copy (&local->loc, &data->loc);
 
         gf_log (this->name, GF_LOG_DEBUG, "Child being replaced is : %s",
                 priv->children[rb_index]->name);
 
-        ret = _afr_handle_replace_brick_type (this, frame, loc, rb_index,
+        ret = _afr_handle_replace_brick_type (this, frame, &local->loc, rb_index,
                                               AFR_METADATA_TRANSACTION);
         if (ret) {
                 op_errno = -ret;
@@ -1167,7 +1185,7 @@ _afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
         local->pending = NULL;
         local->xdata_req = NULL;
 
-        ret = _afr_handle_replace_brick_type (this, frame, loc, rb_index,
+        ret = _afr_handle_replace_brick_type (this, frame, &local->loc, rb_index,
                                               AFR_ENTRY_TRANSACTION);
         if (ret) {
                 op_errno = -ret;
@@ -1394,32 +1412,60 @@ afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
 {
         int             ret               = -1;
         int             rb_index          = -1;
+        int             op_errno          = EPERM;
         char           *replace_brick     = NULL;
+        afr_replace_brick_args_t *data    = NULL;
 
         ret =  dict_get_str (dict, GF_AFR_REPLACE_BRICK, &replace_brick);
 
         if (!ret) {
                 if (frame->root->pid != GF_CLIENT_PID_AFR_SELF_HEALD) {
+                        gf_log (this->name, GF_LOG_ERROR, "'%s' is an internal"
+                                " extended attribute : %s.",
+                                GF_AFR_REPLACE_BRICK, strerror (EPERM));
                         ret = 1;
                         goto out;
                 }
                 rb_index = afr_get_child_index_from_name (this, replace_brick);
 
-                if (rb_index < 0)
+                if (rb_index < 0) {
                          /* Didn't belong to this replica pair
                           * Just do a no-op
                           */
                         AFR_STACK_UNWIND (setxattr, frame, 0, 0, NULL);
-                else
-                        _afr_handle_replace_brick (this, frame, loc, rb_index);
+                        return 0;
+                } else {
+                        data = GF_CALLOC (1, sizeof (*data),
+                                          gf_afr_mt_replace_brick_t);
+                        if (!data) {
+                                ret = 1;
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+                        data->frame = frame;
+                        loc_copy (&data->loc, loc);
+                        data->rb_index = rb_index;
+                        ret = synctask_new (this->ctx->env,
+                                            _afr_handle_replace_brick,
+                                            _afr_handle_replace_brick_cbk,
+                                            NULL, data);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_REPLACE_BRICK_FAILED,
+                                        "Failed to create synctask. Unable to "
+                                        "perform replace-brick.");
+                                ret = 1;
+                                op_errno = ENOMEM;
+                                loc_wipe (&data->loc);
+                                GF_FREE (data);
+                                goto out;
+                        }
+                }
                 ret = 0;
         }
 out:
         if (ret == 1) {
-                gf_log (this->name, GF_LOG_ERROR, "'%s' is an internal"
-                        " extended attribute : %s.",
-                        GF_AFR_REPLACE_BRICK, strerror (EPERM));
-                AFR_STACK_UNWIND (setxattr, frame, -1, EPERM, NULL);
+                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
                 ret = 0;
         }
         return ret;

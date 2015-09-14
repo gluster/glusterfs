@@ -202,6 +202,7 @@ function is_bad_test ()
               ./tests/basic/tier/tier.t \
               ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
               ./tests/bugs/glusterd/bug-948686.t \
+              ./tests/geo-rep/georep-basic-dr-rsync.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
