@@ -1862,10 +1862,19 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 }
 
                 if (GLUSTERD_STATUS_STARTED != volinfo->status) {
-                        snprintf (msg, sizeof (msg), "Volume %s needs to be "
-                                  "started before remove-brick (you can use "
-                                  "'force' or 'commit' to override this "
-                                  "behavior)", volinfo->volname);
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                snprintf (msg, sizeof (msg), "Volume %s needs "
+                                          "to be started before detach-tier "
+                                          "(you can use 'force' or 'commit' "
+                                          "to override this behavior)",
+                                          volinfo->volname);
+                        } else {
+                                snprintf (msg, sizeof (msg), "Volume %s needs "
+                                          "to be started before remove-brick "
+                                          "(you can use 'force' or 'commit' "
+                                          "to override this behavior)",
+                                          volinfo->volname);
+                        }
                         errstr = gf_strdup (msg);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_VOL_NOT_STARTED, "%s", errstr);
