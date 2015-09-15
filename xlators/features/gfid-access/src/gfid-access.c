@@ -392,33 +392,6 @@ ga_heal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static int32_t
-ga_newentry_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct iatt *statpre,
-                         struct iatt *statpost,
-                         dict_t *xdata)
-{
-        ga_local_t *local = NULL;
-
-        local = frame->local;
-        frame->local = NULL;
-
-        /* don't worry about inode linking and other stuff. They'll happen on
-         * the next lookup.
-         */
-        STACK_DESTROY (frame->root);
-
-        STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
-                             op_errno, xdata);
-
-        if (local->xdata)
-                dict_unref (local->xdata);
-        loc_wipe (&local->loc);
-        mem_put (local);
-
-        return 0;
-}
-
 static int
 ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
@@ -427,24 +400,9 @@ ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  dict_t *xdata)
 {
         ga_local_t *local = NULL;
-        struct iatt temp_stat = {0,};
 
         local = frame->local;
 
-        /* no need to proceed if things don't look good here */
-        if (op_ret == -1)
-                goto done;
-
-        temp_stat.ia_uid = local->uid;
-        temp_stat.ia_gid = local->gid;
-
-        STACK_WIND (frame, ga_newentry_setattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr, &local->loc, &temp_stat,
-                    (GF_SET_ATTR_UID | GF_SET_ATTR_GID), xdata);
-
-        return 0;
-
-done:
         /* don't worry about inode linking and other stuff. They'll happen on
          * the next lookup.
          */
@@ -536,12 +494,11 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         local = mem_get0 (this->local_pool);
         local->orig_frame = frame;
 
-        local->uid = args->uid;
-        local->gid = args->gid;
-
         loc_copy (&local->loc, &tmp_loc);
 
         new_frame->local = local;
+        new_frame->root->uid = args->uid;
+        new_frame->root->gid = args->gid;
 
         if (S_ISDIR (args->st_mode)) {
                 STACK_WIND (new_frame, ga_newentry_cbk,

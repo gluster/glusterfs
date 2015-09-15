@@ -16,6 +16,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0 --aux-gfid-mount
 
 # create file with specific gfid
 uuid=`uuidgen`
+TEST chown 10:10 $M0
 EXPECT "File creation OK" $PYTHON $(dirname $0)/../../utils/gfid-access.py \
                                   $M0 ROOT file0 $uuid file 10 10 0644
 
