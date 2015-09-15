@@ -1620,7 +1620,8 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
         int                     online = 0;
         gf_boolean_t            node_present = _gf_true;
         int                     i;
-
+        int                     type            = -1;
+        int                     hot_brick_count = -1;
 
         /* <volume> */
         ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"volume");
@@ -1656,7 +1657,28 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
 
         index_max = brick_index_max + other_count;
 
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret)
+                goto out;
+
+        if (type == GF_CLUSTER_TYPE_TIER) {
+                ret = dict_get_int32 (dict, "hot_brick_count",
+                                      &hot_brick_count);
+                if (ret)
+                        goto out;
+
+                ret = xmlTextWriterStartElement
+                        (local->writer, (xmlChar *)"hotBrick");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+        }
         for (i = 0; i <= index_max; i++) {
+
+                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                        ret = xmlTextWriterStartElement (local->writer,
+                                        (xmlChar *)"coldBrick");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
                 ret = cli_xml_output_vol_status_common (local->writer, dict, i,
                                                         &online, &node_present);
                 if (ret) {
@@ -1726,7 +1748,17 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 /* </node>  was opened in cli_xml_output_vol_status_common()*/
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
+
+                if (type == GF_CLUSTER_TYPE_TIER && i < hot_brick_count) {
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
         }
+
 
         /* Tasks are only present when a normal volume status call is done on a
          * single volume or on all volumes
