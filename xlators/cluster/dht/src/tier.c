@@ -957,7 +957,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         }
                 }
 
-                if (is_promotion_triggered && (ret_demotion == 0)) {
+                if (ret_demotion == 0) {
                         pthread_join (demote_thread, NULL);
                         if (demotion_args.return_value) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -967,7 +967,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         ret_demotion = demotion_args.return_value;
                 }
 
-                if (is_demotion_triggered && (ret_promotion == 0)) {
+                if (ret_promotion == 0) {
                         pthread_join (promote_thread, NULL);
                         if (promotion_args.return_value) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
