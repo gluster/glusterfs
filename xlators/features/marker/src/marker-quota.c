@@ -43,6 +43,33 @@ out:
 }
 
 int32_t
+mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc)
+{
+        int32_t               ret     = -1;
+
+        if (origin_loc == NULL || origin_loc->inode == NULL ||
+            uuid_is_null(origin_loc->inode->gfid))
+                goto out;
+
+        loc_copy (loc, origin_loc);
+
+        if (uuid_is_null (loc->gfid))
+                uuid_copy (loc->gfid, loc->inode->gfid);
+
+        if (!loc_is_root(loc) && loc->parent == NULL) {
+                loc->parent = inode_parent (loc->inode, 0, NULL);
+                if (loc->parent == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
 mq_get_local_err (quota_local_t *local,
                   int32_t *val)
 {
@@ -1206,12 +1233,17 @@ lock_err:
 
 
 int32_t
-mq_set_inode_xattr (xlator_t *this, loc_t *loc)
+mq_set_inode_xattr (xlator_t *this, loc_t *origin_loc)
 {
         struct gf_flock  lock  = {0, };
         quota_local_t   *local = NULL;
         int32_t          ret   = 0;
         call_frame_t    *frame = NULL;
+        loc_t            loc   = {0, };
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc);
+        if (ret < 0)
+                goto err;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
@@ -1226,7 +1258,7 @@ mq_set_inode_xattr (xlator_t *this, loc_t *loc)
 
         frame->local = local;
 
-        ret = loc_copy (&local->loc, loc);
+        ret = loc_copy (&local->loc, &loc);
         if (ret < 0) {
                 goto err;
         }
@@ -1247,7 +1279,10 @@ mq_set_inode_xattr (xlator_t *this, loc_t *loc)
         return 0;
 
 err:
-        QUOTA_STACK_DESTROY (frame, this);
+        if (frame)
+                QUOTA_STACK_DESTROY (frame, this);
+
+        loc_wipe (&loc);
 
         return 0;
 }
@@ -2026,18 +2061,22 @@ err:
 
 
 int
-mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
+mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc)
 {
         int32_t               ret          = -1;
         gf_boolean_t          status       = _gf_false;
         quota_inode_ctx_t    *ctx          = NULL;
         inode_contribution_t *contribution = NULL;
+        loc_t                 loc          = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc);
+        if (ret < 0)
+                goto out;
+
+        ret = mq_inode_ctx_get (loc.inode, this, &ctx);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "inode ctx get failed, aborting quota txn");
@@ -2055,30 +2094,30 @@ mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
            contribution xattr wont be created and will create problems
            for quota operations.
         */
-        contribution = mq_get_contribution_node (loc->parent, ctx);
+        contribution = mq_get_contribution_node (loc.parent, ctx);
         if (!contribution) {
-                if ((loc->path && strcmp (loc->path, "/"))
-                    || (!uuid_is_null (loc->gfid)
-                        && !__is_root_gfid (loc->gfid))
-                    || (loc->inode && !uuid_is_null (loc->inode->gfid)
-                        && !__is_root_gfid (loc->inode->gfid)))
+                if ((loc.path && strcmp (loc.path, "/"))
+                    || (!uuid_is_null (loc.gfid)
+                        && !__is_root_gfid (loc.gfid))
+                    || (loc.inode && !uuid_is_null (loc.inode->gfid)
+                        && !__is_root_gfid (loc.inode->gfid)))
                         gf_log_callingfn (this->name, GF_LOG_TRACE,
                                           "contribution node for the "
                                           "path (%s) with parent (%s) "
-                                          "not found", loc->path,
-                                          loc->parent?
-                                          uuid_utoa (loc->parent->gfid):
+                                          "not found", loc.path,
+                                          loc.parent?
+                                          uuid_utoa (loc.parent->gfid):
                                           NULL);
 
-                contribution = mq_add_new_contribution_node (this, ctx, loc);
+                contribution = mq_add_new_contribution_node (this, ctx, &loc);
                 if (!contribution) {
-                        if(loc->path && strcmp (loc->path, "/"))
+                        if(loc.path && strcmp (loc.path, "/"))
                                 gf_log_callingfn (this->name, GF_LOG_WARNING,
                                                   "could not allocate "
                                                   " contribution node for (%s) "
-                                                  "parent: (%s)", loc->path,
-                                                  loc->parent?
-                                                  uuid_utoa (loc->parent->gfid):
+                                                  "parent: (%s)", loc.path,
+                                                  loc.parent?
+                                                  uuid_utoa (loc.parent->gfid):
                                                   NULL);
                         goto out;
                 }
@@ -2094,11 +2133,13 @@ mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
                 goto out;
 
         if (status == _gf_false) {
-                mq_start_quota_txn (this, loc, ctx, contribution);
+                mq_start_quota_txn (this, &loc, ctx, contribution);
         }
 
         ret = 0;
 out:
+        loc_wipe (&loc);
+
         return ret;
 }
 
@@ -2277,17 +2318,26 @@ out:
 
 int32_t
 mq_xattr_state (xlator_t *this,
-                loc_t *loc,
+                loc_t *origin_loc,
                 dict_t *dict,
                 struct iatt buf)
 {
+        int     ret = 0;
+        loc_t   loc = {0, };
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc);
+        if (ret < 0)
+                goto out;
+
         if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
             || (buf.ia_type == IA_IFLNK))  {
-                mq_inspect_file_xattr (this, loc, dict, buf);
+                mq_inspect_file_xattr (this, &loc, dict, buf);
         } else if (buf.ia_type == IA_IFDIR)
-                mq_inspect_directory_xattr (this, loc, dict, buf);
+                mq_inspect_directory_xattr (this, &loc, dict, buf);
 
-        return 0;
+out:
+        loc_wipe (&loc);
+        return ret;
 }
 
 int32_t
@@ -2562,7 +2612,7 @@ err:
 }
 
 int32_t
-mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
+mq_reduce_parent_size (xlator_t *this, loc_t *origin_loc, int64_t contri)
 {
         int32_t                  ret           = -1;
         struct gf_flock          lock          = {0,};
@@ -2570,18 +2620,23 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
         quota_local_t           *local         = NULL;
         quota_inode_ctx_t       *ctx           = NULL;
         inode_contribution_t    *contribution  = NULL;
+        loc_t                    loc           = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        ret = mq_prevalidate_txn (this, origin_loc, &loc);
         if (ret < 0)
                 goto out;
 
-        contribution = mq_get_contribution_node (loc->parent, ctx);
+        ret = mq_inode_ctx_get (loc.inode, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        contribution = mq_get_contribution_node (loc.parent, ctx);
         if (contribution == NULL) {
                 gf_log_callingfn (this->name, GF_LOG_WARNING, "contribution for"
-                                  " the node %s is NULL", loc->path);
+                                  " the node %s is NULL", loc.path);
                 goto out;
         }
 
@@ -2603,23 +2658,23 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 
         if (local->size == 0) {
                 gf_log_callingfn (this->name, GF_LOG_TRACE,
-                                  "local->size is 0 " "path: (%s)", loc->path);
+                                  "local->size is 0 " "path: (%s)", loc.path);
                 ret = 0;
                 goto out;
         }
 
-        ret = mq_loc_copy (&local->loc, loc);
+        ret = mq_loc_copy (&local->loc, &loc);
         if (ret < 0)
                 goto out;
 
         local->ctx = ctx;
         local->contri = contribution;
 
-        ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
+        ret = mq_inode_loc_fill (NULL, loc.parent, &local->parent_loc);
         if (ret < 0) {
                 gf_log_callingfn (this->name, GF_LOG_INFO, "building parent loc"
                                   " failed. (gfid: %s)",
-                                  uuid_utoa (loc->parent->gfid));
+                                  uuid_utoa (loc.parent->gfid));
                 goto out;
         }
 
@@ -2656,6 +2711,8 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
 out:
         if (local != NULL)
                 mq_local_unref (this, local);
+
+        loc_wipe (&loc);
 
         return ret;
 }
