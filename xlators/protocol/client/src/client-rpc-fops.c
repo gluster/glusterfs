@@ -5541,10 +5541,10 @@ client3_3_inodelk (call_frame_t *frame, xlator_t *this,
         if (!(args->loc && args->loc->inode))
                 goto unwind;
 
-        if (!gf_uuid_is_null (args->loc->inode->gfid))
-                memcpy (req.gfid,  args->loc->inode->gfid, 16);
+        if (!gf_uuid_is_null (args->loc->gfid))
+                memcpy (req.gfid,  args->loc->gfid, 16);
         else
-                memcpy (req.gfid, args->loc->gfid, 16);
+                memcpy (req.gfid, args->loc->inode->gfid, 16);
 
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !gf_uuid_is_null (*((uuid_t*)req.gfid)),
@@ -5704,10 +5704,10 @@ client3_3_entrylk (call_frame_t *frame, xlator_t *this,
         if (!(args->loc && args->loc->inode))
                 goto unwind;
 
-        if (!gf_uuid_is_null (args->loc->inode->gfid))
-                memcpy (req.gfid,  args->loc->inode->gfid, 16);
+        if (!gf_uuid_is_null (args->loc->gfid))
+                memcpy (req.gfid,  args->loc->gfid, 16);
         else
-                memcpy (req.gfid, args->loc->gfid, 16);
+                memcpy (req.gfid, args->loc->inode->gfid, 16);
 
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
                                        !gf_uuid_is_null (*((uuid_t*)req.gfid)),
