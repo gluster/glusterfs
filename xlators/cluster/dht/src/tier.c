@@ -257,7 +257,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR,
                                         "failed parsing %s\n", link_str);
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         gf_uuid_copy (p_loc.gfid, link_info->pargfid);
@@ -268,7 +268,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR,
                                         "failed parsing %s\n", link_str);
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         ret = syncop_lookup (this, &p_loc, &par_stbuf, NULL,
@@ -278,7 +278,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR,
                                         " ERROR in parent lookup\n");
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
                         linked_inode = inode_link (p_loc.inode, NULL, NULL,
                                                         &par_stbuf);
@@ -296,7 +296,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR, "ERROR in "
                                         "memory allocation\n");
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         loc.path = gf_strdup (link_info->file_path);
@@ -305,7 +305,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR, "ERROR in "
                                         "memory allocation\n");
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         gf_uuid_copy (loc.parent->gfid, link_info->pargfid);
@@ -317,7 +317,7 @@ tier_migrate_using_query_file (void *_args)
                                         DHT_MSG_LOG_TIER_ERROR, "ERROR in "
                                         "current lookup\n");
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
                         linked_inode = inode_link (loc.inode, NULL, NULL,
                                                         &current);
@@ -326,20 +326,19 @@ tier_migrate_using_query_file (void *_args)
 
                         /*
                          * Do not promote/demote if file already is where it
-                         * should be. This shall become a skipped count.
+                         * should be. It means another brick moved the file
+                         * so is not an error.
                          */
                         src_subvol = dht_subvol_get_cached(this, loc.inode);
 
                         if (query_cbk_args->is_promotion &&
                              src_subvol == conf->subvolumes[1]) {
-                                per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         if (!query_cbk_args->is_promotion &&
                             src_subvol == conf->subvolumes[0]) {
-                                per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         gf_msg (this->name, GF_LOG_INFO, 0,
@@ -351,7 +350,7 @@ tier_migrate_using_query_file (void *_args)
 
                         if (tier_check_same_node (this, &loc, defrag)) {
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         gf_uuid_copy (loc.gfid, loc.inode->gfid);
@@ -365,15 +364,14 @@ tier_migrate_using_query_file (void *_args)
                                         loc.name,
                                         loc.path);
                                 per_link_status = -1;
-                                goto error;
+                                goto abort;
                         }
 
                         if (query_cbk_args->is_promotion)
                                 defrag->total_files_promoted++;
                         else
                                 defrag->total_files_demoted++;
-
-error:
+abort:
 
                         loc_wipe(&loc);
                         loc_wipe(&p_loc);
