@@ -978,17 +978,32 @@ struct volume_options options[] = {
         { .key  = {"write-freq-threshold"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "0",
-          .description = "Defines the write fequency "
-                        "that would be considered hot"
         },
 
         { .key  = {"read-freq-threshold"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "0",
-          .description = "Defines the read fequency "
-                        "that would be considered hot"
         },
-
+        { .key         = {"watermark-hi"},
+          .type = GF_OPTION_TYPE_PERCENT,
+          .default_value = "90",
+        },
+        { .key         = {"watermark-low"},
+          .type = GF_OPTION_TYPE_PERCENT,
+          .default_value = "75",
+        },
+        { .key         = {"tier-mode"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "test",
+        },
+        { .key         = {"tier-max-mb"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "1000",
+        },
+        { .key         = {"tier-max-files"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "5000",
+        },
         /* switch option */
         { .key  = {"pattern.switch.case"},
           .type = GF_OPTION_TYPE_ANY

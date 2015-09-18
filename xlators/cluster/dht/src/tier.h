@@ -20,10 +20,6 @@
 #include <fnmatch.h>
 #include <signal.h>
 
-#define DEFAULT_PROMOTE_FREQ_SEC 120
-#define DEFAULT_DEMOTE_FREQ_SEC  120
-#define DEFAULT_WRITE_FREQ_SEC 0
-#define DEFAULT_READ_FREQ_SEC 0
 /*
  * Size of timer wheel. We would not promote or demote less
  * frequently than this number.
@@ -60,7 +56,7 @@ typedef struct brick_list {
         xlator_t          *xlator;
         char              *brick_db_path;
         struct list_head  list;
-} brick_list_t;
+} tier_brick_list_t;
 
 typedef struct _dm_thread_args {
         xlator_t                *this;
@@ -69,5 +65,23 @@ typedef struct _dm_thread_args {
         int                     freq_time;
         int                     return_value;
 } promotion_args_t, demotion_args_t;
+
+typedef enum tier_watermark_op_ {
+        TIER_WM_NONE = 0,
+        TIER_WM_LOW,
+        TIER_WM_HI,
+        TIER_WM_MID
+} tier_watermark_op_t;
+
+#define DEFAULT_PROMOTE_FREQ_SEC       120
+#define DEFAULT_DEMOTE_FREQ_SEC        120
+#define DEFAULT_DEMOTE_DEGRADED        10
+#define DEFAULT_WRITE_FREQ_SEC         0
+#define DEFAULT_READ_FREQ_SEC          0
+#define DEFAULT_WM_LOW                 75
+#define DEFAULT_WM_HI                  90
+#define DEFAULT_TIER_MODE              TIER_MODE_TEST
+#define DEFAULT_TIER_MAX_MIGRATE_MB    1000
+#define DEFAULT_TIER_MAX_MIGRATE_FILES 5000
 
 #endif

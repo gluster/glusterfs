@@ -114,6 +114,120 @@ out:
         return ret;
 }
 
+int
+tier_do_migration (xlator_t *this, int promote)
+{
+        gf_defrag_info_t       *defrag = NULL;
+        dht_conf_t             *conf   = NULL;
+        long                    rand = 0;
+        int                     migrate = 0;
+        gf_tier_conf_t         *tier_conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                goto exit;
+
+        defrag = conf->defrag;
+        if (!defrag)
+                goto exit;
+
+        if (defrag->tier_conf.mode != TIER_MODE_WM) {
+                migrate = 1;
+                goto exit;
+        }
+
+        tier_conf = &defrag->tier_conf;
+
+        switch (tier_conf->watermark_last) {
+        case TIER_WM_LOW:
+                migrate = promote ? 1 : 0;
+                break;
+        case TIER_WM_HI:
+                migrate = promote ? 0 : 1;
+                break;
+        case TIER_WM_MID:
+                rand = random() % 100;
+                if (promote) {
+                        migrate = (rand > tier_conf->percent_full);
+                } else {
+                        migrate = (rand <= tier_conf->percent_full);
+                }
+                break;
+        }
+
+exit:
+        return migrate;
+}
+
+int
+tier_check_watermark (xlator_t *this, loc_t *root_loc)
+{
+        tier_watermark_op_t     wm = TIER_WM_NONE;
+        int                     ret = -1;
+        gf_defrag_info_t       *defrag = NULL;
+        dht_conf_t             *conf   = NULL;
+        dict_t                 *xdata  = NULL;
+        struct statvfs          statfs = {0, };
+        gf_tier_conf_t         *tier_conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                goto exit;
+
+        defrag = conf->defrag;
+        if (!defrag)
+                goto exit;
+
+        tier_conf = &defrag->tier_conf;
+
+        if (tier_conf->mode != TIER_MODE_WM) {
+                ret = 0;
+                goto exit;
+        }
+
+        /* Find how much free space is on the hot subvolume. Then see if that value */
+        /* is less than or greater than user defined watermarks. Stash results in */
+        /* the tier_conf data structure. */
+        ret = syncop_statfs (conf->subvolumes[1], root_loc, &statfs,
+                             xdata, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Unable to obtain statfs.");
+                goto exit;
+        }
+
+        pthread_mutex_lock (&dm_stat_mutex);
+
+        tier_conf->blocks_total = statfs.f_blocks;
+        tier_conf->blocks_used = statfs.f_blocks - statfs.f_bfree;
+
+        tier_conf->percent_full = (100 * tier_conf->blocks_used) /
+                statfs.f_blocks;
+        pthread_mutex_unlock (&dm_stat_mutex);
+
+        if (tier_conf->percent_full < tier_conf->watermark_low) {
+                wm = TIER_WM_LOW;
+
+        } else if (tier_conf->percent_full < tier_conf->watermark_hi) {
+                wm = TIER_WM_MID;
+
+        } else {
+                wm = TIER_WM_HI;
+        }
+
+        if (wm != tier_conf->watermark_last) {
+
+                tier_conf->watermark_last = wm;
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Tier watermark now %d", wm);
+        }
+
+exit:
+        return ret;
+}
+
 static int
 tier_migrate_using_query_file (void *_args)
 {
@@ -141,6 +255,8 @@ tier_migrate_using_query_file (void *_args)
         char *link_str                          = NULL;
         xlator_t *src_subvol                    = NULL;
         dht_conf_t   *conf                      = NULL;
+        uint64_t total_migrated_bytes           = 0;
+        int total_files                         = 0;
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
@@ -155,14 +271,20 @@ tier_migrate_using_query_file (void *_args)
 
         queryFILE = query_cbk_args->queryFILE;
 
-        query_record = gfdb_query_record_init();
+        query_record = gfdb_query_record_init ();
         if (!query_record) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Call to gfdb_query_record_init() failed.");
                 goto out;
         }
 
         query_record->_link_info_str = GF_CALLOC (1, DB_QUERY_RECORD_SIZE,
                                                   gf_common_mt_char);
         if (!query_record->_link_info_str) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Allocating query record link info string failed.");
                 goto out;
         }
         link_buffer = query_record->_link_info_str;
@@ -191,13 +313,14 @@ tier_migrate_using_query_file (void *_args)
                         continue;
                 }
 
+                if (!tier_do_migration (this, query_cbk_args->is_promotion))
+                        continue;
+
                 gf_uuid_parse (gfid_str, query_record->gfid);
 
-                if (dict_get(migrate_data, GF_XATTR_FILE_MIGRATE_KEY))
-                        dict_del(migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
+                dict_del (migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
 
-                if (dict_get(migrate_data, "from.migrator"))
-                        dict_del(migrate_data, "from.migrator");
+                dict_del (migrate_data, "from.migrator");
 
                 token_str = strtok (link_buffer, delimiter);
                 if (token_str != NULL) {
@@ -235,6 +358,7 @@ tier_migrate_using_query_file (void *_args)
 
                 }
                 per_link_status = 0;
+
                 /* Per link of file */
                 while (token_str != NULL) {
 
@@ -270,9 +394,9 @@ tier_migrate_using_query_file (void *_args)
                         ret = syncop_lookup (this, &p_loc, &par_stbuf, NULL,
                                              NULL, NULL);
                         if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        " ERROR in parent lookup\n");
+                                        " Error in parent lookup\n");
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -284,7 +408,7 @@ tier_migrate_using_query_file (void *_args)
                         gf_uuid_copy (loc.gfid, query_record->gfid);
                         loc.inode = inode_new (defrag->root_inode->table);
                         gf_uuid_copy (loc.pargfid, link_info->pargfid);
-                        loc.parent = inode_ref(p_loc.inode);
+                        loc.parent = inode_ref (p_loc.inode);
 
                         loc.name = gf_strdup (link_info->file_name);
                         if (!loc.name) {
@@ -325,7 +449,10 @@ tier_migrate_using_query_file (void *_args)
                          * should be. It means another brick moved the file
                          * so is not an error.
                          */
-                        src_subvol = dht_subvol_get_cached(this, loc.inode);
+                        src_subvol = dht_subvol_get_cached (this, loc.inode);
+
+                        if (src_subvol == NULL)
+                                goto abort;
 
                         if (query_cbk_args->is_promotion &&
                              src_subvol == conf->subvolumes[1]) {
@@ -363,18 +490,48 @@ tier_migrate_using_query_file (void *_args)
                                 goto abort;
                         }
 
-                        if (query_cbk_args->is_promotion)
+                        if (query_cbk_args->is_promotion) {
                                 defrag->total_files_promoted++;
-                        else
+                                total_migrated_bytes +=
+                                        defrag->tier_conf.st_last_promoted_size;
+                                pthread_mutex_lock (&dm_stat_mutex);
+                                defrag->tier_conf.blocks_used +=
+                                        defrag->tier_conf.st_last_promoted_size;
+                                pthread_mutex_unlock (&dm_stat_mutex);
+                        } else {
                                 defrag->total_files_demoted++;
+                                total_migrated_bytes +=
+                                        defrag->tier_conf.st_last_demoted_size;
+                                pthread_mutex_lock (&dm_stat_mutex);
+                                defrag->tier_conf.blocks_used -=
+                                        defrag->tier_conf.st_last_demoted_size;
+                                pthread_mutex_unlock (&dm_stat_mutex);
+                        }
+                        if (defrag->tier_conf.blocks_total) {
+                                pthread_mutex_lock (&dm_stat_mutex);
+                                defrag->tier_conf.percent_full =
+                                        (100 * defrag->tier_conf.blocks_used) /
+                                        defrag->tier_conf.blocks_total;
+                                pthread_mutex_unlock (&dm_stat_mutex);
+                        }
 abort:
-
                         loc_wipe(&loc);
                         loc_wipe(&p_loc);
 
                         token_str = NULL;
                         token_str = strtok (NULL, delimiter);
                         GF_FREE (link_str);
+
+                        if ((++total_files > defrag->tier_conf.max_migrate_files) ||
+                            (total_migrated_bytes > defrag->tier_conf.max_migrate_bytes)) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "Reached cycle migration limit."
+                                        "migrated bytes %"PRId64" files %d",
+                                        total_migrated_bytes,
+                                        total_files);
+                                goto out;
+                        }
                 }
                 per_file_status = per_link_status;
 per_file_out:
@@ -417,7 +574,7 @@ tier_gf_query_callback (gfdb_query_record_t *gfdb_query_record,
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->queryFILE, out);
 
         gf_uuid_unparse (gfdb_query_record->gfid, gfid_str);
-        fprintf (query_cbk_args->queryFILE, "%s|%s|%ld\n", gfid_str,
+        fprintf (query_cbk_args->queryFILE, "%s|%s|%zd\n", gfid_str,
                  gfdb_query_record->_link_info_str,
                  gfdb_query_record->link_info_size);
 
@@ -435,7 +592,7 @@ out:
 
 /*Create query file in tier process*/
 static int
-tier_process_self_query (brick_list_t *local_brick, void *args)
+tier_process_self_query (tier_brick_list_t *local_brick, void *args)
 {
         int ret                                         = -1;
         char *db_path                                   = NULL;
@@ -477,7 +634,7 @@ tier_process_self_query (brick_list_t *local_brick, void *args)
                              db_path, ret, out);
 
         /*Get the db connection*/
-        conn_node = gfdb_methods.init_db((void *)params_dict, dht_tier_db_type);
+        conn_node = gfdb_methods.init_db ((void *)params_dict, dht_tier_db_type);
         if (!conn_node) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -486,8 +643,8 @@ tier_process_self_query (brick_list_t *local_brick, void *args)
         }
 
         /*Query for eligible files from db*/
-        query_cbk_args->queryFILE = fopen(GET_QFILE_PATH
-                                (gfdb_brick_dict_info->_gfdb_promote), "a+");
+        query_cbk_args->queryFILE = fopen (
+                GET_QFILE_PATH (gfdb_brick_dict_info->_gfdb_promote), "a+");
         if (!query_cbk_args->queryFILE) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -592,7 +749,7 @@ out:
 
 /*Ask CTR to create the query file*/
 static int
-tier_process_ctr_query (brick_list_t *local_brick, void *args)
+tier_process_ctr_query (tier_brick_list_t *local_brick, void *args)
 {
         int ret                                         = -1;
         query_cbk_args_t *query_cbk_args                = NULL;
@@ -720,7 +877,7 @@ out:
  * It picks up each bricks db and queries for eligible files for migration.
  * The list of eligible files are populated in appropriate query files*/
 static int
-tier_process_brick (brick_list_t *local_brick, void *args) {
+tier_process_brick (tier_brick_list_t *local_brick, void *args) {
         int ret = -1;
         dict_t *ctr_ipc_in_dict = NULL;
         dict_t *ctr_ipc_out_dict = NULL;
@@ -834,7 +991,7 @@ tier_build_migration_qfile (demotion_args_t *args,
         _gfdb_brick_dict_info_t         gfdb_brick_dict_info;
         gfdb_time_t                     time_in_past;
         int                             ret = -1;
-        brick_list_t                    *local_brick = NULL;
+        tier_brick_list_t                    *local_brick = NULL;
 
         /*
          *  The first time this function is called, query file will
@@ -929,8 +1086,8 @@ tier_demote (void *args)
         query_cbk_args.is_promotion = 0;
 
         /*Build the query file using bricklist*/
-        ret = tier_build_migration_qfile(demotion_args, &query_cbk_args,
-                                    _gf_false);
+        ret = tier_build_migration_qfile (demotion_args, &query_cbk_args,
+                                          _gf_false);
         if (ret)
                 goto out;
 
@@ -967,8 +1124,8 @@ static void
         query_cbk_args.is_promotion = 1;
 
         /*Build the query file using bricklist*/
-        ret = tier_build_migration_qfile(promotion_args, &query_cbk_args,
-                                         _gf_true);
+        ret = tier_build_migration_qfile (promotion_args, &query_cbk_args,
+                                          _gf_true);
         if (ret)
                 goto out;
 
@@ -994,7 +1151,7 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
         char           *brickname = NULL;
         char            db_name[PATH_MAX] = "";
         int             ret = 0;
-        brick_list_t    *local_brick = NULL;
+        tier_brick_list_t    *local_brick = NULL;
 
         GF_VALIDATE_OR_GOTO ("tier", xl, out);
         GF_VALIDATE_OR_GOTO ("tier", local_bricklist_head, out);
@@ -1006,19 +1163,19 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
          * those running on the same node as the tier daemon.
          */
         if (strcmp(xl->type, "protocol/client") == 0) {
-                ret = dict_get_str(xl->options, "remote-host", &rh);
+                ret = dict_get_str (xl->options, "remote-host", &rh);
                 if (ret < 0)
                         goto out;
 
-               if (gf_is_local_addr (rh)) {
+                if (gf_is_local_addr (rh)) {
 
-                       local_brick = GF_CALLOC (1, sizeof(brick_list_t),
+                       local_brick = GF_CALLOC (1, sizeof(tier_brick_list_t),
                                                 gf_tier_mt_bricklist_t);
                         if (!local_brick) {
                                 goto out;
                         }
 
-                        ret = dict_get_str(xl->options, "remote-subvolume",
+                        ret = dict_get_str (xl->options, "remote-subvolume",
                                            &rv);
                         if (ret < 0)
                                 goto out;
@@ -1051,7 +1208,7 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
         }
 
         for (child = xl->children; child; child = child->next) {
-                ret = tier_get_bricklist(child->xlator, local_bricklist_head);
+                ret = tier_get_bricklist (child->xlator, local_bricklist_head);
                 if (ret) {
                         goto out;
                 }
@@ -1070,11 +1227,50 @@ out:
         return ret;
 }
 
+int
+tier_get_freq_demote (gf_tier_conf_t *tier_conf)
+{
+        if ((tier_conf->mode == TIER_MODE_WM) &&
+            (tier_conf->watermark_last == TIER_WM_HI))
+                return DEFAULT_DEMOTE_DEGRADED;
+        else
+                return tier_conf->tier_demote_frequency;
+}
+
+int
+tier_get_freq_promote (gf_tier_conf_t *tier_conf)
+{
+        return tier_conf->tier_promote_frequency;
+}
+
+static int
+tier_check_demote (gfdb_time_t  current_time,
+                   int freq_demote)
+{
+        return ((current_time.tv_sec % freq_demote) == 0) ?
+                _gf_true : _gf_false;
+}
+
+static gf_boolean_t
+tier_check_promote (gf_tier_conf_t   *tier_conf,
+                    gfdb_time_t  current_time,
+                    int freq_promote)
+{
+        if ((tier_conf->mode == TIER_MODE_WM) &&
+            (tier_conf->watermark_last == TIER_WM_HI))
+                return _gf_false;
+
+        else
+                return ((current_time.tv_sec % freq_promote) == 0) ?
+                        _gf_true : _gf_false;
+}
+
+
 void
 clear_bricklist (struct list_head *brick_list)
 {
-        brick_list_t  *local_brick      = NULL;
-        brick_list_t  *temp             = NULL;
+        tier_brick_list_t  *local_brick      = NULL;
+        tier_brick_list_t  *temp             = NULL;
 
         if (list_empty(brick_list)) {
                 return;
@@ -1105,9 +1301,11 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         pthread_t promote_thread;
         pthread_t demote_thread;
         gf_boolean_t  is_promotion_triggered = _gf_false;
-        gf_boolean_t  is_demotion_triggered = _gf_false;
-        xlator_t                *any        = NULL;
-        xlator_t                *xlator       = NULL;
+        gf_boolean_t  is_demotion_triggered  = _gf_false;
+        xlator_t                *any         = NULL;
+        xlator_t                *xlator      = NULL;
+        gf_tier_conf_t    *tier_conf   = NULL;
+        loc_t      root_loc = { 0 };
 
         conf   = this->private;
 
@@ -1122,6 +1320,9 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         " demote %d", freq_promote, freq_demote);
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
+        tier_conf = &defrag->tier_conf;
+
+        dht_build_root_loc (defrag->root_inode, &root_loc);
 
         while (1) {
 
@@ -1130,7 +1331,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                  * thread. It will need to be restarted manually.
                  */
                 any = THIS->ctx->active->first;
-                xlator = xlator_search_by_name(any, this->name);
+                xlator = xlator_search_by_name (any, this->name);
 
                 if (xlator != this) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
@@ -1160,10 +1361,6 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                freq_promote = defrag->tier_promote_frequency;
-                freq_demote  = defrag->tier_demote_frequency;
-
-
                 /* To have proper synchronization amongst all
                  * brick holding nodes, so that promotion and demotions
                  * start atomicly w.r.t promotion/demotion frequency
@@ -1178,18 +1375,29 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                is_demotion_triggered = ((current_time.tv_sec %
-                                        freq_demote) == 0) ? _gf_true :
-                                        _gf_false;
-                is_promotion_triggered = ((current_time.tv_sec %
-                                        freq_promote) == 0) ? _gf_true :
-                                        _gf_false;
+                freq_demote = tier_get_freq_demote (tier_conf);
+
+                is_demotion_triggered = tier_check_demote (current_time,
+                                                           freq_demote);
+
+                freq_promote = tier_get_freq_promote(tier_conf);
+
+                is_promotion_triggered = tier_check_promote (tier_conf,
+                                                             current_time,
+                                                             freq_promote);
 
                 /* If no promotion and no demotion is
-                 * scheduled/triggered skip a iteration */
+                 * scheduled/triggered skip an iteration */
                 if (!is_promotion_triggered && !is_demotion_triggered)
                         continue;
 
+                ret = tier_check_watermark (this, &root_loc);
+                if (ret != 0) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                DHT_MSG_LOG_TIER_ERROR,
+                                "Failed to get watermark");
+                        goto out;
+                }
 
                 ret_promotion = -1;
                 ret_demotion = -1;
@@ -1297,8 +1505,8 @@ tier_migration_get_dst (xlator_t *this, dht_local_t *local)
         int32_t                  ret = -1;
         gf_defrag_info_t        *defrag = NULL;
 
-        GF_VALIDATE_OR_GOTO("tier", this, out);
-        GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
         conf = this->private;
 
@@ -1332,10 +1540,10 @@ tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
         int                      layout_cold = 0;
         int                      layout_hot = 1;
 
-        GF_VALIDATE_OR_GOTO("tier", this, out);
-        GF_VALIDATE_OR_GOTO(this->name, layout, out);
-        GF_VALIDATE_OR_GOTO(this->name, name, out);
-        GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, layout, out);
+        GF_VALIDATE_OR_GOTO (this->name, name, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
         conf = this->private;
 
@@ -1389,7 +1597,7 @@ tier_load_externals (xlator_t *this)
         char *libpathfull = (LIBDIR "/libgfdb.so.0");
         get_gfdb_methods_t get_gfdb_methods;
 
-        GF_VALIDATE_OR_GOTO("this", this, out);
+        GF_VALIDATE_OR_GOTO ("this", this, out);
 
         libhandle = dlopen (libpathfull, RTLD_NOW);
         if (!libhandle) {
@@ -1420,6 +1628,20 @@ out:
         return ret;
 }
 
+static
+int tier_validate_mode (char *mode)
+{
+        int ret = -1;
+
+        if (strcmp (mode, "test") == 0) {
+                ret = TIER_MODE_TEST;
+        } else {
+                ret = TIER_MODE_WM;
+        }
+
+        return ret;
+}
+
 int
 tier_init (xlator_t *this)
 {
@@ -1428,10 +1650,11 @@ tier_init (xlator_t *this)
         dht_conf_t       *conf           = NULL;
         gf_defrag_info_t *defrag         = NULL;
         char             *voldir         = NULL;
+        char             *mode           = NULL;
 
-        ret = dht_init(this);
+        ret = dht_init (this);
         if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_LOG_TIER_ERROR,
                        "dht_init failed");
                 goto out;
@@ -1442,7 +1665,7 @@ tier_init (xlator_t *this)
         conf->methods = &tier_methods;
 
         if (conf->subvolume_cnt != 2) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_LOG_TIER_ERROR,
                        "Invalid number of subvolumes %d", conf->subvolume_cnt);
                 goto out;
@@ -1455,7 +1678,7 @@ tier_init (xlator_t *this)
         }
 
         /* if instatiated from server side, load db libraries */
-        ret = tier_load_externals(this);
+        ret = tier_load_externals (this);
         if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_LOG_TIER_ERROR,
@@ -1465,13 +1688,15 @@ tier_init (xlator_t *this)
 
         defrag = conf->defrag;
 
+        defrag->tier_conf.is_tier = 1;
+
         ret = dict_get_int32 (this->options,
                               "tier-promote-frequency", &freq);
         if (ret) {
                 freq = DEFAULT_PROMOTE_FREQ_SEC;
         }
 
-        defrag->tier_promote_frequency = freq;
+        defrag->tier_conf.tier_promote_frequency = freq;
 
         ret = dict_get_int32 (this->options,
                               "tier-demote-frequency", &freq);
@@ -1479,7 +1704,23 @@ tier_init (xlator_t *this)
                 freq = DEFAULT_DEMOTE_FREQ_SEC;
         }
 
-        defrag->tier_demote_frequency = freq;
+        defrag->tier_conf.tier_demote_frequency = freq;
+
+        ret = dict_get_int32 (this->options,
+                              "watermark-hi", &freq);
+        if (ret) {
+                freq = DEFAULT_WM_HI;
+        }
+
+        defrag->tier_conf.watermark_hi = freq;
+
+        ret = dict_get_int32 (this->options,
+                              "watermark-low", &freq);
+        if (ret) {
+                freq = DEFAULT_WM_LOW;
+        }
+
+        defrag->tier_conf.watermark_low = freq;
 
         ret = dict_get_int32 (this->options,
                               "write-freq-threshold", &freq);
@@ -1497,7 +1738,38 @@ tier_init (xlator_t *this)
 
         defrag->read_freq_threshold = freq;
 
-        ret = gf_asprintf(&voldir, "%s/%s",
+        ret = dict_get_int32 (this->options,
+                              "tier-max-mb", &freq);
+        if (ret) {
+                freq = DEFAULT_TIER_MAX_MIGRATE_MB;
+        }
+
+        defrag->tier_conf.max_migrate_bytes = freq * 1024 * 1024;
+
+        ret = dict_get_int32 (this->options,
+                              "tier-max-files", &freq);
+        if (ret) {
+                freq = DEFAULT_TIER_MAX_MIGRATE_FILES;
+        }
+
+        defrag->tier_conf.max_migrate_files = freq;
+
+        ret = dict_get_str (this->options,
+                            "tier-mode", &mode);
+        if (ret) {
+                defrag->tier_conf.mode = DEFAULT_TIER_MODE;
+        } else {
+                ret = tier_validate_mode (mode);
+                if (ret < 0) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               DHT_MSG_LOG_TIER_ERROR,
+                               "tier_init failed - invalid mode");
+                        goto out;
+                }
+                defrag->tier_conf.mode = ret;
+        }
+
+        ret = gf_asprintf (&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
                           this->name);
         if (ret < 0)
@@ -1505,7 +1777,7 @@ tier_init (xlator_t *this)
 
         ret = mkdir_p(voldir, 0777, _gf_true);
         if (ret == -1 && errno != EEXIST) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_LOG_TIER_ERROR,
                        "tier_init failed");
 
@@ -1515,37 +1787,37 @@ tier_init (xlator_t *this)
 
         GF_FREE(voldir);
 
-        ret = gf_asprintf(&promotion_qfile, "%s/%s/%s-%s",
-                          DEFAULT_VAR_RUN_DIRECTORY,
-                          this->name,
-                          PROMOTION_QFILE,
-                          this->name);
+        ret = gf_asprintf (&promotion_qfile, "%s/%s/%s-%s",
+                           DEFAULT_VAR_RUN_DIRECTORY,
+                           this->name,
+                           PROMOTION_QFILE,
+                           this->name);
         if (ret < 0)
                 goto out;
 
-        ret = gf_asprintf(&demotion_qfile, "%s/%s/%s-%s",
-                          DEFAULT_VAR_RUN_DIRECTORY,
-                          this->name,
-                          DEMOTION_QFILE,
-                          this->name);
+        ret = gf_asprintf (&demotion_qfile, "%s/%s/%s-%s",
+                           DEFAULT_VAR_RUN_DIRECTORY,
+                           this->name,
+                           DEMOTION_QFILE,
+                           this->name);
         if (ret < 0) {
-                GF_FREE(promotion_qfile);
+                GF_FREE (promotion_qfile);
                 goto out;
         }
 
-        unlink(promotion_qfile);
-        unlink(demotion_qfile);
+        unlink (promotion_qfile);
+        unlink (demotion_qfile);
 
-        gf_msg(this->name, GF_LOG_INFO, 0,
-               DHT_MSG_LOG_TIER_STATUS,
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                DHT_MSG_LOG_TIER_STATUS,
                "Promote/demote frequency %d/%d "
                "Write/Read freq thresholds %d/%d",
-               defrag->tier_promote_frequency,
-               defrag->tier_demote_frequency,
+               defrag->tier_conf.tier_promote_frequency,
+               defrag->tier_conf.tier_demote_frequency,
                defrag->write_freq_threshold,
                defrag->read_freq_threshold);
 
-        gf_msg(this->name, GF_LOG_INFO, 0,
+        gf_msg (this->name, GF_LOG_INFO, 0,
                DHT_MSG_LOG_TIER_STATUS,
                "Promote file %s demote file %s",
                promotion_qfile, demotion_qfile);
@@ -1563,18 +1835,19 @@ tier_reconfigure (xlator_t *this, dict_t *options)
 {
         dht_conf_t       *conf           = NULL;
         gf_defrag_info_t *defrag         = NULL;
-
+        char             *mode           = NULL;
+        int               migrate_mb     = 0;
         conf = this->private;
 
         if (conf->defrag) {
                 defrag = conf->defrag;
                 GF_OPTION_RECONF ("tier-promote-frequency",
-                                  defrag->tier_promote_frequency, options,
-                                  int32, out);
+                                  defrag->tier_conf.tier_promote_frequency,
+                                  options, int32, out);
 
                 GF_OPTION_RECONF ("tier-demote-frequency",
-                                  defrag->tier_demote_frequency, options,
-                                  int32, out);
+                                  defrag->tier_conf.tier_demote_frequency,
+                                  options, int32, out);
 
                 GF_OPTION_RECONF ("write-freq-threshold",
                                   defrag->write_freq_threshold, options,
@@ -1582,6 +1855,28 @@ tier_reconfigure (xlator_t *this, dict_t *options)
 
                 GF_OPTION_RECONF ("read-freq-threshold",
                                   defrag->read_freq_threshold, options,
+                                  int32, out);
+
+                GF_OPTION_RECONF ("watermark-hi",
+                                  defrag->tier_conf.watermark_hi, options,
+                                  int32, out);
+
+                GF_OPTION_RECONF ("watermark-low",
+                                  defrag->tier_conf.watermark_low, options,
+                                  int32, out);
+
+                GF_OPTION_RECONF ("tier-mode",
+                                  mode, options,
+                                  str, out);
+                defrag->tier_conf.mode = tier_validate_mode (mode);
+
+                GF_OPTION_RECONF ("tier-max-mb",
+                                  migrate_mb, options,
+                                  int32, out);
+                defrag->tier_conf.max_migrate_bytes = migrate_mb*1024*1024;
+
+                GF_OPTION_RECONF ("tier-max-files",
+                                  defrag->tier_conf.max_migrate_files, options,
                                   int32, out);
         }
 
@@ -1593,10 +1888,10 @@ void
 tier_fini (xlator_t *this)
 {
         if (libhandle)
-                dlclose(libhandle);
+                dlclose (libhandle);
 
-        GF_FREE(demotion_qfile);
-        GF_FREE(promotion_qfile);
+        GF_FREE (demotion_qfile);
+        GF_FREE (promotion_qfile);
 
         dht_fini(this);
 }
