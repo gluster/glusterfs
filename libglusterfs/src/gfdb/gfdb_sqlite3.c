@@ -69,17 +69,17 @@ gf_sql_str2jm (const char *jm_str)
 {
         if (!jm_str) {
                 return gf_sql_jm_invalid;
-        } else if (strcmp(jm_str, GF_SQL_JM_DELETE) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_DELETE) == 0) {
                 return gf_sql_jm_delete;
-        } else if (strcmp(jm_str, GF_SQL_JM_TRUNCATE) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_TRUNCATE) == 0) {
                 return gf_sql_jm_truncate;
-        } else if (strcmp(jm_str, GF_SQL_JM_PERSIST) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_PERSIST) == 0) {
                 return gf_sql_jm_persist;
-        } else if (strcmp(jm_str, GF_SQL_JM_MEMORY) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_MEMORY) == 0) {
                 return gf_sql_jm_memory;
-        } else if (strcmp(jm_str, GF_SQL_JM_WAL) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_WAL) == 0) {
                 return gf_sql_jm_wal;
-        } else if (strcmp(jm_str, GF_SQL_JM_OFF) == 0) {
+        } else if (strcmp (jm_str, GF_SQL_JM_OFF) == 0) {
                 return gf_sql_jm_off;
         }
         return gf_sql_jm_invalid;
@@ -106,11 +106,11 @@ gf_sql_str2av_t (const char *av_str)
 {
         if (!av_str) {
                 return gf_sql_sync_invalid;
-        } else if (strcmp(av_str, GF_SQL_AV_NONE) == 0) {
+        } else if (strcmp (av_str, GF_SQL_AV_NONE) == 0) {
                 return gf_sql_av_none;
-        } else if (strcmp(av_str, GF_SQL_AV_FULL) == 0) {
+        } else if (strcmp (av_str, GF_SQL_AV_FULL) == 0) {
                 return gf_sql_av_full;
-        } else if (strcmp(av_str, GF_SQL_AV_INCR) == 0) {
+        } else if (strcmp (av_str, GF_SQL_AV_INCR) == 0) {
                 return gf_sql_av_incr;
         }
         return gf_sql_sync_invalid;
@@ -137,11 +137,11 @@ gf_sql_str2sync_t (const char *sync_str)
 {
         if (!sync_str) {
                 return gf_sql_sync_invalid;
-        } else if (strcmp(sync_str, GF_SQL_SYNC_OFF) == 0) {
+        } else if (strcmp (sync_str, GF_SQL_SYNC_OFF) == 0) {
                 return gf_sql_sync_off;
-        } else if (strcmp(sync_str, GF_SQL_SYNC_NORMAL) == 0) {
+        } else if (strcmp (sync_str, GF_SQL_SYNC_NORMAL) == 0) {
                 return gf_sql_sync_normal;
-        } else if (strcmp(sync_str, GF_SQL_SYNC_FULL) == 0) {
+        } else if (strcmp (sync_str, GF_SQL_SYNC_FULL) == 0) {
                 return gf_sql_sync_full;
         }
         return gf_sql_sync_invalid;
@@ -188,11 +188,11 @@ gf_open_sqlite3_conn(char *sqlite3_db_path, int flags)
         GF_ASSERT (sqlite3_db_path);
 
         /*Creates DB if not created*/
-        ret = sqlite3_open_v2(sqlite3_db_path, &sqlite3_db_conn, flags, NULL);
+        ret = sqlite3_open_v2 (sqlite3_db_path, &sqlite3_db_conn, flags, NULL);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_DB_ERROR,
                         "FATAL: Could open %s : %s",
-                        sqlite3_db_path, sqlite3_errmsg(sqlite3_db_conn));
+                        sqlite3_db_path, sqlite3_errmsg (sqlite3_db_conn));
         }
         return sqlite3_db_conn;
 }
@@ -210,7 +210,7 @@ gf_close_sqlite3_conn(sqlite3 *sqlite3_db_conn)
                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                 LG_MSG_CONNECTION_ERROR, "FATAL: sqlite3 close"
                                 " connection failed %s",
-                                sqlite3_errmsg(sqlite3_db_conn));
+                                sqlite3_errmsg (sqlite3_db_conn));
                         ret = -1;
                         goto out;
                 }
@@ -250,6 +250,10 @@ gf_sqlite3_fill_db_operations(gfdb_db_operations_t  *gfdb_db_ops)
                         gf_sqlite3_find_recently_changed_files_freq;
 
         gfdb_db_ops->clear_files_heat_op = gf_sqlite3_clear_files_heat;
+
+        gfdb_db_ops->get_db_version = gf_sqlite3_version;
+
+        gfdb_db_ops->get_db_setting = gf_sqlite3_pragma;
 }
 
 
@@ -262,7 +266,7 @@ create_filetable (sqlite3 *sqlite3_db_conn)
 
         GF_ASSERT(sqlite3_db_conn);
 
-        sql_stmt = sql_stmt_init();
+        sql_stmt = sql_stmt_init ();
         if (!sql_stmt) {
                 ret = ENOMEM;
                 goto out;
@@ -306,7 +310,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
         GET_DB_PARAM_FROM_DICT_DEFAULT(GFDB_STR_SQLITE3, param_dict,
                         GFDB_SQL_PARAM_PAGE_SIZE, temp_str,
                         GF_SQL_DEFAULT_PAGE_SIZE);
-        sql_conn->page_size = atoi(temp_str);
+        sql_conn->page_size = atoi (temp_str);
         /*Apply page_size on the sqlite db*/
         GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "page_size", "%zd",
                         sql_conn->page_size, ret, out);
@@ -320,7 +324,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
         GET_DB_PARAM_FROM_DICT_DEFAULT(GFDB_STR_SQLITE3, param_dict,
                         GFDB_SQL_PARAM_CACHE_SIZE, temp_str,
                         GF_SQL_DEFAULT_CACHE_SIZE);
-        sql_conn->cache_size = atoi(temp_str);
+        sql_conn->cache_size = atoi (temp_str);
         /*Apply cache size on the sqlite db*/
         GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, "cache_size", "%zd",
                         sql_conn->cache_size, ret, out);
@@ -407,7 +411,7 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
                 return 0;
         }
 
-        if (!sqlite3_threadsafe()) {
+        if (!sqlite3_threadsafe ()) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_NOT_MULTITHREAD_MODE,
                         "sqlite3 is not in multithreaded mode");
@@ -448,7 +452,7 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
 
 
         /*Apply sqlite3 params to database*/
-        ret = apply_sql_params_db(sql_conn, args);
+        ret = apply_sql_params_db (sql_conn, args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_SET_PARAM_FAILED, "Failed applying sql params"
@@ -489,7 +493,7 @@ gf_sqlite3_fini (void **db_conn)
 
         if (sql_conn) {
                 if (sql_conn->sqlite3_db_conn) {
-                        ret = gf_close_sqlite3_conn(sql_conn->sqlite3_db_conn);
+                        ret = gf_close_sqlite3_conn (sql_conn->sqlite3_db_conn);
                         if (ret) {
                                 /*Logging of error done in
                                  * gf_close_sqlite3_conn()*/
@@ -523,7 +527,7 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
 
         /*This is for debugging bug. Will be removed with a bug fix*/
         if ((GFDB_FOP_WIND == gfdb_db_record->gfdb_fop_path) &&
-            (strncmp(gfdb_db_record->file_path, "<gfid", 5) == 0)) {
+            (strncmp (gfdb_db_record->file_path, "<gfid", 5) == 0)) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_SKIP_PATH,
                         "Skip path <gfid fop=%d",
                         gfdb_db_record->gfdb_fop_type);
@@ -532,7 +536,7 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
 
         switch (gfdb_db_record->gfdb_fop_path) {
         case GFDB_FOP_WIND:
-                ret = gf_sql_insert_wind(sql_conn, gfdb_db_record);
+                ret = gf_sql_insert_wind (sql_conn, gfdb_db_record);
                 if (ret) {
                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                 LG_MSG_INSERT_FAILED, "Failed wind insert");
@@ -549,7 +553,7 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
                 break;
 
         case GFDB_FOP_WDEL:
-                ret = gf_sql_update_delete_wind(sql_conn, gfdb_db_record);
+                ret = gf_sql_update_delete_wind (sql_conn, gfdb_db_record);
                 if (ret) {
                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                 LG_MSG_UPDATE_FAILED, "Failed updating delete "
@@ -559,7 +563,7 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
                 break;
         case GFDB_FOP_UNDEL:
         case GFDB_FOP_UNDEL_ALL:
-                ret = gf_sql_delete_unwind(sql_conn, gfdb_db_record);
+                ret = gf_sql_delete_unwind (sql_conn, gfdb_db_record);
                 if (ret) {
                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                 LG_MSG_DELETE_FAILED, "Failed deleting");
@@ -625,18 +629,18 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
                    "GF_FILE_TB.GF_ID = GF_FLINK_TB.GF_ID) from GF_FILE_TB ;";
 
 
-        ret = sqlite3_prepare(sql_conn->sqlite3_db_conn, query_str, -1,
+        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
                                 &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing statment %s :"
                         "%s", query_str,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
-        ret = gf_sql_query_function(prep_stmt, query_callback, query_cbk_args);
+        ret = gf_sql_query_function (prep_stmt, query_callback, query_cbk_args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed Query %s", query_str);
@@ -645,7 +649,7 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
 
         ret = 0;
 out:
-        sqlite3_finalize(prep_stmt);
+        sqlite3_finalize (prep_stmt);
         return ret;
 }
 
@@ -685,43 +689,43 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") >= ?)";
 
-        from_time_usec = gfdb_time_2_usec(from_time);
+        from_time_usec = gfdb_time_2_usec (from_time);
 
-        ret = sqlite3_prepare(sql_conn->sqlite3_db_conn, query_str, -1,
-                                &prep_stmt, 0);
+        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
+                               &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing statment %s :"
                         " %s", query_str,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind write wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 1, from_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 1, from_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
                         "%"PRIu64" : %s", from_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind read wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 2, from_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 2, from_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
                         "%"PRIu64" : %s ", from_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Execute the query*/
-        ret = gf_sql_query_function(prep_stmt, query_callback, query_cbk_args);
+        ret = gf_sql_query_function (prep_stmt, query_callback, query_cbk_args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed Query %s", query_str);
@@ -730,7 +734,7 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
 
         ret = 0;
 out:
-        sqlite3_finalize(prep_stmt);
+        sqlite3_finalize (prep_stmt);
         return ret;
 }
 
@@ -770,43 +774,43 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") <= ?)";
 
-        for_time_usec = gfdb_time_2_usec(for_time);
+        for_time_usec = gfdb_time_2_usec (for_time);
 
-        ret = sqlite3_prepare(sql_conn->sqlite3_db_conn, query_str, -1,
-                                &prep_stmt, 0);
+        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
+                               &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing statment %s :"
                         " %s", query_str,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind write wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 1, for_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 1, for_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
                         "%"PRIu64" : %s", for_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind read wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 2, for_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 2, for_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
                         "%"PRIu64" : %s", for_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Execute the query*/
-        ret = gf_sql_query_function(prep_stmt, query_callback, query_cbk_args);
+        ret = gf_sql_query_function (prep_stmt, query_callback, query_cbk_args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed Query %s", query_str);
@@ -815,7 +819,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
 
         ret = 0;
 out:
-        sqlite3_finalize(prep_stmt);
+        sqlite3_finalize (prep_stmt);
         return ret;
 }
 
@@ -867,66 +871,66 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
                 GF_COL_TB_RWMSEC ") >= ?)"
                 " AND "" (" GF_COL_TB_RFC " >= ? ) )";
 
-        from_time_usec = gfdb_time_2_usec(from_time);
+        from_time_usec = gfdb_time_2_usec (from_time);
 
-        ret = sqlite3_prepare(sql_conn->sqlite3_db_conn, query_str, -1,
+        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
                                 &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing statment %s :"
                         " %s", query_str,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind write wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 1, from_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 1, from_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
                         "%"PRIu64" : %s", from_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind write frequency thresold*/
-        ret = sqlite3_bind_int(prep_stmt, 2, freq_write_cnt);
+        ret = sqlite3_bind_int (prep_stmt, 2, freq_write_cnt);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding freq_write_cnt "
                         "%d : %s", freq_write_cnt,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
 
         /*Bind read wind time*/
-        ret = sqlite3_bind_int64(prep_stmt, 3, from_time_usec);
+        ret = sqlite3_bind_int64 (prep_stmt, 3, from_time_usec);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding from_time_usec "
                         "%"PRIu64" : %s", from_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Bind read frequency thresold*/
-        ret = sqlite3_bind_int(prep_stmt, 4, freq_read_cnt);
+        ret = sqlite3_bind_int (prep_stmt, 4, freq_read_cnt);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding freq_read_cnt "
                         "%d : %s", freq_read_cnt,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
 
         /*Execute the query*/
-        ret = gf_sql_query_function(prep_stmt, query_callback, query_cbk_args);
+        ret = gf_sql_query_function (prep_stmt, query_callback, query_cbk_args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed Query %s", query_str);
@@ -937,7 +941,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
 
         /*Clear counters*/
         if (clear_counters) {
-                ret = gf_sql_clear_counters(sql_conn);
+                ret = gf_sql_clear_counters (sql_conn);
                 if (ret) {
                         gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                                 LG_MSG_CLEAR_COUNTER_FAILED, "Failed clearing"
@@ -1012,7 +1016,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 GF_COL_TB_RWMSEC ") >= ? ) ) )";
 
 
-        for_time_usec = gfdb_time_2_usec(for_time);
+        for_time_usec = gfdb_time_2_usec (for_time);
 
         ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
                                 &prep_stmt, 0);
@@ -1020,7 +1024,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing delete "
                         "statment %s : %s", query_str,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1031,7 +1035,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
                         "%"PRIu64" : %s", for_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1042,7 +1046,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding freq_write_cnt"
                         " %d : %s", freq_write_cnt,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1053,7 +1057,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
                         "%"PRIu64" : %s", for_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1066,7 +1070,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding for_time_usec "
                         "%"PRIu64" : %s", for_time_usec,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1077,7 +1081,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding freq_read_cnt "
                         "%d : %s", freq_read_cnt,
-                        sqlite3_errmsg(sql_conn->sqlite3_db_conn));
+                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
         }
@@ -1115,7 +1119,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
 
         ret = 0;
 out:
-        sqlite3_finalize(prep_stmt);
+        sqlite3_finalize (prep_stmt);
         return ret;
 }
 
@@ -1141,3 +1145,120 @@ out:
         return ret;
 }
 
+
+/* Function to extract version of sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char **version  : the version is extracted as a string and will be stored in
+ *                   this variable. The freeing of the memory should be done by
+ *                   the caller.
+ * Return:
+ *      On success return the lenght of the version string that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_version (void *db_conn, char **version)
+{
+        int ret = -1;
+        gf_sql_connection_t *sql_conn           =       db_conn;
+        sqlite3_stmt *pre_stmt = NULL;
+
+        CHECK_SQL_CONN (sql_conn, out);
+
+        ret = sqlite3_prepare_v2 (sql_conn->sqlite3_db_conn,
+                                "SELECT SQLITE_VERSION()",
+                                -1, &pre_stmt, 0);
+        if (ret != SQLITE_OK) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_PREPARE_FAILED, "Failed init prepare stmt %s",
+                        sqlite3_errmsg (db_conn));
+                ret = -1;
+                goto out;
+        }
+
+        ret = sqlite3_step(pre_stmt);
+        if (ret != SQLITE_ROW) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_GET_RECORD_FAILED, "Failed to get records "
+                        "from db : %s", sqlite3_errmsg (db_conn));
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_asprintf (version, "%s", sqlite3_column_text (pre_stmt, 0));
+        if (ret <= 0) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
+                        "Failed extracting version");
+        }
+
+out:
+        sqlite3_finalize (pre_stmt);
+
+        return ret;
+}
+
+
+
+/* Function to extract PRAGMA or setting from sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char *pragma_key     : PRAGMA or setting to be extracted
+ * char **pragma_value  : the value of the PRAGMA or setting that is
+ *                        extracted. This function will allocate memory
+ *                        to pragma_value. The caller should free the memory
+ * Return:
+ *      On success return the lenght of the pragma/setting value that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value)
+{
+        int ret = -1;
+        gf_sql_connection_t *sql_conn = db_conn;
+        sqlite3_stmt *pre_stmt = NULL;
+        char *sqlstring = NULL;
+
+        CHECK_SQL_CONN (sql_conn, out);
+        GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, pragma_key, out);
+
+        ret = gf_asprintf (&sqlstring, "PRAGMA %s;", pragma_key);
+        if (ret <= 0) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_PREPARE_FAILED, "Failed allocating memory");
+                goto out;
+        }
+
+        ret = sqlite3_prepare_v2 (sql_conn->sqlite3_db_conn,
+                                  sqlstring, -1, &pre_stmt, 0);
+        if (ret != SQLITE_OK) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_PREPARE_FAILED, "Failed init prepare stmt %s",
+                        sqlite3_errmsg (db_conn));
+                ret = -1;
+                goto out;
+        }
+
+        ret = sqlite3_step (pre_stmt);
+        if (ret != SQLITE_ROW) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_GET_RECORD_FAILED, "Failed to get records "
+                        "from db : %s", sqlite3_errmsg (db_conn));
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_asprintf (pragma_value, "%s", sqlite3_column_text (pre_stmt, 0));
+        if (ret <= 0) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
+                        "Failed to get version");
+        }
+
+out:
+        GF_FREE (sqlstring);
+
+        sqlite3_finalize (pre_stmt);
+
+        return ret;
+}

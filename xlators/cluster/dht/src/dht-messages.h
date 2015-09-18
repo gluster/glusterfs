@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           106
+#define GLFS_DHT_NUM_MESSAGES           107
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -993,5 +993,14 @@
  */
 
 #define DHT_MSG_HAS_MIGINFO             (GLFS_DHT_BASE + 106)
+
+/*
+ * @messageid 109107
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LOG_IPC_TIER_ERROR      (GLFS_DHT_BASE + 107)
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */

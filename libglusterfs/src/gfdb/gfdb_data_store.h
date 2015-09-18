@@ -20,6 +20,42 @@
 
 #include "gfdb_data_store_types.h"
 
+#define GFDB_IPC_CTR_KEY "gfdb.ipc-ctr-op"
+
+/*
+ * CTR IPC OPERATIONS
+ *
+ *
+ */
+#define GFDB_IPC_CTR_QUERY_OPS "gfdb.ipc-ctr-query-op"
+#define GFDB_IPC_CTR_CLEAR_OPS "gfdb.ipc-ctr-clear-op"
+#define GFDB_IPC_CTR_GET_DB_PARAM_OPS "gfdb.ipc-ctr-get-db-parm"
+#define GFDB_IPC_CTR_GET_DB_VERSION_OPS "gfdb.ipc-ctr-get-db-version"
+
+/*
+ * CTR IPC INPUT/OUTPUT
+ *
+ *
+ */
+#define GFDB_IPC_CTR_GET_QFILE_PATH "gfdb.ipc-ctr-get-qfile-path"
+#define GFDB_IPC_CTR_GET_QUERY_PARAMS "gfdb.ipc-ctr-get-query-parms"
+#define GFDB_IPC_CTR_RET_QUERY_COUNT "gfdb.ipc-ctr-ret-rec-count"
+#define GFDB_IPC_CTR_GET_DB_KEY "gfdb.ipc-ctr-get-params-key"
+#define GFDB_IPC_CTR_RET_DB_VERSION "gfdb.ipc-ctr-ret-db-version"
+
+/*
+ * gfdb ipc ctr params for query
+ *
+ *
+ */
+typedef struct gfdb_ipc_ctr_params {
+        gf_boolean_t is_promote;
+        int write_freq_threshold;
+        int read_freq_threshold;
+        gfdb_time_t time_stamp;
+} gfdb_ipc_ctr_params_t;
+
+
 /* GFDB Connection Node:
  * ~~~~~~~~~~~~~~~~~~~~
  * Represents the connection to the database while using libgfdb
@@ -250,6 +286,51 @@ char *(*get_db_path_key_t)();
 int
 clear_files_heat (gfdb_conn_node_t *_conn_node);
 
+typedef int (*clear_files_heat_t) (gfdb_conn_node_t *_conn_node);
+
+
+
+/* Libgfdb API Function: Function to extract version of the db
+ *  Arguments:
+ * gfdb_conn_node_t *_conn_node        : GFDB Connection node
+ * char **version  : the version is extracted as a string and will be stored in
+ *                   this variable. The freeing of the memory should be done by
+ *                   the caller.
+ * Return:
+ *      On success return the length of the version string that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int
+get_db_version (gfdb_conn_node_t *_conn_node, char **version);
+
+typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node,
+                                        char **version);
+
+
+/* Libgfdb API Function: Function to extract setting from the db
+ *  Arguments:
+ * gfdb_conn_node_t *_conn_node        : GFDB Connection node
+ * char *param_key     : setting to be extracted
+ * char **param_value  : the value of the setting that is
+ *                       extracted. This function will allocate memory
+ *                       to pragma_value. The caller should free the memory.
+ * Return:
+ *      On success return the lenght of the pragma/setting value that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int
+get_db_setting (gfdb_conn_node_t *_conn_node,
+                char *param_key,
+                char **param_value);
+
+typedef int (*get_db_setting_t)(gfdb_conn_node_t *db_conn,
+                                     char *param_key,
+                                     char **param_value);
+
+
+
 typedef struct gfdb_methods_s {
         init_db_t init_db;
         fini_db_t fini_db;
@@ -257,6 +338,9 @@ typedef struct gfdb_methods_s {
         find_recently_changed_files_t find_recently_changed_files;
         find_unchanged_for_time_freq_t find_unchanged_for_time_freq;
         find_recently_changed_files_freq_t find_recently_changed_files_freq;
+        clear_files_heat_t clear_files_heat;
+        get_db_version_t get_db_version;
+        get_db_setting_t get_db_setting;
         /* Do not expose dbpath directly. Expose it via an */
         /* access function: get_db_path_key(). */
         char *dbpath;

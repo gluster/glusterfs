@@ -30,6 +30,13 @@
 #define CTR_DEFAULT_HARDLINK_EXP_PERIOD 300  /* Five mins */
 #define CTR_DEFAULT_INODE_EXP_PERIOD    300 /* Five mins */
 
+
+typedef struct ctr_query_cbk_args {
+        FILE *queryFILE;
+        int count;
+} ctr_query_cbk_args_t;
+
+
 /*CTR Xlator Private structure*/
 typedef struct gf_ctr_private {
         gf_boolean_t                    enabled;
