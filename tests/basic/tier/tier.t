@@ -150,11 +150,22 @@ TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST ! $CLI volume tier $V0 detach commit force
 
 TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+TEST $CLI volume set $V0 cluster.tier-mode test
+
 # create a file, make sure it can be deleted after attach tier.
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 cd $M0
 TEST touch delete_me.txt
 TEST rm -f delete_me.txt
+
+# confirm watermark CLI works
+TEST $CLI volume set $V0 cluster.watermark-hi 85
+TEST $CLI volume set $V0 cluster.watermark-low 75
+TEST $CLI volume set $V0 cluster.tier-max-mb 1000
+TEST $CLI volume set $V0 cluster.tier-max-files 1000
+TEST ! $CLI volume set $V0 cluster.tier-max-files -3
+TEST ! $CLI volume set $V0 cluster.watermark-low 90
 
 # stop the volume and restart it. The rebalance daemon should restart.
 cd /tmp

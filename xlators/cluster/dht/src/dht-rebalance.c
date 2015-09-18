@@ -1326,6 +1326,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 }
         }
 
+        /* store size of previous migrated file  */
+        if (defrag->tier_conf.is_tier) {
+                if (from == conf->subvolumes[0]) {
+                        defrag->tier_conf.st_last_promoted_size = stbuf.ia_size;
+                } else {
+                        defrag->tier_conf.st_last_demoted_size = stbuf.ia_size;
+                }
+        }
 
         /* The src file is being unlinked after this so we don't need
            to clean it up */

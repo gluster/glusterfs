@@ -332,6 +332,29 @@ struct dht_container {
         dict_t          *migrate_data;
 };
 
+typedef enum tier_mode_ {
+        TIER_MODE_NONE = 0,
+        TIER_MODE_TEST,
+        TIER_MODE_WM
+} tier_mode_t;
+
+typedef struct gf_tier_conf {
+        int                          is_tier;
+        int                          watermark_hi;
+        int                          watermark_low;
+        int                          watermark_last;
+        fsblkcnt_t                   blocks_total;
+        fsblkcnt_t                   blocks_used;
+        int                          percent_full;
+        uint64_t                     max_migrate_bytes;
+        int                          max_migrate_files;
+        tier_mode_t                  mode;
+        int                          tier_promote_frequency;
+        int                          tier_demote_frequency;
+        uint64_t                     st_last_promoted_size;
+        uint64_t                     st_last_demoted_size;
+} gf_tier_conf_t;
+
 struct gf_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
@@ -352,8 +375,7 @@ struct gf_defrag_info_ {
         gf_boolean_t                 stats;
         uint32_t                     new_commit_hash;
         gf_defrag_pattern_list_t    *defrag_pattern;
-        int                          tier_promote_frequency;
-        int                          tier_demote_frequency;
+        gf_tier_conf_t               tier_conf;
 
         /*Data Tiering params for scanner*/
         uint64_t                     total_files_promoted;
@@ -1088,5 +1110,7 @@ int32_t dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
                                  struct iatt *stbuf,
                                  struct iatt *prebuf,
                                  struct iatt *postbuf, dict_t *xdata);
+void
+dht_build_root_loc (inode_t *inode, loc_t *loc);
 
 #endif/* _DHT_H */

@@ -19,6 +19,10 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         int                  ret           = 0;
         xlator_t            *this          = NULL;
         int                  origin_val    = -1;
+        char                *current_wm_hi = NULL;
+        char                *current_wm_low = NULL;
+        uint64_t             wm_hi = 0;
+        uint64_t             wm_low = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -34,12 +38,20 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 goto out;
         }
 
+        if (strstr (key, "cluster.tier-mode")) {
+                if (strcmp(value, "test") &&
+                    strcmp(value, "cache")) {
+                        ret = -1;
+                        goto out;
+                }
+                goto out;
+        }
+
         /*
-         * All the volume set options for tier are expecting a positive
+         * Rest of the volume set options for tier are expecting a positive
          * Integer. Change the function accordingly if this constraint is
          * changed.
          */
-
         ret = gf_string2int (value, &origin_val);
         if (ret) {
                 snprintf (errstr, sizeof (errstr), "%s is not a compatible "
@@ -51,13 +63,11 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 ret = -1;
                 goto out;
         }
-
-        if (strstr ("cluster.tier-promote-frequency", key) ||
-            strstr ("cluster.tier-demote-frequency", key)) {
-                if (origin_val < 1) {
-                        snprintf (errstr, sizeof (errstr), "%s is not a "
-                                  "compatible value. %s expects a positive "
-                                  "integer value.",
+        if (strstr (key, "watermark-hi") ||
+            strstr (key, "watermark-low")) {
+                if ((origin_val < 1) || (origin_val > 99)) {
+                        snprintf (errstr, sizeof (errstr), "%s is not a compatible"
+                                  "value. %s expects a percentage from 1-99.",
                                   value, key);
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                                 GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
@@ -65,10 +75,56 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         ret = -1;
                         goto out;
                 }
+
+                if (strstr (key, "watermark-hi")) {
+                        wm_hi = origin_val;
+                } else {
+                        glusterd_volinfo_get (volinfo,
+                                              "cluster.watermark-hi",
+                                              &current_wm_hi);
+                        gf_string2bytesize_uint64 (current_wm_hi,
+                                                   &wm_hi);
+                }
+
+                if (strstr (key, "watermark-low")) {
+                        wm_low = origin_val;
+                } else {
+                        glusterd_volinfo_get (volinfo,
+                                              "cluster.watermark-low",
+                                              &current_wm_low);
+                        gf_string2bytesize_uint64 (current_wm_low,
+                                                   &wm_low);
+                }
+                if (wm_low > wm_hi) {
+                        snprintf (errstr, sizeof (errstr), "lower watermark"
+                                  " cannot exceed upper watermark.");
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
+        } else if (strstr (key, "tier-promote-frequency") ||
+                   strstr (key, "tier-max-mb") ||
+                   strstr (key, "tier-max-files") ||
+                   strstr (key, "tier-demote-frequency")) {
+                if (origin_val < 1) {
+                        snprintf (errstr, sizeof (errstr), "%s is not a "
+                                  " compatible value. %s expects a positive "
+                                  "integer value greater than 0.",
+                                  value, key);
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
+
         } else {
+                /* check write-freq-threshold and read-freq-threshold. */
                 if (origin_val < 0) {
                         snprintf (errstr, sizeof (errstr), "%s is not a "
-                                   "compatible value. %s expects a non-negative"
+                                   "compatible value. %s expects a positive"
                                    " integer value.",
                                    value, key);
                          gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -1906,6 +1962,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         /* tier translator - global tunables */
         { .key         = "cluster.write-freq-threshold",
           .voltype     = "cluster/tier",
+          .value       = "0",
           .option      = "write-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
@@ -1917,6 +1974,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "cluster.read-freq-threshold",
           .voltype     = "cluster/tier",
+          .value       = "0",
           .option      = "read-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
@@ -1928,23 +1986,74 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "cluster.tier-promote-frequency",
           .voltype     = "cluster/tier",
+          .value       = "120",
           .option      = "tier-promote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .validate_fn = validate_tier,
-          .description = "Defines how often the promotion should be triggered "
-                         "i.e. periodicity of promotion cycles. The value is in "
-                         "secs."
         },
         { .key         = "cluster.tier-demote-frequency",
           .voltype     = "cluster/tier",
+          .value       = "120",
           .option      = "tier-demote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .validate_fn = validate_tier,
-          .description = "Defines how often the demotion should be triggered "
-                         "i.e. periodicity of demotion cycles. The value is in "
-                         "secs."
+        },
+        { .key         = "cluster.watermark-hi",
+          .voltype     = "cluster/tier",
+          .value       = "90",
+          .option      = "watermark-hi",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "Upper % watermark for promotion. If hot tier fills"
+          " above this percentage, no promotion will happen and demotion will "
+          "happen with high probability."
+        },
+        { .key         = "cluster.watermark-low",
+          .voltype     = "cluster/tier",
+          .value       = "75",
+          .option      = "watermark-low",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "Lower % watermark. If hot tier is less "
+          "full than this, promotion will happen and demotion will not happen. "
+          "If greater than this, promotion/demotion will happen at a probability "
+          "relative to how full the hot tier is."
+        },
+        { .key         = "cluster.tier-mode",
+          .voltype     = "cluster/tier",
+          .option      = "tier-mode",
+          .value       = "test",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "Either 'test' or 'cache'. Test mode periodically"
+          " demotes or promotes files automatically based on access."
+          " Cache mode does so based on whether the cache is full or not,"
+          " as specified with watermarks."
+        },
+        { .key         = "cluster.tier-max-mb",
+          .voltype     = "cluster/tier",
+          .option      = "tier-max-mb",
+          .value       = "1000",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "The maximum number of MB that may be migrated"
+          " in any direction in a given cycle."
+        },
+        { .key         = "cluster.tier-max-files",
+          .voltype     = "cluster/tier",
+          .option      = "tier-max-files",
+          .value       = "5000",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "The maximum number of files that may be migrated"
+          " in any direction in a given cycle."
         },
         { .key         = "features.ctr-enabled",
           .voltype     = "features/changetimerecorder",
