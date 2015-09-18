@@ -656,6 +656,13 @@ typedef int
 
 typedef int (*gfdb_clear_files_heat_t)(void *db_conn);
 
+typedef int (*gfdb_get_db_version_t)(void *db_conn,
+                                        char **version);
+
+typedef int (*gfdb_get_db_setting_t)(void *db_conn,
+                                char *param_key,
+                                char **param_value);
+
 
 /*Data structure holding all the above plugin function pointers*/
 typedef struct gfdb_db_operations {
@@ -671,6 +678,8 @@ typedef struct gfdb_db_operations {
         gfdb_find_recently_changed_files_freq_t
                                         find_recently_changed_files_freq_op;
         gfdb_clear_files_heat_t clear_files_heat_op;
+        gfdb_get_db_version_t           get_db_version;
+        gfdb_get_db_setting_t           get_db_setting;
 } gfdb_db_operations_t;
 
 /*******************************************************************************
@@ -714,6 +723,7 @@ typedef struct gfdb_connection {
                         gf_msg (comp_name, GF_LOG_ERROR, 0,\
                                 LG_MSG_SET_PARAM_FAILED, "Failed setting %s "\
                                 "to params dictionary", param_key);\
+                        data_destroy (data);\
                         goto error;\
                 };\
         } while (0)
