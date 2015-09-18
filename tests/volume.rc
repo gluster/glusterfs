@@ -569,6 +569,18 @@ function get_snapd_count {
         ps auxww | grep glusterfs | grep snapd.pid | grep -v grep | wc -l
 }
 
+function drop_cache() {
+	case $OSTYPE in
+	Linux)
+		echo 3 > /proc/sys/vm/drop_caches
+		;;
+	*)
+		# fail but flush caches
+		( cd $1 && umount $1 2>/dev/null )
+		;;
+	esac
+}
+
 function quota_list_field () {
         local QUOTA_PATH=$1
         local FIELD=$2
