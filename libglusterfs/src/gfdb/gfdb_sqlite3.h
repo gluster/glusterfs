@@ -281,6 +281,34 @@ int gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
 
 int gf_sqlite3_clear_files_heat (void *db_conn);
 
+/* Function to extract version of sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char **version  : the version is extracted as a string and will be stored in
+ *                   this variable. The freeing of the memory should be done by
+ *                   the caller.
+ * Return:
+ *      On success return the lenght of the version string that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int gf_sqlite3_version (void *db_conn, char **version);
+
+/* Function to extract PRAGMA or setting from sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char *pragma_key     : PRAGMA or setting to be extracted
+ * char **pragma_value  : the value of the PRAGMA or setting that is
+ *                        extracted. This function will allocate memory
+ *                        to pragma_value. The caller should free the memory
+ * Return:
+ *      On success return the lenght of the pragma/setting value that is
+ *      extracted.
+ *      On failure return -1
+ * */
+int gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value);
+
 void gf_sqlite3_fill_db_operations (gfdb_db_operations_t  *gfdb_db_ops);
+
 
 #endif

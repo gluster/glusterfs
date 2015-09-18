@@ -1382,29 +1382,287 @@ out:
 
 /*******************************ctr_ipc****************************************/
 
+/*This is the call back function per record/file from data base*/
+static int
+ctr_db_query_callback (gfdb_query_record_t *gfdb_query_record,
+                        void *args) {
+        int ret = -1;
+        char gfid_str[UUID_CANONICAL_FORM_LEN+1] = "";
+        ctr_query_cbk_args_t *query_cbk_args = args;
+
+        GF_VALIDATE_OR_GOTO ("ctr", query_cbk_args, out);
+
+        gf_uuid_unparse (gfdb_query_record->gfid, gfid_str);
+        fprintf (query_cbk_args->queryFILE, "%s|%s|%ld\n", gfid_str,
+                 gfdb_query_record->_link_info_str,
+                 gfdb_query_record->link_info_size);
+
+        query_cbk_args->count++;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* This function does all the db queries related to tiering and
+ * generates/populates new/existing query file
+ * inputs:
+ * xlator_t *this : CTR Translator
+ * void *conn_node : Database connection
+ * char *query_file: the query file that needs to be updated
+ * gfdb_ipc_ctr_params_t *ipc_ctr_params: the query parameters
+ * Return:
+ * On success 0
+ * On failure -1
+ * */
+int
+ctr_db_query (xlator_t *this,
+              void *conn_node,
+              char *query_file,
+              gfdb_ipc_ctr_params_t *ipc_ctr_params)
+{
+        int ret = -1;
+        ctr_query_cbk_args_t query_cbk_args = {0};
+
+        GF_VALIDATE_OR_GOTO ("ctr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, conn_node, out);
+        GF_VALIDATE_OR_GOTO (this->name, query_file, out);
+        GF_VALIDATE_OR_GOTO (this->name, ipc_ctr_params, out);
+
+        /*Query for eligible files from db*/
+        query_cbk_args.queryFILE = fopen(query_file, "a+");
+        if (!query_cbk_args.queryFILE) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CTR_MSG_FATAL_ERROR,
+                        "Failed to open query file %s", query_file);
+                goto out;
+        }
+        if (!ipc_ctr_params->is_promote) {
+                if (ipc_ctr_params->write_freq_threshold == 0 &&
+                        ipc_ctr_params->read_freq_threshold == 0) {
+                                ret = find_unchanged_for_time (
+                                        conn_node,
+                                        ctr_db_query_callback,
+                                        (void *)&query_cbk_args,
+                                        &ipc_ctr_params->time_stamp);
+                } else {
+                                ret = find_unchanged_for_time_freq (
+                                        conn_node,
+                                        ctr_db_query_callback,
+                                        (void *)&query_cbk_args,
+                                        &ipc_ctr_params->time_stamp,
+                                        ipc_ctr_params->write_freq_threshold,
+                                        ipc_ctr_params->read_freq_threshold,
+                                        _gf_false);
+                }
+        } else {
+                if (ipc_ctr_params->write_freq_threshold == 0 &&
+                        ipc_ctr_params->read_freq_threshold == 0) {
+                        ret = find_recently_changed_files (
+                                conn_node,
+                                ctr_db_query_callback,
+                                (void *)&query_cbk_args,
+                                &ipc_ctr_params->time_stamp);
+                } else {
+                        ret = find_recently_changed_files_freq (
+                                conn_node,
+                                ctr_db_query_callback,
+                                (void *)&query_cbk_args,
+                                &ipc_ctr_params->time_stamp,
+                                ipc_ctr_params->write_freq_threshold,
+                                ipc_ctr_params->read_freq_threshold,
+                                _gf_false);
+                }
+        }
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: query from db failed");
+                        goto out;
+        }
+
+        ret = clear_files_heat (conn_node);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: Failed to clear db entries");
+                        goto out;
+        }
+
+        ret = 0;
+out:
+
+        if (!ret)
+                ret = query_cbk_args.count;
+
+        if (query_cbk_args.queryFILE) {
+                fclose (query_cbk_args.queryFILE);
+                query_cbk_args.queryFILE = NULL;
+        }
+
+        return ret;
+}
+
+
+int
+ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
+                dict_t *out_dict)
+{
+        int ret = -1;
+        char *ctr_ipc_ops = NULL;
+        gf_ctr_private_t *priv = NULL;
+        char *db_version = NULL;
+        char *db_param_key = NULL;
+        char *db_param = NULL;
+        char *query_file = NULL;
+        gfdb_ipc_ctr_params_t *ipc_ctr_params = NULL;
+
+
+        GF_VALIDATE_OR_GOTO ("ctr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv->_db_conn, out);
+        GF_VALIDATE_OR_GOTO (this->name, in_dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, out_dict, out);
+
+        GET_DB_PARAM_FROM_DICT(this->name, in_dict, GFDB_IPC_CTR_KEY,
+                                ctr_ipc_ops, out);
+
+        /*if its a db clear operation */
+        if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_CLEAR_OPS,
+                        strlen (GFDB_IPC_CTR_CLEAR_OPS)) == 0) {
+
+                ret = clear_files_heat (priv->_db_conn);
+                if (ret)
+                        goto out;
+
+        } /* if its a query operation, in  which case its query + clear db*/
+        else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_QUERY_OPS,
+                                strlen (GFDB_IPC_CTR_QUERY_OPS)) == 0) {
+
+                ret = dict_get_str (in_dict, GFDB_IPC_CTR_GET_QFILE_PATH,
+                                                                &query_file);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                        "Failed extracting query file path");
+                        goto out;
+                }
+
+                ret = dict_get_bin (in_dict, GFDB_IPC_CTR_GET_QUERY_PARAMS,
+                                   (void *)&ipc_ctr_params);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                        "Failed extracting query parameters");
+                        goto out;
+                }
+
+                ret = ctr_db_query (this, priv->_db_conn, query_file,
+                                ipc_ctr_params);
+
+                ret = dict_set_int32 (out_dict,
+                                      GFDB_IPC_CTR_RET_QUERY_COUNT, ret);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                        "Failed setting query reply");
+                        goto out;
+                }
+
+        } /* if its a query for db version */
+        else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_GET_DB_VERSION_OPS,
+                        strlen (GFDB_IPC_CTR_GET_DB_VERSION_OPS)) == 0) {
+
+                ret = get_db_version (priv->_db_conn, &db_version);
+                if (ret == -1 || !db_version) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                        "Failed extracting db version ");
+                        goto out;
+                }
+
+                SET_DB_PARAM_TO_DICT(this->name, out_dict,
+                                        GFDB_IPC_CTR_RET_DB_VERSION,
+                                        db_version, ret, error);
+
+        } /* if its a query for a db setting */
+        else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_GET_DB_PARAM_OPS,
+                                strlen (GFDB_IPC_CTR_GET_DB_PARAM_OPS)) == 0) {
+
+                ret = dict_get_str (in_dict, GFDB_IPC_CTR_GET_DB_KEY,
+                                &db_param_key);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                        "Failed extracting db param key");
+                        goto out;
+                }
+
+                ret = get_db_setting (priv->_db_conn, db_param_key, &db_param);
+                if (ret == -1 || !db_param) {
+                        goto out;
+                }
+
+                SET_DB_PARAM_TO_DICT(this->name, out_dict,
+                                        db_param_key,
+                                        db_param, ret, error);
+        } /* default case */
+        else {
+                goto out;
+        }
+
+
+        ret = 0;
+        goto out;
+error:
+        GF_FREE (db_param_key);
+        GF_FREE (db_param);
+        GF_FREE (db_version);
+out:
+        return ret;
+}
+
+
 /* IPC Call from tier migrator to clear the heat on the DB */
 int32_t
-ctr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+ctr_ipc (call_frame_t *frame, xlator_t *this, int32_t op,
+        dict_t *in_dict)
 {
         int ret                         = -1;
-        gf_ctr_private_t *_priv         = NULL;
+        gf_ctr_private_t *priv         = NULL;
+        dict_t *out_dict                = NULL;
 
         GF_ASSERT(this);
-        _priv = this->private;
-        GF_ASSERT (_priv);
-        GF_ASSERT(_priv->_db_conn);
+        priv = this->private;
+        GF_ASSERT (priv);
+        GF_ASSERT(priv->_db_conn);
+        GF_VALIDATE_OR_GOTO (this->name, in_dict, wind);
+
 
         if (op != GF_IPC_TARGET_CTR)
                 goto wind;
 
-        ret = clear_files_heat (_priv->_db_conn);
+        out_dict = dict_new();
+        if (!out_dict) {
+                goto out;
+        }
 
-        STACK_UNWIND_STRICT (ipc, frame, ret, 0, NULL);
+        ret = ctr_ipc_helper (this, in_dict, out_dict);
+        if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                "Failed in ctr_ipc_helper");
+        }
+out:
+
+        STACK_UNWIND_STRICT (ipc, frame, ret, 0, out_dict);
+
+        if (out_dict)
+                dict_unref(out_dict);
+
         return 0;
 
  wind:
         STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+                    FIRST_CHILD (this)->fops->ipc, op, in_dict);
+
+
+
         return 0;
 }
 
@@ -1416,35 +1674,35 @@ reconfigure (xlator_t *this, dict_t *options)
 {
         char *temp_str = NULL;
         int ret = 0;
-        gf_ctr_private_t *_priv = NULL;
+        gf_ctr_private_t *priv = NULL;
 
-        _priv = this->private;
+        priv = this->private;
         if (dict_get_str(options, "changetimerecorder.frequency",
                          &temp_str)) {
                 gf_msg(this->name, GF_LOG_INFO, 0, CTR_MSG_SET, "set!");
         }
 
-        GF_OPTION_RECONF ("ctr-enabled", _priv->enabled, options,
+        GF_OPTION_RECONF ("ctr-enabled", priv->enabled, options,
                           bool, out);
 
-        GF_OPTION_RECONF ("record-counters", _priv->ctr_record_counter, options,
+        GF_OPTION_RECONF ("record-counters", priv->ctr_record_counter, options,
                           bool, out);
 
-        GF_OPTION_RECONF ("ctr_link_consistency", _priv->ctr_link_consistency,
+        GF_OPTION_RECONF ("ctr_link_consistency", priv->ctr_link_consistency,
                         options, bool, out);
 
         GF_OPTION_RECONF ("ctr_inode_heal_expire_period",
-                                _priv->ctr_inode_heal_expire_period,
+                                priv->ctr_inode_heal_expire_period,
                                 options, uint64, out);
 
         GF_OPTION_RECONF ("ctr_hardlink_heal_expire_period",
-                                _priv->ctr_hardlink_heal_expire_period,
+                                priv->ctr_hardlink_heal_expire_period,
                                 options, uint64, out);
 
-        GF_OPTION_RECONF ("record-exit", _priv->ctr_record_unwind, options,
+        GF_OPTION_RECONF ("record-exit", priv->ctr_record_unwind, options,
                           bool, out);
 
-        GF_OPTION_RECONF ("record-entry", _priv->ctr_record_wind, options,
+        GF_OPTION_RECONF ("record-entry", priv->ctr_record_wind, options,
                           bool, out);
 
 out:
@@ -1457,7 +1715,7 @@ out:
 int32_t
 init (xlator_t *this)
 {
-        gf_ctr_private_t *_priv = NULL;
+        gf_ctr_private_t *priv = NULL;
         int ret_db              = -1;
         dict_t *params_dict      = NULL;
 
@@ -1476,8 +1734,8 @@ init (xlator_t *this)
                         "dangling volume. check volfile ");
         }
 
-        _priv = GF_CALLOC (1, sizeof (*_priv), gf_ctr_mt_private_t);
-        if (!_priv) {
+        priv = GF_CALLOC (1, sizeof (*priv), gf_ctr_mt_private_t);
+        if (!priv) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         CTR_MSG_CALLOC_FAILED,
                         "Calloc didnt work!!!");
@@ -1485,20 +1743,20 @@ init (xlator_t *this)
         }
 
         /*Default values for the translator*/
-        _priv->ctr_record_wind          = _gf_true;
-        _priv->ctr_record_unwind        = _gf_false;
-        _priv->ctr_hot_brick            = _gf_false;
-        _priv->gfdb_db_type             = GFDB_SQLITE3;
-        _priv->gfdb_sync_type           = GFDB_DB_SYNC;
-        _priv->enabled                  = _gf_true;
-        _priv->_db_conn                 = NULL;
-        _priv->ctr_hardlink_heal_expire_period =
+        priv->ctr_record_wind          = _gf_true;
+        priv->ctr_record_unwind        = _gf_false;
+        priv->ctr_hot_brick            = _gf_false;
+        priv->gfdb_db_type             = GFDB_SQLITE3;
+        priv->gfdb_sync_type           = GFDB_DB_SYNC;
+        priv->enabled                  = _gf_true;
+        priv->_db_conn                 = NULL;
+        priv->ctr_hardlink_heal_expire_period =
                                 CTR_DEFAULT_HARDLINK_EXP_PERIOD;
-        _priv->ctr_inode_heal_expire_period =
+        priv->ctr_inode_heal_expire_period =
                                 CTR_DEFAULT_INODE_EXP_PERIOD;
 
         /*Extract ctr xlator options*/
-        ret_db = extract_ctr_options (this, _priv);
+        ret_db = extract_ctr_options (this, priv);
         if (ret_db) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_EXTRACT_CTR_XLATOR_OPTIONS_FAILED,
@@ -1515,7 +1773,7 @@ init (xlator_t *this)
         }
 
         /*Extract db params options*/
-        ret_db = extract_db_params(this, params_dict, _priv->gfdb_db_type);
+        ret_db = extract_db_params(this, params_dict, priv->gfdb_db_type);
         if (ret_db) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_EXTRACT_DB_PARAM_OPTIONS_FAILED,
@@ -1533,8 +1791,8 @@ init (xlator_t *this)
         }
 
         /*Initialize Database Connection*/
-        _priv->_db_conn = init_db(params_dict, _priv->gfdb_db_type);
-        if (!_priv->_db_conn) {
+        priv->_db_conn = init_db(params_dict, priv->gfdb_db_type);
+        if (!priv->_db_conn) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                        CTR_MSG_FATAL_ERROR,
                        "FATAL: Failed initializing data base");
@@ -1550,10 +1808,10 @@ error:
         if (this)
                 mem_pool_destroy (this->local_pool);
 
-        if (_priv) {
-                GF_FREE (_priv->ctr_db_path);
+        if (priv) {
+                GF_FREE (priv->ctr_db_path);
         }
-        GF_FREE (_priv);
+        GF_FREE (priv);
 
         if (params_dict)
                 dict_unref (params_dict);
@@ -1565,7 +1823,7 @@ out:
         if (params_dict)
                 dict_unref (params_dict);
 
-        this->private = (void *)_priv;
+        this->private = (void *)priv;
         return 0;
 }
 
