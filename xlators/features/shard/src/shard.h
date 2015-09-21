@@ -14,6 +14,7 @@
 
 #include "xlator.h"
 #include "compat-errno.h"
+#include "shard-messages.h"
 
 #define GF_SHARD_DIR ".shard"
 #define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
@@ -104,7 +105,8 @@
                                      &local->block_size,                      \
                                      sizeof (local->block_size));             \
         if (__ret) {                                                          \
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "  \
+                gf_msg (this->name, GF_LOG_WARNING, 0,                        \
+                        SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
                         "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, loc->path);  \
                 goto label;                                                   \
         }                                                                     \
@@ -116,7 +118,8 @@
         __ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_FILE_SIZE,            \
                               __size_attr, 8 * 4);                            \
         if (__ret) {                                                          \
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "  \
+                gf_msg (this->name, GF_LOG_WARNING, 0,                        \
+                        SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
                         "on path %s", GF_XATTR_SHARD_FILE_SIZE, loc->path);   \
                 GF_FREE (__size_attr);                                        \
                 goto label;                                                   \
@@ -131,8 +134,9 @@
         if (__ret) {                                                          \
                 local->op_ret = -1;                                           \
                 local->op_errno = ENOMEM;                                     \
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set dict"      \
-                        " value: key:%s for %s.", GF_XATTR_SHARD_FILE_SIZE,   \
+                gf_msg (this->name, GF_LOG_WARNING, 0,                        \
+                        SHARD_MSG_DICT_SET_FAILED, "Failed to set dict value:"\
+                        " key:%s for %s.", GF_XATTR_SHARD_FILE_SIZE,          \
                         uuid_utoa (gfid));                                    \
                 goto label;                                                   \
         }                                                                     \
