@@ -1401,9 +1401,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.sync_done(self.stimes, False)
                 self.stimes = []
             if stat.S_ISDIR(mo):
-                self.write_entry_change("E", [gfid, 'MKDIR', str(mo), str(
-                    st.st_uid), str(st.st_gid), escape(os.path.join(pargfid,
-                                                                    bname))])
+                self.write_entry_change("E", [gfid, 'MKDIR', str(mo),
+                    str(0), str(0), escape(os.path.join(pargfid, bname))])
                 self.write_entry_change("M", [gfid, "SETATTR", str(st.st_uid),
                                               str(st.st_gid), str(st.st_mode),
                                               str(st.st_atime),
@@ -1433,8 +1432,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 if nlink == 1:
                     self.write_entry_change("E",
                                             [gfid, 'MKNOD', str(mo),
-                                             str(st.st_uid),
-                                             str(st.st_gid),
+                                             str(0), str(0),
                                              escape(os.path.join(
                                                  pargfid, bname))])
                 else:
