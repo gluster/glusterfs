@@ -261,9 +261,10 @@ shard_modify_size_and_block_count (struct iatt *stbuf, dict_t *dict)
 
         ret = dict_get_ptr (dict, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get "
-                        GF_XATTR_SHARD_FILE_SIZE " for %s",
-                        uuid_utoa (stbuf->ia_gfid));
+                gf_msg_callingfn (THIS->name, GF_LOG_ERROR, 0,
+                                  SHARD_MSG_INTERNAL_XATTR_MISSING, "Failed to "
+                                  "get "GF_XATTR_SHARD_FILE_SIZE" for %s",
+                                  uuid_utoa (stbuf->ia_gfid));
                 return ret;
         }
 
@@ -307,8 +308,9 @@ shard_init_dot_shard_loc (xlator_t *this, shard_local_t *local)
         ret = inode_path (dot_shard_loc->parent, GF_SHARD_DIR,
                           (char **)&dot_shard_loc->path);
         if (ret < 0 || !(dot_shard_loc->inode)) {
-                gf_log (this->name, GF_LOG_ERROR, "Inode path failed on %s",
-                        GF_SHARD_DIR);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_PATH_FAILED,
+                        "Inode path failed on %s", GF_SHARD_DIR);
                 goto out;
         }
 
@@ -349,7 +351,7 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                 inode = NULL;
                 inode = inode_resolve (this->itable, path);
                 if (inode) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Shard %d already "
+                        gf_msg_debug (this->name, 0, "Shard %d already "
                                 "present. gfid=%s. Saving inode for future.",
                                 shard_idx_iter, uuid_utoa(inode->gfid));
                         shard_idx_iter++;
@@ -380,7 +382,15 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        if ((local->fd) && (local->fd->inode))
+                inode = local->fd->inode;
+        else if (local->loc.inode)
+                inode = local->loc.inode;
+
         if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        SHARD_MSG_UPDATE_FILE_SIZE_FAILED, "Update to file size"
+                        " xattr failed on %s", uuid_utoa (inode->gfid));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto err;
@@ -391,11 +401,6 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = ENOMEM;
                 goto err;
         }
-
-        if ((local->fd) && (local->fd->inode))
-                inode = local->fd->inode;
-        else if (local->loc.inode)
-                inode = local->loc.inode;
 
         shard_inode_ctx_set (inode, this, &local->postbuf, 0,
                              SHARD_INODE_WRITE_MASK);
@@ -469,8 +474,9 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = shard_set_size_attrs (local->delta_size + local->hole_size,
                                     local->delta_blocks, &size_attr);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set size attrs for"
-                        " %s", uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_SIZE_SET_FAILED,
+                        "Failed to set size attrs for %s",
+                        uuid_utoa (inode->gfid));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto out;
@@ -479,9 +485,9 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_FILE_SIZE, size_attr,
                             8 * 4);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set key %s into "
-                        "dict. gfid=%s", GF_XATTR_SHARD_FILE_SIZE,
-                        uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                        "Failed to set key %s into dict. gfid=%s",
+                        GF_XATTR_SHARD_FILE_SIZE, uuid_utoa (inode->gfid));
                 GF_FREE (size_attr);
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
@@ -542,9 +548,10 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (!IA_ISDIR (buf->ia_type)) {
-                gf_log (this->name, GF_LOG_CRITICAL, "/.shard already exists "
-                        "and is not a directory. Please remove /.shard from all"
-                        " bricks and try again");
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        SHARD_MSG_DOT_SHARD_NODIR, "/.shard already exists and "
+                        "is not a directory. Please remove /.shard from all "
+                        "bricks and try again");
                 local->op_ret = -1;
                 local->op_errno = EIO;
                 goto unwind;
@@ -585,8 +592,8 @@ shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this,
         ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
                                    16);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid of "
-                        "/.shard into dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                        "Failed to set gfid of /.shard into dict");
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto err;
@@ -696,7 +703,8 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = dict_set_uint64 (local->xattr_req,
                                        GF_XATTR_SHARD_BLOCK_SIZE, 0);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to set dict"
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                SHARD_MSG_DICT_SET_FAILED, "Failed to set dict"
                                 " value: key:%s for path %s",
                                 GF_XATTR_SHARD_BLOCK_SIZE, loc->path);
                         goto err;
@@ -706,7 +714,8 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = dict_set_uint64 (local->xattr_req, GF_XATTR_SHARD_FILE_SIZE,
                                8 * 4);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set dict value: "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        SHARD_MSG_DICT_SET_FAILED, "Failed to set dict value: "
                         "key:%s for path %s.", GF_XATTR_SHARD_FILE_SIZE,
                         loc->path);
                 goto err;
@@ -741,6 +750,9 @@ shard_lookup_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        SHARD_MSG_BASE_FILE_LOOKUP_FAILED, "Lookup on base file"
+                        " failed : %s", loc_gfid_utoa (&(local->loc)));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto unwind;
@@ -758,8 +770,9 @@ shard_lookup_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = shard_inode_ctx_set (inode, this, &local->prebuf, 0, mask);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set inode write "
-                        "params into inode ctx for %s",
+                gf_msg (this->name, GF_LOG_ERROR,
+                        SHARD_MSG_INODE_CTX_SET_FAILED, 0, "Failed to set inode"
+                        " write params into inode ctx for %s",
                         uuid_utoa (buf->ia_gfid));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
@@ -788,6 +801,9 @@ shard_lookup_base_file (call_frame_t *frame, xlator_t *this, loc_t *loc,
          * mknod, readdirp or lookup. If not it is a bug!
          */
         if ((ret == 0) && (ctx.stat.ia_size > 0)) {
+                gf_msg_debug (this->name, 0, "Skipping lookup on base file: %s"
+                              "Serving prebuf off the inode ctx cache",
+                              uuid_utoa (loc->gfid));
                 local->prebuf = ctx.stat;
                 goto out;
         }
@@ -858,6 +874,10 @@ shard_common_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        SHARD_MSG_STAT_FAILED, "stat failed: %s",
+                        local->fd ? uuid_utoa (local->fd->inode->gfid)
+                        : uuid_utoa ((local->loc.inode)->gfid));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto unwind;
@@ -892,8 +912,10 @@ shard_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
+                        uuid_utoa (loc->inode->gfid));
                 goto err;
         }
 
@@ -944,8 +966,10 @@ shard_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
+                        uuid_utoa (fd->inode->gfid));
                 goto err;
         }
 
@@ -1013,11 +1037,17 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
 
         SHARD_UNSET_ROOT_FS_ID (frame, local);
 
+        inode = (local->fop == GF_FOP_TRUNCATE) ? local->loc.inode
+                                                : local->fd->inode;
         if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        SHARD_MSG_TRUNCATE_LAST_SHARD_FAILED, "truncate on last"
+                        " shard failed : %s", uuid_utoa (inode->gfid));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto err;
         }
+
         local->postbuf.ia_size = local->offset;
         local->postbuf.ia_blocks -= (prebuf->ia_blocks - postbuf->ia_blocks);
         /* Let the delta be negative. We want xattrop to do subtraction */
@@ -1025,8 +1055,6 @@ shard_truncate_last_shard_cbk (call_frame_t *frame, void *cookie,
         local->delta_blocks = postbuf->ia_blocks - prebuf->ia_blocks;
         local->hole_size = 0;
 
-        inode = (local->fop == GF_FOP_TRUNCATE) ? local->loc.inode
-                                                : local->fd->inode;
         shard_inode_ctx_set (inode, this, postbuf, 0, SHARD_MASK_TIMES);
 
         shard_update_file_size (frame, this, NULL, &local->loc,
@@ -1058,6 +1086,9 @@ shard_truncate_last_shard (call_frame_t *frame, xlator_t *this, inode_t *inode)
          * update to file size xattr.
          */
         if (!inode) {
+                gf_msg_debug (this->name, 0, "Last shard to be truncated absent"
+                              " in backend: %s. Directly proceeding to update "
+                              "file size", uuid_utoa (inode->gfid));
                 shard_update_file_size (frame, this, NULL, &local->loc,
                                        shard_post_update_size_truncate_handler);
                 return 0;
@@ -1116,6 +1147,10 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                  * unlinked do not exist. So shard xlator would now proceed to
                  * do the final truncate + size updates.
                  */
+                gf_msg_debug (this->name, 0, "Shards to be unlinked as part of "
+                              "truncate absent in backend: %s. Directly "
+                              "proceeding to update file size",
+                              uuid_utoa (inode->gfid));
                 local->postbuf.ia_size = local->offset;
                 local->postbuf.ia_blocks = local->prebuf.ia_blocks;
                 local->delta_size = local->postbuf.ia_size -
@@ -1151,8 +1186,10 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname, (char **)&(loc.path));
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Inode path failed "
-                                "on %s", bname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
+                                " on %s. Base file gfid = %s", bname,
+                                uuid_utoa (inode->gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
@@ -1268,6 +1305,12 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
                     (local->fop == GF_FOP_RENAME) ||
                     (local->fop == GF_FOP_UNLINK)) && (op_errno == ENOENT))
                         goto done;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        SHARD_MSG_LOOKUP_SHARD_FAILED, "Lookup on shard %d "
+                        "failed. Base file gfid = %s", shard_block_num,
+                        (local->fop == GF_FOP_RENAME) ?
+                        uuid_utoa (local->loc2.inode->gfid)
+                        : uuid_utoa (local->loc.inode->gfid));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto done;
@@ -1368,8 +1411,10 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname, (char **) &(loc.path));
                 if (ret < 0 || !(loc.inode)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Inode path failed on"
-                                " %s", bname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
+                                " on %s, base file gfid = %s", bname,
+                                uuid_utoa (inode->gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
@@ -1618,8 +1663,10 @@ shard_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
+                        uuid_utoa (loc->inode->gfid));
                 goto err;
         }
 
@@ -1666,8 +1713,10 @@ shard_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
+                        uuid_utoa (fd->inode->gfid));
                 goto err;
         }
 
@@ -1723,8 +1772,9 @@ shard_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = shard_inode_ctx_set (inode, this, buf, ntoh64 (local->block_size),
                                    SHARD_ALL_MASK);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set inode ctx "
-                        "for %s", uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        SHARD_MSG_INODE_CTX_SET_FAILED, "Failed to set inode "
+                        "ctx for %s", uuid_utoa (inode->gfid));
 
 unwind:
         SHARD_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, buf,
@@ -1790,8 +1840,9 @@ shard_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         ret = shard_inode_ctx_get_block_size (oldloc->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
                         uuid_utoa (oldloc->inode->gfid));
                 goto err;
         }
@@ -1934,13 +1985,19 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                  * holes). So shard xlator would now proceed to do the final
                  * unlink on the base file.
                  */
+                gf_msg_debug (this->name, 0, "All shards that need to be "
+                              "unlinked are non-existent: %s",
+                              uuid_utoa (inode->gfid));
                 local->num_blocks = 1;
                 if (local->fop == GF_FOP_UNLINK) {
+                        gf_msg_debug (this->name, 0, "Proceeding to unlink the"
+                                      " base file");
                         STACK_WIND (frame, shard_unlink_cbk, FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->unlink,
                                     &local->loc, local->flags,
                                     local->xattr_req);
                 } else if (local->fop == GF_FOP_RENAME) {
+                        gf_msg_debug (this->name, 0, "Resuming rename()");
                         shard_rename_cbk (frame, this);
                 }
                 return 0;
@@ -1970,8 +2027,10 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname, (char **) &(loc.path));
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Inode path failed "
-                                "on %s", bname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
+                                " on %s, base file gfid = %s", bname,
+                                uuid_utoa (inode->gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
@@ -2152,8 +2211,10 @@ shard_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
         if ((ret) && (!IA_ISLNK(loc->inode->ia_type))) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
+                        uuid_utoa (loc->inode->gfid));
                 goto err;
         }
 
@@ -2366,8 +2427,9 @@ shard_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         ret = shard_inode_ctx_get_block_size (oldloc->inode, this, &block_size);
         if ((ret) && (!IA_ISLNK (oldloc->inode->ia_type))) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size from inode ctx of %s",
                         uuid_utoa (oldloc->inode->gfid));
                 goto err;
         }
@@ -2444,8 +2506,9 @@ shard_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = shard_inode_ctx_set (inode, this, stbuf,
                                    ntoh64 (local->block_size), SHARD_ALL_MASK);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set inode ctx "
-                        "for %s", uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        SHARD_MSG_INODE_CTX_SET_FAILED, "Failed to set inode "
+                        "ctx for %s", uuid_utoa (inode->gfid));
 
 unwind:
         SHARD_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, stbuf,
@@ -2638,8 +2701,10 @@ shard_readv_do (call_frame_t *frame, xlator_t *this)
 
                 ret = fd_ctx_set (anon_fd, this, cur_block);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to set fd "
-                                "ctx for block %d,  gfid=%s", cur_block,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SHARD_MSG_FD_CTX_SET_FAILED,
+                                "Failed to set fd ctx for block %d,  gfid=%s",
+                                cur_block,
                                 uuid_utoa (local->inode_list[i]->gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
@@ -2725,7 +2790,7 @@ shard_common_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_ret = op_ret;
                         local->op_errno = op_errno;
                 }
-                gf_log (this->name, GF_LOG_DEBUG, "mknod of shard %d "
+                gf_msg_debug (this->name, 0, "mknod of shard %d "
                         "failed: %s", shard_block_num, strerror (op_errno));
                 goto done;
         }
@@ -2774,8 +2839,9 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
 
         ret = shard_inode_ctx_get_all (fd->inode, this, &ctx_tmp);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get inode ctx for"
-                        " %s", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get inode "
+                        "ctx for %s", uuid_utoa (fd->inode->gfid));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto err;
@@ -2818,8 +2884,10 @@ shard_common_resume_mknod (call_frame_t *frame, xlator_t *this,
                 ret = inode_path (loc.parent, bname,
                                        (char **) &(loc.path));
                 if (ret < 0 || !(loc.inode)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Inode path failed on"
-                                " %s", bname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
+                                "on %s, base file gfid = %s", bname,
+                                uuid_utoa (fd->inode->gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         wind_failed = _gf_true;
@@ -3013,8 +3081,10 @@ shard_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size for"
-                        "%s from its inode ctx", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size for %s from its inode ctx",
+                        uuid_utoa (fd->inode->gfid));
                 goto err;
         }
 
@@ -3128,7 +3198,6 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
-        int             ret        = 0;
         int             call_count = 0;
         fd_t           *anon_fd    = cookie;
         shard_local_t  *local      = NULL;
@@ -3142,14 +3211,8 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->written_size += op_ret;
                 local->delta_blocks += (postbuf->ia_blocks - prebuf->ia_blocks);
                 local->delta_size += (postbuf->ia_size - prebuf->ia_size);
-                ret = shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
-                                           SHARD_MASK_TIMES);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
-                                "times in the inode ctx. Shard = %s, base file "
-                                "gfid = %s", uuid_utoa (postbuf->ia_gfid),
-                                uuid_utoa (local->fd->inode->gfid));
-                }
+                shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
+                                     SHARD_MASK_TIMES);
         }
 
         if (anon_fd)
@@ -3208,6 +3271,9 @@ shard_writev_do (call_frame_t *frame, xlator_t *this)
 
         if (dict_set_uint32 (local->xattr_req,
                              GLUSTERFS_WRITE_UPDATE_ATOMIC, 4)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                        "Failed to set "GLUSTERFS_WRITE_UPDATE_ATOMIC" into "
+                        "dict: %s", uuid_utoa (fd->inode->gfid));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 local->call_count = 1;
@@ -3385,8 +3451,8 @@ shard_writev_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
                 if (op_errno != EEXIST) {
                         goto unwind;
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG, "mkdir on /.shard "
-                                "failed with EEXIST. Attempting lookup now");
+                        gf_msg_debug (this->name, 0, "mkdir on /.shard failed "
+                                      "with EEXIST. Attempting lookup now");
                         shard_lookup_dot_shard (frame, this,
                                              shard_post_resolve_writev_handler);
                         return 0;
@@ -3425,8 +3491,8 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
         ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
                                    16);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid-req for "
-                        "/.shard");
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                        "Failed to set gfid-req for /.shard");
                 goto err;
         }
 
@@ -3460,8 +3526,9 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "for %s from its inode ctx",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED, "Failed to get block "
+                        "size for %s from its inode ctx",
                         uuid_utoa (fd->inode->gfid));
                 goto out;
         }
@@ -3514,7 +3581,7 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->loc.inode = inode_ref (fd->inode);
         gf_uuid_copy (local->loc.gfid, fd->inode->gfid);
 
-        gf_log (this->name, GF_LOG_TRACE, "gfid=%s first_block=%"PRIu32" "
+        gf_msg_trace (this->name, 0, "gfid=%s first_block=%"PRIu32" "
                 "last_block=%"PRIu32" num_blocks=%"PRIu32" offset=%"PRId64" "
                 "total_size=%lu", uuid_utoa (fd->inode->gfid),
                 local->first_block, local->last_block, local->num_blocks,
@@ -4004,8 +4071,10 @@ shard_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED,
+                        "Failed to get block size from inode ctx of %s",
+                        uuid_utoa (loc->inode->gfid));
                 goto err;
         }
 
@@ -4061,8 +4130,10 @@ shard_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
-                        "from inode ctx of %s", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_INODE_CTX_GET_FAILED,
+                        "Failed to get block size from inode ctx of %s",
+                        uuid_utoa (fd->inode->gfid));
                 goto err;
         }
 
@@ -4140,7 +4211,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_shard_mt_end + 1);
 
         if (ret != 0) {
-                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_MEM_ACCT_INIT_FAILED, "Memory accounting init"
                        "failed");
                 return ret;
         }
@@ -4155,19 +4227,21 @@ init (xlator_t *this)
         shard_priv_t *priv = NULL;
 
         if (!this) {
-                gf_log ("shard", GF_LOG_ERROR, "this is NULL. init() failed");
+                gf_msg ("shard", GF_LOG_ERROR, 0, SHARD_MSG_NULL_THIS,
+                        "this is NULL. init() failed");
                 goto out;
         }
 
         if (!this->parents) {
-                gf_log (this->name, GF_LOG_ERROR, "Dangling volume. "
-                        "Check volfile");
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_INVALID_VOLFILE,
+                        "Dangling volume. Check volfile");
                 goto out;
         }
 
         if (!this->children || this->children->next) {
-                gf_log (this->name, GF_LOG_ERROR, "shard not configured with "
-                        "exactly one sub-volume. Check volfile");
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_INVALID_VOLFILE,
+                        "shard not configured with exactly one sub-volume. "
+                        "Check volfile");
                 goto out;
         }
 
@@ -4180,8 +4254,6 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (shard_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Failed to allocate locals "
-                        "from mempool");
                 goto out;
         }
         gf_uuid_parse (SHARD_ROOT_GFID, priv->dot_shard_gfid);
