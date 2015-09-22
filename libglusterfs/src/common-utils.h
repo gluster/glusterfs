@@ -96,6 +96,10 @@ void trap (void);
 /* Default value of signing waiting time to sign a file for bitrot */
 #define SIGNING_TIMEOUT "120"
 
+/* Shard */
+#define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"
+#define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
+
 enum _gf_boolean
 {
 	_gf_false = 0,
