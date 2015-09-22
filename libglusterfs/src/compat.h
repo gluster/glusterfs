@@ -44,6 +44,7 @@
 #ifndef _PATH_UMOUNT
 #define _PATH_UMOUNT "/bin/umount"
 #endif
+#define GF_XATTR_NAME_MAX       XATTR_NAME_MAX
 #endif /* GF_LINUX_HOST_OS */
 
 #ifdef HAVE_XATTR_H
@@ -80,6 +81,7 @@
 #ifdef GF_DARWIN_HOST_OS
 #include <machine/endian.h>
 #include <libkern/OSByteOrder.h>
+#include <sys/xattr.h>
 
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htole16(x) OSSwapHostToLittleInt16(x)
@@ -132,7 +134,17 @@ enum {
 #ifdef __FreeBSD__
 #undef ino_t
 #define ino_t uint64_t
+#include <sys/types.h>
+#include <sys/extattr.h>
+/* Using NAME_MAX since EXTATTR_MAXNAMELEN is inside a preprocessor conditional
+ * for the kernel
+ */
+#define GF_XATTR_NAME_MAX       NAME_MAX
 #endif /* __FreeBSD__ */
+
+#ifdef __NetBSD__
+#define GF_XATTR_NAME_MAX       XATTR_NAME_MAX
+#endif
 
 #ifndef ino64_t
 #define ino64_t ino_t
@@ -481,5 +493,9 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #endif
 
 int gf_umount_lazy(char *xlname, char *path, int rmdir);
+
+#ifndef GF_XATTR_NAME_MAX
+#error 'Please define GF_XATTR_NAME_MAX for your OS distribution.'
+#endif
 
 #endif /* __COMPAT_H__ */
