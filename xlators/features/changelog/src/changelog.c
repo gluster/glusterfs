@@ -1249,11 +1249,18 @@ changelog_setattr (call_frame_t *frame,
         changelog_priv_t *priv     = NULL;
         changelog_opt_t  *co       = NULL;
         size_t            xtra_len = 0;
+        uuid_t            shard_root_gfid = {0,};
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
+
+        /* Do not record META on .shard */
+        gf_uuid_parse (SHARD_ROOT_GFID, shard_root_gfid);
+        if (gf_uuid_compare (loc->gfid, shard_root_gfid) == 0) {
+                goto wind;
+        }
 
         CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
 
@@ -1567,6 +1574,126 @@ changelog_fsetxattr (call_frame_t *frame,
         return 0;
 }
 
+int32_t
+changelog_xattrop_cbk (call_frame_t *frame,
+                       void *cookie, xlator_t *this, int32_t op_ret,
+                       int32_t op_errno, dict_t *xattr, dict_t *xdata)
+{
+        changelog_priv_t  *priv  = NULL;
+        changelog_local_t *local = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+
+        CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
+
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+
+ unwind:
+        changelog_dec_fop_cnt (this, priv, local);
+        CHANGELOG_STACK_UNWIND (xattrop, frame, op_ret, op_errno, xattr, xdata);
+
+        return 0;
+}
+
+int32_t
+changelog_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
+{
+        changelog_priv_t *priv      = NULL;
+        changelog_opt_t  *co        = NULL;
+        size_t            xtra_len  = 0;
+        int               ret       = 0;
+        void             *size_attr = NULL;
+
+        priv = this->private;
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        ret = dict_get_ptr (xattr, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
+        if (ret)
+                goto wind;
+
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
+        CHANGELOG_INIT (this, frame->local,
+                        loc->inode, loc->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
+
+ wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_xattrop_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->xattrop,
+                    loc, optype, xattr, xdata);
+        return 0;
+}
+
+int32_t
+changelog_fxattrop_cbk (call_frame_t *frame,
+                         void *cookie, xlator_t *this, int32_t op_ret,
+                         int32_t op_errno, dict_t *xattr, dict_t *xdata)
+{
+        changelog_priv_t  *priv  = NULL;
+        changelog_local_t *local = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+
+        CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
+
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+
+ unwind:
+        changelog_dec_fop_cnt (this, priv, local);
+        CHANGELOG_STACK_UNWIND (fxattrop, frame,
+                                op_ret, op_errno, xattr, xdata);
+
+        return 0;
+}
+
+int32_t
+changelog_fxattrop (call_frame_t *frame,
+                     xlator_t *this, fd_t *fd, gf_xattrop_flags_t optype,
+                     dict_t *xattr, dict_t *xdata)
+{
+        changelog_priv_t *priv      = NULL;
+        changelog_opt_t  *co        = NULL;
+        size_t            xtra_len  = 0;
+        void             *size_attr = NULL;
+        int               ret       = 0;
+
+        priv = this->private;
+        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        ret = dict_get_ptr (xattr, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
+        if (ret)
+                goto wind;
+
+
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
+        CHANGELOG_INIT (this, frame->local,
+                        fd->inode, fd->inode->gfid, 1);
+
+        co = changelog_get_usable_buffer (frame->local);
+        if (!co)
+                goto wind;
+
+        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+
+        changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
+
+ wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_fxattrop_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->fxattrop,
+                    fd, optype, xattr, xdata);
+        return 0;
+}
 /* }}} */
 
 
@@ -2797,6 +2924,8 @@ struct xlator_fops fops = {
         .removexattr  = changelog_removexattr,
         .fremovexattr = changelog_fremovexattr,
         .ipc          = changelog_ipc,
+        .xattrop      = changelog_xattrop,
+        .fxattrop     = changelog_fxattrop,
 };
 
 struct xlator_cbks cbks = {
