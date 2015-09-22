@@ -2847,12 +2847,25 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
+        if (!name || *name == '\0') {
+                ret = -1;
+                errno = EINVAL;
+                goto invalid_fs;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                ret = -1;
+                errno = ENAMETOOLONG;
+                goto invalid_fs;
+        }
+
 	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
+
 retry:
 	if (follow)
 		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
@@ -2916,6 +2929,18 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        if (!name || *name == '\0') {
+                ret = -1;
+                errno = EINVAL;
+                goto invalid_fs;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                ret = -1;
+                errno = ENAMETOOLONG;
+                goto invalid_fs;
+        }
 
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
@@ -3110,12 +3135,25 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
+        if (!name || *name == '\0') {
+                ret = -1;
+                errno = EINVAL;
+                goto invalid_fs;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                ret = -1;
+                errno = ENAMETOOLONG;
+                goto invalid_fs;
+        }
+
 	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
 		goto out;
 	}
+
 retry:
 	if (follow)
 		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
@@ -3184,6 +3222,18 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        if (!name || *name == '\0') {
+                ret = -1;
+                errno = EINVAL;
+                goto invalid_fs;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                ret = -1;
+                errno = ENAMETOOLONG;
+                goto invalid_fs;
+        }
 
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
