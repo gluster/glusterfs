@@ -326,6 +326,16 @@ glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
+        if (!name || *name == '\0') {
+                errno = EINVAL;
+                return -1;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                errno = ENAMETOOLONG;
+                return -1;
+        }
+
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
         if (!subvol) {
@@ -473,6 +483,16 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
         if ((fs == NULL) || (object == NULL) ||
                  (name == NULL) || (value == NULL)) {
                 errno = EINVAL;
+                return -1;
+        }
+
+        if (!name || *name == '\0') {
+                errno = EINVAL;
+                return -1;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                errno = ENAMETOOLONG;
                 return -1;
         }
 
