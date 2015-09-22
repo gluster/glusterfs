@@ -4840,6 +4840,99 @@ __add_long_array (int64_t *dest, int64_t *src, int count)
         }
 }
 
+
+/* functions:
+       __add_array_with_default
+       __add_long_array_with_default
+
+   xattrop type:
+       GF_XATTROP_ADD_ARRAY_WITH_DEFAULT
+       GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT
+
+   These operations are similar to 'GF_XATTROP_ADD_ARRAY',
+   except that it adds a default value if xattr is missing
+   or its value is zero on disk.
+
+   One use-case of this operation is in inode-quota.
+   When a new directory is created, its default dir_count
+   should be set to 1. So when a xattrop performed setting
+   inode-xattrs, it should account initial dir_count
+   1 if the xattrs are not present
+
+   Here is the usage of this operation
+
+   value required in xdata for each key
+   struct array {
+       int32_t   newvalue_1;
+       int32_t   newvalue_2;
+       ...
+       int32_t   newvalue_n;
+       int32_t   default_1;
+       int32_t   default_2;
+       ...
+       int32_t   default_n;
+   };
+
+   or
+
+   struct array {
+       int32_t   value_1;
+       int32_t   value_2;
+       ...
+       int32_t   value_n;
+   } data[2];
+   fill data[0] with new value to add
+   fill data[1] with default value
+
+   xattrop GF_XATTROP_ADD_ARRAY_WITH_DEFAULT
+   for i from 1 to n
+   {
+       if (xattr (dest_i) is zero or not set in the disk)
+           dest_i = newvalue_i + default_i
+       else
+           dest_i = dest_i + newvalue_i
+   }
+
+   value in xdata after xattrop is successful
+   struct array {
+       int32_t   dest_1;
+       int32_t   dest_2;
+       ...
+       int32_t   dest_n;
+   };
+*/
+static void
+__add_array_with_default (int32_t *dest, int32_t *src, int count)
+{
+        int     i       = 0;
+        int32_t destval = 0;
+
+        for (i = 0; i < count; i++) {
+                destval = ntoh32 (dest[i]);
+                if (destval == 0)
+                        dest[i] = hton32 (ntoh32 (src[i]) +
+                                          ntoh32 (src[count + i]));
+                else
+                        dest[i] = hton32 (destval + ntoh32 (src[i]));
+        }
+}
+
+static void
+__add_long_array_with_default (int64_t *dest, int64_t *src, int count)
+{
+        int     i       = 0;
+        int64_t destval = 0;
+
+        for (i = 0; i < count; i++) {
+                destval = ntoh64 (dest[i]);
+                if (destval == 0)
+                        dest[i] = hton64 (ntoh64 (src[i]) +
+                                          ntoh64 (src[i + count]));
+                else
+                        dest[i] = hton64 (destval + ntoh64 (src[i]));
+        }
+}
+
 static int
 _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                    void *tmp)
@@ -4861,6 +4954,10 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         this = filler->this;
         inode = filler->inode;
         count = v->len;
+        if (optype == GF_XATTROP_ADD_ARRAY_WITH_DEFAULT ||
+            optype == GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT)
+                count = count / 2;
+
         array = GF_CALLOC (count, sizeof (char), gf_posix_mt_char);
 
 #ifdef GF_DARWIN_HOST_OS
@@ -4877,10 +4974,10 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         {
                 if (filler->real_path) {
                         size = sys_lgetxattr (filler->real_path, k,
-                                              (char *)array, v->len);
+                                              (char *)array, count);
                 } else {
                         size = sys_fgetxattr (filler->fdnum, k, (char *)array,
-                                              v->len);
+                                              count);
                 }
 
                 op_errno = errno;
@@ -4925,24 +5022,35 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                  *
                  * If the xattr does not exist, a value of all 0's is returned
                  * without creating it. */
-                size = v->len;
+                size = count;
                 if (optype != GF_XATTROP_GET_AND_SET &&
                     mem_0filled(v->data, v->len) == 0)
                         goto unlock;
 
+                dst_data = array;
                 switch (optype) {
 
                 case GF_XATTROP_ADD_ARRAY:
                         __add_array ((int32_t *) array,
-                                     (int32_t *) v->data, v->len / 4);
-                        dst_data = array;
+                                     (int32_t *) v->data, count / 4);
                         break;
 
                 case GF_XATTROP_ADD_ARRAY64:
                         __add_long_array ((int64_t *) array,
                                           (int64_t *) v->data,
-                                          v->len / 8);
-                        dst_data = array;
+                                          count / 8);
+                        break;
+
+                case GF_XATTROP_ADD_ARRAY_WITH_DEFAULT:
+                        __add_array_with_default ((int32_t *) array,
+                                                  (int32_t *) v->data,
+                                                  count / 4);
+                        break;
+
+                case GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT:
+                        __add_long_array_with_default ((int64_t *) array,
+                                                       (int64_t *) v->data,
+                                                       count / 8);
                         break;
 
                 case GF_XATTROP_GET_AND_SET:
@@ -4962,11 +5070,11 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
 
                 if (filler->real_path) {
                         size = sys_lsetxattr (filler->real_path, k,
-                                              dst_data, v->len, 0);
+                                              dst_data, count, 0);
                 } else {
                         size = sys_fsetxattr (filler->fdnum, k,
                                               (char *)dst_data,
-                                              v->len, 0);
+                                              count, 0);
                 }
                 op_errno = errno;
         }
@@ -4992,7 +5100,7 @@ unlock:
                 op_ret = -1;
                 goto out;
         } else if (array) {
-                op_ret = dict_set_bin (filler->xattr, k, array, v->len);
+                op_ret = dict_set_bin (filler->xattr, k, array, count);
                 if (op_ret) {
                         if (filler->real_path)
                                 gf_msg_debug (this->name, 0,
