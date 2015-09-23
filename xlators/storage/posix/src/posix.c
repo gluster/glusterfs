@@ -5544,24 +5544,14 @@ out:
 
 dict_t *
 posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
-                        fd_t *fd, char *name, dict_t *dict,
+                        fd_t *fd, char *entry_path, dict_t *dict,
                         struct iatt *stbuf)
 {
         loc_t  tmp_loc    = {0,};
-        char  *entry_path = NULL;
 
         /* if we don't send the 'loc', open-fd-count be a problem. */
         tmp_loc.inode = inode;
 
-        MAKE_HANDLE_PATH (entry_path, this, fd->inode->gfid, name);
-        if (!entry_path) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        P_MSG_HANDLE_CREATE,
-                        "Failed to create handle path for %s/%s",
-                        uuid_utoa (fd->inode->gfid), name);
-
-                return NULL;
-        }
         return posix_xattr_fill (this, entry_path, &tmp_loc, NULL, -1, dict,
                                  stbuf);
 
@@ -5618,7 +5608,7 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
                 if (dict) {
                         entry->dict =
                                 posix_entry_xattr_fill (this, entry->inode,
-                                                        fd, entry->d_name,
+                                                        fd, hpath,
                                                         dict, &stbuf);
                 }
 
