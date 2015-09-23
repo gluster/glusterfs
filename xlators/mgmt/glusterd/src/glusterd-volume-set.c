@@ -2053,6 +2053,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "cluster/disperse",
           .op_version  = GD_OP_VERSION_3_7_3,
         },
+        {
+          .key         = "dht.force-readdirp",
+          .voltype     = "cluster/distribute",
+          .option      = "use-readdirp",
+          .op_version  = GD_OP_VERSION_3_7_5,
+        },
         { .key         = NULL
         }
 };
