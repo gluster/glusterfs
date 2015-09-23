@@ -271,6 +271,33 @@ out:
 }
 
 static int
+validate_replica (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                 char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (volinfo->replica_count == 1) {
+                snprintf (errstr, sizeof (errstr),
+                          "Cannot set %s for a non-replicate volume.", key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_REPLICA, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_subvols_per_directory (glusterd_volinfo_t *volinfo, dict_t *dict,
                                 char *key, char *value, char **op_errstr)
 {
@@ -536,20 +563,23 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key        = "cluster.metadata-self-heal",
-          .voltype    = "cluster/replicate",
-          .op_version = 1,
-          .flags      = OPT_FLAG_CLIENT_OPT
+        { .key         = "cluster.metadata-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1,
+          .validate_fn = validate_replica,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key        = "cluster.data-self-heal",
-          .voltype    = "cluster/replicate",
-          .op_version = 1,
-          .flags      = OPT_FLAG_CLIENT_OPT
+        { .key         = "cluster.data-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1,
+          .validate_fn = validate_replica,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key        = "cluster.entry-self-heal",
-          .voltype    = "cluster/replicate",
-          .op_version = 1,
-          .flags      = OPT_FLAG_CLIENT_OPT
+        { .key         = "cluster.entry-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 1,
+          .validate_fn = validate_replica,
+          .flags       = OPT_FLAG_CLIENT_OPT
         },
         { .key           = "cluster.self-heal-daemon",
           .voltype       = "cluster/replicate",
