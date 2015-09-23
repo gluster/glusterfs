@@ -42,7 +42,7 @@ from gsyncdstatus import GeorepStatus
 
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
-HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
+HostRX = re.compile('[a-zA-Z\d](?:[a-zA-Z\d.-]*[a-zA-Z\d])?', re.I)
 UserRX = re.compile("[\w!\#$%&'*+-\/=?^_`{|}~]+")
 
 
