@@ -339,35 +339,6 @@ out:
 }
 
 static int
-glfsh_print_brick (xlator_t *xl, loc_t *rootloc)
-{
-        int     ret = 0;
-        dict_t  *xattr = NULL;
-        char    *pathinfo = NULL;
-        char    *brick_start = NULL;
-        char    *brick_end = NULL;
-
-        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY,
-                               NULL, NULL);
-        if (ret < 0)
-                goto out;
-
-        ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &pathinfo);
-        if (ret < 0)
-                goto out;
-
-        brick_start = strchr (pathinfo, ':') + 1;
-        brick_end = pathinfo + strlen (pathinfo) - 1;
-        *brick_end = 0;
-        printf ("Brick %s\n", brick_start);
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-        return ret;
-}
-
-void
 glfsh_print_brick_from_xl (xlator_t *xl)
 {
         char    *remote_host = NULL;
@@ -386,6 +357,7 @@ out:
                 printf ("Brick - Not able to get brick information\n");
         else
                 printf ("Brick %s:%s\n", remote_host, remote_subvol);
+        return ret;
 }
 
 void
@@ -405,12 +377,9 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         ret = dict_set_int32 (xattr_req, "heal-op", heal_op);
         if (ret)
                 goto out;
-        ret = glfsh_print_brick (xl, rootloc);
-        if (ret < 0) {
-                glfsh_print_brick_from_xl (xl);
-                printf ("Status: %s\n", strerror (-ret));
+        ret = glfsh_print_brick_from_xl (xl);
+        if (ret < 0)
                 goto out;
-        }
 
         ret = glfsh_get_index_dir_loc (rootloc, xl, &dirloc, &op_errno);
         if (ret < 0) {
