@@ -53,7 +53,7 @@
 /*------------*/
 
 /*!
- * @messageid 110001
+ * @messageid 120001
  * @diagnosis Quota enforcement has failed.
  * @recommendedaction None
  */
@@ -61,14 +61,14 @@
 
 
 /*!
-* @messageid 110002
+* @messageid 120002
 * @diagnosis system is out of memory
 * @recommendedaction None
 */
 #define Q_MSG_ENOMEM    (GLFS_QUOTA_BASE + 2)
 
 /*!
- * @messageid 110003
+ * @messageid 120003
  * @diagnosis Parent inode is not present in the  inode table due to the
  * inode table limits or the brick was restarted recently.
  * @recommendedaction If it is a brick restart then perform a crawl on the
@@ -79,7 +79,7 @@
 #define Q_MSG_PARENT_NULL       (GLFS_QUOTA_BASE + 3)
 
 /*!
- * @messageid 110005
+ * @messageid 120004
  * @diagnosis This is to inform the admin that the user has crossed the soft limit
  * of the quota configured on the directory and expected to cross the hard limit soon.
  * @recommendedaction You may reconfigure your quota limits.
@@ -87,7 +87,7 @@
 #define Q_MSG_CROSSED_SOFT_LIMIT        (GLFS_QUOTA_BASE + 4)
 
 /*!
- * @messageid 110007
+ * @messageid 120005
  * @diagnosis Quota translator failed to connect to quotad. This could be
  * due to one or more of the following reasons, (1) Quotad is not running.
  * (2) Brick process has run out of memory.
@@ -97,7 +97,7 @@
 #define Q_MSG_QUOTA_ENFORCER_RPC_INIT_FAILED            (GLFS_QUOTA_BASE + 5)
 
 /*!
- * @messageid 110008
+ * @messageid 120006
  * @diagnosis Getting cluster-wide size failed
  * @recommendedaction Restart quotad. Kill quotad by searching
  * "ps ax | grep quotad" and use volume start force to restart it.
@@ -106,7 +106,7 @@
 #define Q_MSG_REMOTE_OPERATION_FAILED   (GLFS_QUOTA_BASE + 6)
 
 /*!
- * @messageid 110009
+ * @messageid 120007
  * @diagnosis Updation of global quota size failed. This may be due to quotad
  * is down or lost connection with quotad.
  * @recommendedaction Please restart quotad.
@@ -115,7 +115,7 @@
 #define Q_MSG_FAILED_TO_SEND_FOP        (GLFS_QUOTA_BASE + 7)
 
 /*!
- * @messageid 110010
+ * @messageid 120008
  * @diagnosis
  * @recommendedaction Check volfile for correctness
  */
@@ -123,7 +123,7 @@
 #define Q_MSG_INVALID_VOLFILE        (GLFS_QUOTA_BASE + 8)
 
 /*!
- * @messageid 110011
+ * @messageid 120009
  * @diagnosis
  * @recommendedaction
  */
@@ -131,7 +131,7 @@
 #define Q_MSG_INODE_PARENT_NOT_FOUND        (GLFS_QUOTA_BASE + 9)
 
 /*!
- * @messageid 110012
+ * @messageid 120010
  * @diagnosis
  * @recommendedaction
  */
@@ -139,7 +139,7 @@
 #define Q_MSG_XDR_DECODE_ERROR        (GLFS_QUOTA_BASE + 10)
 
 /*!
- * @messageid 110013
+ * @messageid 120011
  * @diagnosis
  * @recommendedaction
  */
@@ -147,7 +147,7 @@
 #define Q_MSG_DICT_UNSERIALIZE_FAIL        (GLFS_QUOTA_BASE + 11)
 
 /*!
- * @messageid 110014
+ * @messageid 120012
  * @diagnosis
  * @recommendedaction
  */
@@ -155,7 +155,7 @@
 #define Q_MSG_DICT_SERIALIZE_FAIL        (GLFS_QUOTA_BASE + 12)
 
 /*!
- * @messageid 110015
+ * @messageid 120013
  * @diagnosis
  * @recommendedaction
  */
@@ -163,7 +163,7 @@
 #define Q_MSG_RPCSVC_INIT_FAILED        (GLFS_QUOTA_BASE + 13)
 
 /*!
- * @messageid 110016
+ * @messageid 120014
  * @diagnosis
  * @recommendedaction
  */
@@ -171,7 +171,7 @@
 #define Q_MSG_RPCSVC_LISTENER_CREATION_FAILED        (GLFS_QUOTA_BASE + 14)
 
 /*!
- * @messageid 110017
+ * @messageid 120015
  * @diagnosis
  * @recommendedaction
  */
@@ -179,21 +179,21 @@
 #define Q_MSG_RPCSVC_REGISTER_FAILED        (GLFS_QUOTA_BASE + 15)
 
 /*!
- * @messageid 110018
+ * @messageid 120016
  * @diagnosis
  * @recommendedaction
  */
 
 #define Q_MSG_XDR_DECODING_FAILED        (GLFS_QUOTA_BASE + 16)
 /*!
- * @messageid 110019
+ * @messageid 120017
  * @diagnosis
  * @recommendedaction
  */
 
 #define Q_MSG_RPCCLNT_REGISTER_NOTIFY_FAILED        (GLFS_QUOTA_BASE + 17)
 /*!
- * @messageid 110020
+ * @messageid 120018
  * @diagnosis
  * @recommendedaction Umount and mount the corresponing volume
  */
@@ -201,7 +201,7 @@
 #define Q_MSG_ANCESTRY_BUILD_FAILED        (GLFS_QUOTA_BASE + 18)
 
 /*!
- * @messageid 110021
+ * @messageid 120019
  * @diagnosis
  * @recommendedaction
  */
@@ -209,7 +209,7 @@
 #define Q_MSG_SIZE_KEY_MISSING        (GLFS_QUOTA_BASE + 19)
 
 /*!
- * @messageid 110022
+ * @messageid 120020
  * @diagnosis
  * @recommendedaction
  */
@@ -217,7 +217,7 @@
 #define Q_MSG_INODE_CTX_GET_FAILED     (GLFS_QUOTA_BASE + 20)
 
 /*!
- * @messageid 110023
+ * @messageid 120021
  * @diagnosis
  * @recommendedaction
  */
@@ -225,7 +225,7 @@
 #define Q_MSG_INODE_CTX_SET_FAILED     (GLFS_QUOTA_BASE + 21)
 
 /*!
- * @messageid 110024
+ * @messageid 120022
  * @diagnosis
  * @recommendedaction
  */
@@ -233,7 +233,7 @@
 #define Q_MSG_LOOKUP_FAILED     (GLFS_QUOTA_BASE + 22)
 
 /*!
- * @messageid 110025
+ * @messageid 120023
  * @diagnosis
  * @recommendedaction
  */
