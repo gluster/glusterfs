@@ -1100,15 +1100,16 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 	}
 
 	local = frame->local;
-    priv = this->private;
+        priv = this->private;
 
 	ret = afr_replies_interpret (frame, this, local->refreshinode,
                                      &start_heal);
 
 	err = afr_inode_refresh_err (frame, this);
 
-	if (priv->did_discovery == _gf_false ||
-        (afr_selfheal_enabled (this) && start_heal)) {
+        if ((ret && afr_selfheal_enabled (this)) ||
+            (priv->did_discovery == _gf_false &&
+             AFR_IS_ROOT_GFID (local->refreshinode->gfid))) {
                 heal_frame = copy_frame (frame);
                 if (!heal_frame)
                         goto refresh_done;
