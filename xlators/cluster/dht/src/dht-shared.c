@@ -152,6 +152,7 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
+        gf_proc_dump_write("use-readdirp", "%d", conf->use_readdirp);
 
         if (conf->du_stats && conf->subvolume_status) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -486,6 +487,8 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("weighted-rebalance", conf->do_weighting, options,
                           bool, out);
 
+        GF_OPTION_RECONF ("use-readdirp", conf->use_readdirp, options,
+                          bool, out);
         ret = 0;
 out:
         return ret;

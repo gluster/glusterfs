@@ -38,7 +38,7 @@
  */
 #define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
                                 should not change */
-#define GD_OP_VERSION_MAX  GD_OP_VERSION_3_7_4 /* MAX VERSION is the maximum
+#define GD_OP_VERSION_MAX  GD_OP_VERSION_3_7_5 /* MAX VERSION is the maximum
                                                   count in VME table, should
                                                   keep changing with
                                                   introduction of newer
@@ -55,6 +55,8 @@
 #define GD_OP_VERSION_3_7_3    30703 /* Op-version for GlusterFS 3.7.3 */
 
 #define GD_OP_VERSION_3_7_4    30704 /* Op-version for GlusterFS 3.7.4 */
+
+#define GD_OP_VERSION_3_7_5    30705 /* Op-version for GlusterFS 3.7.5 */
 
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
 
