@@ -910,7 +910,8 @@ class GMasterChangelogMixin(GMasterCommon):
                                                       st_mtime=ec[6])))
                     else:
                         meta_gfid.add((os.path.join(pfx, ec[0]), ))
-                elif ec[1] == 'SETXATTR':
+                elif ec[1] == 'SETXATTR' or ec[1] == 'XATTROP' or \
+                     ec[1] == 'FXATTROP':
                     # To sync xattr/acls use rsync/tar, --xattrs and --acls
                     # switch to rsync and tar
                     if not boolify(gconf.use_tarssh) and \
