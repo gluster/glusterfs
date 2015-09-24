@@ -758,13 +758,19 @@ out:
 static int
 glusterd_validate_shared_storage (char *key, char *value, char *errstr)
 {
-        int32_t       ret      = -1;
-        int32_t       exists   = -1;
-        int32_t       count    = -1;
-        xlator_t     *this     = NULL;
+        int32_t            ret      = -1;
+        int32_t            exists   = -1;
+        int32_t            count    = -1;
+        char              *op       = NULL;
+        xlator_t          *this     = NULL;
+        glusterd_conf_t   *conf     = NULL;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
         GF_VALIDATE_OR_GOTO (this->name, key, out);
         GF_VALIDATE_OR_GOTO (this->name, value, out);
         GF_VALIDATE_OR_GOTO (this->name, errstr, out);
@@ -786,7 +792,19 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
                 goto out;
         }
 
-        if (strcmp (value, "enable")) {
+        if (!strncmp (value, "disable", strlen ("disable"))) {
+                ret = dict_get_str (conf->opts, GLUSTERD_SHARED_STORAGE_KEY,
+                                                                           &op);
+                if (ret || !strncmp (op, "disable", strlen ("disable"))) {
+                        snprintf (errstr, PATH_MAX, "Shared storage volume "
+                                  "does not exist. Please enable shared storage"
+                                  " for creating shared storage volume.");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHARED_STORAGE_DOES_NOT_EXIST, "%s",
+                                errstr);
+                        ret = -1;
+                        goto out;
+                }
                 goto out;
         }
 
