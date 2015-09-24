@@ -27,6 +27,17 @@ __is_shard_dir (uuid_t gfid)
         return _gf_false;
 }
 
+static gf_boolean_t
+__is_gsyncd_on_shard_dir (call_frame_t *frame, loc_t *loc)
+{
+        if (frame->root->pid == GF_CLIENT_PID_GSYNCD &&
+            (__is_shard_dir (loc->pargfid) ||
+            (loc->parent && __is_shard_dir(loc->parent->gfid))))
+                return _gf_true;
+
+        return _gf_false;
+}
+
 void
 shard_make_block_bname (int block_num, uuid_t gfid, char *buf, size_t len)
 {
@@ -753,7 +764,8 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * and store them in the stbuf appropriately.
          */
 
-        if (dict_get (xdata, GF_XATTR_SHARD_FILE_SIZE))
+        if (dict_get (xdata, GF_XATTR_SHARD_FILE_SIZE) &&
+            frame->root->pid != GF_CLIENT_PID_GSYNCD)
                 shard_modify_size_and_block_count (buf, xdata);
 
 unwind:
@@ -771,7 +783,9 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         uint64_t        block_size = 0;
         shard_local_t  *local      = NULL;
 
-        SHARD_ENTRY_FOP_CHECK (loc, op_errno, err);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                SHARD_ENTRY_FOP_CHECK (loc, op_errno, err);
+        }
 
         local = mem_get0 (this->local_pool);
         if (!local)
@@ -797,15 +811,18 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
         }
 
-        ret = dict_set_uint64 (local->xattr_req, GF_XATTR_SHARD_FILE_SIZE,
-                               8 * 4);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        SHARD_MSG_DICT_SET_FAILED, "Failed to set dict value: "
-                        "key:%s for path %s.", GF_XATTR_SHARD_FILE_SIZE,
-                        loc->path);
-                goto err;
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                ret = dict_set_uint64 (local->xattr_req,
+                                       GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                SHARD_MSG_DICT_SET_FAILED,
+                                "Failed to set dict value: key:%s for path %s.",
+                                GF_XATTR_SHARD_FILE_SIZE, loc->path);
+                        goto err;
+                }
         }
+
         if ((xattr_req) && (dict_get (xattr_req, GF_CONTENT_KEY)))
                 dict_del (xattr_req, GF_CONTENT_KEY);
 
@@ -1005,7 +1022,7 @@ shard_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_stat_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->stat, loc, xdata);
                 return 0;
@@ -1059,7 +1076,7 @@ shard_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_fstat_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fstat, fd, xdata);
                 return 0;
@@ -1769,7 +1786,7 @@ shard_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_truncate_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->truncate, loc, offset,
                             xdata);
@@ -1819,7 +1836,7 @@ shard_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_ftruncate_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->ftruncate, fd, offset,
                             xdata);
@@ -1893,8 +1910,9 @@ shard_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto err;
 
         frame->local = local;
-
-        SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
+        if (!__is_gsyncd_on_shard_dir (frame, loc)) {
+                SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
+        }
 
         STACK_WIND (frame, shard_mknod_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask,
@@ -2331,7 +2349,7 @@ shard_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_unlink_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
                 return 0;
@@ -2554,7 +2572,8 @@ shard_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
          * a. the src file is not sharded and dst doesn't exist, OR
          * b. the src and dst both exist but are not sharded.
          */
-        if ((!block_size) && (!dst_block_size)) {
+        if (((!block_size) && (!dst_block_size)) ||
+            frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_rename_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rename, oldloc, newloc,
                             xdata);
@@ -2641,7 +2660,9 @@ shard_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         frame->local = local;
 
-        SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
+        if (!__is_gsyncd_on_shard_dir (frame, loc)) {
+                SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
+        }
 
         STACK_WIND (frame, shard_create_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->create, loc, flags, mode, umask,
@@ -3201,7 +3222,7 @@ shard_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 /* block_size = 0 means that the file was created before
                  * sharding was enabled on the volume.
                  */
@@ -3646,7 +3667,7 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 /* block_size = 0 means that the file was created before
                  * sharding was enabled on the volume.
                  */
@@ -3830,7 +3851,8 @@ shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (IA_ISDIR (entry->d_stat.ia_type))
                         continue;
 
-                if (dict_get (entry->dict, GF_XATTR_SHARD_FILE_SIZE))
+                if (dict_get (entry->dict, GF_XATTR_SHARD_FILE_SIZE) &&
+                    frame->root->pid != GF_CLIENT_PID_GSYNCD)
                         shard_modify_size_and_block_count (&entry->d_stat,
                                                            entry->dict);
 
@@ -3951,9 +3973,12 @@ shard_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         int op_errno = EINVAL;
 
-        GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*", name, op_errno, out);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*",
+                                         name, op_errno, out);
+        }
 
-        if (xdata) {
+        if (xdata && (frame->root->pid != GF_CLIENT_PID_GSYNCD)) {
                 dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
                 dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
         }
@@ -3974,9 +3999,12 @@ shard_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         int op_errno = EINVAL;
 
-        GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*", name, op_errno, out);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                GF_IF_NATIVE_XATTR_GOTO (SHARD_XATTR_PREFIX"*",
+                                         name, op_errno, out);
+        }
 
-        if (xdata) {
+        if (xdata && (frame->root->pid != GF_CLIENT_PID_GSYNCD)) {
                 dict_del (xdata, GF_XATTR_SHARD_BLOCK_SIZE);
                 dict_del (xdata, GF_XATTR_SHARD_FILE_SIZE);
         }
@@ -3999,7 +4027,7 @@ shard_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0)
                 goto unwind;
 
-        if (dict) {
+        if (dict && (frame->root->pid != GF_CLIENT_PID_GSYNCD)) {
                 dict_del (dict, GF_XATTR_SHARD_BLOCK_SIZE);
                 dict_del (dict, GF_XATTR_SHARD_FILE_SIZE);
         }
@@ -4015,7 +4043,8 @@ shard_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         int op_errno = EINVAL;
 
-        if ((name) && (!strncmp (name, SHARD_XATTR_PREFIX,
+        if ((frame->root->pid != GF_CLIENT_PID_GSYNCD) &&
+            (name) && (!strncmp (name, SHARD_XATTR_PREFIX,
                       strlen (SHARD_XATTR_PREFIX)))) {
                 op_errno = ENODATA;
                 goto out;
@@ -4039,7 +4068,7 @@ shard_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0)
                 goto unwind;
 
-        if (dict) {
+        if (dict && (frame->root->pid != GF_CLIENT_PID_GSYNCD)) {
                 dict_del (dict, GF_XATTR_SHARD_BLOCK_SIZE);
                 dict_del (dict, GF_XATTR_SHARD_FILE_SIZE);
         }
@@ -4055,7 +4084,8 @@ shard_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         int op_errno = EINVAL;
 
-        if ((name) && (!strncmp (name, SHARD_XATTR_PREFIX,
+        if ((frame->root->pid != GF_CLIENT_PID_GSYNCD) &&
+            (name) && (!strncmp (name, SHARD_XATTR_PREFIX,
                       strlen (SHARD_XATTR_PREFIX)))) {
                 op_errno = ENODATA;
                 goto out;
@@ -4076,7 +4106,10 @@ shard_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 {
         int op_errno = EINVAL;
 
-        GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict, op_errno, out);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict,
+                                           op_errno, out);
+        }
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
@@ -4094,7 +4127,10 @@ shard_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 {
         int op_errno = EINVAL;
 
-        GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict, op_errno, out);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                GF_IF_INTERNAL_XATTR_GOTO (SHARD_XATTR_PREFIX"*", dict,
+                                           op_errno, out);
+        }
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
@@ -4191,7 +4227,7 @@ shard_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_setattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->setattr, loc, stbuf,
                             valid, xdata);
@@ -4250,7 +4286,7 @@ shard_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto err;
         }
 
-        if (!block_size) {
+        if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
                 STACK_WIND (frame, default_fsetattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fsetattr, fd, stbuf,
                             valid, xdata);
