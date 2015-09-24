@@ -13,6 +13,287 @@
 #include "afr-self-heal.h"
 #include "afr-messages.h"
 
+
+
+/*
+ * Helper function to create the destination location for the copy
+ * of the directory entry we are moving out of the way.
+ */
+static int
+_afr_sh_create_unsplit_loc (struct afr_reply *replies, const int child_idx,
+                loc_t *loc, loc_t *unsplit_loc)
+{
+        int     ret = 0;
+        int     new_path_len = 0;
+        int     new_name_len = 0;
+        char    *new_path = NULL;
+        char    *new_name = NULL;
+        char    *tmp_gfid_str;
+        const char *filename = NULL;
+        uuid_t  rand_uuid;
+
+        tmp_gfid_str = alloca (sizeof (UUID0_STR));
+
+        /*
+         * All of these allocations will be cleaned up
+         * @ afr_sh_gfid_unsplit_rename_done via loc_wipe.
+         */
+        if (loc_copy (unsplit_loc, loc)) {
+                ret = EINVAL;
+                goto err;
+        }
+
+        inode_unref (unsplit_loc->inode);
+        unsplit_loc->inode = inode_new (loc->inode->table);
+        unsplit_loc->parent = inode_ref (loc->parent);
+        gf_uuid_copy (unsplit_loc->inode->gfid,
+                      replies[child_idx].poststat.ia_gfid);
+        unsplit_loc->inode->ia_type = loc->inode->ia_type;
+
+        gf_uuid_generate (rand_uuid);
+        /* Note: Use re-entrant version of uuid_utoa! */
+        tmp_gfid_str = uuid_utoa_r (rand_uuid, tmp_gfid_str);
+
+        /* Copy the GFIDs, file + parent directory */
+        gf_uuid_copy (unsplit_loc->gfid, rand_uuid);
+        gf_uuid_copy (unsplit_loc->pargfid,
+                      replies[child_idx].postparent.ia_gfid);
+
+        filename = loc->name;
+
+        /*
+         * New path: Add 11 for null + ".unsplit_" + "_". We _could_ nuke
+         * tmp_gfid_str entirely here, iff we assume the uuid_utoa
+         * formatting to _never_change.  If we assume this we can just add
+         * 32 to the length and call uuid_utoa directly in the snprintf.
+         */
+        new_path_len = strlen (filename) + strlen (tmp_gfid_str) + 11;
+        new_path = GF_CALLOC (1, new_path_len, gf_common_mt_char);
+        if (!new_path) {
+                ret = ENOMEM;
+                goto err;
+        }
+        snprintf (new_path, new_path_len, ".unsplit_%s_%s", tmp_gfid_str,
+                filename);
+        unsplit_loc->path = new_path;
+
+        /* New name: Add 11 for null + ".unsplit_" + "_" */
+        new_name_len = strlen (loc->name) + strlen (tmp_gfid_str) + 11;
+        new_name = GF_CALLOC (1, new_name_len, gf_common_mt_char);
+        if (!new_name) {
+                ret = ENOMEM;
+                goto err;
+        }
+        snprintf (new_name, new_name_len, ".unsplit_%s_%s", tmp_gfid_str,
+                loc->name);
+        unsplit_loc->name = new_name;
+
+        return 0;
+err:
+        GF_FREE (new_path);
+        GF_FREE (new_name);
+        return ret;
+}
+
+static int
+_afr_gfid_unsplit_rename_cbk (call_frame_t *frame, void *cookie,
+                xlator_t *this, int32_t op_ret, int32_t op_errno,
+                struct iatt *buf, struct iatt *preoldparent,
+                struct iatt *postoldparent, struct iatt *prenewparent,
+                struct iatt *postnewparent, dict_t *xdata)
+{
+        afr_local_t             *local = NULL;
+        int                     child_index = (long) cookie;
+
+        local = frame->local;
+
+        if ((op_ret == -1) && (op_errno != ENOENT)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rename entry %s/%s failed, on child %d reason, %s",
+                        uuid_utoa (local->loc.pargfid),
+                        local->loc.name, child_index, strerror (op_errno));
+        }
+        gf_log (this->name, GF_LOG_DEBUG,
+                "GFID unsplit successful on %s/%s, on child %d",
+                uuid_utoa (local->loc.pargfid), local->loc.name, child_index);
+
+        syncbarrier_wake (&local->barrier);
+        return 0;
+}
+int
+__afr_selfheal_do_gfid_unsplit (xlator_t *this, unsigned char *locked_on,
+                                struct afr_reply *replies, inode_t *inode,
+                                loc_t *loc)
+{
+        afr_local_t     *local = NULL;
+        afr_private_t   *priv = NULL;
+        call_frame_t   *frame    = NULL;
+        loc_t           *unsplit_loc;
+        int             fav_child = -1;
+        unsigned char   *fav_gfid;
+        unsigned int    i = 0;
+        unsigned int    split_count = 0;
+        unsigned char   *rename_list;
+        int             ret = 0;
+        char            *policy_str;
+
+        frame = afr_frame_create (this);
+
+        local = frame->local;     // Local variables for our frame
+        priv = this->private;     // xlator specific variables
+        rename_list = alloca0 (priv->child_count);
+
+        if (loc_copy (&local->loc, loc)) {
+                ret = ENOMEM;
+                goto out;
+        }
+
+        /*
+         * Ok, go find our favorite child by one of the active policies:
+         * majority -> ctime -> mtime -> size -> predefined
+         * we'll use this gfid as the "real" one.
+         */
+        fav_child = afr_sh_get_fav_by_policy (this, replies, inode,
+                                              &policy_str);
+        if (fav_child == -1) {  /* No policies are in place, bail */
+                gf_log (this->name, GF_LOG_WARNING, "Unable to resolve GFID "
+                        "split brain, there are no favorite child policies "
+                        "set.");
+                ret = -EIO;
+                goto out;
+        }
+        fav_gfid = replies[fav_child].poststat.ia_gfid;
+        gf_log (this->name, GF_LOG_INFO, "Using child %d to resolve gfid "
+                "split-brain.  GFID is %s.", fav_child, uuid_utoa (fav_gfid));
+
+        /* Pre-compute the number of rename calls we will be doing */
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i] &&
+                    !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
+                    gf_uuid_compare (replies[i].poststat.ia_gfid, fav_gfid)) {
+                        split_count++;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "Found %d split-brained gfid's.",
+                split_count);
+
+        local->unsplit_locs = GF_CALLOC (priv->child_count,
+            sizeof (*unsplit_loc), gf_afr_mt_loc_t);
+        if (!local->unsplit_locs) {
+                ret = ENOMEM;
+                goto out;
+        }
+
+        afr_local_replies_wipe (local, priv);
+        local->call_count = 0;
+        for (i = 0; i < priv->child_count; i++) {
+                unsplit_loc = &local->unsplit_locs[i];
+                if (locked_on[i] && local->child_up[i] &&
+                    replies[i].op_errno != ENOENT &&
+                    !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
+                    gf_uuid_compare (replies[i].poststat.ia_gfid, fav_gfid)) {
+                        ret = _afr_sh_create_unsplit_loc (replies, i,
+                                                          loc, unsplit_loc);
+                        gf_log (this->name, GF_LOG_INFO, "Renaming child %d to "
+                                " %s/%s to resolve gfid split-brain.", i,
+                                uuid_utoa (unsplit_loc->pargfid),
+                                unsplit_loc->name);
+                        rename_list[i] = 1;
+                        /* frame, rfn, cky, obj, fn, params */
+                        STACK_WIND_COOKIE (frame,
+                                _afr_gfid_unsplit_rename_cbk,
+                                (void *) (long) i,
+                                priv->children[i],
+                                priv->children[i]->fops->rename,
+                                loc, unsplit_loc, NULL);
+                        local->call_count++;
+                }
+        }
+        syncbarrier_wait (&local->barrier, local->call_count);
+
+out:
+        for (i = 0; i < priv->child_count; i++) {
+                if (rename_list[i])
+                        loc_wipe (&local->unsplit_locs[i]);
+        }
+        if (frame)
+                AFR_STACK_DESTROY (frame);
+        return ret;
+}
+
+int
+__afr_selfheal_gfid_unsplit (xlator_t *this, inode_t *parent, uuid_t pargfid,
+                             const char *bname, inode_t *inode,
+                             struct afr_reply *replies, void *gfid,
+                             unsigned char *locked_on)
+{
+        int             ret          = 0;
+        afr_private_t  *priv         = NULL;
+        dict_t         *xdata        = NULL;
+        loc_t           loc          = {0, };
+        call_frame_t   *new_frame    = NULL;
+        afr_local_t    *new_local    = NULL;
+
+        priv = this->private;
+
+        new_frame = afr_frame_create (this);
+        if (!new_frame) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        new_local = new_frame->local;
+
+        gf_uuid_copy (parent->gfid, pargfid);
+
+        xdata = dict_new ();
+        if (!xdata) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        if (ret) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        loc.parent = inode_ref (parent);
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.pargfid, pargfid);
+        loc.name = bname;
+
+        ret = __afr_selfheal_do_gfid_unsplit (this, locked_on, replies,
+                                              inode, &loc);
+
+        if (ret)
+                goto out;
+
+        /* Clear out old replies here and wind lookup on all locked
+         * subvolumes to achieve two things:
+         *   a. gfid heal on those subvolumes that do not have gfid associated
+         *      with the inode, and
+         *   b. refresh replies, which can be consumed by
+         *      __afr_selfheal_name_impunge().
+         */
+        afr_replies_wipe (replies, priv->child_count);
+        /* This sends out lookups to all bricks and blocks once we have
+         * them.
+         */
+        AFR_ONLIST (locked_on, new_frame, afr_selfheal_discover_cbk, lookup,
+                    &loc, xdata);
+        afr_replies_copy (replies, new_local->replies, priv->child_count);
+out:
+        loc_wipe (&loc);
+        if (xdata)
+                dict_unref (xdata);
+        if (new_frame)
+                AFR_STACK_DESTROY (new_frame);
+
+        return ret;
+}
+
 int
 __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                             const char *bname, inode_t *inode,
@@ -429,12 +710,6 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         if (ret)
                 return ret;
 
-        ret = afr_selfheal_name_gfid_mismatch_check (this, replies, source,
-                                                     sources, &gfid_idx,
-                                                     pargfid, bname);
-        if (ret)
-                return ret;
-
 	if (gfid_idx == -1) {
                 if (!gfid_req || gf_uuid_is_null (gfid_req))
                         return -1;
@@ -442,6 +717,15 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         } else {
                 gfid = &replies[gfid_idx].poststat.ia_gfid;
         }
+
+        ret = afr_selfheal_name_gfid_mismatch_check (this, replies, source,
+                                                     sources, &gfid_idx,
+                                                     pargfid, bname);
+        if (ret)
+                ret = __afr_selfheal_gfid_unsplit (this, parent, pargfid,
+                    bname, inode, replies, gfid, locked_on);
+        if (ret)
+                return ret;
 
         is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
 	ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname, inode,

@@ -431,7 +431,7 @@ function cleanup()
         # Prepare flags for umount
         case `uname -s` in
         Linux)
-                flag="-l"
+                flag="-l -f --no-canonicalize"
                 ;;
         NetBSD)
                 flag="-f -R"

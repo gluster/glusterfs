@@ -664,6 +664,20 @@ out:
 
 }
 
+static int
+replies_are_same (struct afr_reply *replies, int i, int k)
+{
+        if (replies[k].poststat.ia_mtime != replies[i].poststat.ia_mtime) {
+                return _gf_false;
+        }
+        if (replies[k].poststat.ia_size != replies[i].poststat.ia_size)  {
+                return _gf_false;
+        }
+
+        return gf_uuid_compare (replies[i].poststat.ia_gfid,
+                                replies[k].poststat.ia_gfid) == 0;
+}
+
 int
 afr_sh_fav_by_majority (xlator_t *this, struct afr_reply *replies,
                         inode_t *inode)
@@ -685,12 +699,8 @@ afr_sh_fav_by_majority (xlator_t *this, struct afr_reply *replies,
                                 replies[i].poststat.ia_size,
                                 uuid_utoa (inode->gfid));
                                 vote_count = 0;
-                        for (k = 0; k < priv->child_count; k++) {
-                                if ((replies[k].poststat.ia_mtime ==
-                                     replies[i].poststat.ia_mtime) &&
-                                    (replies[k].poststat.ia_size ==
-                                     replies[i].poststat.ia_size)
-                                   ) {
+                        for (k = 1; k < priv->child_count; k++) {
+                                if (replies_are_same (replies, i, k)) {
                                         vote_count++;
                                 }
                         }
@@ -2247,4 +2257,20 @@ afr_choose_source_by_policy (afr_private_t *priv, unsigned char *sources,
         }
 out:
         return source;
+}
+
+void
+afr_sh_get_source_by_policy (xlator_t *this,
+                             unsigned char *sources,
+                             unsigned char *healed_sinks,
+                             unsigned char *locked_on,
+                             struct afr_reply *replies, inode_t *inode)
+{
+        int fav_child = -1;
+        char *policy_str;
+
+        fav_child = afr_sh_get_fav_by_policy (this, replies, inode,
+                                              &policy_str);
+        sources[fav_child] = 1;
+        healed_sinks[fav_child] = 0;
 }
