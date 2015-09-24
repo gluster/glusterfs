@@ -29,7 +29,7 @@ file remains libfoo.so.0 forever. Legacy APIs may or may not have an
 associated symbol version. New APIs may or may not have an associated
 symbol version either. In general symbol versions are reserved for APIs
 that have changed. Either the function's signature has changed, i.e. the
-return type or the number of paramaters, and/or the parameter types have
+return time or the number of paramaters, and/or the parameter types have
 changed. Another reason for using symbol versions on an API is when the
 behaviour or functionality of the API changes dramatically. As with a
 library that doesn't use versioned symbols, old and new applications

@@ -13,7 +13,8 @@ replicate xlators (subvolumes) of *only* the bricks present in that particular n
 The shd does two types of self-heal crawls: Index heal and Full heal. For both these types of crawls, the basic idea is the same:  
 For each file encountered while crawling, perform metadata, data and entry heals under appropriate locks.  
 * An overview of how each of these heals is performed is detailed in the 'Self-healing' section of *doc/features/afr-v1.md*
-* The different file locks which the shd takes for each of these heals is detailed in *doc/developer-guide/afr/afr-locks-evolution.md*
+* The different file locks which the shd takes for each of these heals is detailed in *doc/developer
+-guide/afr-locks-evolution.md*
 
 Metadata heal refers to healing extended attributes, mode and permissions of a file or directory.
 Data heal refers to healing the file contents.
@@ -32,10 +33,10 @@ each entry in index heal, a check is made if a full heal is queued. If it is, th
 
 In index heal, each shd reads the entries present inside .glusterfs/indices/xattrop/ folder and triggers heal on each entry with appropriate locks.
 The .glusterfs/indices/xattrop/ directory contains a base entry of the name "xattrop-<virtual-gfid-string>". All other entries are hardlinks to the base entry. The
-*names* of the hardlinks are the gfid strings of the files that may need heal.
+*names* of the hardlinks are the gfid strings of the files that may need heal. 
 
 When a client (mount) performs an operation on the file, the index xlator present in each brick process adds the hardlinks in the pre-op phase of the FOP's transaction
-and removes it in post-op phase if the operation is successful. Thus if an entry is present inside the .glusterfs/indices/xattrop directory when there is no I/O 
+and removes it in post-op phase if the operation is successful. Thus if an entry is present inside the .glusterfs/indices/xattrop/ directory when there is no I/O 
 happening on the file, it means the file needs healing (or atleast an examination if the brick crashed after the post-op completed but just before the removal of the hardlink).
 
 ####Index heal steps:
@@ -85,6 +86,7 @@ In shd process of *highest UUID node per replica* {
                         /* Recurse*/
                         again opendir+readdir (directory) followed by self_heal_entry() of each entry.
                 }
+                
         }
 }
 </code></pre>
