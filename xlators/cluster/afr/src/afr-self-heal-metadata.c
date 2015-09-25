@@ -216,6 +216,17 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
+                /* __afr_selfheal_metadata_prepare tinkers with the state
+                 * of healed_sinks pre-maturely (the source hasn't
+                 * actually been finalized yet!), so reset the children
+                 * which aren't our source to sinks so we can heal.
+                 * I'll leave it to the AFR2 maintainer to fix that code
+                 * in the future as they may have had a good reason.
+                 */
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!sources[i] && locked_on[i])
+                                healed_sinks[i] = 1;
+                }
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
 	    || !sources_count) {
 
