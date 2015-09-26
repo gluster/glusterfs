@@ -426,6 +426,7 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
+        local OLDPWD=$PWD
         cd      # Things go pear-shaped if we're inside a Gluster mount.
 
         # Prepare flags for umount
@@ -578,6 +579,8 @@ function cleanup()
 	# above to fail, promoting that into a failure of the whole test (and
 	# thus of an entire regression-test run) seems a bit excessive.  Make
 	# sure we return good status anyway.
+
+        cd $OLDPWD
 	return 0
 }
 

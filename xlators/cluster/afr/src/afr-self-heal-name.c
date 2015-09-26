@@ -689,6 +689,7 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	gf_boolean_t    source_is_empty = _gf_true;
 	gf_boolean_t    need_heal       = _gf_false;
         gf_boolean_t    is_gfid_absent  = _gf_false;
+        gf_boolean_t    tried_gfid_unsplit  = _gf_false;
 
         need_heal = afr_selfheal_name_need_heal_check (this, replies);
 	if (!need_heal)
@@ -710,7 +711,15 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         if (ret)
                 return ret;
 
-	if (gfid_idx == -1) {
+gfid_mismatch_check:
+        ret = afr_selfheal_name_gfid_mismatch_check (this, replies, source,
+                                                     sources, &gfid_idx,
+                                                     pargfid, bname);
+
+        if (ret && tried_gfid_unsplit == _gf_true)
+                return ret;
+
+        if (gfid_idx == -1) {
                 if (!gfid_req || gf_uuid_is_null (gfid_req))
                         return -1;
                 gfid = gfid_req;
@@ -718,14 +727,16 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
                 gfid = &replies[gfid_idx].poststat.ia_gfid;
         }
 
-        ret = afr_selfheal_name_gfid_mismatch_check (this, replies, source,
-                                                     sources, &gfid_idx,
-                                                     pargfid, bname);
-        if (ret)
+        if (ret && tried_gfid_unsplit == _gf_false) {
                 ret = __afr_selfheal_gfid_unsplit (this, parent, pargfid,
                     bname, inode, replies, gfid, locked_on);
-        if (ret)
-                return ret;
+
+                if (ret)
+                        return ret;
+
+                tried_gfid_unsplit = _gf_true;
+                goto gfid_mismatch_check;
+        }
 
         is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
 	ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname, inode,

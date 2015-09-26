@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -63,7 +64,8 @@ TEST [ "$MD5" == "$HEALED_MD5" ]
 TEST rm -f $M0/splitfile
 
 # Part II: NFS test
-TEST mount -t nfs -o nolock,noatime,noacl,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock
+#EST mount -t nfs -o nolock,noatime,noacl,soft,intr $H0:/$V0 $N0;
 
 dd if=/dev/urandom of=$N0/splitfile bs=128k count=5 2>/dev/null
 
