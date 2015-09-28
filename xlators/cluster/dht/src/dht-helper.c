@@ -1255,8 +1255,9 @@ dht_rebalance_inprogress_task (void *data)
                 tmp_loc.inode = inode_ref (inode);
                 gf_uuid_copy (tmp_loc.gfid, inode->gfid);
         }
-                /* lookup on dst */
-                ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
+
+        /* lookup on dst */
+        ret = syncop_lookup (dst_node, &tmp_loc, &stbuf, NULL,
                                      NULL, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
