@@ -45,6 +45,22 @@
         }                                                       \
 
 void
+gf_defrag_free_container (struct dht_container *container)
+{
+        if (container) {
+                gf_dirent_entry_free (container->df_entry);
+
+                if (container->parent_loc) {
+                        loc_wipe (container->parent_loc);
+                }
+
+                GF_FREE (container->parent_loc);
+
+                GF_FREE (container);
+        }
+}
+
+void
 dht_set_global_defrag_error (gf_defrag_info_t *defrag, int ret)
 {
         LOCK (&defrag->lock);
@@ -1929,8 +1945,8 @@ gf_defrag_task (void *opaque)
                                         goto out;
                                 }
 
-                                gf_dirent_free (iterator->df_entry);
-                                GF_FREE (iterator);
+                                gf_defrag_free_container (iterator);
+
                                 continue;
                         } else {
 
@@ -2212,13 +2228,13 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         }
 
 out:
+        loc_wipe (&entry_loc);
+
         if (ret == 0) {
                 *container = tmp_container;
         } else {
                 if (tmp_container) {
-                        GF_FREE (tmp_container->df_entry);
-                        GF_FREE (tmp_container->parent_loc);
-                        GF_FREE (tmp_container);
+                        gf_defrag_free_container (tmp_container);
                 }
         }
 
