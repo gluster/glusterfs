@@ -75,6 +75,7 @@ static char* list_xattr_ignore_xattrs[] = {
         GFID_XATTR_KEY,
         NULL
 };
+
 gf_boolean_t
 posix_special_xattr (char **pattern, char *key)
 {
@@ -115,29 +116,77 @@ posix_xattr_ignorable (char *key)
         return _is_in_array (posix_ignore_xattrs, key);
 }
 
+static gf_boolean_t
+posix_is_valid_namespace (char *key)
+{
+        static char *xattr_namespaces[] = {"trusted.", "security.", "system.",
+                                           "user.", NULL };
+        int i = 0;
+
+        for (i = 0; xattr_namespaces[i]; i++) {
+                if (strncmp (key, xattr_namespaces[i],
+                             strlen (xattr_namespaces[i])) == 0)
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 static int
 _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
 {
         ssize_t  xattr_size = -1;
         int      ret        = 0;
-        char    *value      = NULL;
+        char     *value     = NULL;
+        char     val_buf[256] = {0};
+        gf_boolean_t have_val   = _gf_false;
 
+        if (!posix_is_valid_namespace (key)) {
+                ret = -1;
+                goto out;
+        }
+
+        /* Most of the gluster internal xattrs don't exceed 256 bytes. So try
+         * getxattr with ~256 bytes. If it gives ERANGE then go the old way
+         * of getxattr with NULL buf to find the length and then getxattr with
+         * allocated buf to fill the data. This way we reduce lot of getxattrs.
+         */
         if (filler->real_path)
-                xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
+                xattr_size = sys_lgetxattr (filler->real_path, key, val_buf,
+                                            sizeof (val_buf) - 1);
         else
+                xattr_size = sys_fgetxattr (filler->fdnum, key, val_buf,
+                                            sizeof (val_buf) - 1);
+
+        if (xattr_size >= 0) {
+                have_val = _gf_true;
+        } else if (xattr_size == -1 && errno != ERANGE) {
+                ret = -1;
+                goto out;
+        }
+
+        if (have_val) {
+                /*No need to do getxattr*/
+        } else if (filler->real_path) {
+                xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
+        } else {
                 xattr_size = sys_fgetxattr (filler->fdnum, key, NULL, 0);
+        }
 
         if (xattr_size != -1) {
                 value = GF_CALLOC (1, xattr_size + 1, gf_posix_mt_char);
                 if (!value)
                         goto out;
 
-                if (filler->real_path)
+                if (have_val) {
+                        memcpy (value, val_buf, xattr_size);
+                } else if (filler->real_path) {
                         xattr_size = sys_lgetxattr (filler->real_path, key,
                                                     value, xattr_size);
-                else
+                } else {
                         xattr_size = sys_fgetxattr (filler->fdnum, key, value,
                                                     xattr_size);
+                }
                 if (xattr_size == -1) {
                         if (filler->real_path)
                                 gf_msg (filler->this->name, GF_LOG_WARNING, 0,
