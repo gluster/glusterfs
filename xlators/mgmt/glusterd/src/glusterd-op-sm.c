@@ -1234,6 +1234,16 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (glusterd_check_globaloption (key))
                         global_opt = _gf_true;
 
+                ret = glusterd_validate_shared_storage (key, value, errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHARED_STRG_VOL_OPT_VALIDATE_FAIL,
+                                "Failed to validate shared "
+                                "storage volume options");
+                        goto out;
+                }
+
+
                 if (volinfo) {
                         ret = glusterd_volinfo_get (volinfo,
                                                 VKEY_FEATURES_TRASH, &val_dup);
@@ -1243,15 +1253,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 if (ret)
                                         goto out;
                         }
-                }
-
-                ret = glusterd_validate_shared_storage (key, value, errstr);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SHARED_STRG_VOL_OPT_VALIDATE_FAIL,
-                                "Failed to validate shared "
-                                "storage volume options");
-                        goto out;
                 }
 
                 if (!strcmp(key, "features.trash-dir") && trash_enabled) {
