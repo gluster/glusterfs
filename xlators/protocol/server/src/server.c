@@ -1314,10 +1314,10 @@ struct volume_options options[] = {
         { .key   = {"inode-lru-limit"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 0,
-          .max   = (1 * GF_UNIT_MB),
+          .max   = 1048576,
           .default_value = "16384",
-          .description = "Specifies the maximum megabytes of memory to be "
-          "used in the inode cache."
+          .description = "Specifies the limit on the number of inodes "
+          "in the lru list of the inode cache."
         },
         { .key   = {"verify-volfile-checksum"},
           .type  = GF_OPTION_TYPE_BOOL
