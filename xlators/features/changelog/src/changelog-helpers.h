@@ -600,12 +600,13 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
 #define CHANGELOG_INIT_NOCHECK(this, local, inode, gfid, xrec)          \
         local = changelog_local_init (this, inode, gfid, xrec, _gf_true)
 
-#define CHANGELOG_NOT_ACTIVE_THEN_GOTO(frame, priv, label) do { \
-                if (!priv->active)                              \
-                        goto label;                             \
-                /* ignore rebalance process's activity. */      \
-                if (frame->root->pid == GF_CLIENT_PID_DEFRAG)   \
-                        goto label;                             \
+#define CHANGELOG_NOT_ACTIVE_THEN_GOTO(frame, priv, label) do {      \
+                if (!priv->active)                                   \
+                        goto label;                                  \
+                /* ignore rebalance process's activity. */           \
+                if ((frame->root->pid == GF_CLIENT_PID_DEFRAG) ||    \
+                    (frame->root->pid == GF_CLIENT_PID_TIER_DEFRAG)) \
+                        goto label;                                  \
         } while (0)
 
 /* If it is a METADATA entry and fop num being GF_FOP_NULL, don't
