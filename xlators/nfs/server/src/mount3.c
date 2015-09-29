@@ -1193,6 +1193,9 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Build mountid from the authorized path and stick it in the
                  * filehandle that will get passed back to the client
                  */
+                if (!authorized_path) {
+                        goto err;
+                }
                 __mnt3_build_mountid_from_path (authorized_path, fh.mountid);
 
                 snprintf (path, PATH_MAX, "/%s%s", mres->exp->vol->name,

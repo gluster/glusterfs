@@ -1891,7 +1891,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                     afr_is_metadata_set (this, replies[i].xdata))
 			*metadata_selfheal = _gf_true;
 
-		if (priv->did_discovery == _gf_false ||
+		if ((!priv->shd.iamshd && AFR_IS_ROOT_GFID (gfid) &&
+                      priv->did_discovery == _gf_false) ||
                     (entry_selfheal &&
                      afr_is_entry_set (this, replies[i].xdata)))
                         *entry_selfheal = _gf_true;
