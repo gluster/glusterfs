@@ -1108,7 +1108,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 	err = afr_inode_refresh_err (frame, this);
 
         if ((ret && afr_selfheal_enabled (this)) ||
-            (priv->did_discovery == _gf_false &&
+            (!priv->shd.iamshd && (priv->did_discovery == _gf_false) &&
              AFR_IS_ROOT_GFID (local->refreshinode->gfid))) {
                 heal_frame = copy_frame (frame);
                 if (!heal_frame)
