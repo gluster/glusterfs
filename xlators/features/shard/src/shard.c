@@ -63,6 +63,8 @@ __shard_inode_ctx_get (inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
         if (!ctx_p)
                 return ret;
 
+        INIT_LIST_HEAD (&ctx_p->ilist);
+
         ret = __inode_ctx_set (inode, this, (uint64_t *)&ctx_p);
         if (ret < 0) {
                 GF_FREE (ctx_p);
@@ -70,6 +72,20 @@ __shard_inode_ctx_get (inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
         }
 
         *ctx = ctx_p;
+
+        return ret;
+}
+
+int
+shard_inode_ctx_get (inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
+{
+        int ret = 0;
+
+        LOCK(&inode->lock);
+        {
+                ret = __shard_inode_ctx_get (inode, this, ctx);
+        }
+        UNLOCK(&inode->lock);
 
         return ret;
 }
@@ -323,17 +339,78 @@ out:
         return ret;
 }
 
+void
+__shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
+                                  inode_t *base_inode, int block_num)
+{
+        char                block_bname[256] = {0,};
+        inode_t            *lru_inode        = NULL;
+        shard_priv_t       *priv             = NULL;
+        shard_inode_ctx_t  *ctx              = NULL;
+        shard_inode_ctx_t  *lru_inode_ctx    = NULL;
+
+        priv = this->private;
+
+        shard_inode_ctx_get (linked_inode, this, &ctx);
+
+        if (list_empty (&ctx->ilist)) {
+                if (priv->inode_count + 1 <= SHARD_MAX_INODES) {
+                /* If this inode was linked here for the first time (indicated
+                 * by empty list), and if there is still space in the priv list,
+                 * add this ctx to the tail of the list.
+                 */
+                        gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
+                        ctx->block_num = block_num;
+                        list_add_tail (&ctx->ilist, &priv->ilist_head);
+                        priv->inode_count++;
+                } else {
+                /*If on the other hand there is no available slot for this inode
+                 * in the list, delete the lru inode from the head of the list,
+                 * unlink it. And in its place add this new inode into the list.
+                 */
+                        lru_inode_ctx = list_first_entry (&priv->ilist_head,
+                                                          shard_inode_ctx_t,
+                                                          ilist);
+                        GF_ASSERT (lru_inode_ctx->block_num > 0);
+                        list_del_init (&lru_inode_ctx->ilist);
+                        lru_inode = inode_find (linked_inode->table,
+                                                lru_inode_ctx->stat.ia_gfid);
+                        shard_make_block_bname (lru_inode_ctx->block_num,
+                                                lru_inode_ctx->base_gfid,
+                                                block_bname,
+                                                sizeof (block_bname));
+                        inode_unlink (lru_inode, priv->dot_shard_inode,
+                                      block_bname);
+                        /* The following unref corresponds to the ref held by
+                         * inode_find() above.
+                         */
+                        inode_forget (lru_inode, 0);
+                        inode_unref (lru_inode);
+                        gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
+                        ctx->block_num = block_num;
+                        list_add_tail (&ctx->ilist, &priv->ilist_head);
+                }
+        } else {
+         /* If this is not the first time this inode is being operated on, move
+         * it to the most recently used end of the list.
+         */
+                list_move_tail (&ctx->ilist, &priv->ilist_head);
+        }
+}
+
 int
 shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                              inode_t *res_inode,
                              shard_post_resolve_fop_handler_t post_res_handler)
 {
-        int            i              = -1;
-        uint32_t       shard_idx_iter = 0;
-        char           path[PATH_MAX] = {0,};
-        inode_t       *inode          = NULL;
-        shard_local_t *local          = NULL;
+        int                   i              = -1;
+        uint32_t              shard_idx_iter = 0;
+        char                  path[PATH_MAX] = {0,};
+        inode_t              *inode          = NULL;
+        shard_priv_t         *priv           = NULL;
+        shard_local_t        *local          = NULL;
 
+        priv = this->private;
         local = frame->local;
         shard_idx_iter = local->first_block;
 
@@ -361,6 +438,14 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                          * forgotten by the time the fop reaches the actual
                          * write stage.
                          */
+                        LOCK(&priv->lock);
+                        {
+                                __shard_update_shards_inode_list (inode, this,
+                                                                  res_inode,
+                                                                shard_idx_iter);
+                        }
+                        UNLOCK(&priv->lock);
+
                          continue;
                 } else {
                         local->call_count++;
@@ -1266,23 +1351,36 @@ void
 shard_link_block_inode (shard_local_t *local, int block_num, inode_t *inode,
                         struct iatt *buf)
 {
+        int             list_index       = 0;
         char            block_bname[256] = {0,};
         inode_t        *linked_inode     = NULL;
+        xlator_t       *this             = NULL;
         shard_priv_t   *priv             = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
         shard_make_block_bname (block_num, (local->loc.inode)->gfid,
                                 block_bname, sizeof (block_bname));
 
+        shard_inode_ctx_set (inode, this, buf, 0, SHARD_LOOKUP_MASK);
         linked_inode = inode_link (inode, priv->dot_shard_inode, block_bname,
                                    buf);
         inode_lookup (linked_inode);
-        local->inode_list[block_num - local->first_block] = linked_inode;
-        /* Defer unref'ing the inodes until write is complete to prevent
-         * them from getting purged. These inodes are unref'd in the event of
-         * a failure or after successful fop completion in shard_local_wipe().
+        list_index = block_num - local->first_block;
+
+        /* Defer unref'ing the inodes until write is complete. These inodes are
+         * unref'd in the event of a failure or after successful fop completion
+         * in shard_local_wipe().
          */
+        local->inode_list[list_index] = linked_inode;
+
+        LOCK(&priv->lock);
+        {
+                __shard_update_shards_inode_list (linked_inode, this,
+                                                  local->loc.inode, block_num);
+        }
+        UNLOCK(&priv->lock);
 }
 
 int
@@ -1897,19 +1995,33 @@ shard_unlink_base_file (call_frame_t *frame, xlator_t *this)
 void
 shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
 {
-        char          block_bname[256]  = {0,};
-        inode_t      *inode             = NULL;
-        shard_priv_t *priv              = NULL;
+        char                  block_bname[256]  = {0,};
+        inode_t              *inode             = NULL;
+        xlator_t             *this              = NULL;
+        shard_priv_t         *priv              = NULL;
+        shard_inode_ctx_t    *ctx               = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
         inode = local->inode_list[shard_block_num - local->first_block];
 
         shard_make_block_bname (shard_block_num, (local->loc.inode)->gfid,
                                 block_bname, sizeof (block_bname));
 
-        inode_unlink (inode, priv->dot_shard_inode, block_bname);
-        inode_forget (inode, 0);
+        LOCK(&priv->lock);
+        {
+                shard_inode_ctx_get (inode, this, &ctx);
+                if (!list_empty (&ctx->ilist)) {
+                        list_del_init (&ctx->ilist);
+                        priv->inode_count--;
+                }
+                GF_ASSERT (priv->inode_count >= 0);
+                inode_unlink (inode, priv->dot_shard_inode, block_bname);
+                inode_forget (inode, 0);
+        }
+        UNLOCK(&priv->lock);
+
 }
 
 int
@@ -4259,6 +4371,8 @@ init (xlator_t *this)
         gf_uuid_parse (SHARD_ROOT_GFID, priv->dot_shard_gfid);
 
         this->private = priv;
+        LOCK_INIT (&priv->lock);
+        INIT_LIST_HEAD (&priv->ilist_head);
         ret = 0;
 out:
         if  (ret) {
@@ -4285,6 +4399,7 @@ fini (xlator_t *this)
                 goto out;
 
         this->private = NULL;
+        LOCK_DESTROY (&priv->lock);
         GF_FREE (priv);
 
 out:
@@ -4320,7 +4435,6 @@ shard_forget (xlator_t *this, inode_t *inode)
 
         ctx = (shard_inode_ctx_t *)ctx_uint;
 
-        /* To-Do: Delete all the shards associated with this inode. */
         GF_FREE (ctx);
 
         return 0;
