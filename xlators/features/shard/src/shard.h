@@ -24,7 +24,7 @@
 #define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 #define SHARD_INODE_LRU_LIMIT 4096
-
+#define SHARD_MAX_INODES 16384
 /**
  *  Bit masks for the valid flag, which is used while updating ctx
 **/
@@ -177,6 +177,9 @@ typedef struct shard_priv {
         uint64_t block_size;
         uuid_t dot_shard_gfid;
         inode_t *dot_shard_inode;
+        gf_lock_t lock;
+        int inode_count;
+        struct list_head ilist_head;
 } shard_priv_t;
 
 typedef struct {
@@ -258,6 +261,12 @@ typedef struct shard_inode_ctx {
         uint64_t block_size; /* The block size with which this inode is
                                 sharded */
         struct iatt stat;
+        /* The following members of inode ctx will be applicable only to the
+         * individual shards' ctx and never the base file ctx.
+         */
+        struct list_head ilist;
+        uuid_t base_gfid;
+        int block_num;
 } shard_inode_ctx_t;
 
 #endif /* __SHARD_H__ */
