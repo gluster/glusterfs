@@ -2992,15 +2992,8 @@ reconfigure (xlator_t *this, dict_t *options)
         data = dict_get (options, "quota");
         if (data) {
                 ret = gf_string2boolean (data->data, &flag);
-                if (ret == 0 && flag == _gf_true) {
-                        ret = init_quota_priv (this);
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to initialize quota private");
-                        } else {
-                                priv->feature_enabled |= GF_QUOTA;
-                        }
-                }
+                if (ret == 0 && flag == _gf_true)
+                        priv->feature_enabled |= GF_QUOTA;
         }
 
         data = dict_get (options, "inode-quota");
@@ -3071,13 +3064,8 @@ init (xlator_t *this)
         data = dict_get (options, "quota");
         if (data) {
                 ret = gf_string2boolean (data->data, &flag);
-                if (ret == 0 && flag == _gf_true) {
-                        ret = init_quota_priv (this);
-                        if (ret < 0)
-                                goto err;
-
+                if (ret == 0 && flag == _gf_true)
                         priv->feature_enabled |= GF_QUOTA;
-                }
         }
 
         data = dict_get (options, "inode-quota");
