@@ -697,7 +697,7 @@ afr_sh_fav_by_majority (xlator_t *this, struct afr_reply *replies,
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_mtime,
                                 replies[i].poststat.ia_size,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (replies[i].poststat.ia_gfid));
                                 vote_count = 0;
                         for (k = 1; k < priv->child_count; k++) {
                                 if (replies_are_same (replies, i, k)) {
@@ -734,7 +734,7 @@ afr_sh_fav_by_mtime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_mtime,
                                 replies[i].poststat.ia_mtime_nsec,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (replies[i].poststat.ia_gfid));
                         if (replies[i].poststat.ia_mtime > cmp_mtime) {
                                 cmp_mtime = replies[i].poststat.ia_mtime;
                                 cmp_mtime_nsec =
@@ -774,7 +774,7 @@ afr_sh_fav_by_ctime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_ctime,
                                 replies[i].poststat.ia_ctime_nsec,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (replies[i].poststat.ia_gfid));
                         if (replies[i].poststat.ia_ctime > cmp_ctime) {
                                 cmp_ctime = replies[i].poststat.ia_ctime;
                                 cmp_ctime_nsec =
@@ -812,7 +812,7 @@ afr_sh_fav_by_size (xlator_t *this, struct afr_reply *replies, inode_t *inode)
                                 "file size = %lu for gfid %s",
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_size,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (replies[i].poststat.ia_gfid));
                         if (replies[i].poststat.ia_size > cmp_sz) {
                                 cmp_sz = replies[i].poststat.ia_size;
                                 fav_child = i;
@@ -911,7 +911,7 @@ afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
                          "data in file (gfid:%s) by %s (%lu bytes @ %s mtime, "
                          "%s ctime).",
                          priv->children[fav_child]->name,
-                         uuid_utoa (inode->gfid),
+                         uuid_utoa (replies[fav_child].poststat.ia_gfid),
                          policy_str,
                          replies[fav_child].poststat.ia_size,
                          mtime_str,

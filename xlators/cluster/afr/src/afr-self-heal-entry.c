@@ -299,13 +299,16 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		}
 	}
 
-        /* In case of a gfid or type mismatch on the entry, return -1.*/
-        ret = afr_selfheal_detect_gfid_and_type_mismatch (this, replies,
-                                                          fd->inode->gfid,
-                                                          name, source);
-
-        if (ret < 0)
-                return ret;
+        /* Returning EIO here isn't needed if GFID forced heal is
+         * enabled.
+         */
+        if (!priv->gfid_splitbrain_forced_heal) {
+                /* In case of a gfid or type mismatch on the entry, return -1.*/
+                ret = afr_selfheal_detect_gfid_and_type_mismatch (this,
+                    replies, fd->inode->gfid, name, source);
+                if (ret < 0)
+                        return ret;
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || !healed_sinks[i])

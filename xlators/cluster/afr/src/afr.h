@@ -126,6 +126,7 @@ typedef struct _afr_private {
         gf_boolean_t entry_change_log;      /* on/off */
 
 	gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
+        gf_boolean_t gfid_splitbrain_forced_heal;  /* on/off */
         int read_child;               /* read-subvolume */
         unsigned int hash_mode;       /* for when read_child is not set */
         int favorite_child;  /* subvolume to be preferred in resolving

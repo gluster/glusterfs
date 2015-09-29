@@ -129,13 +129,10 @@ __afr_selfheal_do_gfid_unsplit (xlator_t *this, unsigned char *locked_on,
         afr_private_t   *priv = NULL;
         call_frame_t   *frame    = NULL;
         loc_t           *unsplit_loc;
-        int             fav_child = -1;
-        unsigned char   *fav_gfid;
         unsigned int    i = 0;
         unsigned int    split_count = 0;
         unsigned char   *rename_list;
         int             ret = 0;
-        char            *policy_str;
 
         frame = afr_frame_create (this);
 
@@ -148,29 +145,11 @@ __afr_selfheal_do_gfid_unsplit (xlator_t *this, unsigned char *locked_on,
                 goto out;
         }
 
-        /*
-         * Ok, go find our favorite child by one of the active policies:
-         * majority -> ctime -> mtime -> size -> predefined
-         * we'll use this gfid as the "real" one.
-         */
-        fav_child = afr_sh_get_fav_by_policy (this, replies, inode,
-                                              &policy_str);
-        if (fav_child == -1) {  /* No policies are in place, bail */
-                gf_log (this->name, GF_LOG_WARNING, "Unable to resolve GFID "
-                        "split brain, there are no favorite child policies "
-                        "set.");
-                ret = -EIO;
-                goto out;
-        }
-        fav_gfid = replies[fav_child].poststat.ia_gfid;
-        gf_log (this->name, GF_LOG_INFO, "Using child %d to resolve gfid "
-                "split-brain.  GFID is %s.", fav_child, uuid_utoa (fav_gfid));
-
         /* Pre-compute the number of rename calls we will be doing */
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i] &&
                     !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
-                    gf_uuid_compare (replies[i].poststat.ia_gfid, fav_gfid)) {
+                    gf_uuid_compare (replies[i].poststat.ia_gfid, loc->gfid)) {
                         split_count++;
                 }
         }
@@ -192,7 +171,7 @@ __afr_selfheal_do_gfid_unsplit (xlator_t *this, unsigned char *locked_on,
                 if (locked_on[i] && local->child_up[i] &&
                     replies[i].op_errno != ENOENT &&
                     !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
-                    gf_uuid_compare (replies[i].poststat.ia_gfid, fav_gfid)) {
+                    gf_uuid_compare (replies[i].poststat.ia_gfid, loc->gfid)) {
                         ret = _afr_sh_create_unsplit_loc (replies, i,
                                                           loc, unsplit_loc);
                         gf_log (this->name, GF_LOG_INFO, "Renaming child %d to "
@@ -234,6 +213,9 @@ __afr_selfheal_gfid_unsplit (xlator_t *this, inode_t *parent, uuid_t pargfid,
         loc_t           loc          = {0, };
         call_frame_t   *new_frame    = NULL;
         afr_local_t    *new_local    = NULL;
+        int             fav_child = -1;
+        unsigned char   *fav_gfid;
+        char            *policy_str;
 
         priv = this->private;
 
@@ -247,28 +229,47 @@ __afr_selfheal_gfid_unsplit (xlator_t *this, inode_t *parent, uuid_t pargfid,
 
         gf_uuid_copy (parent->gfid, pargfid);
 
+        loc.parent = inode_ref (parent);
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.pargfid, pargfid);
+        loc.name = bname;
+
+        /*
+         * Ok, go find our favorite child by one of the active policies:
+         * majority -> ctime -> mtime -> size -> predefined
+         * we'll use this gfid as the "real" one.
+         */
+        fav_child = afr_sh_get_fav_by_policy (this, replies, inode,
+                                              &policy_str);
+        if (fav_child == -1) {  /* No policies are in place, bail */
+                gf_log (this->name, GF_LOG_WARNING, "Unable to resolve GFID "
+                        "split brain, there are no favorite child policies "
+                        "set.");
+                ret = -EIO;
+                goto out;
+        }
+        fav_gfid = replies[fav_child].poststat.ia_gfid;
+        gf_log (this->name, GF_LOG_INFO, "Using child %d to resolve gfid "
+                "split-brain.  GFID is %s.", fav_child, uuid_utoa (fav_gfid));
+
+        gf_uuid_copy (loc.gfid, fav_gfid);
+        ret = __afr_selfheal_do_gfid_unsplit (this, locked_on, replies,
+                                              inode, &loc);
+
+        if (ret)
+                goto out;
+
         xdata = dict_new ();
         if (!xdata) {
                 ret = -ENOMEM;
                 goto out;
         }
 
-        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        ret = dict_set_static_bin (xdata, "gfid-req", fav_gfid, 16);
         if (ret) {
                 ret = -ENOMEM;
                 goto out;
         }
-
-        loc.parent = inode_ref (parent);
-        loc.inode = inode_ref (inode);
-        gf_uuid_copy (loc.pargfid, pargfid);
-        loc.name = bname;
-
-        ret = __afr_selfheal_do_gfid_unsplit (this, locked_on, replies,
-                                              inode, &loc);
-
-        if (ret)
-                goto out;
 
         /* Clear out old replies here and wind lookup on all locked
          * subvolumes to achieve two things:
@@ -309,6 +310,7 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
 	loc_t           loc          = {0, };
         call_frame_t   *new_frame    = NULL;
         afr_local_t    *new_local    = NULL;
+        int             i;
 
 	priv = this->private;
 
@@ -364,6 +366,25 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
          *      __afr_selfheal_name_impunge().
          */
 
+        gf_log (this->name, GF_LOG_INFO,
+                "smashing gfid to %s", uuid_utoa(gfid));
+
+        ia_type_t ia_type = replies[0].poststat.ia_type;
+        for (i = 1; i < priv->child_count; ++i) {
+                if (replies[i].poststat.ia_type != ia_type) {
+                        if (replies[i].poststat.ia_type == IA_INVAL) {
+                                continue;
+                        }
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "type[%d] = %d (not %d)", i, 
+                                replies[i].poststat.ia_type, ia_type);
+                        if (ia_type != IA_INVAL) {
+                                ret = -EIO;
+                                goto out;
+                        }
+                        ia_type = replies[i].poststat.ia_type;
+                }
+        }
         AFR_ONLIST (locked_on, new_frame, afr_selfheal_discover_cbk, lookup,
                     &loc, xdata);
 
@@ -547,52 +568,6 @@ afr_selfheal_name_need_heal_check (xlator_t *this, struct afr_reply *replies)
         return need_heal;
 }
 
-static int
-afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies,
-                                       int source, unsigned char *sources,
-                                       uuid_t pargfid, const char *bname)
-{
-        int             i           = 0;
-        int             type_idx    = -1;
-        ia_type_t       inode_type  = IA_INVAL;
-        afr_private_t  *priv        = NULL;
-
-        priv = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!replies[i].valid)
-                        continue;
-
-                if (replies[i].poststat.ia_type == IA_INVAL)
-                        continue;
-
-                if (inode_type == IA_INVAL) {
-                        inode_type = replies[i].poststat.ia_type;
-                        type_idx = i;
-                        continue;
-                }
-
-                if (sources[i] || source == -1) {
-                        if ((sources[type_idx] || source == -1) &&
-                            (inode_type != replies[i].poststat.ia_type)) {
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        AFR_MSG_SPLIT_BRAIN,
-                                        "Type mismatch for <gfid:%s>/%s: "
-                                        "%d on %s and %d on %s",
-                                        uuid_utoa(pargfid), bname,
-                                        replies[i].poststat.ia_type,
-                                        priv->children[i]->name,
-                                        replies[type_idx].poststat.ia_type,
-                                        priv->children[type_idx]->name);
-
-                                    return -EIO;
-                        }
-                        inode_type = replies[i].poststat.ia_type;
-                        type_idx = i;
-                }
-        }
-        return 0;
-}
 
 static int
 afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies,
@@ -690,7 +665,9 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	gf_boolean_t    need_heal       = _gf_false;
         gf_boolean_t    is_gfid_absent  = _gf_false;
         gf_boolean_t    tried_gfid_unsplit  = _gf_false;
+        afr_private_t   *priv = NULL;
 
+        priv = this->private;
         need_heal = afr_selfheal_name_need_heal_check (this, replies);
 	if (!need_heal)
 		return 0;
@@ -706,18 +683,14 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
                 return ret;
         }
 
-        ret = afr_selfheal_name_type_mismatch_check (this, replies, source,
-                                                     sources, pargfid, bname);
-        if (ret)
-                return ret;
-
 gfid_mismatch_check:
         ret = afr_selfheal_name_gfid_mismatch_check (this, replies, source,
                                                      sources, &gfid_idx,
                                                      pargfid, bname);
 
-        if (ret && tried_gfid_unsplit == _gf_true)
+        if (ret && tried_gfid_unsplit) {
                 return ret;
+        }
 
         if (gfid_idx == -1) {
                 if (!gfid_req || gf_uuid_is_null (gfid_req))
@@ -727,7 +700,7 @@ gfid_mismatch_check:
                 gfid = &replies[gfid_idx].poststat.ia_gfid;
         }
 
-        if (ret && tried_gfid_unsplit == _gf_false) {
+        if (priv->gfid_splitbrain_forced_heal || ret) {
                 ret = __afr_selfheal_gfid_unsplit (this, parent, pargfid,
                     bname, inode, replies, gfid, locked_on);
 
@@ -739,11 +712,12 @@ gfid_mismatch_check:
         }
 
         is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
-	ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname, inode,
-                                          replies, gfid, locked_on,
-                                          is_gfid_absent);
-        if (ret)
+        ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname,
+                                          inode, replies, gfid,
+                                          locked_on, is_gfid_absent);
+        if (ret) {
                 return ret;
+        }
 
         if (gfid_idx == -1) {
                 gfid_idx = afr_selfheal_gfid_idx_get (this, replies, sources);

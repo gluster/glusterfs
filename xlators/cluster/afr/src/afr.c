@@ -143,6 +143,10 @@ reconfigure (xlator_t *this, dict_t *options)
 			  priv->metadata_splitbrain_forced_heal, options, bool,
 			  out);
 
+        GF_OPTION_RECONF ("gfid-splitbrain-forced-heal",
+                          priv->gfid_splitbrain_forced_heal, options, bool,
+                          out);
+
         GF_OPTION_RECONF ("background-self-heal-count",
                           priv->background_self_heal_count, options, uint32,
                           out);
@@ -363,6 +367,9 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("metadata-splitbrain-forced-heal",
 			priv->metadata_splitbrain_forced_heal, bool, out);
+
+        GF_OPTION_INIT ("gfid-splitbrain-forced-heal",
+                        priv->gfid_splitbrain_forced_heal, bool, out);
 
         GF_OPTION_INIT ("read-subvolume", read_subvol, xlator, out);
         if (read_subvol) {
@@ -956,7 +963,7 @@ struct volume_options options[] = {
         },
         { .key = {"iam-nfs-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+          .default_value = "on",
           .description = "This option differentiates if the replicate "
                          "translator is running as part of an NFS daemon "
                          "or not."
@@ -1023,6 +1030,10 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "off",
 	},
+        { .key = {"gfid-splitbrain-forced-heal"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
         { .key  = {"heal-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 5,
