@@ -939,6 +939,7 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                    unsigned char *healed_sinks,
                                    unsigned char *locked_on,
                                    struct afr_reply *replies,
+
                                    afr_transaction_type type)
 {
         afr_local_t *local = NULL;
@@ -1843,8 +1844,14 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				(int) replies[i].poststat.ia_type,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
-                        ret = -EIO;
-                        goto out;
+
+                        if (priv->gfid_splitbrain_forced_heal &&
+                            metadata_selfheal) {
+                                *metadata_selfheal = _gf_true;
+                        } else {
+                                ret = -EIO;
+                                goto out;
+                        }
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, uid)) {
@@ -1886,6 +1893,15 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                         if (metadata_selfheal)
                                 *metadata_selfheal = _gf_true;
 		}
+
+                /* Force entry healing of directories for SHDs regardless
+                 * of the entry healing portion of the change log.
+                 */
+                if (IA_ISDIR(first.ia_type) && priv->shd.iamshd &&
+                    IA_EQUAL (first, replies[i].poststat, type) &&
+                    entry_selfheal) {
+                        *entry_selfheal = _gf_true;
+                }
 
 		if (IA_ISREG(first.ia_type) &&
 		    !IA_EQUAL (first, replies[i].poststat, size)) {
