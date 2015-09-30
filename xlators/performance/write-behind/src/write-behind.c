@@ -9,6 +9,11 @@
 */
 
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -21,7 +26,6 @@
 #include "statedump.h"
 #include "defaults.h"
 #include "write-behind-mem-types.h"
-#include "write-behind-messages.h"
 
 #define MAX_VECTOR_COUNT          8
 #define WB_AGGREGATE_SIZE         131072 /* 128 KB */
@@ -352,8 +356,7 @@ __wb_request_unref (wb_request_t *req)
 	wb_inode = req->wb_inode;
 
         if (req->refcount <= 0) {
-                gf_msg ("wb-request", GF_LOG_WARNING,
-                        0, WRITE_BEHIND_MSG_RES_UNAVAILABLE,
+                gf_log ("wb-request", GF_LOG_WARNING,
                         "refcount(%d) is <= 0", req->refcount);
                 goto out;
         }
@@ -419,8 +422,7 @@ __wb_request_ref (wb_request_t *req)
         GF_VALIDATE_OR_GOTO ("write-behind", req, out);
 
         if (req->refcount < 0) {
-                gf_msg ("wb-request", GF_LOG_WARNING, 0,
-                        WRITE_BEHIND_MSG_RES_UNAVAILABLE,
+                gf_log ("wb-request", GF_LOG_WARNING,
                         "refcount(%d) is < 0", req->refcount);
                 req = NULL;
                 goto out;
@@ -991,8 +993,7 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
 
                 ret = iobref_add (iobref, iobuf);
                 if (ret != 0) {
-                        gf_msg (req->wb_inode->this->name, GF_LOG_WARNING,
-                                -ret, WRITE_BEHIND_MSG_INVALID_ARGUMENT,
+                        gf_log (req->wb_inode->this->name, GF_LOG_WARNING,
                                 "cannot add iobuf (%p) into iobref (%p)",
                                 iobuf, iobref);
                         iobuf_unref (iobuf);
@@ -2098,9 +2099,7 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_wb_mt_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        WRITE_BEHIND_MSG_NO_MEMORY,
-                        "Memory accounting init"
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                         "failed");
         }
 
@@ -2144,16 +2143,14 @@ init (xlator_t *this)
 
         if ((this->children == NULL)
             || this->children->next) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        WRITE_BEHIND_MSG_INIT_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: write-behind (%s) not configured with exactly "
                         "one child", this->name);
                 goto out;
         }
 
         if (this->parents == NULL) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        WRITE_BEHIND_MSG_VOL_MISCONFIGURED,
+                gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfilex");
         }
 
@@ -2169,8 +2166,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("cache-size", conf->window_size, size_uint64, out);
 
         if (!conf->window_size && conf->aggregate_size) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        WRITE_BEHIND_MSG_SIZE_NOT_SET,
+                gf_log (this->name, GF_LOG_WARNING,
                         "setting window-size to be equal to "
                         "aggregate-size(%"PRIu64")",
                         conf->aggregate_size);
@@ -2178,8 +2174,7 @@ init (xlator_t *this)
         }
 
         if (conf->window_size < conf->aggregate_size) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        WRITE_BEHIND_MSG_EXCEEDED_MAX_SIZE,
+                gf_log (this->name, GF_LOG_ERROR,
                         "aggregate-size(%"PRIu64") cannot be more than "
                         "window-size(%"PRIu64")", conf->aggregate_size,
                         conf->window_size);

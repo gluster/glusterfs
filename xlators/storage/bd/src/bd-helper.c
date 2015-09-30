@@ -1,3 +1,7 @@
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 #include <lvm2app.h>
 #ifdef HAVE_LIBAIO
 #include <libaio.h>
@@ -134,7 +138,7 @@ check:
                 goto out;
         }
 
-        op_ret = gf_uuid_parse (tmp_data->data, dict_uuid);
+        op_ret = uuid_parse (tmp_data->data, dict_uuid);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "wrong volume-id (%s) set in volume file",
@@ -167,7 +171,7 @@ check:
                 goto out;
         }
 
-        op_ret = gf_uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
+        op_ret = uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
                              vg_uuid);
         if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -175,7 +179,7 @@ check:
                         op_ret = -1;
                         goto out;
         }
-        if (gf_uuid_compare (dict_uuid, vg_uuid)) {
+        if (uuid_compare (dict_uuid, vg_uuid)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "mismatching volume-id (%s) received. "
                         "already is a part of volume %s ",
@@ -268,8 +272,7 @@ __bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
 out:
         GF_FREE (devpath);
         if (ret) {
-                if (_fd >= 0)
-                        close (_fd);
+                close (_fd);
                 GF_FREE (bdfd);
         }
         return ret;
@@ -565,7 +568,7 @@ out:
         return ret;
 }
 
-void
+inline void
 bd_update_amtime(struct iatt *iatt, int flag)
 {
         struct timespec ts = {0, };
@@ -902,7 +905,7 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
         uuid_utoa_r (bdatt->iatt.ia_gfid, uuid);
         sprintf (lvname, "/dev/%s/%s", vg, uuid);
 
-        readlink (lvname, dmname, sizeof (dmname) - 1);
+        readlink (lvname, dmname, sizeof (dmname));
 
         p = strrchr (dmname, '/');
         if (p)

@@ -13,6 +13,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <lvm2app.h>
 #include <sys/uio.h>
 

@@ -11,12 +11,17 @@
 #ifndef _NFS_COMMON_H_
 #define _NFS_COMMON_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <unistd.h>
 
 #include "xlator.h"
 #include "rpcsvc.h"
 #include "iatt.h"
-#include "compat-uuid.h"
+#include "uuid.h"
 
 //NFS_PATH_MAX hard-coded to 4096 as a work around for bug 2476.
 //nfs server crashes when path received is longer than PATH_MAX

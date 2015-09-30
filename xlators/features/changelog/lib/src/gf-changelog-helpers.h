@@ -14,14 +14,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
-#include "locking.h"
+#include <pthread.h>
 
 #include <xlator.h>
-
-#include "changelog.h"
-
-#include "changelog-rpc-common.h"
-#include "gf-changelog-journal.h"
 
 #define GF_CHANGELOG_TRACKER  "tracker"
 
@@ -46,161 +41,79 @@ typedef struct read_line {
         char rl_buf[MAXLINE];
 } read_line_t;
 
-struct gf_changelog;
-struct gf_event;
-
-/**
- * Event list for ordered event notification
- *
- * ->next_seq holds the next _expected_ sequence number.
- */
-struct gf_event_list {
-        pthread_mutex_t lock;               /* protects this structure */
-        pthread_cond_t  cond;
-
-        pthread_t invoker;
-
-        unsigned long next_seq;             /* next sequence number expected:
-                                               zero during bootstrap */
-
-        struct gf_changelog *entry;         /* backpointer to it's brick
-                                               encapsulator (entry) */
-        struct list_head events;            /* list of events */
-};
-
-/**
- * include a refcount if it's of use by additional layers
- */
-struct gf_event {
-        int count;
-
-        unsigned long seq;
-
-        struct list_head list;
-
-        struct iovec iov[0];
-};
-#define GF_EVENT_CALLOC_SIZE(cnt, len)                                  \
-        (sizeof (struct gf_event) + (cnt * sizeof (struct iovec)) + len)
-
-/**
- * assign the base address of the IO vector to the correct memory
-o * area and set it's addressable length.
- */
-#define GF_EVENT_ASSIGN_IOVEC(vec, event, len, pos)                     \
-        do {                                                            \
-                vec->iov_base = ((char *)event) +                       \
-                        sizeof (struct gf_event) +                      \
-                        (event->count * sizeof (struct iovec)) + pos;   \
-                vec->iov_len = len;                                     \
-                pos += len;                                             \
-        } while (0)
-
-typedef enum gf_changelog_conn_state {
-        GF_CHANGELOG_CONN_STATE_PENDING = 0,
-        GF_CHANGELOG_CONN_STATE_ACCEPTED,
-        GF_CHANGELOG_CONN_STATE_DISCONNECTED,
-} gf_changelog_conn_state_t;
-
-/**
- * An instance of this structure is allocated for each brick for which
- * notifications are streamed.
- */
 typedef struct gf_changelog {
-        gf_lock_t statelock;
-        gf_changelog_conn_state_t connstate;
-
         xlator_t *this;
 
-        struct list_head list;              /* list of instances */
+        /* 'processing' directory stream */
+        DIR *gfc_dir;
 
-        char brick[PATH_MAX];               /* brick path for this end-point */
+        /* fd to the tracker file */
+        int gfc_fd;
 
-        changelog_rpc_t grpc;               /* rpc{-clnt,svc} for this brick */
-#define RPC_PROBER(ent)  ent->grpc.rpc
-#define RPC_REBORP(ent)  ent->grpc.svc
-#define RPC_SOCK(ent)    ent->grpc.sock
+        /* connection retries */
+        int gfc_connretries;
 
-        unsigned int notify;                /* notification flag(s) */
+        char gfc_sockpath[UNIX_PATH_MAX];
 
-        FINI       *fini;                   /* destructor callback */
-        CALLBACK   *callback;               /* event callback dispatcher */
-        CONNECT    *connected;              /* connect callback */
-        DISCONNECT *disconnected;           /* disconnection callback */
+        char gfc_brickpath[PATH_MAX];
 
-        void *ptr;                          /* owner specific private data */
-        xlator_t *invokerxl;                /* consumers _this_, if valid,
-                                               assigned to THIS before cbk is
-                                               invoked */
+        /* socket for receiving notifications */
+        int gfc_sockfd;
 
-        gf_boolean_t ordered;
+        char *gfc_working_dir;
 
-        void (*queueevent) (struct gf_event_list *, struct gf_event *);
-        void (*pickevent) (struct gf_event_list *, struct gf_event **);
+        /* RFC 3986 string encoding */
+        char rfc3986[256];
 
-        struct gf_event_list event;
+        char gfc_current_dir[PATH_MAX];
+        char gfc_processed_dir[PATH_MAX];
+        char gfc_processing_dir[PATH_MAX];
+
+        pthread_t gfc_changelog_processor;
+
+        /* Holds gfc for History API */
+        struct gf_changelog *hist_gfc;
+
+        /* holds 0 done scanning, 1 keep scanning and -1 error */
+        int hist_done;
 } gf_changelog_t;
 
-static inline int
-gf_changelog_filter_check (gf_changelog_t *entry, changelog_event_t *event)
-{
-        if (event->ev_type & entry->notify)
-                return 1;
-        return 0;
-}
+typedef struct gf_changelog_history_data {
+        int           len;
 
-#define GF_NEED_ORDERED_EVENTS(ent)  (ent->ordered == _gf_true)
+        int           htime_fd;
 
-/** private structure */
-typedef struct gf_private {
-        pthread_mutex_t lock;            /* protects ->connections, cleanups */
-        pthread_cond_t  cond;
+        /* parallelism count */
+        int           n_parallel;
 
-        void *api;                       /* pointer for API access */
+        /* history from, to indexes */
+        unsigned long from;
+        unsigned long to;
+} gf_changelog_history_data_t;
 
-        pthread_t poller;                /* event poller thread */
-        pthread_t connectionjanitor;     /* connection cleaner */
+typedef struct gf_changelog_consume_data {
+        /** set of inputs */
 
-        struct list_head connections;    /* list of connections */
-        struct list_head cleanups;       /* list of connection to be
-                                            cleaned up */
-} gf_private_t;
+        /* fd to read from */
+        int             fd;
 
-#define GF_CHANGELOG_GET_API_PTR(this) (((gf_private_t *) this->private)->api)
+        /* from @offset */
+        off_t           offset;
 
-/**
- * upcall: invoke callback with _correct_ THIS
- */
-#define GF_CHANGELOG_INVOKE_CBK(this, cbk, brick, args ...)             \
-        do {                                                            \
-                xlator_t *old_this = NULL;                              \
-                xlator_t *invokerxl = NULL;                             \
-                                                                        \
-                invokerxl = entry->invokerxl;                           \
-                old_this = this;                                        \
-                                                                        \
-                if (invokerxl) {                                        \
-                        THIS = invokerxl;                               \
-                }                                                       \
-                                                                        \
-                cbk (invokerxl, brick, args);                           \
-                THIS = old_this;                                        \
-                                                                        \
-        } while (0)
+        xlator_t       *this;
+        gf_changelog_t *gfc;
 
-#define SAVE_THIS(xl)                           \
-        do {                                    \
-                old_this = xl;                  \
-                THIS = master;                  \
-        } while (0)
+        /** set of outputs */
 
-#define RESTORE_THIS()                          \
-        do {                                    \
-                if (old_this)                   \
-                        THIS = old_this;        \
-        } while (0)
+        /* return value */
+        int retval;
 
-/** APIs and the rest */
+        /* journal processed */
+        char changelog[PATH_MAX];
+} gf_changelog_consume_data_t;
+
+int
+gf_changelog_notification_init (xlator_t *this, gf_changelog_t *gfc);
 
 void *
 gf_changelog_process (void *data);
@@ -225,35 +138,9 @@ gf_lseek (int fd, off_t offset, int whence);
 
 int
 gf_changelog_consume (xlator_t *this,
-                      gf_changelog_journal_t *jnl,
+                      gf_changelog_t *gfc,
                       char *from_path, gf_boolean_t no_publish);
 int
-gf_changelog_publish (xlator_t *this,
-                      gf_changelog_journal_t *jnl, char *from_path);
-int
-gf_thread_cleanup (xlator_t *this, pthread_t thread);
-void *
-gf_changelog_callback_invoker (void *arg);
-
-int
-gf_cleanup_event (xlator_t *, struct gf_event_list *);
-
-/* (un)ordered event queueing */
-void
-queue_ordered_event (struct gf_event_list *, struct gf_event *);
-
-void
-queue_unordered_event (struct gf_event_list *, struct gf_event *);
-
-/* (un)ordered event picking */
-void
-pick_event_ordered (struct gf_event_list *, struct gf_event **);
-
-void
-pick_event_unordered (struct gf_event_list *, struct gf_event **);
-
-/* connection janitor thread */
-void *
-gf_changelog_connection_janitor (void *);
+gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path);
 
 #endif

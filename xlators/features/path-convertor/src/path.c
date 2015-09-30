@@ -9,6 +9,11 @@
 */
 /* TODO: add gf_log to all the cases returning errors */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 /**
  * xlators/features/path-translator:
  *    This translator converts the path it gets into user specified targets.

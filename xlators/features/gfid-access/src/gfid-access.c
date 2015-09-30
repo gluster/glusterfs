@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "gfid-access.h"
 #include "inode.h"
 #include "byte-order.h"
@@ -37,7 +42,7 @@ ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
                 }
                 inode_unref (dst->parent);
                 dst->parent = inode_ref ((inode_t*)value);
-                gf_uuid_copy (dst->pargfid, dst->parent->gfid);
+                uuid_copy (dst->pargfid, dst->parent->gfid);
         }
 
         if (dst->inode) {
@@ -48,7 +53,7 @@ ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
                 }
                 inode_unref (dst->inode);
                 dst->inode = inode_ref ((inode_t*)value);
-                gf_uuid_copy (dst->gfid, dst->inode->gfid);
+                uuid_copy (dst->gfid, dst->inode->gfid);
         }
 out:
 
@@ -166,6 +171,7 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
                 }
                 args->args.mkdir.umask = ntoh32 (*(uint32_t *)blob);
+                blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
                 if (blob_len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -187,6 +193,7 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
 
                 memcpy (args->args.symlink.linkpath, blob, (len + 1));
+                blob += (len + 1);
                 blob_len -= (len + 1);
         } else {
                 if (blob_len < sizeof (uint32_t)) {
@@ -216,6 +223,7 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
                 }
                 args->args.mknod.umask = ntoh32 (*(uint32_t *)blob);
+                blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
         }
 
@@ -297,18 +305,18 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (!ret) {
                 parent = (void *)value;
-                if (gf_uuid_is_null (parent->gfid))
+                if (uuid_is_null (parent->gfid))
                         parent = loc->inode;
         }
 
         /* parent itself should be looked up */
-        gf_uuid_copy (new_loc->pargfid, parent->gfid);
+        uuid_copy (new_loc->pargfid, parent->gfid);
         new_loc->parent = inode_ref (parent);
 
         new_loc->inode = inode_grep (parent->table, parent, bname);
         if (!new_loc->inode) {
                 new_loc->inode = inode_new (parent->table);
-                gf_uuid_copy (new_loc->inode->gfid, gfid);
+                uuid_copy (new_loc->inode->gfid, gfid);
         }
 
         loc_path (new_loc, bname);
@@ -323,7 +331,7 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
                 ret = -1;
                 goto out;
         }
-        gf_uuid_copy (*gfid_ptr, gfid);
+        uuid_copy (*gfid_ptr, gfid);
         ret = dict_set_dynptr (xdata, "gfid-req", gfid_ptr, sizeof (uuid_t));
         if (ret < 0)
                 goto out;
@@ -346,7 +354,7 @@ __is_gfid_access_dir (uuid_t gfid)
         memset (aux_gfid, 0, 16);
         aux_gfid[15] = GF_AUX_GFID;
 
-        if (gf_uuid_compare (gfid, aux_gfid) == 0)
+        if (uuid_compare (gfid, aux_gfid) == 0)
                 return _gf_true;
 
         return _gf_false;
@@ -411,8 +419,6 @@ ga_newentry_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
                              op_errno, xdata);
 
-        if (local->xdata)
-                dict_unref (local->xdata);
         loc_wipe (&local->loc);
         mem_put (local);
 
@@ -454,40 +460,6 @@ done:
         STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
                              op_errno, xdata);
 
-        if (local->xdata)
-                dict_unref (local->xdata);
-        loc_wipe (&local->loc);
-        mem_put (local);
-
-        return 0;
-}
-
-static int
-ga_newentry_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, inode_t *inode,
-                        struct iatt *stat, dict_t *xdata,
-                        struct iatt *postparent)
-
-{
-        ga_local_t *local = NULL;
-
-        local = frame->local;
-
-        if ((op_ret < 0) && ((op_errno != ENOENT) && (op_errno != ESTALE)))
-                goto err;
-
-        STACK_WIND (frame, ga_newentry_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mknod, &local->loc, local->mode,
-                    local->rdev, local->umask, local->xdata);
-        return 0;
-
-err:
-        frame->local = NULL;
-        STACK_DESTROY (frame->root);
-        STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret, op_errno,
-                             xdata);
-        if (local->xdata)
-                dict_unref (local->xdata);
         loc_wipe (&local->loc);
         mem_put (local);
 
@@ -502,6 +474,7 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         ga_newfile_args_t *args      = NULL;
         loc_t              tmp_loc   = {0,};
         call_frame_t      *new_frame = NULL;
+        mode_t             mode      = 0;
         ga_local_t        *local     = NULL;
         uuid_t             gfid      = {0,};
 
@@ -509,7 +482,7 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         if (!args)
                 goto out;
 
-        ret = gf_uuid_parse (args->gfid, gfid);
+        ret = uuid_parse (args->gfid, gfid);
         if (ret)
                 goto out;
 
@@ -555,20 +528,14 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
                             &tmp_loc, 0, xdata);
         } else {
                 /* use 07777 (4 7s) for considering the Sticky bits etc) */
-                ((ga_local_t *)new_frame->local)->mode =
-                     (S_IFMT & args->st_mode) | (07777 & args->args.mknod.mode);
+                mode = (S_IFMT & args->st_mode) |
+                        (07777 & args->args.mknod.mode);;
 
-                ((ga_local_t *)new_frame->local)->umask =
-                                                         args->args.mknod.umask;
-                ((ga_local_t *)new_frame->local)->rdev  = args->args.mknod.rdev;
-                ((ga_local_t *)new_frame->local)->xdata = dict_ref (xdata);
-
-                /* send a named lookup, so that dht can cleanup up stale linkto
-                 * files etc.
-                 */
-                STACK_WIND (new_frame, ga_newentry_lookup_cbk,
-                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->lookup,
-                            &tmp_loc, NULL);
+                STACK_WIND (new_frame, ga_newentry_cbk,
+                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
+                            &tmp_loc, mode,
+                            args->args.mknod.rdev, args->args.mknod.umask,
+                            xdata);
         }
 
         ret = 0;
@@ -597,7 +564,7 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         if (!args)
                 goto out;
 
-        ret = gf_uuid_parse (args->gfid, gfid);
+        ret = uuid_parse (args->gfid, gfid);
         if (ret)
                 goto out;
 
@@ -758,17 +725,17 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode = NULL;
         }
 
-        if (!gf_uuid_is_null (cbk_inode->gfid)) {
+        if (!uuid_is_null (cbk_inode->gfid)) {
                 /* if the previous linked inode is used, use the
                    same gfid */
-                gf_uuid_copy (random_gfid, cbk_inode->gfid);
+                uuid_copy (random_gfid, cbk_inode->gfid);
         } else {
                 /* replace the buf->ia_gfid to a random gfid
                    for directory, for files, what we received is fine */
-                gf_uuid_generate (random_gfid);
+                uuid_generate (random_gfid);
         }
 
-        gf_uuid_copy (buf->ia_gfid, random_gfid);
+        uuid_copy (buf->ia_gfid, random_gfid);
 
         for (i = 15; i > (15 - 8); i--) {
                 temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
@@ -850,7 +817,7 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
                         /* here, just send 'loc->gfid' and 'loc->inode' */
                         tmp_loc.inode = inode_ref (loc->inode);
-                        gf_uuid_copy (tmp_loc.gfid, loc->inode->gfid);
+                        uuid_copy (tmp_loc.gfid, loc->inode->gfid);
 
                         STACK_WIND (frame, default_lookup_cbk,
                                     FIRST_CHILD(this),
@@ -907,7 +874,7 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         /* make sure the 'basename' is actually a 'canonical-gfid',
            otherwise, return error */
-        ret = gf_uuid_parse (loc->name, tmp_gfid);
+        ret = uuid_parse (loc->name, tmp_gfid);
         if (ret)
                 goto err;
 
@@ -945,7 +912,7 @@ discover:
         if (xdata)
                 dict_del (xdata, "gfid-req");
 
-        gf_uuid_copy (tmp_loc.gfid, tmp_gfid);
+        uuid_copy (tmp_loc.gfid, tmp_gfid);
 
         /* if revalidate, then we need to have the proper reference */
         if (inode) {

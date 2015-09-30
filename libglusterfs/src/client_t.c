@@ -14,7 +14,12 @@
 #include "client_t.h"
 #include "list.h"
 #include "rpcsvc.h"
-#include "libglusterfs-messages.h"
+
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 
 static int
 gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
@@ -23,8 +28,7 @@ gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
         uint32_t        i = 0;
 
         if (!entries) {
-                gf_msg_callingfn ("client_t", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "!entries");
+                gf_log_callingfn ("client_t", GF_LOG_WARNING, "!entries");
                 return -1;
         }
 
@@ -49,8 +53,7 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         int              ret            = -1;
 
         if (clienttable == NULL || nr <= clienttable->max_clients) {
-                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;
         }
@@ -104,8 +107,7 @@ gf_clienttable_alloc (void)
         result = gf_client_clienttable_expand (clienttable,
                                                GF_CLIENTTABLE_INITIAL_SIZE);
         if (result != 0) {
-                gf_msg ("client_t", GF_LOG_ERROR, 0,
-                        LG_MSG_EXPAND_CLIENT_TABLE_FAILED,
+                gf_log ("client_t", GF_LOG_ERROR,
                         "gf_client_clienttable_expand failed");
                 GF_FREE (clienttable);
                 return NULL;
@@ -124,8 +126,7 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
         int32_t           i             = 0;
 
         if (!clienttable) {
-                gf_msg_callingfn ("client_t", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "!clienttable");
+                gf_log_callingfn ("client_t", GF_LOG_WARNING, "!clienttable");
                 return;
         }
 
@@ -154,6 +155,23 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
 
 
 /*
+ * a more comprehensive feature test is shown at
+ * http://lists.iptel.org/pipermail/semsdev/2010-October/005075.html
+ * this is sufficient for RHEL5 i386 builds
+ */
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) && !defined(__i386__)
+# define INCREMENT_ATOMIC(lk,op) __sync_add_and_fetch(&op, 1)
+# define DECREMENT_ATOMIC(lk,op) __sync_sub_and_fetch(&op, 1)
+#else
+/* These are only here for old gcc, e.g. on RHEL5 i386.
+ * We're not ever going to use this in an if stmt,
+ * but let's be pedantically correct for style points */
+# define INCREMENT_ATOMIC(lk,op) do { LOCK (&lk); ++op; UNLOCK (&lk); } while (0)
+/* this is a gcc 'statement expression', it works with llvm/clang too */
+# define DECREMENT_ATOMIC(lk,op) ({ LOCK (&lk); --op; UNLOCK (&lk); op; })
+#endif
+
+/*
  * Increments ref.bind if the client is already present or creates a new
  * client with ref.bind = 1,ref.count = 1 it signifies that
  * as long as ref.bind is > 0 client should be alive.
@@ -167,8 +185,7 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
         unsigned int   i           = 0;
 
         if (this == NULL || client_uid == NULL) {
-                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
                 errno = EINVAL;
                 return NULL;
         }
@@ -274,11 +291,9 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 unlock:
         UNLOCK (&clienttable->lock);
 
-        if (client)
-                gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF,
-                                  "%s: bind_ref: %d, ref: %d",
-                                  client->client_uid, client->ref.bind,
-                                  client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d",
+                          client->client_uid, client->ref.bind,
+                          client->ref.count);
         return client;
 }
 
@@ -288,9 +303,6 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         gf_boolean_t unref = _gf_false;
         int bind_ref;
 
-        if (client == NULL)
-                goto out;
-
         if (detached)
                 *detached = _gf_false;
 
@@ -298,33 +310,27 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (bind_ref == 0)
                 unref = _gf_true;
 
-        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF, "%s: "
-                          "bind_ref: %d, ref: %d, unref: %d",
-                          client->client_uid, client->ref.bind,
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d,"
+                          " unref: %d", client->client_uid, client->ref.bind,
                           client->ref.count, unref);
         if (unref) {
                 if (detached)
                         *detached = _gf_true;
                 gf_client_unref (client);
         }
-
-out:
-        return;
 }
 
 client_t *
 gf_client_ref (client_t *client)
 {
         if (!client) {
-                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "null client");
+                gf_log_callingfn ("client_t", GF_LOG_ERROR, "null client");
                 return NULL;
         }
 
         INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
-        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
-                          "ref-count %d", client->client_uid,
-                          client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, client->ref.count);
         return client;
 }
 
@@ -337,8 +343,7 @@ client_destroy (client_t *client)
         xlator_t          *xtrav       = NULL;
 
         if (client == NULL){
-                gf_msg_callingfn ("xlator", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid argument");
                 goto out;
         }
 
@@ -400,18 +405,16 @@ gf_client_unref (client_t *client)
         int refcount;
 
         if (!client) {
-                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "client is NULL");
+                gf_log_callingfn ("client_t", GF_LOG_ERROR, "client is NULL");
                 return;
         }
 
         refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
-        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
-                          "ref-count %d", client->client_uid,
-                          (int)client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, (int)client->ref.count);
         if (refcount == 0) {
-                gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_DISCONNECT_CLIENT,
-                        "Shutting down connection %s", client->client_uid);
+                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
+                        client->client_uid);
                 client_destroy (client);
         }
 }
@@ -595,8 +598,7 @@ clienttable_dump (clienttable_t *clienttable, char *prefix)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_FAILED,
+                        gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
                         return;
                 }
@@ -693,8 +695,7 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_FAILED,
+                        gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -736,8 +737,7 @@ gf_client_dump_fdtables (xlator_t *this)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_FAILED,
+                        gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -802,8 +802,7 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_FAILED,
+                        gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -864,8 +863,7 @@ gf_client_dump_inodes (xlator_t *this)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_FAILED,
+                        gf_log ("client_t", GF_LOG_WARNING,
                                 "Unable to acquire lock");
                         goto out;
                 }

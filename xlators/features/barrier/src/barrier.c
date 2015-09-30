@@ -8,6 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "barrier.h"
 #include "defaults.h"
 #include "call-stub.h"
@@ -24,7 +29,7 @@ barrier_local_set_gfid (call_frame_t *frame, uuid_t gfid, xlator_t *this)
                                 ". gfid will not be dumped in statedump file.");
                         return;
                 }
-                gf_uuid_copy (*id, gfid);
+                uuid_copy (*id, gfid);
                 frame->local = id;
         }
 }

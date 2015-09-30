@@ -10,10 +10,15 @@
 #ifndef _MARKER_H
 #define _MARKER_H
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "marker-quota.h"
 #include "xlator.h"
 #include "defaults.h"
-#include "compat-uuid.h"
+#include "uuid.h"
 #include "call-stub.h"
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"
@@ -26,7 +31,6 @@ enum {
         GF_QUOTA             = 1,
         GF_XTIME             = 2,
         GF_XTIME_GSYNC_FORCE = 4,
-        GF_INODE_QUOTA       = 8,
 };
 
 /*initialize the local variable*/
@@ -75,23 +79,12 @@ enum {
                 frame->cookie = NULL;                           \
         } while (0)
 
-#define MARKER_STACK_UNWIND(fop, frame, params...)              \
-        do {                                                    \
-                quota_local_t *_local = NULL;                   \
-                if (frame) {                                    \
-                        _local = frame->local;                  \
-                        frame->local = NULL;                    \
-                }                                               \
-                STACK_UNWIND_STRICT (fop, frame, params);       \
-                if (_local)                                     \
-                        marker_local_unref (_local);            \
-        } while (0)
-
 struct marker_local{
         uint32_t        timebuf[2];
         pid_t           pid;
         loc_t           loc;
         loc_t           parent_loc;
+        loc_t          *next_lock_on;
         uid_t           uid;
         gid_t           gid;
         int32_t         ref;
@@ -100,8 +93,7 @@ struct marker_local{
         mode_t          mode;
         int32_t         err;
         call_stub_t    *stub;
-        call_frame_t   *lk_frame;
-        quota_meta_t    contribution;
+        int64_t         contribution;
         struct marker_local *oplocal;
 
         /* marker quota specific */

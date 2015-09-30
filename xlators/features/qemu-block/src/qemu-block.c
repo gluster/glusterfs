@@ -9,6 +9,11 @@
 */
 
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -136,7 +141,7 @@ qb_format_extract (xlator_t *this, char *format, inode_t *inode)
 			goto invalid;
 		ret = sscanf(s, "<gfid:%[^>]s", gfid_str);
 		if (ret == 1) {
-			ret = gf_uuid_parse(gfid_str, gfid);
+			ret = uuid_parse(gfid_str, gfid);
 			if (ret < 0)
 				goto invalid;
 		}
@@ -159,8 +164,8 @@ qb_format_extract (xlator_t *this, char *format, inode_t *inode)
 	 * associated with a backing image as a filename local to the parent
 	 * directory. The format processing will validate further.
 	 */
-	if (!gf_uuid_is_null(gfid))
-		gf_uuid_copy(qb_inode->backing_gfid, gfid);
+	if (!uuid_is_null(gfid))
+		uuid_copy(qb_inode->backing_gfid, gfid);
 	else if (s)
 		qb_inode->backing_fname = gf_strdup(s);
 
@@ -410,23 +415,24 @@ int
 qb_setxattr_common (call_frame_t *frame, xlator_t *this, call_stub_t *stub,
 		    dict_t *xattr, inode_t *inode)
 {
+	data_t *data = NULL;
 
-	if (dict_get (xattr, "trusted.glusterfs.block-format")) {
+	if ((data = dict_get (xattr, "trusted.glusterfs.block-format"))) {
 		qb_setxattr_format (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-create")) {
+	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-create"))) {
 		qb_setxattr_snapshot_create (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-delete")) {
+	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-delete"))) {
 		qb_setxattr_snapshot_delete (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-goto")) {
+	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-goto"))) {
 		qb_setxattr_snapshot_goto (frame, this, stub, xattr, inode);
 		return 0;
 	}
@@ -1083,8 +1089,8 @@ fini (xlator_t *this)
 
         this->private = NULL;
 
-        /* No need to do inode_unref of conf->root_inode as ref/unref doesn't
-         * apply for it*/
+	if (conf->root_inode)
+		inode_unref(conf->root_inode);
         GF_FREE (conf);
 
 	return;

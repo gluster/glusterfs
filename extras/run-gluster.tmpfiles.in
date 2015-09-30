@@ -1,2 +1,0 @@
-# hardcoding /run for now, should be detected while building from source?
-d /run/gluster 0755 root root -

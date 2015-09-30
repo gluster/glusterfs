@@ -12,6 +12,11 @@
 #ifndef _STRIPE_H_
 #define _STRIPE_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"
@@ -184,6 +189,8 @@ struct stripe_local {
         int32_t              xattr_total_len;
         int32_t              nallocs;
         char xsel[256];
+
+        struct marker_str    marker;
 
         /* General usage */
         off_t                offset;

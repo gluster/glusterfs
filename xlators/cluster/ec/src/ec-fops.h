@@ -1,11 +1,21 @@
 /*
-  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
-  This file is part of GlusterFS.
+  Copyright (c) 2012 DataLab, s.l. <http://www.datalab.es>
 
-  This file is licensed to you under your choice of the GNU Lesser
-  General Public License, version 3 or any later version (LGPLv3 or
-  later), or the GNU General Public License, version 2 (GPLv2), in all
-  cases as published by the Free Software Foundation.
+  This file is part of the cluster/ec translator for GlusterFS.
+
+  The cluster/ec translator for GlusterFS is free software: you can
+  redistribute it and/or modify it under the terms of the GNU General
+  Public License as published by the Free Software Foundation, either
+  version 3 of the License, or (at your option) any later version.
+
+  The cluster/ec translator for GlusterFS is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE. See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with the cluster/ec translator for GlusterFS. If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef __EC_FOPS_H__
@@ -15,6 +25,9 @@
 
 #include "ec-data.h"
 #include "ec-common.h"
+
+#define EC_FOP_HEAL     -1
+#define EC_FOP_FHEAL    -2
 
 void ec_access(call_frame_t * frame, xlator_t * this, uintptr_t target,
                int32_t minimum, fop_access_cbk_t func, void *data, loc_t * loc,

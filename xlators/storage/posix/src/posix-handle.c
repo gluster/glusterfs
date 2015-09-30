@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,7 +25,6 @@
 #include "posix.h"
 #include "xlator.h"
 #include "syscall.h"
-#include "posix-messages.h"
 
 #include "compat-errno.h"
 
@@ -68,8 +72,12 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
 
         if (type & POSIX_ANCESTRY_DENTRY) {
                 entry = gf_dirent_for_name (dir_name);
-                if (!entry)
+                if (!entry) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "could not create gf_dirent for entry %s: (%s)",
+                                dir_name, strerror (errno));
                         goto out;
+                }
 
                 entry->d_stat = *iabuf;
                 entry->inode = inode_ref (inode);
@@ -79,10 +87,10 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
                 strcat (real_path, "/");
                 strcat (real_path, path);
                 loc.inode = inode_ref (inode);
-                gf_uuid_copy (loc.gfid, inode->gfid);
+                uuid_copy (loc.gfid, inode->gfid);
 
-                entry->dict = posix_xattr_fill (THIS, real_path, &loc, NULL, -1,
-                                                xdata, iabuf);
+                entry->dict = posix_lookup_xattr_fill (THIS, real_path, &loc,
+                                                       xdata, iabuf);
                 loc_wipe (&loc);
         }
 
@@ -97,7 +105,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                              gf_dirent_t *head, int type, uuid_t gfid,
                              const size_t handle_size,
                              const char *priv_base_path, inode_table_t *itable,
-                             inode_t **parent, dict_t *xdata, int32_t *op_errno)
+                             inode_t **parent, dict_t *xdata)
 {
         char        *linkname   = NULL; /* "../../<gfid[0]>/<gfid[1]/"
                                          "<gfidstr>/<NAME_MAX>" */
@@ -111,8 +119,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         int          ret        = -1;
         uuid_t       tmp_gfid   = {0, };
 
-        if (!path || !parent || !priv_base_path || gf_uuid_is_null (gfid)) {
-                *op_errno = EINVAL;
+        if (!path || !parent || !priv_base_path || uuid_is_null (gfid)) {
                 goto out;
         }
 
@@ -128,14 +135,12 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 inode = itable->root;
 
                 memset (&iabuf, 0, sizeof (iabuf));
-                gf_uuid_copy (iabuf.ia_gfid, inode->gfid);
+                uuid_copy (iabuf.ia_gfid, inode->gfid);
                 iabuf.ia_type = inode->ia_type;
 
                 ret = posix_make_ancestral_node (priv_base_path, path, pathsize,
                                                  head, "/", &iabuf, inode, type,
                                                  xdata);
-                if (ret < 0)
-                        *op_errno = ENOMEM;
                 return ret;
         }
 
@@ -147,12 +152,9 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         len = readlink (dir_handle, linkname, PATH_MAX);
         if (len < 0) {
-                gf_msg (this->name, (errno == ENOENT || errno == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, errno,
-                        P_MSG_READLINK_FAILED, "could not read the link from "
-                        "the gfid handle %s ", dir_handle);
-                ret = -1;
-                *op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR, "could not read the link "
+                        "from the gfid handle %s (%s)", dir_handle,
+                        strerror (errno));
                 goto out;
         }
 
@@ -161,12 +163,12 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         pgfidstr = strtok_r (linkname + SLEN("../../00/00/"), "/", &saveptr);
         dir_name = strtok_r (NULL, "/", &saveptr);
 
-        gf_uuid_parse (pgfidstr, tmp_gfid);
+        uuid_parse (pgfidstr, tmp_gfid);
 
         ret = posix_make_ancestryfromgfid (this, path, pathsize, head, type,
                                            tmp_gfid, handle_size,
                                            priv_base_path, itable, parent,
-                                           xdata, op_errno);
+                                           xdata);
         if (ret < 0) {
                 goto out;
         }
@@ -174,11 +176,6 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         memset (&iabuf, 0, sizeof (iabuf));
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
-        if (inode == NULL) {
-                *op_errno = ESTALE;
-                ret = -1;
-                goto out;
-        }
 
         strcat (dir_name, "/");
         ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
@@ -232,42 +229,6 @@ posix_handle_relpath (xlator_t *this, uuid_t gfid, const char *basename,
 /*
   TODO: explain how this pump fixes ELOOP
 */
-gf_boolean_t
-posix_is_malformed_link (xlator_t *this, char *base_str, char *linkname,
-                         size_t len)
-{
-        if ((len == 8) && strcmp (linkname, "../../..")) /*for root*/
-                goto err;
-
-        if (len < 50 || len >= 512)
-                goto err;
-
-        if (memcmp (linkname, "../../", 6) != 0)
-                goto err;
-
-        if ((linkname[2] != '/') ||
-            (linkname[5] != '/') ||
-            (linkname[8] != '/') ||
-            (linkname[11] != '/') ||
-            (linkname[48] != '/')) {
-                goto err;
-        }
-
-        if ((linkname[20] != '-') ||
-            (linkname[25] != '-') ||
-            (linkname[30] != '-') ||
-            (linkname[35] != '-')) {
-                goto err;
-        }
-
-        return _gf_false;
-
-err:
-        gf_log_callingfn (this->name, GF_LOG_ERROR, "malformed internal link "
-                          "%s for %s", linkname, base_str);
-        return _gf_true;
-}
-
 int
 posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
                    char *base_str, int base_len, int pfx_len)
@@ -280,9 +241,9 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
         /* is a directory's symlink-handle */
         ret = readlink (base_str, linkname, 512);
         if (ret == -1) {
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
-                        "internal readlink failed on %s ",
-                        base_str);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "internal readlink failed on %s (%s)",
+                        base_str, strerror (errno));
                 goto err;
         }
 
@@ -298,24 +259,49 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
                 goto out;
         }
 
-        if (posix_is_malformed_link (this, base_str, linkname, ret))
-                goto err;
-
-        blen = link_len - 48;
-
-        if (len + blen >= maxlen) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
-                        "Unable to form handle path for %s (maxlen = %d)",
-                        buf, maxlen);
+        if (ret < 50 || ret >= 512) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "malformed internal link %s for %s",
+                        linkname, base_str);
                 goto err;
         }
 
+        if (memcmp (linkname, "../../", 6) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "malformed internal link %s for %s",
+                        linkname, base_str);
+                goto err;
+        }
+
+        if ((linkname[2] != '/') ||
+            (linkname[5] != '/') ||
+            (linkname[8] != '/') ||
+            (linkname[11] != '/') ||
+            (linkname[48] != '/')) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "malformed internal link %s for %s",
+                        linkname, base_str);
+                goto err;
+        }
+
+        if ((linkname[20] != '-') ||
+            (linkname[25] != '-') ||
+            (linkname[30] != '-') ||
+            (linkname[35] != '-')) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "malformed internal link %s for %s",
+                        linkname, base_str);
+                goto err;
+        }
+
+        blen = link_len - 48;
         memmove (buf + base_len + blen, buf + base_len,
                  (strlen (buf) - base_len) + 1);
 
         strncpy (base_str + pfx_len, linkname + 6, 42);
 
-        strncpy (buf + pfx_len, linkname + 6, link_len - 6);
+        if (len + blen < maxlen)
+                strncpy (buf + pfx_len, linkname + 6, link_len - 6);
 out:
         return len + blen;
 err:
@@ -382,10 +368,10 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename,
                 errno = 0;
                 ret = posix_handle_pump (this, buf, len, maxlen,
                                          base_str, base_len, pfx_len);
-                len = ret;
-
                 if (ret == -1)
                         break;
+
+                len = ret;
 
                 ret = lstat (buf, &stat);
         } while ((ret == -1) && errno == ELOOP);
@@ -464,8 +450,7 @@ posix_handle_init (xlator_t *this)
 
         ret = stat (priv->base_path, &exportbuf);
         if (ret || !S_ISDIR (exportbuf.st_mode)) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        P_MSG_HANDLE_CREATE,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Not a directory: %s", priv->base_path);
                 return -1;
         }
@@ -481,24 +466,21 @@ posix_handle_init (xlator_t *this)
                 if (errno == ENOENT) {
                         ret = mkdir (handle_pfx, 0600);
                         if (ret != 0) {
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_HANDLE_CREATE,
-                                        "Creating directory %s failed",
-                                        handle_pfx);
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Creating directory %s failed: %s",
+                                        handle_pfx, strerror (errno));
                                 return -1;
                         }
                 } else {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "Checking for %s failed",
-                                handle_pfx);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Checking for %s failed: %s",
+                                handle_pfx, strerror (errno));
                         return -1;
                 }
                 break;
         case 0:
                 if (!S_ISDIR (stbuf.st_mode)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                P_MSG_HANDLE_CREATE,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Not a directory: %s",
                                 handle_pfx);
                         return -1;
@@ -516,26 +498,25 @@ posix_handle_init (xlator_t *this)
         switch (ret) {
         case -1:
                 if (errno != ENOENT) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "%s", priv->base_path);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: %s", priv->base_path,
+                                strerror (errno));
                         return -1;
                 }
 
                 ret = posix_handle_mkdir_hashes (this, rootstr);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "mkdir %s failed", rootstr);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "mkdir %s failed (%s)",
+                                rootstr, strerror (errno));
                         return -1;
                 }
 
                 ret = symlink ("../../..", rootstr);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "symlink %s creation failed",
-                                rootstr);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "symlink %s creation failed (%s)",
+                                rootstr, strerror (errno));
                         return -1;
                 }
                 break;
@@ -544,8 +525,7 @@ posix_handle_init (xlator_t *this)
                     (exportbuf.st_dev == rootbuf.st_dev))
                         return 0;
 
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        P_MSG_HANDLE_CREATE,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Different dirs %s (%lld/%lld) != %s (%lld/%lld)",
                         priv->base_path, (long long) exportbuf.st_ino,
                         (long long) exportbuf.st_dev, rootstr,
@@ -587,21 +567,18 @@ posix_handle_new_trash_init (xlator_t *this, char *trash)
                 if (errno == ENOENT) {
                         ret = mkdir (trash, 0755);
                         if (ret != 0) {
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_HANDLE_TRASH_CREATE,
-                                        "Creating directory %s failed",
-                                        trash);
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Creating directory %s failed: %s",
+                                        trash, strerror (errno));
                         }
                 } else {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_TRASH_CREATE,
-                                "Checking for %s failed", trash);
+                        gf_log (this->name, GF_LOG_ERROR, "Checking for %s "
+                                "failed: %s", trash, strerror (errno));
                 }
                 break;
         case 0:
                 if (!S_ISDIR (stbuf.st_mode)) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_TRASH_CREATE,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Not a directory: %s", trash);
                         ret = -1;
                 }
@@ -621,14 +598,13 @@ posix_mv_old_trash_into_new_trash (xlator_t *this, char *old, char *new)
 
         if (!posix_does_old_trash_exists (old))
                 goto out;
-        gf_uuid_generate (dest_name);
+        uuid_generate (dest_name);
         snprintf (dest_old, sizeof (dest_old), "%s/%s", new,
                   uuid_utoa (dest_name));
         ret = rename (old, dest_old);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        P_MSG_HANDLE_TRASH_CREATE,
-                        "Not able to move %s -> %s ", old, dest_old);
+                gf_log (this->name, GF_LOG_ERROR, "Not able to move "
+                        "%s -> %s (%s)", old, dest_old, strerror (errno));
         }
 out:
         return ret;
@@ -677,9 +653,9 @@ posix_handle_mkdir_hashes (xlator_t *this, const char *newpath)
 
         ret = mkdir (parpath, 0700);
         if (ret == -1 && errno != EEXIST) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        P_MSG_HANDLE_CREATE,
-                        "error mkdir hash-1 %s ", parpath);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error mkdir hash-1 %s (%s)",
+                        parpath, strerror (errno));
                 return -1;
         }
 
@@ -688,9 +664,9 @@ posix_handle_mkdir_hashes (xlator_t *this, const char *newpath)
 
         ret = mkdir (parpath, 0700);
         if (ret == -1 && errno != EEXIST) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        P_MSG_HANDLE_CREATE,
-                        "error mkdir hash-2 %s ", parpath);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error mkdir hash-2 %s (%s)",
+                        parpath, strerror (errno));
                 return -1;
         }
 
@@ -710,43 +686,41 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
 
         ret = lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HANDLE_CREATE,
-                        "%s", newpath);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: %s", newpath, strerror (errno));
                 return -1;
         }
 
         if (ret == -1 && errno == ENOENT) {
                 ret = posix_handle_mkdir_hashes (this, newpath);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE, "mkdir %s failed ",
-                                newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "mkdir %s failed (%s)",
+                                newpath, strerror (errno));
                         return -1;
                 }
 
                 ret = sys_link (oldpath, newpath);
 
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE, "link %s -> %s"
-                                "failed ", oldpath, newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "link %s -> %s failed (%s)",
+                                oldpath, newpath, strerror (errno));
                         return -1;
                 }
 
                 ret = lstat (newpath, &newbuf);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "lstat on %s failed", newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "lstat on %s failed (%s)",
+                                newpath, strerror (errno));
                         return -1;
                 }
         }
 
         if (newbuf.st_ino != oldbuf->st_ino ||
             newbuf.st_dev != oldbuf->st_dev) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        P_MSG_HANDLE_CREATE,
+                gf_log (this->name, GF_LOG_WARNING,
                         "mismatching ino/dev between file %s (%lld/%lld) "
                         "and handle %s (%lld/%lld)",
                         oldpath, (long long) oldbuf->st_ino, (long long) oldbuf->st_dev,
@@ -772,49 +746,41 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
 
         ret = lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HANDLE_CREATE, "%s", newpath);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: %s", newpath, strerror (errno));
                 return -1;
         }
 
         if (ret == -1 && errno == ENOENT) {
-                if (posix_is_malformed_link (this, newpath, oldpath,
-                                             strlen (oldpath))) {
-                        GF_ASSERT (!"Malformed link");
-                        errno = EINVAL;
-                        return -1;
-                }
                 ret = posix_handle_mkdir_hashes (this, newpath);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "mkdir %s failed ", newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "mkdir %s failed (%s)",
+                                newpath, strerror (errno));
                         return -1;
                 }
 
                 ret = symlink (oldpath, newpath);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "symlink %s -> %s failed",
-                                oldpath, newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "symlink %s -> %s failed (%s)",
+                                oldpath, newpath, strerror (errno));
                         return -1;
                 }
 
                 ret = lstat (newpath, &newbuf);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "stat on %s failed ", newpath);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "stat on %s failed (%s)",
+                                newpath, strerror (errno));
                         return -1;
                 }
         }
 
         ret = stat (real_path, &newbuf);
         if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HANDLE_CREATE,
-                        "stat on %s failed ", newpath);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat on %s failed (%s)", newpath, strerror (errno));
                 return -1;
         }
 
@@ -823,8 +789,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
 
         if (newbuf.st_ino != oldbuf->st_ino ||
             newbuf.st_dev != oldbuf->st_dev) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        P_MSG_HANDLE_CREATE,
+                gf_log (this->name, GF_LOG_WARNING,
                         "mismatching ino/dev between file %s (%lld/%lld) "
                         "and handle %s (%lld/%lld)",
                         oldpath, (long long) oldbuf->st_ino, (long long) oldbuf->st_dev,
@@ -849,16 +814,16 @@ posix_handle_unset_gfid (xlator_t *this, uuid_t gfid)
 
         if (ret == -1) {
                 if (errno != ENOENT) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HANDLE_DELETE, "%s", path);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: %s", path, strerror (errno));
                 }
                 goto out;
         }
 
         ret = unlink (path);
         if (ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HANDLE_DELETE, "unlink %s failed ", path);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "unlink %s failed (%s)", path, strerror (errno));
         }
 
 out:
@@ -873,25 +838,19 @@ posix_handle_unset (xlator_t *this, uuid_t gfid, const char *basename)
         struct iatt  stat;
         char        *path = NULL;
 
+
         if (!basename) {
                 ret = posix_handle_unset_gfid (this, gfid);
                 return ret;
         }
 
         MAKE_HANDLE_PATH (path, this, gfid, basename);
-        if (!path) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        P_MSG_HANDLE_DELETE,
-                        "Failed to create handle path for %s (%s)",
-                        basename, uuid_utoa(gfid));
-                return -1;
-        }
 
         ret = posix_istat (this, gfid, basename, &stat);
 
         if (ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HANDLE_DELETE, "%s", path);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: %s", path, strerror (errno));
                 return -1;
         }
 
@@ -910,13 +869,6 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
         char *newpath = NULL;
 
         MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
-        if (!newpath) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        P_MSG_HANDLE_CREATE,
-                        "Failed to create handle path (%s)", uuid_utoa(gfid));
-                return ret;
-        }
-
         ret = lstat (newpath, &stbuf);
         if (!ret) {
                 ret = sys_link (newpath, real_path);

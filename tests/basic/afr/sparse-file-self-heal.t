@@ -17,7 +17,6 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 TEST dd if=/dev/urandom of=$M0/small count=1 bs=1024k
 TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2048k
 TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1024k
-TEST truncate -s 1G $M0/FILE
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 
@@ -39,22 +38,13 @@ bigger2big_md5sum=$(md5sum $M0/bigger2big | awk '{print $1}')
 TEST truncate -s 2M $M0/big2bigger
 big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 
-#Write data to file and restore its sparseness
-TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
-TEST truncate -s 1G $M0/FILE
-
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
-
-#If the file system of bricks is XFS and speculative preallocation is on,
-#dropping cahce should be done to free speculatively pre-allocated blocks
-#by XFS.
-drop_cache $M0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -76,9 +66,6 @@ EXPECT "0" has_holes $B0/${V0}0/small
 EXPECT "0" has_holes $B0/${V0}0/bigger2big
 EXPECT "1" has_holes $B0/${V0}0/big2bigger
 
-#Check that self-heal has not written 0s to sink and made it non-sparse.
-USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
-TEST [ $USED_KB -lt 1000000 ]
 TEST rm -f $M0/*
 
 #check the same tests with diff self-heal
@@ -87,7 +74,6 @@ TEST $CLI volume set $V0 data-self-heal-algorithm diff
 TEST dd if=/dev/urandom of=$M0/small count=1 bs=1024k
 TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1024k
 TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2048k
-TEST truncate -s 1G $M0/FILE
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 
@@ -109,22 +95,13 @@ bigger2big_md5sum=$(md5sum $M0/bigger2big | awk '{print $1}')
 TEST truncate -s 2M $M0/big2bigger
 big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 
-#Write data to file and restore its sparseness
-TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
-TEST truncate -s 1G $M0/FILE
-
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
-
-#If the file system of bricks is XFS and speculative preallocation is on,
-#dropping cahce should be done to free speculatively pre-allocated blocks
-#by XFS.
-drop_cache $M0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -140,9 +117,5 @@ EXPECT "1" has_holes $B0/${V0}0/big
 EXPECT "1" has_holes $B0/${V0}0/big2bigger
 EXPECT "0" has_holes $B0/${V0}0/bigger2big
 EXPECT "0" has_holes $B0/${V0}0/small
-
-#Check that self-heal has not written 0s to sink and made it non-sparse.
-USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
-TEST [ $USED_KB -lt 1000000 ]
 
 cleanup

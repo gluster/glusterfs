@@ -221,13 +221,13 @@ TEST setup_perm_file $M0
 sleep 2
 
 # Unmount/remount so that create/write and truncate don't see cached data.
-EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
-TEST $GFS -s $H0 --volfile-id $V0 $M1
+TEST umount $M0
+TEST $GFS -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "8" ec_child_up_count $V0 0
 
 # Test create/write and truncate *before* the bricks are brought back.
-TEST check_create_write $M1
-TEST check_truncate $M1
+TEST check_create_write $M0
+TEST check_truncate $M0
 
 # Restart the bricks and allow repair to occur.
 TEST $CLI volume start $V0 force
@@ -235,7 +235,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Unmount/remount again, same reason as before.
-EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
+TEST umount $M0
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 

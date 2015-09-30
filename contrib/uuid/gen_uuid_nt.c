@@ -78,7 +78,7 @@ Nt5(void)
 
 
 
-void gf_uuid_generate(uuid_t out)
+void uuid_generate(uuid_t out)
 {
 	if(Nt5())
 	{

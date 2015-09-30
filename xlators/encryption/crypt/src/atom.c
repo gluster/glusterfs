@@ -8,6 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "defaults.h"
 #include "crypt-common.h"
 #include "crypt.h"
@@ -846,7 +851,7 @@ static struct iovec *get_iovec_hole_full(call_frame_t *frame,
 	return conf->avec + (conf->off_in_head ? 1 : 0);
 }
 
-static struct iovec *get_iovec_hole_tail(call_frame_t *frame,
+static inline struct iovec *get_iovec_hole_tail(call_frame_t *frame,
 						uint32_t count)
 {
 	struct avec_config *conf = get_hole_conf(frame);
@@ -854,7 +859,7 @@ static struct iovec *get_iovec_hole_tail(call_frame_t *frame,
 	return conf->avec + (conf->blocks_in_pool - 1);
 }
 
-static struct iovec *get_iovec_data_head(call_frame_t *frame,
+static inline struct iovec *get_iovec_data_head(call_frame_t *frame,
 						uint32_t count)
 {
 	struct avec_config *conf = get_data_conf(frame);
@@ -862,7 +867,7 @@ static struct iovec *get_iovec_data_head(call_frame_t *frame,
 	return conf->avec;
 }
 
-static struct iovec *get_iovec_data_full(call_frame_t *frame,
+static inline struct iovec *get_iovec_data_full(call_frame_t *frame,
 						uint32_t count)
 {
 	struct avec_config *conf = get_data_conf(frame);
@@ -870,7 +875,7 @@ static struct iovec *get_iovec_data_full(call_frame_t *frame,
 	return conf->avec + (conf->off_in_head ? 1 : 0) + count;
 }
 
-static struct iovec *get_iovec_data_tail(call_frame_t *frame,
+static inline struct iovec *get_iovec_data_tail(call_frame_t *frame,
 						uint32_t count)
 {
 	struct avec_config *conf = get_data_conf(frame);

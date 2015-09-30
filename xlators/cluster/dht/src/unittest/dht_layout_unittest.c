@@ -12,12 +12,12 @@
 #include "logging.h"
 #include "xlator.h"
 
-#include <inttypes.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
-#include <cmocka_pbc.h>
-#include <cmocka.h>
+#include <inttypes.h>
+#include <cmockery/pbc.h>
+#include <cmockery/cmockery.h>
 
 /*
  * Helper functions
@@ -33,10 +33,9 @@ helper_xlator_init(uint32_t num_types)
 
     xl = test_calloc(1, sizeof(xlator_t));
     assert_non_null(xl);
-    xl->mem_acct->num_types = num_types;
-    xl->mem_acct = test_calloc (sizeof(struct mem_acct)
-                                + sizeof(struct mem_acct_rec) + num_types);
-    assert_non_null(xl->mem_acct);
+    xl->mem_acct.num_types = num_types;
+    xl->mem_acct.rec = test_calloc(num_types, sizeof(struct mem_acct_rec));
+    assert_non_null(xl->mem_acct.rec);
 
     xl->ctx = test_calloc(1, sizeof(glusterfs_ctx_t));
     assert_non_null(xl->ctx);
@@ -117,9 +116,9 @@ test_dht_layout_new(void **state)
 }
 
 int main(void) {
-    const struct CMUnitTest xlator_dht_layout_tests[] = {
+    const UnitTest tests[] = {
         unit_test(test_dht_layout_new),
     };
 
-    return cmocka_run_group_tests(xlator_dht_layout_tests, NULL, NULL);
+    return run_tests(tests, "xlator_dht_layout");
 }

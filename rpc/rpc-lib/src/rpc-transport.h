@@ -11,6 +11,11 @@
 #ifndef __RPC_TRANSPORT_H__
 #define __RPC_TRANSPORT_H__
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 
 #include <inttypes.h>
 #ifdef GF_SOLARIS_HOST_OS
@@ -158,7 +163,7 @@ typedef struct rpc_request_info rpc_request_info_t;
 
 
 struct rpc_transport_pollin {
-        struct iovec vector[MAX_IOVEC];
+        struct iovec vector[2];
         int count;
         char vectored;
         void *private;
@@ -236,8 +241,6 @@ struct rpc_transport_ops {
         int32_t (*throttle)       (rpc_transport_t *this, gf_boolean_t onoff);
 };
 
-int32_t
-rpc_transport_count (const char *transport_type);
 
 int32_t
 rpc_transport_listen (rpc_transport_t *this);
@@ -301,7 +304,7 @@ rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin);
 
 int
 rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
-                                     int32_t time, int32_t timeout);
+                                     int32_t time);
 
 int
 rpc_transport_unix_options_build (dict_t **options, char *filepath,

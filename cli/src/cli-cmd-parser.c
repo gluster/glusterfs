@@ -13,6 +13,11 @@
 #include <stdint.h>
 #include <pthread.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -26,26 +31,21 @@
 struct snap_config_opt_vals_ snap_confopt_vals[] = {
         {.op_name        = "snap-max-hard-limit",
          .question       = "Changing snapshot-max-hard-limit "
-                           "will limit the creation of new snapshots "
+                           "will lead to deletion of snapshots "
                            "if they exceed the new limit.\n"
                            "Do you want to continue?"
         },
         {.op_name        = "snap-max-soft-limit",
-         .question       = "If Auto-delete is enabled, snap-max-soft-limit will"
-                           " trigger deletion of oldest snapshot, on the "
-                           "creation of new snapshot, when the "
-                           "snap-max-soft-limit is reached.\n"
-                           "Do you want to change the snap-max-soft-limit?"
+         .question       = "Changing snapshot-max-soft-limit "
+                           "will lead to deletion of snapshots "
+                           "if they exceed the new limit.\n"
+                           "Do you want to continue?"
         },
         {.op_name        = "both",
-        .question        = "Changing snapshot-max-hard-limit "
-                           "will limit the creation of new snapshots "
-                           "if they exceed the new snapshot-max-hard-limit.\n"
-                           "If Auto-delete is enabled, snap-max-soft-limit will"
-                           " trigger deletion of oldest snapshot, on the "
-                           "creation of new snapshot, when the "
-                           "snap-max-soft-limit is reached.\n"
-                           "Do you want to continue?"
+        .question        = "Changing snapshot-max-hard-limit & "
+                           "snapshot-max-soft-limit will lead to "
+                           "deletion of snapshots if they exceed "
+                           "the new limit.\nDo you want to continue?"
         },
         {.op_name        = NULL,
         }
@@ -57,9 +57,6 @@ enum cli_snap_config_set_types {
         GF_SNAP_CONFIG_SET_BOTH = 2,
 };
 typedef enum cli_snap_config_set_types cli_snap_config_set_types;
-
-int
-cli_cmd_validate_volume (char *volname);
 
 static const char *
 id_sel (void *wcon)
@@ -180,58 +177,24 @@ out:
 }
 
 int32_t
-cli_cmd_create_disperse_check (struct cli_state *state, int *disperse,
-                               int *redundancy, int *data, int count)
+cli_cmd_create_disperse_check(struct cli_state * state, int * disperse,
+                              int * redundancy, int count)
 {
         int i = 0;
         int tmp = 0;
         gf_answer_t answer = GF_ANSWER_NO;
         char question[128];
 
-        const char *question1 = "There isn't an optimal redundancy value "
-                                "for this configuration. Do you want to "
-                                "create the volume with redundancy 1 ?";
+        const char * question1 = "There isn't an optimal redundancy value "
+                                 "for this configuration. Do you want to "
+                                 "create the volume with redundancy 1 ?";
 
-        const char *question2 = "The optimal redundancy for this "
-                                "configuration is %d. Do you want to create "
-                                "the volume with this value ?";
+        const char * question2 = "The optimal redundancy for this "
+                                 "configuration is %d. Do you want to create "
+                                 "the volume with this value ?";
 
-        const char *question3 = "This configuration is not optimal on most "
-                                "workloads. Do you want to use it ?";
-
-        const char *question4 = "Redundancy for this configuration is %d. "
-                                "Do you want to create "
-                                "the volume with this value ?";
-
-        if (*data > 0) {
-                if (*disperse > 0 && *redundancy > 0) {
-                        if (*disperse != (*data + *redundancy)) {
-                                cli_err ("Disperse count(%d) should be equal "
-                                         "to sum of disperse-data count(%d) and "
-                                         "redundancy count(%d)", *disperse,
-                                         *data, *redundancy);
-                                return -1;
-                        }
-                } else if (*redundancy > 0) {
-                        *disperse = *data + *redundancy;
-                } else if (*disperse > 0) {
-                        *redundancy = *disperse - *data;
-                } else {
-                        if ((count - *data) >= *data) {
-                                cli_err ("Please provide redundancy count "
-                                         "along with disperse-data count");
-                                return -1;
-                        } else {
-                                sprintf (question, question4, count - *data);
-                                answer = cli_cmd_get_confirmation (state,
-                                                                   question);
-                                if (answer == GF_ANSWER_NO)
-                                        return -1;
-                                *redundancy = count - *data;
-                                *disperse = count;
-                        }
-                }
-        }
+        const char * question3 = "This configuration is not optimal on most "
+                                 "workloads. Do you want to use it ?";
 
         if (*disperse <= 0) {
                 if (count < 3) {
@@ -243,7 +206,7 @@ cli_cmd_create_disperse_check (struct cli_state *state, int *disperse,
                 *disperse = count;
         }
 
-        if (*redundancy == -1) {
+        if (*redundancy == 0) {
                 tmp = *disperse - 1;
                 for (i = tmp / 2;
                      (i > 0) && ((tmp & -tmp) != tmp);
@@ -269,7 +232,8 @@ cli_cmd_create_disperse_check (struct cli_state *state, int *disperse,
                 }
 
                 tmp = 0;
-        } else {
+        }
+        else {
                 tmp = *disperse - *redundancy;
         }
 
@@ -290,143 +254,6 @@ cli_cmd_create_disperse_check (struct cli_state *state, int *disperse,
         return 0;
 }
 
-static int32_t
-cli_validate_disperse_volume (char *word, gf1_cluster_type type,
-                              const char **words, int32_t wordcount,
-                              int32_t index, int32_t *disperse_count,
-                              int32_t *redundancy_count,
-                              int32_t *data_count)
-{
-        int     ret = -1;
-
-        switch (type) {
-        case GF_CLUSTER_TYPE_NONE:
-        case GF_CLUSTER_TYPE_DISPERSE:
-                if (strcmp (word, "disperse") == 0) {
-                        if (*disperse_count >= 0) {
-                                cli_err ("disperse option given twice");
-                                goto out;
-                        }
-                        if (wordcount < (index+2)) {
-                                goto out;
-                        }
-                        ret = gf_string2int (words[index + 1], disperse_count);
-                        if (ret == -1 && errno == EINVAL) {
-                                *disperse_count = 0;
-                                ret = 1;
-                        } else if (ret == -1) {
-                                goto out;
-                        } else {
-                                if (*disperse_count < 3) {
-                                        cli_err ("disperse count must "
-                                                 "be greater than 2");
-                                        goto out;
-                                }
-                                ret = 2;
-                        }
-                } else if (strcmp (word, "disperse-data") == 0) {
-                        if (*data_count >= 0) {
-                                cli_err ("disperse-data option given twice");
-                                goto out;
-                        }
-                        if (wordcount < (index+2)) {
-                                goto out;
-                        }
-                        ret = gf_string2int (words[index+1], data_count);
-                        if (ret == -1 || *data_count < 2) {
-                                cli_err ("disperse-data must be greater than 1");
-                                goto out;
-                        }
-                        ret = 2;
-                } else if (strcmp (word, "redundancy") == 0) {
-                        if (*redundancy_count >= 0) {
-                                cli_err ("redundancy option given twice");
-                                goto out;
-                        }
-                        if (wordcount < (index+2)) {
-                                goto out;
-                        }
-                        ret = gf_string2int (words[index+1], redundancy_count);
-                        if (ret == -1 || *redundancy_count < 1) {
-                                cli_err ("redundancy must be greater than 0");
-                                goto out;
-                        }
-                        ret = 2;
-                }
-                break;
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                cli_err ("striped-replicated-dispersed volume "
-                         "is not supported");
-                goto out;
-        case GF_CLUSTER_TYPE_TIER:
-                cli_err ("tier-dispersed volume is not "
-                         "supported");
-                goto out;
-        case GF_CLUSTER_TYPE_STRIPE:
-                cli_err ("striped-dispersed volume is not "
-                         "supported");
-                goto out;
-        case GF_CLUSTER_TYPE_REPLICATE:
-                cli_err ("replicated-dispersed volume is not "
-                         "supported");
-                goto out;
-        default:
-                cli_err ("Invalid type given");
-                break;
-        }
-out:
-        return ret;
-}
-
-int32_t
-cli_validate_volname (const char *volname)
-{
-        int32_t            ret                       = -1;
-        int32_t            i                         = -1;
-        static const char * const invalid_volnames[] = {
-                                      "volume", "type", "subvolumes", "option",
-                                      "end-volume", "all", "volume_not_in_ring",
-                                      "description", "force",
-                                      "snap-max-hard-limit",
-                                      "snap-max-soft-limit", "auto-delete",
-                                      "activate-on-create", NULL};
-
-        if (volname[0] == '-')
-                goto out;
-
-        for (i = 0; invalid_volnames[i]; i++) {
-                if (!strcmp (volname, invalid_volnames[i])) {
-                        cli_err ("\"%s\" cannot be the name of a volume.",
-                                 volname);
-                        goto out;
-                }
-        }
-
-        if (strchr (volname, '/'))
-                goto out;
-
-        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                cli_err("Volume name exceeds %d characters.",
-                        GD_VOLUME_NAME_MAX);
-                goto out;
-        }
-
-        for (i = 0; i < strlen (volname); i++) {
-                if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                   (volname[i] != '-')) {
-                        cli_err ("Volume name should not contain \"%c\""
-                                 " character.\nVolume names can only"
-                                 "contain alphanumeric, '-' and '_' "
-                                 "characters.", volname[i]);
-                        goto out;
-                }
-        }
-
-        ret = 0;
-out:
-        return ret;
-}
-
 int32_t
 cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                              int wordcount, dict_t **options)
@@ -438,22 +265,27 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         int     count = 1;
         int     sub_count = 1;
         int     brick_index = 0;
+        int     i = 0;
         char    *trans_type = NULL;
         int32_t index = 0;
         char    *bricks = NULL;
         int32_t brick_count = 0;
         char    *opwords[] = { "replica", "stripe", "transport", "disperse",
-                               "redundancy", "disperse-data", "arbiter", NULL };
+                               "redundancy", NULL };
 
+        char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
+                                       "end-volume", "all", "volume_not_in_ring",
+                                       "description", "force",
+                                       "snap-max-hard-limit",
+                                       "snap-max-soft-limit", "auto-delete",
+                                       "activate-on-create", NULL};
         char    *w = NULL;
         char    *ptr = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
-        int32_t  arbiter_count = 0;
         int32_t  stripe_count = 1;
         int32_t  disperse_count = -1;
-        int32_t  redundancy_count = -1;
-        int32_t  disperse_data_count = -1;
+        int32_t  redundancy_count = 0;
         gf_boolean_t is_force = _gf_false;
         int wc = wordcount;
 
@@ -473,8 +305,37 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         GF_ASSERT (volname);
 
         /* Validate the volume name here itself */
-        if (cli_validate_volname (volname) < 0)
-                goto out;
+        {
+                if (volname[0] == '-')
+                        goto out;
+
+                for (i = 0; invalid_volnames[i]; i++) {
+                        if (!strcmp (volname, invalid_volnames[i])) {
+                                cli_err ("\"%s\" cannot be the name of a volume.",
+                                         volname);
+                                goto out;
+                        }
+                }
+
+                if (strchr (volname, '/'))
+                        goto out;
+
+                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                        cli_err("Volume name exceeds %d characters.",
+                                GD_VOLUME_NAME_MAX);
+                        goto out;
+                }
+
+                for (i = 0; i < strlen (volname); i++)
+                        if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                           (volname[i] != '-')) {
+                                cli_err ("Volume name should not contain \"%c\""
+                                         " character.\nVolume names can only"
+                                         "contain alphanumeric, '-' and '_' "
+                                         "characters.",volname[i]);
+                                goto out;
+                        }
+        }
 
         if (wordcount < 4) {
                 ret = -1;
@@ -501,17 +362,9 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         case GF_CLUSTER_TYPE_STRIPE:
                                 type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
                                 break;
-                        case GF_CLUSTER_TYPE_TIER:
-                                cli_err ("replicated-tiered volume is not "
-                                         "supported");
-                                goto out;
-                                break;
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("replicated-dispersed volume is not "
                                          "supported");
-                                goto out;
-                        default:
-                                cli_err ("Invalid type given");
                                 goto out;
                         }
 
@@ -531,29 +384,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 goto out;
 
                         index += 2;
-                        if (words[index]) {
-                                if (!strcmp (words[index], "arbiter")) {
-                                        ret = gf_string2int (words[index+1],
-                                                             &arbiter_count);
-                                        if (ret == -1 || arbiter_count != 1 ||
-                                            replica_count != 3) {
-                                                cli_err ("For arbiter "
-                                                         "configuration, "
-                                                         "replica count must be"
-                                                         " 3 and arbiter count "
-                                                         "must be 1. The 3rd "
-                                                         "brick of the replica "
-                                                         "will be the arbiter");
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        ret = dict_set_int32 (dict, "arbiter-count",
-                                                              arbiter_count);
-                                        if (ret)
-                                                goto out;
-                                        index += 2;
-                                }
-                        }
 
                 } else if ((strcmp (w, "stripe")) == 0) {
                         switch (type) {
@@ -570,13 +400,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("striped-dispersed volume is not "
                                          "supported");
-                                goto out;
-                        case GF_CLUSTER_TYPE_TIER:
-                                cli_err ("striped-tier volume is not "
-                                         "supported");
-                                goto out;
-                        default:
-                                cli_err ("Invalid type given");
                                 goto out;
                         }
                         if (wordcount < (index + 2)) {
@@ -617,17 +440,90 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         }
                         index += 2;
 
-                } else if ((strcmp (w, "disperse") == 0) ||
-                           (strcmp (w, "redundancy") == 0) ||
-                           (strcmp (w, "disperse-data") == 0)) {
-                        ret = cli_validate_disperse_volume (w, type, words,
-                                      wordcount, index, &disperse_count,
-                                      &redundancy_count, &disperse_data_count);
-                        if (ret < 0)
+                } else if ((strcmp (w, "disperse")) == 0) {
+                        switch (type) {
+                        case GF_CLUSTER_TYPE_DISPERSE:
+                                if (disperse_count >= 0) {
+                                        cli_err ("disperse option given "
+                                                 "twice");
+                                        goto out;
+                                }
+                                break;
+                        case GF_CLUSTER_TYPE_NONE:
+                                type = GF_CLUSTER_TYPE_DISPERSE;
+                                break;
+                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                                cli_err ("striped-replicated-dispersed volume "
+                                         "is not supported");
                                 goto out;
-                        index += ret;
-                        type = GF_CLUSTER_TYPE_DISPERSE;
-                } else {
+                        case GF_CLUSTER_TYPE_STRIPE:
+                                cli_err ("striped-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        case GF_CLUSTER_TYPE_REPLICATE:
+                                cli_err ("replicated-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        }
+
+                        if (wordcount >= (index+2)) {
+                                disperse_count = strtol (words[index + 1],
+                                                         &ptr, 0);
+                                if (*ptr != 0)
+                                        disperse_count = 0;
+                                else {
+                                        if (disperse_count < 3) {
+                                                cli_err ("disperse count must "
+                                                         "be greater than 2");
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                        index++;
+                                }
+                        }
+
+                        index++;
+
+                } else if ((strcmp (w, "redundancy")) == 0) {
+                        switch (type) {
+                        case GF_CLUSTER_TYPE_NONE:
+                                type = GF_CLUSTER_TYPE_DISPERSE;
+                                break;
+                        case GF_CLUSTER_TYPE_DISPERSE:
+                                if (redundancy_count > 0) {
+                                        cli_err ("redundancy option given "
+                                                 "twice");
+                                        goto out;
+                                }
+                                break;
+                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                                cli_err ("striped-replicated-dispersed volume "
+                                         "is not supported");
+                                goto out;
+                        case GF_CLUSTER_TYPE_STRIPE:
+                                cli_err ("striped-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        case GF_CLUSTER_TYPE_REPLICATE:
+                                cli_err ("replicated-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        }
+
+                        if (wordcount < (index+2)) {
+                                ret = -1;
+                                goto out;
+                        }
+                        redundancy_count = strtol (words[index+1], NULL, 0);
+                        if (redundancy_count < 1) {
+                                cli_err ("redundancy must be greater than 0");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        index += 2;
+
+                }              else {
                         GF_ASSERT (!"opword mismatch");
                         ret = -1;
                         goto out;
@@ -667,10 +563,9 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         }
 
         if (type == GF_CLUSTER_TYPE_DISPERSE) {
-                ret = cli_cmd_create_disperse_check (state, &disperse_count,
-                                                     &redundancy_count,
-                                                     &disperse_data_count,
-                                                     brick_count);
+                ret = cli_cmd_create_disperse_check(state, &disperse_count,
+                                                    &redundancy_count,
+                                                    brick_count);
                 if (!ret)
                         ret = dict_set_int32 (dict, "disperse-count",
                                               disperse_count);
@@ -816,197 +711,30 @@ out:
                 return ret;
 }
 
-/* Parsing global option for NFS-Ganesha config
- *  gluster nfs-ganesha enable/disable */
-
-int32_t
-cli_cmd_ganesha_parse (struct cli_state *state,
-                       const char **words, int wordcount,
-                       dict_t **options, char **op_errstr)
-{
-        dict_t  *dict     =       NULL;
-        int     ret       =       -1;
-        int     flags     =       0;
-        char    *key      =       NULL;
-        char    *value    =       NULL;
-        int     i         =       0;
-        char    *w        =       NULL;
-        char   *opwords[] =      { "enable", "disable", NULL };
-        const char      *question       =       NULL;
-        gf_answer_t     answer          =       GF_ANSWER_NO;
-
-
-        GF_ASSERT (words);
-        GF_ASSERT (options);
-
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        if (wordcount != 2)
-                goto out;
-
-        key   = (char *) words[0];
-        value = (char *) words[1];
-
-        if (!key || !value) {
-                cli_out ("Usage : nfs-ganesha <enable/disable>");
-                ret = -1;
-                goto out;
-        }
-
-        ret = gf_strip_whitespace (value, strlen (value));
-        if (ret == -1)
-                goto out;
-
-        if (strcmp (key, "nfs-ganesha")) {
-                gf_asprintf (op_errstr, "Global option: error: ' %s '"
-                          "is not a valid global option.", key);
-                ret = -1;
-                goto out;
-        }
-
-        w = str_getunamb (value, opwords);
-        if (!w) {
-                cli_out ("Invalid global option \n"
-                         "Usage : nfs-ganesha <enable/disable>");
-                ret = -1;
-                goto out;
-        }
-
-        question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
-                   " disabled across the trusted pool. Do you "
-                   "still want to continue?\n";
-
-        if (strcmp (value, "enable") == 0) {
-                answer = cli_cmd_get_confirmation (state, question);
-                if (GF_ANSWER_NO == answer) {
-                        gf_log ("cli", GF_LOG_ERROR, "Global operation "
-                                "cancelled, exiting");
-                        ret = -1;
-                        goto out;
-                }
-        }
-        cli_out ("This will take a few minutes to complete. Please wait ..");
-
-        ret = dict_set_str (dict, "key", key);
-        if (ret) {
-               gf_log (THIS->name, GF_LOG_ERROR, "dict set on key failed");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "value", value);
-        if (ret) {
-               gf_log (THIS->name, GF_LOG_ERROR, "dict set on value failed");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "globalname", "All");
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "dict set on global"
-                        " key failed.");
-                goto out;
-        }
-
-        ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "dict set on global key "
-                        "failed.");
-                goto out;
-        }
-
-        *options = dict;
-out:
-        if (ret)
-                dict_unref (dict);
-
-        return ret;
-}
-
-int32_t
-cli_cmd_inode_quota_parse (const char **words, int wordcount, dict_t **options)
-{
-        dict_t          *dict    = NULL;
-        char            *volname = NULL;
-        int              ret     = -1;
-
-        GF_ASSERT (words);
-        GF_ASSERT (options);
-
-        dict = dict_new ();
-        if (!dict) {
-                gf_log ("cli", GF_LOG_ERROR, "dict_new failed");
-                goto out;
-        }
-
-        if (wordcount != 4)
-                goto out;
-
-        volname = (char *)words[2];
-        if (!volname) {
-                ret = -1;
-                goto out;
-        }
-
-        /* Validate the volume name here itself */
-        if (cli_validate_volname (volname) < 0)
-                goto out;
-
-        ret = dict_set_str (dict, "volname", volname);
-        if (ret < 0)
-                goto out;
-
-        if (strcmp (words[3], "enable") != 0) {
-                cli_out ("Invalid quota option : %s", words[3]);
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_int32 (dict, "type",
-                              GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS);
-        if (ret < 0)
-                goto out;
-
-        *options = dict;
-out:
-        if (ret < 0) {
-                if (dict)
-                        dict_destroy (dict);
-        }
-
-        return ret;
-}
-
 int32_t
 cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t          *dict    = NULL;
         char            *volname = NULL;
         int              ret     = -1;
-        int              i       = -1;
+        int              i       = 0;
         char             key[20] = {0, };
-        int64_t          value   = 0;
+        uint64_t         value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
         char           *opwords[] = { "enable", "disable", "limit-usage",
                                       "remove", "list", "alert-time",
                                       "soft-timeout", "hard-timeout",
-                                      "default-soft-limit", "limit-objects",
-                                      "list-objects", "remove-objects", NULL};
+                                      "default-soft-limit", NULL};
         char            *w       = NULL;
         uint32_t         time    = 0;
         double           percent = 0;
-        char            *end_ptr = NULL;
-        int64_t          limit   = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
         dict = dict_new ();
-        if (!dict) {
-                gf_log ("cli", GF_LOG_ERROR, "dict_new failed");
+        if (!dict)
                 goto out;
-        }
 
         if (wordcount < 4)
                 goto out;
@@ -1018,8 +746,34 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         /* Validate the volume name here itself */
-        if (cli_validate_volname (volname) < 0)
-                goto out;
+        {
+                if (volname[0] == '-')
+                        goto out;
+
+                if (!strcmp (volname, "all")) {
+                        cli_err ("\"all\" cannot be the name of a volume.");
+                        goto out;
+                }
+
+                if (strchr (volname, '/'))
+                        goto out;
+
+                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                        cli_err("Volname can not exceed %d characters.",
+                                GD_VOLUME_NAME_MAX);
+                        goto out;
+                }
+
+                for (i = 0; i < strlen (volname); i++)
+                       if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                          (volname[i] != '-')) {
+                                cli_err ("Volume name should not contain \"%c\""
+                                         " character.\nVolume names can only"
+                                         "contain alphanumeric, '-' and '_' "
+                                         "characters.",volname[i]);
+                                goto out;
+                       }
+        }
 
         ret = dict_set_str (dict, "volname", volname);
         if (ret < 0)
@@ -1055,18 +809,13 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if (strcmp (w, "limit-usage") == 0) {
-                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
-        } else if (strcmp (w, "limit-objects") == 0) {
-                type = GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS;
-        }
-
-        if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
-            type == GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) {
 
                 if (wordcount < 6 || wordcount > 7) {
                         ret = -1;
                         goto out;
                 }
+
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
 
                 if (words[4][0] != '/') {
                         cli_err ("Please enter absolute path");
@@ -1083,28 +832,13 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
 
-                if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
-                        ret = gf_string2bytesize_int64 (words[5], &value);
-                        if (ret != 0 || value < 0) {
-                                if (errno == ERANGE || value < 0)
-                                        cli_err ("Value out of range "
-                                                 "(0 - %"PRId64 "): %s",
-                                                 INT64_MAX, words[5]);
-                                else
-                                        cli_err ("Please enter a correct "
-                                                 "value");
-                                goto out;
-                        }
-                } else {
-                        errno = 0;
-                        limit = strtol (words[5], &end_ptr, 10);
-                        if (errno == ERANGE || errno == EINVAL || limit <= 0
-                                            || strcmp (end_ptr, "") != 0) {
-                                ret = -1;
-                                cli_err ("Please enter an interger value in "
-                                         "the range 1 - %"PRId64, INT64_MAX);
-                                goto out;
-                        }
+                ret = gf_string2bytesize_uint64 (words[5], &value);
+                if (ret != 0) {
+                        if (errno == ERANGE)
+                                cli_err ("Value too large: %s", words[5]);
+                        else
+                                cli_err ("Please enter a correct value");
+                        goto out;
                 }
 
                 ret  = dict_set_str (dict, "hard-limit", (char *) words[5]);
@@ -1114,10 +848,8 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 if (wordcount == 7) {
 
                         ret = gf_string2percent (words[6], &percent);
-                        if (ret != 0 || percent > 100) {
-                                ret = -1;
-                                cli_err ("Please enter a correct value "
-                                         "in the range of 0 to 100");
+                        if (ret != 0) {
+                                cli_err ("Please enter a correct value");
                                 goto out;
                         }
 
@@ -1129,7 +861,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 goto set_type;
         }
-
         if (strcmp (w, "remove") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -1150,35 +881,13 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
-        if (strcmp (w, "remove-objects") == 0) {
-                if (wordcount != 5) {
-                        ret = -1;
-                        goto out;
-                }
-
-                type = GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS;
-
-                if (words[4][0] != '/') {
-                        cli_err ("Please enter absolute path");
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_str (dict, "path", (char *) words[4]);
-                if (ret < 0)
-                        goto out;
-                goto set_type;
-        }
-
         if (strcmp (w, "list") == 0) {
+                if (wordcount < 4) {
+                        ret = -1;
+                        goto out;
+                }
 
                 type = GF_QUOTA_OPTION_TYPE_LIST;
-
-                if (words[4] && words[4][0] != '/') {
-                        cli_err ("Please enter absolute path");
-                        ret = -1;
-                        goto out;
-                }
 
                 i = 4;
                 while (i < wordcount) {
@@ -1196,35 +905,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
-        if (strcmp (w, "list-objects") == 0) {
-                if (wordcount < 4) {
-                        ret = -1;
-                        goto out;
-                }
-
-                type = GF_QUOTA_OPTION_TYPE_LIST_OBJECTS;
-
-                i = 4;
-                while (i < wordcount) {
-                        snprintf (key, 20, "path%d", i-4);
-
-                        ret = dict_set_str (dict, key, (char *) words[i++]);
-                        if (ret < 0) {
-                                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
-                                        "quota patch in request dictionary");
-                                goto out;
-                        }
-                }
-
-                ret = dict_set_int32 (dict, "count", i - 4);
-                if (ret < 0) {
-                        gf_log ("cli", GF_LOG_ERROR, "Failed to set quota "
-                                "limit count in request dictionary");
-                        goto out;
-                }
-
-                goto set_type;
-        }
 
         if (strcmp (w, "alert-time") == 0) {
                 if (wordcount != 5) {
@@ -1245,7 +925,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
-
         if (strcmp (w, "soft-timeout") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -1265,7 +944,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
-
         if (strcmp (w, "hard-timeout") == 0) {
                 if(wordcount != 5) {
                         ret = -1;
@@ -1315,7 +993,7 @@ out:
         return ret;
 }
 
-static gf_boolean_t
+static inline gf_boolean_t
 cli_is_key_spl (char *key)
 {
         return (strcmp (key, "group") == 0);
@@ -1413,19 +1091,17 @@ out:
 }
 
 int32_t
-cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
-                          int wordcount, dict_t **options, char **op_errstr)
+cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
+                          char **op_errstr)
 {
-        dict_t                 *dict      = NULL;
-        char                   *volname   = NULL;
-        int                     ret       = -1;
-        int                     count     = 0;
-        char                   *key       = NULL;
-        char                   *value     = NULL;
-        int                     i         = 0;
-        char                    str[50]   = {0,};
-        const char             *question  = NULL;
-        gf_answer_t             answer    = GF_ANSWER_NO;
+        dict_t                  *dict = NULL;
+        char                    *volname = NULL;
+        int                     ret = -1;
+        int                     count = 0;
+        char                    *key = NULL;
+        char                    *value = NULL;
+        int                     i = 0;
+        char                    str[50] = {0,};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1446,22 +1122,6 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
 
         if (ret)
                 goto out;
-
-        if (!strcmp (volname, "all")) {
-                ret = dict_set_str (dict, "globalname", "All");
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "dict set on global key failed.");
-                        goto out;
-                }
-
-                ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
-                if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "dict set on global key failed.");
-                        goto out;
-                }
-        }
 
         if ((!strcmp (volname, "help") || !strcmp (volname, "help-xml"))
             && wordcount == 3 ) {
@@ -1532,24 +1192,6 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
 
                 if (ret)
                         goto out;
-
-                if ((!strcmp (key, "cluster.enable-shared-storage")) &&
-                    (!strcmp (value, "disable"))) {
-                        question = "Disabling cluster.enable-shared-storage "
-                                   "will delete the shared storage volume"
-                                   "(gluster_shared_storage), which is used "
-                                   "by snapshot scheduler, geo-replication "
-                                   "and NFS-Ganesha. Do you still want to "
-                                   "continue?";
-                        answer = cli_cmd_get_confirmation (state, question);
-                        if (GF_ANSWER_NO == answer) {
-                                gf_log ("cli", GF_LOG_ERROR, "Operation "
-                                        "cancelled, exiting");
-                                *op_errstr = gf_strdup ("Aborted by user.");
-                                ret = -1;
-                                goto out;
-                        }
-                }
         }
 
         ret = dict_set_int32 (dict, "count", wordcount-3);
@@ -1568,7 +1210,7 @@ out:
 
 int32_t
 cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
-                                dict_t **options, int *ret_type)
+                                dict_t **options)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
@@ -1620,6 +1262,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 index = 3;
         } else if ((strcmp (w, "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
                         cli_err ("replica count should be greater than 1");
@@ -1632,6 +1278,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 index = 5;
         } else if ((strcmp (w, "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
                         cli_err ("stripe count should be greater than 1");
@@ -1678,9 +1328,6 @@ parse_bricks:
         *options = dict;
 
 out:
-        if (ret_type)
-                *ret_type = type;
-
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse add-brick CLI");
                 if (dict)
@@ -1690,141 +1337,6 @@ out:
         return ret;
 }
 
-int32_t
-cli_cmd_volume_tier_parse (const char **words, int wordcount,
-                           dict_t **options)
-{
-        dict_t  *dict    = NULL;
-        char    *volname = NULL;
-        char    *word    = NULL;
-        int      ret     = -1;
-        int32_t  command = GF_OP_CMD_NONE;
-
-        GF_ASSERT (words);
-        GF_ASSERT (options);
-
-        dict = dict_new ();
-
-        if (!dict)
-                goto out;
-
-        if (wordcount != 4) {
-                gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
-                ret = -1;
-                goto out;
-        }
-
-        volname = (char *)words[2];
-
-        GF_ASSERT (volname);
-
-        ret = cli_cmd_validate_volume (volname);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to validate volume name");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "volname", volname);
-
-        if (ret)
-                goto out;
-
-        volname = (char *)words[2];
-
-        word = (char *)words[3];
-        if (!strcmp(word, "status"))
-                command = GF_DEFRAG_CMD_STATUS_TIER;
-        else {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_int32 (dict, "rebalance-command", command);
-        if (ret)
-                goto out;
-
-        *options = dict;
-out:
-
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse tier CLI");
-                if (dict)
-                        dict_destroy (dict);
-        }
-
-        return ret;
-}
-
-int32_t
-cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
-                                  dict_t **options)
-{
-        int      ret = -1;
-        char    *word = NULL;
-        dict_t  *dict = NULL;
-        int32_t  command = GF_OP_CMD_NONE;
-        int      force = 0;
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_set_str (dict, "volname", (char *)words[2]);
-        if (ret)
-                goto out;
-
-        if (wordcount == 3 && !strcmp ((char *)words[2], "help")) {
-                return -1;
-        }
-
-        if (!((wordcount == 4) || (wordcount == 5))) {
-                ret = -1;
-                goto out;
-        }
-
-        if (wordcount == 5) {
-                word = (char *)words[4];
-                if (!strcmp(word, "force"))
-                        force = 1;
-                else {
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        word = (char *)words[3];
-
-        ret = -1;
-
-        if (!strcmp(word, "start")) {
-                command = GF_OP_CMD_DETACH_START;
-        } else if (!strcmp(word, "commit")) {
-                if (force)
-                        command = GF_OP_CMD_DETACH_COMMIT_FORCE;
-                else
-                        command = GF_OP_CMD_DETACH_COMMIT;
-        } else if (!strcmp(word, "stop"))
-                command = GF_OP_CMD_STOP_DETACH_TIER;
-        else if (!strcmp(word, "status"))
-                command = GF_OP_CMD_STATUS;
-        else
-                goto out;
-
-        ret = dict_set_int32 (dict, "command", command);
-        if (ret)
-                goto out;
-
-        *options = dict;
-        ret = 0;
-out:
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse detach-tier CLI");
-                if (dict)
-                        dict_unref (dict);
-        }
-
-        return ret;
-}
 
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
@@ -1975,11 +1487,9 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         goto out;
         }
 
-        if (command != GF_OP_CMD_STATUS && command != GF_OP_CMD_STOP) {
-                ret = dict_set_int32 (dict, "count", brick_count);
-                if (ret)
-                        goto out;
-        }
+        ret = dict_set_int32 (dict, "count", brick_count);
+        if (ret)
+                goto out;
 
         *options = dict;
 
@@ -1999,35 +1509,43 @@ out:
 
 int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
-                                    dict_t **options)
+                                   dict_t **options)
 {
-        int                   ret        = -1;
-        char                 *volname    = NULL;
-        char                 *delimiter  = NULL;
-        dict_t               *dict       = NULL;
+        dict_t  *dict = NULL;
+        char    *volname = NULL;
+        int     ret = -1;
+        int     op_index = 0;
+        char    *delimiter = NULL;
+        gf1_cli_replace_op replace_op = GF_REPLACE_OP_NONE;
+        char    *opwords[] = { "start", "commit", "pause", "abort", "status",
+                                NULL };
+        char    *w = NULL;
+        gf_boolean_t is_force = _gf_false;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
-        if (wordcount != 7) {
-                ret = -1;
-                goto out;
-        }
-
         dict = dict_new ();
 
-        if (!dict) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to allocate dictionary");
+        if (!dict)
                 goto out;
-        }
+
+        if (wordcount < 3)
+                goto out;
 
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
 
         ret = dict_set_str (dict, "volname", volname);
+
         if (ret)
                 goto out;
+
+        if (wordcount < 4) {
+                ret = -1;
+                goto out;
+        }
 
         if (validate_brick_name ((char *)words[3])) {
                 cli_err ("wrong brick type: %s, use "
@@ -2040,10 +1558,15 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 if (ret)
                         goto out;
         }
-
         ret = dict_set_str (dict, "src-brick", (char *)words[3]);
+
         if (ret)
                 goto out;
+
+        if (wordcount < 5) {
+                ret = -1;
+                goto out;
+        }
 
         if (validate_brick_name ((char *)words[4])) {
                 cli_err ("wrong brick type: %s, use "
@@ -2057,20 +1580,69 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                         goto out;
         }
 
+
         ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
+
         if (ret)
                 goto out;
 
-        /* commit force option */
-        if (strcmp ("commit", words[5]) || strcmp ("force", words[6])) {
-                cli_err ("Invalid option '%s' '%s' for replace-brick. Please "
-                         "enter valid replace-brick command", words[5],
-                         words[6]);
+        op_index = 5;
+        if ((wordcount < (op_index + 1))) {
                 ret = -1;
                 goto out;
         }
 
-        ret = dict_set_str (dict, "operation", "GF_REPLACE_OP_COMMIT_FORCE");
+        w = str_getunamb (words[op_index], opwords);
+
+        if (!w) {
+        } else if (!strcmp ("start", w)) {
+                replace_op = GF_REPLACE_OP_START;
+        } else if (!strcmp ("commit", w)) {
+                replace_op = GF_REPLACE_OP_COMMIT;
+        } else if (!strcmp ("pause", w)) {
+                replace_op = GF_REPLACE_OP_PAUSE;
+        } else if (!strcmp ("abort", w)) {
+                replace_op = GF_REPLACE_OP_ABORT;
+        } else if (!strcmp ("status", w)) {
+                replace_op = GF_REPLACE_OP_STATUS;
+        } else
+                GF_ASSERT (!"opword mismatch");
+
+        /* commit force option */
+
+        op_index = 6;
+
+        if (wordcount > (op_index + 1)) {
+                ret = -1;
+                goto out;
+        }
+
+        if (wordcount == (op_index + 1)) {
+                if ((replace_op != GF_REPLACE_OP_COMMIT) &&
+                    (replace_op != GF_REPLACE_OP_START)) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!strcmp ("force", words[op_index])) {
+                        if (replace_op == GF_REPLACE_OP_COMMIT)
+                                replace_op = GF_REPLACE_OP_COMMIT_FORCE;
+
+                        else if (replace_op == GF_REPLACE_OP_START)
+                                is_force = _gf_true;
+                }
+        }
+
+        if (replace_op == GF_REPLACE_OP_NONE) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "operation", (int32_t) replace_op);
+
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "force", is_force);
         if (ret)
                 goto out;
 
@@ -2388,8 +1960,8 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 ret = -1;
                                 goto out;
                         }
-                        snprintf (append_str, 300, "%" GF_PRI_SECOND,
-                                  tv.tv_sec);
+                        snprintf (append_str, 300, "now:%" GF_PRI_SECOND ".%06"GF_PRI_SUSECONDS,
+                                  tv.tv_sec, tv.tv_usec);
                 }
 
                 ret = dict_set_dynstr (dict, "op_value", append_str);
@@ -2413,7 +1985,7 @@ out:
 }
 
 static int32_t
-force_push_pem_no_verify_parse (const char **words, int wordcount,
+force_push_pem_parse (const char **words, int wordcount,
                       dict_t *dict, unsigned *cmdi)
 {
         int32_t            ret     = 0;
@@ -2422,7 +1994,6 @@ force_push_pem_no_verify_parse (const char **words, int wordcount,
                 if ((strcmp ((char *)words[wordcount-2], "start")) &&
                     (strcmp ((char *)words[wordcount-2], "stop")) &&
                     (strcmp ((char *)words[wordcount-2], "create")) &&
-                    (strcmp ((char *)words[wordcount-2], "no-verify")) &&
                     (strcmp ((char *)words[wordcount-2], "push-pem")) &&
                     (strcmp ((char *)words[wordcount-2], "pause")) &&
                     (strcmp ((char *)words[wordcount-2], "resume"))) {
@@ -2444,16 +2015,6 @@ force_push_pem_no_verify_parse (const char **words, int wordcount,
                         if (ret)
                                 goto out;
                         (*cmdi)++;
-                } else if (!strcmp ((char *)words[wordcount-2], "no-verify")) {
-                        if (strcmp ((char *)words[wordcount-3], "create")) {
-                                ret = -1;
-                                goto out;
-                        }
-                        ret = dict_set_uint32 (dict, "no_verify",
-                                               _gf_true);
-                        if (ret)
-                                goto out;
-                        (*cmdi)++;
                 }
         } else if (!strcmp ((char *)words[wordcount-1], "push-pem")) {
                 if (strcmp ((char *)words[wordcount-2], "create")) {
@@ -2461,16 +2022,6 @@ force_push_pem_no_verify_parse (const char **words, int wordcount,
                         goto out;
                 }
                 ret = dict_set_int32 (dict, "push_pem", 1);
-                if (ret)
-                        goto out;
-                (*cmdi)++;
-        } else if (!strcmp ((char *)words[wordcount-1], "no-verify")) {
-                if ((strcmp ((char *)words[wordcount-2], "create"))) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_uint32 (dict, "no_verify",
-                                       _gf_true);
                 if (ret)
                         goto out;
                 (*cmdi)++;
@@ -2494,13 +2045,10 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         unsigned           glob    = 0;
         unsigned           cmdi    = 0;
         char               *opwords[] = { "create", "status", "start", "stop",
-                                          "config", "force", "delete", "no-verify"
+                                          "config", "force", "delete",
                                           "push-pem", "detail", "pause",
                                           "resume", NULL };
         char               *w = NULL;
-        char               *save_ptr   = NULL;
-        char               *slave_temp = NULL;
-        char               *token      = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -2511,7 +2059,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         /* new syntax:
          *
-         * volume geo-replication $m $s create [[no-verify] | [push-pem]] [force]
+         * volume geo-replication $m $s create [push-pem] [force]
          * volume geo-replication [$m [$s]] status [detail]
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop [force]
@@ -2624,7 +2172,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         } else
                 GF_ASSERT (!"opword mismatch");
 
-        ret = force_push_pem_no_verify_parse (words, wordcount, dict, &cmdi);
+        ret = force_push_pem_parse (words, wordcount, dict, &cmdi);
         if (ret)
                 goto out;
 
@@ -2657,29 +2205,14 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         ret = dict_set_str (dict, "volname",
                                             (char *)words[masteri]);
         }
-        if (!ret && slavei) {
-                /* If geo-rep is created with root user using the syntax
-                 * gluster vol geo-rep <mastervol> root@<slavehost> ...
-                 * pass down only <slavehost> else pass as it is.
-                 */
-                slave_temp = gf_strdup (words[slavei]);
-                token = strtok_r (slave_temp, "@", &save_ptr);
-                if (token && !strcmp (token, "root")) {
-                        ret = dict_set_str (dict, "slave",
-                                            (char *)words[slavei]+5);
-                } else {
-                        ret = dict_set_str (dict, "slave",
-                                            (char *)words[slavei]);
-                }
-        }
+        if (!ret && slavei)
+                ret = dict_set_str (dict, "slave", (char *)words[slavei]);
         if (!ret)
                 ret = dict_set_int32 (dict, "type", type);
         if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG)
                 ret = config_parse (words, wordcount, dict, cmdi, glob);
 
 out:
-        if (slave_temp)
-                GF_FREE (slave_temp);
         if (ret) {
                 if (dict)
                         dict_destroy (dict);
@@ -2797,7 +2330,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int32_t  list_cnt       = -1;
         int      index          = 0;
         int      perf           = 0;
-        int32_t  blk_size      = 0;
+        uint32_t  blk_size      = 0;
         uint32_t  count         = 0;
         gf_boolean_t nfs        = _gf_false;
         char    *delimiter      = NULL;
@@ -2918,8 +2451,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         }
-                        ret = dict_set_uint32 (dict, "blk-size",
-                                                        (uint32_t)blk_size);
+                        ret = dict_set_uint32 (dict, "blk-size", blk_size);
                 } else if (perf && !nfs && !strcmp (key, "count")) {
                         ret = gf_is_str_int (value);
                         if (!ret)
@@ -3073,10 +2605,6 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                         cmd |= GF_CLI_STATUS_QUOTAD;
                                 } else if (!strcmp (words[3], "snapd")) {
                                         cmd |= GF_CLI_STATUS_SNAPD;
-                                } else if (!strcmp (words[3], "bitd")) {
-                                        cmd |= GF_CLI_STATUS_BITD;
-                                } else if (!strcmp (words[3], "scrub")) {
-                                        cmd |= GF_CLI_STATUS_SCRUB;
                                 } else {
                                         cmd = GF_CLI_STATUS_BRICK;
                                         ret = dict_set_str (dict, "brick",
@@ -3401,72 +2929,6 @@ out:
         return ret;
 }
 
-static int
-set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
-{
-        char *hostname = NULL;
-        char *path     = NULL;
-        int   ret      = 0;
-
-        ret = extract_hostname_path_from_token (token, &hostname, &path);
-        if (ret)
-                goto out;
-
-        switch (heal_op) {
-        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
-                ret = dict_set_dynstr (dict, "heal-source-hostname",
-                                       hostname);
-                if (ret)
-                        goto out;
-                ret = dict_set_dynstr (dict, "heal-source-brickpath",
-                                       path);
-                break;
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
-                                       hostname);
-                if (ret)
-                        goto out;
-                ret = dict_set_dynstr (dict, "per-replica-cmd-path",
-                                       path);
-                break;
-        default:
-                ret = -1;
-                break;
-        }
-
-out:
-        return ret;
-}
-
-static int
-heal_command_type_get (const char *command)
-{
-        int     i = 0;
-        /* subcommands are set as NULL */
-        char    *heal_cmds[GF_SHD_OP_HEAL_DISABLE + 1] = {
-                [GF_SHD_OP_INVALID]                            = NULL,
-                [GF_SHD_OP_HEAL_INDEX]                         = NULL,
-                [GF_SHD_OP_HEAL_FULL]                          = "full",
-                [GF_SHD_OP_INDEX_SUMMARY]                      = "info",
-                [GF_SHD_OP_HEALED_FILES]                       = NULL,
-                [GF_SHD_OP_HEAL_FAILED_FILES]                  = NULL,
-                [GF_SHD_OP_SPLIT_BRAIN_FILES]                  = NULL,
-                [GF_SHD_OP_STATISTICS]                         = "statistics",
-                [GF_SHD_OP_STATISTICS_HEAL_COUNT]              = NULL,
-                [GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA]  = NULL,
-                [GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE]       = NULL,
-                [GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK]             = NULL,
-                [GF_SHD_OP_HEAL_ENABLE]                        = "enable",
-                [GF_SHD_OP_HEAL_DISABLE]                       = "disable",
-        };
-
-        for (i = 0; i <= GF_SHD_OP_HEAL_DISABLE; i++) {
-                if (heal_cmds[i] && (strcmp (heal_cmds[i], command) == 0))
-                        return i;
-        }
-
-        return GF_SHD_OP_INVALID;
-}
 
 int
 cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
@@ -3476,7 +2938,6 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
         dict_t  *dict = NULL;
         char    *hostname = NULL;
         char    *path = NULL;
-        gf_xl_afr_op_t op = GF_SHD_OP_INVALID;
 
         dict = dict_new ();
         if (!dict)
@@ -3489,21 +2950,29 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
         }
 
         if (wordcount == 3) {
-                ret = dict_set_int32 (dict, "heal-op", GF_SHD_OP_HEAL_INDEX);
+                ret = dict_set_int32 (dict, "heal-op", GF_AFR_OP_HEAL_INDEX);
                 goto done;
         }
 
         if (wordcount == 4) {
-                op = heal_command_type_get (words[3]);
-                if (op == GF_SHD_OP_INVALID) {
+                if (!strcmp (words[3], "full")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_HEAL_FULL);
+                        goto done;
+                } else if (!strcmp (words[3], "statistics")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_STATISTICS);
+                        goto done;
+
+                } else if (!strcmp (words[3], "info")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_INDEX_SUMMARY);
+                        goto done;
+                } else {
                         ret = -1;
                         goto out;
                 }
-
-                ret = dict_set_int32 (dict, "heal-op", op);
-                goto done;
         }
-
         if (wordcount == 5) {
                 if (strcmp (words[3], "info") &&
                     strcmp (words[3], "statistics")) {
@@ -3514,17 +2983,17 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "info")) {
                         if (!strcmp (words[4], "healed")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                      GF_SHD_OP_HEALED_FILES);
+                                                      GF_AFR_OP_HEALED_FILES);
                                 goto done;
                         }
                         if (!strcmp (words[4], "heal-failed")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                   GF_SHD_OP_HEAL_FAILED_FILES);
+                                                   GF_AFR_OP_HEAL_FAILED_FILES);
                                 goto done;
                         }
                         if (!strcmp (words[4], "split-brain")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                   GF_SHD_OP_SPLIT_BRAIN_FILES);
+                                                   GF_AFR_OP_SPLIT_BRAIN_FILES);
                                 goto done;
                         }
                 }
@@ -3532,38 +3001,9 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "statistics")) {
                         if (!strcmp (words[4], "heal-count")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                               GF_SHD_OP_STATISTICS_HEAL_COUNT);
+                                               GF_AFR_OP_STATISTICS_HEAL_COUNT);
                                 goto done;
                         }
-                }
-                ret = -1;
-                goto out;
-        }
-        if (wordcount == 6) {
-                if (strcmp (words[3], "split-brain")) {
-                        ret = -1;
-                        goto out;
-                }
-                if (!strcmp (words[4], "bigger-file")) {
-                        ret = dict_set_int32 (dict, "heal-op",
-                                        GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
-                        if (ret)
-                                goto out;
-                        ret = dict_set_str (dict, "file", (char *)words[5]);
-                        if (ret)
-                                goto out;
-                        goto done;
-                }
-                if (!strcmp (words[4], "source-brick")) {
-                        ret = dict_set_int32 (dict, "heal-op",
-                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
-                        if (ret)
-                                goto out;
-                        ret = set_hostname_path_in_dict (words[5], dict,
-                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
-                        if (ret)
-                                goto out;
-                        goto done;
                 }
                 ret = -1;
                 goto out;
@@ -3574,29 +3014,24 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                     && !strcmp (words[5], "replica")) {
 
                         ret = dict_set_int32 (dict, "heal-op",
-                                   GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
+                                   GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
                         if (ret)
                                 goto out;
-                        ret = set_hostname_path_in_dict (words[6], dict,
-                                   GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
+                        ret = extract_hostname_path_from_token (words[6],
+                                                              &hostname, &path);
                         if (ret)
                                 goto out;
-                        goto done;
+                        ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
+                                               hostname);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_dynstr (dict, "per-replica-cmd-path",
+                                               path);
+                        if (ret)
+                                goto out;
+                        else
+                                goto done;
 
-                }
-                if (!strcmp (words[3], "split-brain") &&
-                    !strcmp (words[4], "source-brick")) {
-                        ret = dict_set_int32 (dict, "heal-op",
-                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
-                        ret = set_hostname_path_in_dict (words[5], dict,
-                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
-                        if (ret)
-                                goto out;
-                        ret = dict_set_str (dict, "file",
-                                            (char *) words[6]);
-                        if (ret)
-                                goto out;
-                        goto done;
                 }
         }
         ret = -1;
@@ -3637,16 +3072,6 @@ cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                 if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
                     strcmp (words[3], "status"))
                             goto out;
-        } else if ((strcmp (words[3], "tier") == 0) &&
-               (strcmp (words[4], "start") == 0)) {
-                volname = (char *) words[2];
-                cmd = GF_DEFRAG_CMD_START_TIER;
-                goto done;
-        } else if ((strcmp (words[3], "tier") == 0) &&
-               (strcmp (words[4], "status") == 0)) {
-                volname = (char *) words[2];
-                cmd = GF_DEFRAG_CMD_STATUS_TIER;
-                goto done;
         } else {
                 if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "start"))
@@ -3776,83 +3201,6 @@ out:
         return ret;
 }
 
-/* snapshot clone <clonename> <snapname>
- * @arg-0, dict     : Request Dictionary to be sent to server side.
- * @arg-1, words    : Contains individual words of CLI command.
- * @arg-2, wordcount: Contains number of words present in the CLI command.
- *
- * return value : -1 on failure
- *                 0 on success
- */
-int
-cli_snap_clone_parse (dict_t *dict, const char **words, int wordcount) {
-        uint64_t        i               =       0;
-        int             ret             =       -1;
-        char            key[PATH_MAX]   =       "";
-        char            *clonename      =       NULL;
-        unsigned int    cmdi            =       2;
-        int             flags           =       0;
-        /* cmdi is command index, here cmdi is "2" (gluster snapshot clone)*/
-
-        GF_ASSERT (words);
-        GF_ASSERT (dict);
-
-        if (wordcount == cmdi + 1) {
-                cli_err ("Invalid Syntax.");
-                gf_log ("cli", GF_LOG_ERROR,
-                        "Invalid number of  words for snap clone command");
-                goto out;
-        }
-
-        if (strlen(words[cmdi]) >= GLUSTERD_MAX_SNAP_NAME) {
-                cli_err ("snapshot clone: failed: clonename cannot exceed "
-                         "255 characters.");
-                gf_log ("cli", GF_LOG_ERROR, "Clone name too long");
-
-                goto out;
-        }
-
-        clonename = (char *) words[cmdi];
-        for (i = 0 ; i < strlen (clonename); i++) {
-                /* Following volume name convention */
-                if (!isalnum (clonename[i]) && (clonename[i] != '_'
-                                           && (clonename[i] != '-'))) {
-                        /* TODO : Is this message enough?? */
-                        cli_err ("Clonename can contain only alphanumeric, "
-                                 "\"-\" and \"_\" characters");
-                        goto out;
-                }
-        }
-
-        ret = dict_set_int32 (dict, "volcount", 1);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not save volcount");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "clonename", (char *)words[cmdi]);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not save clone "
-                        "name(%s)", (char *)words[cmdi]);
-                goto out;
-        }
-
-        /* Filling snap name in the dictionary */
-        ret = dict_set_str (dict, "snapname", (char *)words[cmdi+1]);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not "
-                        "save snap name(%s)", (char *)words[cmdi+1]);
-                goto out;
-        }
-
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
  *                                           [force]
  * @arg-0, dict     : Request Dictionary to be sent to server side.
@@ -3913,9 +3261,7 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
         /* Filling volume name in the dictionary */
         for (i = cmdi + 1 ; i < wordcount
                             && (strcmp (words[i], "description")) != 0
-                            && (strcmp (words[i], "force") != 0)
-                            && (strcmp (words[i], "no-timestamp") != 0);
-                            i++) {
+                            && (strcmp (words[i], "force") != 0); i++) {
                 volcount++;
                 /* volume index starts from 1 */
                 ret = snprintf (key, sizeof (key), "volname%"PRIu64, volcount);
@@ -3955,22 +3301,11 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
 
         /* Verify how we got out of "for" loop,
          * if it is by reaching wordcount limit then goto "out",
-         * because we need not parse for "description","force" and
-         * "no-timestamp" after this.
+         * because we need not parse for "description" and "force"
+         * after this.
          */
         if (i == wordcount) {
                 goto out;
-        }
-
-        if (strcmp (words[i], "no-timestamp") == 0) {
-                ret = dict_set_str (dict, "no-timestamp", "true");
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Could not save "
-                                "time-stamp option");
-                }
-                if (i == (wordcount-1))
-                        goto out;
-                i++;
         }
 
         if ((strcmp (words[i], "description")) == 0) {
@@ -4374,7 +3709,7 @@ cli_snap_delete_parse (dict_t *dict, const char **words, int wordcount,
                 }
         }
 
-        ret = dict_set_int32 (dict, "sub-cmd", cmd);
+        ret = dict_set_int32 (dict, "delete-cmd", cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not save "
                         "type of snapshot delete");
@@ -4454,7 +3789,7 @@ cli_snap_status_parse (dict_t *dict, const char **words, int wordcount)
 
 out:
         if (ret == 0) {
-                ret = dict_set_int32 (dict, "sub-cmd", cmd);
+                ret = dict_set_int32 (dict, "status-cmd", cmd);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Could not save cmd "
                                 "of snapshot status");
@@ -4502,17 +3837,6 @@ cli_snap_config_limit_parse (const char **words, dict_t *dict,
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not set "
                         "%s in dictionary", key);
-                goto out;
-        }
-
-        ret = dict_set_dynstr_with_alloc (dict, "globalname", "All");
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not set global key");
-                goto out;
-        }
-        ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not set global locks");
                 goto out;
         }
 
@@ -4729,16 +4053,16 @@ out:
 }
 
 int
-validate_op_name (const char *op, const char *opname, char **opwords) {
+validate_snapname (const char *snapname, char **opwords) {
         int     ret     =       -1;
         int     i       =       0;
 
-        GF_ASSERT (opname);
+        GF_ASSERT (snapname);
         GF_ASSERT (opwords);
 
         for (i = 0 ; opwords[i] != NULL; i++) {
-                if (strcmp (opwords[i], opname) == 0) {
-                        cli_out ("\"%s\" cannot be a %s", opname, op);
+                if (strcmp (opwords[i], snapname) == 0) {
+                        cli_out ("\"%s\" cannot be a snapname", snapname);
                         goto out;
                 }
         }
@@ -4757,19 +4081,9 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         char               *w         = NULL;
         char               *opwords[] = {"create", "delete", "restore",
                                         "activate", "deactivate", "list",
-                                        "status", "config", "info", "clone",
-                                        NULL};
+                                        "status", "config", "info", NULL};
         char               *invalid_snapnames[] = {"description", "force",
                                                   "volume", "all", NULL};
-        char               *invalid_volnames[]  = {"volume", "type",
-                                                   "subvolumes", "option",
-                                                   "end-volume", "all",
-                                                   "volume_not_in_ring",
-                                                   "description", "force",
-                                                   "snap-max-hard-limit",
-                                                   "snap-max-soft-limit",
-                                                   "auto-delete",
-                                                   "activate-on-create", NULL};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -4811,8 +4125,6 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                 type = GF_SNAP_OPTION_TYPE_ACTIVATE;
         } else if (!strcmp (w, "deactivate")) {
                 type = GF_SNAP_OPTION_TYPE_DEACTIVATE;
-        } else if (!strcmp(w, "clone")) {
-                type = GF_SNAP_OPTION_TYPE_CLONE;
         }
 
         if (type != GF_SNAP_OPTION_TYPE_CONFIG &&
@@ -4843,7 +4155,6 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         case GF_SNAP_OPTION_TYPE_CREATE:
                 /* Syntax :
                  * gluster snapshot create <snapname> <vol-name(s)>
-                 *                         [no-timestamp]
                  *                         [description <description>]
                  *                         [force]
                  */
@@ -4857,8 +4168,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
 
-                ret = validate_op_name ("snapname", words[2],
-                                        invalid_snapnames);
+                ret = validate_snapname (words[2], invalid_snapnames);
                 if (ret) {
                         goto out;
                 }
@@ -4870,35 +4180,6 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
                 break;
-
-        case GF_SNAP_OPTION_TYPE_CLONE:
-                /* Syntax :
-                 * gluster snapshot clone <clonename> <snapname>
-                 */
-                /* In cases where the clonename is not given then
-                 * parsing fails & snapname cannot be "description",
-                 * "force" and "volume", that check is made here
-                 */
-                if (wordcount == 2) {
-                        ret = -1;
-                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
-                        goto out;
-                }
-
-                ret = validate_op_name ("clonename", words[2],
-                                        invalid_volnames);
-                if (ret) {
-                        goto out;
-                }
-
-                ret = cli_snap_clone_parse (dict, words, wordcount);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "clone command parsing failed.");
-                        goto out;
-                }
-                break;
-
 
         case GF_SNAP_OPTION_TYPE_INFO:
                 /* Syntax :
@@ -5036,256 +4317,6 @@ out:
                         dict_destroy (dict);
         } else
                 *options = dict;
-
-        return ret;
-}
-
-int
-cli_cmd_validate_volume (char *volname)
-{
-        int       i        =  0;
-        int       ret      = -1;
-
-
-        if (volname[0] == '-')
-                return ret;
-
-        if (!strcmp (volname, "all")) {
-                cli_err ("\"all\" cannot be the name of a volume.");
-                return ret;
-        }
-
-        if (strchr (volname, '/')) {
-                cli_err ("Volume name should not contain \"/\" character.");
-                return ret;
-        }
-
-        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                cli_err ("Volname can not exceed %d characters.",
-                        GD_VOLUME_NAME_MAX);
-                return ret;
-        }
-
-        for (i = 0; i < strlen (volname); i++)
-                if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                    (volname[i] != '-')) {
-                        cli_err ("Volume name should not contain \"%c\""
-                                 " character.\nVolume names can only"
-                                 "contain alphanumeric, '-' and '_' "
-                                 "characters.", volname[i]);
-                        return ret;
-                }
-
-        ret = 0;
-
-        return ret;
-}
-
-int32_t
-cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
-{
-        int32_t            ret                    = -1;
-        char               *w                     = NULL;
-        char               *volname               = NULL;
-        char               *opwords[]             = {"enable", "disable",
-                                                     "scrub-throttle",
-                                                     "scrub-frequency", "scrub",
-                                                     "signing-time", NULL};
-        char               *scrub_throt_values[]  = {"lazy", "normal",
-                                                     "aggressive", NULL};
-        char               *scrub_freq_values[]   = {"hourly",
-                                                     "daily", "weekly",
-                                                     "biweekly", "monthly",
-                                                      NULL};
-        char               *scrub_values[]        = {"pause", "resume",
-                                                      NULL};
-        dict_t             *dict                  = NULL;
-        gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
-        int32_t            expiry_time            = 0;
-
-        GF_ASSERT (words);
-        GF_ASSERT (options);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        if (wordcount < 4 || wordcount > 5) {
-                gf_log ("cli", GF_LOG_ERROR, "Invalid syntax");
-                goto out;
-        }
-
-        volname = (char *)words[2];
-        if (!volname) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = cli_cmd_validate_volume (volname);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to validate volume name");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "volname", volname);
-        if (ret) {
-                cli_out ("Failed to set volume name in dictionary ");
-                goto out;
-        }
-
-        w = str_getunamb (words[3], opwords);
-        if (!w) {
-                cli_out ("Invalid bit rot option : %s", words[3]);
-                ret = -1;
-                goto out;
-        }
-
-        if (strcmp (w, "enable") == 0) {
-                if (wordcount == 4) {
-                        type = GF_BITROT_OPTION_TYPE_ENABLE;
-                        ret = 0;
-                        goto set_type;
-                } else {
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        if (strcmp (w, "disable") == 0) {
-                if (wordcount == 4) {
-                        type = GF_BITROT_OPTION_TYPE_DISABLE;
-                        ret = 0;
-                        goto set_type;
-                } else {
-                        ret = -1;
-                        goto out;
-                }
-        }
-
-        if (!strcmp (w, "scrub-throttle")) {
-                if (!words[4]) {
-                        cli_err ("Missing scrub-throttle value for bitrot "
-                                 "option");
-                        ret = -1;
-                        goto out;
-                } else {
-                        w = str_getunamb (words[4], scrub_throt_values);
-                        if (!w) {
-                                cli_err ("Invalid scrub-throttle option for "
-                                         "bitrot");
-                                ret = -1;
-                                goto out;
-                        } else {
-                                type = GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE;
-                                ret =  dict_set_str (dict,
-                                                     "scrub-throttle-value",
-                                                     (char *) words[4]);
-                                if (ret) {
-                                        cli_out ("Failed to set scrub-throttle "
-                                                 "value in the dict");
-                                        goto out;
-                                }
-                                goto set_type;
-                        }
-                }
-        }
-
-        if (!strcmp (words[3], "scrub-frequency")) {
-                if (!words[4]) {
-                        cli_err ("Missing scrub-frequency value");
-                        ret = -1;
-                        goto out;
-                } else {
-                        w = str_getunamb (words[4], scrub_freq_values);
-                        if (!w) {
-                                cli_err ("Invalid frequency option for bitrot");
-                                ret = -1;
-                                goto out;
-                        } else {
-                                type = GF_BITROT_OPTION_TYPE_SCRUB_FREQ;
-                                ret = dict_set_str (dict,
-                                                    "scrub-frequency-value",
-                                                    (char *) words[4]);
-                                if (ret) {
-                                        cli_out ("Failed to set dict for "
-                                                 "bitrot");
-                                        goto out;
-                                }
-                                goto set_type;
-                        }
-                }
-        }
-
-        if (!strcmp (words[3], "scrub")) {
-                if (!words[4]) {
-                        cli_err ("Missing scrub value for bitrot option");
-                        ret = -1;
-                        goto out;
-                } else {
-                        w = str_getunamb (words[4], scrub_values);
-                        if (!w) {
-                                cli_err ("Invalid scrub option for bitrot");
-                                ret = -1;
-                                goto out;
-                        } else {
-                                type = GF_BITROT_OPTION_TYPE_SCRUB;
-                                ret =  dict_set_str (dict, "scrub-value",
-                                                    (char *) words[4]);
-                                if (ret) {
-                                        cli_out ("Failed to set dict for "
-                                                 "bitrot");
-                                        goto out;
-                                }
-                                goto set_type;
-                        }
-                }
-        }
-
-        if (!strcmp (words[3], "signing-time")) {
-                if (!words[4]) {
-                        cli_err ("Missing signing-time value for bitrot "
-                                 "option");
-                        ret = -1;
-                        goto out;
-                } else {
-                        type = GF_BITROT_OPTION_TYPE_EXPIRY_TIME;
-
-                        expiry_time = strtol (words[4], NULL, 0);
-                        if (expiry_time < 1) {
-                                cli_err ("Expiry time  value should not be less"
-                                         " than 1");
-                                ret = -1;
-                                goto out;
-                        }
-
-                        ret = dict_set_uint32 (dict, "expiry-time",
-                                               (unsigned int) expiry_time);
-                        if (ret) {
-                                cli_out ("Failed to set dict for bitrot");
-                                goto out;
-                        }
-                        goto set_type;
-                }
-        } else {
-                cli_err ("Invalid option %s for bitrot. Please enter valid "
-                         "bitrot option", words[3]);
-                ret = -1;
-                goto out;
-        }
-
-set_type:
-        ret = dict_set_int32 (dict, "type", type);
-        if (ret < 0)
-                goto out;
-
-        *options = dict;
-
-out:
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse bitrot command");
-                if (dict)
-                        dict_destroy (dict);
-        }
 
         return ret;
 }

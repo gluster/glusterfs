@@ -82,7 +82,6 @@ assert_diverge()
     git diff origin/$branch..HEAD | grep -q .;
 }
 
-
 check_patches_for_coding_style()
 {
     git fetch origin;
@@ -93,8 +92,8 @@ check_patches_for_coding_style()
         exit 1
     fi
 
-    # The URL of our Gerrit server
-    export GERRIT_URL="review.gluster.org"
+    ## Set this to known value once Jenkins URL changes
+    export JENKINS_URL="review.gluster.org"
 
     echo "Running coding guidelines check ..."
     head=$(git rev-parse --abbrev-ref HEAD)
@@ -105,13 +104,13 @@ check_patches_for_coding_style()
     if [ "$RES" -eq 1 ] ; then
         echo "Errors caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ./extras/checkpatch.pl --gerrit-url ${GERRIT_URL} -"
+        echo "  | ./extras/checkpatch.pl --jenkins-url ${JENKINS_URL} -"
         echo "and correct errors"
         exit 1
     elif [ "$RES" -eq 2 ] ; then
         echo "Warnings caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ./extras/checkpatch.pl --gerrit-url ${GERRIT_URL} -"
+        echo "  | ./extras/checkpatch.pl --jenkins-url ${JENKINS_URL} -"
         echo -n "Do you want to continue anyway [no/yes]: "
         read yesno
         if [ "${yesno}" != "yes" ] ; then
@@ -120,7 +119,6 @@ check_patches_for_coding_style()
         fi
     fi
 }
-
 
 main()
 {

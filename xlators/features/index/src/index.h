@@ -34,7 +34,6 @@ typedef struct index_inode_ctx {
 
 typedef struct index_fd_ctx {
         DIR *dir;
-        off_t dir_eof;
 } index_fd_ctx_t;
 
 typedef struct index_priv {
@@ -45,7 +44,6 @@ typedef struct index_priv {
         struct list_head callstubs;
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
-        dict_t  *xattrop64_watchlist;
 } index_priv_t;
 
 #define INDEX_STACK_UNWIND(fop, frame, params ...)      \

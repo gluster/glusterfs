@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "common-utils.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
@@ -16,14 +21,12 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-locks.h"
-#include "glusterd-errno.h"
 #include "run.h"
 #include "syscall.h"
-#include "glusterd-messages.h"
 
 #include <signal.h>
 
-#define GF_MAX_LOCKING_ENTITIES 3
+#define GF_MAX_LOCKING_ENTITIES 2
 
 /* Valid entities that the mgmt_v3 lock can hold locks upon    *
  * To add newer entities to be locked, we can just add more    *
@@ -31,7 +34,6 @@
 glusterd_valid_entities   valid_types[] = {
         { "vol",  _gf_true  },
         { "snap", _gf_false },
-        { "global", _gf_false},
         { NULL              },
 };
 
@@ -109,21 +111,20 @@ glusterd_get_mgmt_v3_lock_owner (char *key, uuid_t *uuid)
         GF_ASSERT (priv);
 
         if (!key || !uuid) {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_INVALID_ENTRY, "key or uuid is null.");
+                gf_log (this->name, GF_LOG_ERROR, "key or uuid is null.");
                 ret = -1;
                 goto out;
         }
 
         ret = dict_get_bin (priv->mgmt_v3_lock, key, (void **) &lock_obj);
         if (!ret)
-                gf_uuid_copy (*uuid, lock_obj->lock_owner);
+                uuid_copy (*uuid, lock_obj->lock_owner);
         else
-                gf_uuid_copy (*uuid, no_owner);
+                uuid_copy (*uuid, no_owner);
 
         ret = 0;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -147,7 +148,7 @@ glusterd_release_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
         GF_ASSERT (type);
 
         if (locked_count == 0) {
-                gf_msg_debug (this->name, 0,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "No %s locked as part of this transaction",
                         type);
                 goto out;
@@ -162,8 +163,7 @@ glusterd_release_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
                  * as key in the dict snapname2 */
                 ret = dict_get_str (dict, name_buf, &name);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_GET_FAILED,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to get %s locked_count = %d",
                                 name_buf, locked_count);
                         op_ret = ret;
@@ -172,8 +172,7 @@ glusterd_release_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
 
                 ret = glusterd_mgmt_v3_unlock (name, uuid, type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MGMTV3_UNLOCK_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to release lock for %s.",
                                 name);
                         op_ret = ret;
@@ -181,7 +180,7 @@ glusterd_release_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
         }
 
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", op_ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", op_ret);
         return op_ret;
 }
 
@@ -191,7 +190,6 @@ out:
  * volumes */
 static int32_t
 glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
-                                            uint32_t *op_errno,
                                             int32_t count, char *type)
 {
         char           name_buf[PATH_MAX]    = "";
@@ -215,17 +213,15 @@ glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
                  * as key in the dict snapname2 */
                 ret = dict_get_str (dict, name_buf, &name);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_GET_FAILED,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to get %s count = %d",
                                 name_buf, count);
                         break;
                 }
 
-                ret = glusterd_mgmt_v3_lock (name, uuid, op_errno, type);
+                ret = glusterd_mgmt_v3_lock (name, uuid, type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MGMTV3_LOCK_GET_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to acquire lock for %s %s "
                                 "on behalf of %s. Reversing "
                                 "this transaction", type, name,
@@ -246,14 +242,13 @@ glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
                                                           locked_count,
                                                           type);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_MULTIPLE_LOCK_RELEASE_FAIL,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Failed to release multiple %s locks",
                         type);
         }
         ret = -1;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -297,16 +292,14 @@ glusterd_mgmt_v3_unlock_entity (dict_t *dict, uuid_t uuid, char *type,
                           type);
                 ret = dict_get_str (dict, name_buf, &name);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_GET_FAILED,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to fetch %sname", type);
                         goto out;
                 }
 
                 ret = glusterd_mgmt_v3_unlock (name, uuid, type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MGMTV3_UNLOCK_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to release lock for %s %s "
                                 "on behalf of %s.", type, name,
                                 uuid_utoa(uuid));
@@ -319,8 +312,7 @@ glusterd_mgmt_v3_unlock_entity (dict_t *dict, uuid_t uuid, char *type,
                                                                   count,
                                                                   type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MULTIPLE_LOCK_RELEASE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to release all %s locks", type);
                         goto out;
                 }
@@ -328,7 +320,7 @@ glusterd_mgmt_v3_unlock_entity (dict_t *dict, uuid_t uuid, char *type,
 
         ret = 0;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -337,8 +329,8 @@ out:
  * if the type is "vol", this function will accordingly lock a single volume *
  * or multiple volumes */
 static int32_t
-glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, uint32_t *op_errno,
-                              char *type, gf_boolean_t default_value)
+glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, char *type,
+                              gf_boolean_t default_value)
 {
         char           name_buf[PATH_MAX]    = "";
         char          *name                  = NULL;
@@ -371,16 +363,14 @@ glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, uint32_t *op_errno,
                           type);
                 ret = dict_get_str (dict, name_buf, &name);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_GET_FAILED,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to fetch %sname", type);
                         goto out;
                 }
 
-                ret = glusterd_mgmt_v3_lock (name, uuid, op_errno, type);
+                ret = glusterd_mgmt_v3_lock (name, uuid, type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MGMTV3_LOCK_GET_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to acquire lock for %s %s "
                                 "on behalf of %s.", type, name,
                                 uuid_utoa(uuid));
@@ -390,12 +380,10 @@ glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, uint32_t *op_errno,
                 /* Locking one element name after another */
                 ret = glusterd_acquire_multiple_locks_per_entity (dict,
                                                                   uuid,
-                                                                  op_errno,
                                                                   count,
                                                                   type);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MULTIPLE_LOCK_ACQUIRE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to acquire all %s locks", type);
                         goto out;
                 }
@@ -403,7 +391,7 @@ glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, uint32_t *op_errno,
 
         ret = 0;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -421,8 +409,7 @@ glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid)
         GF_ASSERT(this);
 
         if (!dict) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_EMPTY, "dict is null.");
+                gf_log (this->name, GF_LOG_ERROR, "dict is null.");
                 ret = -1;
                 goto out;
         }
@@ -433,8 +420,7 @@ glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid)
                                              valid_types[i].type,
                                              valid_types[i].default_value);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MULTIPLE_LOCK_RELEASE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to unlock all %s",
                                 valid_types[i].type);
                         op_ret = ret;
@@ -443,14 +429,14 @@ glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid)
 
         ret = op_ret;
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
 /* Try to acquire locks on multiple entities like *
  * volume, snaps etc. */
 int32_t
-glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
+glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid)
 {
         int32_t        i                     = -1;
         int32_t        ret                   = -1;
@@ -461,8 +447,7 @@ glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
         GF_ASSERT(this);
 
         if (!dict) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_EMPTY, "dict is null.");
+                gf_log (this->name, GF_LOG_ERROR, "dict is null.");
                 ret = -1;
                 goto out;
         }
@@ -470,12 +455,11 @@ glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
         /* Locking one entity after other */
         for (i = 0; valid_types[i].type; i++) {
                 ret = glusterd_mgmt_v3_lock_entity
-                                            (dict, uuid, op_errno,
+                                            (dict, uuid,
                                              valid_types[i].type,
                                              valid_types[i].default_value);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MULTIPLE_LOCK_ACQUIRE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to lock all %s",
                                 valid_types[i].type);
                         break;
@@ -496,22 +480,20 @@ glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
                                                valid_types[i].type,
                                                valid_types[i].default_value);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MULTIPLE_LOCK_RELEASE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to unlock all %s",
                                 valid_types[i].type);
                 }
         }
         ret = -1;
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
 
 int32_t
-glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
-                       char *type)
+glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
 {
         char                            key[PATH_MAX]   = "";
         int32_t                         ret             = -1;
@@ -528,16 +510,14 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
         GF_ASSERT (priv);
 
         if (!name || !type) {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_INVALID_ENTRY, "name or type is null.");
+                gf_log (this->name, GF_LOG_ERROR, "name or type is null.");
                 ret = -1;
                 goto out;
         }
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_msg_callingfn (this->name, GF_LOG_ERROR,
-                        EINVAL, GD_MSG_INVALID_ENTRY,
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
                         "Invalid entity. Cannot perform locking "
                         "operation on %s types", type);
                 ret = -1;
@@ -547,31 +527,28 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
         ret = snprintf (key, sizeof(key), "%s_%s", name, type);
         if (ret != strlen(name) + 1 + strlen(type)) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_CREATE_KEY_FAIL, "Unable to create key");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create key");
                 goto out;
         }
 
-        gf_msg_debug (this->name, 0,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Trying to acquire lock of %s %s for %s as %s",
                 type, name, uuid_utoa (uuid), key);
 
         ret = glusterd_get_mgmt_v3_lock_owner (key, &owner);
         if (ret) {
-                gf_msg_debug (this->name, 0,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Unable to get mgmt_v3 lock owner");
                 goto out;
         }
 
         /* If the lock has already been held for the given volume
          * we fail */
-        if (!gf_uuid_is_null (owner)) {
-                gf_msg_callingfn (this->name, GF_LOG_WARNING,
-                                  0, GD_MSG_LOCK_ALREADY_HELD,
+        if (!uuid_is_null (owner)) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "Lock for %s held by %s",
                                   name, uuid_utoa (owner));
                 ret = -1;
-                *op_errno = EG_ANOTRANS;
                 goto out;
         }
 
@@ -582,15 +559,15 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
                 goto out;
         }
 
-        gf_uuid_copy (lock_obj->lock_owner, uuid);
+        uuid_copy (lock_obj->lock_owner, uuid);
 
         ret = dict_set_bin (priv->mgmt_v3_lock, key, lock_obj,
                             sizeof(glusterd_mgmt_v3_lock_obj));
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Unable to set lock owner in mgmt_v3 lock");
-                GF_FREE (lock_obj);
+                if (lock_obj)
+                        GF_FREE (lock_obj);
                 goto out;
         }
 
@@ -600,20 +577,19 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
                           name, type);
                 ret = dict_set_dynstr_with_alloc (priv->mgmt_v3_lock, key, bt);
                 if (ret)
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                GD_MSG_DICT_SET_FAILED, "Failed to save "
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to save "
                                 "the back trace for lock %s-%s granted to %s",
                                 name, type, uuid_utoa (uuid));
                 ret = 0;
         }
 
-        gf_msg_debug (this->name, 0,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Lock for %s %s successfully held by %s",
                 type, name, uuid_utoa (uuid));
 
         ret = 0;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -633,16 +609,14 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         GF_ASSERT (priv);
 
         if (!name || !type) {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_INVALID_ENTRY, "name is null.");
+                gf_log (this->name, GF_LOG_ERROR, "name is null.");
                 ret = -1;
                 goto out;
         }
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_msg_callingfn (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_INVALID_ENTRY,
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
                         "Invalid entity. Cannot perform unlocking "
                         "operation on %s types", type);
                 ret = -1;
@@ -652,35 +626,32 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         ret = snprintf (key, sizeof(key), "%s_%s",
                         name, type);
         if (ret != strlen(name) + 1 + strlen(type)) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_CREATE_KEY_FAIL, "Unable to create key");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create key");
                 ret = -1;
                 goto out;
         }
 
-        gf_msg_debug (this->name, 0,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Trying to release lock of %s %s for %s as %s",
                 type, name, uuid_utoa (uuid), key);
 
         ret = glusterd_get_mgmt_v3_lock_owner (key, &owner);
         if (ret) {
-                gf_msg_debug (this->name, 0,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Unable to get mgmt_v3 lock owner");
                 goto out;
         }
 
-        if (gf_uuid_is_null (owner)) {
-                gf_msg_callingfn (this->name, GF_LOG_WARNING,
-                        0, GD_MSG_LOCK_NOT_HELD,
+        if (uuid_is_null (owner)) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
                         "Lock for %s %s not held", type, name);
                 ret = -1;
                 goto out;
         }
 
-        ret = gf_uuid_compare (uuid, owner);
+        ret = uuid_compare (uuid, owner);
         if (ret) {
-                gf_msg_callingfn (this->name, GF_LOG_WARNING,
-                                  0, GD_MSG_LOCK_OWNER_MISMATCH,
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
                                   "Lock owner mismatch. "
                                   "Lock for %s %s held by %s",
                                   type, name, uuid_utoa (owner));
@@ -695,20 +666,19 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                         type);
         if (ret != strlen ("debug.last-success-bt-") + strlen (name) +
                    strlen (type) + 1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_CREATE_KEY_FAIL, "Unable to create backtrace "
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create backtrace "
                         "key");
                 ret = -1;
                 goto out;
         }
         dict_del (priv->mgmt_v3_lock, key);
 
-        gf_msg_debug (this->name, 0,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Lock for %s %s successfully released",
                 type, name);
 
         ret = 0;
 out:
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }

@@ -8,13 +8,17 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
 #include "read-ahead.h"
 #include <assert.h>
-#include "read-ahead-messages.h"
 
 ra_page_t *
 ra_page_get (ra_file_t *file, off_t offset)
@@ -151,8 +155,7 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         pending_offset = local->pending_offset;
 
         if (file == NULL) {
-                gf_msg (this->name, GF_LOG_WARNING, EBADF,
-                        READ_AHEAD_MSG_FD_CONTEXT_NOT_SET,
+                gf_log (this->name, GF_LOG_WARNING,
                         "read-ahead context not set in fd (%p)", fd);
                 op_ret = -1;
                 op_errno = EBADF;
@@ -167,10 +170,9 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 page = ra_page_get (file, pending_offset);
 
                 if (!page) {
-                        gf_msg_trace (this->name, 0,
-                                      "wasted copy: "
-                                      "%"PRId64"[+%"PRId64"] file=%p",
-                                      pending_offset, file->page_size, file);
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "wasted copy: %"PRId64"[+%"PRId64"] file=%p",
+                                pending_offset, file->page_size, file);
                         goto unlock;
                 }
 

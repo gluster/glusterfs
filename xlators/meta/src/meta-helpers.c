@@ -8,6 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "xlator.h"
 #include "defaults.h"
 
@@ -203,9 +208,9 @@ gfid_to_ino (uuid_t gfid)
 static void
 meta_uuid_copy (uuid_t dst, uuid_t src)
 {
-	gf_uuid_copy (dst, src);
-	if (gf_uuid_is_null (dst))
-		gf_uuid_generate (dst);
+	uuid_copy (dst, src);
+	if (uuid_is_null (dst))
+		uuid_generate (dst);
 }
 
 

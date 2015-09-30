@@ -25,7 +25,6 @@
 #include "xlator.h"
 #include "graph-utils.h"
 #include "logging.h"
-#include "libglusterfs-messages.h"
 
 static int new_volume (char *name);
 static int volume_type (char *type);
@@ -82,7 +81,7 @@ type_error (void)
 {
         extern int graphyylineno;
 
-        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLFILE_PARSE_ERROR,
+        gf_log ("parser", GF_LOG_ERROR,
                 "Volume %s, before line %d: Please specify volume type",
                 curr->name, graphyylineno);
         return;
@@ -94,7 +93,7 @@ sub_error (void)
 {
         extern int graphyylineno;
 
-        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLFILE_PARSE_ERROR,
+        gf_log ("parser", GF_LOG_ERROR,
                 "Volume %s, before line %d: Please specify subvolumes",
                 curr->name, graphyylineno);
         return;
@@ -106,7 +105,7 @@ option_error (void)
 {
         extern int graphyylineno;
 
-        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLFILE_PARSE_ERROR,
+        gf_log ("parser", GF_LOG_ERROR,
                 "Volume %s, before line %d: Please specify "
                 "option <key> <value>",
                 curr->name, graphyylineno);
@@ -122,13 +121,14 @@ new_volume (char *name)
         int          ret = 0;
 
         if (!name) {
-                gf_msg_debug ("parser", 0,"Invalid argument name: '%s'", name);
+                gf_log ("parser", GF_LOG_DEBUG,
+			"Invalid argument name: '%s'", name);
                 ret = -1;
                 goto out;
         }
 
         if (curr) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                gf_log ("parser", GF_LOG_ERROR,
                         "new volume (%s) definition in line %d unexpected",
                         name, graphyylineno);
                 ret = -1;
@@ -139,6 +139,7 @@ new_volume (char *name)
                                    gf_common_mt_xlator_t);
 
         if (!curr) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -147,9 +148,9 @@ new_volume (char *name)
 
         while (trav) {
                 if (!strcmp (name, trav->name)) {
-                        gf_msg ("parser", GF_LOG_ERROR, 0,
-                                LG_MSG_VOLFILE_PARSE_ERROR, "Line %d: volume "
-                                "'%s' defined again", graphyylineno, name);
+                        gf_log ("parser", GF_LOG_ERROR,
+				"Line %d: volume '%s' defined again",
+                                graphyylineno, name);
                         ret = -1;
                         goto out;
                 }
@@ -182,7 +183,7 @@ new_volume (char *name)
 
         construct->xl_count++;
 
-        gf_msg_trace ("parser", 0, "New node for '%s'", name);
+        gf_log ("parser", GF_LOG_TRACE, "New node for '%s'", name);
 
 out:
         GF_FREE (name);
@@ -198,14 +199,14 @@ volume_type (char *type)
         int32_t      ret = 0;
 
         if (!type) {
-                gf_msg_debug ("parser", 0, "Invalid argument type");
+                gf_log ("parser", GF_LOG_DEBUG, "Invalid argument type");
                 ret = -1;
                 goto out;
         }
 
         ret = xlator_set_type (curr, type);
         if (ret) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                gf_log ("parser", GF_LOG_ERROR,
                         "Volume '%s', line %d: type '%s' is not valid or "
 			"not found on this machine",
                         curr->name, graphyylineno, type);
@@ -213,7 +214,7 @@ volume_type (char *type)
                 goto out;
         }
 
-        gf_msg_trace ("parser", 0, "Type:%s:%s", curr->name, type);
+        gf_log ("parser", GF_LOG_TRACE, "Type:%s:%s", curr->name, type);
 
 out:
         GF_FREE (type);
@@ -230,8 +231,7 @@ volume_option (char *key, char *value)
         char       *set_value = NULL;
 
         if (!key || !value){
-                gf_msg ("parser", GF_LOG_ERROR, 0,
-                        LG_MSG_INVALID_VOLFILE_ENTRY, "Invalid argument");
+                gf_log ("parser", GF_LOG_ERROR, "Invalid argument");
                 ret = -1;
                 goto out;
         }
@@ -240,15 +240,16 @@ volume_option (char *key, char *value)
 	ret = dict_set_dynstr (curr->options, key, set_value);
 
         if (ret == 1) {
-                gf_msg ("parser", GF_LOG_ERROR, 0,
-                        LG_MSG_INVALID_VOLFILE_ENTRY, "Volume '%s', line %d: "
-                        "duplicate entry ('option %s') present",
+                gf_log ("parser", GF_LOG_ERROR,
+                        "Volume '%s', line %d: duplicate entry "
+			"('option %s') present",
                         curr->name, graphyylineno, key);
                 ret = -1;
                 goto out;
         }
 
-        gf_msg_trace ("parser", 0, "Option:%s:%s:%s", curr->name, key, value);
+        gf_log ("parser", GF_LOG_TRACE, "Option:%s:%s:%s",
+                curr->name, key, value);
 
 out:
         GF_FREE (key);
@@ -266,8 +267,7 @@ volume_sub (char *sub)
         int              ret = 0;
 
         if (!sub) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-                        "Invalid subvolumes argument");
+                gf_log ("parser", GF_LOG_ERROR, "Invalid subvolumes argument");
                 ret = -1;
                 goto out;
         }
@@ -281,15 +281,16 @@ volume_sub (char *sub)
         }
 
         if (!trav) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_SUB_VOLUME_ERROR,
+                gf_log ("parser", GF_LOG_ERROR,
                         "Volume '%s', line %d: subvolume '%s' is not defined "
-			"prior to usage",curr->name, graphyylineno, sub);
+			"prior to usage",
+                        curr->name, graphyylineno, sub);
                 ret = -1;
                 goto out;
         }
 
         if (trav == curr) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                gf_log ("parser", GF_LOG_ERROR,
                         "Volume '%s', line %d: has '%s' itself as subvolume",
                         curr->name, graphyylineno, sub);
                 ret = -1;
@@ -298,11 +299,12 @@ volume_sub (char *sub)
 
 	ret = glusterfs_xlator_link (curr, trav);
 	if (ret) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
         }
 
-        gf_msg_trace ("parser", 0, "child:%s->%s", curr->name, sub);
+        gf_log ("parser", GF_LOG_TRACE, "child:%s->%s", curr->name, sub);
 
 out:
         GF_FREE (sub);
@@ -315,11 +317,11 @@ static int
 volume_end (void)
 {
         if (!curr->fops) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
+                gf_log ("parser", GF_LOG_ERROR,
                         "\"type\" not specified for volume %s", curr->name);
                 return -1;
         }
-        gf_msg_trace ("parser", 0, "end:%s", curr->name);
+        gf_log ("parser", GF_LOG_TRACE, "end:%s", curr->name);
 
         curr = NULL;
         return 0;
@@ -341,35 +343,38 @@ graphyyerror (const char *str)
 
         if (curr && curr->name && graphyytext) {
                 if (!strcmp (graphyytext, "volume")) {
-                        gf_msg ("parser", GF_LOG_ERROR, 0,
-                                LG_MSG_VOLUME_ERROR, "'end-volume' not"
-                                " defined for volume '%s'", curr->name);
+                        gf_log ("parser", GF_LOG_ERROR,
+                                "'end-volume' not defined for volume '%s'",
+				curr->name);
                 } else if (!strcmp (graphyytext, "type")) {
-                        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
+                        gf_log ("parser", GF_LOG_ERROR,
                                 "line %d: duplicate 'type' defined for "
-				"volume '%s'", graphyylineno, curr->name);
+				"volume '%s'",
+                                graphyylineno, curr->name);
                 } else if (!strcmp (graphyytext, "subvolumes")) {
-                        gf_msg ("parser", GF_LOG_ERROR, 0,
-                                LG_MSG_SUB_VOLUME_ERROR, "line %d: duplicate "
-                                "'subvolumes' defined for volume '%s'",
+                        gf_log ("parser", GF_LOG_ERROR,
+                                "line %d: duplicate 'subvolumes' defined for "
+				"volume '%s'",
                                 graphyylineno, curr->name);
                 } else if (curr) {
-                        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_SYNTAX_ERROR,
+                        gf_log ("parser", GF_LOG_ERROR,
                                 "syntax error: line %d (volume '%s'): \"%s\""
 				"\nallowed tokens are 'volume', 'type', "
 				"'subvolumes', 'option', 'end-volume'()",
-                                graphyylineno, curr->name, graphyytext);
+                                graphyylineno, curr->name,
+				graphyytext);
                 } else {
-                        gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_SYNTAX_ERROR,
+                        gf_log ("parser", GF_LOG_ERROR,
                                 "syntax error: line %d (just after volume "
 				"'%s'): \"%s\"\n(%s)",
-                                graphyylineno, curr->name, graphyytext,
+                                graphyylineno, curr->name,
+				graphyytext,
                                 "allowed tokens are 'volume', 'type', "
 				"'subvolumes', 'option', 'end-volume'");
                 }
         } else {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_SYNTAX_ERROR,
-                        "syntax error in line %d: \"%s\"\n"
+                gf_log ("parser", GF_LOG_ERROR,
+                        "syntax error in line %d: \"%s\" \n"
                         "(allowed tokens are 'volume', 'type', "
 			"'subvolumes', 'option', 'end-volume')\n",
                         graphyylineno, graphyytext);
@@ -390,8 +395,7 @@ execute_cmd (char *cmd, char **result, size_t size)
 
 	fpp = popen (cmd, "r");
 	if (!fpp) {
-		gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_FILE_OP_FAILED,
-                        "%s: failed to popen", cmd);
+		gf_log ("parser", GF_LOG_ERROR, "%s: failed to popen", cmd);
 		return -1;
 	}
 
@@ -441,6 +445,7 @@ preprocess (FILE *srcfp, FILE *dstfp)
 	cmd = GF_CALLOC (cmd_buf_size, 1,
                          gf_common_mt_char);
         if (cmd == NULL) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 return -1;
         }
 
@@ -448,6 +453,7 @@ preprocess (FILE *srcfp, FILE *dstfp)
                             gf_common_mt_char);
         if (result == NULL) {
                 GF_FREE (cmd);
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 return -1;
         }
 
@@ -509,9 +515,9 @@ preprocess (FILE *srcfp, FILE *dstfp)
         }
 
 	if (in_backtick) {
-		gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
-			"Unterminated backtick in volume specfication file at "
-                        "line (%d), column (%d).", line, column);
+		gf_log ("parser", GF_LOG_ERROR,
+			"Unterminated backtick in volume specfication file at line (%d), column (%d).",
+			line, column);
                 ret = -1;
 	}
 
@@ -567,8 +573,8 @@ glusterfs_graph_construct (FILE *fp)
 
         ret = unlink (template);
         if (ret < 0) {
-                gf_msg ("parser", GF_LOG_WARNING, 0, LG_MSG_FILE_OP_FAILED,
-                        "Unable to delete file: %s", template);
+                gf_log ("parser", GF_LOG_WARNING, "Unable to delete file: %s",
+                        template);
         }
 
         tmp_file = fdopen (tmp_fd, "w+b");
@@ -577,8 +583,7 @@ glusterfs_graph_construct (FILE *fp)
 
         ret = preprocess (fp, tmp_file);
         if (ret < 0) {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_BACKTICK_PARSE_FAILED,
-                        "parsing of backticks failed");
+                gf_log ("parser", GF_LOG_ERROR, "parsing of backticks failed");
                 goto err;
         }
 
@@ -592,8 +597,9 @@ glusterfs_graph_construct (FILE *fp)
 	pthread_mutex_unlock (&graph_mutex);
 
         if (ret == 1) {
-                gf_msg_debug ("parser", 0, "parsing of volfile failed, please "
-                              "review it once more");
+                gf_log ("parser", GF_LOG_DEBUG,
+                        "parsing of volfile failed, please review it "
+                        "once more");
                 goto err;
         }
 
@@ -603,8 +609,7 @@ err:
         if (tmp_file) {
                 fclose (tmp_file);
         } else {
-                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_FILE_OP_FAILED,
-                        "cannot create temporary file");
+                gf_log ("parser", GF_LOG_ERROR, "cannot create temporary file");
                 if (-1 != tmp_fd)
                         close (tmp_fd);
         }

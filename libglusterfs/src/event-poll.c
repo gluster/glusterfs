@@ -20,17 +20,11 @@
 #include "event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
-#include "libglusterfs-messages.h"
 
-
-
-struct event_slot_poll {
-	int fd;
-	int events;
-	void *data;
-	event_handler_t handler;
-};
-
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 
 static int
 event_register_poll (struct event_pool *event_pool, int fd,
@@ -51,9 +45,9 @@ __flush_fd (int fd, int idx, void *data,
         do {
                 ret = read (fd, buf, 64);
                 if (ret == -1 && errno != EAGAIN) {
-                        gf_msg ("poll", GF_LOG_ERROR, errno,
-                                LG_MSG_FILE_OP_FAILED, "read on %d returned "
-                                "error", fd);
+                        gf_log ("poll", GF_LOG_ERROR,
+                                "read on %d returned error (%s)",
+                                fd, strerror (errno));
                 }
         } while (ret == 64);
 
@@ -69,16 +63,12 @@ __event_getindex (struct event_pool *event_pool, int fd, int idx)
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
-        /* lookup in used space based on index provided */
         if (idx > -1 && idx < event_pool->used) {
-                if (event_pool->reg[idx].fd == fd) {
+                if (event_pool->reg[idx].fd == fd)
                         ret = idx;
-                        goto out;
-                }
         }
 
-        /* search in used space, if lookup fails */
-        for (i = 0; i < event_pool->used; i++) {
+        for (i=0; ret == -1 && i<event_pool->used; i++) {
                 if (event_pool->reg[i].fd == fd) {
                         ret = i;
                         break;
@@ -91,7 +81,7 @@ out:
 
 
 static struct event_pool *
-event_pool_new_poll (int count, int eventthreadcount)
+event_pool_new_poll (int count)
 {
         struct event_pool *event_pool = NULL;
         int                ret = -1;
@@ -117,8 +107,8 @@ event_pool_new_poll (int count, int eventthreadcount)
         ret = pipe (event_pool->breaker);
 
         if (ret == -1) {
-                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED,
-                        "pipe creation failed");
+                gf_log ("poll", GF_LOG_ERROR,
+                        "pipe creation failed (%s)", strerror (errno));
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
                 return NULL;
@@ -126,8 +116,9 @@ event_pool_new_poll (int count, int eventthreadcount)
 
         ret = fcntl (event_pool->breaker[0], F_SETFL, O_NONBLOCK);
         if (ret == -1) {
-                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
-                        "could not set pipe to non blocking mode");
+                gf_log ("poll", GF_LOG_ERROR,
+                        "could not set pipe to non blocking mode (%s)",
+                        strerror (errno));
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
                 event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -139,8 +130,9 @@ event_pool_new_poll (int count, int eventthreadcount)
 
         ret = fcntl (event_pool->breaker[1], F_SETFL, O_NONBLOCK);
         if (ret == -1) {
-                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
-                        "could not set pipe to non blocking mode");
+                gf_log ("poll", GF_LOG_ERROR,
+                        "could not set pipe to non blocking mode (%s)",
+                        strerror (errno));
 
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
@@ -154,7 +146,7 @@ event_pool_new_poll (int count, int eventthreadcount)
         ret = event_register_poll (event_pool, event_pool->breaker[0],
                                    __flush_fd, NULL, 1, 0);
         if (ret == -1) {
-                gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
+                gf_log ("poll", GF_LOG_ERROR,
                         "could not register pipe fd with poll event loop");
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
@@ -163,13 +155,6 @@ event_pool_new_poll (int count, int eventthreadcount)
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
                 return NULL;
-        }
-
-        if (eventthreadcount > 1) {
-                gf_msg ("poll", GF_LOG_INFO, 0,
-                        LG_MSG_POLL_IGNORE_MULTIPLE_THREADS, "Currently poll "
-                        "does not use multiple event processing threads, "
-                        "thread count (%d) ignored", eventthreadcount);
         }
 
         return event_pool;
@@ -216,8 +201,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
                         /* do nothing */
                         break;
                 default:
-                        gf_msg ("poll", GF_LOG_ERROR, 0,
-                                LG_MSG_INVALID_POLL_IN,
+                        gf_log ("poll", GF_LOG_ERROR,
                                 "invalid poll_in value %d", poll_in);
                         break;
                 }
@@ -233,8 +217,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
                         /* do nothing */
                         break;
                 default:
-                        gf_msg ("poll", GF_LOG_ERROR, 0,
-                                LG_MSG_INVALID_POLL_OUT,
+                        gf_log ("poll", GF_LOG_ERROR,
                                 "invalid poll_out value %d", poll_out);
                         break;
                 }
@@ -262,7 +245,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
                 idx = __event_getindex (event_pool, fd, idx_hint);
 
                 if (idx == -1) {
-                        gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
+                        gf_log ("poll", GF_LOG_ERROR,
                                 "index not found for fd=%d (idx_hint=%d)",
                                 fd, idx_hint);
                         errno = ENOENT;
@@ -281,20 +264,6 @@ out:
 
 
 static int
-event_unregister_close_poll (struct event_pool *event_pool, int fd,
-			     int idx_hint)
-{
-	int ret = -1;
-
-	ret = event_unregister_poll (event_pool, fd, idx_hint);
-
-	close (fd);
-
-        return ret;
-}
-
-
-static int
 event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
                       int poll_in, int poll_out)
 {
@@ -307,7 +276,7 @@ event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
                 idx = __event_getindex (event_pool, fd, idx_hint);
 
                 if (idx == -1) {
-                        gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
+                        gf_log ("poll", GF_LOG_ERROR,
                                 "index not found for fd=%d (idx_hint=%d)",
                                 fd, idx_hint);
                         errno = ENOENT;
@@ -372,9 +341,9 @@ event_dispatch_poll_handler (struct event_pool *event_pool,
                 idx = __event_getindex (event_pool, ufds[i].fd, i);
 
                 if (idx == -1) {
-                        gf_msg ("poll", GF_LOG_ERROR, 0,
-                                LG_MSG_INDEX_NOT_FOUND, "index not found for "
-                                "fd=%d (idx_hint=%d)", ufds[i].fd, i);
+                        gf_log ("poll", GF_LOG_ERROR,
+                                "index not found for fd=%d (idx_hint=%d)",
+                                ufds[i].fd, i);
                         goto unlock;
                 }
 
@@ -446,24 +415,7 @@ event_dispatch_poll (struct event_pool *event_pool)
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
-        pthread_mutex_lock (&event_pool->mutex);
-        {
-                event_pool->activethreadcount = 1;
-        }
-        pthread_mutex_unlock (&event_pool->mutex);
-
         while (1) {
-                pthread_mutex_lock (&event_pool->mutex);
-                {
-                        if (event_pool->destroy == 1) {
-                                event_pool->activethreadcount = 0;
-                                pthread_cond_broadcast (&event_pool->cond);
-                                pthread_mutex_unlock (&event_pool->mutex);
-                                return 0;
-                        }
-                }
-                pthread_mutex_unlock (&event_pool->mutex);
-
                 size = event_dispatch_poll_resize (event_pool, ufds, size);
                 ufds = event_pool->evcache;
 
@@ -489,46 +441,11 @@ out:
         return -1;
 }
 
-int
-event_reconfigure_threads_poll (struct event_pool *event_pool, int value)
-{
-        /* No-op for poll */
-
-        return 0;
-}
-
-/* This function is the destructor for the event_pool data structure
- * Should be called only after poller_threads_destroy() is called,
- * else will lead to crashes.
- */
-static int
-event_pool_destroy_poll (struct event_pool *event_pool)
-{
-        int ret = 0;
-
-        ret = close (event_pool->breaker[0]);
-        if (ret)
-                return ret;
-
-        ret = close (event_pool->breaker[1]);
-        if (ret)
-                return ret;
-
-        event_pool->breaker[0] = event_pool->breaker[1] = -1;
-
-        GF_FREE (event_pool->reg);
-        GF_FREE (event_pool);
-
-        return ret;
-}
 
 struct event_ops event_ops_poll = {
-        .new                    = event_pool_new_poll,
-        .event_register         = event_register_poll,
-        .event_select_on        = event_select_on_poll,
-        .event_unregister       = event_unregister_poll,
-        .event_unregister_close = event_unregister_close_poll,
-        .event_dispatch         = event_dispatch_poll,
-        .event_reconfigure_threads = event_reconfigure_threads_poll,
-        .event_pool_destroy     = event_pool_destroy_poll
+        .new              = event_pool_new_poll,
+        .event_register   = event_register_poll,
+        .event_select_on  = event_select_on_poll,
+        .event_unregister = event_unregister_poll,
+        .event_dispatch   = event_dispatch_poll
 };

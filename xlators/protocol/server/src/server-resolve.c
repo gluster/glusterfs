@@ -8,9 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "server.h"
 #include "server-helpers.h"
-#include "server-messages.h"
 
 
 int
@@ -38,7 +42,19 @@ resolve_loc_touchup (call_frame_t *frame)
         resolve = state->resolve_now;
         loc     = state->loc_now;
 
-        loc_touchup (loc, resolve->bname);
+        if (!loc->path) {
+                if (loc->parent && resolve->bname) {
+                        ret = inode_path (loc->parent, resolve->bname, &path);
+                        loc->name = resolve->bname;
+                } else if (loc->inode) {
+                        ret = inode_path (loc->inode, NULL, &path);
+                }
+                if (ret)
+                        gf_log (frame->this->name, GF_LOG_TRACE,
+                                "return value inode_path %d", ret);
+                loc->path = path;
+        }
+
         return 0;
 }
 
@@ -59,18 +75,11 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve_loc = &resolve->resolve_loc;
 
         if (op_ret == -1) {
-                if (op_errno == ENOENT) {
-                        gf_msg_debug (this->name, 0, "%s/%s: failed to resolve"
-                                      " (%s)",
-                                      uuid_utoa (resolve_loc->pargfid),
-                                      resolve_loc->name, strerror (op_errno));
-                } else {
-                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                                PS_MSG_GFID_RESOLVE_FAILED, "%s/%s: failed to "
-                                "resolve (%s)",
-                                uuid_utoa (resolve_loc->pargfid),
-                                resolve_loc->name, strerror (op_errno));
-                }
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s/%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->pargfid), resolve_loc->name,
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -101,25 +110,16 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_resolve_t     *resolve = NULL;
         inode_t              *link_inode = NULL;
         loc_t                *resolve_loc = NULL;
-        dict_t               *dict = NULL;
 
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
         if (op_ret == -1) {
-                if (op_errno == ENOENT) {
-                        gf_msg_debug (this->name, GF_LOG_DEBUG,
-                                      "%s: failed to resolve (%s)",
-                                      uuid_utoa (resolve_loc->gfid),
-                                      strerror (op_errno));
-                } else {
-                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                                PS_MSG_GFID_RESOLVE_FAILED,
-                                "%s: failed to resolve (%s)",
-                                uuid_utoa (resolve_loc->gfid),
-                                strerror (op_errno));
-                }
+                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
+                                     GF_LOG_WARNING),
+                        "%s: failed to resolve (%s)",
+                        uuid_utoa (resolve_loc->gfid), strerror (op_errno));
                 loc_wipe (&resolve->resolve_loc);
                 goto out;
         }
@@ -147,13 +147,13 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         */
         loc_wipe (resolve_loc);
 
-        if (gf_uuid_is_null (resolve->pargfid)) {
+        if (uuid_is_null (resolve->pargfid)) {
                 inode_unref (link_inode);
                 goto out;
         }
 
         resolve_loc->parent = link_inode;
-        gf_uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
+        uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
 
         resolve_loc->name = resolve->bname;
 
@@ -162,21 +162,10 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_path (resolve_loc->parent, resolve_loc->name,
                     (char **) &resolve_loc->path);
 
-        if (state->xdata) {
-                dict = dict_copy_with_ref (state->xdata, NULL);
-                if (!dict)
-                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-                                "BUG: dict allocation failed (pargfid: %s, name: %s), "
-                                "still continuing", uuid_utoa (resolve_loc->gfid),
-                                resolve_loc->name);
-        }
-
         STACK_WIND (frame, resolve_gfid_entry_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, dict);
-        if (dict)
-                dict_unref (dict);
+                    &resolve->resolve_loc, state->xdata);
         return 0;
 out:
         resolve_continue (frame);
@@ -192,38 +181,24 @@ resolve_gfid (call_frame_t *frame)
         server_resolve_t     *resolve = NULL;
         loc_t                *resolve_loc = NULL;
         int                   ret = 0;
-        dict_t               *xdata = NULL;
 
         state = CALL_STATE (frame);
         this  = frame->this;
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
-        if (!gf_uuid_is_null (resolve->pargfid))
-                gf_uuid_copy (resolve_loc->gfid, resolve->pargfid);
-        else if (!gf_uuid_is_null (resolve->gfid))
-                gf_uuid_copy (resolve_loc->gfid, resolve->gfid);
+        if (!uuid_is_null (resolve->pargfid))
+                uuid_copy (resolve_loc->gfid, resolve->pargfid);
+        else if (!uuid_is_null (resolve->gfid))
+                uuid_copy (resolve_loc->gfid, resolve->gfid);
 
         resolve_loc->inode = inode_new (state->itable);
         ret = loc_path (resolve_loc, NULL);
 
-        if (state->xdata) {
-                xdata = dict_copy_with_ref (state->xdata, NULL);
-                if (!xdata)
-                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-                                "BUG: dict allocation failed (gfid: %s), "
-                                "still continuing",
-                                uuid_utoa (resolve_loc->gfid));
-        }
-
         STACK_WIND (frame, resolve_gfid_cbk,
                     frame->root->client->bound_xl,
                     frame->root->client->bound_xl->fops->lookup,
-                    &resolve->resolve_loc, xdata);
-
-        if (xdata)
-                dict_unref (xdata);
-
+                    &resolve->resolve_loc, state->xdata);
         return 0;
 }
 
@@ -245,13 +220,13 @@ resolve_continue (call_frame_t *frame)
         if (resolve->fd_no != -1) {
                 ret = resolve_anonfd_simple (frame);
                 goto out;
-        } else if (!gf_uuid_is_null (resolve->pargfid))
+        } else if (!uuid_is_null (resolve->pargfid))
                 ret = resolve_entry_simple (frame);
-        else if (!gf_uuid_is_null (resolve->gfid))
+        else if (!uuid_is_null (resolve->gfid))
                 ret = resolve_inode_simple (frame);
         if (ret)
-                gf_msg_debug (this->name, 0, "return value of resolve_*_"
-                              "simple %d", ret);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "return value of resolve_*_simple %d", ret);
 
         resolve_loc_touchup (frame);
 out:
@@ -293,7 +268,7 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         /* expected @parent was found from the inode cache */
-        gf_uuid_copy (state->loc_now->pargfid, resolve->pargfid);
+        uuid_copy (state->loc_now->pargfid, resolve->pargfid);
         state->loc_now->parent = inode_ref (parent);
         state->loc_now->name = resolve->bname;
 
@@ -318,9 +293,9 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         if (resolve->type == RESOLVE_NOT) {
-                gf_msg_debug (this->name, 0, "inode (pointer: %p gfid:%s found"
-                              " for path (%s) while type is RESOLVE_NOT",
-                              inode, uuid_utoa (inode->gfid), resolve->path);
+                gf_log (this->name, GF_LOG_DEBUG, "inode (pointer: %p gfid:%s"
+                        " found for path (%s) while type is RESOLVE_NOT",
+                        inode, uuid_utoa (inode->gfid), resolve->path);
                 resolve->op_ret   = -1;
                 resolve->op_errno = EEXIST;
                 ret = -1;
@@ -392,7 +367,7 @@ resolve_inode_simple (call_frame_t *frame)
         ret = 0;
 
         state->loc_now->inode = inode_ref (inode);
-        gf_uuid_copy (state->loc_now->gfid, resolve->gfid);
+        uuid_copy (state->loc_now->gfid, resolve->gfid);
 
 out:
         if (inode)
@@ -457,9 +432,9 @@ out:
                 inode_unref (inode);
 
         if (ret != 0)
-                gf_msg_debug ("server", 0, "inode for the gfid"
-                              "(%s) is not found. anonymous fd creation failed",
-                              uuid_utoa (resolve->gfid));
+                gf_log ("server", GF_LOG_WARNING, "inode for the gfid (%s) is "
+                        "not found. anonymous fd creation failed",
+                        uuid_utoa (resolve->gfid));
         return ret;
 }
 
@@ -513,8 +488,7 @@ server_resolve_fd (call_frame_t *frame)
         serv_ctx = server_ctx_get (client, client->this);
 
         if (serv_ctx == NULL) {
-                gf_msg ("", GF_LOG_INFO, ENOMEM, PS_MSG_NO_MEMORY,
-                        "server_ctx_get() failed");
+                gf_log ("", GF_LOG_INFO, "server_ctx_get() failed");
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOMEM;
                 return 0;
@@ -523,8 +497,7 @@ server_resolve_fd (call_frame_t *frame)
         state->fd = gf_fd_fdptr_get (serv_ctx->fdtable, fd_no);
 
         if (!state->fd) {
-                gf_msg ("", GF_LOG_INFO, EBADF, PS_MSG_FD_NOT_FOUND, "fd not "
-                        "found in context");
+                gf_log ("", GF_LOG_INFO, "fd not found in context");
                 resolve->op_ret   = -1;
                 resolve->op_errno = EBADF;
         }
@@ -548,18 +521,17 @@ server_resolve (call_frame_t *frame)
 
                 server_resolve_fd (frame);
 
-        } else if (!gf_uuid_is_null (resolve->pargfid)) {
+        } else if (!uuid_is_null (resolve->pargfid)) {
 
                 server_resolve_entry (frame);
 
-        } else if (!gf_uuid_is_null (resolve->gfid)) {
+        } else if (!uuid_is_null (resolve->gfid)) {
 
                 server_resolve_inode (frame);
 
         } else {
                 if (resolve == &state->resolve)
-                        gf_msg (frame->this->name, GF_LOG_WARNING, 0,
-                                PS_MSG_INVALID_ENTRY,
+                        gf_log (frame->this->name, GF_LOG_WARNING,
                                 "no resolution type for %s (%s)",
                                 resolve->path, gf_fop_list[frame->root->op]);
 
@@ -620,9 +592,8 @@ server_resolve_all (call_frame_t *frame)
                 server_resolve_done (frame);
 
         } else {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        PS_MSG_INVALID_ENTRY, "Invalid pointer for "
-                        "state->resolve_now");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid pointer for state->resolve_now");
         }
 
         return 0;

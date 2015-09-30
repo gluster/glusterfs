@@ -11,6 +11,11 @@
 #ifndef __COMPAT_H__
 #define __COMPAT_H__
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdint.h>
 #include "dict.h"
 

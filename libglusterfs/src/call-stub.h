@@ -11,8 +11,12 @@
 #ifndef _CALL_STUB_H_
 #define _CALL_STUB_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "xlator.h"
-#include "defaults.h"
 #include "stack.h"
 #include "list.h"
 
@@ -68,7 +72,6 @@ typedef struct {
 		fop_fallocate_t fallocate;
 		fop_discard_t discard;
                 fop_zerofill_t zerofill;
-                fop_ipc_t ipc;
 	} fn;
 
 	union {
@@ -116,7 +119,6 @@ typedef struct {
 		fop_fallocate_cbk_t fallocate;
 		fop_discard_cbk_t discard;
                 fop_zerofill_cbk_t zerofill;
-                fop_ipc_cbk_t ipc;
 	} fn_cbk;
 
 	struct {
@@ -149,7 +151,30 @@ typedef struct {
 		dict_t *xdata;
 	} args;
 
-        default_args_cbk_t args_cbk;
+	struct {
+		int op_ret;
+		int op_errno;
+		inode_t *inode;
+		struct iatt stat;
+		struct iatt prestat;
+		struct iatt poststat;
+		struct iatt preparent;   // @preoldparent in rename_cbk
+		struct iatt postparent;  // @postoldparent in rename_cbk
+		struct iatt preparent2;  // @prenewparent in rename_cbk
+		struct iatt postparent2; // @postnewparent in rename_cbk
+		const char *buf;
+		struct iovec *vector;
+		int count;
+		struct iobref *iobref;
+		fd_t *fd;
+		struct statvfs statvfs;
+		dict_t *xattr;
+		struct gf_flock lock;
+		uint32_t weak_checksum;
+		uint8_t *strong_checksum;
+		dict_t *xdata;
+                gf_dirent_t entries;
+	} args_cbk;
 } call_stub_t;
 
 
@@ -735,14 +760,6 @@ fop_zerofill_cbk_stub(call_frame_t *frame,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *statpre, struct iatt *statpost,
                      dict_t *xdata);
-
-call_stub_t *
-fop_ipc_stub (call_frame_t *frame, fop_ipc_t fn, int32_t op, dict_t *xdata);
-
-call_stub_t *
-fop_ipc_cbk_stub (call_frame_t *frame, fop_ipc_cbk_t fn,
-                  int32_t op_ret, int32_t op_errno, dict_t *xdata);
-
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

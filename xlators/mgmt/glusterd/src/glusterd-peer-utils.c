@@ -10,50 +10,7 @@
 
 #include "glusterd-peer-utils.h"
 #include "glusterd-store.h"
-#include "glusterd-server-quorum.h"
-#include "glusterd-messages.h"
 #include "common-utils.h"
-
-void
-glusterd_peerinfo_destroy (struct rcu_head *head)
-{
-        int32_t                   ret      = -1;
-        glusterd_peerinfo_t      *peerinfo = NULL;
-        glusterd_peer_hostname_t *hostname = NULL;
-        glusterd_peer_hostname_t *tmp      = NULL;
-
-        /* This works as rcu_head is the first member of gd_rcu_head */
-        peerinfo = caa_container_of ((gd_rcu_head *)head, glusterd_peerinfo_t,
-                                      rcu_head);
-
-        /* Set THIS to the saved this. Needed by some functions below */
-        THIS = peerinfo->rcu_head.this;
-
-        CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
-
-        ret = glusterd_store_delete_peerinfo (peerinfo);
-        if (ret) {
-                gf_msg ("glusterd", GF_LOG_ERROR, errno,
-                        GD_MSG_PEERINFO_DELETE_FAIL,
-                        "Deleting peer info failed");
-        }
-
-        GF_FREE (peerinfo->hostname);
-        peerinfo->hostname = NULL;
-
-        cds_list_for_each_entry_safe (hostname, tmp, &peerinfo->hostnames,
-                                      hostname_list) {
-                glusterd_peer_hostname_free (hostname);
-        }
-
-        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
-        pthread_mutex_destroy (&peerinfo->delete_lock);
-        GF_FREE (peerinfo);
-
-        peerinfo = NULL;
-
-        return;
-}
 
 int32_t
 glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
@@ -63,26 +20,58 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
         gf_boolean_t            quorum_action = _gf_false;
         glusterd_conf_t         *priv = THIS->private;
 
-        if (pthread_mutex_trylock (&peerinfo->delete_lock)) {
-                /* Someone else is already deleting the peer, so give up */
-                return 0;
-        }
-
         if (peerinfo->quorum_contrib != QUORUM_NONE)
                 quorum_action = _gf_true;
         if (peerinfo->rpc) {
+                peerctx = peerinfo->rpc->mydata;
+                peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
                 peerinfo->rpc = NULL;
+                if (peerctx) {
+                        GF_FREE (peerctx->errstr);
+                        GF_FREE (peerctx);
+                }
         }
-
-        cds_list_del_rcu (&peerinfo->uuid_list);
-        /* Saving THIS, as it is needed by the callback function */
-        peerinfo->rcu_head.this = THIS;
-        call_rcu (&peerinfo->rcu_head.head, glusterd_peerinfo_destroy);
+        glusterd_peerinfo_destroy (peerinfo);
 
         if (quorum_action)
                 glusterd_do_quorum_action ();
         return 0;
+}
+
+int32_t
+glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
+{
+        int32_t                         ret = -1;
+        glusterd_peer_hostname_t *hostname = NULL;
+        glusterd_peer_hostname_t *tmp = NULL;
+
+        if (!peerinfo)
+                goto out;
+
+        list_del_init (&peerinfo->uuid_list);
+
+        ret = glusterd_store_delete_peerinfo (peerinfo);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Deleting peer info failed");
+        }
+
+        GF_FREE (peerinfo->hostname);
+        peerinfo->hostname = NULL;
+
+        list_for_each_entry_safe (hostname, tmp, &peerinfo->hostnames,
+                                  hostname_list) {
+                glusterd_peer_hostname_free (hostname);
+        }
+
+        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
+        GF_FREE (peerinfo);
+        peerinfo = NULL;
+
+        ret = 0;
+
+out:
+        return ret;
 }
 
 /* glusterd_peerinfo_find_by_hostname searches for a peer which matches the
@@ -114,8 +103,7 @@ glusterd_peerinfo_find_by_hostname (const char *hoststr)
 
         ret = getaddrinfo (hoststr, NULL, NULL, &addr);
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ret,
-                        GD_MSG_GETADDRINFO_FAIL,
+                gf_log (this->name, GF_LOG_ERROR,
                         "error in getaddrinfo: %s\n",
                         gai_strerror(ret));
                 goto out;
@@ -130,7 +118,7 @@ glusterd_peerinfo_find_by_hostname (const char *hoststr)
         }
 
 out:
-        gf_msg_debug (this->name, 0, "Unable to find friend: %s", hoststr);
+        gf_log (this->name, GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
         if (addr)
                 freeaddrinfo (addr);
         return NULL;
@@ -155,17 +143,17 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
         peerinfo = glusterd_peerinfo_find_by_hostname (hostname);
         if (peerinfo) {
                 ret = 0;
-                gf_uuid_copy (uuid, peerinfo->uuid);
+                uuid_copy (uuid, peerinfo->uuid);
         } else {
                 if (gf_is_local_addr (hostname)) {
-                        gf_uuid_copy (uuid, MY_UUID);
+                        uuid_copy (uuid, MY_UUID);
                         ret = 0;
                 } else {
                         ret = -1;
                 }
         }
 
-        gf_msg_debug (this->name, 0, "returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -178,7 +166,6 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
 {
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
-        glusterd_peerinfo_t     *found = NULL;
         xlator_t                *this = NULL;
 
         this = THIS;
@@ -188,26 +175,22 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
 
         GF_ASSERT (priv);
 
-        if (gf_uuid_is_null (uuid))
+        if (uuid_is_null (uuid))
                 return NULL;
 
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
-                if (!gf_uuid_compare (entry->uuid, uuid)) {
+        list_for_each_entry (entry, &priv->peers, uuid_list) {
+                if (!uuid_compare (entry->uuid, uuid)) {
 
-                        gf_msg_debug (this->name, 0,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
-                        found = entry; /* Probably should be rcu_dereferenced */
-                        break;
+                        return entry;
                 }
         }
-        rcu_read_unlock ();
 
-        if (!found)
-                gf_msg_debug (this->name, 0,
-                        "Friend with uuid: %s, not found", uuid_utoa (uuid));
-        return found;
+        gf_log (this->name, GF_LOG_DEBUG, "Friend with uuid: %s, not found",
+                uuid_utoa (uuid));
+        return NULL;
 }
 
 /* glusterd_peerinfo_find will search for a peer matching either @uuid or
@@ -230,7 +213,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
                 if (peerinfo) {
                         return peerinfo;
                 } else {
-                        gf_msg_debug (this->name, 0,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                  "Unable to find peer by uuid: %s",
                                  uuid_utoa (uuid));
                 }
@@ -243,7 +226,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
                 if (peerinfo) {
                         return peerinfo;
                 } else {
-                        gf_msg_debug (this->name, 0,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "Unable to find hostname: %s", hostname);
                 }
         }
@@ -254,7 +237,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
  * values using the passed parameters.
  * @hostname is added as the first entry in peerinfo->hostnames list and also
  * set to peerinfo->hostname.
- * It returns a pointer to peerinfo object if successful and returns NULL
+ * It returns a pointer to peerinfo object if successfull and returns NULL
  * otherwise. The caller should take care of freeing the created peerinfo
  * object.
  */
@@ -262,25 +245,18 @@ glusterd_peerinfo_t *
 glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
                        const char *hostname, int port)
 {
-        glusterd_peerinfo_t *new_peer = NULL;
-        int                  ret      = -1;
-        xlator_t            *this     = NULL;
-        glusterd_conf_t     *conf     = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        conf = this->private;
-        GF_ASSERT (conf);
+        glusterd_peerinfo_t      *new_peer = NULL;
+        int                      ret = -1;
 
         new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
         if (!new_peer)
                 goto out;
 
-        CDS_INIT_LIST_HEAD (&new_peer->uuid_list);
+        INIT_LIST_HEAD (&new_peer->uuid_list);
 
         new_peer->state.state = state;
 
-        CDS_INIT_LIST_HEAD (&new_peer->hostnames);
+        INIT_LIST_HEAD (&new_peer->hostnames);
         if (hostname) {
                 ret = gd_add_address_to_peer (new_peer, hostname);
                 if (ret)
@@ -293,7 +269,7 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         }
 
         if (uuid) {
-                gf_uuid_copy (new_peer->uuid, *uuid);
+                uuid_copy (new_peer->uuid, *uuid);
         }
 
         ret = glusterd_sm_tr_log_init (&new_peer->sm_log,
@@ -306,10 +282,6 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
                 new_peer->quorum_contrib = QUORUM_WAITING;
         new_peer->port = port;
-
-        pthread_mutex_init (&new_peer->delete_lock, NULL);
-
-        new_peer->generation = uatomic_add_return (&conf->generation, 1);
 out:
         if (ret && new_peer) {
                 glusterd_peerinfo_cleanup (new_peer);
@@ -331,10 +303,9 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
         priv= THIS->private;
         GF_ASSERT (priv);
 
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
 
-                if (!gf_uuid_is_null (skip_uuid) && !gf_uuid_compare (skip_uuid,
+                if (!uuid_is_null (skip_uuid) && !uuid_compare (skip_uuid,
                                                            peerinfo->uuid))
                         continue;
 
@@ -344,9 +315,7 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
                         break;
                 }
         }
-        rcu_read_unlock ();
-
-        gf_msg_debug (THIS->name, 0, "Returning %s",
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %s",
                 (ret?"TRUE":"FALSE"));
         return ret;
 }
@@ -364,19 +333,17 @@ glusterd_uuid_to_hostname (uuid_t uuid)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        if (!gf_uuid_compare (MY_UUID, uuid)) {
+        if (!uuid_compare (MY_UUID, uuid)) {
                 hostname = gf_strdup ("localhost");
         }
-        rcu_read_lock ();
-        if (!cds_list_empty (&priv->peers)) {
-                cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
-                        if (!gf_uuid_compare (entry->uuid, uuid)) {
+        if (!list_empty (&priv->peers)) {
+                list_for_each_entry (entry, &priv->peers, uuid_list) {
+                        if (!uuid_compare (entry->uuid, uuid)) {
                                 hostname = gf_strdup (entry->hostname);
                                 break;
                         }
                 }
         }
-        rcu_read_unlock ();
 
         return hostname;
 }
@@ -384,7 +351,7 @@ glusterd_uuid_to_hostname (uuid_t uuid)
 char*
 gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
 {
-        if ((peerinfo == NULL) || gf_uuid_is_null (peerinfo->uuid))
+        if ((peerinfo == NULL) || uuid_is_null (peerinfo->uuid))
                 return NULL;
 
         if (peerinfo->uuid_str[0] == '\0')
@@ -395,20 +362,19 @@ gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
 
 gf_boolean_t
 glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
-                               struct cds_list_head *peers,
+                               struct list_head *peers,
                                char **down_peerstr)
 {
         glusterd_peerinfo_t   *peerinfo  = NULL;
         glusterd_brickinfo_t  *brickinfo = NULL;
         gf_boolean_t           ret       = _gf_false;
 
-        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID))
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
-                rcu_read_lock ();
-                cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
-                        if (gf_uuid_compare (peerinfo->uuid, brickinfo->uuid))
+                list_for_each_entry (peerinfo, peers, uuid_list) {
+                        if (uuid_compare (peerinfo->uuid, brickinfo->uuid))
                                 continue;
 
                         /*Found peer who owns the brick, return false
@@ -417,18 +383,16 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                            (peerinfo->state.state !=
                              GD_FRIEND_STATE_BEFRIENDED)) {
                                 *down_peerstr = gf_strdup (peerinfo->hostname);
-                                gf_msg_debug (THIS->name, 0, "Peer %s is down. ",
+                                gf_log ("", GF_LOG_DEBUG, "Peer %s is down. ",
                                         peerinfo->hostname);
-                                rcu_read_unlock ();
                                 goto out;
                         }
                 }
-                rcu_read_unlock ();
         }
 
         ret = _gf_true;
 out:
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -449,13 +413,13 @@ glusterd_peer_hostname_new (const char *hostname,
                 goto out;
 
         peer_hostname->hostname = gf_strdup (hostname);
-        CDS_INIT_LIST_HEAD (&peer_hostname->hostname_list);
+        INIT_LIST_HEAD (&peer_hostname->hostname_list);
 
         *name = peer_hostname;
         ret = 0;
 
 out:
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -465,7 +429,7 @@ glusterd_peer_hostname_free (glusterd_peer_hostname_t *name)
         if (!name)
                 return;
 
-        cds_list_del_init (&name->hostname_list);
+        list_del_init (&name->hostname_list);
 
         GF_FREE (name->hostname);
         name->hostname = NULL;
@@ -484,8 +448,7 @@ gd_peer_has_address (glusterd_peerinfo_t *peerinfo, const char *address)
         GF_VALIDATE_OR_GOTO ("glusterd", (peerinfo != NULL), out);
         GF_VALIDATE_OR_GOTO ("glusterd", (address != NULL), out);
 
-        cds_list_for_each_entry (hostname, &peerinfo->hostnames,
-                                 hostname_list) {
+        list_for_each_entry (hostname, &peerinfo->hostnames, hostname_list) {
                 if (strcmp (hostname->hostname, address) == 0) {
                         ret = _gf_true;
                         break;
@@ -515,7 +478,7 @@ gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address)
         if (ret)
                 goto out;
 
-        cds_list_add_tail_rcu (&hostname->hostname_list, &peerinfo->hostnames);
+        list_add_tail (&hostname->hostname_list, &peerinfo->hostnames);
 
         ret = 0;
 out:
@@ -523,7 +486,7 @@ out:
 }
 
 /* gd_add_friend_to_dict() adds details of @friend into @dict with the given
- * @prefix. All the parameters are compulsory.
+ * @prefix. All the parameters are compulsary.
  *
  * The complete address list is added to the dict only if the cluster op-version
  * is >= GD_OP_VERSION_3_6_0
@@ -552,31 +515,27 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         snprintf (key, sizeof (key), "%s.uuid", prefix);
         ret = dict_set_dynstr_with_alloc (dict, key, uuid_utoa (friend->uuid));
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Failed to set key %s in dict", key);
                 goto out;
         }
 
         /* Setting the first hostname from the list with this key for backward
-         * compatibility
+         * compatability
          */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname", prefix);
-        address = cds_list_entry (&friend->hostnames, glusterd_peer_hostname_t,
-                                  hostname_list);
+        address = list_entry (&friend->hostnames, glusterd_peer_hostname_t,
+                              hostname_list);
         if (!address) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_PEER_ADDRESS_GET_FAIL,
-                        "Could not retrieve first "
+                gf_log (this->name, GF_LOG_ERROR, "Could not retrieve first "
                         "address for peer");
                 goto out;
         }
         ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Failed to set key %s in dict", key);
                 goto out;
         }
@@ -588,16 +547,15 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
 
         address = NULL;
         count = 0;
-        cds_list_for_each_entry (address, &friend->hostnames, hostname_list) {
+        list_for_each_entry (address, &friend->hostnames, hostname_list) {
                 GF_VALIDATE_OR_GOTO (this->name, (address != NULL), out);
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_SET_FAILED,
-                                "Failed to set key %s in dict", key);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set key %s in dict", key);
                         goto out;
                 }
                 count++;
@@ -606,12 +564,11 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_set_int32 (dict, key, count);
         if (ret)
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Failed to set key %s in dict", key);
 
 out:
-        gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d",
+        gf_log (this ? this->name : "glusterd", GF_LOG_DEBUG, "Returning %d",
                 ret);
         return ret;
 }
@@ -626,7 +583,6 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
         xlator_t                 *this    = NULL;
         glusterd_conf_t          *priv    = NULL;
         glusterd_peerinfo_t      *peer    = NULL;
-        glusterd_peerinfo_t      *found   = NULL;
         glusterd_peer_hostname_t *tmphost = NULL;
 
         this = THIS;
@@ -636,24 +592,18 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
 
         GF_VALIDATE_OR_GOTO (this->name, (hoststr != NULL), out);
 
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (peer, &priv->peers, uuid_list) {
-                cds_list_for_each_entry_rcu (tmphost, &peer->hostnames,
-                                             hostname_list) {
+        list_for_each_entry (peer, &priv->peers, uuid_list) {
+                list_for_each_entry (tmphost, &peer->hostnames,hostname_list) {
                         if (!strncasecmp (tmphost->hostname, hoststr, 1024)) {
-                                gf_msg_debug (this->name, 0,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
                                         tmphost->hostname, peer->state.state);
-                                found = peer; /* Probably needs to be
-                                                 dereferenced*/
-                                goto unlock;
+                                return peer;
                         }
                 }
         }
-unlock:
-        rcu_read_unlock ();
 out:
-        return found;
+        return NULL;
 }
 
 /* gd_peerinfo_find_from_addrinfo iterates over all the addresses saved for each
@@ -672,7 +622,6 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
         xlator_t                 *this    = NULL;
         glusterd_conf_t          *conf    = NULL;
         glusterd_peerinfo_t      *peer    = NULL;
-        glusterd_peerinfo_t      *found   = NULL;
         glusterd_peer_hostname_t *address = NULL;
         int                       ret     = 0;
         struct addrinfo          *paddr   = NULL;
@@ -685,10 +634,8 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
 
         GF_VALIDATE_OR_GOTO (this->name, (addr != NULL), out);
 
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (peer, &conf->peers, uuid_list) {
-                cds_list_for_each_entry_rcu (address, &peer->hostnames,
-                                             hostname_list) {
+        list_for_each_entry (peer, &conf->peers, uuid_list) {
+                list_for_each_entry (address, &peer->hostnames, hostname_list) {
                         /* TODO: Cache the resolved addrinfos to improve
                          * performance
                          */
@@ -698,7 +645,7 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                                 /* Don't fail if getaddrinfo fails, continue
                                  * onto the next address
                                  */
-                                gf_msg_trace (this->name, 0,
+                                gf_log (this->name, GF_LOG_TRACE,
                                         "getaddrinfo for %s failed (%s)",
                                         address->hostname, gai_strerror (ret));
                                 ret = 0;
@@ -708,25 +655,19 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                         for (tmp = paddr; tmp != NULL; tmp = tmp->ai_next) {
                                 if (gf_compare_sockaddr (addr->ai_addr,
                                                          tmp->ai_addr)) {
-                                        found = peer; /* (de)referenced? */
-                                        break;
+                                        freeaddrinfo (paddr);
+                                        return peer;
                                 }
                         }
-
-                        freeaddrinfo (paddr);
-                        if (found)
-                                goto unlock;
                 }
         }
-unlock:
-        rcu_read_unlock ();
 out:
-        return found;
+        return NULL;
 }
 
 /* gd_update_peerinfo_from_dict will update the hostnames for @peerinfo from
  * peer details with @prefix in @dict.
- * Returns 0 on success and -1 on failure.
+ * Returns 0 on sucess and -1 on failure.
  */
 int
 gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
@@ -754,15 +695,13 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         ret = dict_get_str (dict, key, &hostname);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
         ret = gd_add_address_to_peer (peerinfo, hostname);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Could not add address to peer");
                 goto out;
         }
@@ -780,8 +719,7 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_get_int32 (dict, key, &count);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
@@ -791,15 +729,13 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
                 snprintf (key, sizeof (key), "%s.hostname%d",prefix, i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_GET_FAILED, "Key %s not present "
+                        gf_log (this->name, GF_LOG_ERROR, "Key %s not present "
                                 "in dictionary", key);
                         goto out;
                 }
                 ret = gd_add_address_to_peer (peerinfo, hostname);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Could not add address to peer");
                         goto out;
                 }
@@ -808,7 +744,7 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         }
 
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -840,9 +776,7 @@ gd_peerinfo_from_dict (dict_t *dict, const char *prefix)
                                           0);
         if (new_peer == NULL) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_PEERINFO_CREATE_FAIL,
-                        "Could not create peerinfo "
+                gf_log (this->name, GF_LOG_ERROR, "Could not create peerinfo "
                         "object");
                 goto out;
         }
@@ -850,12 +784,11 @@ gd_peerinfo_from_dict (dict_t *dict, const char *prefix)
         snprintf (key, sizeof (key), "%s.uuid", prefix);
         ret = dict_get_str (dict, key, &uuid_str);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
-        gf_uuid_parse (uuid_str, new_peer->uuid);
+        uuid_parse (uuid_str, new_peer->uuid);
 
         ret = gd_update_peerinfo_from_dict (new_peer, dict, prefix);
 
@@ -894,7 +827,7 @@ gd_add_peer_hostnames_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
 
-        cds_list_for_each_entry (addr, &peerinfo->hostnames, hostname_list) {
+        list_for_each_entry (addr, &peerinfo->hostnames, hostname_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, addr->hostname);
@@ -966,42 +899,4 @@ gd_add_peer_detail_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *friends,
 
 out:
         return ret;
-}
-
-/* glusterd_peerinfo_find_by_generation searches for a peer which has the
- * generation number @generation and if found returns the pointer to peerinfo
- * object. Returns NULL otherwise.
- */
-glusterd_peerinfo_t *
-glusterd_peerinfo_find_by_generation (uint32_t generation) {
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-        glusterd_peerinfo_t     *found = NULL;
-        xlator_t                *this = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        priv    = this->private;
-
-        GF_ASSERT (priv);
-
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
-                if (entry->generation == generation) {
-
-                        gf_msg_debug (this->name, 0,
-                                 "Friend found... state: %s",
-                        glusterd_friend_sm_state_name_get (entry->state.state));
-                        found = entry; /* Probably should be rcu_dereferenced */
-                        break;
-                }
-        }
-        rcu_read_unlock ();
-
-        if (!found)
-                gf_msg_debug (this->name, 0,
-                        "Friend with generation: %"PRIu32", not found",
-                        generation);
-        return found;
 }

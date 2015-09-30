@@ -17,15 +17,8 @@
 #include <setjmp.h>
 #include <inttypes.h>
 #include <string.h>
-#include <cmocka_pbc.h>
-#include <cmocka.h>
-
-#ifndef assert_ptr_equal
-#define assert_ptr_equal(a, b) \
-    _assert_int_equal(cast_ptr_to_largest_integral_type(a), \
-                      cast_ptr_to_largest_integral_type(b), \
-                      __FILE__, __LINE__)
-#endif
+#include <cmockery/pbc.h>
+#include <cmockery/cmockery.h>
 
 /*
  * memory header for gf_mem_set_acct_info
@@ -58,20 +51,19 @@ helper_xlator_init(uint32_t num_types)
 
     xl = test_calloc(1, sizeof(xlator_t));
     assert_non_null(xl);
-    xl->mem_acct->num_types = num_types;
-    xl->mem_acct = test_calloc (sizeof(struct mem_acct)
-                                + sizeof(struct mem_acct_rec) * num_types);
-    assert_non_null(xl->mem_acct);
+    xl->mem_acct.num_types = num_types;
+    xl->mem_acct.rec = test_calloc(num_types, sizeof(struct mem_acct_rec));
+    assert_non_null(xl->mem_acct.rec);
 
     xl->ctx = test_calloc(1, sizeof(glusterfs_ctx_t));
     assert_non_null(xl->ctx);
 
     for (i = 0; i < num_types; i++) {
-            ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
+            ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
             assert_int_equal(ret, 0);
     }
 
-    ENSURE(num_types == xl->mem_acct->num_types);
+    ENSURE(num_types == xl->mem_acct.num_types);
     ENSURE(NULL != xl);
 
     return xl;
@@ -82,12 +74,12 @@ helper_xlator_destroy(xlator_t *xl)
 {
     int i, ret;
 
-    for (i = 0; i < xl->mem_acct->num_types; i++) {
-            ret = LOCK_DESTROY(&(xl->mem_acct->rec[i].lock));
+    for (i = 0; i < xl->mem_acct.num_types; i++) {
+            ret = LOCK_DESTROY(&(xl->mem_acct.rec[i].lock));
             assert_int_equal(ret, 0);
     }
 
-    free(xl->mem_acct->rec);
+    free(xl->mem_acct.rec);
     free(xl->ctx);
     free(xl);
     return 0;
@@ -146,9 +138,9 @@ test_gf_mem_set_acct_info_asserts(void **state)
 
     // Check xl is NULL
     expect_assert_failure(gf_mem_set_acct_info(NULL, &alloc_ptr, size, type, ""));
-    // Check xl->mem_acct = NULL
+    // Check xl->mem_acct.rec = NULL
     expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type, ""));
-    // Check type <= xl->mem_acct->num_types
+    // Check type <= xl->mem_acct.num_types
     type = 100;
     expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type, ""));
     // Check alloc is NULL
@@ -159,8 +151,8 @@ test_gf_mem_set_acct_info_asserts(void **state)
 
     // Test number of types
     type = 100;
-    assert_true(NULL != xl->mem_acct);
-    assert_true(type > xl->mem_acct->num_types);
+    assert_true(NULL != xl->mem_acct.rec);
+    assert_true(type > xl->mem_acct.num_types);
     expect_assert_failure(gf_mem_set_acct_info(xl, &alloc_ptr, size, type, ""));
 
     helper_xlator_destroy(xl);
@@ -181,7 +173,7 @@ test_gf_mem_set_acct_info_memory(void **state)
 
     // Initialize xl
     xl = helper_xlator_init(10);
-    assert_null(xl->mem_acct->rec[type].typestr);
+    assert_null(xl->mem_acct.rec[type].typestr);
 
     // Test allocation
     temp_ptr = test_calloc(1, size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE);
@@ -190,12 +182,12 @@ test_gf_mem_set_acct_info_memory(void **state)
     gf_mem_set_acct_info(xl, &alloc_ptr, size, type, typestr);
 
     //Check values
-    assert_ptr_equal(typestr, xl->mem_acct->rec[type].typestr);
-    assert_int_equal(xl->mem_acct->rec[type].size, size);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, size);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 1);
+    assert_ptr_equal(typestr, xl->mem_acct.rec[type].typestr);
+    assert_int_equal(xl->mem_acct.rec[type].size, size);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, size);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 1);
 
     // Check memory
     helper_check_memory_headers(temp_ptr, xl, size, type);
@@ -236,11 +228,11 @@ test_gf_calloc_default_calloc(void **state)
     memset(mem, 0x5A, size);
 
     // Check xl did not change
-    assert_int_equal(xl->mem_acct->rec[type].size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 0);
 
     free(mem);
     helper_xlator_destroy(xl);
@@ -260,7 +252,7 @@ test_gf_calloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_return_always(__glusterfs_this_location, &xl);
+    will_always_return(__glusterfs_this_location, &xl);
 
     // Call __gf_calloc
     size = 1024;
@@ -270,11 +262,11 @@ test_gf_calloc_mem_acct_enabled(void **state)
     memset(mem, 0x5A, size);
 
     // Check xl values
-    assert_int_equal(xl->mem_acct->rec[type].size, size);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, size);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].size, size);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, size);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 1);
 
     // Check memory
     helper_check_memory_headers(mem - sizeof(mem_header_t), xl, size, type);
@@ -303,11 +295,11 @@ test_gf_malloc_default_malloc(void **state)
     memset(mem, 0x5A, size);
 
     // Check xl did not change
-    assert_int_equal(xl->mem_acct->rec[type].size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 0);
 
     free(mem);
     helper_xlator_destroy(xl);
@@ -327,7 +319,7 @@ test_gf_malloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_return_always(__glusterfs_this_location, &xl);
+    will_always_return(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc
     size = 1024;
@@ -337,11 +329,11 @@ test_gf_malloc_mem_acct_enabled(void **state)
     memset(mem, 0x5A, size);
 
     // Check xl values
-    assert_int_equal(xl->mem_acct->rec[type].size, size);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 1);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, size);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].size, size);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 1);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, size);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 1);
 
     // Check memory
     helper_check_memory_headers(mem - sizeof(mem_header_t), xl, size, type);
@@ -360,7 +352,7 @@ test_gf_realloc_default_realloc(void **state)
     // Initialize xl
     xl = helper_xlator_init(10);
     assert_int_equal(xl->ctx->mem_acct_enable, 0);
-    will_return_always(__glusterfs_this_location, &xl);
+    will_always_return(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc then realloc
     size = 10;
@@ -375,11 +367,11 @@ test_gf_realloc_default_realloc(void **state)
     memset(mem, 0x5A, size);
 
     // Check xl did not change
-    assert_int_equal(xl->mem_acct->rec[type].size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, 0);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, 0);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 0);
 
     free(mem);
     helper_xlator_destroy(xl);
@@ -399,7 +391,7 @@ test_gf_realloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_return_always(__glusterfs_this_location, &xl);
+    will_always_return(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc then realloc
     size = 1024;
@@ -420,11 +412,11 @@ test_gf_realloc_mem_acct_enabled(void **state)
     // not to the realloc + the malloc.
     // Is this a bug?
     //
-    assert_int_equal(xl->mem_acct->rec[type].size, size+1024);
-    assert_int_equal(xl->mem_acct->rec[type].num_allocs, 2);
-    assert_int_equal(xl->mem_acct->rec[type].total_allocs, 2);
-    assert_int_equal(xl->mem_acct->rec[type].max_size, size+1024);
-    assert_int_equal(xl->mem_acct->rec[type].max_num_allocs, 2);
+    assert_int_equal(xl->mem_acct.rec[type].size, size+1024);
+    assert_int_equal(xl->mem_acct.rec[type].num_allocs, 2);
+    assert_int_equal(xl->mem_acct.rec[type].total_allocs, 2);
+    assert_int_equal(xl->mem_acct.rec[type].max_size, size+1024);
+    assert_int_equal(xl->mem_acct.rec[type].max_num_allocs, 2);
 
     // Check memory
     helper_check_memory_headers(mem - sizeof(mem_header_t), xl, size, type);
@@ -444,7 +436,7 @@ test_gf_realloc_ptr(void **state)
     assert_int_equal(xl->ctx->mem_acct_enable, 0);
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_return_always(__glusterfs_this_location, &xl);
+    will_always_return(__glusterfs_this_location, &xl);
 
     // Tests according to the manpage for realloc
 
@@ -466,18 +458,18 @@ test_gf_realloc_ptr(void **state)
 }
 
 int main(void) {
-    const struct CMUnitTest libglusterfs_mem_pool_tests[] = {
-        cmocka_unit_test(test_gf_mem_acct_enable_set),
-        cmocka_unit_test(test_gf_mem_set_acct_info_asserts),
-        cmocka_unit_test(test_gf_mem_set_acct_info_memory),
-        cmocka_unit_test(test_gf_calloc_default_calloc),
-        cmocka_unit_test(test_gf_calloc_mem_acct_enabled),
-        cmocka_unit_test(test_gf_malloc_default_malloc),
-        cmocka_unit_test(test_gf_malloc_mem_acct_enabled),
-        cmocka_unit_test(test_gf_realloc_default_realloc),
-        cmocka_unit_test(test_gf_realloc_mem_acct_enabled),
-        cmocka_unit_test(test_gf_realloc_ptr),
+    const UnitTest tests[] = {
+        unit_test(test_gf_mem_acct_enable_set),
+        unit_test(test_gf_mem_set_acct_info_asserts),
+        unit_test(test_gf_mem_set_acct_info_memory),
+        unit_test(test_gf_calloc_default_calloc),
+        unit_test(test_gf_calloc_mem_acct_enabled),
+        unit_test(test_gf_malloc_default_malloc),
+        unit_test(test_gf_malloc_mem_acct_enabled),
+        unit_test(test_gf_realloc_default_realloc),
+        unit_test(test_gf_realloc_mem_acct_enabled),
+        unit_test(test_gf_realloc_ptr),
     };
 
-    return cmocka_run_group_tests(libglusterfs_mem_pool_tests, NULL, NULL);
+    return run_tests(tests, "libglusterfs_mem_pool");
 }

@@ -13,94 +13,10 @@
 #define _GLFS_INTERNAL_H
 
 #include "xlator.h"
-#include "glusterfs.h"
-#include "upcall-utils.h"
-#include "glfs-handles.h"
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 
 #define DEFAULT_REVAL_COUNT 1
-
-/*
- * According to  pthread mutex and conditional variable ( cond, child_down_count,
- * upcall mutex and mutex) initialization of struct glfs members,
- * below GLFS_INIT_* flags are set in 'pthread_flags' member of struct glfs.
- * The flags are set from glfs_init() and  glfs_new_from_ctx() functions
- * as part of fs inititialization.
- *
- * These flag bits are validated in glfs_fini() to destroy all or partially
- * initialized mutex and conditional variables of glfs object.
- * If you introduce new pthread mutex or conditional variable in glfs object,
- * please make sure you have a flag bit intorduced here for proper cleanup
- * in glfs_fini().
- *
- */
-
-#define PTHREAD_MUTEX_INIT(mutex, attr, flags, mask, label) do { \
-        int __ret = -1;                                          \
-        __ret = pthread_mutex_init (mutex, attr);                \
-        if (__ret == 0)                                          \
-                flags |= mask;                                   \
-        else                                                     \
-                goto label;                                      \
-} while (0)
-
-#define PTHREAD_MUTEX_DESTROY(mutex, flags, mask) do {           \
-        if (flags & mask)                                        \
-                (void) pthread_mutex_destroy (mutex);            \
-} while (0)
-
-#define PTHREAD_COND_INIT(cond, attr, flags, mask, label) do {   \
-        int __ret = -1;                                          \
-        __ret = pthread_cond_init (cond, attr);                  \
-        if (__ret == 0)                                          \
-                flags |= mask;                                   \
-        else                                                     \
-                goto label;                                      \
-} while (0)
-
-#define PTHREAD_COND_DESTROY(cond, flags, mask) do {             \
-        if (flags & mask)                                        \
-                (void) pthread_cond_destroy (cond);              \
-} while (0)
-
-#define GLFS_INIT_MUTEX              0x00000001   /* pthread_mutex_flag */
-#define GLFS_INIT_COND               0x00000002   /* pthread_cond_flag */
-#define GLFS_INIT_COND_CHILD         0x00000004   /* pthread_cond_child_down_flag */
-#define GLFS_INIT_MUTEX_UPCALL       0x00000008   /* pthread_mutex_upcall_flag */
-
-
-#ifndef GF_DARWIN_HOST_OS
-#ifndef GFAPI_PUBLIC
-#define GFAPI_PUBLIC(sym, ver) /**/
-#endif
-#ifndef GFAPI_PRIVATE
-#define GFAPI_PRIVATE(sym, ver) /**/
-#endif
-#define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, ver) \
-        asm(".symver pub_"STR(fn)", "STR(fn)"@@GFAPI_"STR(ver))
-
-#define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, ver) \
-        asm(".symver priv_"STR(fn)", "STR(fn)"@@GFAPI_PRIVATE_"STR(ver))
-
-#define GFAPI_SYMVER_PUBLIC(fn1, fn2, ver) \
-        asm(".symver pub_"STR(fn1)", "STR(fn2)"@GFAPI_"STR(ver))
-
-#define GFAPI_SYMVER_PRIVATE(fn1, fn2, ver) \
-        asm(".symver priv_"STR(fn1)", "STR(fn2)"@GFAPI_PRIVATE_"STR(ver))
-#define STR(str) #str
-#else
-#ifndef GFAPI_PUBLIC
-#define GFAPI_PUBLIC(sym, ver) __asm("_" __STRING(sym) "$GFAPI_" __STRING(ver))
-#endif
-#ifndef GFAPI_PRIVATE
-#define GFAPI_PRIVATE(sym, ver) __asm("_" __STRING(sym) "$GFAPI_PRIVATE_" __STRING(ver))
-#endif
-#define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, dotver) /**/
-#define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, dotver) /**/
-#define GFAPI_SYMVER_PUBLIC(fn1, fn2, dotver) /**/
-#define GFAPI_SYMVER_PRIVATE(fn1, fn2, dotver) /**/
-#endif
 
 /*
  * syncop_xxx() calls are executed in two ways, one is inside a synctask where
@@ -134,8 +50,8 @@
 
 #define GLFS_LOC_FILL_INODE(oinode, loc, label) do {   \
 	loc.inode = inode_ref (oinode);                \
-	gf_uuid_copy (loc.gfid, oinode->gfid);         \
-	ret = glfs_loc_touchup (&loc);                 \
+	uuid_copy (loc.gfid, oinode->gfid);            \
+	ret = priv_glfs_loc_touchup (&loc);            \
 	if (ret != 0) {                                \
 		errno = EINVAL;                        \
 		goto label;                            \
@@ -151,7 +67,7 @@
 	}                                                                 \
 	loc.parent = inode_ref (pinode);                                  \
 	loc.name = path;                                                  \
-	ret = glfs_loc_touchup (&loc);                                    \
+	ret = priv_glfs_loc_touchup (&loc);                               \
 	if (ret != 0) {                                                   \
 		errno = EINVAL;                                           \
 		goto label;                                               \
@@ -159,12 +75,6 @@
 	} while (0)
 
 struct glfs;
-
-struct _upcall_entry_t {
-        struct list_head  upcall_list;
-        struct gf_upcall  upcall_data;
-};
-typedef struct _upcall_entry_t upcall_entry;
 
 typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
 
@@ -179,7 +89,6 @@ struct glfs {
 	glfs_init_cbk       init_cbk;
 	pthread_mutex_t     mutex;
 	pthread_cond_t      cond;
-        pthread_cond_t      child_down_cond; /* for broadcasting CHILD_DOWN */
 	int                 init;
 	int                 ret;
 	int                 err;
@@ -198,12 +107,6 @@ struct glfs {
 	struct list_head    openfds;
 
 	gf_boolean_t        migration_in_progress;
-
-        struct list_head    upcall_list;
-        pthread_mutex_t     upcall_list_mutex; /* mutex for upcall entry list */
-
-        uint32_t            pin_refcnt;
-        uint32_t            pthread_flags; /* GLFS_INIT_* # defines set this flag */
 };
 
 struct glfs_fd {
@@ -232,12 +135,10 @@ struct glfs_object {
 #define GF_MEMPOOL_COUNT_OF_LRU_BUF_T     256
 
 int glfs_mgmt_init (struct glfs *fs);
-void glfs_init_done (struct glfs *fs, int ret)
-        GFAPI_PRIVATE(glfs_init_done, 3.4.0);
+void priv_glfs_init_done (struct glfs *fs, int ret);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);
-int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path,
-                       loc_t *loc, struct iatt *iatt, int reval)
-        GFAPI_PRIVATE(glfs_resolve, 3.7.0);
+int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
+		  struct iatt *iatt, int reval);
 int glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
 		   struct iatt *iatt, int reval);
 fd_t *glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd);
@@ -246,34 +147,18 @@ fd_t *__glfs_migrate_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd
 
 int glfs_first_lookup (xlator_t *subvol);
 
-void glfs_process_upcall_event (struct glfs *fs, void *data)
-        GFAPI_PRIVATE(glfs_process_upcall_event, 3.7.0);
+static inline void
+__glfs_entry_fs (struct glfs *fs)
+{
+	THIS = fs->ctx->master;
+}
 
 
-#define __GLFS_ENTRY_VALIDATE_FS(fs, label)                         \
-do {                                                                \
-        if (!fs) {                                                  \
-                errno = EINVAL;                                     \
-                goto label;                                         \
-        }                                                           \
-        old_THIS = THIS;                                            \
-        THIS = fs->ctx->master;                                     \
-} while (0)
-
-#define __GLFS_EXIT_FS                                              \
-do {                                                                \
-        THIS = old_THIS;                                            \
-} while (0)
-
-#define __GLFS_ENTRY_VALIDATE_FD(glfd, label)                       \
-do {                                                                \
-        if (!glfd || !glfd->fd || !glfd->fd->inode) {               \
-                errno = EBADF;                                      \
-                goto label;                                         \
-        }                                                           \
-        old_THIS = THIS;                                            \
-        THIS = glfd->fd->inode->table->xl->ctx->master;             \
-} while (0)
+static inline void
+__glfs_entry_fd (struct glfs_fd *fd)
+{
+	THIS = fd->fd->inode->table->xl->ctx->master;
+}
 
 
 /*
@@ -312,11 +197,9 @@ void glfs_fd_destroy (struct glfs_fd *glfd);
 struct glfs_fd *glfs_fd_new (struct glfs *fs);
 void glfs_fd_bind (struct glfs_fd *glfd);
 
-xlator_t *glfs_active_subvol (struct glfs *fs)
-        GFAPI_PRIVATE(glfs_active_subvol, 3.4.0);
+xlator_t *priv_glfs_active_subvol (struct glfs *fs);
 xlator_t *__glfs_active_subvol (struct glfs *fs);
-void glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
-        GFAPI_PRIVATE(glfs_subvol_done, 3.4.0);
+void priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol);
 
 inode_t *glfs_refresh_inode (xlator_t *subvol, inode_t *inode);
 
@@ -329,12 +212,10 @@ int __glfs_cwd_set (struct glfs *fs, inode_t *inode);
 
 int glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 		       struct iatt *iatt);
-int glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
+int priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
                           const char *origpath, loc_t *loc, struct iatt *iatt,
-                          int follow, int reval)
-        GFAPI_PRIVATE(glfs_resolve_at, 3.4.0);
-int glfs_loc_touchup (loc_t *loc)
-	GFAPI_PRIVATE(glfs_loc_touchup, 3.4.0);
+                          int follow, int reval);
+int priv_glfs_loc_touchup (loc_t *loc);
 void glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat);
 int glfs_loc_link (loc_t *loc, struct iatt *iatt);
 int glfs_loc_unlink (loc_t *loc);
@@ -369,8 +250,7 @@ int glfs_get_volume_info (struct glfs *fs);
        NULL   : Otherwise.
 */
 
-struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
-        GFAPI_PRIVATE(glfs_new_from_ctx, 3.7.0);
+struct glfs *priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx);
 
 /*
   SYNOPSIS
@@ -381,9 +261,9 @@ struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
   DESCRIPTION
 
        The glfs_t object allocated by glfs_new_from_ctx() must be released
-       by the caller using this routine. The usage can be found
-       at glfs_fini() or NFS, MOUNT over UDP i.e.
-                        __mnt3udp_get_export_subdir_inode ()
+       by the caller using this routine. The usage is restricted to NFS
+       MOUNT over UDP i.e.
+       __mnt3udp_get_export_subdir_inode ()
                                 => glfs_resolve_at().
 
   PARAMETERS
@@ -395,26 +275,13 @@ struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
        void
 */
 
-void glfs_free_from_ctx (struct glfs *fs)
-         GFAPI_PRIVATE(glfs_free_from_ctx, 3.7.0);
+void priv_glfs_free_from_ctx (struct glfs *fs);
 
-int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
-                                        struct gf_upcall *from_up_data);
-int
-glfs_h_poll_cache_invalidation (struct glfs *fs,
-                                struct callback_arg *up_arg,
-                                struct gf_upcall *upcall_data);
+#define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, dotver) \
+        asm(".symver pub_"STR(fn)", "STR(fn)"@@GFAPI_"STR(dotver))
 
-ssize_t
-glfs_anonymous_preadv (struct glfs *fs, struct glfs_object *object,
-                       const struct iovec *iovec, int iovcnt,
-                       off_t offset, int flags);
-ssize_t
-glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
-                        const struct iovec *iovec, int iovcnt,
-                        off_t offset, int flags);
-
-struct glfs_object *
-glfs_h_resolve_symlink (struct glfs *fs, struct glfs_object *object);
+#define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, dotver) \
+        asm(".symver priv_"STR(fn)", "STR(fn)"@@GFAPI_PRIVATE_"STR(dotver))
+#define STR(str) #str
 
 #endif /* !_GLFS_INTERNAL_H */

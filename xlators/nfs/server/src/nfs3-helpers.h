@@ -10,6 +10,11 @@
 
 #ifndef _NFS3_HELPER_H_
 #define _NFS3_HELPER_H_
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 
 #include "xlator.h"
 #include "nfs3.h"
@@ -245,38 +250,33 @@ extern int
 nfs3_cached_inode_opened (xlator_t *nfsxl, inode_t *inode);
 
 extern void
-nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
-                     const char *path);
+nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat);
 
 extern void
-nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat,
-                       char *linkpath, const char *path);
+nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath);
 
 extern void
-nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat,
-                   count3 count, int is_eof, struct iovec *vec,
-                   int32_t vcount, const char *path);
+nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
+                   int is_eof, struct iovec *vec, int32_t vcount);
 
 extern void
 nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
-                    int stable, uint64_t wverf, const char *path);
+                    int stable, uint64_t wverf);
 
 extern void
 nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
-                    struct nfs3_fh *newfh, const char *path);
+                    struct nfs3_fh *newfh);
 
 extern void
 nfs3_log_readdir_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
-                      count3 count, int is_eof, const char *path);
+                      count3 count, int is_eof);
 
 extern void
 nfs3_log_readdirp_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
-                       count3 dircount, count3 maxcount, int is_eof,
-                       const char *path);
+                       count3 dircount, count3 maxcount, int is_eof);
 
 extern void
-nfs3_log_commit_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t wverf,
-                     const char *path);
+nfs3_log_commit_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t wverf);
 
 extern void
 nfs3_log_common_call (uint32_t xid, char *op, struct nfs3_fh *fh);
@@ -333,9 +333,6 @@ nfs3_is_parentdir_entry (char *entry);
 
 uint32_t
 nfs3_request_to_accessbits (int32_t accbits);
-
-extern int
-nfs3_fh_auth_nfsop (nfs3_call_state_t *cs, gf_boolean_t is_write_op);
 
 void
 nfs3_map_deviceid_to_statdev (struct iatt *ia, uint64_t deviceid);

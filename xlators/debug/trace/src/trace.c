@@ -19,7 +19,7 @@
  */
 #define TRACE_STAT_TO_STR(buf, str) trace_stat_to_str (buf, str, sizeof (str))
 
-static void
+static inline void
 trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 {
         char     atime_buf[256]    = {0,};
@@ -2286,8 +2286,6 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               off_t offset, uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         trace_conf_t    *conf = NULL;
-        int i = 0;
-        size_t total_size = 0;
 
         conf = this->private;
 
@@ -2295,15 +2293,12 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto out;
         if (trace_fop_names[GF_FOP_WRITE].enabled) {
                 char     string[4096]  =  {0,};
-                for (i = 0; i < count; i++)
-                        total_size += vector[i].iov_len;
-
                 snprintf (string, sizeof (string),
                           "%"PRId64": gfid=%s fd=%p, count=%d, "
-                          " offset=%"PRId64" flags=0%x write_size=%lu",
+                          " offset=%"PRId64" flags=0%x)",
                           frame->root->unique,
                           uuid_utoa (fd->inode->gfid), fd, count,
-                          offset, flags, total_size);
+                          offset, flags);
 
                 frame->local = fd->inode->gfid;
 

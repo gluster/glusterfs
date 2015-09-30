@@ -11,12 +11,16 @@
 #ifndef _DICT_H
 #define _DICT_H
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <inttypes.h>
 #include <sys/uio.h>
 #include <pthread.h>
 
 #include "common-utils.h"
-#include "libglusterfs-messages.h"
 
 typedef struct _data data_t;
 typedef struct _dict dict_t;
@@ -31,8 +35,7 @@ typedef struct _data_pair data_pair_t;
                                                                         \
                 ret = dict_allocate_and_serialize (from_dict, to, &len);\
                 if (ret < 0) {                                          \
-                        gf_msg (this->name, GF_LOG_WARNING, 0,          \
-                                LG_MSG_DICT_SERIAL_FAILED,            \
+                        gf_log (this->name, GF_LOG_WARNING,             \
                                 "failed to get serialized dict (%s)",   \
                                 (#from_dict));                          \
                         ope = EINVAL;                                   \
@@ -47,10 +50,9 @@ typedef struct _data_pair data_pair_t;
                 to = dict_new();                                        \
                 GF_VALIDATE_OR_GOTO (xl->name, to, labl);               \
                                                                         \
-                ret = dict_unserialize (buff, len, &to);                \
+                ret = dict_unserialize (buff, len, &to);                 \
                 if (ret < 0) {                                          \
-                        gf_msg (xl->name, GF_LOG_WARNING, 0,            \
-                                LG_MSG_DICT_UNSERIAL_FAILED,            \
+                        gf_log (xl->name, GF_LOG_WARNING,               \
                                 "failed to unserialize dictionary (%s)", \
                                 (#to));                                 \
                                                                         \
@@ -63,6 +65,7 @@ typedef struct _data_pair data_pair_t;
 struct _data {
         unsigned char  is_static:1;
         unsigned char  is_const:1;
+        unsigned char  is_stdalloc:1;
         int32_t        len;
         char          *data;
         int32_t        refcount;
@@ -92,8 +95,6 @@ struct _dict {
         gf_boolean_t    free_pair_in_use;
 };
 
-typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,
-                                      void *data);
 
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
@@ -140,6 +141,9 @@ uint64_t data_to_uint64 (data_t *data);
 uint32_t data_to_uint32 (data_t *data);
 uint16_t data_to_uint16 (data_t *data);
 uint8_t data_to_uint8 (data_t *data);
+
+data_t *data_from_ptr (void *value);
+data_t *data_from_static_ptr (void *value);
 
 data_t *data_from_int64 (int64_t value);
 data_t *data_from_int32 (int32_t value);
@@ -235,9 +239,9 @@ GF_MUST_CHECK int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size);
 
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_dynmstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str);
-GF_MUST_CHECK int dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
@@ -251,15 +255,4 @@ dict_dump_to_log (dict_t *dict);
 
 int
 dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format);
-gf_boolean_t
-dict_match_everything (dict_t *d, char *k, data_t *v, void *data);
-
-dict_t *
-dict_for_key_value (const char *name, const char *value, size_t size);
-
-gf_boolean_t
-are_dicts_equal (dict_t *one, dict_t *two,
-                 gf_boolean_t (*match) (dict_t *d, char *k, data_t *v,
-                                        void *data),
-                 gf_boolean_t (*value_ignore) (char *k));
 #endif

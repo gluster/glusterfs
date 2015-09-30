@@ -8,6 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "call-stub.h"
 #include "defaults.h"
 #include "glusterfs.h"
@@ -19,7 +24,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include "locking.h"
-#include "io-threads-messages.h"
 
 void *iot_worker (void *arg);
 int iot_workers_scale (iot_conf_t *conf);
@@ -188,9 +192,9 @@ iot_worker (void *data)
                                 if (conf->curr_count > IOT_MIN_THREADS) {
                                         conf->curr_count--;
                                         bye = 1;
-                                        gf_msg_debug (conf->this->name, 0,
-                                                      "timeout, terminated. conf->curr_count=%d",
-                                                      conf->curr_count);
+                                        gf_log (conf->this->name, GF_LOG_DEBUG,
+                                                "timeout, terminated. conf->curr_count=%d",
+                                                conf->curr_count);
                                 } else {
                                         timeout = 0;
                                 }
@@ -337,13 +341,12 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_RELEASEDIR:
         case GF_FOP_GETSPEC:
                 break;
-        case GF_FOP_IPC:
         default:
                 return -EINVAL;
         }
 out:
-        gf_msg_debug (this->name, 0, "%s scheduled as %s fop",
-                      gf_fop_list[stub->fop], iot_get_pri_meaning (pri));
+        gf_log (this->name, GF_LOG_DEBUG, "%s scheduled as %s fop",
+                gf_fop_list[stub->fop], iot_get_pri_meaning (pri));
         ret = do_iot_schedule (this->private, stub, pri);
         return ret;
 }
@@ -764,10 +767,9 @@ __iot_workers_scale (iot_conf_t *conf)
                 ret = gf_thread_create (&thread, &conf->w_attr, iot_worker, conf);
                 if (ret == 0) {
                         conf->curr_count++;
-                        gf_msg_debug (conf->this->name, 0,
-                                      "scaled threads to %d (queue_size=%d/%d)",
-                                      conf->curr_count,
-                                      conf->queue_size, scale);
+                        gf_log (conf->this->name, GF_LOG_DEBUG,
+                                "scaled threads to %d (queue_size=%d/%d)",
+                                conf->curr_count, conf->queue_size, scale);
                 } else {
                         break;
                 }
@@ -812,13 +814,11 @@ set_stack_size (iot_conf_t *conf)
         if (err == EINVAL) {
                 err = pthread_attr_getstacksize (&conf->w_attr, &stacksize);
                 if (!err)
-                        gf_msg (this->name, GF_LOG_WARNING,
-                                0, IO_THREADS_MSG_SIZE_NOT_SET,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "Using default thread stack size %zd",
                                 stacksize);
                 else
-                        gf_msg (this->name, GF_LOG_WARNING,
-                                0, IO_THREADS_MSG_SIZE_NOT_SET,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "Using default thread stack size");
         }
 
@@ -837,9 +837,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_iot_mt_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR,
-                        ENOMEM, IO_THREADS_MSG_NO_MEMORY,
-                        "Memory accounting init failed");
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
                 return ret;
         }
 
@@ -930,37 +929,32 @@ init (xlator_t *this)
         int         i    = 0;
 
 	if (!this->children || this->children->next) {
-		gf_msg ("io-threads", GF_LOG_ERROR, 0,
-                        IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED,
-			"FATAL: iot not configured "
-                        "with exactly one child");
+		gf_log ("io-threads", GF_LOG_ERROR,
+			"FATAL: iot not configured with exactly one child");
                 goto out;
 	}
 
 	if (!this->parents) {
-		gf_msg (this->name, GF_LOG_WARNING, 0,
-			IO_THREADS_MSG_VOL_MISCONFIGURED,
-                        "dangling volume. check volfile ");
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
 	}
 
 	conf = (void *) GF_CALLOC (1, sizeof (*conf),
                                    gf_iot_mt_iot_conf_t);
         if (conf == NULL) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        IO_THREADS_MSG_NO_MEMORY, "out of memory");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory");
                 goto out;
         }
 
         if ((ret = pthread_cond_init(&conf->cond, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        IO_THREADS_MSG_INIT_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "pthread_cond_init failed (%d)", ret);
                 goto out;
         }
 
         if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        IO_THREADS_MSG_INIT_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "pthread_mutex_init failed (%d)", ret);
                 goto out;
         }
@@ -988,8 +982,7 @@ init (xlator_t *this)
 	GF_OPTION_INIT("least-rate-limit", conf->throttle.rate_limit, int32,
 		       out);
         if ((ret = pthread_mutex_init(&conf->throttle.lock, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        IO_THREADS_MSG_INIT_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "pthread_mutex_init failed (%d)", ret);
                 goto out;
         }
@@ -1003,8 +996,7 @@ init (xlator_t *this)
 	ret = iot_workers_scale (conf);
 
         if (ret == -1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        IO_THREADS_MSG_INIT_FAILED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "cannot initialize worker threads, exiting init");
                 goto out;
         }

@@ -10,13 +10,17 @@
 #ifndef _GLUSTERD_VOLGEN_H_
 #define _GLUSTERD_VOLGEN_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>
 #endif
 
 #include "glusterd.h"
-#include "glusterd-messages.h"
 
 /* volopt map key name definitions */
 
@@ -28,10 +32,6 @@
 #define VKEY_MARKER_XTIME_FORCE   GEOREP".ignore-pid-check"
 #define VKEY_CHANGELOG            "changelog.changelog"
 #define VKEY_FEATURES_QUOTA       "features.quota"
-#define VKEY_FEATURES_INODE_QUOTA "features.inode-quota"
-#define VKEY_FEATURES_TRASH       "features.trash"
-#define VKEY_FEATURES_BITROT      "features.bitrot"
-#define VKEY_FEATURES_SCRUB       "features.scrub"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
@@ -40,14 +40,8 @@
 #define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
 #define NFS_DISABLE_OPT_KEY "nfs.*.disable"
 
-#define SSL_OWN_CERT_OPT    "ssl.own-cert"
-#define SSL_PRIVATE_KEY_OPT "ssl.private-key"
-#define SSL_CA_LIST_OPT     "ssl.ca-list"
-#define SSL_CRL_PATH_OPT    "ssl.crl-path"
 #define SSL_CERT_DEPTH_OPT  "ssl.certificate-depth"
 #define SSL_CIPHER_LIST_OPT "ssl.cipher-list"
-#define SSL_DH_PARAM_OPT    "ssl.dh-param"
-#define SSL_EC_CURVE_OPT    "ssl.ec-curve"
 
 
 typedef enum {
@@ -55,29 +49,17 @@ typedef enum {
         GF_CLIENT_OTHER
 } glusterd_client_type_t;
 
-struct volgen_graph {
-        char **errstr;
-        glusterfs_graph_t graph;
-};
-typedef struct volgen_graph volgen_graph_t;
-
-typedef int (*glusterd_graph_builder_t) (volgen_graph_t *graph,
-                                         dict_t *mod_dict);
-
 #define COMPLETE_OPTION(key, completion, ret)                           \
         do {                                                            \
                 if (!strchr (key, '.')) {                               \
                         ret = option_complete (key, &completion);       \
                         if (ret) {                                      \
-                                gf_msg ("", GF_LOG_ERROR, ENOMEM,       \
-                                        GD_MSG_NO_MEMORY, "Out of memory"); \
+                                gf_log ("", GF_LOG_ERROR, "Out of memory"); \
                                 return _gf_false;                       \
                         }                                               \
                                                                         \
                         if (!completion) {                              \
-                                gf_msg ("", GF_LOG_ERROR, 0,            \
-                                        GD_MSG_INVALID_ENTRY,           \
-                                        "option %s does not"            \
+                                gf_log ("", GF_LOG_ERROR, "option %s does not" \
                                         "exist", key);                  \
                                 return _gf_false;                       \
                         }                                               \
@@ -92,20 +74,17 @@ typedef enum gd_volopt_flags_ {
         OPT_FLAG_FORCE = 0x01,      // option needs force to be reset
         OPT_FLAG_XLATOR_OPT = 0x02, // option enables/disables xlators
         OPT_FLAG_CLIENT_OPT = 0x04, // option affects clients
-        OPT_FLAG_NEVER_RESET = 0x08, /* option which should not be reset */
 } gd_volopt_flags_t;
 
 typedef enum {
         GF_XLATOR_POSIX = 0,
         GF_XLATOR_ACL,
         GF_XLATOR_LOCKS,
-        GF_XLATOR_UPCALL,
         GF_XLATOR_IOT,
         GF_XLATOR_INDEX,
         GF_XLATOR_MARKER,
         GF_XLATOR_IO_STATS,
         GF_XLATOR_BD,
-        GF_XLATOR_SERVER,
         GF_XLATOR_NONE,
 } glusterd_server_xlator_t;
 
@@ -121,8 +100,8 @@ typedef enum {
 
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
-typedef int (*vme_option_validation) (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                      char *key, char *value, char **op_errstr);
+typedef int (*vme_option_validation) (dict_t *dict, char *key, char *value,
+                                      char **op_errstr);
 
 struct volopt_map_entry {
         char *key;
@@ -140,32 +119,6 @@ struct volopt_map_entry {
         //gf_boolean_t client_option;
 };
 
-typedef
-int (*brick_xlator_builder) (volgen_graph_t *graph,
-                             glusterd_volinfo_t *volinfo, dict_t *set_dict,
-                             glusterd_brickinfo_t *brickinfo);
-
-struct volgen_brick_xlator {
-        /* function that builds a xlator */
-        brick_xlator_builder builder;
-        /* debug key for a xlator that
-         * gets used for adding debug translators like trace, error-gen
-         * before this xlator */
-        char *dbg_key;
-};
-typedef struct volgen_brick_xlator volgen_brick_xlator_t;
-
-int
-glusterd_snapdsvc_create_volfile (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
-                                    glusterd_volinfo_t *volinfo);
-
-int
-glusterd_create_global_volfile (glusterd_graph_builder_t builder,
-                                char *filepath, dict_t  *mod_dict);
-
 int
 glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
@@ -179,23 +132,19 @@ glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
 void
 glusterd_get_nfs_filepath (char *filename);
 
-void
-glusterd_get_shd_filepath (char *filename);
+void glusterd_get_shd_filepath (char *filename);
 
 int
-build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict);
+glusterd_create_nfs_volfile ();
 
 int
-build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict);
+glusterd_create_shd_volfile ();
 
 int
-build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict);
+glusterd_create_quotad_volfile ();
 
 int
-build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict);
-
-int
-build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict);
+glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
@@ -226,9 +175,6 @@ glusterd_check_voloption_flags (char *key, int32_t flags);
 
 gf_boolean_t
 glusterd_is_valid_volfpath (char *volname, char *brick);
-
-void
-assign_brick_groups (glusterd_volinfo_t *volinfo);
 
 int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo);
@@ -266,6 +212,12 @@ end_sethelp_xml_doc (xmlTextWriterPtr writer);
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
 
+int
+glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
+
+int
+glusterd_check_nfs_topology_identical (gf_boolean_t *identical);
+
 uint32_t
 glusterd_get_op_version_for_key (char *key);
 
@@ -277,14 +229,5 @@ gd_is_xlator_option (char *key);
 
 gf_boolean_t
 gd_is_boolean_option (char *key);
-
-
-char*
-volgen_get_shd_key (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
-                          char *value, char **op_errstr);
-
 
 #endif

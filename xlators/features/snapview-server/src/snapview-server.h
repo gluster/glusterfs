@@ -10,6 +10,11 @@
 #ifndef __SNAP_VIEW_H__
 #define __SNAP_VIEW_H__
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "dict.h"
 #include "defaults.h"
 #include "mem-types.h"
@@ -168,7 +173,13 @@ int32_t
 svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode);
 
 svs_inode_t *
+svs_inode_new ();
+
+svs_inode_t *
 svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode);
+
+svs_fd_t *
+svs_fd_new ();
 
 int
 __svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd);

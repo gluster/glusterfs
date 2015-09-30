@@ -16,7 +16,7 @@
 #include <setjmp.h>
 #include <inttypes.h>
 
-#include <cmocka.h>
+#include <cmockery/cmockery.h>
 
 xlator_t **__glusterfs_this_location ()
 {
