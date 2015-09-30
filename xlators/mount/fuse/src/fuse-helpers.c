@@ -17,9 +17,11 @@
 #include <sys/types.h>
 #include <libutil.h>
 #include <sys/user.h>
-#else
+#elif defined(CTL_KERN)
 #include <sys/sysctl.h>
 #endif
+#include <pwd.h>
+#include <grp.h>
 
 #include "fuse-bridge.h"
 
@@ -146,51 +148,87 @@ void
 frame_fill_groups (call_frame_t *frame)
 {
 #if defined(GF_LINUX_HOST_OS)
-        char         filename[32];
-        char         line[4096];
-        char        *ptr = NULL;
-        FILE        *fp = NULL;
-        int          idx = 0;
-        long int     id = 0;
-        char        *saveptr = NULL;
-        char        *endptr = NULL;
-        int          ret = 0;
+        xlator_t       *this          = frame->this;
+        fuse_private_t *priv          = this->private;
+        char            filename[32];
+        char            line[4096];
+        char           *ptr           = NULL;
+        FILE           *fp            = NULL;
+        int             idx           = 0;
+        long int        id            = 0;
+        char           *saveptr       = NULL;
+        char           *endptr        = NULL;
+        int             ret           = 0;
+        int             ngroups       = FUSE_MAX_AUX_GROUPS;
+        gid_t           mygroups[GF_MAX_AUX_GROUPS];
 
-        ret = snprintf (filename, sizeof filename, "/proc/%d/status",
-                        frame->root->pid);
-        if (ret >= sizeof filename)
-                goto out;
+        if (priv->resolve_gids) {
+                struct passwd    pwent;
+                char             mystrs[1024];
+                struct passwd   *result;
 
-        fp = fopen (filename, "r");
-        if (!fp)
-                goto out;
-
-        if (call_stack_alloc_groups (frame->root, FUSE_MAX_AUX_GROUPS) != 0)
-                goto out;
-
-        while ((ptr = fgets (line, sizeof line, fp))) {
-                if (strncmp (ptr, "Groups:", 7) != 0)
-                        continue;
-
-                ptr = line + 8;
-
-                for (ptr = strtok_r (ptr, " \t\r\n", &saveptr);
-                     ptr;
-                     ptr = strtok_r (NULL, " \t\r\n", &saveptr)) {
-                        errno = 0;
-                        id = strtol (ptr, &endptr, 0);
-                        if (errno == ERANGE)
-                                break;
-                        if (!endptr || *endptr)
-                                break;
-                        frame->root->groups[idx++] = id;
-                        if (idx == FUSE_MAX_AUX_GROUPS)
-                                break;
+                if (getpwuid_r (frame->root->uid, &pwent, mystrs,
+                                sizeof(mystrs), &result) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "getpwuid_r(%u) "
+                                "failed", frame->root->uid);
+                        return;
                 }
 
-                frame->root->ngrps = idx;
-                break;
+                ngroups = GF_MAX_AUX_GROUPS;
+                if (getgrouplist (result->pw_name, frame->root->gid, mygroups,
+                                  &ngroups) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "could not map %s to "
+                                "group list (ngroups %d, max %d)",
+                                result->pw_name, ngroups, GF_MAX_AUX_GROUPS);
+                        return;
+                }
+
+                if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+                        goto out;
+
+                /* Copy data to the frame. */
+                for (idx = 0; idx < ngroups; ++idx) {
+                        frame->root->groups[idx] = mygroups[idx];
+                }
+                frame->root->ngrps = ngroups;
+        } else {
+                ret = snprintf (filename, sizeof filename, "/proc/%d/status",
+                                frame->root->pid);
+                if (ret >= sizeof filename)
+                        goto out;
+
+                fp = fopen (filename, "r");
+                if (!fp)
+                        goto out;
+
+                if (call_stack_alloc_groups (frame->root, ngroups) != 0)
+                        goto out;
+
+                while ((ptr = fgets (line, sizeof line, fp))) {
+                        if (strncmp (ptr, "Groups:", 7) != 0)
+                                continue;
+
+                        ptr = line + 8;
+
+                        for (ptr = strtok_r (ptr, " \t\r\n", &saveptr);
+                             ptr;
+                             ptr = strtok_r (NULL, " \t\r\n", &saveptr)) {
+                                errno = 0;
+                                id = strtol (ptr, &endptr, 0);
+                                if (errno == ERANGE)
+                                        break;
+                                if (!endptr || *endptr)
+                                        break;
+                                frame->root->groups[idx++] = id;
+                                if (idx == FUSE_MAX_AUX_GROUPS)
+                                        break;
+                        }
+
+                        frame->root->ngrps = idx;
+                        break;
+                }
         }
+
 out:
         if (fp)
                 fclose (fp);
@@ -259,15 +297,15 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 	const gid_list_t *gl;
 	gid_list_t agl;
 
+	if (!priv || !priv->gid_cache_timeout) {
+		frame_fill_groups(frame);
+		return;
+	}
+
         if (-1 == priv->gid_cache_timeout) {
                 frame->root->ngrps = 0;
                 return;
         }
-
-	if (!priv->gid_cache_timeout) {
-		frame_fill_groups(frame);
-		return;
-	}
 
 	gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid,
 			      frame->root->uid, frame->root->gid);
@@ -326,7 +364,7 @@ get_call_frame_for_req (fuse_state_t *state)
                                           state->lk_owner);
         }
 
-	get_groups(priv, frame);
+        get_groups(priv, frame);
 
         if (priv && priv->client_pid_set)
                 frame->root->pid = priv->client_pid;
@@ -386,11 +424,11 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                         parent = fuse_ino_to_inode (par, state->this);
                         loc->parent = parent;
                         if (parent)
-                                uuid_copy (loc->pargfid, parent->gfid);
+                                gf_uuid_copy (loc->pargfid, parent->gfid);
                 }
 
                 inode = loc->inode;
-                if (!inode) {
+                if (!inode && parent) {
                         inode = inode_grep (parent->table, parent, name);
                         loc->inode = inode;
                 }
@@ -409,7 +447,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                         inode = fuse_ino_to_inode (ino, state->this);
                         loc->inode = inode;
                         if (inode)
-                                uuid_copy (loc->gfid, inode->gfid);
+                                gf_uuid_copy (loc->gfid, inode->gfid);
                 }
 
                 parent = loc->parent;
@@ -417,7 +455,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                         parent = inode_parent (inode, null_gfid, NULL);
                         loc->parent = parent;
                         if (parent)
-                                uuid_copy (loc->pargfid, parent->gfid);
+                                gf_uuid_copy (loc->pargfid, parent->gfid);
 
                 }
 
@@ -454,9 +492,6 @@ fail:
                 GF_FREE (path);
         return ret;
 }
-
-/* Use the same logic as the Linux NFS-client */
-#define GF_FUSE_SQUASH_INO(ino) ((uint32_t) ino) ^ (ino >> 32)
 
 /* courtesy of folly */
 void
@@ -599,6 +634,8 @@ fuse_ignore_xattr_set (fuse_private_t *priv, char *key)
               || (fnmatch ("*.glusterfs.volume-mark",
                            key, FNM_PERIOD) == 0)
               || (fnmatch ("*.glusterfs.volume-mark.*",
+                           key, FNM_PERIOD) == 0)
+              || (fnmatch ("system.posix_acl_access",
                            key, FNM_PERIOD) == 0)
               || (fnmatch ("glusterfs.gfid.newfile",
                            key, FNM_PERIOD) == 0)))

@@ -13,11 +13,6 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -234,6 +229,9 @@ cli_cmds_register (struct cli_state *state)
         ret = cli_cmd_snapshot_register (state);
         if (ret)
                 goto out;
+        ret = cli_cmd_global_register (state);
+        if (ret)
+                goto out;
 out:
         return ret;
 }
@@ -302,6 +300,9 @@ cli_cmd_await_response (unsigned time)
         return cli_op_ret;
 }
 
+/* This function must be called _only_ after all actions associated with
+ * command processing is complete. Otherwise, gluster process may exit before
+ * reporting results to stdout/stderr. */
 int
 cli_cmd_broadcast_response (int32_t status)
 {
@@ -368,7 +369,8 @@ cli_cmd_submit (struct rpc_clnt* rpc, void *req, call_frame_t *frame,
         unsigned        timeout = 0;
 
         if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
-            (GLUSTER_CLI_HEAL_VOLUME == procnum))
+            (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
+            (GLUSTER_CLI_GANESHA == procnum))
                 timeout = CLI_TEN_MINUTES_TIMEOUT;
         else
                 timeout = CLI_DEFAULT_CMD_TIMEOUT;

@@ -10,11 +10,6 @@
 #ifndef __META_H__
 #define __META_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "strfd.h"
 
 #define DEFAULT_META_DIR_NAME ".meta"

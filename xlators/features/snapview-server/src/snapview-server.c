@@ -7,13 +7,9 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
+#include "compat-errno.h"
 
 #include "xlator.h"
 #include "rpc-clnt.h"
@@ -38,8 +34,8 @@ svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
         GF_VALIDATE_OR_GOTO (this->name, postparent, out);
 
-        if (uuid_is_null (loc->inode->gfid)) {
-                uuid_generate (gfid);
+        if (gf_uuid_is_null (loc->inode->gfid)) {
+                gf_uuid_generate (gfid);
                 svs_iatt_fill (gfid, buf);
 
                 /* Here the inode context of the entry point directory
@@ -62,7 +58,7 @@ svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
                         *op_errno = ENOMEM;
                         goto out;
                 }
-                uuid_copy (inode_ctx->pargfid, loc->pargfid);
+                gf_uuid_copy (inode_ctx->pargfid, loc->pargfid);
                 memcpy (&inode_ctx->buf, buf, sizeof (*buf));
                 inode_ctx->type = SNAP_VIEW_ENTRY_POINT_INODE;
         } else {
@@ -123,12 +119,12 @@ svs_lookup_gfid (xlator_t *this, loc_t *loc, struct iatt *buf,
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
         GF_VALIDATE_OR_GOTO (this->name, postparent, out);
 
-        if (uuid_is_null (loc->gfid) && uuid_is_null (loc->inode->gfid)) {
+        if (gf_uuid_is_null (loc->gfid) && gf_uuid_is_null (loc->inode->gfid)) {
                 gf_log (this->name, GF_LOG_ERROR, "gfid is NULL");
                 goto out;
         }
 
-        if (!uuid_is_null (loc->inode->gfid))
+        if (!gf_uuid_is_null (loc->inode->gfid))
                 memcpy (handle_obj, loc->inode->gfid,
                         GFAPI_HANDLE_LENGTH);
         else
@@ -166,10 +162,10 @@ svs_lookup_gfid (xlator_t *this, loc_t *loc, struct iatt *buf,
         }
 
         iatt_from_stat (buf, &statbuf);
-        if (!uuid_is_null (loc->gfid))
-                uuid_copy (buf->ia_gfid, loc->gfid);
+        if (!gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (buf->ia_gfid, loc->gfid);
         else
-                uuid_copy (buf->ia_gfid, loc->inode->gfid);
+                gf_uuid_copy (buf->ia_gfid, loc->inode->gfid);
 
         inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
         inode_ctx->fs = fs;
@@ -213,9 +209,10 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
 
         fs = svs_initialise_snapshot_volume (this, loc->name, op_errno);
         if (!fs) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to "
                         "create the fs instance for snap %s",
                         loc->name);
+                *op_errno = ENOENT;
                 op_ret = -1;
                 goto out;
         }
@@ -225,7 +222,7 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
         object = glfs_h_create_from_handle (fs, handle_obj, GFAPI_HANDLE_LENGTH,
                                             &statbuf);
         if (!object) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to do lookup and "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to do lookup and "
                         "get the handle on the snapshot %s", loc->name);
                 op_ret = -1;
                 *op_errno = errno;
@@ -241,17 +238,17 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
                 goto out;
         }
 
-        if (uuid_is_null (loc->gfid) &&
-            uuid_is_null (loc->inode->gfid))
-                uuid_generate (gfid);
+        if (gf_uuid_is_null (loc->gfid) &&
+            gf_uuid_is_null (loc->inode->gfid))
+                gf_uuid_generate (gfid);
         else {
-                if (!uuid_is_null (loc->inode->gfid))
-                        uuid_copy (gfid, loc->inode->gfid);
+                if (!gf_uuid_is_null (loc->inode->gfid))
+                        gf_uuid_copy (gfid, loc->inode->gfid);
                 else
-                        uuid_copy (gfid, loc->gfid);
+                        gf_uuid_copy (gfid, loc->gfid);
         }
         iatt_from_stat (buf, &statbuf);
-        uuid_copy (buf->ia_gfid, gfid);
+        gf_uuid_copy (buf->ia_gfid, gfid);
         svs_fill_ino_from_gfid (buf);
         inode_ctx->type = SNAP_VIEW_SNAPSHOT_INODE;
         inode_ctx->fs = fs;
@@ -291,9 +288,9 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         fs = parent_ctx->fs;
 
         object = glfs_h_lookupat (fs, parent_object, loc->name,
-                                  &statbuf);
+                                  &statbuf, 0);
         if (!object) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to do lookup and "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to do lookup and "
                         "get the handle for entry %s (path: %s)", loc->name,
                         loc->path);
                 op_ret = -1;
@@ -310,18 +307,18 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
                 goto out;
         }
 
-        if (uuid_is_null (loc->gfid) &&
-            uuid_is_null (loc->inode->gfid))
-                uuid_generate (gfid);
+        if (gf_uuid_is_null (loc->gfid) &&
+            gf_uuid_is_null (loc->inode->gfid))
+                gf_uuid_generate (gfid);
         else {
-                if (!uuid_is_null (loc->inode->gfid))
-                        uuid_copy (gfid, loc->inode->gfid);
+                if (!gf_uuid_is_null (loc->inode->gfid))
+                        gf_uuid_copy (gfid, loc->inode->gfid);
                 else
-                        uuid_copy (gfid, loc->gfid);
+                        gf_uuid_copy (gfid, loc->gfid);
         }
 
         iatt_from_stat (buf, &statbuf);
-        uuid_copy (buf->ia_gfid, gfid);
+        gf_uuid_copy (buf->ia_gfid, gfid);
         svs_fill_ino_from_gfid (buf);
         inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
         inode_ctx->fs = fs;
@@ -476,8 +473,8 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         int32_t        ret                            = -1;
         svs_private_t *private                        = NULL;
         inode_t       *parent                         = NULL;
-        glfs_t        *fs                             = NULL;
         snap_dirent_t *dirent                         = NULL;
+        gf_boolean_t   entry_point_key                = _gf_false;
         gf_boolean_t   entry_point                    = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("svs", this, out);
@@ -506,17 +503,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 }
         }
 
-        if (loc->name && strlen (loc->name)) {
-                ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
-                                "entry point info");
-                        entry_point = _gf_false;
-                } else {
-                        entry_point = ret;
-                }
-        }
-
         if (loc->parent)
                 parent = inode_ref (loc->parent);
         else {
@@ -533,7 +519,26 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         dirent = svs_get_latest_snap_entry (this);
 
         if (dirent && !dirent->fs) {
-                fs = svs_initialise_snapshot_volume (this, dirent->name, NULL);
+                svs_initialise_snapshot_volume (this, dirent->name, NULL);
+        }
+
+        if (xdata && !inode_ctx) {
+                ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
+                                "entry point info");
+                        entry_point_key = _gf_false;
+                } else {
+                        entry_point_key = ret;
+                }
+
+                if (loc->name && strlen (loc->name)) {
+                        /* lookup can come with the entry-point set in the dict
+                        * for the parent directory of the entry-point as well.
+                        * So consider entry_point only for named lookup
+                        */
+                        entry_point = entry_point_key;
+                }
         }
 
         if (inode_ctx && inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
@@ -566,8 +571,37 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
            the server does not have the inode in the inode table.
         */
         if (!inode_ctx && !parent_ctx) {
-                op_ret = svs_lookup_gfid (this, loc, &buf, &postparent,
-                                          &op_errno);
+                if (gf_uuid_is_null (loc->gfid) &&
+                    gf_uuid_is_null (loc->inode->gfid)) {
+                        gf_log (this->name, GF_LOG_ERROR, "gfid is NULL");
+                        op_ret = -1;
+                        op_errno = ESTALE;
+                        goto out;
+                }
+
+                if (!entry_point_key) {
+                        /* This can happen when there is no inode_ctx available.
+                        * snapview-server might have restarted or
+                        * graph change might have happened
+                        */
+                        op_ret = -1;
+                        op_errno = ESTALE;
+                        goto out;
+                }
+
+                /* lookup is on the parent directory of entry-point.
+                 * this would have already looked up by snap-view client
+                 * so return success
+                 */
+                if (!gf_uuid_is_null (loc->gfid))
+                        gf_uuid_copy (buf.ia_gfid, loc->gfid);
+                else
+                        gf_uuid_copy (buf.ia_gfid, loc->inode->gfid);
+
+                svs_iatt_fill (buf.ia_gfid, &buf);
+                svs_iatt_fill (buf.ia_gfid, &postparent);
+
+                op_ret = 0;
                 goto out;
         }
 
@@ -694,7 +728,7 @@ svs_add_xattrs_to_dict (xlator_t *this, dict_t *dict, char *list, ssize_t size)
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-                strcpy (keybuffer, list + list_offset);
+                strncpy (keybuffer, list + list_offset, sizeof (keybuffer) - 1);
 #ifdef GF_DARWIN_HOST_OS
                 /* The protocol expect namespace for now */
                 char *newkey = NULL;
@@ -746,7 +780,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 goto out;
         }
 
-        /* EINVAL is sent if the getxattr is on entry point directory
+        /* ENODATA is sent if the getxattr is on entry point directory
            or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
            a virtual directory on which setxattr operations are not
            allowed. If getxattr has to be faked as success, then a value
@@ -754,7 +788,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
-                op_errno = EINVAL;
+                op_errno = ENODATA;
                 goto out;
         }
         else {
@@ -1024,6 +1058,8 @@ svs_releasedir (xlator_t *this, fd_t *fd)
                                 uuid_utoa (fd->inode->gfid));
         }
 
+        GF_FREE (sfd);
+
 out:
         return 0;
 }
@@ -1032,17 +1068,27 @@ int32_t
 svs_flush (call_frame_t *frame, xlator_t *this,
            fd_t *fd, dict_t *xdata)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        int               ret      = -1;
-        uint64_t          value    = 0;
+        int32_t          op_ret         = -1;
+        int32_t          op_errno       = 0;
+        int              ret            = -1;
+        uint64_t         value          = 0;
+        svs_inode_t     *inode_ctx      = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
+        inode_ctx = svs_inode_ctx_get (this, fd->inode);
+        if (!inode_ctx) {
+                gf_log (this->name, GF_LOG_ERROR, "inode context not found for"
+                        " the inode %s", uuid_utoa (fd->inode->gfid));
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         ret = fd_ctx_get (fd, this, &value);
-        if (ret < 0) {
+        if (ret < 0 && inode_ctx->type != SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL on fd=%p", fd);
@@ -1084,6 +1130,7 @@ svs_release (xlator_t *this, fd_t *fd)
                 }
         }
 
+        GF_FREE (sfd);
 out:
         return 0;
 }
@@ -1194,7 +1241,6 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
         GF_VALIDATE_OR_GOTO ("svs", this, out);
         GF_VALIDATE_OR_GOTO (this->name, glfd, out);
         GF_VALIDATE_OR_GOTO (this->name, entries, out);
-        GF_VALIDATE_OR_GOTO (this->name, buf, out);
 
         while (filled_size < size) {
                 in_case = glfs_telldir (glfd);
@@ -1235,9 +1281,10 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
                         entry->d_off = glfs_telldir (glfd);
                         entry->d_ino = de.d_ino;
                         entry->d_type = de.d_type;
-                        iatt_from_stat (buf, &statbuf);
-                        if (readdirplus)
+                        if (readdirplus) {
+                                iatt_from_stat (buf, &statbuf);
                                 entry->d_stat = *buf;
+                        }
                         list_add_tail (&entry->list, &entries->list);
 
                         filled_size += this_size;
@@ -1282,12 +1329,15 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
         GF_VALIDATE_OR_GOTO (this->name, parent_ctx, out);
         GF_VALIDATE_OR_GOTO (this->name, entry, out);
 
+        if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                goto out;
+
         inode = inode_grep (parent->table, parent, entry->d_name);
         if (inode) {
                 entry->inode = inode;
                 inode_ctx = svs_inode_ctx_get (this, inode);
                 if (!inode_ctx) {
-                        uuid_copy (buf.ia_gfid, inode->gfid);
+                        gf_uuid_copy (buf.ia_gfid, inode->gfid);
                         svs_iatt_fill (inode->gfid, &buf);
                         buf.ia_type = inode->ia_type;
                 } else {
@@ -1300,13 +1350,13 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                         entry->d_stat = buf;
                 else {
                         entry->d_stat.ia_ino = buf.ia_ino;
-                        uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
+                        gf_uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
                 }
         } else {
                 inode = inode_new (parent->table);
                 entry->inode = inode;
-                uuid_generate (random_gfid);
-                uuid_copy (buf.ia_gfid, random_gfid);
+                gf_uuid_generate (random_gfid);
+                gf_uuid_copy (buf.ia_gfid, random_gfid);
                 svs_fill_ino_from_gfid (&buf);
                 entry->d_ino = buf.ia_ino;
 
@@ -1331,7 +1381,7 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                         entry->d_stat = buf;
                         inode_ctx->type = SNAP_VIEW_SNAPSHOT_INODE;
                 } else {
-                        uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
+                        gf_uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
                         entry->d_stat.ia_ino = buf.ia_ino;
                         inode_ctx->buf = entry->d_stat;
                         inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
@@ -1664,7 +1714,7 @@ svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 }
 
                 iatt_from_stat (&buf, &stat);
-                uuid_copy (buf.ia_gfid, loc->inode->gfid);
+                gf_uuid_copy (buf.ia_gfid, loc->inode->gfid);
                 svs_fill_ino_from_gfid (&buf);
                 op_ret = ret;
         }
@@ -1734,7 +1784,7 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 }
 
                 iatt_from_stat (&buf, &stat);
-                uuid_copy (buf.ia_gfid, fd->inode->gfid);
+                gf_uuid_copy (buf.ia_gfid, fd->inode->gfid);
                 svs_fill_ino_from_gfid (&buf);
                 op_ret = ret;
         }
@@ -1743,6 +1793,58 @@ out:
         STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf, xdata);
         return 0;
 }
+
+int32_t
+svs_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        svs_private_t *priv         = NULL;
+        struct statvfs buf          = {0, };
+        int32_t        op_errno     = EINVAL;
+        int32_t        op_ret       = -1;
+        svs_inode_t   *inode_ctx    = NULL;
+        glfs_t        *fs           = NULL;
+        glfs_object_t *object       = NULL;
+        int            ret          = -1;
+
+        GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        priv = this->private;
+
+        /* Instead of doing the check of whether it is a entry point directory
+           or not by checking the name of the entry and then deciding what
+           to do, just check the inode context and decide what to be done.
+        */
+        inode_ctx = svs_inode_ctx_get (this, loc->inode);
+        if (!inode_ctx) {
+                gf_log (this->name, GF_LOG_ERROR, "inode context not found for"
+                        " %s", uuid_utoa (loc->inode->gfid));
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
+
+        ret = glfs_h_statfs (fs, object, &buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "glfs_h_statvfs on %s "
+                        "(gfid: %s) failed", loc->name,
+                        uuid_utoa (loc->inode->gfid));
+                op_ret = -1;
+                op_errno = errno;
+                goto out;
+        }
+        op_ret = ret;
+
+out:
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf, xdata);
+        return 0;
+}
+
 
 int32_t
 svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
@@ -1873,7 +1975,7 @@ svs_readv (call_frame_t *frame, xlator_t *this,
         }
 
         iatt_from_stat (&stbuf, &fstatbuf);
-        uuid_copy (stbuf.ia_gfid, fd->inode->gfid);
+        gf_uuid_copy (stbuf.ia_gfid, fd->inode->gfid);
         svs_fill_ino_from_gfid (&stbuf);
 
         /* Hack to notify higher layers of EOF. */
@@ -1938,7 +2040,7 @@ svs_readlink (call_frame_t *frame, xlator_t *this,
         }
 
         iatt_from_stat (&stbuf, &stat);
-        uuid_copy (stbuf.ia_gfid, loc->inode->gfid);
+        gf_uuid_copy (stbuf.ia_gfid, loc->inode->gfid);
         svs_fill_ino_from_gfid (&stbuf);
 
         buf = alloca (size + 1);
@@ -2016,8 +2118,13 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
            fuse and nfs. So set frame->root->pid as fspid of the syncop
            if the call came from nfs
         */
-        if (!is_fuse_call)
+        if (!is_fuse_call) {
                 syncopctx_setfspid (&frame->root->pid);
+                syncopctx_setfsuid (&frame->root->uid);
+                syncopctx_setfsgid (&frame->root->gid);
+                syncopctx_setfsgroups (frame->root->ngrps,
+                                       frame->root->groups);
+        }
 
         ret = glfs_h_access (fs, object, mask);
         if (ret < 0) {
@@ -2158,6 +2265,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup     = svs_lookup,
         .stat       = svs_stat,
+        .statfs     = svs_statfs,
         .opendir    = svs_opendir,
         .readdirp   = svs_readdirp,
         .readdir    = svs_readdir,

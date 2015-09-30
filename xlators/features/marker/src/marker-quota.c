@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dict.h"
 #include "xlator.h"
 #include "defaults.h"
@@ -20,6 +15,8 @@
 #include "byte-order.h"
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
+#include "syncop.h"
+#include "quota-common-utils.h"
 
 int
 mq_loc_copy (loc_t *dst, loc_t *src)
@@ -30,7 +27,7 @@ mq_loc_copy (loc_t *dst, loc_t *src)
         GF_VALIDATE_OR_GOTO ("marker", src, out);
 
         if (src->inode == NULL ||
-            ((src->parent == NULL) && (uuid_is_null (src->pargfid))
+            ((src->parent == NULL) && (gf_uuid_is_null (src->pargfid))
              && !__is_root_gfid (src->inode->gfid))) {
                 gf_log ("marker", GF_LOG_WARNING,
                         "src loc is not valid");
@@ -62,68 +59,129 @@ out:
         return ret;
 }
 
+static void
+mq_set_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                   gf_boolean_t status)
+{
+        LOCK (&ctx->lock);
+        {
+                *flag = status;
+        }
+        UNLOCK (&ctx->lock);
+}
+
+static void
+mq_test_and_set_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                            gf_boolean_t *status)
+{
+        gf_boolean_t    temp    = _gf_false;
+
+        LOCK (&ctx->lock);
+        {
+                temp = *status;
+                *status = *flag;
+                *flag = temp;
+        }
+        UNLOCK (&ctx->lock);
+}
+
+static void
+mq_get_ctx_status (quota_inode_ctx_t *ctx, gf_boolean_t *flag,
+                   gf_boolean_t *status)
+{
+        LOCK (&ctx->lock);
+        {
+                *status = *flag;
+        }
+        UNLOCK (&ctx->lock);
+}
+
 int32_t
 mq_get_ctx_updation_status (quota_inode_ctx_t *ctx,
                             gf_boolean_t *status)
 {
-        int32_t   ret = -1;
-
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
         GF_VALIDATE_OR_GOTO ("marker", status, out);
 
-        LOCK (&ctx->lock);
-        {
-                *status = ctx->updation_status;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_get_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
-
 
 int32_t
 mq_set_ctx_updation_status (quota_inode_ctx_t *ctx,
                             gf_boolean_t status)
 {
-        int32_t   ret = -1;
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
 
-        if (ctx == NULL)
-                goto out;
-
-        LOCK (&ctx->lock);
-        {
-                ctx->updation_status = status;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_set_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
 }
 
 int32_t
 mq_test_and_set_ctx_updation_status (quota_inode_ctx_t *ctx,
                                      gf_boolean_t *status)
 {
-        int32_t         ret     = -1;
-        gf_boolean_t    temp    = _gf_false;
-
         GF_VALIDATE_OR_GOTO ("marker", ctx, out);
         GF_VALIDATE_OR_GOTO ("marker", status, out);
 
-        LOCK (&ctx->lock);
-        {
-                temp = *status;
-                *status = ctx->updation_status;
-                ctx->updation_status = temp;
-        }
-        UNLOCK (&ctx->lock);
-
-        ret = 0;
+        mq_test_and_set_ctx_status (ctx, &ctx->updation_status, status);
+        return 0;
 out:
-        return ret;
+        return -1;
+}
+
+int32_t
+mq_set_ctx_create_status (quota_inode_ctx_t *ctx,
+                          gf_boolean_t status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+
+        mq_set_ctx_status (ctx, &ctx->create_status, status);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
+mq_test_and_set_ctx_create_status (quota_inode_ctx_t *ctx,
+                                   gf_boolean_t *status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", status, out);
+
+        mq_test_and_set_ctx_status (ctx, &ctx->create_status, status);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
+mq_set_ctx_dirty_status (quota_inode_ctx_t *ctx,
+                         gf_boolean_t status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+
+        mq_set_ctx_status (ctx, &ctx->dirty_status, status);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
+mq_test_and_set_ctx_dirty_status (quota_inode_ctx_t *ctx,
+                                  gf_boolean_t *status)
+{
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", status, out);
+
+        mq_test_and_set_ctx_status (ctx, &ctx->dirty_status, status);
+        return 0;
+out:
+        return -1;
 }
 
 void
@@ -171,7 +229,7 @@ mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
         }
 
         newloc->parent = inode_ref (oldloc->inode);
-        uuid_copy (newloc->pargfid, oldloc->inode->gfid);
+        gf_uuid_copy (newloc->pargfid, oldloc->inode->gfid);
 
         if (!oldloc->path) {
                 ret = loc_path (oldloc, NULL);
@@ -307,8 +365,8 @@ wind:
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND (frame, mq_release_lock_on_dirty_inode,
@@ -361,6 +419,12 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
+        new_dict = dict_new ();
+        if (!new_dict) {
+                errno = ENOMEM;
+                goto err;
+        }
+
         QUOTA_ALLOC_OR_GOTO (delta, int64_t, ret, err);
 
         *delta = hton64 (local->sum - ntoh64 (*size));
@@ -370,18 +434,14 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 " path = %s diff = %"PRIu64, local->sum, ntoh64 (*size),
                 local->loc.path, ntoh64 (*delta));
 
-        new_dict = dict_new ();
-        if (!new_dict) {
-		errno = ENOMEM;
-		goto err;
-	}
-
         ret = dict_set_bin (new_dict, QUOTA_SIZE_KEY, delta, 8);
-        if (ret)
+        if (ret) {
+                GF_FREE (delta);
                 goto err;
+        }
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -445,8 +505,8 @@ mq_get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -478,11 +538,11 @@ mq_get_child_contribution (call_frame_t *frame,
                            dict_t *dict,
                            struct iatt *postparent)
 {
-        int32_t        ret                = -1;
-        int32_t        val                = 0;
-        char           contri_key [512]   = {0, };
-        int64_t       *contri             = NULL;
-        quota_local_t *local              = NULL;
+        int32_t        ret                           = -1;
+        int32_t        val                           = 0;
+        char           contri_key[CONTRI_KEY_MAX]    = {0, };
+        int64_t       *contri                        = NULL;
+        quota_local_t *local                         = NULL;
 
         local = frame->local;
 
@@ -543,21 +603,21 @@ mq_readdir_cbk (call_frame_t *frame,
                 int32_t op_errno,
                 gf_dirent_t *entries, dict_t *xdata)
 {
-        char           contri_key [512]   = {0, };
-        int32_t        ret                = 0;
-        int32_t        val                = 0;
-        off_t          offset             = 0;
-        int32_t        count              = 0;
-        dict_t        *dict               = NULL;
-        quota_local_t *local              = NULL;
-        gf_dirent_t   *entry              = NULL;
-        call_frame_t  *newframe           = NULL;
-        loc_t          loc                = {0, };
+        char           contri_key[CONTRI_KEY_MAX]    = {0, };
+        int32_t        ret                           = 0;
+        int32_t        val                           = 0;
+        off_t          offset                        = 0;
+        int32_t        count                         = 0;
+        dict_t        *dict                          = NULL;
+        quota_local_t *local                         = NULL;
+        gf_dirent_t   *entry                         = NULL;
+        call_frame_t  *newframe                      = NULL;
+        loc_t          loc                           = {0, };
 
         local = mq_local_ref (frame->local);
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "readdir failed %s", strerror (op_errno));
                 local->err = -1;
 
@@ -663,12 +723,10 @@ mq_readdir_cbk (call_frame_t *frame,
                             &loc, dict);
 
                 offset = entry->d_off;
-
-                loc_wipe (&loc);
-
                 newframe = NULL;
 
         out:
+                loc_wipe (&loc);
                 if (dict) {
                         dict_unref (dict);
                         dict = NULL;
@@ -715,8 +773,10 @@ mq_dirty_inode_readdir (call_frame_t *frame,
                 return 0;
         }
 
-        if (local->fd == NULL)
+        if (local->fd == NULL) {
+                fd_bind (fd);
                 local->fd = fd_ref (fd);
+        }
 
         STACK_WIND (frame,
                     mq_readdir_cbk,
@@ -771,8 +831,8 @@ mq_check_if_still_dirty (call_frame_t *frame,
 
         local->d_off = 0;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND(frame,
@@ -821,10 +881,13 @@ mq_get_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
-        GF_UUID_ASSERT (local->loc.gfid);
+        if (gf_uuid_is_null (local->loc.gfid)) {
+                ret = -1;
+                goto err;
+        }
 
         STACK_WIND (frame,
                     mq_check_if_still_dirty,
@@ -850,14 +913,12 @@ err:
  * 0 other wise
  */
 int32_t
-mq_update_dirty_inode (xlator_t *this,
-                       loc_t *loc,
-                       quota_inode_ctx_t *ctx,
+mq_update_dirty_inode (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                        inode_contribution_t *contribution)
 {
         int32_t          ret        = -1;
         quota_local_t   *local      = NULL;
-        gf_boolean_t    status     = _gf_false;
+        gf_boolean_t     status     = _gf_false;
         struct gf_flock  lock       = {0, };
         call_frame_t    *frame      = NULL;
 
@@ -886,7 +947,10 @@ mq_update_dirty_inode (xlator_t *this,
 
         local->ctx = ctx;
 
-        local->contri = contribution;
+        if (contribution) {
+                local->contri = contribution;
+                GF_REF_GET (local->contri);
+        }
 
         lock.l_type = F_WRLCK;
         lock.l_whence = SEEK_SET;
@@ -989,7 +1053,7 @@ mq_create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
                 GF_UUID_ASSERT (local->loc.gfid);
 
                 STACK_WIND (frame, mq_xattr_creation_release_lock,
@@ -1017,14 +1081,14 @@ err:
 int32_t
 mq_create_xattr (xlator_t *this, call_frame_t *frame)
 {
-        int32_t               ret       = 0;
-        int64_t              *value     = NULL;
-        int64_t              *size      = NULL;
-        dict_t               *dict      = NULL;
-        char                  key[512]  = {0, };
-        quota_local_t        *local     = NULL;
-        quota_inode_ctx_t    *ctx       = NULL;
-        inode_contribution_t *contri    = NULL;
+        int32_t               ret                  = 0;
+        int64_t              *value                = NULL;
+        int64_t              *size                 = NULL;
+        dict_t               *dict                 = NULL;
+        char                  key[CONTRI_KEY_MAX]  = {0, };
+        quota_local_t        *local                = NULL;
+        quota_inode_ctx_t    *ctx                  = NULL;
+        inode_contribution_t *contri               = NULL;
 
         if (frame == NULL || this == NULL)
                 return 0;
@@ -1054,9 +1118,9 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
         }
 
         if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
-            || (local->loc.inode && !uuid_is_null (local->loc.inode->gfid) &&
+            || (local->loc.inode && !gf_uuid_is_null (local->loc.inode->gfid) &&
                 !__is_root_gfid (local->loc.inode->gfid))
-            || (!uuid_is_null (local->loc.gfid)
+            || (!gf_uuid_is_null (local->loc.gfid)
                 && !__is_root_gfid (local->loc.gfid))) {
                 contri = mq_add_new_contribution_node (this, ctx, &local->loc);
                 if (contri == NULL)
@@ -1070,7 +1134,10 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_value;
         }
 
-        GF_UUID_ASSERT (local->loc.gfid);
+        if (gf_uuid_is_null (local->loc.gfid)) {
+                ret = -1;
+                goto out;
+        }
 
         STACK_WIND (frame, mq_create_dirty_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->xattrop, &local->loc,
@@ -1090,6 +1157,9 @@ free_value:
 err:
         dict_unref (dict);
 
+        if (contri)
+                GF_REF_PUT (contri);
+
 out:
         if (ret < 0) {
                 mq_xattr_creation_release_lock (frame, NULL, this, 0, 0, NULL);
@@ -1105,11 +1175,12 @@ mq_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
                             inode_t *inode, struct iatt *buf, dict_t *dict,
                             struct iatt *postparent)
 {
-        quota_local_t        *local           = NULL;
-        int64_t              *size            = NULL, *contri = NULL;
-        int8_t                dirty           = 0;
-        int32_t               ret             = 0;
-        char                  contri_key[512] = {0, };
+        quota_local_t        *local                      = NULL;
+        int64_t              *size                       = NULL;
+        int64_t              *contri                     = NULL;
+        int8_t                dirty                      = 0;
+        int32_t               ret                        = 0;
+        char                  contri_key[CONTRI_KEY_MAX] = {0, };
 
         if (op_ret < 0) {
                 goto out;
@@ -1127,10 +1198,10 @@ mq_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
 
         //check contribution xattr if not root
         if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
-            || (!uuid_is_null (local->loc.gfid)
+            || (!gf_uuid_is_null (local->loc.gfid)
                 && !__is_root_gfid (local->loc.gfid))
             || (local->loc.inode
-                && !uuid_is_null (local->loc.inode->gfid)
+                && !gf_uuid_is_null (local->loc.inode->gfid)
                 && !__is_root_gfid (local->loc.inode->gfid))) {
                 GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
                 if (ret < 0)
@@ -1146,8 +1217,8 @@ out:
         return 0;
 
 create_xattr:
-        if (uuid_is_null (local->loc.gfid)) {
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid)) {
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
         }
 
         mq_create_xattr (this, frame);
@@ -1174,16 +1245,19 @@ mq_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        ret = mq_req_xattr (this, &local->loc, xattr_req);
+        ret = mq_req_xattr (this, &local->loc, xattr_req, NULL);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "cannot request xattr");
                 goto err;
         }
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
-        GF_UUID_ASSERT (local->loc.gfid);
+        if (gf_uuid_is_null (local->loc.gfid)) {
+                ret = -1;
+                goto err;
+        }
 
         STACK_WIND (frame, mq_check_n_set_inode_xattr, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->loc, xattr_req);
@@ -1247,7 +1321,8 @@ mq_set_inode_xattr (xlator_t *this, loc_t *loc)
         return 0;
 
 err:
-        QUOTA_STACK_DESTROY (frame, this);
+        if (frame)
+                QUOTA_STACK_DESTROY (frame, this);
 
         return 0;
 }
@@ -1258,7 +1333,6 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
 {
         int32_t            ret = -1;
         quota_inode_ctx_t *ctx = NULL;
-        inode_contribution_t *contribution = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", local, out);
@@ -1295,9 +1369,8 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
         local->ctx = ctx;
 
         if (list_empty (&ctx->contribution_head)) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                        "contribution node list is empty which "
-                        "is an error");
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                        "contribution node list is empty");
                 ret = -1;
                 goto out;
         }
@@ -1324,9 +1397,8 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
            contribution will be at the end of the list. So get the proper
            parent's contribution, by searching the entire list.
         */
-        contribution = mq_get_contribution_node (local->loc.parent, ctx);
-        GF_ASSERT (contribution != NULL);
-        local->contri = contribution;
+        local->contri = mq_get_contribution_node (local->loc.parent, ctx);
+        GF_ASSERT (local->contri != NULL);
 
         ret = 0;
 out:
@@ -1517,7 +1589,7 @@ mq_mark_undirty (call_frame_t *frame,
                 goto err;
         }
 
-        uuid_copy (local->parent_loc.gfid, local->parent_loc.inode->gfid);
+        gf_uuid_copy (local->parent_loc.gfid, local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
         STACK_WIND (frame, mq_release_parent_lock,
@@ -1599,12 +1671,13 @@ mq_update_parent_size (call_frame_t *frame,
 
         ret = dict_set_bin (newdict, QUOTA_SIZE_KEY, size, 8);
         if (ret < 0) {
+                GF_FREE (size);
                 op_errno = -ret;
                 goto err;
         }
 
-        if (uuid_is_null (local->parent_loc.gfid))
-                        uuid_copy (local->parent_loc.gfid,
+        if (gf_uuid_is_null (local->parent_loc.gfid))
+                        gf_uuid_copy (local->parent_loc.gfid,
                                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
@@ -1635,15 +1708,17 @@ mq_update_inode_contribution (call_frame_t *frame, void *cookie,
                               struct iatt *buf, dict_t *dict,
                               struct iatt *postparent)
 {
-        int32_t               ret              = -1;
-        int64_t              *size             = NULL, size_int = 0, contri_int = 0;
-        int64_t              *contri           = NULL;
-        int64_t              *delta            = NULL;
-        char                  contri_key [512] = {0, };
-        dict_t               *newdict          = NULL;
-        quota_local_t        *local            = NULL;
-        quota_inode_ctx_t    *ctx              = NULL;
-        inode_contribution_t *contribution     = NULL;
+        int32_t               ret                         = -1;
+        int64_t              *size                        = NULL;
+        int64_t               size_int                    = 0;
+        int64_t               contri_int                  = 0;
+        int64_t              *contri                      = NULL;
+        int64_t              *delta                       = NULL;
+        char                  contri_key[CONTRI_KEY_MAX]  = {0, };
+        dict_t               *newdict                     = NULL;
+        quota_local_t        *local                       = NULL;
+        quota_inode_ctx_t    *ctx                         = NULL;
+        inode_contribution_t *contribution                = NULL;
 
         local = frame->local;
 
@@ -1724,13 +1799,14 @@ unlock:
 
         ret = dict_set_bin (newdict, contri_key, delta, 8);
         if (ret < 0) {
+                GF_FREE (delta);
                 op_errno = -ret;
                 ret = -1;
                 goto err;
         }
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -1761,11 +1837,11 @@ mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
                                 int32_t op_errno, dict_t *xdata)
 {
-        int32_t            ret              = -1;
-        char               contri_key [512] = {0, };
-        dict_t            *newdict          = NULL;
-        quota_local_t     *local            = NULL;
-        quota_inode_ctx_t *ctx              = NULL;
+        int32_t            ret                         = -1;
+        char               contri_key[CONTRI_KEY_MAX]  = {0, };
+        dict_t            *newdict                     = NULL;
+        quota_local_t     *local                       = NULL;
+        quota_inode_ctx_t *ctx                         = NULL;
 
         local = frame->local;
 
@@ -1826,8 +1902,8 @@ mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
         mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -1888,7 +1964,7 @@ mq_markdirty (call_frame_t *frame, void *cookie,
         if (ret == -1)
                 goto err;
 
-        uuid_copy (local->parent_loc.gfid,
+        gf_uuid_copy (local->parent_loc.gfid,
                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
@@ -1987,7 +2063,10 @@ mq_prepare_txn_frame (xlator_t *this, loc_t *loc,
                 goto fr_destroy;
 
         local->ctx = ctx;
-        local->contri = contri;
+        if (contri) {
+                local->contri = contri;
+                GF_REF_GET (local->contri);
+        }
 
         ret = 0;
         *new_frame = frame;
@@ -2025,77 +2104,857 @@ err:
         return -1;
 }
 
-
-int
-mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
+int32_t
+_quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
+                      quota_meta_t *meta, ia_type_t ia_type,
+                      gf_boolean_t add_delta)
 {
-        int32_t               ret          = -1;
-        gf_boolean_t          status       = _gf_false;
-        quota_inode_ctx_t    *ctx          = NULL;
-        inode_contribution_t *contribution = NULL;
+        int32_t             ret     = 0;
+        marker_conf_t      *priv    = NULL;
 
-        GF_VALIDATE_OR_GOTO ("marker", this, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc, out);
-        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        priv = this->private;
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "inode ctx get failed, aborting quota txn");
-                ret = -1;
+        ret = quota_dict_get_inode_meta (dict, key, meta);
+        if (ret == -2 && (priv->feature_enabled & GF_INODE_QUOTA) == 0) {
+                /* quota_dict_get_inode_meta returns -2 if
+                 * inode quota xattrs are not present.
+                 * if inode quota self heal is turned off,
+                 * then we should skip healing inode quotas
+                 */
+
+                gf_log (this->name, GF_LOG_DEBUG, "inode quota disabled. "
+                        "inode quota self heal will not be performed");
+                ret = 0;
+                if (add_delta) {
+                        if (ia_type == IA_IFDIR)
+                                meta->dir_count = 1;
+                        else
+                                meta->file_count = 1;
+                }
+        }
+
+        return ret;
+}
+
+void
+mq_compute_delta (quota_meta_t *delta, const quota_meta_t *op1,
+                  const quota_meta_t *op2)
+{
+        delta->size       = op1->size - op2->size;
+        delta->file_count = op1->file_count - op2->file_count;
+        delta->dir_count  = op1->dir_count - op2->dir_count;
+}
+
+void
+mq_add_meta (quota_meta_t *dst, const quota_meta_t *src)
+{
+        dst->size       += src->size;
+        dst->file_count += src->file_count;
+        dst->dir_count  += src->dir_count;
+}
+
+void
+mq_sub_meta (quota_meta_t *dst, const quota_meta_t *src)
+{
+        if (src == NULL) {
+                dst->size       = -dst->size;
+                dst->file_count = -dst->file_count;
+                dst->dir_count  = -dst->dir_count;
+        } else {
+                dst->size       = src->size - dst->size;
+                dst->file_count = src->file_count - dst->file_count;
+                dst->dir_count  = src->dir_count - dst->dir_count;
+        }
+}
+
+gf_boolean_t
+quota_meta_is_null (const quota_meta_t *meta)
+{
+        if (meta->size == 0 &&
+            meta->file_count == 0 &&
+            meta->dir_count == 0)
+                return _gf_true;
+
+        return _gf_false;
+}
+
+int32_t
+mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
+                   gf_boolean_t *objects)
+{
+        int32_t        ret                         = -1;
+        char           contri_key[CONTRI_KEY_MAX]  = {0, };
+        quota_meta_t   meta                        = {0, };
+        struct iatt    stbuf                       = {0,};
+        dict_t        *dict                        = NULL;
+        dict_t        *rsp_dict                    = NULL;
+
+        dict = dict_new ();
+        if (dict == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
                 goto out;
         }
 
-        /* Create the contribution node if its absent. Is it right to
-           assume that if the contribution node is not there, then
-           create one and proceed instead of returning?
-           Reason for this assumption is for hard links. Suppose
-           hard link for a file f1 present in a directory d1 is
-           created in the directory d2 (as f2). Now, since d2's
-           contribution is not there in f1's inode ctx, d2's
-           contribution xattr wont be created and will create problems
-           for quota operations.
-        */
-        contribution = mq_get_contribution_node (loc->parent, ctx);
-        if (!contribution) {
-                if ((loc->path && strcmp (loc->path, "/"))
-                    || (!uuid_is_null (loc->gfid)
-                        && !__is_root_gfid (loc->gfid))
-                    || (loc->inode && !uuid_is_null (loc->inode->gfid)
-                        && !__is_root_gfid (loc->inode->gfid)))
-                        gf_log_callingfn (this->name, GF_LOG_TRACE,
-                                          "contribution node for the "
-                                          "path (%s) with parent (%s) "
-                                          "not found", loc->path,
-                                          loc->parent?
-                                          uuid_utoa (loc->parent->gfid):
-                                          NULL);
+        ret = mq_req_xattr (this, loc, dict, contri_key);
+        if (ret < 0)
+                goto out;
 
-                contribution = mq_add_new_contribution_node (this, ctx, loc);
-                if (!contribution) {
-                        if(loc->path && strcmp (loc->path, "/"))
-                                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                                                  "could not allocate "
-                                                  " contribution node for (%s) "
-                                                  "parent: (%s)", loc->path,
-                                                  loc->parent?
-                                                  uuid_utoa (loc->parent->gfid):
-                                                  NULL);
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        if (rsp_dict == NULL) {
+                *result = _gf_false;
+                goto out;
+        }
+
+        *result = _gf_true;
+        if (loc->inode->ia_type == IA_IFDIR) {
+                ret = _quota_dict_get_meta (this, rsp_dict, QUOTA_SIZE_KEY,
+                                            &meta, IA_IFDIR, _gf_false);
+                if (ret < 0 || meta.dir_count == 0) {
+                        ret = 0;
+                        *result = _gf_false;
+                        goto out;
+                }
+                *objects = _gf_true;
+        }
+
+        if (!loc_is_root(loc)) {
+                ret = _quota_dict_get_meta (this, rsp_dict, contri_key,
+                                            &meta, IA_IFREG, _gf_false);
+                if (ret < 0) {
+                        ret = 0;
+                        *result = _gf_false;
                         goto out;
                 }
         }
 
-        /* To improve performance, do not start another transaction
-         * if one is already in progress for same inode
-         */
-        status = _gf_true;
+out:
+        if (dict)
+                dict_unref (dict);
 
-        ret = mq_test_and_set_ctx_updation_status (ctx, &status);
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+
+int32_t
+mq_create_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc,
+                  gf_boolean_t objects)
+{
+        quota_meta_t           size                 = {0, };
+        quota_meta_t           contri               = {0, };
+        int32_t                ret                  = -1;
+        char                   key[CONTRI_KEY_MAX]  = {0, };
+        dict_t                *dict                 = NULL;
+        inode_contribution_t  *contribution         = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        if (loc->inode->ia_type == IA_IFDIR) {
+                if (objects == _gf_false) {
+                        /* Initial object count of a directory is 1 */
+                        size.dir_count = 1;
+                }
+                ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, &size,
+                                           IA_IFDIR);
+                if (ret < 0)
+                        goto out;
+        }
+
+        if (!loc_is_root (loc)) {
+                contribution = mq_add_new_contribution_node (this, ctx, loc);
+                if (contribution == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+
+                GET_CONTRI_KEY (key, contribution->gfid, ret);
+                ret = quota_dict_set_meta (dict, key, &contri,
+                                           loc->inode->ia_type);
+                if (ret < 0)
+                        goto out;
+        }
+
+        ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
+                              dict, NULL, NULL);
+
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        if (contribution)
+                GF_REF_PUT (contribution);
+
+        return ret;
+}
+
+int32_t
+mq_lock (xlator_t *this, loc_t *loc, short l_type)
+{
+        struct gf_flock  lock  = {0, };
+        int32_t          ret   = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        gf_log (this->name, GF_LOG_DEBUG, "set lock type %d on %s",
+                l_type, loc->path);
+
+        lock.l_len    = 0;
+        lock.l_start  = 0;
+        lock.l_type   = l_type;
+        lock.l_whence = SEEK_SET;
+
+        ret = syncop_inodelk (FIRST_CHILD(this), this->name, loc, F_SETLKW,
+                              &lock, NULL, NULL);
+        if (ret < 0)
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "inodelk failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+
+out:
+
+        return ret;
+}
+
+int32_t
+mq_get_dirty (xlator_t *this, loc_t *loc, int32_t *dirty)
+{
+        int32_t        ret              = -1;
+        int8_t         value            = 0;
+        dict_t        *dict             = NULL;
+        dict_t        *rsp_dict         = NULL;
+        struct iatt    stbuf            = {0,};
+
+        dict = dict_new ();
+        if (dict == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                goto out;
+        }
+
+        ret = dict_set_int64 (dict, QUOTA_DIRTY_KEY, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "dict set failed");
+                goto out;
+        }
+
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        ret = dict_get_int8 (rsp_dict, QUOTA_DIRTY_KEY, &value);
         if (ret < 0)
                 goto out;
 
-        if (status == _gf_false) {
-                mq_start_quota_txn (this, loc, ctx, contribution);
+        *dirty = value;
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+
+int32_t
+mq_get_set_dirty (xlator_t *this, loc_t *loc, int32_t dirty,
+                  int32_t *prev_dirty)
+{
+        int32_t              ret              = -1;
+        int8_t               value            = 0;
+        quota_inode_ctx_t   *ctx              = NULL;
+        dict_t              *dict             = NULL;
+        dict_t              *rsp_dict         = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", prev_dirty, out);
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
+                        "%s", loc->path);
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, dirty);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_set failed");
+                goto out;
+        }
+
+        ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_GET_AND_SET,
+                              dict, NULL, &rsp_dict);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                          ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                          "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        *prev_dirty = 0;
+        if (rsp_dict) {
+                ret = dict_get_int8 (rsp_dict, QUOTA_DIRTY_KEY, &value);
+                if (ret == 0)
+                        *prev_dirty = value;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->dirty = dirty;
+        }
+        UNLOCK (&ctx->lock);
+        ret = 0;
+out:
+        if (dict)
+                dict_unref (dict);
+
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+
+int32_t
+mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
+{
+        int32_t            ret      = -1;
+        dict_t            *dict     = NULL;
+        quota_inode_ctx_t *ctx      = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
+                        "%s", loc->path);
+                ret = 0;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                goto out;
+        }
+
+        ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, dirty);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_set failed");
+                goto out;
+        }
+
+        ret = syncop_setxattr (FIRST_CHILD(this), loc, dict, 0, NULL, NULL);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "setxattr dirty = %d "
+                        "failed for %s: %s", dirty, loc->path, strerror (-ret));
+                goto out;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->dirty = dirty;
+        }
+        UNLOCK (&ctx->lock);
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int32_t
+_mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
+                  quota_meta_t *size, uuid_t contri_gfid)
+{
+        int32_t            ret                         = -1;
+        quota_meta_t       meta                        = {0, };
+        char               contri_key[CONTRI_KEY_MAX]  = {0, };
+        dict_t            *dict                        = NULL;
+        dict_t            *rsp_dict                    = NULL;
+        struct iatt        stbuf                       = {0,};
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        if (size == NULL && contri == NULL)
+                goto out;
+
+        dict = dict_new ();
+        if (dict == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                goto out;
+        }
+
+        if (size && loc->inode->ia_type == IA_IFDIR) {
+                ret = dict_set_int64 (dict, QUOTA_SIZE_KEY, 0);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict_set failed.");
+                        goto out;
+                }
+        }
+
+        if (contri && !loc_is_root(loc)) {
+                ret = mq_dict_set_contribution (this, dict, loc, contri_gfid,
+                                                contri_key);
+                if (ret < 0)
+                        goto out;
+        }
+
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        if (size) {
+                if (loc->inode->ia_type == IA_IFDIR) {
+                        ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
+                                                   &meta);
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "dict_get failed.");
+                                goto out;
+                        }
+
+                        size->size = meta.size;
+                        size->file_count = meta.file_count;
+                        size->dir_count = meta.dir_count;
+                } else {
+                        size->size = stbuf.ia_blocks * 512;
+                        size->file_count = 1;
+                        size->dir_count = 0;
+                }
+        }
+
+        if (contri && !loc_is_root(loc)) {
+                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
+                if (ret < 0) {
+                        contri->size = 0;
+                        contri->file_count = 0;
+                        contri->dir_count = 0;
+                } else {
+                        contri->size = meta.size;
+                        contri->file_count = meta.file_count;
+                        contri->dir_count = meta.dir_count;
+                }
+        }
+
+        ret = 0;
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+
+int32_t
+mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
+                 quota_meta_t *size, quota_inode_ctx_t *ctx,
+                 inode_contribution_t *contribution)
+{
+        int32_t         ret      = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", contribution, out);
+
+        if (size == NULL && contri == NULL) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = _mq_get_metadata (this, loc, contri, size, contribution->gfid);
+        if (ret < 0)
+                goto out;
+
+        if (size) {
+                LOCK (&ctx->lock);
+                {
+                        ctx->size = size->size;
+                        ctx->file_count = size->file_count;
+                        ctx->dir_count = size->dir_count;
+                }
+                UNLOCK  (&ctx->lock);
+        }
+
+        if (contri) {
+                LOCK (&contribution->lock);
+                {
+                        contribution->contribution = contri->size;
+                        contribution->file_count = contri->file_count;
+                        contribution->dir_count = contri->dir_count;
+                }
+                UNLOCK (&contribution->lock);
+        }
+
+out:
+        return ret;
+}
+
+int32_t
+mq_get_size (xlator_t *this, loc_t *loc, quota_meta_t *size)
+{
+        return _mq_get_metadata (this, loc, NULL, size, 0);
+}
+
+int32_t
+mq_get_contri (xlator_t *this, loc_t *loc, quota_meta_t *contri,
+               uuid_t contri_gfid)
+{
+        return _mq_get_metadata (this, loc, contri, NULL, contri_gfid);
+}
+
+int32_t
+mq_get_delta (xlator_t *this, loc_t *loc, quota_meta_t *delta,
+              quota_inode_ctx_t *ctx, inode_contribution_t *contribution)
+{
+        int32_t         ret      = -1;
+        quota_meta_t    size     = {0, };
+        quota_meta_t    contri   = {0, };
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", ctx, out);
+        GF_VALIDATE_OR_GOTO ("marker", contribution, out);
+
+        ret = mq_get_metadata (this, loc, &contri, &size, ctx, contribution);
+        if (ret < 0)
+                goto out;
+
+        mq_compute_delta (delta, &size, &contri);
+
+out:
+        return ret;
+}
+
+int32_t
+mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
+                  inode_contribution_t *contri, quota_meta_t *delta)
+{
+        int32_t              ret                         = -1;
+        char                 contri_key[CONTRI_KEY_MAX]  = {0, };
+
+        GET_CONTRI_KEY (contri_key, contri->gfid, ret);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "get contri_key "
+                        "failed for %s", uuid_utoa(contri->gfid));
+                goto out;
+        }
+
+        ret = syncop_removexattr (FIRST_CHILD(this), loc, contri_key, 0, NULL);
+        if (ret < 0) {
+                if (-ret == ENOENT || -ret == ESTALE || -ret == ENODATA ||
+                    -ret == ENOATTR) {
+                        /* Remove contri in done when unlink operation is
+                         * performed, so return success on ENOENT/ESTSLE
+                         * rename operation removes xattr earlier,
+                         * so return success on ENODATA
+                         */
+                        ret = 0;
+                } else {
+                        gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                          "removexattr %s failed for %s: %s",
+                                          contri_key, loc->path,
+                                          strerror (-ret));
+                        goto out;
+                }
+        }
+
+        LOCK (&contri->lock);
+        {
+                contri->contribution += delta->size;
+                contri->file_count += delta->file_count;
+                contri->dir_count += delta->dir_count;
+        }
+        UNLOCK (&contri->lock);
+
+        ret = 0;
+
+out:
+        QUOTA_FREE_CONTRIBUTION_NODE (ctx, contri);
+
+        return ret;
+}
+
+int32_t
+mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
+                  quota_meta_t *delta)
+{
+        int32_t              ret                         = -1;
+        char                 contri_key[CONTRI_KEY_MAX]  = {0, };
+        dict_t              *dict                        = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", delta, out);
+        GF_VALIDATE_OR_GOTO ("marker", contri, out);
+
+        if (quota_meta_is_null (delta)) {
+                ret = 0;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        GET_CONTRI_KEY (contri_key, contri->gfid, ret);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "get contri_key "
+                        "failed for %s", uuid_utoa(contri->gfid));
+                goto out;
+        }
+
+        ret = quota_dict_set_meta (dict, contri_key, delta,
+                                   loc->inode->ia_type);
+        if (ret < 0)
+                goto out;
+
+        ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
+                             dict, NULL, NULL);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        LOCK (&contri->lock);
+        {
+                contri->contribution += delta->size;
+                contri->file_count += delta->file_count;
+                contri->dir_count += delta->dir_count;
+        }
+        UNLOCK (&contri->lock);
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int32_t
+mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
+{
+        int32_t              ret              = -1;
+        quota_inode_ctx_t   *ctx              = NULL;
+        dict_t              *dict             = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+        GF_VALIDATE_OR_GOTO ("marker", delta, out);
+
+        if (quota_meta_is_null (delta)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode ctx for "
+                        "%s", loc->path);
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, delta,
+                                   loc->inode->ia_type);
+        if (ret < 0)
+                goto out;
+
+        ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
+                             dict, NULL, NULL);
+        if (ret < 0) {
+                gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                  ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
+                                  "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        LOCK (&ctx->lock);
+        {
+                ctx->size += delta->size;
+                ctx->file_count += delta->file_count;
+                ctx->dir_count += delta->dir_count;
+        }
+        UNLOCK (&ctx->lock);
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int
+mq_synctask_cleanup (int ret, call_frame_t *frame, void *opaque)
+{
+        quota_synctask_t       *args         = NULL;
+
+        GF_ASSERT (opaque);
+
+        args = (quota_synctask_t *) opaque;
+        loc_wipe (&args->loc);
+
+        if (!args->is_static)
+                GF_FREE (args);
+
+        return 0;
+}
+
+int
+mq_synctask1 (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn,
+              loc_t *loc, quota_meta_t *contri)
+{
+        int32_t              ret         = -1;
+        quota_synctask_t    *args        = NULL;
+        quota_synctask_t     static_args = {0, };
+
+        if (spawn) {
+                QUOTA_ALLOC_OR_GOTO (args, quota_synctask_t, ret, out);
+                args->is_static = _gf_false;
+        } else {
+                args = &static_args;
+                args->is_static = _gf_true;
+        }
+
+        args->this = this;
+        loc_copy (&args->loc, loc);
+
+        if (contri) {
+                args->contri = *contri;
+        } else {
+                args->contri.size = -1;
+                args->contri.file_count = -1;
+                args->contri.dir_count = -1;
+        }
+
+        if (spawn) {
+                ret = synctask_new1 (this->ctx->env, 1024 * 16, task,
+                                      mq_synctask_cleanup, NULL, args);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to spawn "
+                                "new synctask");
+                        mq_synctask_cleanup (ret, NULL, args);
+                }
+        } else {
+                ret = task (args);
+                mq_synctask_cleanup (ret, NULL, args);
+        }
+
+out:
+        return ret;
+}
+
+int
+mq_synctask (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn, loc_t *loc)
+{
+        return mq_synctask1 (this, task, spawn, loc, NULL);
+}
+
+int32_t
+mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
+                    quota_inode_ctx_t **ctx)
+{
+        int32_t               ret     = -1;
+        quota_inode_ctx_t    *ctxtmp  = NULL;
+
+        if (origin_loc == NULL || origin_loc->inode == NULL ||
+            gf_uuid_is_null(origin_loc->inode->gfid))
+                goto out;
+
+        loc_copy (loc, origin_loc);
+
+        if (gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (loc->gfid, loc->inode->gfid);
+
+        if (!loc_is_root(loc) && loc->parent == NULL) {
+                loc->parent = inode_parent (loc->inode, 0, NULL);
+                if (loc->parent == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (ctx)
+                ret = mq_inode_ctx_get (loc->inode, this, ctx);
+        else
+                ret = mq_inode_ctx_get (loc->inode, this, &ctxtmp);
+
+        if (ret < 0) {
+                if (ctx) {
+                        *ctx = mq_inode_ctx_new (loc->inode, this);
+                        if (*ctx == NULL) {
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "mq_inode_ctx_new failed for "
+                                                  "%s", loc->path);
+                                ret = -1;
+                                goto out;
+                        }
+                } else {
+                        gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for "
+                                          "is NULL for %s", loc->path);
+                }
         }
 
         ret = 0;
@@ -2103,231 +2962,955 @@ out:
         return ret;
 }
 
-
-
-
-
-int32_t
-mq_inspect_directory_xattr (xlator_t *this,
-                            loc_t *loc,
-                            dict_t *dict,
-                            struct iatt buf)
+int
+mq_create_xattrs_task (void *opaque)
 {
-        int32_t               ret                 = 0;
-        int8_t                dirty               = -1;
-        int64_t              *size                = NULL, size_int = 0;
-        int64_t              *contri              = NULL, contri_int = 0;
-        char                  contri_key [512]    = {0, };
-        gf_boolean_t          not_root            = _gf_false;
-        quota_inode_ctx_t    *ctx                 = NULL;
-        inode_contribution_t *contribution        = NULL;
+        int32_t                  ret        = -1;
+        gf_boolean_t             locked     = _gf_false;
+        gf_boolean_t             xattrs_set = _gf_false;
+        gf_boolean_t             objects    = _gf_false;
+        gf_boolean_t             need_txn   = _gf_false;
+        quota_synctask_t        *args       = NULL;
+        quota_inode_ctx_t       *ctx        = NULL;
+        xlator_t                *this       = NULL;
+        loc_t                   *loc        = NULL;
+        gf_boolean_t             status     = _gf_false;
+
+        GF_ASSERT (opaque);
+
+        args = (quota_synctask_t *) opaque;
+        loc = &args->loc;
+        this = args->this;
+        THIS = this;
 
         ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0) {
-                ctx = mq_inode_ctx_new (loc->inode, this);
-                if (ctx == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "mq_inode_ctx_new failed");
-                        ret = -1;
-                        goto err;
-                }
+                gf_log (this->name, GF_LOG_WARNING, "Failed to"
+                        "get inode ctx, aborting quota create txn");
+                goto out;
         }
 
-        if (!loc->path || (loc->path && strcmp (loc->path, "/") != 0)) {
-                contribution = mq_add_new_contribution_node (this, ctx, loc);
-                if (contribution == NULL) {
-                        if (!uuid_is_null (loc->inode->gfid))
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "cannot add a new contribution node "
-                                        "(%s)", uuid_utoa (loc->inode->gfid));
-                        ret = -1;
-                        goto err;
-                }
+        if (loc->inode->ia_type == IA_IFDIR) {
+                /* lock not required for files */
+                ret = mq_lock (this, loc, F_WRLCK);
+                if (ret < 0)
+                        goto out;
+                locked = _gf_true;
         }
 
-        ret = dict_get_bin (dict, QUOTA_SIZE_KEY, (void **) &size);
+        ret = mq_are_xattrs_set (this, loc, &xattrs_set, &objects);
+        if (ret < 0 || xattrs_set)
+                goto out;
+
+        mq_set_ctx_create_status (ctx, _gf_false);
+        status = _gf_true;
+
+        ret = mq_create_xattrs (this, ctx, loc, objects);
         if (ret < 0)
                 goto out;
+
+        need_txn = _gf_true;
+out:
+        if (locked)
+                ret = mq_lock (this, loc, F_UNLCK);
+
+        if (status == _gf_false)
+                mq_set_ctx_create_status (ctx, _gf_false);
+
+        if (need_txn)
+                ret = mq_initiate_quota_blocking_txn (this, loc);
+
+        return ret;
+}
+
+static int
+_mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
+{
+        int32_t                  ret        = -1;
+        quota_inode_ctx_t       *ctx        = NULL;
+        gf_boolean_t             status     = _gf_true;
+        loc_t                    loc        = {0, };
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
+
+        ret = mq_test_and_set_ctx_create_status (ctx, &status);
+        if (ret < 0 || status == _gf_true)
+                goto out;
+
+        ret = mq_synctask (this, mq_create_xattrs_task, spawn, &loc);
+out:
+        if (ret < 0 && status == _gf_false)
+                mq_set_ctx_create_status (ctx, _gf_false);
+
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+mq_create_xattrs_txn (xlator_t *this, loc_t *loc)
+{
+        int32_t                  ret        = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = _mq_create_xattrs_txn (this, loc, _gf_true);
+out:
+        return ret;
+}
+
+int
+mq_create_xattrs_blocking_txn (xlator_t *this, loc_t *loc)
+{
+        int32_t                  ret        = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = _mq_create_xattrs_txn (this, loc, _gf_false);
+out:
+        return ret;
+}
+
+int32_t
+mq_reduce_parent_size_task (void *opaque)
+{
+        int32_t                  ret           = -1;
+        int32_t                  prev_dirty    = 0;
+        quota_inode_ctx_t       *ctx           = NULL;
+        quota_inode_ctx_t       *parent_ctx    = NULL;
+        inode_contribution_t    *contribution  = NULL;
+        quota_meta_t             delta         = {0, };
+        quota_meta_t             contri        = {0, };
+        loc_t                    parent_loc    = {0,};
+        gf_boolean_t             locked        = _gf_false;
+        gf_boolean_t             dirty         = _gf_false;
+        quota_synctask_t        *args          = NULL;
+        xlator_t                *this          = NULL;
+        loc_t                   *loc           = NULL;
+        gf_boolean_t             remove_xattr  = _gf_true;
+
+        GF_ASSERT (opaque);
+
+        args = (quota_synctask_t *) opaque;
+        loc = &args->loc;
+        contri = args->contri;
+        this = args->this;
+        THIS = this;
+
+        ret = mq_inode_loc_fill (NULL, loc->parent, &parent_loc);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "loc fill failed");
+                goto out;
+        }
+
+        ret = mq_lock (this, &parent_loc, F_WRLCK);
+        if (ret < 0)
+                goto out;
+        locked = _gf_true;
+
+        if (contri.size >= 0) {
+                /* contri paramater is supplied only for rename operation.
+                 * remove xattr is alreday performed, we need to skip
+                 * removexattr for rename operation
+                 */
+                remove_xattr = _gf_false;
+                delta.size = contri.size;
+                delta.file_count = contri.file_count;
+                delta.dir_count = contri.dir_count;
+        } else {
+                remove_xattr = _gf_true;
+
+                ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+                if (ret < 0) {
+                        gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for"
+                                          " the node %s is NULL", loc->path);
+                        goto out;
+                }
+
+                contribution = mq_get_contribution_node (loc->parent, ctx);
+                if (contribution == NULL) {
+                        ret = -1;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "contribution for the node %s is NULL",
+                                loc->path);
+                        goto out;
+                }
+
+                LOCK (&contribution->lock);
+                {
+                        delta.size = contribution->contribution;
+                        delta.file_count = contribution->file_count;
+                        delta.dir_count = contribution->dir_count;
+                }
+                UNLOCK (&contribution->lock);
+        }
+
+        ret = mq_get_set_dirty (this, &parent_loc, 1, &prev_dirty);
+        if (ret < 0)
+                goto out;
+        dirty = _gf_true;
+
+        mq_sub_meta (&delta, NULL);
+
+        if (remove_xattr) {
+                ret = mq_remove_contri (this, loc, ctx, contribution, &delta);
+                if (ret < 0)
+                        goto out;
+        }
+
+        if (quota_meta_is_null (&delta))
+                goto out;
+
+        ret = mq_update_size (this, &parent_loc, &delta);
+        if (ret < 0)
+                goto out;
+
+out:
+        if (dirty) {
+                if (ret < 0 || prev_dirty) {
+                        /* On failure clear dirty status flag.
+                         * In the next lookup inspect_directory_xattr
+                         * can set the status flag and fix the
+                         * dirty directory.
+                         * Do the same if dir was dirty before
+                         * the txn
+                         */
+                        ret = mq_inode_ctx_get (parent_loc.inode, this,
+                                                &parent_ctx);
+                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                } else {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                }
+        }
+
+        if (locked)
+                ret = mq_lock (this, &parent_loc, F_UNLCK);
+
+        if (ret >= 0)
+                ret = mq_initiate_quota_blocking_txn (this, &parent_loc);
+
+        loc_wipe (&parent_loc);
+
+        if (contribution)
+                GF_REF_PUT (contribution);
+
+        return ret;
+}
+
+int32_t
+mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
+                           quota_meta_t *contri)
+{
+        int32_t                  ret           = -1;
+        loc_t                    loc           = {0, };
+
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        if (loc_is_root(&loc)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = mq_synctask1 (this, mq_reduce_parent_size_task, _gf_true, &loc,
+                            contri);
+out:
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+mq_initiate_quota_task (void *opaque)
+{
+        int32_t                ret        = -1;
+        int32_t                prev_dirty = 0;
+        loc_t                  child_loc  = {0,};
+        loc_t                  parent_loc = {0,};
+        gf_boolean_t           locked     = _gf_false;
+        gf_boolean_t           dirty      = _gf_false;
+        gf_boolean_t           status     = _gf_false;
+        quota_meta_t           delta      = {0, };
+        quota_synctask_t      *args       = NULL;
+        xlator_t              *this       = NULL;
+        loc_t                 *loc        = NULL;
+        inode_contribution_t  *contri     = NULL;
+        quota_inode_ctx_t     *ctx        = NULL;
+        quota_inode_ctx_t     *parent_ctx = NULL;
+        inode_t               *tmp_parent = NULL;
+
+        GF_VALIDATE_OR_GOTO ("marker", opaque, out);
+
+        args = (quota_synctask_t *) opaque;
+        loc = &args->loc;
+        this = args->this;
+
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        THIS = this;
+
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        ret = mq_loc_copy (&child_loc, loc);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "loc copy failed");
+                goto out;
+        }
+
+        while (!__is_root_gfid (child_loc.gfid)) {
+
+                ret = mq_inode_ctx_get (child_loc.inode, this, &ctx);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "inode ctx get failed for %s, "
+                                "aborting update txn", child_loc.path);
+                        goto out;
+                }
+
+                /* To improve performance, abort current transaction
+                 * if one is already in progress for same inode
+                 */
+                if (status == _gf_true) {
+                        /* status will alreday set before txn start,
+                         * so it should not be set in first
+                         * loop iteration
+                         */
+                        ret = mq_test_and_set_ctx_updation_status (ctx,
+                                                                   &status);
+                        if (ret < 0 || status == _gf_true)
+                                goto out;
+                }
+
+                ret = mq_inode_loc_fill (NULL, child_loc.parent, &parent_loc);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "loc fill failed");
+                        goto out;
+                }
+
+                ret = mq_lock (this, &parent_loc, F_WRLCK);
+                if (ret < 0)
+                        goto out;
+                locked = _gf_true;
+
+                mq_set_ctx_updation_status (ctx, _gf_false);
+                status = _gf_true;
+
+                /* Contribution node can be NULL in below scenarios and
+                   create if needed:
+
+                   Scenario 1)
+                   In this case create a new contribution node
+                   Suppose hard link for a file f1 present in a directory d1 is
+                   created in the directory d2 (as f2). Now, since d2's
+                   contribution is not there in f1's inode ctx, d2's
+                   contribution xattr wont be created and will create problems
+                   for quota operations.
+
+                   Don't create contribution if parent has been changed after
+                   taking a lock, this can happen when rename is performed
+                   and writes is still in-progress for the same file
+
+                   Scenario 2)
+                   When a rename operation is performed, contribution node
+                   for olp path will be removed.
+
+                   Create contribution node only if oldparent is same as
+                   newparent.
+                   Consider below example
+                   1) rename FOP invoked on file 'x'
+                   2) write is still in progress for file 'x'
+                   3) rename takes a lock on old-parent
+                   4) write-update txn blocked on old-parent to acquire lock
+                   5) in rename_cbk, contri xattrs are removed and contribution
+                      is deleted and lock is released
+                   6) now write-update txn gets the lock and updates the
+                      wrong parent as it was holding lock on old parent
+                      so validate parent once the lock is acquired
+
+                     For more information on thsi problem, please see
+                     doc for marker_rename in file marker.c
+                */
+                contri = mq_get_contribution_node (child_loc.parent, ctx);
+                if (contri == NULL) {
+                        tmp_parent = inode_parent (child_loc.inode, 0, NULL);
+                        if (tmp_parent == NULL) {
+                                ret = -1;
+                                goto out;
+                        }
+                        if (gf_uuid_compare(tmp_parent->gfid,
+                                            parent_loc.gfid)) {
+                                /* abort txn if parent has changed */
+                                ret = 0;
+                                goto out;
+                        }
+
+                        inode_unref (tmp_parent);
+                        tmp_parent = NULL;
+
+                        contri = mq_add_new_contribution_node (this, ctx,
+                                                               &child_loc);
+                        if (contri == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "create contribution node for %s, "
+                                        "abort update txn", child_loc.path);
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
+                ret = mq_get_delta (this, &child_loc, &delta, ctx, contri);
+                if (ret < 0)
+                        goto out;
+
+                if (quota_meta_is_null (&delta))
+                        goto out;
+
+                prev_dirty = 0;
+                ret = mq_get_set_dirty (this, &parent_loc, 1, &prev_dirty);
+                if (ret < 0)
+                        goto out;
+                dirty = _gf_true;
+
+                ret = mq_update_contri (this, &child_loc, contri, &delta);
+                if (ret < 0)
+                        goto out;
+
+                ret = mq_update_size (this, &parent_loc, &delta);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG, "rollback "
+                                "contri updation");
+                        mq_sub_meta (&delta, NULL);
+                        mq_update_contri (this, &child_loc, contri, &delta);
+                        goto out;
+                }
+
+                if (prev_dirty == 0) {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                        dirty = _gf_false;
+                }
+
+                ret = mq_lock (this, &parent_loc, F_UNLCK);
+                locked = _gf_false;
+
+                if (__is_root_gfid (parent_loc.gfid))
+                        break;
+
+                /* Repeate above steps upwards till the root */
+                loc_wipe (&child_loc);
+                ret = mq_loc_copy (&child_loc, &parent_loc);
+                if (ret < 0)
+                        goto out;
+
+                loc_wipe (&parent_loc);
+                GF_REF_PUT (contri);
+                contri = NULL;
+        }
+
+out:
+        if (dirty) {
+                if (ret < 0 || prev_dirty) {
+                        /* On failure clear dirty status flag.
+                         * In the next lookup inspect_directory_xattr
+                         * can set the status flag and fix the
+                         * dirty directory.
+                         * Do the same if the dir was dirty before
+                         * txn
+                         */
+                        ret = mq_inode_ctx_get (parent_loc.inode, this,
+                                                &parent_ctx);
+                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                } else {
+                        ret = mq_mark_dirty (this, &parent_loc, 0);
+                }
+        }
+
+        if (locked)
+                ret = mq_lock (this, &parent_loc, F_UNLCK);
+
+        if (ctx && status == _gf_false)
+                mq_set_ctx_updation_status (ctx, _gf_false);
+
+        loc_wipe (&child_loc);
+        loc_wipe (&parent_loc);
+
+        if (tmp_parent)
+                inode_unref (tmp_parent);
+
+        if (contri)
+                GF_REF_PUT (contri);
+
+        return 0;
+}
+
+int
+_mq_initiate_quota_txn (xlator_t *this, loc_t *origin_loc, gf_boolean_t spawn)
+{
+        int32_t                 ret          = -1;
+        quota_inode_ctx_t      *ctx          = NULL;
+        gf_boolean_t            status       = _gf_true;
+        loc_t                   loc          = {0,};
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
+
+        if (loc_is_root(&loc)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = mq_test_and_set_ctx_updation_status (ctx, &status);
+        if (ret < 0 || status == _gf_true)
+                goto out;
+
+        ret = mq_synctask (this, mq_initiate_quota_task, spawn, &loc);
+
+out:
+        if (ret < 0 && status == _gf_false)
+                mq_set_ctx_updation_status (ctx, _gf_false);
+
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+mq_initiate_quota_txn (xlator_t *this, loc_t *loc)
+{
+        int32_t                 ret          = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = _mq_initiate_quota_txn (this, loc, _gf_true);
+out:
+        return ret;
+}
+
+int
+mq_initiate_quota_blocking_txn (xlator_t *this, loc_t *loc)
+{
+        int32_t                 ret          = -1;
+
+        GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = _mq_initiate_quota_txn (this, loc, _gf_false);
+out:
+        return ret;
+}
+
+int
+mq_update_dirty_inode_task (void *opaque)
+{
+        int32_t               ret            = -1;
+        fd_t                 *fd             = NULL;
+        off_t                 offset         = 0;
+        loc_t                 child_loc      = {0, };
+        gf_dirent_t           entries;
+        gf_dirent_t          *entry          = NULL;
+        gf_boolean_t          locked         = _gf_false;
+        gf_boolean_t          free_entries   = _gf_false;
+        gf_boolean_t          updated        = _gf_false;
+        int32_t               dirty          = 0;
+        quota_meta_t          contri         = {0, };
+        quota_meta_t          size           = {0, };
+        quota_meta_t          contri_sum     = {0, };
+        quota_meta_t          delta          = {0, };
+        quota_synctask_t     *args           = NULL;
+        xlator_t             *this           = NULL;
+        loc_t                *loc            = NULL;
+        quota_inode_ctx_t    *ctx            = NULL;
+
+        GF_ASSERT (opaque);
+
+        args = (quota_synctask_t *) opaque;
+        loc = &args->loc;
+        this = args->this;
+        THIS = this;
+
+        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        ret = mq_lock (this, loc, F_WRLCK);
+        if (ret < 0)
+                goto out;
+        locked = _gf_true;
+
+        ret = mq_get_dirty (this, loc, &dirty);
+        if (ret < 0 || dirty == 0) {
+                ret = 0;
+                goto out;
+        }
+
+        fd = fd_create (loc->inode, 0);
+        if (!fd) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create fd");
+                ret = -1;
+                goto out;
+        }
+
+        ret = syncop_opendir (this, loc, fd, NULL, NULL);
+        if (ret < 0) {
+                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
+                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "opendir failed "
+                        "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        fd_bind (fd);
+        INIT_LIST_HEAD (&entries.list);
+        while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
+                                       NULL, NULL)) != 0) {
+                if (ret < 0) {
+                        gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
+                                ? GF_LOG_DEBUG:GF_LOG_ERROR, "readdirp failed "
+                                "for %s: %s", loc->path, strerror (-ret));
+                        goto out;
+                }
+
+                if (list_empty (&entries.list))
+                        break;
+
+                free_entries = _gf_true;
+                list_for_each_entry (entry, &entries.list, list) {
+                        offset = entry->d_off;
+
+                        if (!strcmp (entry->d_name, ".") ||
+                            !strcmp (entry->d_name, ".."))
+                                continue;
+
+                        ret = loc_build_child (&child_loc, loc, entry->d_name);
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Couldn't build loc for %s/%s "
+                                        "returning from updation of dirty "
+                                        "inode", loc->path, entry->d_name);
+                                goto out;
+                        }
+
+                        ret = mq_get_contri (this, &child_loc, &contri,
+                                             loc->gfid);
+                        if (ret < 0)
+                                goto out;
+
+                        mq_add_meta (&contri_sum, &contri);
+                        loc_wipe (&child_loc);
+                }
+
+                gf_dirent_free (&entries);
+                free_entries = _gf_false;
+        }
+        /* Inculde for self */
+        contri_sum.dir_count++;
+
+        ret = mq_get_size (this, loc, &size);
+        if (ret < 0)
+                goto out;
+
+        mq_compute_delta (&delta, &contri_sum, &size);
+
+        if (quota_meta_is_null (&delta))
+                goto out;
+
+        gf_log (this->name, GF_LOG_INFO, "calculated size = %"PRId64
+                ", original size = %"PRIu64 ", diff = %"PRIu64
+                ", path = %s ", contri_sum.size, size.size, delta.size,
+                loc->path);
+
+        gf_log (this->name, GF_LOG_INFO, "calculated f_count = %"PRId64
+                ", original f_count = %"PRIu64 ", diff = %"PRIu64
+                ", path = %s ", contri_sum.file_count, size.file_count,
+                delta.file_count, loc->path);
+
+        gf_log (this->name, GF_LOG_INFO, "calculated d_count = %"PRId64
+                ", original d_count = %"PRIu64 ", diff = %"PRIu64
+                ", path = %s ", contri_sum.dir_count, size.dir_count,
+                delta.dir_count, loc->path);
+
+
+        ret = mq_update_size (this, loc, &delta);
+        if (ret < 0)
+                goto out;
+
+        updated = _gf_true;
+
+out:
+        if (free_entries)
+                gf_dirent_free (&entries);
+
+        if (fd)
+                fd_unref (fd);
+
+        if (ret < 0) {
+                /* On failure clear dirty status flag.
+                 * In the next lookup inspect_directory_xattr
+                 * can set the status flag and fix the
+                 * dirty directory
+                 */
+                mq_set_ctx_dirty_status (ctx, _gf_false);
+        } else if (dirty) {
+                mq_mark_dirty (this, loc, 0);
+        }
+
+        if (locked)
+                mq_lock (this, loc, F_UNLCK);
+
+        loc_wipe(&child_loc);
+
+        if (updated)
+                mq_initiate_quota_blocking_txn (this, loc);
+
+        return ret;
+}
+
+int32_t
+mq_update_dirty_inode_txn (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx)
+{
+        int32_t          ret        = -1;
+        gf_boolean_t     status     = _gf_true;
+
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        ret = mq_test_and_set_ctx_dirty_status (ctx, &status);
+        if (ret < 0 || status == _gf_true)
+                goto out;
+
+        ret = mq_synctask (this, mq_update_dirty_inode_task, _gf_true, loc);
+out:
+        if (ret < 0 && status == _gf_false)
+                mq_set_ctx_dirty_status (ctx, _gf_false);
+
+        return ret;
+}
+
+int32_t
+mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
+                            inode_contribution_t *contribution, loc_t *loc,
+                            dict_t *dict, struct iatt buf)
+{
+        int32_t               ret                          = 0;
+        int8_t                dirty                        = -1;
+        quota_meta_t          size                         = {0, };
+        quota_meta_t          contri                       = {0, };
+        quota_meta_t          delta                        = {0, };
+        char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        gf_boolean_t          status                       = _gf_false;
 
         ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
+        if (ret < 0) {
+                /* dirty is set only on the first file write operation
+                 * so ignore this error
+                 */
+                ret = 0;
+                dirty = 0;
+        }
+
+        ret = _quota_dict_get_meta (this, dict, QUOTA_SIZE_KEY, &size,
+                                    IA_IFDIR, _gf_false);
         if (ret < 0)
-                goto out;
+                goto create_xattr;
 
-        if ((loc->path && strcmp (loc->path, "/") != 0)
-            || (!uuid_is_null (loc->gfid) && !__is_root_gfid (loc->gfid))
-            || (loc->inode && !uuid_is_null (loc->inode->gfid) &&
-                !__is_root_gfid (loc->inode->gfid))) {
-                not_root = _gf_true;
-
+        if (!loc_is_root(loc)) {
                 GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
                 if (ret < 0)
                         goto out;
 
-                ret = dict_get_bin (dict, contri_key, (void **) &contri);
+                ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
+                                            IA_IFDIR, _gf_false);
                 if (ret < 0)
-                        goto out;
+                        goto create_xattr;
 
                 LOCK (&contribution->lock);
                 {
-                        contribution->contribution = ntoh64 (*contri);
-                        contri_int = contribution->contribution;
+                        contribution->contribution = contri.size;
+                        contribution->file_count = contri.file_count;
+                        contribution->dir_count = contri.dir_count;
                 }
                 UNLOCK (&contribution->lock);
         }
 
         LOCK (&ctx->lock);
         {
-                ctx->size = ntoh64 (*size);
+                ctx->size = size.size;
+                ctx->file_count = size.file_count;
+                ctx->dir_count = size.dir_count;
                 ctx->dirty = dirty;
-                size_int = ctx->size;
         }
         UNLOCK (&ctx->lock);
 
-        gf_log (this->name, GF_LOG_DEBUG, "size=%"PRId64
-                " contri=%"PRId64, size_int, contri_int);
+        ret = mq_get_ctx_updation_status (ctx, &status);
+        if (ret < 0 || status == _gf_true) {
+                /* If the update txn is in progress abort inspection */
+                ret = 0;
+                goto out;
+        }
+
+        mq_compute_delta (&delta, &size, &contri);
 
         if (dirty) {
-                ret = mq_update_dirty_inode (this, loc, ctx, contribution);
+                ret = mq_update_dirty_inode_txn (this, loc, ctx);
+                goto out;
         }
 
-        if ((!dirty || ret == 0) && (not_root == _gf_true) &&
-            (size_int != contri_int)) {
+        if (!loc_is_root(loc) &&
+            !quota_meta_is_null (&delta))
                 mq_initiate_quota_txn (this, loc);
-        }
 
         ret = 0;
+        goto out;
+
+create_xattr:
+        if (ret < 0)
+                ret = mq_create_xattrs_txn (this, loc);
+
 out:
-        if (ret)
-                mq_set_inode_xattr (this, loc);
-err:
         return ret;
 }
 
 int32_t
-mq_inspect_file_xattr (xlator_t *this,
-                       loc_t *loc,
-                       dict_t *dict,
-                       struct iatt buf)
+mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
+                       inode_contribution_t *contribution, loc_t *loc,
+                       dict_t *dict, struct iatt buf)
 {
-        int32_t               ret              = -1;
-        uint64_t              contri_int       = 0, size = 0;
-        int64_t              *contri_ptr       = NULL;
-        char                  contri_key [512] = {0, };
-        quota_inode_ctx_t    *ctx              = NULL;
-        inode_contribution_t *contribution     = NULL;
+        int32_t               ret                          = -1;
+        quota_meta_t          size                         = {0, };
+        quota_meta_t          contri                       = {0, };
+        quota_meta_t          delta                        = {0, };
+        char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        gf_boolean_t          status                       = _gf_false;
 
-        ret = mq_inode_ctx_get (loc->inode, this, &ctx);
+        LOCK (&ctx->lock);
+        {
+                ctx->size = 512 * buf.ia_blocks;
+                ctx->file_count = 1;
+                ctx->dir_count = 0;
+
+                size.size = ctx->size;
+                size.file_count = ctx->file_count;
+                size.dir_count = ctx->dir_count;
+        }
+        UNLOCK (&ctx->lock);
+
+        GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
+        if (ret < 0)
+                goto out;
+
+        ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
+                                    IA_IFREG, _gf_true);
         if (ret < 0) {
-                ctx = mq_inode_ctx_new (loc->inode, this);
-                if (ctx == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "mq_inode_ctx_new failed");
+                ret = mq_create_xattrs_txn (this, loc);
+        } else {
+                LOCK (&contribution->lock);
+                {
+                        contribution->contribution = contri.size;
+                        contribution->file_count = contri.file_count;
+                        contribution->dir_count = contri.dir_count;
+                }
+                UNLOCK (&contribution->lock);
+
+                ret = mq_get_ctx_updation_status (ctx, &status);
+                if (ret < 0 || status == _gf_true) {
+                        /* If the update txn is in progress abort inspection */
+                        ret = 0;
+                        goto out;
+                }
+
+                mq_compute_delta (&delta, &size, &contri);
+                if (!quota_meta_is_null (&delta))
+                        mq_initiate_quota_txn (this, loc);
+        }
+        /* TODO: revist this code when fixing hardlinks */
+
+out:
+        return ret;
+}
+
+int32_t
+mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
+                struct iatt buf)
+{
+        int32_t               ret             = -1;
+        quota_inode_ctx_t    *ctx             = NULL;
+        loc_t                 loc             = {0, };
+        inode_contribution_t *contribution    = NULL;
+
+        if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
+            || (buf.ia_type == IA_IFLNK) || (buf.ia_type == IA_IFDIR)) {
+                /* do healing only for these type of files */
+        } else {
+                ret = 0;
+                goto out;
+        }
+
+        ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx);
+        if (ret < 0)
+                goto out;
+
+        if (!loc_is_root(&loc)) {
+                contribution = mq_add_new_contribution_node (this, ctx, &loc);
+                if (contribution == NULL) {
+                        if (!gf_uuid_is_null (loc.inode->gfid))
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot add a new contribution node "
+                                        "(%s)", uuid_utoa (loc.gfid));
                         ret = -1;
                         goto out;
                 }
         }
 
-        contribution = mq_add_new_contribution_node (this, ctx, loc);
-        if (contribution == NULL) {
-                gf_log_callingfn (this->name, GF_LOG_DEBUG, "cannot allocate "
-                                  "contribution node (path:%s)", loc->path);
-                goto out;
-        }
-
-        LOCK (&ctx->lock);
-        {
-                ctx->size = 512 * buf.ia_blocks;
-                size = ctx->size;
-        }
-        UNLOCK (&ctx->lock);
-
-        list_for_each_entry (contribution, &ctx->contribution_head,
-                             contri_list) {
-                GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
-                if (ret < 0)
-                        continue;
-
-                ret = dict_get_bin (dict, contri_key, (void **) &contri_int);
-                if (ret == 0) {
-                        contri_ptr = (int64_t *)(unsigned long)contri_int;
-
-                        LOCK (&contribution->lock);
-                        {
-                                contribution->contribution = ntoh64 (*contri_ptr);
-                                contri_int = contribution->contribution;
-                        }
-                        UNLOCK (&contribution->lock);
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "size=%"PRId64 " contri=%"PRId64, size, contri_int);
-
-                        if (size != contri_int) {
-                                mq_initiate_quota_txn (this, loc);
-                        }
-                } else {
-                        if (size)
-                                mq_initiate_quota_txn (this, loc);
-                        else
-                                mq_set_inode_xattr (this, loc);
-                }
-        }
+        if (buf.ia_type == IA_IFDIR)
+                mq_inspect_directory_xattr (this, ctx, contribution, &loc, dict,
+                                            buf);
+        else
+                mq_inspect_file_xattr (this, ctx, contribution, &loc, dict,
+                                       buf);
 
 out:
+        loc_wipe (&loc);
+
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
 int32_t
-mq_xattr_state (xlator_t *this,
-                loc_t *loc,
-                dict_t *dict,
-                struct iatt buf)
-{
-        if (((buf.ia_type == IA_IFREG) && !dht_is_linkfile (&buf, dict))
-            || (buf.ia_type == IA_IFLNK))  {
-                mq_inspect_file_xattr (this, loc, dict, buf);
-        } else if (buf.ia_type == IA_IFDIR)
-                mq_inspect_directory_xattr (this, loc, dict, buf);
-
-        return 0;
-}
-
-int32_t
-mq_req_xattr (xlator_t *this,
-              loc_t *loc,
-              dict_t *dict)
+mq_req_xattr (xlator_t *this, loc_t *loc, dict_t *dict,
+              char *contri_key)
 {
         int32_t               ret       = -1;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
+        GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
 
-        if (!loc)
-                goto set_size;
-
-        //if not "/" then request contribution
-        if (loc->path && strcmp (loc->path, "/") == 0)
-                goto set_size;
-
-        ret = mq_dict_set_contribution (this, dict, loc);
-        if (ret == -1)
-                goto out;
-
-set_size:
-        ret = dict_set_uint64 (dict, QUOTA_SIZE_KEY, 0);
-        if (ret < 0) {
-                ret = -1;
-                goto out;
+        if (!loc_is_root(loc)) {
+                ret = mq_dict_set_contribution (this, dict, loc, NULL,
+                                                contri_key);
+                if (ret < 0)
+                        goto out;
         }
+
+        ret = dict_set_uint64 (dict, QUOTA_SIZE_KEY, 0);
+        if (ret < 0)
+                goto out;
 
         ret = dict_set_int8 (dict, QUOTA_DIRTY_KEY, 0);
-        if (ret < 0) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = 0;
 
 out:
+        if (ret < 0)
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "dict set failed");
+
         return ret;
 }
 
@@ -2345,15 +3928,15 @@ int32_t
 _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        int32_t        ret                = 0;
-        char           contri_key [512]   = {0, };
-        quota_local_t *local              = NULL;
-        inode_t       *inode              = NULL;
-        dentry_t      *tmp                = NULL;
-        gf_boolean_t  last_dentry         = _gf_true;
-        loc_t         loc                 = {0, };
-        dentry_t      *other_dentry       = NULL;
-        gf_boolean_t  remove              = _gf_false;
+        int32_t        ret                           = 0;
+        char           contri_key[CONTRI_KEY_MAX]    = {0, };
+        quota_local_t *local                         = NULL;
+        inode_t       *inode                         = NULL;
+        dentry_t      *tmp                           = NULL;
+        gf_boolean_t  last_dentry                    = _gf_true;
+        loc_t         loc                            = {0, };
+        dentry_t      *other_dentry                  = NULL;
+        gf_boolean_t  remove                         = _gf_false;
 
         local = (quota_local_t *) frame->local;
 
@@ -2426,9 +4009,9 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 else {
                         loc.parent = inode_ref (other_dentry->parent);
                         loc.name = gf_strdup (other_dentry->name);
-                        uuid_copy (loc.pargfid , other_dentry->parent->gfid);
+                        gf_uuid_copy (loc.pargfid , other_dentry->parent->gfid);
                         loc.inode = inode_ref (inode);
-                        uuid_copy (loc.gfid, inode->gfid);
+                        gf_uuid_copy (loc.gfid, inode->gfid);
                         inode_path (other_dentry->parent, other_dentry->name,
                                     (char **)&loc.path);
 
@@ -2532,6 +4115,7 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
 
         dict = dict_new ();
         if (dict == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
                 ret = -1;
                 goto err;
         }
@@ -2541,10 +4125,12 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         *size = hton64 (-local->size);
 
         ret = dict_set_bin (dict, QUOTA_SIZE_KEY, size, 8);
-        if (ret < 0)
+        if (ret < 0) {
+                GF_FREE (size);
                 goto err;
+        }
 
-        uuid_copy (local->parent_loc.gfid,
+        gf_uuid_copy (local->parent_loc.gfid,
                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
@@ -2614,7 +4200,10 @@ mq_reduce_parent_size (xlator_t *this, loc_t *loc, int64_t contri)
                 goto out;
 
         local->ctx = ctx;
-        local->contri = contribution;
+        if (contribution) {
+                local->contri = contribution;
+                GF_REF_GET (local->contri);
+        }
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &local->parent_loc);
         if (ret < 0) {
@@ -2658,6 +4247,9 @@ out:
         if (local != NULL)
                 mq_local_unref (this, local);
 
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -2692,6 +4284,10 @@ mq_rename_update_newpath (xlator_t *this, loc_t *loc)
 
         mq_initiate_quota_txn (this, loc);
 out:
+
+        if (contribution)
+                GF_REF_PUT (contribution);
+
         return ret;
 }
 
@@ -2706,8 +4302,8 @@ mq_forget (xlator_t *this, quota_inode_ctx_t *ctx)
 
         list_for_each_entry_safe (contri, next, &ctx->contribution_head,
                                   contri_list) {
-                list_del (&contri->contri_list);
-                GF_FREE (contri);
+                list_del_init (&contri->contri_list);
+                GF_REF_PUT (contri);
         }
 
         LOCK_DESTROY (&ctx->lock);

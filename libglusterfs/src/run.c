@@ -43,8 +43,8 @@
 #include "common-utils.h"
 #endif
 
+#include "libglusterfs-messages.h"
 #include "run.h"
-
 void
 runinit (runner_t *runner)
 {
@@ -187,7 +187,7 @@ runner_log (runner_t *runner, const char *dom, gf_loglevel_t lvl,
         if (len > 0)
                 buf[len - 1] = '\0';
 
-        gf_log_callingfn (dom, lvl, "%s: %s", msg, buf);
+        gf_msg_callingfn (dom, lvl, 0, LG_MSG_RUNNER_LOG, "%s: %s", msg, buf);
 
         GF_FREE (buf);
 }
@@ -290,9 +290,6 @@ runner_start (runner_t *runner)
                         } else
                                 ret = -1;
 #else /* !GF_LINUX_HOST_OS */
-#ifdef F_CLOSEM /* NetBSD */
-			(void)fcntl(3, F_CLOSEM);
-#else /* !F_CLOSEM */
                         struct rlimit rl;
                         ret = getrlimit (RLIMIT_NOFILE, &rl);
                         GF_ASSERT (ret == 0);
@@ -301,7 +298,6 @@ runner_start (runner_t *runner)
                                 if (i != xpi[1])
                                         close (i);
                         }
-#endif /* !F_CLOSEM */
 #endif /* !GF_LINUX_HOST_OS */
                 }
 

@@ -11,11 +11,6 @@
 #ifndef _COMMON_UTILS_H
 #define _COMMON_UTILS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <sys/uio.h>
 #include <netdb.h>
@@ -28,6 +23,7 @@
 #include <alloca.h>
 #endif
 #include <limits.h>
+#include <fnmatch.h>
 
 void trap (void);
 
@@ -40,7 +36,9 @@ void trap (void);
 #include "glusterfs.h"
 #include "locking.h"
 #include "mem-pool.h"
+#include "compat-uuid.h"
 #include "uuid.h"
+#include "libglusterfs-messages.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)
@@ -59,6 +57,7 @@ void trap (void);
 #define GF_UNIT_TB    1099511627776ULL
 #define GF_UNIT_PB    1125899906842624ULL
 
+#define GF_UNIT_B_STRING     "B"
 #define GF_UNIT_KB_STRING    "KB"
 #define GF_UNIT_MB_STRING    "MB"
 #define GF_UNIT_GB_STRING    "GB"
@@ -84,6 +83,7 @@ void trap (void);
  */
 #define GF_NFS3_PORT    2049
 #define GF_CLIENT_PORT_CEILING 1024
+#define GF_PORT_MAX 65535
 
 #define GF_MINUTE_IN_SECONDS 60
 #define GF_HOUR_IN_SECONDS (60*60)
@@ -92,6 +92,9 @@ void trap (void);
 
 /* Default timeout for both barrier and changelog translator */
 #define BARRIER_TIMEOUT "120"
+
+/* Default value of signing waiting time to sign a file for bitrot */
+#define SIGNING_TIMEOUT "120"
 
 enum _gf_boolean
 {
@@ -115,10 +118,45 @@ enum _gf_client_pid
         GF_CLIENT_PID_NO_ROOT_SQUASH    = -4,
         GF_CLIENT_PID_QUOTA_MOUNT       = -5,
         GF_CLIENT_PID_AFR_SELF_HEALD    = -6,
+        GF_CLIENT_PID_GLFS_HEAL         = -7,
+        GF_CLIENT_PID_BITD              = -8,
+        GF_CLIENT_PID_SCRUB             = -9,
+        GF_CLIENT_PID_TIER_DEFRAG       = -10
+};
+
+enum _gf_xlator_ipc_targets {
+        GF_IPC_TARGET_CHANGELOG = 0,
+        GF_IPC_TARGET_CTR = 1
 };
 
 typedef enum _gf_boolean gf_boolean_t;
 typedef enum _gf_client_pid gf_client_pid_t;
+typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
+
+/* The DHT file rename operation is not a straightforward rename.
+ * It involves creating linkto and linkfiles, and can unlink or rename the
+ * source file depending on the hashed and cached subvols for the source
+ * and target files. this makes it difficult for geo-rep to figure out that
+ * a rename operation has taken place.
+ *
+ * We now send a special key and the values of the source and target pargfids
+ * and basenames to indicate to changelog that the operation in question
+ * should be treated as a rename. We are explicitly filling and sending this
+ * as a binary value in the dictionary as the unlink op will not have the
+ * source file information. The lengths of the src and target basenames
+ * are used to calculate where to start reading the names in the structure.
+ * XFS allows a max of 255 chars for filenames but other file systems might
+ * not have such restrictions
+ */
+typedef struct dht_changelog_rename_info {
+         uuid_t  old_pargfid;
+         uuid_t  new_pargfid;
+         int32_t oldname_len;
+         int32_t newname_len;
+         char    buffer[1];
+ } dht_changelog_rename_info_t;
+
+
 typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
@@ -138,9 +176,10 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\
-			gf_log_callingfn ((this ? (this->name) :        \
+			gf_msg_callingfn ((this ? (this->name) :        \
                                            "(Govinda! Govinda!)"),      \
-                                          GF_LOG_WARNING,               \
+                                          GF_LOG_WARNING, EINVAL,       \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);   \
 			goto label;					\
 		}							\
@@ -149,7 +188,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_VALIDATE_OR_GOTO(name,arg,label)   do {                      \
 		if (!arg) {                                             \
 			errno = EINVAL;                                 \
-			gf_log_callingfn (name, GF_LOG_ERROR,           \
+			gf_msg_callingfn (name, GF_LOG_ERROR, errno,    \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);	\
 			goto label;                                     \
 		}                                                       \
@@ -158,11 +198,28 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
                 if (!arg) {                                                 \
                         errno = error;                                  \
-                        gf_log_callingfn (name, GF_LOG_ERROR,           \
+                        gf_msg_callingfn (name, GF_LOG_ERROR, EINVAL,   \
+                                          LG_MSG_INVALID_ARG,         \
                                           "invalid argument: " #arg);   \
                         goto label;                                     \
                 }                                                       \
         }while (0)
+
+#define GF_CHECK_ALLOC(arg, retval, label)   do {                       \
+                if (!(arg)) {                                           \
+                        retval = -ENOMEM;                               \
+                        goto label;                                     \
+                }                                                       \
+        } while (0)                                                     \
+
+#define GF_CHECK_ALLOC_AND_LOG(name, item, retval, msg, errlabel) do {  \
+                if (!(item)) {                                          \
+                        (retval) = -ENOMEM;                             \
+                        gf_msg (name, GF_LOG_CRITICAL, ENOMEM,          \
+                                LG_MSG_NO_MEMORY, (msg));               \
+                        goto errlabel;                                  \
+                }                                                       \
+        } while (0)
 
 #define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
                 if (!arg) {                                             \
@@ -177,7 +234,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                 GF_VALIDATE_OR_GOTO (name, arg, label);                 \
                 if ((arg[0]) != '/') {                                  \
                         errno = EINVAL;                                 \
-			gf_log_callingfn (name, GF_LOG_ERROR,           \
+			gf_msg_callingfn (name, GF_LOG_ERROR, EINVAL,   \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);	\
                         goto label;                                     \
                 }                                                       \
@@ -196,8 +254,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_REMOVE_INTERNAL_XATTR(pattern, dict)                         \
         do {                                                            \
                 if (!dict) {                                            \
-                        gf_log (this->name, GF_LOG_ERROR,               \
-                                "dict is null");                        \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_DICT_NULL, "dict is null");      \
                         break;                                          \
                 }                                                       \
                 dict_foreach_fnmatch (dict, pattern,                    \
@@ -208,7 +266,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, op_errno, label)       \
         do {                                                            \
                 if (!dict) {                                            \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_DICT_NULL,                        \
                                 "setxattr dict is null");               \
                         goto label;                                     \
                 }                                                       \
@@ -216,10 +275,10 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                                           dict_null_foreach_fn,         \
                                           NULL) > 0) {                  \
                         op_errno = EPERM;                               \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
+                                LG_MSG_NO_PERM,                         \
                                 "attempt to set internal"               \
-                                " xattr: %s: %s", pattern,              \
-                                strerror (op_errno));                   \
+                                " xattr: %s", pattern);                 \
                         goto label;                                     \
                 }                                                       \
         } while (0)
@@ -227,16 +286,17 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_IF_NATIVE_XATTR_GOTO(pattern, key, op_errno, label)          \
         do {                                                            \
                 if (!key) {                                             \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_NO_KEY,                          \
                                 "no key for removexattr");              \
                         goto label;                                     \
                 }                                                       \
                 if (!fnmatch (pattern, key, 0)) {                       \
                         op_errno = EPERM;                               \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
+                                LG_MSG_NO_PERM,                         \
                                 "attempt to remove internal "           \
-                                "xattr: %s: %s", key,                   \
-                                strerror (op_errno));                   \
+                                "xattr: %s", key);                      \
                         goto label;                                     \
                 }                                                       \
         } while (0)
@@ -251,15 +311,20 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_ASSERT(x)                                                    \
         do {                                                            \
                 if (!(x)) {                                             \
-                        gf_log_callingfn ("", GF_LOG_ERROR,             \
+                        gf_msg_callingfn ("", GF_LOG_ERROR, 0,          \
+                                          LG_MSG_ASSERTION_FAILED,      \
                                           "Assertion failed: " #x);     \
                 }                                                       \
         } while (0)
 #endif
 
 #define GF_UUID_ASSERT(u) \
-        if (uuid_is_null (u))\
+        if (gf_uuid_is_null (u))\
                 GF_ASSERT (!"uuid null");
+
+#define GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, op_errno)                 \
+        (((frame->root->pid == GF_CLIENT_PID_GSYNCD) &&                 \
+          (op_errno == EEXIST || op_errno == ENOENT))?0:1)              \
 
 union gf_sock_union {
         struct sockaddr_storage storage;
@@ -271,6 +336,19 @@ union gf_sock_union {
 #define GF_HIDDEN_PATH ".glusterfs"
 
 #define IOV_MIN(n) min(IOV_MAX,n)
+
+#define GF_FOR_EACH_ENTRY_IN_DIR(entry, dir) \
+        do {\
+                entry = NULL;\
+                if (dir) { \
+                        entry = readdir (dir); \
+                        while (entry && (!strcmp (entry->d_name, ".") || \
+                            !fnmatch ("*.tmp", entry->d_name, 0) || \
+                            !strcmp (entry->d_name, ".."))) { \
+                                entry = readdir (dir); \
+                        } \
+                } \
+        } while (0)
 
 static inline void
 iov_free (struct iovec *vector, int count)
@@ -565,7 +643,8 @@ int gf_string2uint64_base10 (const char *str, uint64_t *n);
 int gf_string2bytesize (const char *str, uint64_t *n);
 int gf_string2bytesize_size (const char *str, size_t *n);
 int gf_string2bytesize_uint64 (const char *str, uint64_t *n);
-int gf_string2percent_or_bytesize (const char *str, uint64_t *n,
+int gf_string2bytesize_int64 (const char *str, int64_t *n);
+int gf_string2percent_or_bytesize (const char *str, double *n,
 				   gf_boolean_t *is_percent);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);
@@ -579,6 +658,8 @@ int get_checksum_for_file (int fd, uint32_t *checksum);
 int log_base2 (unsigned long x);
 
 int get_checksum_for_path (char *path, uint32_t *checksum);
+int get_file_mtime (const char *path, time_t *stamp);
+char *gf_resolve_path_parent (const char *path);
 
 char *strtail (char *str, const char *pattern);
 void skipwhite (char **s);
@@ -588,6 +669,7 @@ void skip_word (char **str);
 char *get_nth_word (const char *str, int n);
 
 gf_boolean_t mask_match (const uint32_t a, const uint32_t b, const uint32_t m);
+gf_boolean_t gf_is_ip_in_net (const char *network, const char *ip_str);
 char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc);
 char valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc);
@@ -596,6 +678,7 @@ gf_boolean_t valid_mount_auth_address (char *address);
 gf_boolean_t valid_ipv4_subnetwork (const char *address);
 gf_boolean_t gf_sock_union_equal_addr (union gf_sock_union *a,
                                        union gf_sock_union *b);
+char *gf_rev_dns_lookup (const char *ip);
 
 char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);
@@ -616,8 +699,9 @@ int gf_strip_whitespace (char *str, int len);
 int gf_canonicalize_path (char *path);
 char *generate_glusterfs_ctx_id (void);
 char *gf_get_reserved_ports();
-int gf_process_reserved_ports (gf_boolean_t ports[]);
-gf_boolean_t gf_ports_reserved (char *blocked_port, gf_boolean_t *ports);
+int gf_process_reserved_ports (gf_boolean_t ports[], uint32_t ceiling);
+gf_boolean_t
+gf_ports_reserved (char *blocked_port, gf_boolean_t *ports, uint32_t ceiling);
 int gf_get_hostname_from_ip (char *client_ip, char **hostname);
 gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);
@@ -658,5 +742,26 @@ fop_log_level (glusterfs_fop_t fop, int op_errno);
 
 int32_t
 gf_build_absolute_path (char *current_path, char *relative_path, char **path);
+
+int
+recursive_rmdir (const char *delete_path);
+
+int
+gf_get_index_by_elem (char **array, char *elem);
+
+int
+glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *local);
+
+int
+gf_thread_cleanup_xint (pthread_t thread);
+
+ssize_t
+gf_nread (int fd, void *buf, size_t count);
+
+ssize_t
+gf_nwrite (int fd, const void *buf, size_t count);
+
+void _mask_cancellation (void);
+void _unmask_cancellation (void);
 
 #endif /* _COMMON_UTILS_H */

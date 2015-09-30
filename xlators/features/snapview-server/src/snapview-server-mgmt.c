@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
 #include <pthread.h>
@@ -85,7 +80,7 @@ svs_mgmt_init (xlator_t *this)
                 goto out;
         }
 
-        priv->rpc = rpc_clnt_new (options, this->ctx, this->name, 8);
+        priv->rpc = rpc_clnt_new (options, this, this->name, 8);
         if (!priv->rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to initialize RPC");
                 goto out;
@@ -111,11 +106,12 @@ svs_mgmt_init (xlator_t *this)
         gf_log (this->name, GF_LOG_DEBUG, "svs mgmt init successful");
 
 out:
-        if (ret) {
-                rpc_clnt_connection_cleanup (&priv->rpc->conn);
-                rpc_clnt_unref (priv->rpc);
-                priv->rpc = NULL;
-        }
+        if (ret)
+                if (priv) {
+                        rpc_clnt_connection_cleanup (&priv->rpc->conn);
+                        rpc_clnt_unref (priv->rpc);
+                        priv->rpc = NULL;
+                }
 
         return ret;
 }
@@ -467,7 +463,7 @@ out:
         }
         GF_FREE (req.dict.dict_val);
 
-        if (frame_cleanup) {
+        if (frame_cleanup && frame) {
                 /*
                  * Destroy the frame if we encountered an error
                  * Else we need to clean it up in

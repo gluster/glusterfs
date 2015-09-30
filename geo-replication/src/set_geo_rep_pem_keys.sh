@@ -10,10 +10,26 @@
 function main()
 {
     user=$1
+    master_vol=$2
+    slave_vol=$3
+    GLUSTERD_WORKDIR=$(gluster system:: getwd)
+
     if [ "$user" == "" ];  then
         echo "Please enter the user's name"
         exit 1;
     fi
+
+    if [ "$master_vol" == "" ]; then
+        echo "Invalid master volume name"
+        exit 1;
+    fi
+
+    if [ "$slave_vol" == "" ]; then
+        echo "Invalid slave volume name"
+        exit 1;
+    fi
+
+    COMMON_SECRET_PEM_PUB=${master_vol}_${slave_vol}_common_secret.pem.pub
 
     if [ "$user" == "root" ]; then
         echo "This script is not needed for root"
@@ -27,10 +43,10 @@ function main()
         exit 1;
     fi
 
-    if [ -f $home_dir/common_secret.pem.pub ]; then
-        cp $home_dir/common_secret.pem.pub ${GLUSTERD_WORKDIR}/geo-replication/
-        gluster system:: copy file /geo-replication/common_secret.pem.pub
-        gluster system:: execute add_secret_pub $user
+    if [ -f $home_dir/${COMMON_SECRET_PEM_PUB} ]; then
+        cp $home_dir/${COMMON_SECRET_PEM_PUB} ${GLUSTERD_WORKDIR}/geo-replication/
+        gluster system:: copy file /geo-replication/${COMMON_SECRET_PEM_PUB}
+        gluster system:: execute add_secret_pub $user geo-replication/${master_vol}_${slave_vol}_common_secret.pem.pub
     else
         echo "$home_dir/common_secret.pem.pub not present. Please run geo-replication command on master with push-pem option to generate the file"
         exit 1;

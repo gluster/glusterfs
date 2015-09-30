@@ -11,11 +11,6 @@
 #ifndef __IOT_H
 #define __IOT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "compat-errno.h"
 #include "glusterfs.h"

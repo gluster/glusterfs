@@ -9,13 +9,14 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "statedump.h"
 #include "dht-common.h"
+
+dht_methods_t dht_methods = {
+        .migration_get_dst_subvol = dht_migration_get_dst_subvol,
+        .migration_needed = dht_migration_needed,
+        .layout_search   = dht_layout_search,
+};
 
 class_methods_t class_methods = {
         .init           = dht_init,
@@ -86,4 +87,3 @@ struct xlator_cbks cbks = {
 //      .releasedir = dht_releasedir,
         .forget     = dht_forget
 };
-;

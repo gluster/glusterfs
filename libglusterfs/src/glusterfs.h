@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -10,11 +10,6 @@
 
 #ifndef _GLUSTERFS_H
 #define _GLUSTERFS_H
-
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +32,7 @@
 #include "list.h"
 #include "logging.h"
 #include "lkowner.h"
+#include "compat-uuid.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -83,11 +79,13 @@
 #define GF_XATTR_CLRLK_CMD      "glusterfs.clrlk"
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
+#define GF_REBAL_FIND_LOCAL_SUBVOL "glusterfs.find-local-subvol"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
 #define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
+#define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
@@ -116,25 +114,62 @@
 #define GET_ANCESTRY_PATH_KEY "glusterfs.ancestry.path"
 #define GET_ANCESTRY_DENTRY_KEY "glusterfs.ancestry.dentry"
 
+#define BITROT_DEFAULT_CURRENT_VERSION  (unsigned long)1
+#define BITROT_DEFAULT_SIGNING_VERSION  (unsigned long)0
+
+/* on-disk object signature keys */
+#define BITROT_OBJECT_BAD_KEY       "trusted.bit-rot.bad-file"
+#define BITROT_CURRENT_VERSION_KEY  "trusted.bit-rot.version"
+#define BITROT_SIGNING_VERSION_KEY  "trusted.bit-rot.signature"
+
+/* globally usable bad file marker */
+#define GLUSTERFS_BAD_INODE         "glusterfs.bad-inode"
+
+/* on-disk size of signing xattr (not the signature itself) */
+#define BITROT_SIGNING_XATTR_SIZE_KEY  "trusted.glusterfs.bit-rot.size"
+
+/* GET/SET object signature */
+#define GLUSTERFS_GET_OBJECT_SIGNATURE "trusted.glusterfs.get-signature"
+#define GLUSTERFS_SET_OBJECT_SIGNATURE "trusted.glusterfs.set-signature"
+
+/* operation needs to be durable on-disk */
+#define GLUSTERFS_DURABLE_OP           "trusted.glusterfs.durable-op"
+
+/* key for version exchange b/w bitrot stub and changelog */
+#define GLUSTERFS_VERSION_XCHG_KEY     "glusterfs.version.xchg"
+
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
+#define DHT_CHANGELOG_RENAME_OP_KEY   "changelog.rename-op"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15
 
 #define GLUSTERFS_WRITE_IS_APPEND "glusterfs.write-is-append"
+#define GLUSTERFS_WRITE_UPDATE_ATOMIC "glusterfs.write-update-atomic"
 #define GLUSTERFS_OPEN_FD_COUNT "glusterfs.open-fd-count"
 #define GLUSTERFS_INODELK_COUNT "glusterfs.inodelk-count"
 #define GLUSTERFS_ENTRYLK_COUNT "glusterfs.entrylk-count"
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define GLUSTERFS_INODELK_DOM_COUNT "glusterfs.inodelk-dom-count"
-#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
+#define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
+
+#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
+
+#define GF_HEAL_INFO "glusterfs.heal-info"
+#define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
+#define GF_AFR_SBRAIN_STATUS "replica.split-brain-status"
+#define GF_AFR_SBRAIN_CHOICE "replica.split-brain-choice"
+#define GF_AFR_SPB_CHOICE_TIMEOUT "replica.split-brain-choice-timeout"
+#define GF_AFR_SBRAIN_RESOLVE "replica.split-brain-heal-finalize"
+#define GF_AFR_REPLACE_BRICK "trusted.replace-brick"
+#define GF_AFR_DIRTY "trusted.afr.dirty"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
@@ -152,6 +187,8 @@
                                                        */
 
 #define GLUSTERFS_RPC_REPLY_SIZE               24
+
+#define STARTING_EVENT_THREADS                 1
 
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
                                                ZR_FILE_CONTENT_STRLEN))
@@ -175,7 +212,6 @@
 
 #define GF_REBALANCE_TID_KEY     "rebalance-id"
 #define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
-#define GF_REPLACE_BRICK_TID_KEY "replace-brick-id"
 
 #define UUID_CANONICAL_FORM_LEN  36
 
@@ -193,9 +229,15 @@
                                                        (iabuf)->ia_type) & ~S_IFMT)\
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
+#define DHT_COMMITHASH_STR "commithash"
 
-#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
-#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+#define DHT_SKIP_NON_LINKTO_UNLINK  "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
+#define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
+
+/*CTR requires inode dentry link count from posix*/
+#define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
+#define CTR_REQUEST_LINK_COUNT_XDATA  "ctr_request_link_count"
 
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
@@ -231,7 +273,7 @@ typedef enum {
         GF_FOP_WRITE,
         GF_FOP_STATFS,
         GF_FOP_FLUSH,
-        GF_FOP_FSYNC,      /* 15 */
+        GF_FOP_FSYNC,      /* 16 */
         GF_FOP_SETXATTR,
         GF_FOP_GETXATTR,
         GF_FOP_REMOVEXATTR,
@@ -264,6 +306,7 @@ typedef enum {
 	GF_FOP_FALLOCATE,
 	GF_FOP_DISCARD,
         GF_FOP_ZEROFILL,
+        GF_FOP_IPC,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -329,9 +372,9 @@ typedef enum {
         GF_XATTROP_ADD_ARRAY,
         GF_XATTROP_ADD_ARRAY64,
         GF_XATTROP_OR_ARRAY,
-        GF_XATTROP_AND_ARRAY
+        GF_XATTROP_AND_ARRAY,
+        GF_XATTROP_GET_AND_SET
 } gf_xattrop_flags_t;
-
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
@@ -377,6 +420,8 @@ struct _cmd_args {
         uint32_t         log_buf_size;
         uint32_t         log_flush_timeout;
         int32_t          max_connect_attempts;
+        char            *print_exports;
+        char            *print_netgroups;
         /* advanced options */
         uint32_t         volfile_server_port;
         char            *volfile_server_transport;
@@ -396,6 +441,10 @@ struct _cmd_args {
         int              gid_timeout;
         char             gid_timeout_set;
         int              aux_gfid_mount;
+
+        /* need a process wide timer-wheel? */
+        int              global_timer_wheel;
+
         struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
@@ -416,6 +465,8 @@ struct _cmd_args {
         int              background_qlen;
         int              congestion_threshold;
         char             *fuse_mountopts;
+        int              mem_acct;
+        int              resolve_gids;
 
         /* key args */
         char            *mount_point;
@@ -438,6 +489,7 @@ struct _glusterfs_graph {
         struct timeval            dob;
         void                     *first;
         void                     *top;   /* selected by -n */
+        uint32_t                  leaf_count;
         int                       xl_count;
         int                       id;    /* Used in logging */
         int                       used;  /* Should be set when fuse gets
@@ -455,6 +507,8 @@ typedef enum {
         MGMT_SSL_COPY_IO,
         MGMT_SSL_ALWAYS
 } mgmt_ssl_t;
+
+struct tvec_base;
 
 struct _glusterfs_ctx {
         cmd_args_t          cmd_args;
@@ -526,6 +580,12 @@ struct _glusterfs_ctx {
         /* Buffer to 'save' backtrace even under OOM-kill like situations*/
         char btbuf[GF_BACKTRACE_LEN];
 
+        pthread_mutex_t notify_lock;
+        pthread_cond_t notify_cond;
+        int notifying;
+
+        struct tvec_base *timer_wheel; /* global timer-wheel instance */
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
@@ -550,6 +610,7 @@ typedef enum {
         GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_PARENT_DOWN,
         GF_EVENT_VOLUME_BARRIER_OP,
+        GF_EVENT_UPCALL,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
@@ -591,7 +652,10 @@ struct gf_flock {
 #define SECURE_ACCESS_FILE     GLUSTERD_DEFAULT_WORKDIR "/secure-access"
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
+int glusterfs_graph_destroy_residual (glusterfs_graph_t *graph);
+int glusterfs_graph_deactivate (glusterfs_graph_t *graph);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
+int glusterfs_get_leaf_count (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();

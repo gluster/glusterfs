@@ -123,8 +123,15 @@ cli_xml_output_common (xmlTextWriterPtr writer, int op_ret, int op_errno,
                                                "%d", op_errno);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"opErrstr",
-                                                "%s", op_errstr);
+        if (op_errstr)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"opErrstr",
+                                                       "%s", op_errstr);
+        else
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"opErrstr",
+                                                       "%s", "");
+
         XML_RET_CHECK_AND_GOTO (ret, out);
 
 out:
@@ -234,14 +241,15 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                   int   brick_index, int *online,
                                   gf_boolean_t *node_present)
 {
-        int             ret = -1;
-        char            *hostname = NULL;
-        char            *path = NULL;
-        char            *uuid = NULL;
-        int             port = 0;
-        int             status = 0;
-        int             pid = 0;
-        char            key[1024] = {0,};
+        int             ret             = -1;
+        char            *hostname       = NULL;
+        char            *path           = NULL;
+        char            *uuid           = NULL;
+        int             port            = 0;
+        int             rdma_port       = 0;
+        int             status          = 0;
+        int             pid             = 0;
+        char            key[1024]       = {0,};
 
         snprintf (key, sizeof (key), "brick%d.hostname", brick_index);
         ret = dict_get_str (dict, key, &hostname);
@@ -294,19 +302,62 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         if (ret)
                 goto out;
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.rdma_port", brick_index);
+        ret = dict_get_int32 (dict, key, &rdma_port);
+
         /* If the process is either offline or doesn't provide a port (shd)
          * port = "N/A"
          * else print the port number of the process.
          */
 
+        /*
+         * Tag 'port' can be removed once console management is started
+         * to support new tag ports.
+         */
+
         if (*online == 1 && port != 0)
+                 ret = xmlTextWriterWriteFormatElement (writer,
+                                                    (xmlChar *)"port",
+                                                        "%d", port);
+         else
+                 ret = xmlTextWriterWriteFormatElement (writer,
+                                                        (xmlChar *)"port",
+                                                        "%s", "N/A");
+
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"ports");
+        if (*online == 1 && (port != 0 || rdma_port != 0)) {
+
+                if (port) {
                 ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"port",
+                                                       (xmlChar *)"tcp",
                                                        "%d", port);
-        else
+                } else {
                 ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"port",
+                                                       (xmlChar *)"tcp",
                                                        "%s", "N/A");
+                }
+
+                if (rdma_port) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%d", rdma_port);
+                } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%s", "N/A");
+                }
+
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"tcp",
+                                                       "%s", "N/A");
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%s", "N/A");
+        }
+
+        ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
@@ -1436,46 +1487,6 @@ out:
 }
 
 int
-cli_xml_output_replace_brick_task_params (xmlTextWriterPtr writer, dict_t *dict,
-                                          char *prefix)
-{
-
-        int             ret = -1;
-        char            key[1024] = {0,};
-        char            *brick = NULL;
-
-        /* <params> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"params");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        snprintf (key, sizeof (key), "%s.src-brick", prefix);
-        ret = dict_get_str (dict, key, &brick);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"srcBrick",
-                                               "%s", brick);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "%s.dst-brick", prefix);
-        ret = dict_get_str (dict, key, &brick);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"dstBrick",
-                                               "%s", brick);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-
-        /* </param> */
-        ret = xmlTextWriterEndElement (writer);
-
-out:
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int
 cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
         int                     ret = -1;
         char                    *task_type = NULL;
@@ -1529,14 +1540,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
                                                        "%d", status);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                if (!strcmp (task_type, "Replace brick")) {
-                    if (status) {
-                        status = GF_DEFRAG_STATUS_COMPLETE;
-                    } else {
-                        status = GF_DEFRAG_STATUS_STARTED;
-                    }
-                }
-
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"statusStr",
                                                        "%s",
@@ -1546,12 +1549,7 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d", i);
-                if (!strcmp (task_type, "Replace brick")) {
-                        ret = cli_xml_output_replace_brick_task_params
-                                (local->writer, dict, key);
-                        if (ret)
-                                goto out;
-                } else if (!strcmp (task_type, "Remove brick")) {
+                if (!strcmp (task_type, "Remove brick")) {
                         ret = cli_xml_output_remove_brick_task_params
                                 (local->writer, dict, key);
                         if (ret)
@@ -1622,7 +1620,8 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
         int                     online = 0;
         gf_boolean_t            node_present = _gf_true;
         int                     i;
-
+        int                     type            = -1;
+        int                     hot_brick_count = -1;
 
         /* <volume> */
         ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"volume");
@@ -1658,7 +1657,28 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
 
         index_max = brick_index_max + other_count;
 
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret)
+                goto out;
+
+        if (type == GF_CLUSTER_TYPE_TIER) {
+                ret = dict_get_int32 (dict, "hot_brick_count",
+                                      &hot_brick_count);
+                if (ret)
+                        goto out;
+
+                ret = xmlTextWriterStartElement
+                        (local->writer, (xmlChar *)"hotBrick");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+        }
         for (i = 0; i <= index_max; i++) {
+
+                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                        ret = xmlTextWriterStartElement (local->writer,
+                                        (xmlChar *)"coldBrick");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
                 ret = cli_xml_output_vol_status_common (local->writer, dict, i,
                                                         &online, &node_present);
                 if (ret) {
@@ -1728,7 +1748,17 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 /* </node>  was opened in cli_xml_output_vol_status_common()*/
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
+
+                if (type == GF_CLUSTER_TYPE_TIER && i < hot_brick_count) {
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
         }
+
 
         /* Tasks are only present when a normal volume status call is done on a
          * single volume or on all volumes
@@ -2643,8 +2673,10 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
                    types
                  */
-                if ((type > 0) && (dist_count < brick_count))
-                        type += 4;
+                if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
+                    (dist_count < brick_count))
+                       type = type + GF_CLUSTER_TYPE_MAX - 1;
+
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"type",
                                                        "%d", type);
@@ -2856,7 +2888,7 @@ cli_xml_output_vol_info_end (cli_local_t *local)
         ret = cli_end_xml_output (local->writer, local->doc);
 
 out:
-        gf_log ("cli", GF_LOG_ERROR, "Returning %d", ret);
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 #else
         return 0;
@@ -2864,137 +2896,47 @@ out:
 }
 
 int
-cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
-                                     int op_ret, int op_errno,
-                                     char *op_errstr)
+cli_xml_output_vol_quota_limit_list_end (cli_local_t *local)
+{
+#if (HAVE_LIB_XML)
+        int     ret = -1;
+
+        ret = xmlTextWriterEndElement (local->writer);
+        if (ret) {
+                goto out;
+        }
+
+        ret = cli_end_xml_output (local->writer, local->doc);
+
+out:
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+int
+cli_xml_output_vol_quota_limit_list_begin (cli_local_t *local, int op_ret,
+                                           int op_errno, char *op_errstr)
 {
 #if (HAVE_LIB_XML)
         int                     ret = -1;
-        xmlTextWriterPtr        writer = NULL;
-        xmlDocPtr               doc = NULL;
-        int64_t                 size = 0;
-        int64_t                 limit_value = 0;
-        int                     i = 0;
-        int                     j = 0;
-        int                     k = 0;
-        int                     len = 0;
-        char                    *size_str = NULL;
-        char                    path[PATH_MAX] = {0,};
-        char                    ret_str[1024] = {0,};
-        char                    value[1024] = {0,};
-        char                    mountdir[] = "/tmp/mountXXXXXX";
-        char                    abspath[PATH_MAX] = {0,};
-        runner_t                runner = {0,};
 
-        GF_ASSERT (volname);
-        GF_ASSERT (limit_list);
-
-        ret = cli_begin_xml_output (&writer, &doc);
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
         if (ret)
                 goto out;
 
-        ret = cli_xml_output_common (writer, op_ret, op_errno, op_errstr);
+        ret = cli_xml_output_common (local->writer, op_ret, op_errno,
+                                     op_errstr);
         if (ret)
                 goto out;
 
         /* <volQuota> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volQuota");
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"volQuota");
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        if (!limit_list)
-                goto cont;
-
-        len = strlen (limit_list);
-        if (len == 0)
-                goto cont;
-
-        if (mkdtemp (mountdir) == NULL) {
-                gf_log ("cli", GF_LOG_ERROR, "failed to create a temporary"
-                        " mount directory");
-                ret = -1;
-                goto out;
-        }
-
-        ret = runcmd (SBIN_DIR"/glusterfs", "-s", "localhost",
-                      "--volfile-id", volname, "-l",
-                      DEFAULT_LOG_FILE_DIRECTORY"/quota-list-xml.log",
-                      mountdir, NULL);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "failed to mount glusterfs client");
-                ret = -1;
-                rmdir (mountdir);
-                goto cont;
-        }
-
-        while (i < len) {
-                j = 0;
-                k = 0;
-                size = 0;
-
-                while (limit_list[i] != ':')
-                        path[k++] = limit_list[i++];
-                path[k] = '\0';
-
-                i++;
-
-                while (limit_list[i] != ',' && limit_list[i] != '\0')
-                        value[j++] = limit_list[i++];
-                i++;
-
-                snprintf (abspath, sizeof (abspath), "%s/%s", mountdir, path);
-                ret = sys_lgetxattr (abspath, "trusted.limit.list",
-                                     (void *)ret_str, 4096);
-                if (ret >= 0) {
-                        sscanf (ret_str, "%"SCNd64",%"SCNd64, &size,
-                                &limit_value);
-                        size_str = gf_uint64_2human_readable ((uint64_t)size);
-                }
-
-                /* <quota> */
-                ret = xmlTextWriterStartElement (writer, (xmlChar *)"quota");
-                XML_RET_CHECK_AND_GOTO (ret, unmount);
-
-                ret = xmlTextWriterWriteFormatElement
-                        (writer, (xmlChar *)"path", "%s", path);
-                XML_RET_CHECK_AND_GOTO (ret, unmount);
-
-                ret = xmlTextWriterWriteFormatElement
-                        (writer, (xmlChar *)"limit", "%s", value);
-                XML_RET_CHECK_AND_GOTO (ret, unmount);
-
-                if (size_str) {
-                        ret = xmlTextWriterWriteFormatElement
-                                (writer, (xmlChar *)"size", "%s", size_str);
-                        XML_RET_CHECK_AND_GOTO (ret, unmount);
-                        GF_FREE (size_str);
-                } else {
-                        ret = xmlTextWriterWriteFormatElement
-                                (writer, (xmlChar *)"size", "%"PRId64, size);
-                        XML_RET_CHECK_AND_GOTO (ret, unmount);
-                }
-
-                /* </quota> */
-                ret = xmlTextWriterEndElement (writer);
-                XML_RET_CHECK_AND_GOTO (ret, unmount);
-
-        }
-
-unmount:
-        ret = gf_umount_lazy ("cli", mountdir, 1);
-        if (ret)
-                gf_log ("cli", GF_LOG_WARNING, "error unmounting %s: %s",
-                        mountdir, strerror (errno));
-
-cont:
-        /* </volQuota> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = cli_end_xml_output (writer, doc);
 
 out:
-        GF_FREE (size_str);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 #else
@@ -3412,6 +3354,106 @@ out:
 #endif
 
 int
+cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
+                enum gf_task_types task_type)
+{
+#if (HAVE_LIB_XML)
+
+        int                     ret = -1;
+        int                     count = 0;
+        char                    *node_name = NULL;
+        char                    *status_str  = NULL;
+        uint64_t                promoted     = 0;
+        uint64_t                demoted      = 0;
+        int                     i = 1;
+        char                    key[1024] = {0,};
+        gf_defrag_status_t      status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
+
+
+        GF_VALIDATE_OR_GOTO ("cli", dict, out);
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "count not set");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"nodeCount",
+                                               "%d", count);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        while (i <= count) {
+                promoted = 0;
+                node_name = NULL;
+                demoted = 0;
+
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"nodeName",
+                                                       "%s", node_name);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "promoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &promoted);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"promoted"
+                                                       "Files", "%"PRIu64,
+                                                       promoted);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "demoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &demoted);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"demoted"
+                                                       "Files", "%"PRIu64,
+                                                       demoted);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+
+                status_str = cli_vol_task_status_str[status_rcd];
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"statusStr",
+                                                       "%s", status_str);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                i++;
+        }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+#else
+        return 0;
+
+#endif
+}
+
+
+
+
+int
 cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
                               int op_errno, char *op_errstr)
 {
@@ -3445,7 +3487,14 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
                                                "%d", op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
+        if (GF_DEFRAG_CMD_STATUS_TIER == op) {
+                ret = cli_xml_output_vol_tier_status (writer,
+                                dict, GF_TASK_TYPE_REBALANCE);
+                if (ret)
+                        goto out;
+                }
         if ((GF_DEFRAG_CMD_STOP == op) || (GF_DEFRAG_CMD_STATUS == op)) {
+
                 ret = cli_xml_output_vol_rebalance_status (writer, dict,
                                                       GF_TASK_TYPE_REBALANCE);
                 if (ret)
@@ -3468,8 +3517,10 @@ out:
 }
 
 int
-cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
-                                 int op_ret, int op_errno, char *op_errstr)
+cli_xml_output_vol_remove_brick_detach_tier (gf_boolean_t status_op,
+                                             dict_t *dict, int op_ret,
+                                             int op_errno, char *op_errstr,
+                                             const char *op)
 {
 #if (HAVE_LIB_XML)
         int                     ret = -1;
@@ -3485,8 +3536,7 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         if (ret)
                 goto out;
 
-        /* <volRemoveBrick> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volRemoveBrick");
+        ret = xmlTextWriterStartElement (writer, (xmlChar *) op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
@@ -3504,7 +3554,6 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
                         goto out;
         }
 
-        /* </volRemoveBrick> */
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
@@ -3520,7 +3569,7 @@ out:
 }
 
 int
-cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
+cli_xml_output_vol_replace_brick (char *op, dict_t *dict,
                                   int op_ret, int op_errno, char *op_errstr)
 {
 #if (HAVE_LIB_XML)
@@ -3539,55 +3588,6 @@ cli_xml_output_vol_replace_brick (gf1_cli_replace_op op, dict_t *dict,
         ret = cli_xml_output_common (writer, op_ret, op_errno, op_errstr);
         if (ret)
                 goto out;
-
-        /* <volReplaceBrick> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volReplaceBrick");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, GF_REPLACE_BRICK_TID_KEY, &task_id_str);
-        if (ret == 0) {
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"task-id",
-                                                       "%s", task_id_str);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
-
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"op",
-                                               "%d", op);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        if (GF_REPLACE_OP_STATUS == op) {
-                ret = dict_get_int32 (dict, "status", &status);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"status",
-                                                       "%d", status);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                ret = dict_get_uint64 (dict, "files", &files);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"files",
-                                                       "%"PRIu64, files);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-
-                if (status)
-                        goto cont;
-
-                ret = dict_get_str (dict, "current_file", &current_file);
-                if (ret)
-                        goto out;
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"currentFile",
-                                                       "%s", current_file);
-                XML_RET_CHECK_AND_GOTO (ret, out);
-        }
-cont:
-        /* </volReplaceBrick> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = cli_end_xml_output (writer, doc);
 
@@ -3883,25 +3883,6 @@ out:
 
 #if (HAVE_LIB_XML)
 int
-gf_gsync_status_t_comparator (const void *p, const void *q)
-{
-        char *master1 = NULL;
-        char *master2 = NULL;
-
-        master1 = get_struct_variable (1, (*(gf_gsync_status_t **)p));
-        master2 = get_struct_variable (1, (*(gf_gsync_status_t **)q));
-        if (!master1 || !master2) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "struct member empty.");
-                return 0;
-        }
-
-        return strcmp (master1,master2);
-}
-#endif
-
-#if (HAVE_LIB_XML)
-int
 cli_xml_output_vol_gsync_status (dict_t *dict,
                                  xmlTextWriterPtr writer)
 {
@@ -3909,8 +3890,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         int                  i                           = 1;
         int                  j                           = 0;
         int                  count                       = 0;
-        const int            number_of_fields            = 12;
-        const int            number_of_basic_fields      = 7;
+        const int            number_of_fields            = 20;
         int                  closed                      = 1;
         int                  session_closed              = 1;
         gf_gsync_status_t  **status_values               = NULL;
@@ -3922,17 +3902,31 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         char                *slave                       = NULL;
         char                *slave_next                  = NULL;
         char                *title_values[]              = {"master_node",
-                                                            "master_node_uuid",
+                                                            "",
                                                             "master_brick",
+                                                            "slave_user",
                                                             "slave",
+                                                            "slave_node",
                                                             "status",
-                                                            "checkpoint_status",
                                                             "crawl_status",
-                                                            "files_syncd",
-                                                            "files_pending",
-                                                            "bytes_pending",
-                                                            "deletes_pending",
-                                                            "files_skipped"};
+                                                            /* last_synced */
+                                                            "",
+                                                            "entry",
+                                                            "data",
+                                                            "meta",
+                                                            "failures",
+                                                           /* checkpoint_time */
+                                                            "",
+                                                         "checkpoint_completed",
+                                               /* checkpoint_completion_time */
+                                                            "",
+                                                            "master_node_uuid",
+                                                           /* last_synced_utc */
+                                                            "last_synced",
+                                                       /* checkpoint_time_utc */
+                                                            "checkpoint_time",
+                                            /* checkpoint_completion_time_utc */
+                                                 "checkpoint_completion_time"};
 
         GF_ASSERT (dict);
 
@@ -4006,7 +4000,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
 
                         session_closed = 0;
 
-                        tmp = get_struct_variable (14, status_values[i]);
+                        tmp = get_struct_variable (21, status_values[i]);
                         if (!tmp) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "struct member empty.");
@@ -4023,18 +4017,11 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (j = 0; j < number_of_fields; j++) {
-                  // if detail option is not set and field is not under
-                  // basic fields or if field is volume then skip
-                        if(!status_detail && j >= number_of_basic_fields)
+                        /* XML ignore fields */
+                        if (strcmp(title_values[j], "") == 0)
                                 continue;
 
-                        // Displaying the master_node uuid as second field
-
-                        if (j == 1)
-                                tmp = get_struct_variable (12,
-                                                           status_values[i]);
-                        else
-                                tmp = get_struct_variable (j, status_values[i]);
+                        tmp = get_struct_variable (j, status_values[i]);
                         if (!tmp) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "struct member empty.");
@@ -4052,8 +4039,8 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 if (i+1 < count) {
-                        slave = get_struct_variable (13, status_values[i]);
-                        slave_next = get_struct_variable (13,
+                        slave = get_struct_variable (20, status_values[i]);
+                        slave_next = get_struct_variable (20,
                                                           status_values[i+1]);
                         volume = get_struct_variable (1, status_values[i]);
                         volume_next = get_struct_variable (1,
@@ -4253,65 +4240,6 @@ out:
         return ret;
 }
 
-/* This function will generate snapshot delete output in xml format.
- *
- * @param writer        xmlTextWriterPtr
- * @param doc           xmlDocPtr
- * @param dict          dict containing delete output
- *
- * @return 0 on success and -1 on failure
- */
-static int
-cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
-{
-        int     ret             = -1;
-        char   *str_value       = NULL;
-
-        GF_ASSERT (writer);
-        GF_ASSERT (doc);
-        GF_ASSERT (dict);
-
-        /* <snapDelete> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapDelete");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* <snapshot> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, "snapname", &str_value);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
-                goto out;
-        }
-
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
-                                               "%s", str_value);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = dict_get_str (dict, "snapuuid", &str_value);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
-                goto out;
-        }
-
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
-                                               "%s", str_value);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* </snapshot> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        /* </snapDelete> */
-        ret = xmlTextWriterEndElement (writer);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
-        ret = 0;
-out:
-
-        return ret;
-}
 
 /* This function will generate snapshot restore output in xml format.
  *
@@ -4678,8 +4606,12 @@ cli_xml_snapshot_info_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                 (xmlChar *) "description",
                                                 "%s", buffer);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                (xmlChar *) "description",
+                                                "%s", "");
         }
+        XML_RET_CHECK_AND_GOTO (ret, out);
 
         snprintf (key_buffer, sizeof (key_buffer), "%s.snap-time", keyprefix);
 
@@ -5060,7 +4992,7 @@ cli_xml_snapshot_status (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapStatus");
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        ret = dict_get_int32 (dict, "status-cmd", &status_cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &status_cmd);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not fetch status type");
                 goto out;
@@ -5490,6 +5422,81 @@ out:
 }
 #endif /* HAVE_LIB_XML */
 
+/* This function will generate snapshot delete output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing delete output
+ * @param rsp           cli response
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict,
+                         gf_cli_rsp *rsp)
+{
+        int     ret             = -1;
+#ifdef HAVE_LIB_XML
+        char   *str_value       = NULL;
+
+        GF_ASSERT (writer);
+        GF_ASSERT (doc);
+        GF_ASSERT (dict);
+
+        /* <snapshot> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"snapshot");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snapname", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap name");
+                goto xmlend;
+        }
+
+        if (!rsp->op_ret) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "status",
+                                                       "Success");
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *) "status",
+                                                       "Failure");
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+
+                ret = cli_xml_output_common (writer, rsp->op_ret,
+                                             rsp->op_errno,
+                                             rsp->op_errstr);
+                XML_RET_CHECK_AND_GOTO (ret, xmlend);
+        }
+
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, xmlend);
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                goto xmlend;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+xmlend:
+        /* </snapshot> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+
+        return ret;
+}
+
 int
 cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
                                   char *op_errstr)
@@ -5548,6 +5555,70 @@ out:
 #endif
 }
 
+int
+cli_xml_output_snap_delete_begin (cli_local_t *local, int op_ret, int op_errno,
+                                  char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int ret = -1;
+        int delete_cmd = -1;
+
+        GF_ASSERT (local);
+
+        ret = cli_begin_xml_output (&(local->writer), &(local->doc));
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &delete_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get sub-cmd");
+                goto out;
+        }
+
+        ret = cli_xml_output_common (local->writer, op_ret, op_errno,
+                                             op_errstr);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapStatus> */
+        ret = xmlTextWriterStartElement (local->writer,
+                                         (xmlChar *) "snapDelete");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <snapshots> */
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"snapshots");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+int
+cli_xml_output_snap_delete_end (cli_local_t *local)
+{
+#if (HAVE_LIB_XML)
+        int     ret = -1;
+
+        GF_ASSERT (local);
+
+        /* </snapshots> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </snapDelete> */
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO(ret, out);
+
+        ret = cli_end_xml_output (local->writer, local->doc);
+out:
+        gf_log ("cli", GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif
+}
 /* This function will generate xml output for all the snapshot commands
  *
  * @param cmd_type      command type
@@ -5595,14 +5666,6 @@ cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to create "
                                 "xml output for snapshot create command");
-                        goto out;
-                }
-                break;
-        case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = cli_xml_snapshot_delete (writer, doc, dict);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
-                                "xml output for snapshot delete command");
                         goto out;
                 }
                 break;
@@ -5674,6 +5737,96 @@ out:
 #else
         return 0;
 #endif /* HAVE_LIB_XML */
+}
+
+int
+cli_xml_snapshot_begin_composite_op (cli_local_t *local)
+{
+        int ret         = -1;
+#ifdef HAVE_LIB_XML
+        int cmd         = -1;
+        int type        =  -1;
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "sub-cmd");
+                ret = 0;
+                goto out;
+        }
+
+        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+            cmd == GF_SNAP_DELETE_TYPE_SNAP){
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapshot "
+                        "command type from dictionary");
+                goto out;
+        }
+
+        if (GF_SNAP_OPTION_TYPE_STATUS == type)
+                ret = cli_xml_output_snap_status_begin (local, 0, 0, NULL);
+        else if (GF_SNAP_OPTION_TYPE_DELETE == type)
+                ret = cli_xml_output_snap_delete_begin (local, 0, 0, NULL);
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Error creating xml output");
+                goto out;
+        }
+
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+cli_xml_snapshot_end_composite_op (cli_local_t *local)
+{
+        int ret         = -1;
+#ifdef HAVE_LIB_XML
+        int cmd         = -1;
+        int type        = -1;
+
+        ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "sub-cmd");
+                ret = 0;
+                goto out;
+        }
+
+        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+            cmd == GF_SNAP_DELETE_TYPE_SNAP){
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapshot "
+                        "command type from dictionary");
+                goto out;
+        }
+
+        if (GF_SNAP_OPTION_TYPE_STATUS == type)
+                ret = cli_xml_output_snap_status_end (local);
+        else if (GF_SNAP_OPTION_TYPE_DELETE == type)
+                ret = cli_xml_output_snap_delete_end (local);
+
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Error creating xml "
+                                "output");
+                goto out;
+        }
+#endif /* HAVE_LIB_XML */
+        ret = 0;
+out:
+        return ret;
 }
 
 int
@@ -5769,6 +5922,172 @@ cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}
+
+int
+cli_quota_list_xml_error (cli_local_t *local, char *path,
+                          char *errstr)
+{
+#if (HAVE_LIB_XML)
+        int     ret     =       -1;
+
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"limit");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"path",
+                                               "%s", path);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"errstr",
+                                               "%s", errstr);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        return ret;
+#else
+        return 0;
+#endif
+}
+
+int
+cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
+                      char *sl_final, void *used, void *avail, char *sl,
+                      char *hl)
+{
+#if (HAVE_LIB_XML)
+        int     ret             = -1;
+
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"limit");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"path",
+                                              "%s", path);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"hard_limit",
+                                               "%s", hl_str);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"soft_limit",
+                                               "%s", sl_final);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        if ((char *)used) {
+                ret = xmlTextWriterWriteFormatElement
+                        (local->writer, (xmlChar *)"used_space", "%s",
+                        (char *)used);
+        } else {
+                ret = xmlTextWriterWriteFormatElement
+                        (local->writer, (xmlChar *)"user_space", "%11"PRIu64,
+                        *(long unsigned int *)used);
+        }
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        if ((char *)avail) {
+                ret = xmlTextWriterWriteFormatElement
+                        (local->writer, (xmlChar *)"avail_space", "%s",
+                        (char *)avail);
+        } else {
+                ret = xmlTextWriterWriteFormatElement
+                        (local->writer, (xmlChar *)"avail_space", "%11"PRIu64,
+                        *(long unsigned int *)avail);
+        }
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"sl_exceeded",
+                                               "%s", sl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"hl_exceeded",
+                                               "%s", hl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}
+
+int
+cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
+                             quota_limits_t *limits, quota_meta_t *used_space,
+                             int64_t avail, char *sl, char *hl)
+{
+#if (HAVE_LIB_XML)
+        int     ret             = -1;
+
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"limit");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"path",
+                                              "%s", path);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"hard_limit",
+                                               "%"PRIu64, limits->hl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"soft_limit",
+                                               "%s", sl_str);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"file_count",
+                                               "%"PRIu64,
+                                               used_space->file_count);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"dir_count", "%"PRIu64,
+                                               used_space->dir_count);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"available", "%"PRIu64,
+                                               avail);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"sl_exceeded",
+                                               "%s", sl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"hl_exceeded",
+                                               "%s", hl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
         return ret;
 #else
         return 0;

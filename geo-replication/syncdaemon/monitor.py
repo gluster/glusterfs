@@ -18,15 +18,28 @@ import xml.etree.ElementTree as XET
 from subprocess import PIPE
 from resource import Popen, FILE, GLUSTER, SSH
 from threading import Lock
+from errno import EEXIST
 import re
 import random
 from gconf import gconf
-from syncdutils import update_file, select, waitpid
+from syncdutils import select, waitpid
 from syncdutils import set_term_handler, is_host_local, GsyncdError
 from syncdutils import escape, Thread, finalize, memoize
 
+from gsyncdstatus import GeorepStatus, set_monitor_status
+
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
+
+
+def get_subvol_num(brick_idx, replica_count, disperse_count):
+    subvol_size = disperse_count if disperse_count > 0 else replica_count
+    cnt = int((brick_idx + 1) / subvol_size)
+    rem = (brick_idx + 1) % subvol_size
+    if rem > 0:
+        return cnt + 1
+    else:
+        return cnt
 
 
 def get_slave_bricks_status(host, vol):
@@ -35,7 +48,12 @@ def get_slave_bricks_status(host, vol):
                stdout=PIPE, stderr=PIPE)
     vix = po.stdout.read()
     po.wait()
-    po.terminate_geterr()
+    po.terminate_geterr(fail_on_err=False)
+    if po.returncode != 0:
+        logging.info("Volume status command failed, unable to get "
+                     "list of up nodes of %s, returning empty list: %s" %
+                     (vol, po.returncode))
+        return []
     vi = XET.fromstring(vix)
     if vi.find('opRet').text != '0':
         logging.info("Unable to get list of up nodes of %s, "
@@ -99,47 +117,32 @@ class Volinfo(object):
                               self.volume, self.host)
         return ids[0].text
 
+    @property
+    @memoize
+    def replica_count(self):
+        return int(self.get('replicaCount')[0].text)
+
+    @property
+    @memoize
+    def disperse_count(self):
+        return int(self.get('disperseCount')[0].text)
+
 
 class Monitor(object):
 
     """class which spawns and manages gsyncd workers"""
 
     ST_INIT = 'Initializing...'
-    ST_STABLE = 'Stable'
-    ST_FAULTY = 'faulty'
+    ST_STARTED = 'Started'
+    ST_STABLE = 'Active'
+    ST_FAULTY = 'Faulty'
     ST_INCON = 'inconsistent'
     _ST_ORD = [ST_STABLE, ST_INIT, ST_FAULTY, ST_INCON]
 
     def __init__(self):
         self.lock = Lock()
         self.state = {}
-
-    def set_state(self, state, w=None):
-        """set the state that can be used by external agents
-           like glusterd for status reporting"""
-        computestate = lambda: self.state and self._ST_ORD[
-            max(self._ST_ORD.index(s) for s in self.state.values())]
-        if w:
-            self.lock.acquire()
-            old_state = computestate()
-            self.state[w] = state
-            state = computestate()
-            self.lock.release()
-            if state != old_state:
-                self.set_state(state)
-        else:
-            if getattr(gconf, 'state_file', None):
-                # If previous state is paused, suffix the
-                # new state with '(Paused)'
-                try:
-                    with open(gconf.state_file, "r") as f:
-                        content = f.read()
-                        if "paused" in content.lower():
-                            state = state + '(Paused)'
-                except IOError:
-                    pass
-                logging.info('new state: %s' % state)
-                update_file(gconf.state_file, lambda f: f.write(state + '\n'))
+        self.status = {}
 
     @staticmethod
     def terminate():
@@ -149,7 +152,7 @@ class Monitor(object):
         # give a chance to graceful exit
         os.kill(-os.getpid(), signal.SIGTERM)
 
-    def monitor(self, w, argv, cpids, agents, slave_vol, slave_host):
+    def monitor(self, w, argv, cpids, agents, slave_vol, slave_host, master):
         """the monitor loop
 
         Basic logic is a blantantly simple blunt heuristics:
@@ -168,8 +171,11 @@ class Monitor(object):
         blown worker blows up on EPIPE if the net goes down,
         due to the keep-alive thread)
         """
+        if not self.status.get(w[0], None):
+            self.status[w[0]] = GeorepStatus(gconf.state_file, w[0])
 
-        self.set_state(self.ST_INIT, w)
+        set_monitor_status(gconf.state_file, self.ST_STARTED)
+        self.status[w[0]].set_worker_status(self.ST_INIT)
 
         ret = 0
 
@@ -242,6 +248,7 @@ class Monitor(object):
                                                  '--rpc-fd',
                                                  ','.join([str(rw), str(ww),
                                                            str(ra), str(wa)]),
+                                                 '--subvol-num', str(w[2]),
                                                  '--resource-remote',
                                                  remote_host])
 
@@ -283,7 +290,7 @@ class Monitor(object):
                 nwait(apid) #wait for agent
                 ret = nwait(cpid)
             if ret is None:
-                self.set_state(self.ST_STABLE, w)
+                self.status[w[0]].set_worker_status(self.ST_STABLE)
                 #If worker dies, agent terminates on EOF.
                 #So lets wait for agent first.
                 nwait(apid)
@@ -293,12 +300,12 @@ class Monitor(object):
             else:
                 ret = exit_status(ret)
                 if ret in (0, 1):
-                    self.set_state(self.ST_FAULTY, w)
+                    self.status[w[0]].set_worker_status(self.ST_FAULTY)
             time.sleep(10)
-        self.set_state(self.ST_INCON, w)
+        self.status[w[0]].set_worker_status(self.ST_INCON)
         return ret
 
-    def multiplex(self, wspx, suuid, slave_vol, slave_host):
+    def multiplex(self, wspx, suuid, slave_vol, slave_host, master):
         argv = sys.argv[:]
         for o in ('-N', '--no-daemon', '--monitor'):
             while o in argv:
@@ -312,7 +319,7 @@ class Monitor(object):
         for wx in wspx:
             def wmon(w):
                 cpid, _ = self.monitor(w, argv, cpids, agents, slave_vol,
-                                       slave_host)
+                                       slave_host, master)
                 time.sleep(1)
                 self.lock.acquire()
                 for cpid in cpids:
@@ -351,7 +358,7 @@ def distribute(*resources):
         slave_host = slave.remote_addr.split('@')[-1]
         slave_vol = si.volume
     else:
-        raise GsyncdError("unkown slave type " + slave.url)
+        raise GsyncdError("unknown slave type " + slave.url)
     logging.info('slave bricks: ' + repr(sbricks))
     if isinstance(si, FILE):
         slaves = [slave.url]
@@ -369,11 +376,12 @@ def distribute(*resources):
             else:
                 slaves = slavevols
 
-    workerspex = [(brick['dir'], slaves[idx % len(slaves)])
+    workerspex = [(brick['dir'], slaves[idx % len(slaves)],
+                  get_subvol_num(idx, mvol.replica_count, mvol.disperse_count))
                   for idx, brick in enumerate(mvol.bricks)
                   if is_host_local(brick['host'])]
     logging.info('worker specs: ' + repr(workerspex))
-    return workerspex, suuid, slave_vol, slave_host
+    return workerspex, suuid, slave_vol, slave_host, master
 
 
 def monitor(*resources):

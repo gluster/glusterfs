@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -22,6 +17,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "common-utils.h"
+#include "symlink-cache-messages.h"
 
 struct symlink_cache {
 	time_t ctime;
@@ -36,7 +32,8 @@ symlink_inode_ctx_get (inode_t *inode, xlator_t *this, void **ctx)
 	uint64_t tmp_ctx = 0;
 	ret = inode_ctx_get (inode, this, &tmp_ctx);
 	if (-1 == ret)
-		gf_log (this->name, GF_LOG_ERROR, "dict get failed");
+		gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        SYMLINK_CACHE_MSG_DICT_GET_FAILED, "dict get failed");
 	else
 		*ctx = (void *)(long)tmp_ctx;
 
@@ -50,7 +47,8 @@ symlink_inode_ctx_set (inode_t *inode, xlator_t *this, void *ctx)
 	int ret = 0;
 	ret = inode_ctx_put (inode, this, (uint64_t)(long) ctx);
 	if (-1 == ret)
-		gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+		gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        SYMLINK_CACHE_MSG_DICT_SET_FAILED, "dict set failed");
 
 	return 0;
 }
@@ -66,15 +64,15 @@ sc_cache_update (xlator_t *this, inode_t *inode, const char *link)
 		return 0;
 
 	if (!sc->readlink) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"updating cache: %s", link);
+		gf_msg_debug (this->name, 0,
+                              "updating cache: %s", link);
 
 		sc->readlink = strdup (link);
-	} else {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"not updating existing cache: %s with %s",
-			sc->readlink, link);
-	}
+	} else
+                gf_msg_debug (this->name, 0,
+                              "not updating existing cache: %s with %s",
+                              sc->readlink, link);
+
 
 	return 0;
 }
@@ -94,16 +92,17 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct iatt *buf,
 		need_set = 1;
 		sc = CALLOC (1, sizeof (*sc));
 		if (!sc) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"out of memory :(");
+			gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+				SYMLINK_CACHE_MSG_NO_MEMORY,
+                                "out of memory :(");
 			goto err;
 		}
 	}
 
 	if (sc->readlink) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"replacing old cache: %s with new cache: %s",
-			sc->readlink, link);
+		gf_msg_debug (this->name, 0,
+                              "replacing old cache: %s with new cache: %s",
+                              sc->readlink, link);
 		FREE (sc->readlink);
 		sc->readlink = NULL;
 	}
@@ -111,24 +110,25 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct iatt *buf,
 	if (link) {
 		sc->readlink = strdup (link);
 		if (!sc->readlink) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"out of memory :(");
+			gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+				SYMLINK_CACHE_MSG_NO_MEMORY,
+                                "out of memory :(");
 			goto err;
 		}
 	}
 
 	sc->ctime = buf->ia_ctime;
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"setting symlink cache: %s", link);
+	gf_msg_debug (this->name, 0,
+                      "setting symlink cache: %s", link);
 
 	if (need_set) {
 		ret = symlink_inode_ctx_set (inode, this, sc);
 
 		if (ret < 0) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"could not set inode context (%s)",
-				strerror (-ret));
+			gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, SYMLINK_CACHE_MSG_NO_MEMORY,
+                                "could not set inode context ");
 			goto err;
 		}
 	}
@@ -156,8 +156,8 @@ sc_cache_flush (xlator_t *this, inode_t *inode)
 		return 0;
 
 	if (sc->readlink) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"flushing cache: %s", sc->readlink);
+		gf_msg_debug (this->name, 0,
+                              "flushing cache: %s", sc->readlink);
 
 		FREE (sc->readlink);
 		sc->readlink = NULL;
@@ -186,8 +186,9 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct iatt *buf)
 		sc_cache_set (this, inode, buf, NULL);
 		inode_ctx_get (inode, this, &tmp_sc);
 
-		if (!sc) {
-			gf_log (this->name, GF_LOG_ERROR,
+		if (!tmp_sc) {
+			gf_msg (this->name, GF_LOG_ERROR, 0,
+                                SYMLINK_CACHE_MSG_NO_MEMORY,
 				"out of memory :(");
 			return 0;
 		}
@@ -199,8 +200,8 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct iatt *buf)
 
 	/* STALE */
 	if (sc->readlink) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"flushing cache: %s", sc->readlink);
+		gf_msg_debug (this->name, 0,
+                              "flushing cache: %s", sc->readlink);
 
 		FREE (sc->readlink);
 		sc->readlink = NULL;
@@ -257,9 +258,9 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 
 	if (link) {
 		/* cache hit */
-		gf_log (this->name, GF_LOG_DEBUG,
-			"cache hit %s -> %s",
-			loc->path, link);
+		gf_msg_debug (this->name, 0,
+                              "cache hit %s -> %s",
+                              loc->path, link);
 
                 /*
                   libglusterfsclient, nfs or any other translators
@@ -361,15 +362,17 @@ init (xlator_t *this)
 {
         if (!this->children || this->children->next)
         {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SYMLINK_CACHE_MSG_XLATOR_CHILD_MISCONFIGURED,
                         "FATAL: volume (%s) not configured with exactly one "
 			"child", this->name);
                 return -1;
         }
 
 	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
+		gf_msg (this->name, GF_LOG_WARNING, 0,
+			SYMLINK_CACHE_MSG_VOL_MISCONFIGURED,
+                        "dangling volume. check volfile ");
 	}
 
         return 0;

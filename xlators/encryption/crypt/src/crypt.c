@@ -10,11 +10,6 @@
 #include <ctype.h>
 #include <sys/uio.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
@@ -48,7 +43,7 @@ static crypt_local_t *crypt_alloc_local(call_frame_t *frame, xlator_t *this,
 {
 	crypt_local_t *local = NULL;
 
-	local = mem_get0(this->local_pool);
+	local = GF_CALLOC (1, sizeof (*local), gf_crypt_mt_local);
 	if (!local) {
 		gf_log(this->name, GF_LOG_ERROR, "out of memory");
 		return NULL;
@@ -693,13 +688,13 @@ void set_local_io_params_ftruncate(call_frame_t *frame,
 	}
 }
 
-static inline void submit_head(call_frame_t *frame, xlator_t *this)
+static void submit_head(call_frame_t *frame, xlator_t *this)
 {
 	crypt_local_t *local = frame->local;
 	submit_partial(frame, this, local->fd, HEAD_ATOM);
 }
 
-static inline void submit_tail(call_frame_t *frame, xlator_t *this)
+static void submit_tail(call_frame_t *frame, xlator_t *this)
 {
 	crypt_local_t *local = frame->local;
 	submit_partial(frame, this, local->fd, TAIL_ATOM);
@@ -730,14 +725,14 @@ static void submit_data(call_frame_t *frame, xlator_t *this)
  * heplers called by writev_cbk, fruncate_cbk in ordered mode
  */
 
-static inline int32_t should_submit_hole(crypt_local_t *local)
+static int32_t should_submit_hole(crypt_local_t *local)
 {
 	struct avec_config *conf = &local->hole_conf;
 
 	return conf->avec != NULL;
 }
 
-static inline int32_t should_resume_submit_hole(crypt_local_t *local)
+static int32_t should_resume_submit_hole(crypt_local_t *local)
 {
 	struct avec_config *conf = &local->hole_conf;
 
@@ -754,7 +749,7 @@ static inline int32_t should_resume_submit_hole(crypt_local_t *local)
 		return conf->cursor < conf->acount;
 }
 
-static inline int32_t should_resume_submit_data(call_frame_t *frame)
+static int32_t should_resume_submit_data(call_frame_t *frame)
 {
 	crypt_local_t *local = frame->local;
 	struct avec_config *conf = &local->data_conf;
@@ -767,7 +762,7 @@ static inline int32_t should_resume_submit_data(call_frame_t *frame)
 	return 0;
 }
 
-static inline int32_t should_submit_data_after_hole(crypt_local_t *local)
+static int32_t should_submit_data_after_hole(crypt_local_t *local)
 {
 	return local->data_conf.avec != NULL;
 }
@@ -1701,7 +1696,7 @@ static int32_t crypt_ftruncate_finodelk_cbk(call_frame_t *frame,
 
 /*
  * ftruncate is performed in 2 steps:
- * . recieve file size;
+ * . receive file size;
  * . expand or prune file.
  */
 static int32_t crypt_ftruncate(call_frame_t *frame,
@@ -1833,7 +1828,9 @@ static int32_t truncate_begin(call_frame_t *frame,
 				    op_ret,
 				    op_errno, NULL, NULL, NULL);
 		return 0;
-	}
+	} else {
+	        fd_bind (fd);
+        }
 	/*
 	 * crypt_truncate() is implemented via crypt_ftruncate(),
 	 * so the crypt xlator does STACK_WIND to itself here
@@ -3095,7 +3092,7 @@ static int32_t do_linkop(call_frame_t *frame,
 		   &lock,
 		   NULL);
 	return 0;
- error:		
+ error:
 	unwind_fn(frame);
 	return 0;
 }
@@ -3125,11 +3122,14 @@ static int32_t linkop_begin(call_frame_t *frame,
 	unwind_fn = linkop_unwind_dispatch(local->fop);
 	mop = linkop_mtdop_dispatch(local->fop);
 
-	if (op_ret < 0)
+	if (op_ret < 0) {
 		/*
 		 * verification failed
 		 */
 		goto error;
+        } else {
+                fd_bind (fd);
+        }
 
 	old_mtd = dict_get(xdata, CRYPTO_FORMAT_PREFIX);
 	if (!old_mtd) {
@@ -4014,7 +4014,7 @@ static int32_t crypt_lookup_cbk(call_frame_t *frame,
 	local->postbuf = *postparent;
 	if (xdata)
 		local->xdata = dict_ref(xdata);
-	uuid_copy(local->loc->gfid, buf->ia_gfid);
+	gf_uuid_copy(local->loc->gfid, buf->ia_gfid);
 
 	STACK_WIND(frame,
 		   load_file_size,

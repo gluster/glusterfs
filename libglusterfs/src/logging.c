@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -44,6 +39,7 @@
 #include "defaults.h"
 #include "glusterfs.h"
 #include "timer.h"
+#include "libglusterfs-messages.h"
 
 /* Do not replace gf_log in TEST_LOG with gf_msg, as there is a slight chance
  * that it could lead to an infinite recursion.*/
@@ -125,7 +121,7 @@ gf_log_get_loglevel (void)
         if (ctx)
                 return ctx->log.loglevel;
         else
-                /* return global defaluts (see gf_log_globals_init) */
+                /* return global defaults (see gf_log_globals_init) */
                 return GF_LOG_INFO;
 }
 
@@ -368,17 +364,18 @@ gf_log_rotate(glusterfs_ctx_t *ctx)
                 fd = open (ctx->log.filename,
                            O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
-                        gf_log ("logrotate", GF_LOG_ERROR,
-                                "%s", strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_ERROR, errno,
+                                LG_MSG_FILE_OP_FAILED, "failed to open "
+                                "logfile");
                         return;
                 }
                 close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
-                        gf_log ("logrotate", GF_LOG_CRITICAL,
-                                "failed to open logfile %s (%s)",
-                                ctx->log.filename, strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED, "failed to open logfile"
+                                " %s", ctx->log.filename);
                         return;
                 }
 
@@ -676,6 +673,10 @@ gf_log_init (void *data, const char *file, const char *ident)
 
         ctx = data;
 
+        if (ctx == NULL) {
+                fprintf (stderr, "ERROR: ctx is NULL\n");
+                return -1;
+        }
         if (ident) {
                 ctx->log.ident = gf_strdup (ident);
         }
@@ -785,11 +786,14 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         this = THIS;
         ctx = this->ctx;
 
+        if (!ctx)
+                goto out;
+
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */
@@ -870,6 +874,10 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto out;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);
@@ -974,7 +982,7 @@ _gf_msg_plain (gf_loglevel_t level, const char *fmt, ...)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         va_start (ap, fmt);
@@ -1010,7 +1018,7 @@ _gf_msg_vplain (gf_loglevel_t level, const char *fmt, va_list ap)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         ret = vasprintf (&msg, fmt, ap);
@@ -1042,7 +1050,7 @@ _gf_msg_plain_nomem (gf_loglevel_t level, const char *msg)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         ret = _gf_msg_plain_internal (level, msg);
@@ -1074,7 +1082,7 @@ _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize)
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         bt_size = backtrace (array, ((stacksize <= 200)? stacksize : 200));
@@ -1161,7 +1169,7 @@ _gf_msg_nomem (const char *domain, const char *file,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         if (!domain || !file || !function) {
@@ -1397,6 +1405,10 @@ gf_log_glusterlog (glusterfs_ctx_t *ctx, const char *domain, const char *file,
         flen = footer? strlen (footer) : 0;
         mlen = strlen (*appmsgstr);
         msg = GF_MALLOC (hlen + flen + mlen + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto err;
+        }
 
         strcpy (msg, header);
         strcpy (msg + hlen, *appmsgstr);
@@ -1496,6 +1508,9 @@ gf_glusterlog_log_repetitions (glusterfs_ctx_t *ctx, const char *domain,
         char            *footer              = NULL;
         char            *msg                 = NULL;
 
+        if (!ctx)
+                goto err;
+
         gf_log_rotate (ctx);
 
         gf_time_fmt (timestr_latest, sizeof timestr_latest, latest.tv_sec,
@@ -1531,6 +1546,10 @@ gf_glusterlog_log_repetitions (glusterfs_ctx_t *ctx, const char *domain,
         flen = strlen (footer);
         mlen = strlen (*appmsgstr);
         msg = GF_MALLOC (hlen + flen + mlen + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto err;
+        }
 
         strcpy (msg, header);
         strcpy (msg + hlen, *appmsgstr);
@@ -1751,6 +1770,9 @@ __gf_log_inject_timer_event (glusterfs_ctx_t *ctx)
         int              ret      = -1;
         struct timespec  timeout  = {0,};
 
+        if (!ctx)
+                goto out;
+
         if (ctx->log.log_flush_timer) {
                 gf_timer_call_cancel (ctx, ctx->log.log_flush_timer);
                 ctx->log.log_flush_timer = NULL;
@@ -1777,6 +1799,9 @@ int
 gf_log_inject_timer_event (glusterfs_ctx_t *ctx)
 {
         int ret = -1;
+
+        if (!ctx)
+                return -1;
 
         pthread_mutex_lock (&ctx->log.log_buf_lock);
         {
@@ -1824,6 +1849,9 @@ _gf_msg_internal (const char *domain, const char *file, const char *function,
 
         this = THIS;
         ctx = this->ctx;
+
+        if (!ctx)
+                goto out;
 
         GET_FILE_NAME_TO_LOG (file, basename);
 
@@ -2010,12 +2038,12 @@ _gf_msg (const char *domain, const char *file, const char *function,
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         if (trace) {
                 ret = _gf_msg_backtrace (GF_LOG_BACKTRACE_DEPTH, callstr,
-                                         GF_LOG_BACKTRACE_DEPTH);
+                                         GF_LOG_BACKTRACE_SIZE);
                 if (ret >= 0)
                         passcallstr = 1;
                 else
@@ -2084,11 +2112,14 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         this = THIS;
         ctx = this->ctx;
 
+        if (!ctx)
+                goto out;
+
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
         }
-        if (level > ctx->log.loglevel)
+        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */
@@ -2143,17 +2174,19 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                 fd = open (ctx->log.filename,
                            O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
-                        gf_log ("logrotate", GF_LOG_ERROR,
-                                "%s", strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_ERROR, errno,
+                                LG_MSG_FILE_OP_FAILED,
+                                "failed to open logfile");
                         return -1;
                 }
                 close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
-                        gf_log ("logrotate", GF_LOG_CRITICAL,
-                                "failed to open logfile %s (%s)",
-                                ctx->log.filename, strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED,
+                                "failed to open logfile %s",
+                                ctx->log.filename);
                         goto log;
                 }
 
@@ -2195,6 +2228,9 @@ log:
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                goto err;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);
@@ -2291,16 +2327,17 @@ gf_cmd_log_init (const char *filename)
         this = THIS;
         ctx  = this->ctx;
 
+        if (!ctx)
+                return -1;
+
         if (!filename){
-                gf_log (this->name, GF_LOG_CRITICAL, "gf_cmd_log_init: no "
-                        "filename specified\n");
+                gf_msg (this->name, GF_LOG_CRITICAL, 0, LG_MSG_INVALID_ENTRY,
+                        "gf_cmd_log_init: no filename specified\n");
                 return -1;
         }
 
         ctx->log.cmd_log_filename = gf_strdup (filename);
         if (!ctx->log.cmd_log_filename) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "gf_cmd_log_init: strdup error\n");
                 return -1;
         }
         /* close and reopen cmdlogfile for log rotate*/
@@ -2312,17 +2349,18 @@ gf_cmd_log_init (const char *filename)
         fd = open (ctx->log.cmd_log_filename,
                    O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
         if (fd < 0) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "%s", strerror (errno));
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        LG_MSG_FILE_OP_FAILED, "failed to open cmd_log_file");
                 return -1;
         }
         close (fd);
 
         ctx->log.cmdlogfile = fopen (ctx->log.cmd_log_filename, "a");
         if (!ctx->log.cmdlogfile){
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        LG_MSG_FILE_OP_FAILED,
                         "gf_cmd_log_init: failed to open logfile \"%s\" "
-                        "(%s)\n", ctx->log.cmd_log_filename, strerror (errno));
+                        "\n", ctx->log.cmd_log_filename);
                 return -1;
         }
         return 0;
@@ -2342,12 +2380,16 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
         glusterfs_ctx_t *ctx = NULL;
 
         ctx = THIS->ctx;
+
+        if (!ctx)
+                return -1;
+
         if (!ctx->log.cmdlogfile)
                 return -1;
 
 
         if (!domain || !fmt) {
-                gf_log ("glusterd", GF_LOG_TRACE,
+                gf_msg_trace ("glusterd", 0,
                         "logging: invalid argument\n");
                 return -1;
         }
@@ -2376,6 +2418,9 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                goto out;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);

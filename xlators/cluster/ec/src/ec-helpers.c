@@ -1,21 +1,11 @@
 /*
-  Copyright (c) 2012 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  This file is part of GlusterFS.
 
-  This file is part of the cluster/ec translator for GlusterFS.
-
-  The cluster/ec translator for GlusterFS is free software: you can
-  redistribute it and/or modify it under the terms of the GNU General
-  Public License as published by the Free Software Foundation, either
-  version 3 of the License, or (at your option) any later version.
-
-  The cluster/ec translator for GlusterFS is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
-  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE. See the GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with the cluster/ec translator for GlusterFS. If not, see
-  <http://www.gnu.org/licenses/>.
+  This file is licensed to you under your choice of the GNU Lesser
+  General Public License, version 3 or any later version (LGPLv3 or
+  later), or the GNU General Public License, version 2 (GPLv2), in all
+  cases as published by the Free Software Foundation.
 */
 
 #include <libgen.h>
@@ -25,17 +15,7 @@
 #include "ec-mem-types.h"
 #include "ec-fops.h"
 #include "ec-helpers.h"
-
-#define BACKEND_D_OFF_BITS 63
-#define PRESENT_D_OFF_BITS 63
-
-#define ONE 1ULL
-#define MASK (~0ULL)
-#define PRESENT_MASK (MASK >> (64 - PRESENT_D_OFF_BITS))
-#define BACKEND_MASK (MASK >> (64 - BACKEND_D_OFF_BITS))
-
-#define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
-#define SHIFT_BITS (max(0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
+#include "ec-messages.h"
 
 #ifndef ffsll
 #define ffsll(x) __builtin_ffsll(x)
@@ -100,7 +80,7 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
         msg = "<memory allocation error>";
     }
 
-    gf_log("ec", GF_LOG_TRACE, "%s(%s) %p(%p) [refs=%d, winds=%d, jobs=%d] "
+    gf_msg_trace ("ec", 0, "%s(%s) %p(%p) [refs=%d, winds=%d, jobs=%d] "
                                "frame=%p/%p, min/exp=%d/%d, err=%d state=%d "
                                "{%s:%s:%s} %s",
            event, ec_fop_name(fop->id), fop, fop->parent, fop->refs,
@@ -108,47 +88,12 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
            fop->expected, fop->error, fop->state,
            ec_bin(str1, sizeof(str1), fop->mask, ec->nodes),
            ec_bin(str2, sizeof(str2), fop->remaining, ec->nodes),
-           ec_bin(str3, sizeof(str3), fop->bad, ec->nodes), msg);
+           ec_bin(str3, sizeof(str3), fop->good, ec->nodes), msg);
 
     if (ret >= 0)
     {
         free(msg);
     }
-}
-
-uint64_t ec_itransform(ec_t * ec, int32_t idx, uint64_t offset)
-{
-    int32_t bits;
-
-    if (offset == -1ULL)
-    {
-        return -1ULL;
-    }
-
-    bits = ec->bits_for_nodes;
-    if ((offset & ~(PRESENT_MASK >> (bits + 1))) != 0)
-    {
-        return TOP_BIT | ((offset >> SHIFT_BITS) & (MASK << bits)) | idx;
-    }
-
-    return (offset * ec->nodes) + idx;
-}
-
-uint64_t ec_deitransform(ec_t * ec, int32_t * idx, uint64_t offset)
-{
-    uint64_t mask = 0;
-
-    if ((offset & TOP_BIT) != 0)
-    {
-        mask = MASK << ec->bits_for_nodes;
-
-        *idx = offset & ~mask;
-        return ((offset & ~TOP_BIT) & mask) << SHIFT_BITS;
-    }
-
-    *idx = offset % ec->nodes;
-
-    return offset / ec->nodes;
 }
 
 int32_t ec_bits_count(uint64_t n)
@@ -213,30 +158,105 @@ size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
     return total;
 }
 
+int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
+                          int32_t size)
+{
+    int         ret = -1;
+    uint64_t   *ptr = NULL;
+    int32_t     vindex;
+
+    if (value == NULL) {
+        return -EINVAL;
+    }
+
+    ptr = GF_MALLOC(sizeof(uint64_t) * size, gf_common_mt_char);
+    if (ptr == NULL) {
+        return -ENOMEM;
+    }
+    for (vindex = 0; vindex < size; vindex++) {
+         ptr[vindex] = hton64(value[vindex]);
+    }
+    ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t) * size);
+    if (ret)
+         GF_FREE (ptr);
+    return ret;
+}
+
+
+int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
+                          int32_t size)
+{
+    void    *ptr;
+    int32_t len;
+    int32_t vindex;
+    int32_t old_size = 0;
+    int32_t err;
+
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
+    }
+
+    if (len > (size * sizeof(uint64_t)) || (len % sizeof (uint64_t))) {
+        return -EINVAL;
+    }
+
+    memset (value, 0, size * sizeof(uint64_t));
+    /* 3.6 version ec would have stored version in 64 bit. In that case treat
+     * metadata versions same as data*/
+    old_size = min (size, len/sizeof(uint64_t));
+    for (vindex = 0; vindex < old_size; vindex++) {
+         value[vindex] = ntoh64(*((uint64_t *)ptr + vindex));
+    }
+
+    if (old_size < size) {
+            for (vindex = old_size; vindex < size; vindex++) {
+                 value[vindex] = value[old_size-1];
+            }
+    }
+
+    dict_del(dict, key);
+
+    return 0;
+}
+
+
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
 {
+    int        ret = -1;
     uint64_t * ptr;
 
     ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
-    if (ptr == NULL)
-    {
-        return -1;
+    if (ptr == NULL) {
+        return -ENOMEM;
     }
 
     *ptr = hton64(value);
 
-    return dict_set_bin(dict, key, ptr, sizeof(value));
+    ret = dict_set_bin(dict, key, ptr, sizeof(value));
+    if (ret)
+        GF_FREE (ptr);
+
+    return ret;
 }
 
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
 {
     void * ptr;
-    int32_t len;
+    int32_t len, err;
 
-    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0) ||
-        (len != sizeof(uint64_t)))
-    {
-        return -1;
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
+    }
+    if (len != sizeof(uint64_t)) {
+        return -EINVAL;
     }
 
     *value = ntoh64(*(uint64_t *)ptr);
@@ -248,20 +268,23 @@ int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
 
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
 {
+    int ret = -1;
     uint64_t * ptr, data;
 
     if (config->version > EC_CONFIG_VERSION)
     {
-        gf_log("ec", GF_LOG_ERROR, "Trying to store an unsupported config "
-                                   "version (%u)", config->version);
+        gf_msg ("ec", GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNSUPPORTED_VERSION,
+                "Trying to store an unsupported config "
+                "version (%u)", config->version);
 
-        return -1;
+        return -EINVAL;
     }
 
     ptr = GF_MALLOC(sizeof(uint64_t), gf_common_mt_char);
     if (ptr == NULL)
     {
-        return -1;
+        return -ENOMEM;
     }
 
     data = ((uint64_t)config->version) << 56;
@@ -273,19 +296,28 @@ int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
 
     *ptr = hton64(data);
 
-    return dict_set_bin(dict, key, ptr, sizeof(uint64_t));
+    ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t));
+    if (ret)
+        GF_FREE (ptr);
+
+    return ret;
 }
 
 int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
 {
     void * ptr;
     uint64_t data;
-    int32_t len;
+    int32_t len, err;
 
-    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0) ||
-        (len != sizeof(uint64_t)))
-    {
-        return -1;
+    if (dict == NULL) {
+        return -EINVAL;
+    }
+    err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+    if (err != 0) {
+        return err;
+    }
+    if (len != sizeof(uint64_t)) {
+        return -EINVAL;
     }
 
     data = ntoh64(*(uint64_t *)ptr);
@@ -293,10 +325,12 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
     config->version = (data >> 56) & 0xff;
     if (config->version > EC_CONFIG_VERSION)
     {
-        gf_log("ec", GF_LOG_ERROR, "Found an unsupported config version (%u)",
-               config->version);
+        gf_msg ("ec", GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNSUPPORTED_VERSION,
+                "Found an unsupported config version (%u)",
+                config->version);
 
-        return -1;
+        return -EINVAL;
     }
 
     config->algorithm = (data >> 48) & 0xff;
@@ -310,242 +344,306 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
     return 0;
 }
 
-int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
+gf_boolean_t ec_loc_gfid_check(xlator_t *xl, uuid_t dst, uuid_t src)
 {
-    if (uuid_is_null(src))
-    {
-        return 1;
+    if (gf_uuid_is_null(src)) {
+        return _gf_true;
     }
 
-    if (uuid_is_null(dst))
-    {
-        uuid_copy(dst, src);
+    if (gf_uuid_is_null(dst)) {
+        gf_uuid_copy(dst, src);
 
-        return 1;
+        return _gf_true;
     }
 
-    if (uuid_compare(dst, src) != 0)
-    {
-        gf_log(xl->name, GF_LOG_WARNING, "Mismatching GFID's in loc");
+    if (gf_uuid_compare(dst, src) != 0) {
+        gf_msg (xl->name, GF_LOG_WARNING, 0,
+                EC_MSG_GFID_MISMATCH,
+                "Mismatching GFID's in loc");
 
-        return 0;
+        return _gf_false;
     }
 
-    return 1;
+    return _gf_true;
+}
+
+int32_t ec_loc_setup_inode(xlator_t *xl, inode_table_t *table, loc_t *loc)
+{
+    int32_t ret = -EINVAL;
+
+    if (loc->inode != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid)) {
+            goto out;
+        }
+    } else if (table != NULL) {
+        if (!gf_uuid_is_null(loc->gfid)) {
+            loc->inode = inode_find(table, loc->gfid);
+        } else if (loc->path && strchr (loc->path, '/')) {
+            loc->inode = inode_resolve(table, (char *)loc->path);
+        }
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
+int32_t ec_loc_setup_parent(xlator_t *xl, inode_table_t *table, loc_t *loc)
+{
+    char *path, *parent;
+    int32_t ret = -EINVAL;
+
+    if (loc->parent != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid)) {
+            goto out;
+        }
+    } else if (table != NULL) {
+        if (!gf_uuid_is_null(loc->pargfid)) {
+            loc->parent = inode_find(table, loc->pargfid);
+        } else if (loc->path && strchr (loc->path, '/')) {
+            path = gf_strdup(loc->path);
+            if (path == NULL) {
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        loc->path);
+
+                ret = -ENOMEM;
+
+                goto out;
+            }
+            parent = dirname(path);
+            loc->parent = inode_resolve(table, parent);
+            if (loc->parent != NULL) {
+                gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+            }
+            GF_FREE(path);
+        }
+    }
+
+    /* If 'pargfid' has not been determined, clear 'name' to avoid resolutions
+       based on <gfid:pargfid>/name. */
+    if (gf_uuid_is_null(loc->pargfid)) {
+        loc->name = NULL;
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
+int32_t ec_loc_setup_path(xlator_t *xl, loc_t *loc)
+{
+    uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    char *name;
+    int32_t ret = -EINVAL;
+
+    if (loc->path != NULL) {
+        name = strrchr(loc->path, '/');
+        if (name == NULL) {
+            /* Allow gfid paths: <gfid:...> */
+            if (strncmp(loc->path, "<gfid:", 6) == 0) {
+                ret = 0;
+            }
+            goto out;
+        }
+        if (name == loc->path) {
+            if (name[1] == 0) {
+                if (!ec_loc_gfid_check(xl, loc->gfid, root)) {
+                    goto out;
+                }
+            } else {
+                if (!ec_loc_gfid_check(xl, loc->pargfid, root)) {
+                    goto out;
+                }
+            }
+        }
+        name++;
+
+        if (loc->name != NULL) {
+            if (strcmp(loc->name, name) != 0) {
+                gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
+                        EC_MSG_INVALID_LOC_NAME,
+                        "Invalid name '%s' in loc",
+                        loc->name);
+
+                goto out;
+            }
+        } else {
+            loc->name = name;
+        }
+    }
+
+    ret = 0;
+
+out:
+    return ret;
 }
 
 int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
 {
-    char * str = NULL;
-    int32_t error = 0;
+    inode_table_t *table = NULL;
+    char *str = NULL;
+    int32_t ret = -ENOMEM;
 
     memset(parent, 0, sizeof(loc_t));
 
-    if (loc->inode == NULL)
-    {
-        gf_log(xl->name, GF_LOG_ERROR, "Invalid loc");
-
-        error = EINVAL;
-
-        goto out;
+    if (loc->parent != NULL) {
+        table = loc->parent->table;
+        parent->inode = inode_ref(loc->parent);
+    } else if (loc->inode != NULL) {
+        table = loc->inode->table;
     }
-
-    if (__is_root_gfid(loc->inode->gfid) || __is_root_gfid(loc->gfid) ||
-        ((loc->path != NULL) && (strcmp(loc->path, "/") == 0)))
-    {
-        parent->path = gf_strdup("/");
-        if (parent->path == NULL) {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '/'");
-
-            error = ENOMEM;
-
-            goto out;
-        }
-
-        parent->gfid[15] = 1;
-        parent->inode = inode_find(loc->inode->table, parent->gfid);
-
-        return 0;
+    if (!gf_uuid_is_null(loc->pargfid)) {
+        gf_uuid_copy(parent->gfid, loc->pargfid);
     }
-
-    if (loc->path != NULL) {
+    if (loc->path && strchr (loc->path, '/')) {
         str = gf_strdup(loc->path);
-        if (str == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path "
-                                           "'%s'", loc->path);
+        if (str == NULL) {
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        loc->path);
 
-            error = ENOMEM;
-
-            goto out;
+                goto out;
         }
         parent->path = gf_strdup(dirname(str));
-        if (parent->path == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to get dirname of "
-                                           "'%s'", loc->path);
+        if (parent->path == NULL) {
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        dirname(str));
 
-            error = ENOMEM;
-
-            goto out;
+                goto out;
         }
-        parent->name = strrchr(parent->path, '/');
-        if (parent->name == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Invalid path name (%s)",
-                   parent->path);
-
-            error = EINVAL;
-
-            goto out;
-        }
-        parent->name++;
-    }
-    if (loc->parent != NULL) {
-        parent->inode = inode_ref(loc->parent);
-        uuid_copy(parent->gfid, loc->parent->gfid);
-    }
-    if (!uuid_is_null(loc->pargfid) && uuid_is_null(parent->gfid)) {
-        uuid_copy(parent->gfid, loc->pargfid);
     }
 
-    if ((parent->inode == NULL) && (parent->path != NULL))
-    {
-        if (strcmp(parent->path, "/") == 0) {
-            parent->inode = inode_ref(loc->inode->table->root);
-
-            goto out;
-        }
-        parent->inode = inode_resolve(loc->inode->table, (char *)parent->path);
-        if (parent->inode != NULL) {
-            goto out;
-        }
-
-        gf_log(xl->name, GF_LOG_WARNING, "Unable to resolve parent inode");
+    ret = ec_loc_setup_path(xl, parent);
+    if (ret == 0) {
+        ret = ec_loc_setup_inode(xl, table, parent);
     }
-
-    if ((parent->inode == NULL) && !uuid_is_null(parent->gfid)) {
-        if (__is_root_gfid(parent->gfid)) {
-            parent->inode = inode_ref(loc->inode->table->root);
-
-            goto out;
-        }
-        parent->inode = inode_find(loc->inode->table, parent->gfid);
-        if (parent->inode != NULL) {
-            goto out;
-        }
-
-        gf_log(xl->name, GF_LOG_WARNING, "Unable to find parent inode");
+    if (ret == 0) {
+        ret = ec_loc_setup_parent(xl, table, parent);
+    }
+    if (ret != 0) {
+        goto out;
     }
 
     if ((parent->inode == NULL) && (parent->path == NULL) &&
-        uuid_is_null(parent->gfid)) {
-        gf_log(xl->name, GF_LOG_ERROR, "Parent inode missing for loc_t");
+        gf_uuid_is_null(parent->gfid)) {
+        gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_LOC_PARENT_INODE_MISSING,
+                "Parent inode missing for loc_t");
 
-        error = EINVAL;
+        ret = -EINVAL;
 
         goto out;
     }
+
+    ret = 0;
 
 out:
     GF_FREE(str);
 
-    if (error != 0)
-    {
+    if (ret != 0) {
         loc_wipe(parent);
     }
 
-    return error;
+    return ret;
 }
 
-int32_t ec_loc_prepare(xlator_t * xl, loc_t * loc, inode_t * inode,
-                       struct iatt * iatt)
+int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
+                      struct iatt *iatt)
 {
-    if ((inode != NULL) && (loc->inode != inode))
-    {
-        if (loc->inode != NULL)
-        {
-            inode_unref(loc->inode);
-        }
-        loc->inode = inode_ref(inode);
+    inode_table_t *table = NULL;
+    int32_t ret = -EINVAL;
 
-        uuid_copy(loc->gfid, inode->gfid);
-    }
-    else if (loc->inode != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid))
-        {
-            return 0;
+    if (inode != NULL) {
+        table = inode->table;
+        if (loc->inode != inode) {
+            if (loc->inode != NULL) {
+                inode_unref(loc->inode);
+            }
+            loc->inode = inode_ref(inode);
+            gf_uuid_copy(loc->gfid, inode->gfid);
         }
+    } else if (loc->inode != NULL) {
+        table = loc->inode->table;
+    } else if (loc->parent != NULL) {
+        table = loc->parent->table;
     }
 
-    if (iatt != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->gfid, iatt->ia_gfid))
-        {
-            return 0;
+    if (iatt != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->gfid, iatt->ia_gfid)) {
+            goto out;
         }
     }
 
-    if (loc->parent != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid))
-        {
-            return 0;
-        }
-
+    ret = ec_loc_setup_path(xl, loc);
+    if (ret == 0) {
+        ret = ec_loc_setup_inode(xl, table, loc);
+    }
+    if (ret == 0) {
+        ret = ec_loc_setup_parent(xl, table, loc);
+    }
+    if (ret != 0) {
+        goto out;
     }
 
-    if (uuid_is_null(loc->gfid))
-    {
-        gf_log(xl->name, GF_LOG_WARNING, "GFID not available for inode");
-    }
-
-    return 1;
+out:
+    return ret;
 }
 
 int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd)
 {
     ec_fd_t * ctx;
+    int32_t ret = -ENOMEM;
 
     memset(loc, 0, sizeof(*loc));
 
     ctx = ec_fd_get(fd, xl);
-    if (ctx != NULL)
-    {
-        if (loc_copy(loc, &ctx->loc) != 0)
-        {
-            return 0;
+    if (ctx != NULL) {
+        if (loc_copy(loc, &ctx->loc) != 0) {
+            goto out;
         }
     }
 
-    if (ec_loc_prepare(xl, loc, fd->inode, NULL))
-    {
-        return 1;
+    ret = ec_loc_update(xl, loc, fd->inode, NULL);
+    if (ret != 0) {
+        goto out;
     }
 
-    loc_wipe(loc);
+out:
+    if (ret != 0) {
+        loc_wipe(loc);
+    }
 
-    return 0;
+    return ret;
 }
 
 int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src)
 {
+    int32_t ret = -ENOMEM;
+
     memset(dst, 0, sizeof(*dst));
 
-    if (loc_copy(dst, src) != 0)
-    {
-        return 0;
+    if (loc_copy(dst, src) != 0) {
+        goto out;
     }
 
-    if (ec_loc_prepare(xl, dst, NULL, NULL))
-    {
-        return 1;
+    ret = ec_loc_update(xl, dst, NULL, NULL);
+    if (ret != 0) {
+        goto out;
     }
 
-    loc_wipe(dst);
+out:
+    if (ret != 0) {
+        loc_wipe(dst);
+    }
 
-    return 0;
+    return ret;
 }
 
 void ec_owner_set(call_frame_t * frame, void * owner)
@@ -570,6 +668,7 @@ ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
         if (ctx != NULL)
         {
             memset(ctx, 0, sizeof(*ctx));
+            INIT_LIST_HEAD(&ctx->heal);
 
             value = (uint64_t)(uintptr_t)ctx;
             if (__inode_ctx_set(inode, xl, &value) != 0)
@@ -606,11 +705,6 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
     ec_fd_t * ctx = NULL;
     uint64_t value = 0;
 
-    if (fd->anonymous)
-    {
-        return NULL;
-    }
-
     if ((__fd_ctx_get(fd, xl, &value) != 0) || (value == 0))
     {
         ctx = GF_MALLOC(sizeof(*ctx), ec_mt_ec_fd_t);
@@ -632,6 +726,14 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
         ctx = (ec_fd_t *)(uintptr_t)value;
     }
 
+    /* Treat anonymous fd specially */
+    if (fd->anonymous) {
+        /* Mark the fd open for all subvolumes. */
+        ctx->open = -1;
+        /* Try to populate ctx->loc with fd->inode information. */
+        ec_loc_update(xl, &ctx->loc, fd->inode, NULL);
+    }
+
     return ctx;
 }
 
@@ -639,14 +741,11 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl)
 {
     ec_fd_t * ctx = NULL;
 
-    if (!fd->anonymous)
-    {
-        LOCK(&fd->lock);
+    LOCK(&fd->lock);
 
-        ctx = __ec_fd_get(fd, xl);
+    ctx = __ec_fd_get(fd, xl);
 
-        UNLOCK(&fd->lock);
-    }
+    UNLOCK(&fd->lock);
 
     return ctx;
 }
@@ -679,3 +778,58 @@ uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale)
 
     return size;
 }
+
+gf_boolean_t
+ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data)
+{
+        if (key &&
+            (strncmp (key, EC_XATTR_PREFIX, strlen (EC_XATTR_PREFIX)) == 0))
+                return _gf_true;
+
+        return _gf_false;
+}
+
+void
+ec_filter_internal_xattrs (dict_t *xattr)
+{
+        dict_foreach_match (xattr, ec_is_internal_xattr, NULL,
+                            dict_remove_foreach_fn, NULL);
+}
+
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_WRITE:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
+        case GF_FOP_ZEROFILL:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+/*
+gf_boolean_t
+ec_is_metadata_fop (int32_t lock_kind, glusterfs_fop_t fop)
+{
+        if (lock_kind == EC_LOCK_ENTRY) {
+                return _gf_false;
+        }
+
+        switch (fop) {
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}*/

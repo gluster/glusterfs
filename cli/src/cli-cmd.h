@@ -10,15 +10,12 @@
 #ifndef __CLI_CMD_H__
 #define __CLI_CMD_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <netdb.h>
 
 #include "cli.h"
 #include "list.h"
+
+#define GLUSTER_SHARED_STORAGE      "gluster_shared_storage"
 
 #define CLI_LOCAL_INIT(local, words, frame, dictionary) \
         do {                                                 \
@@ -84,6 +81,8 @@ int cli_cmd_system_register (struct cli_state *state);
 
 int cli_cmd_snapshot_register (struct cli_state *state);
 
+int cli_cmd_global_register (struct cli_state *state);
+
 int cli_cmd_misc_register (struct cli_state *state);
 
 struct cli_cmd_word *cli_cmd_nextword (struct cli_cmd_word *word,
@@ -111,7 +110,7 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question);
 int cli_cmd_sent_status_get (int *status);
 
 gf_boolean_t
-_limits_set_on_volume (char *volname);
+_limits_set_on_volume (char *volname, int type);
 
 gf_boolean_t
 _quota_aux_mount_online (char *volname);

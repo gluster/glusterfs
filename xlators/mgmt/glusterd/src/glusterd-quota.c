@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "common-utils.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
@@ -19,11 +14,15 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
+#include "glusterd-nfs-svc.h"
+#include "glusterd-quotad-svc.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 #include "run.h"
 #include "syscall.h"
 #include "byte-order.h"
 #include "compat-errno.h"
+#include "quota-common-utils.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -40,7 +39,7 @@
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 
-const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT+1] = {
+const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
         [GF_QUOTA_OPTION_TYPE_NONE]               = "none",
         [GF_QUOTA_OPTION_TYPE_ENABLE]             = "enable",
         [GF_QUOTA_OPTION_TYPE_DISABLE]            = "disable",
@@ -52,11 +51,59 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT+1] = {
         [GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT]       = "soft-timeout",
         [GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT]       = "hard-timeout",
         [GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT] = "default-soft-limit",
+        [GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS]      = "limit-objects",
+        [GF_QUOTA_OPTION_TYPE_LIST_OBJECTS]       = "list-objects",
+        [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objects",
+        [GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS]     = "enable-objects",
+        [GF_QUOTA_OPTION_TYPE_MAX]                = NULL
 };
 
 int
 glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                              char *gfid_str, int opcode, char **op_errstr);
+
+gf_boolean_t
+glusterd_is_quota_supported (int32_t type, char **op_errstr)
+{
+        xlator_t           *this        = NULL;
+        glusterd_conf_t    *conf        = NULL;
+        gf_boolean_t        supported   = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if ((conf->op_version == GD_OP_VERSION_MIN) &&
+            (type > GF_QUOTA_OPTION_TYPE_VERSION))
+                goto out;
+
+        if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
+            (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS))
+                goto out;
+
+        /* Quota Operations that change quota.conf shouldn't
+         * be allowed as the quota.conf format changes in 3.7
+         */
+        if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
+            (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+             type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
+             type == GF_QUOTA_OPTION_TYPE_REMOVE))
+                goto out;
+
+        supported = _gf_true;
+
+out:
+        if (!supported && op_errstr != NULL && conf)
+                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
+                             "operating at version %d. Quota command"
+                             " %s is unavailable in this version.",
+                             conf->op_version, gd_quota_op_list[type]);
+
+        return supported;
+}
+
 int
 __glusterd_handle_quota (rpcsvc_request_t *req)
 {
@@ -91,7 +138,8 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL, "failed to "
                                     "unserialize req-buffer to dictionary");
                         snprintf (msg, sizeof (msg), "Unable to decode the "
                                   "command");
@@ -104,7 +152,8 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get volume name");
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name, "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name, "
                         "while handling quota command");
                 goto out;
         }
@@ -112,20 +161,20 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get type of command");
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get type of cmd, "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get type of cmd, "
                         "while handling quota command");
-               goto out;
+                goto out;
         }
 
-        if ((conf->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                snprintf (msg, sizeof (msg), "Cannot execute command. The "
-                         "cluster is operating at version %d. Quota command %s "
-                         "is unavailable in this version", conf->op_version,
-                         gd_quota_op_list[type]);
+        if (!glusterd_is_quota_supported (type, NULL)) {
+                snprintf (msg, sizeof (msg), "Volume quota failed. The cluster "
+                          "is operating at version %d. Quota command"
+                          " %s is unavailable in this version.",
+                          conf->op_version, gd_quota_op_list[type]);
                 ret = -1;
                 goto out;
-       }
+        }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_QUOTA, dict);
 
@@ -154,7 +203,9 @@ glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo)
 
         flag = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
         if (flag == -1) {
-                gf_log ("", GF_LOG_ERROR, "failed to get the quota status");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_QUOTA_GET_STAT_FAIL,
+                        "failed to get the quota status");
                 ret = -1;
                 goto out;
         }
@@ -180,7 +231,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         runner_t                   runner            = {0};
 
         if (mkdtemp (mountdir) == NULL) {
-                gf_log ("glusterd", GF_LOG_DEBUG,
+                gf_msg_debug ("glusterd", 0,
                         "failed to create a temporary mount directory");
                 ret = -1;
                 goto out;
@@ -207,7 +258,8 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         runner_end (&runner);
 
         if ((pid = fork ()) < 0) {
-                gf_log ("glusterd", GF_LOG_WARNING, "fork from parent failed");
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_FORK_FAIL, "fork from parent failed");
                 ret = -1;
                 goto out;
         } else if (pid == 0) {//first child
@@ -220,13 +272,15 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
 
                 ret = chdir (mountdir);
                 if (ret == -1) {
-                        gf_log ("glusterd", GF_LOG_WARNING, "chdir %s failed, "
-                                "reason: %s", mountdir, strerror (errno));
+                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                GD_MSG_DIR_OP_FAILED, "chdir %s failed",
+                                mountdir);
                         exit (EXIT_FAILURE);
                 }
                 runinit (&runner);
 
-                if (type == GF_QUOTA_OPTION_TYPE_ENABLE)
+                if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+                    type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
                         runner_add_args (&runner, "/usr/bin/find", ".",
                                          "-exec", "/usr/bin/stat",
                                          "{}", "\\", ";", NULL);
@@ -297,7 +351,8 @@ glusterd_quota_get_default_soft_limit (glusterd_volinfo_t *volinfo,
 
         ret = dict_set_dynstr (rsp_dict, "default-soft-limit", val);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set default "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set default "
                         "soft-limit into dict");
                 goto out;
         }
@@ -308,11 +363,68 @@ out:
 }
 
 int32_t
+glusterd_inode_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
+                             gf_boolean_t *crawl)
+{
+        int32_t         ret     = -1;
+        xlator_t        *this   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (this->name, crawl, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
+
+        if (glusterd_is_volume_started (volinfo) == 0) {
+                *op_errstr = gf_strdup ("Volume is stopped, start volume "
+                                        "to enable inode quota.");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret != 0) {
+                *op_errstr = gf_strdup ("Quota is disabled. Enabling quota "
+                                        "will enable inode quota");
+                ret = -1;
+                goto out;
+        }
+
+        if (glusterd_is_volume_inode_quota_enabled (volinfo)) {
+                *op_errstr = gf_strdup ("Inode Quota is already enabled");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "on");
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
+                        "dict set failed");
+                goto out;
+        }
+
+        *crawl = _gf_true;
+
+        ret = glusterd_store_quota_config (volinfo, NULL, NULL,
+                                           GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS,
+                                           op_errstr);
+
+        ret = 0;
+out:
+        if (ret && op_errstr && !*op_errstr)
+                gf_asprintf (op_errstr, "Enabling inode quota on volume %s has "
+                             "been unsuccessful", volinfo->volname);
+        return ret;
+}
+
+int32_t
 glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                        gf_boolean_t *crawl)
 {
         int32_t         ret     = -1;
-        char            *quota_status = NULL;
         xlator_t        *this         = NULL;
 
         this = THIS;
@@ -336,17 +448,29 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        quota_status = gf_strdup ("on");
-        if (!quota_status) {
-                gf_log (this->name, GF_LOG_ERROR, "memory allocation failed");
-                ret = -1;
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_QUOTA,
+                                          "on");
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA,
-                               quota_status);
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "on");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          "features.quota-deem-statfs",
+                                          "on");
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "setting quota-deem-statfs"
+                        "in volinfo failed");
                 goto out;
         }
 
@@ -370,14 +494,15 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
 {
         int32_t    ret            = -1;
         int        i              =  0;
-        char      *quota_status   = NULL;
         char      *value          = NULL;
         xlator_t  *this           = NULL;
         glusterd_conf_t *conf     = NULL;
         char *quota_options[]     = {"features.soft-timeout",
                                      "features.hard-timeout",
                                      "features.alert-time",
-                                     "features.default-soft-limit", NULL};
+                                     "features.default-soft-limit",
+                                     "features.quota-deem-statfs",
+                                     "features.quota-timeout", NULL};
 
         this = THIS;
         GF_ASSERT (this);
@@ -393,25 +518,28 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        quota_status = gf_strdup ("off");
-        if (!quota_status) {
-                gf_log (this->name, GF_LOG_ERROR, "memory allocation failed");
-                ret = -1;
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_QUOTA,
+                                          "off");
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA, quota_status);
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "off");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "dict set failed");
                 goto out;
         }
 
         for (i = 0; quota_options [i]; i++) {
                 ret = glusterd_volinfo_get (volinfo, quota_options[i], &value);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_INFO, "failed to get option"
-                                                         " %s",
-                                                         quota_options[i]);
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_VOLINFO_GET_FAIL, "failed to get option"
+                                " %s", quota_options[i]);
                 } else {
                 dict_del (volinfo->dict, quota_options[i]);
                 }
@@ -434,24 +562,17 @@ out:
         return ret;
 }
 
-
 static int
 glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
-                          char *soft_limit, char **op_errstr)
+                          char *soft_limit, char *key, char **op_errstr)
 {
         int               ret                = -1;
         xlator_t         *this               = NULL;
         char              abspath[PATH_MAX]  = {0,};
         glusterd_conf_t  *priv               = NULL;
-        double           soft_lim            = 0;
-
-        typedef struct quota_limits {
-                int64_t hl;
-                int64_t sl;
-        } __attribute__ ((__packed__)) quota_limits_t;
-
-	quota_limits_t existing_limit = {0,};
-	quota_limits_t new_limit = {0,};
+	quota_limits_t    existing_limit     = {0,};
+	quota_limits_t    new_limit          = {0,};
+        double            soft_limit_double  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -467,9 +588,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
         }
 
         if (!soft_limit) {
-                ret = sys_lgetxattr (abspath,
-                                     "trusted.glusterfs.quota.limit-set",
-                                     (void *)&existing_limit,
+                ret = sys_lgetxattr (abspath, key, (void *)&existing_limit,
                                      sizeof (existing_limit));
                 if (ret < 0) {
                         switch (errno) {
@@ -480,10 +599,9 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
                                 existing_limit.sl = -1;
                             break;
                         default:
-                                gf_asprintf (op_errstr, "Failed to get the xattr "
-                                             "'trusted.glusterfs.quota.limit-set' from "
-                                             "%s. Reason : %s", abspath,
-                                             strerror (errno));
+                                gf_asprintf (op_errstr, "Failed to get the "
+                                             "xattr %s from %s. Reason : %s",
+                                             key, abspath, strerror (errno));
                                 goto out;
                         }
                 } else {
@@ -493,26 +611,25 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
                 new_limit.sl = existing_limit.sl;
 
         } else {
-                ret = gf_string2percent (soft_limit, &soft_lim);
+                ret = gf_string2percent (soft_limit, &soft_limit_double);
                 if (ret)
                         goto out;
-                new_limit.sl = soft_lim;
+                new_limit.sl = soft_limit_double;
         }
 
         new_limit.sl = hton64 (new_limit.sl);
 
-        ret = gf_string2bytesize_uint64 (hard_limit, (uint64_t*)&new_limit.hl);
+        ret = gf_string2bytesize_int64 (hard_limit, &new_limit.hl);
         if (ret)
                 goto out;
 
         new_limit.hl = hton64 (new_limit.hl);
 
-        ret = sys_lsetxattr (abspath, "trusted.glusterfs.quota.limit-set",
-                             (char *)(void *)&new_limit, sizeof (new_limit), 0);
+        ret = sys_lsetxattr (abspath, key, (char *)(void *)&new_limit,
+                             sizeof (new_limit), 0);
         if (ret == -1) {
-                gf_asprintf (op_errstr, "setxattr of "
-                             "'trusted.glusterfs.quota.limit-set' failed on %s."
-                             " Reason : %s", abspath, strerror (errno));
+                gf_asprintf (op_errstr, "setxattr of %s failed on %s."
+                             " Reason : %s", key, abspath, strerror (errno));
                 goto out;
         }
         ret = 0;
@@ -547,16 +664,19 @@ glusterd_update_quota_conf_version (glusterd_volinfo_t *volinfo)
  * and continue the search.
  */
 static gf_boolean_t
-glusterd_find_gfid_match (uuid_t gfid, unsigned char *buf, size_t bytes_read,
-                          int opcode, size_t *write_byte_count)
+glusterd_find_gfid_match_3_6 (uuid_t gfid, unsigned char *buf,
+                              size_t bytes_read, int opcode,
+                              size_t *write_byte_count)
 {
         int           gfid_index  = 0;
         int           shift_count = 0;
         unsigned char tmp_buf[17] = {0,};
 
+        /* This function if for backward compatibility */
+
         while (gfid_index != bytes_read) {
                 memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
-                if (!uuid_compare (gfid, tmp_buf)) {
+                if (!gf_uuid_compare (gfid, tmp_buf)) {
                         if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
                                 shift_count = bytes_read - (gfid_index + 16);
                                 memmove ((void *)&buf[gfid_index],
@@ -568,11 +688,61 @@ glusterd_find_gfid_match (uuid_t gfid, unsigned char *buf, size_t bytes_read,
                         }
                         return _gf_true;
                 } else {
-                        gfid_index+=16;
+                        gfid_index += 16;
                 }
         }
         if (gfid_index == bytes_read)
                 *write_byte_count = bytes_read;
+
+        return _gf_false;
+}
+
+static gf_boolean_t
+glusterd_find_gfid_match (uuid_t gfid, char gfid_type, unsigned char *buf,
+                          size_t bytes_read, int opcode,
+                          size_t *write_byte_count)
+{
+        int                 gfid_index  = 0;
+        int                 shift_count = 0;
+        unsigned char       tmp_buf[17] = {0,};
+        char                type        = 0;
+        xlator_t           *this        = NULL;
+        glusterd_conf_t    *conf        = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if (conf->op_version < GD_OP_VERSION_3_7_0)
+                return glusterd_find_gfid_match_3_6 (gfid, buf, bytes_read,
+                                                     opcode, write_byte_count);
+
+        while (gfid_index != bytes_read) {
+                memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
+                type = buf[gfid_index + 16];
+
+                if (!gf_uuid_compare (gfid, tmp_buf) && type == gfid_type) {
+                        if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE ||
+                            opcode == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
+                                shift_count = bytes_read - (gfid_index + 17);
+                                memmove ((void *)&buf[gfid_index],
+                                         (void *)&buf[gfid_index + 17],
+                                         shift_count);
+                                *write_byte_count = bytes_read - 17;
+                        } else {
+                                *write_byte_count = bytes_read;
+                        }
+                        return _gf_true;
+                } else {
+                        gfid_index += 17;
+                }
+        }
+        if (gfid_index == bytes_read)
+                *write_byte_count = bytes_read;
+
+out:
 
         return _gf_false;
 }
@@ -596,16 +766,17 @@ glusterd_copy_to_tmp_file (int src_fd, int dst_fd)
 
         while ((bytes_read = read (src_fd, (void *)&buf, entry_sz)) > 0) {
                 if (bytes_read % 16 != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "quota.conf "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CONF_CORRUPT, "quota.conf "
                                 "corrupted");
                         ret = -1;
                         goto out;
                 }
                 ret = write (dst_fd, (void *) buf, bytes_read);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "write into quota.conf failed. Reason : %s",
-                                strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                "write into quota.conf failed.");
                         goto out;
                 }
         }
@@ -616,30 +787,17 @@ out:
 }
 
 int
-glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
-                             char *gfid_str, int opcode, char **op_errstr)
+glusterd_store_quota_conf_upgrade (glusterd_volinfo_t *volinfo)
 {
         int                ret                   = -1;
         int                fd                    = -1;
         int                conf_fd               = -1;
-        size_t             entry_sz              = 131072;
-        ssize_t            bytes_read            = 0;
-        size_t            bytes_to_write         = 0;
-        unsigned char      buf[131072]           = {0,};
-        uuid_t             gfid                  = {0,};
+        unsigned char      gfid[17]              = {0,};
         xlator_t          *this                  = NULL;
-        gf_boolean_t       found                 = _gf_false;
-        gf_boolean_t       modified              = _gf_false;
-        gf_boolean_t       is_file_empty         = _gf_false;
-        gf_boolean_t       is_first_read         = _gf_true;
-        glusterd_conf_t   *conf                  = NULL;
+        char               type                  = 0;
 
         this = THIS;
         GF_ASSERT (this);
-        conf = this->private;
-        GF_ASSERT (conf);
-
-        glusterd_store_create_quota_conf_sh_on_absence (volinfo);
 
         fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
         if (fd < 0) {
@@ -653,20 +811,137 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 goto out;
         }
 
-        ret = glusterd_store_quota_conf_skip_header (this, conf_fd);
-        if (ret) {
+        ret = quota_conf_skip_header (conf_fd);
+        if (ret)
+                goto out;
+
+        ret = glusterd_quota_conf_write_header (fd);
+        if (ret)
+                goto out;
+
+        while (1) {
+                ret = quota_conf_read_gfid (conf_fd, gfid, &type, 1.1);
+                if (ret == 0)
+                        break;
+                else if (ret < 0)
+                        goto out;
+
+                ret = glusterd_quota_conf_write_gfid (fd, gfid,
+                                             GF_QUOTA_CONF_TYPE_USAGE);
+                if (ret < 0)
+                        goto out;
+        }
+
+out:
+        if (conf_fd != -1)
+                close (conf_fd);
+
+        if (ret && (fd > 0)) {
+                gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
+        } else if (!ret) {
+                ret = gf_store_rename_tmppath (volinfo->quota_conf_shandle);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
+                                "Failed to rename "
+                                "quota conf file");
+                        return ret;
+                }
+
+                ret = glusterd_compute_cksum (volinfo, _gf_true);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_CKSUM_COMPUTE_FAIL, "Failed to "
+                                "compute cksum for quota conf file");
+                        return ret;
+                }
+
+                ret = glusterd_store_save_quota_version_and_cksum (volinfo);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CKSUM_VER_STORE_FAIL, "Failed to "
+                                "store quota version and cksum");
+        }
+
+        return ret;
+}
+
+int
+glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
+                             char *gfid_str, int opcode, char **op_errstr)
+{
+        int                ret                   = -1;
+        int                fd                    = -1;
+        int                conf_fd               = -1;
+        ssize_t            bytes_read            = 0;
+        size_t             bytes_to_write        = 0;
+        unsigned char      buf[131072]           = {0,};
+        uuid_t             gfid                  = {0,};
+        xlator_t          *this                  = NULL;
+        gf_boolean_t       found                 = _gf_false;
+        gf_boolean_t       modified              = _gf_false;
+        gf_boolean_t       is_file_empty         = _gf_false;
+        gf_boolean_t       is_first_read         = _gf_true;
+        glusterd_conf_t   *conf                  = NULL;
+        float              version               = 0.0f;
+        char               type                  = 0;
+        int                quota_conf_line_sz    = 16;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        glusterd_store_create_quota_conf_sh_on_absence (volinfo);
+
+        conf_fd = open (volinfo->quota_conf_shandle->path, O_RDONLY);
+        if (conf_fd == -1) {
+                ret = -1;
                 goto out;
         }
 
-        ret = glusterd_store_quota_conf_stamp_header (this, fd);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to add header to tmp "
-                        "file.");
+        ret = quota_conf_read_version (conf_fd, &version);
+        if (ret)
+                goto out;
+
+        if (version < 1.2f && conf->op_version >= GD_OP_VERSION_3_7_0) {
+                /* Upgrade quota.conf file to newer format */
+                close (conf_fd);
+                ret = glusterd_store_quota_conf_upgrade(volinfo);
+                if (ret)
+                        goto out;
+
+                conf_fd = open (volinfo->quota_conf_shandle->path, O_RDONLY);
+                if (conf_fd == -1) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = quota_conf_skip_header (conf_fd);
+                if (ret)
+                        goto out;
+        }
+
+        /* If op-ver is gt 3.7, then quota.conf will be upgraded, and 17 bytes
+         * storted in the new format. 16 bytes uuid and
+         * 1 byte type (usage/object)
+         */
+        if (conf->op_version >= GD_OP_VERSION_3_7_0)
+                quota_conf_line_sz++;
+
+        fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
+        if (fd < 0) {
+                ret = -1;
                 goto out;
         }
+
+        ret = glusterd_quota_conf_write_header (fd);
+        if (ret)
+                goto out;
 
         /* Just create empty quota.conf file if create */
-        if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode) {
+        if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode ||
+            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode) {
                 modified = _gf_true;
                 goto out;
         }
@@ -676,10 +951,15 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 ret = -1;
                 goto out;
         }
-        uuid_parse (gfid_str, gfid);
+        gf_uuid_parse (gfid_str, gfid);
+
+        if (opcode > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS)
+                type = GF_QUOTA_CONF_TYPE_OBJECTS;
+        else
+                type = GF_QUOTA_CONF_TYPE_USAGE;
 
         for (;;) {
-                bytes_read = read (conf_fd, (void*)&buf, entry_sz);
+                bytes_read = read (conf_fd, (void *)&buf, sizeof (buf));
                 if (bytes_read <= 0) {
                         /*The flag @is_first_read is TRUE when the loop is
                          * entered, and is set to false if the first read
@@ -693,20 +973,21 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                                 is_file_empty = _gf_true;
                         break;
                 }
-                if ((bytes_read % 16) != 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "quota.conf "
+                if ((bytes_read % quota_conf_line_sz) != 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CONF_CORRUPT, "quota.conf "
                                 "corrupted");
                         ret = -1;
                         goto out;
                 }
-                found = glusterd_find_gfid_match (gfid, buf, bytes_read, opcode,
-                                                  &bytes_to_write);
+                found = glusterd_find_gfid_match (gfid, type, buf, bytes_read,
+                                                  opcode, &bytes_to_write);
 
                 ret = write (fd, (void *) buf, bytes_to_write);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "write into quota.conf failed. Reason : %s",
-                                strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                "write into quota.conf failed.");
                         goto out;
                 }
 
@@ -724,44 +1005,58 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         }
 
         switch (opcode) {
-                case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-                        if (!found) {
-                                ret = write (fd, gfid, 16);
-                                if (ret == -1) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "write into quota.conf failed. "
-                                                "Reason : %s",
-                                                strerror (errno));
-                                        goto out;
-                                }
-                                modified = _gf_true;
+        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                if (!found) {
+                        ret = glusterd_quota_conf_write_gfid (fd, gfid,
+                                                     GF_QUOTA_CONF_TYPE_USAGE);
+                        if (ret == -1) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                        "write into quota.conf failed. ");
+                                goto out;
                         }
-                        break;
+                        modified = _gf_true;
+                }
+                break;
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+                if (!found) {
+                        ret = glusterd_quota_conf_write_gfid (fd, gfid,
+                                                   GF_QUOTA_CONF_TYPE_OBJECTS);
+                        if (ret == -1) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_QUOTA_CONF_WRITE_FAIL,
+                                        "write into quota.conf failed. ");
+                                goto out;
+                        }
+                        modified = _gf_true;
+                }
+                break;
 
-                case GF_QUOTA_OPTION_TYPE_REMOVE:
-                        if (is_file_empty) {
-                                gf_asprintf (op_errstr, "Cannot remove limit on"
-                                             " %s. The quota configuration file"
-                                             " for volume %s is empty.", path,
-                                             volinfo->volname);
+        case GF_QUOTA_OPTION_TYPE_REMOVE:
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+                if (is_file_empty) {
+                        gf_asprintf (op_errstr, "Cannot remove limit on"
+                                     " %s. The quota configuration file"
+                                     " for volume %s is empty.", path,
+                                     volinfo->volname);
+                        ret = -1;
+                        goto out;
+                } else {
+                        if (!found) {
+                                gf_asprintf (op_errstr, "Error. gfid %s"
+                                             " for path %s not found in"
+                                             " store", gfid_str, path);
                                 ret = -1;
                                 goto out;
                         } else {
-                                if (!found) {
-                                        gf_asprintf (op_errstr, "Error. gfid %s"
-                                                     " for path %s not found in"
-                                                     " store", gfid_str, path);
-                                        ret = -1;
-                                        goto out;
-                                } else {
-                                        modified = _gf_true;
-                                }
+                                modified = _gf_true;
                         }
-                        break;
+                }
+                break;
 
-                default:
-                        ret = 0;
-                        break;
+        default:
+                ret = 0;
+                break;
         }
 
         if (modified)
@@ -780,7 +1075,8 @@ out:
                 if (modified) {
                         ret = glusterd_compute_cksum (volinfo, _gf_true);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_CKSUM_COMPUTE_FAIL, "Failed to "
                                         "compute cksum for quota conf file");
                                 return ret;
                         }
@@ -788,7 +1084,9 @@ out:
                         ret = glusterd_store_save_quota_version_and_cksum
                                                                       (volinfo);
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VERS_CKSUM_STORE_FAIL,
+                                        "Failed to "
                                         "store quota version and cksum");
                 }
         }
@@ -823,7 +1121,8 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "path", &path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch path");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch path");
                 goto out;
         }
         ret = gf_canonicalize_path (path);
@@ -832,30 +1131,41 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "hard-limit", &hard_limit);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch hard limit");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch hard limit");
                 goto out;
         }
 
         if (dict_get (dict, "soft-limit")) {
                 ret = dict_get_str (dict, "soft-limit", &soft_limit);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to fetch "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Unable to fetch "
                                 "soft limit");
                         goto out;
                 }
         }
 
         if (is_origin_glusterd (dict)) {
-                ret = glusterd_set_quota_limit (volinfo->volname, path,
-                                                hard_limit, soft_limit,
-                                                op_errstr);
+                if (opcode == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
+                        ret = glusterd_set_quota_limit (volinfo->volname, path,
+                                                        hard_limit, soft_limit,
+                                                        QUOTA_LIMIT_KEY,
+                                                        op_errstr);
+                } else {
+                        ret = glusterd_set_quota_limit (volinfo->volname, path,
+                                                        hard_limit, soft_limit,
+                                                        QUOTA_LIMIT_OBJECTS_KEY,
+                                                        op_errstr);
+                }
                 if (ret)
                         goto out;
         }
 
         ret = dict_get_str (dict, "gfid", &gfid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get gfid of path "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get gfid of path "
                         "%s", path);
                 goto out;
         }
@@ -875,7 +1185,8 @@ out:
 }
 
 static int
-glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr)
+glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr,
+                             int type)
 {
         int               ret                = -1;
         xlator_t         *this               = NULL;
@@ -895,11 +1206,24 @@ glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr)
                 goto out;
         }
 
-        ret = sys_lremovexattr (abspath, "trusted.glusterfs.quota.limit-set");
-        if (ret) {
-                gf_asprintf (op_errstr, "removexattr failed on %s. Reason : %s",
-                             abspath, strerror (errno));
-                goto out;
+        if (type == GF_QUOTA_OPTION_TYPE_REMOVE) {
+                ret = sys_lremovexattr (abspath,
+                                        "trusted.glusterfs.quota.limit-set");
+                if (ret) {
+                        gf_asprintf (op_errstr, "removexattr failed on %s. "
+                                     "Reason : %s", abspath, strerror (errno));
+                        goto out;
+                }
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
+                ret = sys_lremovexattr (abspath,
+                                "trusted.glusterfs.quota.limit-objects");
+                if (ret) {
+                        gf_asprintf (op_errstr, "removexattr failed on %s. "
+                                     "Reason : %s", abspath, strerror (errno));
+                        goto out;
+                }
         }
         ret = 0;
 
@@ -909,7 +1233,7 @@ out:
 
 int32_t
 glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
-                              int opcode, char **op_errstr)
+                              int opcode, char **op_errstr, int type)
 {
         int32_t         ret                   = -1;
         char            *path                 = NULL;
@@ -932,7 +1256,8 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "path", &path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch path");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to fetch path");
                 goto out;
         }
 
@@ -942,14 +1267,15 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         if (is_origin_glusterd (dict)) {
                 ret = glusterd_remove_quota_limit (volinfo->volname, path,
-                                                   op_errstr);
+                                                   op_errstr, type);
                 if (ret)
                         goto out;
         }
 
         ret = dict_get_str (dict, "gfid", &gfid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get gfid of path "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get gfid of path "
                         "%s", path);
                 goto out;
         }
@@ -987,14 +1313,16 @@ glusterd_set_quota_option (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = dict_get_str (dict, "value", &value);
         if(ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Option value absent.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Option value absent.");
                 return -1;
         }
 
         option = gf_strdup (value);
         ret = dict_set_dynstr (volinfo->dict, key, option);
         if(ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to set option %s",
                         key);
                 return -1;
         }
@@ -1005,17 +1333,27 @@ glusterd_set_quota_option (glusterd_volinfo_t *volinfo, dict_t *dict,
 static int
 glusterd_quotad_op (int opcode)
 {
-        int ret = -1;
+        int              ret  = -1;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         switch (opcode) {
                 case GF_QUOTA_OPTION_TYPE_ENABLE:
                 case GF_QUOTA_OPTION_TYPE_DISABLE:
 
                         if (glusterd_all_volumes_with_quota_stopped ())
-                                ret = glusterd_quotad_stop ();
+                                ret = glusterd_svc_stop (&(priv->quotad_svc),
+                                                         SIGTERM);
                         else
-                                ret = glusterd_check_generate_start_quotad_wait
-                                        ();
+                                ret = priv->quotad_svc.manager
+                                                (&(priv->quotad_svc), NULL,
+                                                 PROC_START);
                         break;
 
                 default:
@@ -1046,7 +1384,8 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -1058,13 +1397,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "type", &type);
 
-        if ((priv->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
-                                        "operating at version %d. Quota command"
-                                        " %s is unavailable in this version.",
-                                        priv->op_version,
-                                        gd_quota_op_list[type]);
+        if (!glusterd_is_quota_supported (type, op_errstr)) {
                 ret = -1;
                 goto out;
         }
@@ -1073,6 +1406,13 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 case GF_QUOTA_OPTION_TYPE_ENABLE:
                         ret = glusterd_quota_enable (volinfo, op_errstr,
                                                      &start_crawl);
+                        if (ret < 0)
+                                goto out;
+                        break;
+
+                case GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS:
+                        ret = glusterd_inode_quota_enable (volinfo, op_errstr,
+                                                           &start_crawl);
                         if (ret < 0)
                                 goto out;
                         break;
@@ -1086,16 +1426,19 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         break;
 
                 case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
                         ret = glusterd_quota_limit_usage (volinfo, dict, type,
                                                           op_errstr);
                         goto out;
 
                 case GF_QUOTA_OPTION_TYPE_REMOVE:
+                case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
                         ret = glusterd_quota_remove_limits (volinfo, dict, type,
-                                                            op_errstr);
+                                                            op_errstr, type);
                         goto out;
 
                 case GF_QUOTA_OPTION_TYPE_LIST:
+                case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                         ret = glusterd_check_if_quota_trans_enabled (volinfo);
                         if (ret == -1) {
                                 *op_errstr = gf_strdup ("Cannot list limits, "
@@ -1153,7 +1496,8 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to re-create "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL, "Unable to re-create "
                                                   "volfiles");
                 ret = -1;
                 goto out;
@@ -1165,7 +1509,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 if (priv->op_version == GD_OP_VERSION_MIN)
-                        ret = glusterd_check_generate_start_nfs ();
+                        ret = priv->nfs_svc.manager (&(priv->nfs_svc), NULL, 0);
         }
 
         if (rsp_dict && start_crawl == _gf_true)
@@ -1204,19 +1548,21 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
 
         ret = dict_get_str (dict, "path", &path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get path");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get path");
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RESOLVE_BRICK_FAIL, FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
                 }
 
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 if (brickinfo->vg[0])
@@ -1227,18 +1573,18 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
 
                 ret = gf_lstat_dir (backend_path, NULL);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_INFO, "Failed to find "
-                                "directory %s. Reason : %s", backend_path,
-                                strerror (errno));
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                GD_MSG_DIR_OP_FAILED, "Failed to find "
+                                "directory %s.", backend_path);
                         ret = 0;
                         continue;
                 }
                 ret = sys_lgetxattr (backend_path, GFID_XATTR_KEY, gfid, 16);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_INFO, "Failed to get "
-                                "extended attribute %s for directory %s. "
-                                "Reason : %s", GFID_XATTR_KEY, backend_path,
-                                     strerror (errno));
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                GD_MSG_SETXATTR_FAIL, "Failed to get "
+                                "extended attribute %s for directory %s. ",
+                                GFID_XATTR_KEY, backend_path);
                         ret = 0;
                         continue;
                 }
@@ -1252,7 +1598,8 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
 
                 ret = dict_set_dynstr (rsp_dict, key, gfid_str);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to place "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Failed to place "
                                 "gfid of %s in dict", backend_path);
                         GF_FREE (gfid_str);
                         goto out;
@@ -1262,7 +1609,8 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
 
         ret = dict_set_int32 (rsp_dict, "count", count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set count");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set count");
                 goto out;
         }
 
@@ -1304,12 +1652,14 @@ _glusterd_validate_quota_opts (dict_t *dict, int type, char **errstr)
         opt = xlator_volume_option_get_list (&opt_list, key);
         if (!opt) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Unknown option: %s", key);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_UNKNOWN_KEY, "Unknown option: %s", key);
                 goto out;
         }
         ret = dict_get_str (dict, "value", &value);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Value not found for key %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Value not found for key %s",
                         key);
                 goto out;
         }
@@ -1323,6 +1673,7 @@ out:
         }
         return ret;
 }
+
 int
 glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
@@ -1334,7 +1685,8 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_conf_t    *priv           = NULL;
         glusterd_volinfo_t *volinfo        = NULL;
         char               *hard_limit_str = NULL;
-        uint64_t           hard_limit      = 0;
+        int64_t             hard_limit     = 0;
+        gf_boolean_t        get_gfid       = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1346,7 +1698,8 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -1384,13 +1737,17 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        if ((priv->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
-                                        "operating at version %d. Quota command"
-                                        " %s is unavailable in this version.",
-                                         priv->op_version,
-                                         gd_quota_op_list[type]);
+        if (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS) {
+                if (!glusterd_is_volume_inode_quota_enabled (volinfo) &&
+                    type != GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS) {
+                        *op_errstr = gf_strdup ("Inode Quota is disabled, "
+                                                "please enable inode quota");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (!glusterd_is_quota_supported (type, op_errstr)) {
                 ret = -1;
                 goto out;
         }
@@ -1405,7 +1762,9 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         switch (type) {
         case GF_QUOTA_OPTION_TYPE_ENABLE:
+        case GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS:
         case GF_QUOTA_OPTION_TYPE_LIST:
+        case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                 /* Fuse mount req. only for enable & list-usage options*/
                 if (is_origin_glusterd (dict) &&
                     !glusterd_is_fuse_available ()) {
@@ -1418,35 +1777,33 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
                 ret = dict_get_str (dict, "hard-limit", &hard_limit_str);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Faild to get hard-limit from dict");
                         goto out;
                 }
-                ret = gf_string2bytesize_uint64 (hard_limit_str, &hard_limit);
+                ret = gf_string2bytesize_int64 (hard_limit_str, &hard_limit);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to convert hard-limit string to value");
+                        if (errno == ERANGE || hard_limit < 0)
+                                gf_asprintf (op_errstr, "Hard-limit "
+                                        "value out of range (0 - %"PRId64
+                                        "): %s", hard_limit_str);
+                        else
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_CONVERSION_FAILED,
+                                        "Failed to convert hard-limit "
+                                        "string to value");
                         goto out;
                 }
-                if (hard_limit > UINT64_MAX) {
-                        ret = -1;
-                        ret = gf_asprintf (op_errstr, "Hard-limit %s is greater"
-                                           " than %"PRId64"bytes. Please set a "
-                                           "smaller limit.", hard_limit_str,
-                                           INT64_MAX);
-                        gf_log (this->name, GF_LOG_ERROR, "hard-limit %s "
-                                "greater than INT64_MAX", hard_limit_str);
-                        goto out;
-                }
-                /*The break statement is missing here to allow intentional fall
-                 * through of code execution to the next switch case
-                 */
+                get_gfid = _gf_true;
+                break;
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+                get_gfid = _gf_true;
+                break;
 
         case GF_QUOTA_OPTION_TYPE_REMOVE:
-                ret = glusterd_get_gfid_from_brick (dict, volinfo, rsp_dict,
-                                                    op_errstr);
-                if (ret)
-                        goto out;
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+                get_gfid = _gf_true;
                 break;
 
         case GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT:
@@ -1462,12 +1819,20 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 break;
         }
 
+        if (get_gfid == _gf_true) {
+                ret = glusterd_get_gfid_from_brick (dict, volinfo, rsp_dict,
+                                                    op_errstr);
+                if (ret)
+                        goto out;
+        }
+
         ret = 0;
 
  out:
         if (ret && op_errstr && *op_errstr)
-                gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_STAGE_QUOTA_FAIL, "%s", *op_errstr);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
          return ret;
 }

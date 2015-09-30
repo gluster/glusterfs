@@ -8,16 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include <dlfcn.h>
 #include <netdb.h>
 #include <fnmatch.h>
 #include "defaults.h"
+#include "libglusterfs-messages.h"
 
 #define SET_DEFAULT_FOP(fn) do {			\
                 if (!xl->fops->fn)			\
@@ -34,7 +30,8 @@ static void
 fill_defaults (xlator_t *xl)
 {
         if (xl == NULL)	{
-                gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
+                gf_msg_callingfn ("xlator", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return;
         }
 
@@ -82,6 +79,7 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (fallocate);
 	SET_DEFAULT_FOP (discard);
         SET_DEFAULT_FOP (zerofill);
+        SET_DEFAULT_FOP (ipc);
 
         SET_DEFAULT_FOP (getspec);
 
@@ -127,23 +125,23 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xlator_type);
         if (-1 == ret) {
-                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 goto out;
         }
 
         ret = -1;
 
-        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
         handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
         if (!handle) {
-                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
+                        "%s", dlerror ());
                 goto out;
         }
 
         if (!(opt_list->given_opt = dlsym (handle, "options"))) {
                 dlerror ();
-                gf_log ("xlator", GF_LOG_ERROR,
+                gf_msg ("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED,
                         "Failed to load xlator opt table");
                 goto out;
         }
@@ -157,7 +155,7 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
         if (handle)
                 dlclose (handle);
 
-        gf_log ("xlator", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("xlator", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -178,30 +176,30 @@ xlator_dynload (xlator_t *xl)
 
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
-                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 goto out;
         }
 
         ret = -1;
 
-        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
         handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
         if (!handle) {
-                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
+                        "%s", dlerror ());
                 goto out;
         }
         xl->dlhandle = handle;
 
         if (!(xl->fops = dlsym (handle, "fops"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
-                        dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(fops) on %s", dlerror ());
                 goto out;
         }
 
         if (!(xl->cbks = dlsym (handle, "cbks"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
-                        dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(cbks) on %s", dlerror ());
                 goto out;
         }
 
@@ -219,39 +217,38 @@ xlator_dynload (xlator_t *xl)
         }
         else {
                 if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
-                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
+                        gf_msg ("xlator", GF_LOG_WARNING, 0,
+                                LG_MSG_DLSYM_ERROR, "dlsym(init) on %s",
                                 dlerror ());
                         goto out;
                 }
 
                 if (!(*VOID(&(xl->fini)) = dlsym (handle, "fini"))) {
-                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
+                        gf_msg ("xlator", GF_LOG_WARNING, 0,
+                                LG_MSG_DLSYM_ERROR, "dlsym(fini) on %s",
                                 dlerror ());
                         goto out;
                 }
                 if (!(*VOID(&(xl->reconfigure)) = dlsym (handle,
                                                          "reconfigure"))) {
-                        gf_log ("xlator", GF_LOG_TRACE,
-                                "dlsym(reconfigure) on %s -- neglecting",
-                                dlerror());
+                        gf_msg_trace ("xlator", 0, "dlsym(reconfigure) on %s "
+                                      "-- neglecting", dlerror());
                 }
                 if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
-                        gf_log ("xlator", GF_LOG_TRACE,
-                                "dlsym(notify) on %s -- neglecting",
-                                dlerror ());
+                        gf_msg_trace ("xlator", 0, "dlsym(notify) on %s -- "
+                                      "neglecting", dlerror ());
                 }
 
         }
 
         if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
-                gf_log ("xlator", GF_LOG_TRACE,
-                        "dlsym(dumpops) on %s -- neglecting", dlerror ());
+                gf_msg_trace ("xlator", 0, "dlsym(dumpops) on %s -- "
+                              "neglecting", dlerror ());
         }
 
         if (!(*VOID(&(xl->mem_acct_init)) = dlsym (handle, "mem_acct_init"))) {
-                gf_log (xl->name, GF_LOG_TRACE,
-                        "dlsym(mem_acct_init) on %s -- neglecting",
-                        dlerror ());
+                gf_msg_trace (xl->name, 0, "dlsym(mem_acct_init) on %s -- "
+                              "neglecting", dlerror ());
         }
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
@@ -263,8 +260,8 @@ xlator_dynload (xlator_t *xl)
 
         if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
                 dlerror ();
-                gf_log (xl->name, GF_LOG_TRACE,
-                        "Strict option validation not enforced -- neglecting");
+                gf_msg_trace (xl->name, 0, "Strict option validation not "
+                              "enforced -- neglecting");
         }
         INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &xl->volume_options);
@@ -298,8 +295,9 @@ xlator_set_inode_lru_limit (xlator_t *this, void *data)
 
         if (this->itable) {
                 if (!data) {
-                        gf_log (this->name, GF_LOG_WARNING, "input data is "
-                                "NULL. Cannot update the lru limit of the inode"
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                LG_MSG_INVALID_ENTRY, "input data is NULL. "
+                                "Cannot update the lru limit of the inode"
                                 " table. Continuing with older value");
                         goto out;
                 }
@@ -412,17 +410,17 @@ xlator_init (xlator_t *xl)
                 xl->mem_acct_init (xl);
 
         if (!xl->init) {
-                gf_log (xl->name, GF_LOG_WARNING, "No init() found");
+                gf_msg (xl->name, GF_LOG_WARNING, 0, LG_MSG_INIT_FAILED,
+                        "No init() found");
                 goto out;
         }
 
         ret = __xlator_init (xl);
 
         if (ret) {
-                gf_log (xl->name, GF_LOG_ERROR,
+                gf_msg (xl->name, GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                         "Initialization of volume '%s' failed,"
-                        " review your volfile again",
-                        xl->name);
+                        " review your volfile again", xl->name);
                 goto out;
         }
 
@@ -450,7 +448,7 @@ xlator_fini_rec (xlator_t *xl)
                 }
 
                 xlator_fini_rec (trav->xlator);
-                gf_log (trav->xlator->name, GF_LOG_DEBUG, "fini done");
+                gf_msg_debug (trav->xlator->name, 0, "fini done");
                 trav = trav->next;
         }
 
@@ -466,7 +464,7 @@ xlator_fini_rec (xlator_t *xl)
 
                         THIS = old_THIS;
                 } else {
-                        gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
+                        gf_msg_debug (xl->name, 0, "No fini() found");
                 }
                 xl->init_succeeded = 0;
         }
@@ -502,19 +500,28 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         if (!xl)
                 return -1;
 
+        if (!xl->ctx)
+                return -1;
+
         if (!xl->ctx->mem_acct_enable)
                 return 0;
 
-        xl->mem_acct.num_types = num_types;
 
-        xl->mem_acct.rec = CALLOC(num_types, sizeof(struct mem_acct_rec));
+        xl->mem_acct = MALLOC (sizeof(struct mem_acct)
+                               + sizeof(struct mem_acct_rec) * num_types);
 
-        if (!xl->mem_acct.rec) {
+        if (!xl->mem_acct) {
                 return -1;
         }
+        memset (xl->mem_acct, 0, sizeof(struct mem_acct));
+
+        xl->mem_acct->num_types = num_types;
+        LOCK_INIT (&xl->mem_acct->lock);
+        xl->mem_acct->refcnt = 1;
 
         for (i = 0; i < num_types; i++) {
-                ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
+                memset (&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
+                ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
                 if (ret) {
                         fprintf(stderr, "Unable to lock..errno : %d",errno);
                 }
@@ -552,42 +559,124 @@ xlator_list_destroy (xlator_list_t *list)
         return 0;
 }
 
+static int
+xlator_memrec_free (xlator_t *xl)
+{
+        uint32_t        i               = 0;
+        struct mem_acct *mem_acct       = NULL;
 
-int
-xlator_tree_free (xlator_t *tree)
+        if (!xl) {
+                return 0;
+        }
+        mem_acct = xl->mem_acct;
+
+        if (mem_acct) {
+                for (i = 0; i < mem_acct->num_types; i++) {
+                        LOCK_DESTROY (&(mem_acct->rec[i].lock));
+                }
+                if (DECREMENT_ATOMIC (mem_acct->lock, mem_acct->refcnt) == 0) {
+                        FREE (mem_acct);
+                        xl->mem_acct = NULL;
+                }
+        }
+
+        return 0;
+}
+
+static int
+xlator_members_free (xlator_t *xl)
 {
         volume_opt_list_t *vol_opt = NULL;
         volume_opt_list_t *tmp     = NULL;
+
+        if (!xl)
+                return 0;
+
+        GF_FREE (xl->name);
+        GF_FREE (xl->type);
+        if (xl->dlhandle)
+                dlclose (xl->dlhandle);
+        if (xl->options)
+                dict_unref (xl->options);
+
+        xlator_list_destroy (xl->children);
+
+        xlator_list_destroy (xl->parents);
+
+        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
+
+        return 0;
+}
+
+/* This function destroys all the xlator members except for the
+ * xlator strcuture and its mem accounting field.
+ *
+ * If otherwise, it would destroy the master xlator object as well
+ * its mem accounting, which would mean after calling glusterfs_graph_destroy()
+ * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * not possible because of the following dependencies:
+ * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - xlator objects will have references to those mem pools(g: dict)
+ *
+ * Ordering the freeing in any of the order will also not solve the dependency:
+ * - Freeing xlator objects(including memory accounting) before mem pools
+ *   destruction will mean not use GF_FREE while destroying mem pools.
+ * - Freeing mem pools and then destroying xlator objects would lead to crashes
+ *   when xlator tries to unref dict or other mem pool objects.
+ *
+ * Hence the way chosen out of this interdependency is to split xlator object
+ * free into two stages:
+ * - Free all the xlator members excpet for its mem accounting structure
+ * - Free all the mem accouting structures of xlator along with the xlator
+ *   object itself.
+ *
+ * This two stages of destruction, is mainly required for glfs_fini().
+ */
+
+int
+xlator_tree_free_members (xlator_t *tree)
+{
         xlator_t *trav = tree;
         xlator_t *prev = tree;
 
         if (!tree) {
-                gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
+                        "Translator tree not found");
                 return -1;
         }
 
         while (prev) {
                 trav = prev->next;
-                if (prev->dlhandle)
-                        dlclose (prev->dlhandle);
-                dict_unref (prev->options);
-                GF_FREE (prev->name);
-                GF_FREE (prev->type);
-                xlator_list_destroy (prev->children);
-                xlator_list_destroy (prev->parents);
-
-                list_for_each_entry_safe (vol_opt, tmp, &prev->volume_options,
-                                          list) {
-                        list_del_init (&vol_opt->list);
-                        GF_FREE (vol_opt);
-                }
-                GF_FREE (prev);
+                xlator_members_free (prev);
                 prev = trav;
         }
 
         return 0;
 }
 
+int
+xlator_tree_free_memacct (xlator_t *tree)
+{
+        xlator_t *trav = tree;
+        xlator_t *prev = tree;
+
+        if (!tree) {
+                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
+                        "Translator tree not found");
+                return -1;
+        }
+
+        while (prev) {
+                trav = prev->next;
+                xlator_memrec_free (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
 
 void
 loc_wipe (loc_t *loc)
@@ -625,9 +714,9 @@ loc_path (loc_t *loc, const char *bname)
         if (!bname)
                 goto inode_path;
 
-        if (loc->parent && !uuid_is_null (loc->parent->gfid)) {
+        if (loc->parent && !gf_uuid_is_null (loc->parent->gfid)) {
                 ret = inode_path (loc->parent, bname, (char**)&loc->path);
-        } else if (!uuid_is_null (loc->pargfid)) {
+        } else if (!gf_uuid_is_null (loc->pargfid)) {
                 ret = gf_asprintf ((char**)&loc->path, INODE_PATH_FMT"/%s",
                                    uuid_utoa (loc->pargfid), bname);
         }
@@ -636,9 +725,9 @@ loc_path (loc_t *loc, const char *bname)
                 goto out;
 
 inode_path:
-        if (loc->inode && !uuid_is_null (loc->inode->gfid)) {
+        if (loc->inode && !gf_uuid_is_null (loc->inode->gfid)) {
                 ret = inode_path (loc->inode, NULL, (char **)&loc->path);
-        } else if (!uuid_is_null (loc->gfid)) {
+        } else if (!gf_uuid_is_null (loc->gfid)) {
                 ret = gf_asprintf ((char**)&loc->path, INODE_PATH_FMT,
                                    uuid_utoa (loc->gfid));
         }
@@ -651,14 +740,14 @@ loc_gfid (loc_t *loc, uuid_t gfid)
 {
         if (!gfid)
                 goto out;
-        uuid_clear (gfid);
+        gf_uuid_clear (gfid);
 
         if (!loc)
                 goto out;
-        else if (!uuid_is_null (loc->gfid))
-                uuid_copy (gfid, loc->gfid);
-        else if (loc->inode && (!uuid_is_null (loc->inode->gfid)))
-                uuid_copy (gfid, loc->inode->gfid);
+        else if (!gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (gfid, loc->gfid);
+        else if (loc->inode && (!gf_uuid_is_null (loc->inode->gfid)))
+                gf_uuid_copy (gfid, loc->inode->gfid);
 out:
         return;
 }
@@ -672,6 +761,39 @@ loc_gfid_utoa (loc_t *loc)
 }
 
 int
+loc_touchup (loc_t *loc, const char *name)
+{
+        char   *path   = NULL;
+        int    ret     = 0;
+
+        if (loc->path)
+                goto out;
+
+        if (loc->parent && name && strlen (name)) {
+                ret = inode_path (loc->parent, name, &path);
+                if (path) /*Guaranteed to have trailing '/' */
+                        loc->name = strrchr (path, '/') + 1;
+
+                if (gf_uuid_is_null (loc->pargfid))
+                        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
+        } else if (loc->inode) {
+                ret = inode_path (loc->inode, 0, &path);
+                if (gf_uuid_is_null (loc->gfid))
+                        gf_uuid_copy (loc->gfid, loc->inode->gfid);
+        }
+
+        if (ret < 0 || !path) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        loc->path = path;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 loc_copy_overload_parent (loc_t *dst, loc_t *src, inode_t *parent)
 {
         int ret = -1;
@@ -680,8 +802,8 @@ loc_copy_overload_parent (loc_t *dst, loc_t *src, inode_t *parent)
         GF_VALIDATE_OR_GOTO ("xlator", src, err);
         GF_VALIDATE_OR_GOTO ("xlator", parent, err);
 
-        uuid_copy (dst->gfid, src->gfid);
-        uuid_copy (dst->pargfid, parent->gfid);
+        gf_uuid_copy (dst->gfid, src->gfid);
+        gf_uuid_copy (dst->pargfid, parent->gfid);
 
         if (src->inode)
                 dst->inode = inode_ref (src->inode);
@@ -720,8 +842,8 @@ loc_copy (loc_t *dst, loc_t *src)
         GF_VALIDATE_OR_GOTO ("xlator", dst, err);
         GF_VALIDATE_OR_GOTO ("xlator", src, err);
 
-        uuid_copy (dst->gfid, src->gfid);
-        uuid_copy (dst->pargfid, src->pargfid);
+        gf_uuid_copy (dst->gfid, src->gfid);
+        gf_uuid_copy (dst->pargfid, src->pargfid);
 
         if (src->inode)
                 dst->inode = inode_ref (src->inode);
@@ -760,34 +882,59 @@ loc_is_root (loc_t *loc)
         } else if (loc && loc->inode && __is_root_gfid (loc->inode->gfid)) {
                 return _gf_true;
         }
+
         return _gf_false;
+}
+
+int32_t
+loc_build_child (loc_t *child, loc_t *parent, char *name)
+{
+        int32_t  ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("xlator", child, out);
+        GF_VALIDATE_OR_GOTO ("xlator", parent, out);
+        GF_VALIDATE_OR_GOTO ("xlator", name, out);
+
+        loc_gfid (parent, child->pargfid);
+
+        if (strcmp (parent->path, "/") == 0)
+                ret = gf_asprintf ((char **)&child->path, "/%s", name);
+        else
+                ret = gf_asprintf ((char **)&child->path, "%s/%s", parent->path,
+                                   name);
+
+        if (ret < 0 || !child->path) {
+                ret = -1;
+                goto out;
+        }
+
+        child->name = strrchr (child->path, '/') + 1;
+
+        child->parent = inode_ref (parent->inode);
+        child->inode = inode_new (parent->inode->table);
+
+        if (!child->inode) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if ((ret < 0) && child)
+                loc_wipe (child);
+
+        return ret;
 }
 
 int
 xlator_destroy (xlator_t *xl)
 {
-        volume_opt_list_t *vol_opt = NULL;
-        volume_opt_list_t *tmp     = NULL;
-
         if (!xl)
                 return 0;
 
-        GF_FREE (xl->name);
-        GF_FREE (xl->type);
-        if (xl->dlhandle)
-                dlclose (xl->dlhandle);
-        if (xl->options)
-                dict_destroy (xl->options);
-
-        xlator_list_destroy (xl->children);
-
-        xlator_list_destroy (xl->parents);
-
-        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
-                list_del_init (&vol_opt->list);
-                GF_FREE (vol_opt);
-        }
-
+        xlator_members_free (xl);
+        xlator_memrec_free (xl);
         GF_FREE (xl);
 
         return 0;
@@ -829,8 +976,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
 
         /* Some crude way to change the log-level of process */
         if (!strcmp (name, "trusted.glusterfs.set-log-level")) {
-                /* */
-                gf_log ("glusterfs", gf_log_get_loglevel(),
+                gf_msg ("glusterfs", gf_log_get_loglevel(), 0,
+                        LG_MSG_SET_LOG_LEVEL,
                         "setting log level to %d (old-value=%d)",
                         log_level, gf_log_get_loglevel());
                 gf_log_set_loglevel (log_level);
@@ -840,7 +987,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
 
         if (!strcmp (name, "trusted.glusterfs.fuse.set-log-level")) {
                 /* */
-                gf_log (this->name, gf_log_get_xl_loglevel (this),
+                gf_msg (this->name, gf_log_get_xl_loglevel (this), 0,
+                        LG_MSG_SET_LOG_LEVEL,
                         "setting log level to %d (old-value=%d)",
                         log_level, gf_log_get_xl_loglevel (this));
                 gf_log_set_xl_loglevel (this, log_level);
@@ -859,7 +1007,8 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
                 snprintf (key, 1024, "trusted.glusterfs.%s.set-log-level",
                           trav->name);
                 if (fnmatch (name, key, FNM_NOESCAPE) == 0) {
-                        gf_log (trav->name, gf_log_get_xl_loglevel (trav),
+                        gf_msg (trav->name, gf_log_get_xl_loglevel (trav), 0,
+                                LG_MSG_SET_LOG_LEVEL,
                                 "setting log level to %d (old-value=%d)",
                                 log_level, gf_log_get_xl_loglevel (trav));
                         gf_log_set_xl_loglevel (trav, log_level);
@@ -894,9 +1043,20 @@ glusterd_check_log_level (const char *value)
         }
 
         if (log_level == -1)
-                gf_log (THIS->name, GF_LOG_ERROR, "Invalid log-level. possible values "
-                        "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_FAILED,
+                        "Invalid log-level. possible values are "
+                        "DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
 
         return log_level;
 }
 
+int
+xlator_subvolume_count (xlator_t *this)
+{
+        int i = 0;
+        xlator_list_t *list = NULL;
+
+        for (list = this->children; list; list = list->next)
+                i++;
+        return i;
+}

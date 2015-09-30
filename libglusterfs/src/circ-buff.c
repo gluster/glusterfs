@@ -9,6 +9,7 @@
 */
 
 #include "circ-buff.h"
+#include "libglusterfs-messages.h"
 
 void
 cb_destroy_data (circular_buffer_t *cb,
@@ -32,8 +33,8 @@ __cb_add_entry_buffer (buffer_t *buffer, void *item)
 
         if (buffer->use_once == _gf_true &&
             buffer->used_len == buffer->size_buffer) {
-                gf_log  ("", GF_LOG_WARNING, "buffer %p is use once buffer",
-                         buffer);
+                gf_msg  ("circ-buff", GF_LOG_WARNING, 0, LG_MSG_BUFFER_ERROR,
+                         "buffer %p is use once buffer", buffer);
                 return -1;
         } else {
                 if (buffer->used_len == buffer->size_buffer) {
@@ -59,8 +60,9 @@ __cb_add_entry_buffer (buffer_t *buffer, void *item)
                 buffer->cb[buffer->w_index]->data = item;
                 ret = gettimeofday (&buffer->cb[buffer->w_index]->tv, NULL);
                 if (ret == -1)
-                        gf_log_callingfn ("", GF_LOG_WARNING, "getting time of"
-                                          "the day failed");
+                        gf_msg_callingfn ("circ-buff", GF_LOG_WARNING, 0,
+                                          LG_MSG_GETTIMEOFDAY_FAILED,
+                                          "getting time of the day failed");
                 buffer->w_index++;
                 buffer->w_index %= buffer->size_buffer;
                 //used_buffer size cannot be greater than the total buffer size
@@ -90,10 +92,9 @@ cb_buffer_show (buffer_t *buffer)
 {
         pthread_mutex_lock (&buffer->lock);
         {
-                gf_log ("", GF_LOG_DEBUG, "w_index: %d, size: %"GF_PRI_SIZET
-                        " used_buffer: %d", buffer->w_index,
-                        buffer->size_buffer,
-                        buffer->used_len);
+                gf_msg_debug ("circ-buff", 0, "w_index: %d, size: %"
+                              GF_PRI_SIZET" used_buffer: %d", buffer->w_index,
+                              buffer->size_buffer, buffer->used_len);
         }
         pthread_mutex_unlock (&buffer->lock);
 }
@@ -124,7 +125,9 @@ cb_buffer_dump (buffer_t *buffer, void *data,
                                 if (entry)
                                         fn (entry, data);
                                 else
-                                        gf_log_callingfn ("", GF_LOG_WARNING,
+                                        gf_msg_callingfn ("circ-buff",
+                                                          GF_LOG_WARNING, 0,
+                                                          LG_MSG_NULL_PTR,
                                                           "Null entry in "
                                                           "circular buffer at "
                                                           "index %d.", index);
@@ -150,8 +153,6 @@ cb_buffer_new (size_t buffer_size, gf_boolean_t use_once,
 
         buffer = GF_CALLOC (1, sizeof (*buffer), gf_common_mt_buffer_t);
         if (!buffer) {
-                gf_log ("", GF_LOG_ERROR, "could not allocate the "
-                        "buffer");
                 goto out;
         }
 
@@ -159,8 +160,6 @@ cb_buffer_new (size_t buffer_size, gf_boolean_t use_once,
                                 sizeof (circular_buffer_t *),
                                 gf_common_mt_circular_buffer_t);
         if (!buffer->cb) {
-                gf_log ("", GF_LOG_ERROR, "could not allocate the "
-                        "memory for the circular buffer");
                 GF_FREE (buffer);
                 buffer = NULL;
                 goto out;

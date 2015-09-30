@@ -10,7 +10,8 @@ server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 server_la_SOURCES = server.c server-resolve.c server-helpers.c  \
 	server-rpc-fops.c server-handshake.c authenticate.c
 
-noinst_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h
+noinst_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h \
+	server-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \

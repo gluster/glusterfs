@@ -44,7 +44,7 @@ my $configuration_file = ".checkpatch.conf";
 my $max_line_length = 80;
 my $ignore_perl_version = 0;
 my $minimum_perl_version = 5.10.0;
-my $jenkins_url = $ENV{JENKINS_URL};
+my $gerrit_url = $ENV{GERRIT_URL};
 
 sub help {
     my ($exitcode) = @_;
@@ -57,7 +57,7 @@ Options:
   -q, --quiet                quiet
   --patch                    treat FILE as patchfile (default)
   --emacs                    emacs compile window format
-  --jenkins-url=STRING       provide URL patch was reviewed on
+  --gerrit-url=STRING        URL the patch was reviewed at
   --terse                    one line per report
   -f, --file                 treat FILE as regular source file
   --subjective, --strict     enable more subjective tests
@@ -121,7 +121,7 @@ GetOptions(
     'q|quiet+'  => \$quiet,
     'patch!'    => \$chk_patch,
     'emacs!'    => \$emacs,
-    'jenkins-url=s' => \$jenkins_url,
+    'gerrit-url=s' => \$gerrit_url,
     'terse!'    => \$terse,
     'f|file!'   => \$file,
     'subjective!'       => \$check,
@@ -614,13 +614,14 @@ sub top_of_glusterfs_tree {
         "glusterfsd",
         "glusterfs-hadoop",
         "glusterfs.spec.in",
+        "heal",
         "INSTALL",
         "libgfchangelog.pc.in",
         "libglusterfs",
         "MAINTAINERS",
         "Makefile.am",
         "NEWS",
-        "README",
+        "README.md",
         "rfc.sh",
         "rpc",
         "run-tests.sh",
@@ -1666,6 +1667,7 @@ sub process {
 
     our $clean = 1;
     my $signoff = 0;
+    my $subject_trailing_dot = 0;
     my $is_patch = 0;
 
     my $in_header_lines = 1;
@@ -1898,6 +1900,12 @@ sub process {
         next if ($realfile =~ /(checkpatch.pl)/);
         next if ($realfile =~ /\.(md|txt|doc|8|pdf|tex)$/);
 
+# Check that the subject does not have a trailing dot
+        if ($in_header_lines &&
+            $line =~ /^Subject: \[PATCH\] (.+)\.(\s*)$/) {
+                $subject_trailing_dot++;
+        }
+
 # Check the patch for a signoff:
         if ($line =~ /^\s*signed-off-by:/i) {
             $signoff++;
@@ -1943,11 +1951,11 @@ sub process {
                 }
             }
 
-            # Check if email is really Jenkins URL
+            # Check if email is really Gerrit URL
             if ($email =~ /^($url_tags)(.*)/) {
                 my $uri = $1;
                 my $url = $2;
-                if ($uri && $url !~ /$jenkins_url/) {
+                if ($uri && $url !~ /$gerrit_url/) {
                     ERROR("BAD_URL",
                           "Unrecognized url address: '$email'\n" . $herecurr);
                 }
@@ -4231,6 +4239,10 @@ sub process {
     if (!$is_patch) {
         ERROR("NOT_UNIFIED_DIFF",
               "Does not appear to be a unified-diff format patch\n");
+    }
+    if ($is_patch && $subject_trailing_dot != 0) {
+        ERROR("SUBJECT_TRAILING_DOT",
+              "The subject of the patch should not end with a dot.\n");
     }
     if ($is_patch && $chk_signoff && $signoff == 0) {
         ERROR("MISSING_SIGN_OFF",

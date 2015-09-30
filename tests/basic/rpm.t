@@ -108,7 +108,7 @@ ${MOCK_CMD}
 EOF
 	chmod +x mock-${EPEL_RELEASE}.sh
 
-	# root can not run 'mock', it needs to drop priviledges
+	# root can not run 'mock', it needs to drop privileges
 	if (groups | grep -q mock)
 	then
 		# the current user is in group 'mock'

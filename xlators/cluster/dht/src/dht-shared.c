@@ -9,17 +9,35 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /* TODO: add NS locking */
-
 #include "statedump.h"
 #include "dht-common.h"
 #include "dht-messages.h"
 
+#ifndef MAX
+#define MAX(a, b) (((a) > (b))?(a):(b))
+#endif
+
+#define GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf) {         \
+                                                                        \
+                pthread_mutex_lock (&conf->defrag->dfq_mutex);          \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "lazy"))              \
+                        conf->defrag->recon_thread_count = 1;           \
+                                                                        \
+                throttle_count =                                        \
+                    MAX ((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);       \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "normal"))            \
+                        conf->defrag->recon_thread_count =              \
+                                                 (throttle_count / 2);  \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "aggressive"))        \
+                        conf->defrag->recon_thread_count =              \
+                                                 throttle_count;        \
+                                                                        \
+                pthread_mutex_unlock (&conf->defrag->dfq_mutex);        \
+        }                                                               \
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -28,6 +46,8 @@
    - complete linkfile selfheal
 */
 struct volume_options options[];
+
+extern dht_methods_t dht_methods;
 
 void
 dht_layout_dump (dht_layout_t  *layout, const char *prefix)
@@ -133,7 +153,7 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
 
-        if (conf->du_stats) {
+        if (conf->du_stats && conf->subvolume_status) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         if (!conf->subvolume_status[i])
                                 continue;
@@ -214,6 +234,8 @@ dht_fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
+                dict_destroy(conf->leaf_to_subvol);
+
                 GF_FREE (conf->subvolumes);
 
                 GF_FREE (conf->subvolume_status);
@@ -237,8 +259,9 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                        "failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_NO_MEMORY,
+                        "Memory accounting init failed");
                 return ret;
         }
 out:
@@ -267,7 +290,8 @@ dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
                                 conf->decommissioned_bricks[i] =
                                         conf->subvolumes[i];
                                         conf->decommission_subvols_cnt++;
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_SUBVOL_DECOMMISSION_INFO,
                                         "decommissioning subvolume %s",
                                         conf->subvolumes[i]->name);
                                 break;
@@ -287,7 +311,6 @@ out:
 
         return ret;
 }
-
 
 int
 dht_decommissioned_remove (xlator_t *this, dht_conf_t *conf)
@@ -333,14 +356,36 @@ dht_init_regex (xlator_t *this, dict_t *odict, char *name,
         }
 
         if (regcomp(re,temp_str,REG_EXTENDED) == 0) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "using regex %s = %s", name, temp_str);
+                gf_msg_debug (this->name, 0,
+                              "using regex %s = %s", name, temp_str);
                 *re_valid = _gf_true;
         }
         else {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_REGEX_INFO,
                         "compiling regex %s failed", temp_str);
         }
+}
+
+int
+dht_set_subvol_range(xlator_t *this)
+{
+        int ret = -1;
+        dht_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        if (!conf)
+                goto out;
+
+        conf->leaf_to_subvol = dict_new();
+        if (!conf->leaf_to_subvol)
+                goto out;
+
+        ret = glusterfs_reachable_leaves(this, conf->leaf_to_subvol);
+
+out:
+        return ret;
 }
 
 int
@@ -350,6 +395,7 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         char            *temp_str = NULL;
         gf_boolean_t     search_unhashed;
         int              ret = -1;
+        int              throttle_count = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", options, out);
@@ -383,6 +429,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        GF_OPTION_RECONF ("lookup-optimize", conf->lookup_optimize, options,
+                          bool, out);
+
 	GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
                           percent_or_size, out);
         /* option can be any one of percent or bytes */
@@ -401,6 +450,18 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("randomize-hash-range-by-gfid",
                           conf->randomize_by_gfid,
                           options, bool, out);
+
+        GF_OPTION_RECONF ("rebal-throttle", conf->dthrottle, options,
+                          str, out);
+
+        if (conf->defrag) {
+                GF_DECIDE_DEFRAG_THROTTLE_COUNT (throttle_count, conf);
+                gf_msg ("DHT", GF_LOG_INFO, 0,
+                        DHT_MSG_REBAL_THROTTLE_INFO,
+                        "conf->dthrottle: %s, "
+                        "conf->defrag->recon_thread_count: %d",
+                         conf->dthrottle, conf->defrag->recon_thread_count);
+        }
 
         if (conf->defrag) {
                 GF_OPTION_RECONF ("rebalance-stats", conf->defrag->stats,
@@ -510,7 +571,8 @@ dht_init (xlator_t *this)
         gf_defrag_info_t                *defrag         = NULL;
         int                              cmd            = 0;
         char                            *node_uuid      = NULL;
-
+        int                              throttle_count = 0;
+        uint32_t                         commit_hash    = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -530,6 +592,16 @@ dht_init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (*conf), gf_dht_mt_dht_conf_t);
         if (!conf) {
                 goto err;
+        }
+
+        /* We get the commit-hash to set only for rebalance process */
+        if (dict_get_uint32 (this->options,
+                             "commit-hash", &commit_hash) == 0) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_COMMIT_HASH_INFO, "%s using commit hash %u",
+                        __func__, commit_hash);
+                conf->vol_commit_hash = commit_hash;
+                conf->vch_forced = _gf_true;
         }
 
         ret = dict_get_int32 (this->options, "rebalance-cmd", &cmd);
@@ -555,7 +627,7 @@ dht_init (xlator_t *this)
                         goto err;
                 }
 
-                if (uuid_parse (node_uuid, defrag->node_uuid)) {
+                if (gf_uuid_parse (node_uuid, defrag->node_uuid)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_INVALID_OPTION, "Invalid option:"
                                 " Cannot parse glusterd node uuid");
@@ -565,16 +637,41 @@ dht_init (xlator_t *this)
                 defrag->cmd = cmd;
 
                 defrag->stats = _gf_false;
+
+                defrag->queue = NULL;
+
+                defrag->crawl_done = 0;
+
+                defrag->global_error = 0;
+
+                defrag->q_entry_count = 0;
+
+                defrag->wakeup_crawler = 0;
+
+                synclock_init (&defrag->link_lock, SYNC_LOCK_DEFAULT);
+                pthread_mutex_init (&defrag->dfq_mutex, 0);
+                pthread_cond_init  (&defrag->parallel_migration_cond, 0);
+                pthread_cond_init  (&defrag->rebalance_crawler_alarm, 0);
+                pthread_cond_init  (&defrag->df_wakeup_thread, 0);
+
+                defrag->global_error = 0;
+
         }
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
         if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean */
-                if (strcasecmp (temp_str, "auto"))
-                        gf_string2boolean (temp_str, &conf->search_unhashed);
+                if (strcasecmp (temp_str, "auto")) {
+                        ret = gf_string2boolean (temp_str,
+                                                 &conf->search_unhashed);
+                        if (ret == -1)
+                                goto err;
+                }
                 else
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
         }
+
+        GF_OPTION_INIT ("lookup-optimize", conf->lookup_optimize, bool, err);
 
         GF_OPTION_INIT ("unhashed-sticky-bit", conf->unhashed_sticky_bit, bool,
                         err);
@@ -623,6 +720,16 @@ dht_init (xlator_t *this)
                 goto err;
         }
 
+        if (cmd) {
+                ret = dht_init_local_subvolumes (this, conf);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_INIT_LOCAL_SUBVOL_FAILED,
+                                "dht_init_local_subvolumes failed");
+                        goto err;
+                }
+        }
+
         if (dict_get_str (this->options, "decommissioned-bricks", &temp_str) == 0) {
                 ret = dht_parse_decommissioned_bricks (this, conf, temp_str);
                 if (ret == -1)
@@ -646,8 +753,8 @@ dht_init (xlator_t *this)
 
         this->local_pool = mem_pool_new (dht_local_t, 512);
         if (!this->local_pool) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_INIT_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_NO_MEMORY,
                         " DHT initialisation failed. "
                         "failed to create local_t's memory pool");
                 goto err;
@@ -656,8 +763,22 @@ dht_init (xlator_t *this)
         GF_OPTION_INIT ("randomize-hash-range-by-gfid",
                         conf->randomize_by_gfid, bool, err);
 
+        if (defrag) {
+                GF_OPTION_INIT ("rebal-throttle",
+                                 conf->dthrottle, str, err);
+
+                GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf);
+
+                gf_msg_debug ("DHT", 0, "conf->dthrottle: %s, "
+                              "conf->defrag->recon_thread_count: %d",
+                              conf->dthrottle,
+                              conf->defrag->recon_thread_count);
+        }
+
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
         gf_asprintf (&conf->link_xattr_name, "%s."DHT_LINKFILE_STR,
+                     conf->xattr_name);
+        gf_asprintf (&conf->commithash_xattr_name, "%s."DHT_COMMITHASH_STR,
                      conf->xattr_name);
         gf_asprintf (&conf->wild_xattr_name, "%s*", conf->xattr_name);
         if (!conf->link_xattr_name || !conf->wild_xattr_name) {
@@ -675,6 +796,11 @@ dht_init (xlator_t *this)
         }
 
         this->private = conf;
+
+        if (dht_set_subvol_range(this))
+                goto err;
+
+        conf->methods = &dht_methods;
 
         return 0;
 
@@ -720,6 +846,14 @@ struct volume_options options[] = {
           "from the hash subvolume. If set to OFF, it does not do a lookup "
           "on the remaining subvolumes."
         },
+        { .key = {"lookup-optimize"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option if set to ON enables the optimization "
+          "of -ve lookups, by not doing a lookup on non-hashed subvolumes for "
+          "files, in case the hashed subvolume does not return any result. "
+          "This option disregards the lookup-unhashed setting, when enabled."
+        },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
           .default_value = "10%",
@@ -763,6 +897,9 @@ struct volume_options options[] = {
           "on that brick."
         },
         { .key  = {"rebalance-cmd"},
+          .type = GF_OPTION_TYPE_INT,
+        },
+        { .key = {"commit-hash"},
           .type = GF_OPTION_TYPE_INT,
         },
         { .key = {"node-uuid"},
@@ -822,6 +959,33 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_XLATOR
         },
 
+        /* tier options */
+        { .key  = {"tier-promote-frequency"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "120",
+          .description = "Frequency to promote files to fast tier"
+        },
+
+        { .key  = {"tier-demote-frequency"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "120",
+          .description = "Frequency to demote files to slow tier"
+        },
+
+        { .key  = {"write-freq-threshold"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0",
+          .description = "Defines the write fequency "
+                        "that would be considered hot"
+        },
+
+        { .key  = {"read-freq-threshold"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0",
+          .description = "Defines the read fequency "
+                        "that would be considered hot"
+        },
+
         /* switch option */
         { .key  = {"pattern.switch.case"},
           .type = GF_OPTION_TYPE_ANY
@@ -834,6 +998,18 @@ struct volume_options options[] = {
           "from which hash ranges are allocated starting with 0. "
           "Note that we still use a directory/file's name to determine the "
           "subvolume to which it hashes"
+        },
+
+        { .key =  {"rebal-throttle"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "normal",
+          .description = " Sets the maximum number of parallel file migrations "
+                         "allowed on a node during the rebalance operation. The"
+                         " default value is normal and allows a max of "
+                         "[($(processing units) - 4) / 2), 2]  files to be "
+                         "migrated at a time. Lazy will allow only one file to "
+                         "be migrated at a time and aggressive will allow "
+                         "max of [($(processing units) - 4) / 2), 4]"
         },
 
         { .key  = {NULL} },

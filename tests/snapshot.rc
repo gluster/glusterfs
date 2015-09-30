@@ -16,6 +16,10 @@ function init_n_bricks() {
     done
 }
 
+count_snaps () {
+    ls $1/.snaps | wc -l
+}
+
 function init_lvm() {
     if [ "$1" == "" ]; then
         echo "Error: Invalid argument supplied"
@@ -123,7 +127,7 @@ function _cleanup_lvm() {
 function _cleanup_lvm_again() {
     local file
 
-    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r umount -f
+    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r ${UMOUNT_F}
 
     /sbin/vgs | grep $LVM_PREFIX | awk '{print $1}' | xargs -r vgremove -f
 
@@ -178,7 +182,7 @@ function _umount_lv() {
     local num=$1
     local l="L$num"
 
-    umount -f ${!l} 2>/dev/null || true
+    ${UMOUNT_F} ${!l} 2>/dev/null || true
     rmdir ${!l} 2>/dev/null || true
 }
 
@@ -228,7 +232,7 @@ function create_n_snapshots() {
         local snap_name=$3
         local ret=0
         for i in `seq 1 $snap_count`; do
-                $CLI_1 snapshot create $snap_name$i ${vol}&
+                $CLI_1 snapshot create $snap_name$i ${vol} no-timestamp &
                 PID_1=$!
                 wait $PID_1
                 ret=$?
@@ -303,6 +307,33 @@ function snapshot_status()
 }
 
 
+#Check the different status of a particular snapshot
+#Arg1 : <Snap name>
+#Arg2 : <Filed in status>
+#Arg3 : <Expected value>
+function snapshot_snap_status()
+{
+
+    local snap=$1;
+    local cli=$CLI_1;
+    local field=$2;
+    local expected=$3;
+    if [ "$cli" = "" ]; then
+        cli=$CLI
+    fi
+    for i in $($cli snapshot status $snap | grep "$field" | \
+               cut -d ':' -f2 | awk '{print $1}') ;
+    do
+           if [ "$i" != "$expected" ]; then
+                echo "Failed"
+                return 1;
+           fi;
+    done;
+echo "Success"
+return 0;
+}
+
+
 # TODO: Cleanup code duplication
 function volinfo_field()
 {
@@ -314,12 +345,11 @@ function volinfo_field()
 
 
 function volume_exists() {
-        local volname=$1
-        $CLI_1 volume info $volname 2>&1 | grep -q 'does not exist'
+        $CLI_1 volume info $1 > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-                return 1
+                echo "Y"
         else
-                return 0
+                echo "N"
         fi
 }
 
@@ -337,7 +367,7 @@ function snap_create()
 
         while [ $i -lt $limit ]
         do
-                $cli_index snapshot create snap$i $volname
+                $cli_index snapshot create snap$i $volname no-timestamp
                 i=$[$i+1]
         done
 }
@@ -401,12 +431,26 @@ function uss_count_snap_displayed() {
         ls $path/.snaps | wc -l
 }
 
+#return specific fields of xml output
+function get-cmd-field-xml()
+{
+        local cli=$CLI_1;
+        if [ "$cli" = "" ]; then
+            cli=$CLI
+        fi
+
+        COMMAND=$1
+        PATTERN=$2
+
+        $cli $COMMAND --xml | xmllint --format - | grep $PATTERN
+}
+
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2
         SKIP_TESTS
         exit 0
         ;;
-*)      
+*)
         ;;
-esac  
+esac

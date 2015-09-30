@@ -10,7 +10,8 @@ quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 quotad_la_SOURCES = quotad.c quotad-helpers.c quotad-aggregator.c
 quotad_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-noinst_HEADERS = quota-mem-types.h quota.h quotad-aggregator.h quotad-helpers.h
+noinst_HEADERS = quota-mem-types.h quota.h quotad-aggregator.h \
+                 quotad-helpers.h quota-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/xlators/cluster/dht/src -I$(top_srcdir)/rpc/xdr/src/ \

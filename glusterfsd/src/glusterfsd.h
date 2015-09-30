@@ -10,10 +10,6 @@
 #ifndef __GLUSTERFSD_H__
 #define __GLUSTERFSD_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include "rpcsvc.h"
 #include "glusterd1-xdr.h"
 
@@ -52,6 +48,8 @@ enum argp_option_keys {
         ARGP_SOCK_FILE_KEY                = 'S',
         ARGP_NO_DAEMON_KEY                = 'N',
         ARGP_RUN_ID_KEY                   = 'r',
+        ARGP_PRINT_NETGROUPS              = 'n',
+        ARGP_PRINT_EXPORTS                = 'e',
         ARGP_DEBUG_KEY                    = 133,
         ARGP_NEGATIVE_TIMEOUT_KEY         = 134,
         ARGP_ENTRY_TIMEOUT_KEY            = 135,
@@ -92,6 +90,8 @@ enum argp_option_keys {
         ARGP_LOG_BUF_SIZE                 = 170,
         ARGP_LOG_FLUSH_TIMEOUT            = 171,
         ARGP_SECURE_MGMT_KEY              = 172,
+        ARGP_GLOBAL_TIMER_WHEEL           = 173,
+        ARGP_RESOLVE_GIDS_KEY             = 174,
 };
 
 struct _gfd_vol_top_priv_t {

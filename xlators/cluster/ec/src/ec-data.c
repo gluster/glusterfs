@@ -1,27 +1,18 @@
 /*
-  Copyright (c) 2012 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  This file is part of GlusterFS.
 
-  This file is part of the cluster/ec translator for GlusterFS.
-
-  The cluster/ec translator for GlusterFS is free software: you can
-  redistribute it and/or modify it under the terms of the GNU General
-  Public License as published by the Free Software Foundation, either
-  version 3 of the License, or (at your option) any later version.
-
-  The cluster/ec translator for GlusterFS is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
-  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE. See the GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with the cluster/ec translator for GlusterFS. If not, see
-  <http://www.gnu.org/licenses/>.
+  This file is licensed to you under your choice of the GNU Lesser
+  General Public License, version 3 or any later version (LGPLv3 or
+  later), or the GNU General Public License, version 2 (GPLv2), in all
+  cases as published by the Free Software Foundation.
 */
 
 #include "ec-mem-types.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-data.h"
+#include "ec-messages.h"
 
 ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
                                      ec_fop_data_t * fop, int32_t id,
@@ -33,15 +24,16 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
 
     if (fop->xl != this)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching xlators between request "
-                                         "and answer (req=%s, ans=%s).",
-                                         fop->xl->name, this->name);
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_XLATOR_MISMATCH, "Mismatching xlators between request "
+                "and answer (req=%s, ans=%s).", fop->xl->name, this->name);
 
         return NULL;
     }
     if (fop->frame != frame)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching frames between request "
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_FRAME_MISMATCH, "Mismatching frames between request "
                                          "and answer (req=%p, ans=%p).",
                                          fop->frame, frame);
 
@@ -49,7 +41,8 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->id != id)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching fops between request "
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_FOP_MISMATCH, "Mismatching fops between request "
                                          "and answer (req=%d, ans=%d).",
                                          fop->id, id);
 
@@ -59,7 +52,8 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     cbk = mem_get0(ec->cbk_pool);
     if (cbk == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate memory for an "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to allocate memory for an "
                                          "answer.");
     }
 
@@ -69,6 +63,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     cbk->count = 1;
     cbk->op_ret = op_ret;
     cbk->op_errno = op_errno;
+    INIT_LIST_HEAD (&cbk->entries.list);
 
     LOCK(&fop->lock);
 
@@ -102,8 +97,23 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
         iobref_unref(cbk->buffers);
     }
     GF_FREE(cbk->vector);
+    gf_dirent_free (&cbk->entries);
+    GF_FREE (cbk->str);
 
     mem_put(cbk);
+}
+
+/* PARENT_DOWN will be notified to children only after these fops are complete
+ * when graph switch happens.  We do not want graph switch to be waiting on
+ * heal to complete as healing big file/directory could take a while. Which
+ * will lead to hang on the mount.
+ */
+static gf_boolean_t
+ec_needs_graceful_completion (ec_fop_data_t *fop)
+{
+        if ((fop->id != EC_FOP_HEAL) && (fop->id != EC_FOP_FHEAL))
+                return _gf_true;
+        return _gf_false;
 }
 
 ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
@@ -118,11 +128,20 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop = mem_get0(ec->fop_pool);
     if (fop == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate memory for a "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to allocate memory for a "
                                          "request.");
 
         return NULL;
     }
+
+    INIT_LIST_HEAD(&fop->owner_list);
+    INIT_LIST_HEAD(&fop->cbk_list);
+    INIT_LIST_HEAD(&fop->healer);
+    INIT_LIST_HEAD(&fop->answer_list);
+    INIT_LIST_HEAD(&fop->pending_list);
+    INIT_LIST_HEAD(&fop->locks[0].wait_list);
+    INIT_LIST_HEAD(&fop->locks[1].wait_list);
 
     fop->xl = this;
     fop->req_frame = frame;
@@ -144,7 +163,8 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->frame == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to create a private frame "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to create a private frame "
                                          "for a request");
 
         mem_put(fop);
@@ -157,9 +177,6 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop->flags = flags;
     fop->minimum = minimum;
     fop->mask = target;
-
-    INIT_LIST_HEAD(&fop->cbk_list);
-    INIT_LIST_HEAD(&fop->answer_list);
 
     fop->wind = wind;
     fop->handler = handler;
@@ -175,15 +192,18 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
         parent = frame->local;
         if (parent != NULL)
         {
-            LOCK(&parent->lock);
-
-            parent->jobs++;
-            parent->refs++;
-
-            UNLOCK(&parent->lock);
+            ec_sleep(parent);
         }
 
         fop->parent = parent;
+    }
+
+    if (ec_needs_graceful_completion (fop)) {
+            LOCK(&ec->lock);
+
+            list_add_tail(&fop->pending_list, &ec->pending_fops);
+
+            UNLOCK(&ec->lock);
     }
 
     return fop;
@@ -200,15 +220,47 @@ void ec_fop_data_acquire(ec_fop_data_t * fop)
     UNLOCK(&fop->lock);
 }
 
+static void
+ec_handle_last_pending_fop_completion (ec_fop_data_t *fop, gf_boolean_t *notify)
+{
+        ec_t *ec = fop->xl->private;
+
+        if (!list_empty (&fop->pending_list)) {
+                LOCK(&ec->lock);
+                {
+                        list_del_init (&fop->pending_list);
+                        *notify = list_empty (&ec->pending_fops);
+                }
+                UNLOCK(&ec->lock);
+        }
+}
+
+void
+ec_fop_cleanup(ec_fop_data_t *fop)
+{
+        ec_cbk_data_t *cbk, *tmp;
+
+        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list) {
+            list_del_init(&cbk->answer_list);
+
+            ec_cbk_data_destroy(cbk);
+        }
+        INIT_LIST_HEAD(&fop->cbk_list);
+
+        fop->answer = NULL;
+}
+
 void ec_fop_data_release(ec_fop_data_t * fop)
 {
-    ec_cbk_data_t * cbk, * tmp;
+    ec_t *ec = NULL;
     int32_t refs;
+    gf_boolean_t notify = _gf_false;
 
     LOCK(&fop->lock);
 
     ec_trace("RELEASE", fop, "");
 
+    GF_ASSERT (fop->refs > 0);
     refs = --fop->refs;
 
     UNLOCK(&fop->lock);
@@ -248,13 +300,14 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
         ec_resume_parent(fop, fop->error);
 
-        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list)
-        {
-            list_del_init(&cbk->answer_list);
+        ec_fop_cleanup(fop);
 
-            ec_cbk_data_destroy(cbk);
-        }
-
+        ec = fop->xl->private;
+        ec_handle_last_pending_fop_completion (fop, &notify);
+        ec_handle_healers_done (fop);
         mem_put(fop);
+        if (notify) {
+            ec_pending_fops_completed(ec);
+        }
     }
 }

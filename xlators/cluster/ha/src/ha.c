@@ -11,11 +11,6 @@
  * can be written to decide what error to be returned and when
  */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "call-stub.h"
 #include "defaults.h"

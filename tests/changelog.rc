@@ -1,0 +1,9 @@
+
+function count_htime_files {
+    ls -l $B0/$V0"1"/.glusterfs/changelogs/htime/ | grep HTIME | wc -l
+}
+
+function count_changelog_files {
+    # Where $1 is the brick name passed
+    ls -l $1/.glusterfs/changelogs/ | grep CHANGELOG | wc -l
+}

@@ -14,7 +14,8 @@ TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
 
 TEST $CLI volume start $V0;
 
-sleep 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" nfs_up_status
 
 ## Mount FUSE
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
@@ -28,8 +29,6 @@ TEST mount_nfs $H0:/$V0 $N0 nolock;
 TEST $CLI volume status all
 TEST $CLI volume status $V0
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' nfs_up_status
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' glustershd_up_status
 function test_nfs_cmds () {
     local ret=0
     declare -a nfs_cmds=("clients" "mem" "inode" "callpool")

@@ -10,6 +10,7 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 int
 afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
@@ -47,6 +48,16 @@ afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
+#define AFR_READ_TXN_SET_ERROR_AND_GOTO(ret, errnum, index, label) \
+        do {                                                      \
+                local->op_ret = ret;                              \
+                local->op_errno = errnum;                          \
+                read_subvol = index;                              \
+                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,\
+                        "Failing %s on gfid %s: split-brain observed.",\
+                        gf_fop_list[local->op], uuid_utoa (inode->gfid));\
+                goto label;                                       \
+        } while (0)
 
 int
 afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
@@ -56,38 +67,31 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 	int event_generation = 0;
 	inode_t *inode = NULL;
 	int ret = -1;
+        int spb_choice = -1;
 
 	local = frame->local;
 	inode = local->inode;
 
-	if (err) {
-		local->op_errno = -err;
-		local->op_ret = -1;
-		read_subvol = -1;
-		goto readfn;
-	}
+        if (err) {
+                local->op_errno = -err;
+                local->op_ret = -1;
+                read_subvol = -1;
+                goto readfn;
+        }
 
-	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
-					      &event_generation,
-					      local->transaction.type);
+	ret = afr_inode_get_readable (frame, inode, this, local->readable,
+			              &event_generation,
+				      local->transaction.type);
 
-	if (ret == -1 || !event_generation) {
+	if (ret == -1 || !event_generation)
 		/* Even after refresh, we don't have a good
 		   read subvolume. Time to bail */
-		local->op_ret = -1;
-		local->op_errno = EIO;
-		read_subvol = -1;
-		goto readfn;
-	}
+                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
-							local->readable);
-
-	if (read_subvol == -1) {
-		local->op_ret = -1;
-		local->op_errno = EIO;
-		goto readfn;
-	}
+							local->readable, NULL);
+	if (read_subvol == -1)
+                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
 
 	if (local->read_attempted[read_subvol]) {
 		afr_read_txn_next_subvol (frame, this);
@@ -96,6 +100,12 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 
 	local->read_attempted[read_subvol] = 1;
 readfn:
+        if (read_subvol == -1) {
+                ret = afr_inode_split_brain_choice_get (inode, this,
+                                                        &spb_choice);
+                if ((ret == 0) && spb_choice >= 0)
+                        read_subvol = spb_choice;
+        }
 	local->readfn (frame, this, read_subvol);
 
 	return 0;
@@ -183,28 +193,47 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+        unsigned char *data = NULL;
+        unsigned char *metadata = NULL;
 	int read_subvol = -1;
 	int event_generation = 0;
 	int ret = -1;
 
 	priv = this->private;
 	local = frame->local;
+        data = alloca0 (priv->child_count);
+        metadata = alloca0 (priv->child_count);
 
 	afr_read_txn_wipe (frame, this);
 
 	local->readfn = readfn;
 	local->inode = inode_ref (inode);
 
+        if (priv->quorum_reads &&
+            priv->quorum_count && !afr_has_quorum (priv->child_up, this)) {
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+                read_subvol = -1;
+                goto read;
+        }
+
 	local->transaction.type = type;
-	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
-					      &event_generation, type);
+        if (local->op == GF_FOP_FSTAT || local->op == GF_FOP_STAT) {
+                ret = afr_inode_read_subvol_get (inode, this, data, metadata,
+                                                 &event_generation);
+                AFR_INTERSECT (local->readable, data, metadata,
+                               priv->child_count);
+        } else {
+                ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
+                                                      &event_generation, type);
+        }
 	if (ret == -1)
 		/* very first transaction on this inode */
 		goto refresh;
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s: generation now vs cached: %d, "
-                "%d", uuid_utoa (inode->gfid), local->event_generation,
-                event_generation);
+        gf_msg_debug (this->name, 0, "%s: generation now vs cached: %d, "
+                      "%d", uuid_utoa (inode->gfid), local->event_generation,
+                      event_generation);
 	if (local->event_generation != event_generation)
 		/* servers have disconnected / reconnected, and possibly
 		   rebooted, very likely changing the state of freshness
@@ -212,19 +241,20 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		goto refresh;
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
-							local->readable);
+							local->readable, NULL);
 
 	if (read_subvol < 0 || read_subvol > priv->child_count) {
-		gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
+	        gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
                        "Unreadable subvolume %d found with event generation "
-                       "%d. (Possible split-brain)",
-                        read_subvol, event_generation);
+                       "%d for gfid %s. (Possible split-brain)",
+                        read_subvol, event_generation, uuid_utoa(inode->gfid));
 		goto refresh;
 	}
 
 	if (!local->child_up[read_subvol]) {
 		/* should never happen, just in case */
-		gf_log (this->name, GF_LOG_WARNING, "subvolume %d is the "
+	        gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_READ_SUBVOL_ERROR, "subvolume %d is the "
 			"read subvolume in this generation, but is not up",
 			read_subvol);
 		goto refresh;
@@ -232,6 +262,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	local->read_attempted[read_subvol] = 1;
 
+read:
 	local->readfn (frame, this, read_subvol);
 
 	return 0;

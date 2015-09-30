@@ -15,9 +15,16 @@
 #include "timer.h"
 #include "pthread.h"
 #include "iobuf.h"
+#include "rot-buffs.h"
 
 #include "changelog-misc.h"
 #include "call-stub.h"
+
+#include "rpcsvc.h"
+#include "changelog-ev-handle.h"
+
+#include "changelog.h"
+#include "changelog-messages.h"
 
 /**
  * the changelog entry
@@ -120,29 +127,6 @@ typedef struct changelog_fsync {
         xlator_t *this;
 } changelog_fsync_t;
 
-# define CHANGELOG_MAX_CLIENTS  5
-typedef struct changelog_notify {
-        /* reader end of the pipe */
-        int rfd;
-
-        /* notifier thread */
-        pthread_t notify_th;
-
-        /* unique socket path */
-        char sockpath[UNIX_PATH_MAX];
-
-        int socket_fd;
-
-        /**
-         * simple array of accept()'ed fds. Not scalable at all
-         * for large number of clients, but it's okay as we have
-         * a ahrd limit in this version (@CHANGELOG_MAX_CLIENTS).
-         */
-        int client_fd[CHANGELOG_MAX_CLIENTS];
-
-        xlator_t *this;
-} changelog_notify_t;
-
 /* Draining during changelog rollover (for geo-rep snapshot dependency):
  * --------------------------------------------------------------------
  * The introduction of draining of in-transit fops during changelog rollover
@@ -162,14 +146,15 @@ typedef struct changelog_notify {
 typedef enum chlog_fop_color {
          FOP_COLOR_BLACK,
          FOP_COLOR_WHITE
-}chlog_fop_color_t;
+} chlog_fop_color_t;
 
 /* Barrier notify variable */
 typedef struct barrier_notify {
          pthread_mutex_t        bnotify_mutex;
          pthread_cond_t         bnotify_cond;
          gf_boolean_t           bnotify;
-}barrier_notify_t;
+         gf_boolean_t           bnotify_error;
+} barrier_notify_t;
 
 /* Two separate mutex and conditional variable set is used
  * to drain white and black fops. */
@@ -185,15 +170,26 @@ typedef struct drain_mgmt {
          unsigned long          white_fop_cnt;
          gf_boolean_t           drain_wait_black;
          gf_boolean_t           drain_wait_white;
-}drain_mgmt_t;
+} drain_mgmt_t;
 
 /* External barrier as a result of snap on/off indicating flag*/
 typedef struct barrier_flags {
         gf_lock_t lock;
         gf_boolean_t barrier_ext;
-}barrier_flags_t;
+} barrier_flags_t;
+
+/* Event selection */
+typedef struct changelog_ev_selector {
+        gf_lock_t reflock;
+
+        /**
+         * Array of references for each selection bit.
+         */
+        unsigned int ref[CHANGELOG_EV_SELECTION_RANGE];
+} changelog_ev_selector_t;
 
 
+/* changelog's private structure */
 struct changelog_priv {
         gf_boolean_t active;
 
@@ -223,7 +219,7 @@ struct changelog_priv {
         /*  lock to synchronize CSNAP updation */
         gf_lock_t c_snap_lock;
 
-        /* writen end of the pipe */
+        /* written end of the pipe */
         int wfd;
 
         /* rollover time */
@@ -247,9 +243,6 @@ struct changelog_priv {
         /* context of fsync thread */
         changelog_fsync_t cf;
 
-        /* context of the notifier thread */
-        changelog_notify_t cn;
-
         /* operation mode */
         changelog_mode_t op_mode;
 
@@ -262,7 +255,9 @@ struct changelog_priv {
         /* encoder */
         struct changelog_encoder *ce;
 
-        /* snapshot dependency changes */
+        /**
+         * snapshot dependency changes
+         */
 
         /* Draining of fops*/
         drain_mgmt_t dm;
@@ -289,6 +284,33 @@ struct changelog_priv {
         gf_timer_t       *timer;
         struct timespec   timeout;
 
+        /**
+         * buffers, RPC, event selection, notifications and other
+         * beasts.
+         */
+
+        /* epoll pthread */
+        pthread_t poller;
+
+        /* rotational buffer */
+        rbuf_t *rbuf;
+
+        /* changelog RPC server */
+        rpcsvc_t *rpc;
+
+        /* event selection */
+        changelog_ev_selector_t ev_selection;
+
+        /* client handling (reverse connection) */
+        pthread_t connector;
+
+        int nr_dispatchers;
+        pthread_t *ev_dispatcher;
+
+        changelog_clnt_t connections;
+
+        /* glusterfind dependency to capture paths on deleted entries*/
+        gf_boolean_t capture_del_path;
 };
 
 struct changelog_local {
@@ -332,6 +354,7 @@ typedef enum {
 struct changelog_entry_fields {
         uuid_t  cef_uuid;
         char   *cef_bname;
+        char   *cef_path;
 };
 
 typedef struct {
@@ -367,7 +390,7 @@ typedef struct {
  * helpers routines
  */
 
-void
+int
 changelog_thread_cleanup (xlator_t *this, pthread_t thr_id);
 
 void *
@@ -386,7 +409,7 @@ changelog_start_next_change (xlator_t *this,
                              changelog_priv_t *priv,
                              unsigned long ts, gf_boolean_t finale);
 int
-changelog_open (xlator_t *this, changelog_priv_t *priv);
+changelog_open_journal (xlator_t *this, changelog_priv_t *priv);
 int
 changelog_fill_rollover_data (changelog_log_data_t *cld, gf_boolean_t is_last);
 int
@@ -415,7 +438,9 @@ int
 htime_update (xlator_t *this, changelog_priv_t *priv,
               unsigned long ts, char * buffer);
 int
-htime_open (xlator_t *this, changelog_priv_t * priv, unsigned long ts);
+htime_open (xlator_t *this, changelog_priv_t *priv, unsigned long ts);
+int
+htime_create (xlator_t *this, changelog_priv_t *priv, unsigned long ts);
 
 /* Geo-Rep snapshot dependency changes */
 void
@@ -449,6 +474,7 @@ changelog_snap_handle_ascii_change (xlator_t *this,
                 changelog_log_data_t *cld);
 int
 changelog_snap_write_change (changelog_priv_t *priv, char *buffer, size_t len);
+
 /* Changelog barrier routines */
 void __chlog_barrier_enqueue (xlator_t *this, call_stub_t *stub);
 void __chlog_barrier_disable (xlator_t *this, struct list_head *queue);
@@ -456,6 +482,29 @@ void chlog_barrier_dequeue_all (xlator_t *this, struct list_head *queue);
 call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
 int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
 
+int32_t
+changelog_fill_entry_buf (call_frame_t *frame, xlator_t *this,
+                          loc_t *loc, changelog_local_t **local);
+
+/* event selection routines */
+void changelog_select_event (xlator_t *,
+                                    changelog_ev_selector_t *, unsigned int);
+void changelog_deselect_event (xlator_t *,
+                                      changelog_ev_selector_t *, unsigned int);
+int changelog_init_event_selection (xlator_t *,
+                                           changelog_ev_selector_t *);
+int changelog_cleanup_event_selection (xlator_t *,
+                                              changelog_ev_selector_t *);
+int changelog_ev_selected (xlator_t *,
+                                  changelog_ev_selector_t *, unsigned int);
+void
+changelog_dispatch_event (xlator_t *, changelog_priv_t *, changelog_event_t *);
+
+changelog_inode_ctx_t *
+__changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,
+                           unsigned long *, changelog_log_type);
+int
+resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
 
 /* macros */
 
@@ -468,10 +517,10 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
                         frame->local = NULL;                            \
                 }                                                       \
                 STACK_UNWIND_STRICT (fop, frame, params);               \
-                changelog_local_cleanup (__xl, __local);                \
                 if (__local && __local->prev_entry)                     \
                         changelog_local_cleanup (__xl,                  \
                                                  __local->prev_entry);  \
+                changelog_local_cleanup (__xl, __local);                \
         } while (0)
 
 #define CHANGELOG_IOBUF_REF(iobuf) do {         \
@@ -518,11 +567,31 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
                 co->co_convert = converter;                             \
                 co->co_free = freefn;                                   \
                 co->co_type = CHANGELOG_OPT_REC_ENTRY;                  \
-                uuid_copy (co->co_entry.cef_uuid, pargfid);             \
+                gf_uuid_copy (co->co_entry.cef_uuid, pargfid);          \
                 co->co_entry.cef_bname = gf_strdup(bname);              \
                 if (!co->co_entry.cef_bname)                            \
                         goto label;                                     \
                 xlen += (UUID_CANONICAL_FORM_LEN + strlen (bname));     \
+        } while (0)
+
+#define CHANGELOG_FILL_ENTRY_DIR_PATH(co, pargfid, bname, converter,        \
+                                      del_freefn, xlen, label, capture_del) \
+        do {                                                                \
+                co->co_convert = converter;                                 \
+                co->co_free = del_freefn;                                   \
+                co->co_type = CHANGELOG_OPT_REC_ENTRY;                      \
+                gf_uuid_copy (co->co_entry.cef_uuid, pargfid);              \
+                co->co_entry.cef_bname = gf_strdup(bname);                  \
+                if (!co->co_entry.cef_bname)                                \
+                        goto label;                                         \
+                xlen += (UUID_CANONICAL_FORM_LEN + strlen (bname));         \
+                if (!capture_del || resolve_pargfid_to_path (this, pargfid, \
+                    &(co->co_entry.cef_path), co->co_entry.cef_bname)) {    \
+                        co->co_entry.cef_path = gf_strdup ("\0");           \
+                        xlen += 1;                                          \
+                } else {                                                    \
+                        xlen += (strlen (co->co_entry.cef_path));           \
+                }                                                           \
         } while (0)
 
 #define CHANGELOG_INIT(this, local, inode, gfid, xrec)                  \
@@ -576,7 +645,8 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
 
 #define CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, label) do {                      \
                 if (!priv->active) {                                           \
-                        gf_log (this->name, GF_LOG_WARNING,                    \
+                        gf_msg (this->name, GF_LOG_WARNING, 0,                 \
+                                CHANGELOG_MSG_NOT_ACTIVE,                      \
                                 "Changelog is not active, return success");    \
                         ret = 0;                                               \
                         goto label;                                            \
@@ -586,17 +656,19 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
 /* Log pthread error and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_0(ret, label) do {                      \
                 if (ret) {                                                     \
-                        gf_log (this->name, GF_LOG_ERROR,                      \
+                        gf_msg (this->name, GF_LOG_ERROR,                      \
+                                0, CHANGELOG_MSG_PTHREAD_ERROR,                \
                                 "pthread error: Error: %d", ret);              \
                         ret = -1;                                              \
                         goto label;                                            \
                 }                                                              \
-        } while (0)
+        } while (0);
 
 /* Log pthread error, set flag and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_1(ret, label, flag) do {                \
                 if (ret) {                                                     \
-                        gf_log (this->name, GF_LOG_ERROR,                      \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
+                                CHANGELOG_MSG_PTHREAD_ERROR,                   \
                                 "pthread error: Error: %d", ret);              \
                         ret = -1;                                              \
                         flag = _gf_true;                                       \

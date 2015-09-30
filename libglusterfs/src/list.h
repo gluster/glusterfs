@@ -179,14 +179,72 @@ list_append_init (struct list_head *list, struct list_head *head)
 	INIT_LIST_HEAD (list);
 }
 
+static inline int
+list_is_last (struct list_head *list, struct list_head *head)
+{
+        return (list->next == head);
+}
+
+static inline int
+list_is_singular(struct list_head *head)
+{
+        return !list_empty(head) && (head->next == head->prev);
+}
+
+/**
+ * list_replace - replace old entry by new one
+ * @old : the element to be replaced
+ * @new : the new element to insert
+ *
+ * If @old was empty, it will be overwritten.
+ */
+static inline void list_replace(struct list_head *old,
+				struct list_head *new)
+{
+	new->next = old->next;
+	new->next->prev = new;
+	new->prev = old->prev;
+	new->prev->next = new;
+}
+
+static inline void list_replace_init(struct list_head *old,
+                                     struct list_head *new)
+{
+	list_replace(old, new);
+	INIT_LIST_HEAD(old);
+}
+
+/**
+ * list_rotate_left - rotate the list to the left
+ * @head: the head of the list
+ */
+static inline void list_rotate_left (struct list_head *head)
+{
+	struct list_head *first;
+
+	if (!list_empty (head)) {
+		first = head->next;
+		list_move_tail (first, head);
+	}
+}
 
 #define list_entry(ptr, type, member)					\
 	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
 
+#define list_first_entry(ptr, type, member)     \
+        list_entry((ptr)->next, type, member)
+
+#define list_last_entry(ptr, type, member)     \
+        list_entry((ptr)->prev, type, member)
+
+#define list_next_entry(pos, member) \
+        list_entry((pos)->member.next, typeof(*(pos)), member)
+
+#define list_prev_entry(pos, member) \
+        list_entry((pos)->member.prev, typeof(*(pos)), member)
 
 #define list_for_each(pos, head)                                        \
 	for (pos = (head)->next; pos != (head); pos = pos->next)
-
 
 #define list_for_each_entry(pos, head, member)				\
 	for (pos = list_entry((head)->next, typeof(*pos), member);	\
@@ -211,5 +269,19 @@ list_append_init (struct list_head *list, struct list_head *head)
 	        n = list_entry(pos->member.prev, typeof(*pos), member); \
 	     &pos->member != (head);                                    \
 	     pos = n, n = list_entry(n->member.prev, typeof(*n), member))
+
+/*
+ * This list implementation has some advantages, but one disadvantage: you
+ * can't use NULL to check whether you're at the head or tail.  Thus, the
+ * address of the head has to be an argument for these macros.
+ */
+
+#define list_next(ptr, head, type, member)      \
+        (((ptr)->member.next == head) ? NULL    \
+                                 : list_entry((ptr)->member.next, type, member))
+
+#define list_prev(ptr, head, type, member)      \
+        (((ptr)->member.prev == head) ? NULL    \
+                                 : list_entry((ptr)->member.prev, type, member))
 
 #endif /* _LLIST_H */

@@ -16,6 +16,8 @@
 #include "xdr-generic.h"
 #include "glusterfs3-xdr.h"
 #include "iatt.h"
+#include "protocol-common.h"
+#include "upcall-utils.h"
 
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
@@ -267,4 +269,66 @@ gf_stat_from_iatt (struct gf_iatt *gf_stat, struct iatt *iatt)
 	gf_stat->ia_ctime_nsec = iatt->ia_ctime_nsec ;
 }
 
+static inline void
+gf_proto_cache_invalidation_from_upcall (gfs3_cbk_cache_invalidation_req *gf_c_req,
+                                         struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_cache_invalidation *gf_c_data = NULL;
+        int    is_cache_inval                          = 0;
+        int    ret                                     = -1;
+
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_c_req, out);
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+
+        is_cache_inval = ((gf_up_data->event_type ==
+                          GF_UPCALL_CACHE_INVALIDATION) ? 1 : 0);
+        GF_VALIDATE_OR_GOTO(THIS->name, is_cache_inval, out);
+
+        gf_c_data = (struct gf_upcall_cache_invalidation *)gf_up_data->data;
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_c_data, out);
+
+        gf_c_req->gfid = uuid_utoa (gf_up_data->gfid);
+        gf_c_req->event_type       = gf_up_data->event_type;
+        gf_c_req->flags            = gf_c_data->flags;
+        gf_c_req->expire_time_attr = gf_c_data->expire_time_attr;
+        gf_stat_from_iatt (&gf_c_req->stat, &gf_c_data->stat);
+        gf_stat_from_iatt (&gf_c_req->parent_stat, &gf_c_data->p_stat);
+        gf_stat_from_iatt (&gf_c_req->oldparent_stat, &gf_c_data->oldp_stat);
+
+out:
+        return;
+}
+
+static inline void
+gf_proto_cache_invalidation_to_upcall (gfs3_cbk_cache_invalidation_req *gf_c_req,
+                                       struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_cache_invalidation *gf_c_data = NULL;
+        int    ret                                     = -1;
+
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_c_req, out);
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+
+        gf_c_data = (struct gf_upcall_cache_invalidation *)gf_up_data->data;
+        GF_VALIDATE_OR_GOTO(THIS->name, gf_c_data, out);
+
+        ret = gf_uuid_parse (gf_c_req->gfid, gf_up_data->gfid);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING, "gf_uuid_parse(%s) failed",
+                        gf_c_req->gfid);
+                gf_up_data->event_type = GF_UPCALL_EVENT_NULL;
+                return;
+        }
+
+        gf_up_data->event_type      = gf_c_req->event_type;
+
+        gf_c_data->flags            = gf_c_req->flags;
+        gf_c_data->expire_time_attr = gf_c_req->expire_time_attr;
+        gf_stat_to_iatt (&gf_c_req->stat, &gf_c_data->stat);
+        gf_stat_to_iatt (&gf_c_req->parent_stat, &gf_c_data->p_stat);
+        gf_stat_to_iatt (&gf_c_req->oldparent_stat, &gf_c_data->oldp_stat);
+
+out:
+        return;
+}
 #endif /* !_GLUSTERFS3_H */

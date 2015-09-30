@@ -16,11 +16,6 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "afr.h"
 #include "dict.h"
@@ -69,7 +64,7 @@ afr_build_parent_loc (loc_t *parent, loc_t *child, int32_t *op_errno)
         }
 
         parent->inode = inode_ref (child->parent);
-	uuid_copy (parent->gfid, child->pargfid);
+	gf_uuid_copy (parent->gfid, child->pargfid);
 
         ret = 0;
 out:
@@ -95,14 +90,14 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 	if (local->inode) {
 		afr_replies_interpret (frame, this, local->inode);
 		inode_read_subvol = afr_data_subvol_get (local->inode, this,
-							 NULL, NULL);
+							 NULL, NULL, NULL);
 	}
 	if (local->parent)
 		parent_read_subvol = afr_data_subvol_get (local->parent, this,
-							  NULL, NULL);
+							  NULL, NULL, NULL);
 	if (local->parent2)
 		parent2_read_subvol = afr_data_subvol_get (local->parent2, this,
-							   NULL, NULL);
+							   NULL, NULL, NULL);
 
 	local->op_ret = -1;
 	local->op_errno = afr_final_errno (local, priv);
@@ -168,6 +163,8 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 				local->replies[i].postparent2;
 		}
 	}
+
+        afr_txn_arbitrate_fop_cbk (frame, this);
 }
 
 
@@ -314,8 +311,7 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
                 goto out;
 
         new_local->pending = changelog;
-        changelog = NULL;
-        uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
+        gf_uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
         new_local->loc.inode = inode_ref (local->inode);
 
         new_local->call_count = call_count;
@@ -335,8 +331,6 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
 
         new_frame = NULL;
 out:
-        if (changelog)
-                afr_matrix_cleanup (changelog, priv->child_count);
         if (new_frame)
                 AFR_STACK_DESTROY (new_frame);
 	if (xattr)
@@ -1103,8 +1097,10 @@ afr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         priv = this->private;
 
         transaction_frame = copy_frame (frame);
-        if (!transaction_frame)
+        if (!transaction_frame) {
                 op_errno = ENOMEM;
+                goto out;
+        }
 
 	local = AFR_FRAME_INIT (transaction_frame, op_errno);
 	if (!local)

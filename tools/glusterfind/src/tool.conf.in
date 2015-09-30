@@ -1,0 +1,10 @@
+[vars]
+session_dir=@GLUSTERD_WORKDIR@/glusterfind/
+working_dir=@GLUSTERFSD_MISCDIR@/glusterfind/
+log_dir=/var/log/glusterfs/glusterfind/
+nodeagent=@GLUSTERFS_LIBEXECDIR@/glusterfind/nodeagent.py
+brick_ignore_dirs=.glusterfs,.trashcan
+
+[change_detectors]
+changelog=@GLUSTERFS_LIBEXECDIR@/glusterfind/changelog.py
+brickfind=@GLUSTERFS_LIBEXECDIR@/glusterfind/brickfind.py

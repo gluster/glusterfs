@@ -105,7 +105,11 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
                 char *tmp;
 
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
+                res = setuid (geteuid ());
+                if (res != 0) {
+                        GFFUSE_LOGERR ("%s: setuid: %s", progname, strerror (errno));
+                        exit (1);
+                }
 
                 /*
                  * hide in a directory, where mount isn't able to resolve
@@ -245,15 +249,21 @@ fuse_mnt_umount (const char *progname, const char *abs_mnt,
         }
         if (res == 0) {
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
+                res = setuid (geteuid ());
+                if (res != 0) {
+                        GFFUSE_LOGERR ("%s: setuid: %s", progname, strerror (errno));
+                        exit (1);
+                }
 #ifdef GF_LINUX_HOST_OS
                 execl ("/bin/umount", "/bin/umount", "-i", rel_mnt,
                        lazy ? "-l" : NULL, NULL);
                 GFFUSE_LOGERR ("%s: failed to execute /bin/umount: %s",
                                progname, strerror (errno));
+#elif __NetBSD__
+                /* exitting the filesystem causes the umount */
+                exit (0);
 #else
-                execl ("/sbin/umount", "/sbin/umount", rel_mnt,
-                       lazy ? "-l" : NULL, NULL);
+                execl ("/sbin/umount", "/sbin/umount", "-f", rel_mnt, NULL);
                 GFFUSE_LOGERR ("%s: failed to execute /sbin/umount: %s",
                                progname, strerror (errno));
 #endif /* GF_LINUX_HOST_OS */

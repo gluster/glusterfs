@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "defaults.h"
 
@@ -40,10 +35,9 @@ pcli_print_trace (char *name, call_frame_t *frame)
         int     i;
 
         gf_log (name, GF_LOG_INFO, "Translator stack:");
-        while (frame) {
+        list_for_each_entry (frame, &frame->root->myframes, frames) {
                 gf_log (name, GF_LOG_INFO, "%s (%s)",
                         frame->wind_from, frame->this->name);
-                frame = frame->next;
         }
 
         size = backtrace (frames, NUM_FRAMES);
@@ -82,7 +76,7 @@ pcli_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         if (value != PROT_ACT_NONE) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "got rename for protected %s", oldloc->path);
-                pcli_print_trace (this->name, frame->next);
+                pcli_print_trace (this->name, frame);
                 if (value == PROT_ACT_REJECT) {
                         STACK_UNWIND_STRICT (rename, frame, -1, EPERM,
                                              NULL, NULL, NULL, NULL, NULL,
@@ -166,7 +160,7 @@ pcli_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         if (value != PROT_ACT_NONE) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "got unlink for protected %s", loc->path);
-                pcli_print_trace(this->name,frame->next);
+                pcli_print_trace(this->name, frame);
                 if (value == PROT_ACT_REJECT) {
                         STACK_UNWIND_STRICT (unlink, frame, -1, EPERM,
                                              NULL, NULL, NULL);

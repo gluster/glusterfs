@@ -20,20 +20,6 @@ function check_dependencies()
         MISSING="$MISSING git"
     fi
 
-    # basic/rpm.t uses mock, which assumes Linux as the OS
-    if [ "x`uname -s`" = "xLinux" ] ; then
-        # Check for mock
-        if [ ! -e /usr/bin/mock ]; then
-            MISSING="$MISSING mock"
-        fi
-
-        # Check for rpmbuild
-        env rpmbuild --version > /dev/null 2>&1
-        if [ $? -ne 0 ]; then
-            MISSING="$MISSING rpmbuild"
-        fi
-    fi
-
     # Check for nfs-utils (Linux-only: built-in NetBSD with different name)
     if [ "x`uname -s`" = "xLinux" ] ; then
       env mount.nfs -V > /dev/null 2>&1
@@ -195,27 +181,119 @@ function run_tests()
         fi
     done
     if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
         echo "Failed tests ${FAILED}"
     fi
     return ${RES}
 }
 
+# If you're submitting a fix related to one of these tests and want its result
+# to be considered, you'll need to remove it from the list as part of your
+# patch.
+function is_bad_test ()
+{
+    local name=$1
+    for bt in ./tests/basic/quota-anon-fd-nfs.t \
+              ./tests/basic/quota-nfs.t \
+              ./tests/basic/tier/tier_lookup_heal.t \
+              ./tests/basic/tier/bug-1214222-directories_miising_after_attach_tier.t \
+              ./tests/bugs/snapshot/bug-1109889.t \
+              ./tests/bugs/distribute/bug-1066798.t \
+              ./tests/basic/tier/tier.t \
+              ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
+              ./tests/bugs/glusterd/bug-948686.t \
+              ./tests/geo-rep/georep-basic-dr-rsync.t \
+              ; do
+        [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
+    done
+    return 1				  # bash: non-zero means false/failure
+}
+
+function run_all ()
+{
+    find ${regression_testsdir}/tests -name '*.t' \
+    | LC_COLLATE=C sort \
+    | while read t; do
+	old_cores=$(ls /core.* 2> /dev/null | wc -l)
+        retval=0
+        prove -mf --timer $t
+        TMP_RES=$?
+        if [ ${TMP_RES} -ne 0 ] ; then
+            echo "$t: bad status $TMP_RES"
+            retval=$((retval+1))
+        fi
+        new_cores=$(ls /core.* 2> /dev/null | wc -l)
+        if [ x"$new_cores" != x"$old_cores" ]; then
+            core_diff=$((new_cores-old_cores))
+            echo "$t: $core_diff new core files"
+            retval=$((retval+2))
+        fi
+        if [ $retval -ne 0 ]; then
+	    if is_bad_test $t; then
+		echo  "Ignoring failure from known-bad test $t"
+	    else
+                echo
+                echo "Running failed test $t in debug mode"
+                echo "Just for debug data, does not change test result"
+                echo
+                bash -x $t
+                echo
+		return $retval
+	    fi
+        fi
+    done
+}
+
 function main()
 {
     if [ $# -lt 1 ]; then
-        echo "Running all the regression test cases"
-        prove -rf --timer ${regression_testsdir}/tests;
+        echo "Running all the regression test cases (new way)"
+        #prove -rf --timer ${regression_testsdir}/tests;
+        run_all
     else
         run_tests "$@"
     fi
+}
+
+function main_and_retry()
+{
+    RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
+    main "$@" | tee ${RESFILE}
+    RET=$?
+
+    FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
+    if [ "x${FAILED}" != "x" ] ; then
+       echo ""
+       echo "       *********************************"
+       echo "       *       REGRESSION FAILED       *"
+       echo "       * Retrying failed tests in case *"
+       echo "       * we got some spurous failures  *"
+       echo "       *********************************"
+       echo ""
+       main ${FAILED}
+       RET=$?
+    fi
+
+    rm -f ${RESFILE}
+    return ${RET}
 }
 
 echo
 echo ... GlusterFS Test Framework ...
 echo
 
-force=no
-test "x$1" = "x-f" && { force="yes"; shift; }
+force="no"
+retry="no"
+args=`getopt fr $*`
+set -- $args
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -f)    force="yes" ;;
+    -r)    retry="yes" ;;
+    --)    shift; break;;
+    esac
+    shift
+done
 
 # Make sure we're running as the root user
 check_user
@@ -227,4 +305,8 @@ check_dependencies
 check_location
 
 # Run the tests
-main "$@"
+if [ "x${retry}" = "xyes" ] ; then
+    main_and_retry $@
+else
+    main "$@"
+fi

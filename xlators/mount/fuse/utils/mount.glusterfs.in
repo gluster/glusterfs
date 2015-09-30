@@ -1,6 +1,8 @@
 #!/bin/sh
 #
 # Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
+# Copyright (c) 2015 ungleich GmbH <http://www.ungleich.ch>
+#
 # This file is part of GlusterFS.
 #
 # This file is licensed to you under your choice of the GNU Lesser
@@ -10,7 +12,7 @@
 
 warn ()
 {
-   echo "$@" >/dev/stderr
+   echo "$@" >&2
 }
 
 _init ()
@@ -173,6 +175,10 @@ start_glusterfs ()
 
     if [ -n "$aux_gfid_mount" ]; then
         cmd_line=$(echo "$cmd_line --aux-gfid-mount");
+    fi
+
+    if [ -n "$resolve_gids" ]; then
+        cmd_line=$(echo "$cmd_line --resolve-gids");
     fi
 
     if [ -n "$no_root_squash" ]; then
@@ -499,6 +505,9 @@ without_options()
                 aux_gfid_mount=1
             fi
             ;;
+        "resolve-gids")
+            resolve_gids=1
+            ;;
          # "mount -t glusterfs" sends this, but it's useless.
         "rw")
             ;;
@@ -588,21 +597,20 @@ main ()
             volume_id="$volume_str";
         }
         volfile_loc="";
-    }
-
-    [ -z "$volume_id" -o -z "$server_ip" ] && {
-        cat <<EOF >/dev/stderr
+        [ -z "$volume_id" -o -z "$server_ip" ] && {
+            cat <<EOF >&2
 ERROR: Server name/volume name unspecified cannot proceed further..
 Please specify correct format
 Usage:
 man 8 $0
 EOF
-        exit 1;
+            exit 1;
+        }
     }
 
     grep_ret=$(echo ${mount_point} | grep '^\-o');
     [ "x" != "x${grep_ret}" ] && {
-        cat <<EOF >/dev/stderr
+        cat <<EOF >&2
 ERROR: -o options cannot be specified in either first two arguments..
 Please specify correct style
 Usage:
@@ -614,7 +622,7 @@ EOF
     # No need to do a ! -d test, it is taken care while initializing the
     # variable mount_point
     [ -z "$mount_point" -o ! -d "$mount_point" ] && {
-        cat <<EOF >/dev/stderr
+        cat <<EOF >&2
 ERROR: Mount point does not exist
 Please specify a mount point
 Usage:

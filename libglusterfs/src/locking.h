@@ -11,12 +11,16 @@
 #ifndef _LOCKING_H
 #define _LOCKING_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
+#include <pthread.h>
+#ifdef GF_DARWIN_HOST_OS
+#include <libkern/OSAtomic.h>
+#define pthread_spinlock_t OSSpinLock
+#define pthread_spin_lock(l) OSSpinLockLock(l)
+#define pthread_spin_unlock(l) OSSpinLockUnlock(l)
+#define pthread_spin_destroy(l) 0
+#define pthread_spin_init(l, v) (*l = v)
 #endif
 
-#include <pthread.h>
 
 #if HAVE_SPINLOCK
 #define LOCK_INIT(x)    pthread_spin_init (x, 0)

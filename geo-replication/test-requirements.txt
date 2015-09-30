@@ -1,0 +1,7 @@
+# Hacking already pins down pep8, pyflakes and flake8
+flake8
+coverage
+nose
+nosexcover
+nosehtmloutput
+mock>=0.8.0

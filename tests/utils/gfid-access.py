@@ -52,14 +52,18 @@ def entry_pack_symlink(gf, bn, lnk, mo, uid, gid):
                        uid, gid, gf, mo, bn, lnk)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 6:
-        print("USAGE: %s <mount> <pargfid|ROOT> <filename> <GFID> <file type>" % (sys.argv[0]))
+    if len(sys.argv) < 9:
+        print("USAGE: %s <mount> <pargfid|ROOT> <filename> <GFID> <file type>"
+              " <uid> <gid> <file permission(octal str)>" % (sys.argv[0]))
         sys.exit(-1) # nothing to do
     mtpt       = sys.argv[1]
     pargfid    = sys.argv[2]
     fname      = sys.argv[3]
     randomgfid = sys.argv[4]
     ftype      = sys.argv[5]
+    uid        = int(sys.argv[6])
+    gid        = int(sys.argv[7])
+    perm       = int(sys.argv[8],8)
 
     os.chdir(mtpt)
     if pargfid == 'ROOT':
@@ -71,11 +75,11 @@ if __name__ == '__main__':
 
     # entry op: use non-zero uid/gid (to catch gfid-access xlator bugs)
     if ftype == 'file':
-        mode = stat.S_IFREG | 644
-        blob = entry_pack_reg(randomgfid, fname, mode, 10, 10)
+        mode = stat.S_IFREG | perm
+        blob = entry_pack_reg(randomgfid, fname, mode, uid, gid)
     elif ftype =='dir':
-        mode = stat.S_IFDIR | 755
-        blob = entry_pack_dir(randomgfid, fname, mode, 10, 10)
+        mode = stat.S_IFDIR | perm
+        blob = entry_pack_dir(randomgfid, fname, mode, uid, gid)
     else: # not yet...
         sys.exit(-1)
 

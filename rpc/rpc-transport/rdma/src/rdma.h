@@ -12,11 +12,6 @@
 #define _XPORT_RDMA_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
 #endif /* MAX_IOVEC */
@@ -33,6 +28,7 @@
 
 /* FIXME: give appropriate values to these macros */
 #define GF_DEFAULT_RDMA_LISTEN_PORT (GF_DEFAULT_BASE_PORT + 1)
+
 
 /* If you are changing GF_RDMA_MAX_SEGMENTS, please make sure to update
  * GLUSTERFS_GF_RDMA_MAX_HEADER_SIZE defined in glusterfs.h .
@@ -328,13 +324,24 @@ struct __gf_rdma_device {
         struct mem_pool *request_ctx_pool;
         struct mem_pool *ioq_pool;
         struct mem_pool *reply_info_pool;
+        struct list_head all_mr;
 };
 typedef struct __gf_rdma_device gf_rdma_device_t;
 
+
+struct __gf_rdma_arena_mr {
+        struct list_head list;
+        struct iobuf_arena *iobuf_arena;
+        struct ibv_mr *mr;
+};
+
+typedef struct __gf_rdma_arena_mr gf_rdma_arena_mr;
 struct __gf_rdma_ctx {
         gf_rdma_device_t          *device;
         struct rdma_event_channel *rdma_cm_event_channel;
         pthread_t                  rdma_cm_thread;
+        pthread_mutex_t            lock;
+        int32_t                    dlcount;
 };
 typedef struct __gf_rdma_ctx gf_rdma_ctx_t;
 

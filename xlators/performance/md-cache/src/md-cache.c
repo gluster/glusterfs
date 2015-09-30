@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -22,6 +17,7 @@
 #include "glusterfs-acl.h"
 #include <assert.h>
 #include <sys/time.h>
+#include "md-cache-messages.h"
 
 
 /* TODO:
@@ -50,6 +46,16 @@ static struct mdc_key {
 	},
 	{
 		.name = POSIX_ACL_DEFAULT_XATTR,
+		.load = 0,
+		.check = 1,
+	},
+	{
+		.name = GF_POSIX_ACL_ACCESS,
+		.load = 0,
+		.check = 1,
+	},
+	{
+		.name = GF_POSIX_ACL_DEFAULT,
 		.load = 0,
 		.check = 1,
 	},
@@ -282,8 +288,8 @@ mdc_inode_prep (xlator_t *this, inode_t *inode)
 
                 mdc = GF_CALLOC (sizeof (*mdc), 1, gf_mdc_mt_md_cache_t);
                 if (!mdc) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                MD_CACHE_MSG_NO_MEMORY, "out of memory");
                         goto unlock;
                 }
 
@@ -291,8 +297,8 @@ mdc_inode_prep (xlator_t *this, inode_t *inode)
 
                 ret = __mdc_inode_ctx_set (this, inode, mdc);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory :(");
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                MD_CACHE_MSG_NO_MEMORY, "out of memory");
                         GF_FREE (mdc);
                         mdc = NULL;
                 }
@@ -454,7 +460,7 @@ mdc_inode_iatt_get (xlator_t *this, inode_t *inode, struct iatt *iatt)
         }
         UNLOCK (&mdc->lock);
 
-        uuid_copy (iatt->ia_gfid, inode->gfid);
+        gf_uuid_copy (iatt->ia_gfid, inode->gfid);
         iatt->ia_ino    = gfid_to_ino (inode->gfid);
         iatt->ia_dev    = 42;
         iatt->ia_type   = inode->ia_type;
@@ -824,14 +830,14 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!local)
                 goto uncached;
 
+        loc_copy (&local->loc, loc);
+
 	if (!loc->name)
-		/* A nameless discovery is dangerous to cache. We
+		/* A nameless discovery is dangerous to serve from cache. We
 		   perform nameless lookup with the intention of
 		   re-establishing an inode "properly"
 		*/
 		goto uncached;
-
-        loc_copy (&local->loc, loc);
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
         if (ret != 0)
@@ -1754,7 +1760,7 @@ mdc_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
+        if (op_ret < 0)
                 goto out;
 
         local = frame->local;
@@ -1816,7 +1822,7 @@ mdc_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
+        if (op_ret < 0)
                 goto out;
 
         local = frame->local;
@@ -2213,6 +2219,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
 
@@ -2236,8 +2243,8 @@ init (xlator_t *this)
 
 	conf = GF_CALLOC (sizeof (*conf), 1, gf_mdc_mt_mdc_conf_t);
 	if (!conf) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"out of memory");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        MD_CACHE_MSG_NO_MEMORY, "out of memory");
 		return -1;
 	}
 
@@ -2248,6 +2255,7 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 out:

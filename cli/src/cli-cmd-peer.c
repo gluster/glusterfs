@@ -13,11 +13,6 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -246,11 +241,11 @@ out:
 }
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "peer probe <HOSTNAME>",
+        { "peer probe { <HOSTNAME> | <IP-address> }",
           cli_cmd_peer_probe_cbk,
           "probe peer specified by <HOSTNAME>"},
 
-        { "peer detach <HOSTNAME> [force]",
+        { "peer detach { <HOSTNAME> | <IP-address> } [force]",
           cli_cmd_peer_deprobe_cbk,
           "detach peer specified by <HOSTNAME>"},
 

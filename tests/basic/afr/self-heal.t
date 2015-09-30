@@ -7,6 +7,7 @@ cleanup;
 
 #Init
 AREQUAL_PATH=$(dirname $0)/../../utils
+AREQUAL_BIN=$AREQUAL_PATH/arequal-checksum
 CFLAGS=""
 test "`uname -s`" != "Linux" && {
     CFLAGS="$CFLAGS -I$(dirname $0)/../../../contrib/argp-standalone ";
@@ -14,6 +15,8 @@ test "`uname -s`" != "Linux" && {
     CFLAGS="$CFLAGS -lintl";
 }
 build_tester $AREQUAL_PATH/arequal-checksum.c $CFLAGS
+TEST [ -e $AREQUAL_BIN ]
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick{0,1}
@@ -50,7 +53,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check all files created/deleted on brick1 are also replicated on brick 0
 #(i.e. no reverse heal has happened)
@@ -59,7 +62,7 @@ TEST ls $B0/brick0/def/ghi/file2.txt
 TEST ls $B0/brick0/jkl/mno/file.txt
 TEST ! ls $B0/brick0/abc/ghi
 EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/abc/def/file_abc_def_2.txt
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -79,11 +82,11 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 TEST test -d $B0/brick0/file
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -102,11 +105,11 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "777" stat -c %a $B0/brick0/file
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -126,11 +129,11 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/file
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -157,11 +160,11 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT 0 stat -c %s $B0/brick1/file
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -180,7 +183,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "$GFID" gf_get_gfid_xattr $B0/brick0/file
@@ -204,12 +207,12 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 TEST test -f $B0/brick0/hard_link_to_file
 TEST test -h $B0/brick0/link_to_file
-TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <($AREQUAL_BIN -p $B0/brick0 -i .glusterfs) <($AREQUAL_BIN -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -230,7 +233,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 TEST diff <(echo "user.myattr_1=\"My_attribute_1_modified\"") <(getfattr -n user.myattr_1 $B0/brick1/file|grep user.myattr_1)
 TEST diff <(echo "user.myattr_3=\"My_attribute_3\"") <(getfattr -n user.myattr_3 $B0/brick1/file|grep user.myattr_3)
@@ -239,5 +242,5 @@ TEST diff <(echo "user.myattr_3=\"My_attribute_3\"") <(getfattr -n user.myattr_3
 TEST rm -rf $M0/*
 ###############################################################################
 
-TEST rm -rf $AREQUAL_PATH/arequal-checksum
+TEST rm -rf $AREQUAL_BIN
 cleanup;

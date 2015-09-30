@@ -8,11 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "globals.h"
 #include "glusterfs.h"
 #include "dict.h"
@@ -28,6 +23,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-hooks.h"
+#include "glusterd-messages.h"
 
 #include <fnmatch.h>
 
@@ -63,7 +59,7 @@ char glusterd_hook_dirnames[GD_OP_MAX][256] =
 };
 #undef EMPTY
 
-static inline gf_boolean_t
+static gf_boolean_t
 glusterd_is_hook_enabled (char *script)
 {
         return (script[0] == 'S' && (fnmatch ("*.rpmsave", script, 0) != 0)
@@ -89,16 +85,18 @@ glusterd_hooks_create_hooks_directory (char *basedir)
         snprintf (path, sizeof (path), "%s/hooks", basedir);
         ret = mkdir_p (path, 0777, _gf_true);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due"
-                         "to %s", path, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create %s",
+                        path);
                 goto out;
         }
 
         GLUSTERD_GET_HOOKS_DIR (version_dir, GLUSTERD_HOOK_VER, priv);
         ret = mkdir_p (version_dir, 0777, _gf_true);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_CRITICAL, "Unable to create %s due "
-                        "to %s", version_dir, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create %s",
+                        version_dir);
                 goto out;
         }
 
@@ -111,9 +109,10 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                           cmd_subdir);
                 ret = mkdir_p (path, 0777, _gf_true);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_CRITICAL,
-                                "Unable to create %s due to %s",
-                                path, strerror (errno));
+                        gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_CREATE_DIR_FAILED,
+                                "Unable to create %s",
+                                path);
                         goto out;
                 }
 
@@ -123,9 +122,10 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                                   version_dir, cmd_subdir, type_subdir[type]);
                         ret = mkdir_p (path, 0777, _gf_true);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_CRITICAL,
-                                        "Unable to create %s due to %s",
-                                        path, strerror (errno));
+                                gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_CREATE_DIR_FAILED,
+                                        "Unable to create %s",
+                                        path);
                                 goto out;
                         }
                 }
@@ -162,6 +162,34 @@ glusterd_hooks_add_hooks_version (runner_t* runner)
         runner_argprintf (runner, "--version=%d", GLUSTERD_HOOK_VER);
 }
 
+static void
+glusterd_hooks_add_custom_args (dict_t *dict, runner_t *runner)
+{
+        char      *hooks_args     = NULL;
+        int32_t    ret            = -1;
+        xlator_t  *this           = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, runner, out);
+
+        ret = dict_get_str (dict, "hooks_args", &hooks_args);
+        if (ret)
+                gf_msg_debug (this->name, 0,
+                        "No Hooks Arguments.");
+        else
+                gf_msg_debug (this->name, 0,
+                        "Hooks Args = %s", hooks_args);
+
+        if (hooks_args)
+                runner_argprintf (runner, "%s", hooks_args);
+
+out:
+        return;
+}
+
+
 int
 glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
 {
@@ -196,6 +224,8 @@ glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
                 runner_argprintf (runner, "%s=%s", key, value);
         }
 
+        glusterd_hooks_add_custom_args (dict, runner);
+
         ret = 0;
 out:
         return ret;
@@ -213,8 +243,7 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
         int                     ret              = -1;
 
         priv = THIS->private;
-        list_for_each_entry (voliter, &priv->volumes,
-                             vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (glusterd_is_volume_started (voliter))
                         vol_count++;
         }
@@ -264,15 +293,7 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                         break;
 
                 case GD_OP_GSYNC_CREATE:
-                        ret = dict_get_str (op_ctx, "hooks_args", &hooks_args);
-                        if (ret)
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "No Hooks Arguments.");
-                        else
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Hooks Args = %s", hooks_args);
-                        if (hooks_args)
-                                runner_argprintf (runner, "%s", hooks_args);
+                        glusterd_hooks_add_custom_args (op_ctx, runner);
                         break;
 
                 case GD_OP_ADD_BRICK:
@@ -316,7 +337,8 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 
         ret = dict_get_str (op_ctx, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to get volname "
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get volname "
                         "from operation context");
                 goto out;
         }
@@ -324,8 +346,10 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
         hookdir = opendir (hooks_path);
         if (!hookdir) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open dir %s, due "
-                        "to %s", hooks_path, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
+                        "Failed to open dir %s",
+                        hooks_path);
                 goto out;
         }
 
@@ -337,7 +361,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 
         ret = -1;
         line_count = 0;
-        glusterd_for_each_entry (entry, hookdir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, hookdir);
         while (entry) {
                 if (line_count == N-1) {
                         N *= 2;
@@ -351,7 +375,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                         line_count++;
                 }
 
-                glusterd_for_each_entry (entry, hookdir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, hookdir);
         }
 
         lines[line_count] = NULL;
@@ -369,7 +393,8 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                 runner_argprintf (&runner, "--volname=%s", volname);
                 ret = glusterd_hooks_add_op_args (&runner, op, op_ctx, type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to add "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_ADD_OP_ARGS_FAIL, "Failed to add "
                                 "command specific arguments");
                         goto out;
                 }
@@ -419,7 +444,7 @@ glusterd_hooks_post_stub_enqueue (char *scriptdir, glusterd_op_t op,
         pthread_mutex_lock (&hooks_priv->mutex);
         {
                 hooks_priv->waitcount++;
-                list_add_tail (&stub->all_hooks, &hooks_priv->list);
+                cds_list_add_tail (&stub->all_hooks, &hooks_priv->list);
                 pthread_cond_signal (&hooks_priv->cond);
         }
         pthread_mutex_unlock (&hooks_priv->mutex);
@@ -445,7 +470,7 @@ glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
         if (!hooks_stub)
                 goto out;
 
-        INIT_LIST_HEAD (&hooks_stub->all_hooks);
+        CDS_INIT_LIST_HEAD (&hooks_stub->all_hooks);
         hooks_stub->op = op;
         hooks_stub->scriptdir = gf_strdup (scriptdir);
         if (!hooks_stub->scriptdir)
@@ -459,7 +484,8 @@ glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
         ret = 0;
 out:
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialize "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_POST_HOOK_STUB_INIT_FAIL, "Failed to initialize "
                         "post hooks stub");
                 glusterd_hooks_stub_cleanup (hooks_stub);
         }
@@ -471,7 +497,8 @@ void
 glusterd_hooks_stub_cleanup (glusterd_hooks_stub_t *stub)
 {
         if (!stub) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  GD_MSG_HOOK_STUB_NULL,
                                   "hooks_stub is NULL");
                 return;
         }
@@ -498,14 +525,14 @@ hooks_worker (void *args)
         for (;;) {
                 pthread_mutex_lock (&hooks_priv->mutex);
                 {
-                        while (list_empty (&hooks_priv->list)) {
+                        while (cds_list_empty (&hooks_priv->list)) {
                                 pthread_cond_wait (&hooks_priv->cond,
                                                    &hooks_priv->mutex);
                         }
-                        stub = list_entry (hooks_priv->list.next,
-                                           glusterd_hooks_stub_t,
-                                           all_hooks);
-                        list_del_init (&stub->all_hooks);
+                        stub = cds_list_entry (hooks_priv->list.next,
+                                               glusterd_hooks_stub_t,
+                                               all_hooks);
+                        cds_list_del_init (&stub->all_hooks);
                         hooks_priv->waitcount--;
 
                 }
@@ -535,7 +562,7 @@ glusterd_hooks_priv_init (glusterd_hooks_private_t **new)
 
         pthread_mutex_init (&hooks_priv->mutex, NULL);
         pthread_cond_init (&hooks_priv->cond, NULL);
-        INIT_LIST_HEAD (&hooks_priv->list);
+        CDS_INIT_LIST_HEAD (&hooks_priv->list);
         hooks_priv->waitcount = 0;
 
         *new = hooks_priv;
@@ -561,7 +588,8 @@ glusterd_hooks_spawn_worker (xlator_t *this)
         ret = pthread_create (&hooks_priv->worker, NULL, hooks_worker,
                               (void *)this);
         if (ret)
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn post "
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_SPAWN_THREADS_FAIL, "Failed to spawn post "
                         "hooks worker thread");
 out:
         return ret;

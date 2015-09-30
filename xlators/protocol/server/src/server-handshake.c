@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "server.h"
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"
@@ -21,6 +16,7 @@
 #include "compat-errno.h"
 #include "glusterfs3.h"
 #include "authenticate.h"
+#include "server-messages.h"
 
 struct __get_xl_struct {
         const char *name;
@@ -94,7 +90,7 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
         }
 
         if (temp_volfile->checksum != checksum) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_REMOUNT_CLIENT_REQD,
                         "the volume file was modified between a prior access "
                         "and now. This may lead to inconsistency between "
                         "clients, you are advised to remount client");
@@ -122,7 +118,7 @@ getspec_build_volfile_path (xlator_t *this, const char *key, char *path,
         ret = dict_get_str (this->options, "client-volume-filename",
                             &filename);
         if (ret == 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, PS_MSG_DEFAULTING_FILE,
                         "option 'client-volume-filename' is changed to "
                         "'volume-filename.<key>' which now takes 'key' as an "
                         "option to choose/fetch different files from server. "
@@ -137,8 +133,9 @@ getspec_build_volfile_path (xlator_t *this, const char *key, char *path,
                 if (ret < 0) {
                         /* Make sure that key doesn't contain "../" in path */
                         if ((gf_strstr (key, "/", "..")) == -1) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "%s: invalid key", key);
+                                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                        PS_MSG_INVALID_ENTRY, "%s: invalid "
+                                        "key", key);
                                 goto out;
                         }
                 }
@@ -148,9 +145,9 @@ getspec_build_volfile_path (xlator_t *this, const char *key, char *path,
                 ret = dict_get_str (this->options,
                                     "volume-filename.default", &filename);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "no default volume filename given, "
-                                "defaulting to %s", DEFAULT_VOLUME_FILE_PATH);
+                        gf_msg_debug (this->name, 0, "no default volume "
+                                      "filename given, defaulting to %s",
+                                      DEFAULT_VOLUME_FILE_PATH);
                 }
         }
 
@@ -203,7 +200,8 @@ _validate_volfile_checksum (xlator_t *this, char *key,
                 fd = open (filename, O_RDONLY);
                 if (-1 == fd) {
                         ret = 0;
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                PS_MSG_VOL_FILE_OPEN_FAILED,
                                 "failed to open volume file (%s) : %s",
                                 filename, strerror (errno));
                         goto out;
@@ -254,7 +252,7 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_req       args                   = {0,};
         gf_getspec_rsp       rsp                    = {0,};
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
         conf = this->private;
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_getspec_req);
@@ -271,8 +269,8 @@ server_getspec (rpcsvc_request_t *req)
                 /* to allocate the proper buffer to hold the file data */
                 ret = stat (filename, &stbuf);
                 if (ret < 0){
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Unable to stat %s (%s)",
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                PS_MSG_STAT_ERROR, "Unable to stat %s (%s)",
                                 filename, strerror (errno));
                         op_errno = errno;
                         goto fail;
@@ -280,9 +278,9 @@ server_getspec (rpcsvc_request_t *req)
 
                 spec_fd = open (filename, O_RDONLY);
                 if (spec_fd < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Unable to open %s (%s)",
-                                filename, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                PS_MSG_FILE_OP_FAILED, "Unable to open %s "
+                                "(%s)", filename, strerror (errno));
                         op_errno = errno;
                         goto fail;
                 }
@@ -364,10 +362,27 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
 
         config_params = dict_copy_with_ref (this->options, NULL);
         conf          = this->private;
+
+        if (conf->parent_up == _gf_false) {
+                /* PARENT_UP indicates that all xlators in graph are inited
+                 * successfully
+                 */
+                op_ret = -1;
+                op_errno = EAGAIN;
+
+                ret = dict_set_str (reply, "ERROR",
+                                    "xlator graph in server is not initialised "
+                                    "yet. Try again later");
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error: "
+                                      "xlator graph in server is not "
+                                      "initialised yet. Try again later");
+                goto fail;
+        }
 
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
@@ -382,10 +397,9 @@ server_setvolume (rpcsvc_request_t *req)
                                     "Internal error: failed to unserialize "
                                     "request dictionary");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg \"%s\"",
-                                "Internal error: failed to unserialize "
-                                "request dictionary");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg \"%s\"", "Internal error: failed "
+                                      "to unserialize request dictionary");
 
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -400,8 +414,8 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = dict_set_str (reply, "ERROR",
                                     "UUID not specified");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -414,8 +428,8 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = dict_set_str (reply, "ERROR",
                                     "lock state version not supplied");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -429,14 +443,16 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Connected to %s", client->client_uid);
+        gf_msg_debug (this->name, 0, "Connected to %s", client->client_uid);
         cancelled = server_cancel_grace_timer (this, client);
         if (cancelled)//Do gf_client_put on behalf of grace-timer-handler.
                 gf_client_put (client, NULL);
 
         serv_ctx = server_ctx_get (client, client->this);
         if (serv_ctx == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "server_ctx_get() failed");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
+                        "failed");
                 goto fail;
         }
 
@@ -452,8 +468,9 @@ server_setvolume (rpcsvc_request_t *req)
         auth_set_username_passwd (params, config_params, client);
         if (req->trans->ssl_name) {
                 if (dict_set_str(params,"ssl-name",req->trans->ssl_name) != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to set ssl_name %s", req->trans->ssl_name);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PS_MSG_SSL_NAME_SET_FAILED, "failed to set "
+                                "ssl_name %s", req->trans->ssl_name);
                         /* Not fatal, auth will just fail. */
                 }
         }
@@ -463,8 +480,8 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = dict_set_str (reply, "ERROR",
                                     "No FOP version number specified");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
         }
 
         ret = dict_get_int32 (params, "mgmt-version", &mgmt_version);
@@ -472,8 +489,8 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = dict_set_str (reply, "ERROR",
                                     "No MGMT version number specified");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
         }
 
         ret = gf_compare_client_version (req, fop_version, mgmt_version);
@@ -483,14 +500,15 @@ server_setvolume (rpcsvc_request_t *req)
                                    fop_version, mgmt_version);
                 /* get_supported_version (req)); */
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "asprintf failed while setting up error msg");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_ASPRINTF_FAILED, "asprintf failed while"
+                                "setting up error msg");
                         goto fail;
                 }
                 ret = dict_set_dynstr (reply, "ERROR", msg);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -502,8 +520,8 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = dict_set_str (reply, "ERROR",
                                     "No remote-subvolume option specified");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -515,14 +533,15 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
                                    name);
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_ASPRINTF_FAILED,
                                 "asprintf failed while setting error msg");
                         goto fail;
                 }
                 ret = dict_set_dynstr (reply, "ERROR", msg);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = ENOENT;
@@ -535,8 +554,8 @@ server_setvolume (rpcsvc_request_t *req)
                         ret = dict_get_str (params, "volfile-key",
                                             &volfile_key);
                         if (ret)
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "failed to set 'volfile-key'");
+                                gf_msg_debug (this->name, 0, "failed to set "
+                                              "'volfile-key'");
 
                         ret = _validate_volfile_checksum (this, volfile_key,
                                                           checksum);
@@ -546,8 +565,8 @@ server_setvolume (rpcsvc_request_t *req)
                                                     "varies from earlier "
                                                     "access");
                                 if (ret < 0)
-                                        gf_log (this->name, GF_LOG_DEBUG,
-                                                "failed to set error msg");
+                                        gf_msg_debug (this->name, 0, "failed "
+                                                      "to set error msg");
 
                                 op_ret   = -1;
                                 op_errno = ESTALE;
@@ -561,25 +580,26 @@ server_setvolume (rpcsvc_request_t *req)
         if (peerinfo) {
                 ret = dict_set_static_ptr (params, "peer-info", peerinfo);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set peer-info");
+                        gf_msg_debug (this->name, 0, "failed to set "
+                                      "peer-info");
         }
         if (conf->auth_modules == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, PS_MSG_AUTH_INIT_FAILED,
                         "Authentication module not initialized");
         }
 
         ret = dict_get_str (params, "client-version", &clnt_version);
         if (ret)
-                gf_log (this->name, GF_LOG_INFO, "client-version not set, "
-                        "may be of older version");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PS_MSG_CLIENT_VERSION_NOT_SET,
+                        "client-version not set, may be of older version");
 
         ret = gf_authenticate (params, config_params,
                                conf->auth_modules);
 
         if (ret == AUTH_ACCEPT) {
 
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_CLIENT_ACCEPTED,
                         "accepted client from %s (version: %s)",
                         client->client_uid,
                         (clnt_version) ? clnt_version : "old");
@@ -587,20 +607,20 @@ server_setvolume (rpcsvc_request_t *req)
                 client->bound_xl = xl;
                 ret = dict_set_str (reply, "ERROR", "Success");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
         } else {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Cannot authenticate client from %s %s",
-                        client->client_uid,
+                gf_msg (this->name, GF_LOG_ERROR, EACCES,
+                        PS_MSG_AUTHENTICATE_ERROR, "Cannot authenticate client"
+                        " from %s %s", client->client_uid,
                         (clnt_version) ? clnt_version : "old");
 
                 op_ret = -1;
                 op_errno = EACCES;
                 ret = dict_set_str (reply, "ERROR", "Authentication failed");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
                 goto fail;
         }
 
@@ -609,8 +629,8 @@ server_setvolume (rpcsvc_request_t *req)
                                     "Check volfile and handshake "
                                     "options in protocol/client");
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "failed to set error msg");
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
 
                 op_ret = -1;
                 op_errno = EACCES;
@@ -623,10 +643,9 @@ server_setvolume (rpcsvc_request_t *req)
                 /* create inode table for this bound_xl, if one doesn't
                    already exist */
 
-                gf_log (this->name, GF_LOG_TRACE,
-                        "creating inode table with lru_limit=%"PRId32", "
-                        "xlator=%s", conf->inode_lru_limit,
-                        client->bound_xl->name);
+                gf_msg_trace (this->name, 0, "creating inode table with "
+                              "lru_limit=%"PRId32", xlator=%s",
+                              conf->inode_lru_limit, client->bound_xl->name);
 
                 /* TODO: what is this ? */
                 client->bound_xl->itable =
@@ -637,25 +656,24 @@ server_setvolume (rpcsvc_request_t *req)
         ret = dict_set_str (reply, "process-uuid",
                             this->ctx->process_uuid);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set 'process-uuid'");
+                gf_msg_debug (this->name, 0, "failed to set 'process-uuid'");
 
         ret = dict_set_uint32 (reply, "clnt-lk-version", serv_ctx->lk_version);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to set 'clnt-lk-version'");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        PS_MSG_CLIENT_LK_VERSION_ERROR, "failed to set "
+                        "'clnt-lk-version'");
 
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) req->trans));
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set 'transport-ptr'");
+                gf_msg_debug (this->name, 0, "failed to set 'transport-ptr'");
 
 fail:
         rsp.dict.dict_len = dict_serialized_length (reply);
         if (rsp.dict.dict_len > UINT_MAX) {
-                gf_log ("server-handshake", GF_LOG_DEBUG,
-                        "failed to get serialized length of reply dict");
+                gf_msg_debug ("server-handshake", 0, "failed to get serialized"
+                               " length of reply dict");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 rsp.dict.dict_len = 0;
@@ -667,8 +685,8 @@ fail:
                 if (rsp.dict.dict_val) {
                         ret = dict_serialize (reply, rsp.dict.dict_val);
                         if (ret < 0) {
-                                gf_log ("server-handshake", GF_LOG_DEBUG,
-                                        "failed to serialize reply dict");
+                                gf_msg_debug ("server-handshake", 0, "failed "
+                                              "to serialize reply dict");
                                 op_ret = -1;
                                 op_errno = -ret;
                         }
@@ -682,7 +700,7 @@ fail:
          * list of connections the server is maintaining and might segfault
          * during statedump when bound_xl of the connection is accessed.
          */
-        if (op_ret && !xl) {
+        if (op_ret && !xl && (client != NULL)) {
                 /* We would have set the xl_private of the transport to the
                  * @conn. But if we have put the connection i.e shutting down
                  * the connection, then we should set xl_private to NULL as it
@@ -735,7 +753,7 @@ server_set_lk_version (rpcsvc_request_t *req)
         server_ctx_t       *serv_ctx = NULL;
         xlator_t           *this     = NULL;
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
         //TODO: Decide on an appropriate errno for the error-path
         //below
         if (!this)
@@ -752,7 +770,9 @@ server_set_lk_version (rpcsvc_request_t *req)
         client = gf_client_get (this, &req->cred, args.uid);
         serv_ctx = server_ctx_get (client, client->this);
         if (serv_ctx == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "server_ctx_get() failed");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
+                        "failed");
                 goto fail;
         }
 

@@ -4,6 +4,7 @@
 . $(dirname $0)/../volume.rc
 
 cleanup;
+START_TIMESTAMP=`date +%s`
 
 TEST glusterd
 TEST pidof glusterd
@@ -21,11 +22,8 @@ do
 done
 cd
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
-TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 start
-EXPECT_WITHIN 600 "Y" gd_is_replace_brick_completed $H0 $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1
-TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 commit
+TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 commit force
 TEST $CLI volume stop $V0
-TEST diff -r --exclude=.glusterfs $B0/${V0}0 $B0/${V0}1
 
 files=""
 
@@ -40,5 +38,8 @@ do
 done
 
 EXPECT "" echo $files
+
+# Check for non Linux systems that we did not mess with directory offsets
+TEST ! log_newer $START_TIMESTAMP "offset reused from another DIR"
 
 cleanup

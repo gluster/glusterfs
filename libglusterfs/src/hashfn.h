@@ -11,11 +11,6 @@
 #ifndef __HASHFN_H__
 #define __HASHFN_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include <stdint.h>
 

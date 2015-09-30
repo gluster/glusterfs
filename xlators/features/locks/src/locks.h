@@ -10,11 +10,6 @@
 #ifndef __POSIX_LOCKS_H__
 #define __POSIX_LOCKS_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat-errno.h"
 #include "stack.h"
 #include "call-stub.h"
@@ -164,15 +159,15 @@ typedef struct {
 typedef struct {
         gf_boolean_t   entrylk_count_req;
         gf_boolean_t   inodelk_count_req;
-        gf_boolean_t   inodelk_dom_count_req;
         gf_boolean_t   posixlk_count_req;
         gf_boolean_t   parent_entrylk_req;
+        data_t        *inodelk_dom_count_req;
 
+        dict_t  *xdata;
         /* used by {f,}truncate */
         loc_t  loc;
         fd_t  *fd;
         off_t  offset;
-        dict_t *xdata;
         enum {TRUNCATE, FTRUNCATE} op;
 } pl_local_t;
 

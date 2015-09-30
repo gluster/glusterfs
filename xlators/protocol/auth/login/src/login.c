@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <fnmatch.h>
 #include "authenticate.h"
 
@@ -38,7 +33,6 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
                 gf_log ("auth/login", GF_LOG_INFO,
                         "connecting user name: %s", username_data->data);
                 using_ssl = _gf_true;
-                result = AUTH_REJECT;
         }
         else {
                 username_data = dict_get (input_params, "username");
@@ -80,6 +74,28 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
         if (allow_user) {
                 gf_log ("auth/login", GF_LOG_INFO,
                         "allowed user names: %s", allow_user->data);
+                /*
+                 * There's a subtle difference between SSL and non-SSL behavior
+                 * if we can't match anything in the "while" loop below.
+                 * Intuitively, we should AUTH_REJECT if there's no match.
+                 * However, existing code depends on allowing untrusted users
+                 * to connect with *no credentials at all* by falling through
+                 * the loop.  They're still distinguished from trusted users
+                 * who do provide a valid username and password (in fact that's
+                 * pretty much the only thing we use non-SSL login auth for),
+                 * but they are allowed to connect.  It's wrong, but it's not
+                 * worth changing elsewhere.  Therefore, we do the sane thing
+                 * only for SSL here.
+                 *
+                 * For SSL, if there's a list *you must be on it*.  Note that
+                 * if there's no list we don't care.  In that case (and the
+                 * ssl-allow=* case as well) authorization is effectively
+                 * disabled, though authentication and encryption are still
+                 * active.
+                 */
+                if (using_ssl) {
+                        result = AUTH_REJECT;
+                }
                 username_cpy = gf_strdup (allow_user->data);
                 if (!username_cpy)
                         goto out;

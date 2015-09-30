@@ -7,15 +7,18 @@ AM_CPPFLAGS = $(PYTHONDEV_CPPFLAGS) $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/
 AM_CFLAGS = $(PYTHONDEV_CFLAGS) -Wall -fno-strict-aliasing -DGLUSTER_PYTHON_PATH=\"$(glupydir)\" -DPATH_GLUSTERFS_GLUPY_MODULE=\"${xlatordir}/glupy${shrext_cmds}\" $(GF_CFLAGS)
 
 # Flags to build glupy.so with
-glupy_la_LDFLAGS = $(PYTHONDEV_LDFLAGS) -module -avoid-version -shared -nostartfiles
+glupy_la_LDFLAGS = $(PYTHONDEV_LDFLAGS) -module -avoid-version -nostartfiles
 glupy_la_SOURCES = glupy.c
 glupy_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	 -lpthread -l$(BUILD_PYTHON_LIB)
 
 noinst_HEADERS = glupy.h
 
-# Install glupy.py into the Python site-packages area
+# Install __init__.py into the Python site-packages area
 pyglupydir = @BUILD_PYTHON_SITE_PACKAGES@/gluster
-pyglupy_PYTHON = glupy.py __init__.py
+pyglupy_PYTHON = __init__.py
+
+# Install glupy/__init_-.py into the Python site-packages area
+SUBDIRS = glupy
 
 CLEANFILES =

@@ -10,11 +10,6 @@
 #ifndef _POSIX_AIO_H
 #define _POSIX_AIO_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "glusterfs.h"
 

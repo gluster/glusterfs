@@ -11,7 +11,7 @@ client_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 client_la_SOURCES = client.c client-helpers.c client-rpc-fops.c  \
 	client-handshake.c client-callback.c client-lk.c
 
-noinst_HEADERS = client.h client-mem-types.h
+noinst_HEADERS = client.h client-mem-types.h client-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \

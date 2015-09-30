@@ -50,6 +50,7 @@ struct subvol_healer {
 typedef struct {
 	gf_boolean_t            iamshd;
 	gf_boolean_t            enabled;
+	int                     timeout;
 	struct subvol_healer   *index_healers;
 	struct subvol_healer   *full_healers;
 

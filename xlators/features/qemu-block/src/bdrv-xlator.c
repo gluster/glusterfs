@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "inode.h"
 #include "syncop.h"
 #include "qemu-block.h"
@@ -96,17 +91,17 @@ qemu_gluster_open (BlockDriverState *bs, QDict *options, int bdrv_flags)
 		struct iatt buf = {0,};
 		uuid_t gfid;
 
-		uuid_parse(gfid_str, gfid);
+		gf_uuid_parse(gfid_str, gfid);
 
 		loc.inode = inode_find(conf->root_inode->table, gfid);
 		if (!loc.inode) {
 			loc.inode = inode_new(conf->root_inode->table);
-			uuid_copy(loc.inode->gfid, gfid);
+			gf_uuid_copy(loc.inode->gfid, gfid);
 		}
 
-		uuid_copy(loc.gfid, loc.inode->gfid);
-		ret = syncop_lookup(FIRST_CHILD(THIS), &loc, NULL, &buf, NULL,
-				    NULL);
+		gf_uuid_copy(loc.gfid, loc.inode->gfid);
+		ret = syncop_lookup(FIRST_CHILD(THIS), &loc, &buf, NULL,
+                                    NULL, NULL);
 		if (ret) {
 			loc_wipe(&loc);
 			return ret;
@@ -150,7 +145,7 @@ qemu_gluster_create (const char *filename, QEMUOptionParameter *options)
 	if (!fd)
 		return -ENOMEM;
 
-	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &stat);
+	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &stat, NULL, NULL);
 	if (ret) {
 		fd_unref (fd);
 		return ret;
@@ -163,7 +158,8 @@ qemu_gluster_create (const char *filename, QEMUOptionParameter *options)
 	}
 
 	if (total_size) {
-		ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, total_size);
+		ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, total_size,
+                                        NULL, NULL);
 		if (ret) {
 			fd_unref (fd);
 			return ret;
@@ -195,7 +191,7 @@ qemu_gluster_co_readv (BlockDriverState *bs, int64_t sector_num, int nb_sectors,
 	size = nb_sectors * BDRV_SECTOR_SIZE;
 
 	ret = syncop_readv (FIRST_CHILD(THIS), fd, size, offset, 0,
-			    &iov, &count, &iobref);
+			    &iov, &count, &iobref, NULL, NULL);
 	if (ret < 0)
 		goto out;
 
@@ -245,7 +241,8 @@ qemu_gluster_co_writev (BlockDriverState *bs, int64_t sector_num, int nb_sectors
 	iov.iov_base = iobuf_ptr (iobuf);
 	iov.iov_len = size;
 
-	ret = syncop_writev (FIRST_CHILD(THIS), fd, &iov, 1, offset, iobref, 0);
+	ret = syncop_writev (FIRST_CHILD(THIS), fd, &iov, 1, offset, iobref, 0,
+                             NULL, NULL);
 
 out:
 	if (iobuf)
@@ -265,7 +262,7 @@ qemu_gluster_co_flush (BlockDriverState *bs)
 
 	fd = fd_from_bs (bs);
 
-	ret = syncop_flush (FIRST_CHILD(THIS), fd);
+	ret = syncop_flush (FIRST_CHILD(THIS), fd, NULL, NULL);
 
 	fd_unref (fd);
 
@@ -281,7 +278,7 @@ qemu_gluster_co_fsync (BlockDriverState *bs)
 
 	fd = fd_from_bs (bs);
 
-	ret = syncop_fsync (FIRST_CHILD(THIS), fd, 0);
+	ret = syncop_fsync (FIRST_CHILD(THIS), fd, 0, NULL, NULL);
 
 	fd_unref (fd);
 
@@ -297,7 +294,7 @@ qemu_gluster_truncate (BlockDriverState *bs, int64_t offset)
 
 	fd = fd_from_bs (bs);
 
-	ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, offset);
+	ret = syncop_ftruncate (FIRST_CHILD(THIS), fd, offset, NULL, NULL);
 
 	fd_unref (fd);
 
@@ -314,7 +311,7 @@ qemu_gluster_getlength (BlockDriverState *bs)
 
 	fd = fd_from_bs (bs);
 
-	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &iatt);
+	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &iatt, NULL, NULL);
 	if (ret < 0)
 		return -1;
 
@@ -331,7 +328,7 @@ qemu_gluster_allocated_file_size (BlockDriverState *bs)
 
 	fd = fd_from_bs (bs);
 
-	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &iatt);
+	ret = syncop_fstat (FIRST_CHILD(THIS), fd, &iatt, NULL, NULL);
 	if (ret < 0)
 		return -1;
 

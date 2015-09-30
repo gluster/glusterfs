@@ -9,14 +9,10 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
+#include "protocol-common.h"
 
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
@@ -48,12 +44,14 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	priv = this->private;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	gf_log (this->name, GF_LOG_INFO, "performing metadata selfheal on %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                AFR_MSG_SELF_HEAL_INFO, "performing metadata selfheal on %s",
 		uuid_utoa (inode->gfid));
 
-	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL);
+	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL,
+                               NULL, NULL);
 	if (ret < 0) {
 		ret = -EIO;
                 goto out;
@@ -72,18 +70,20 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 		ret = syncop_setattr (priv->children[i], &loc,
 				      &locked_replies[source].poststat,
-				      AFR_HEAL_ATTR, NULL, NULL);
+				      AFR_HEAL_ATTR, NULL, NULL, NULL, NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 
-		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0);
+		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0,
+                                       NULL, NULL);
 		if (old_xattr) {
 			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
-						  old_xattr);
+						  old_xattr, NULL);
 		}
 
-		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0);
+		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0, NULL,
+                                       NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 	}
@@ -99,6 +99,96 @@ out:
 	return ret;
 }
 
+static uint64_t
+mtime_ns(struct iatt *ia)
+{
+        uint64_t ret;
+
+        ret = (((uint64_t)(ia->ia_mtime)) * 1000000000)
+            + (uint64_t)(ia->ia_mtime_nsec);
+
+        return ret;
+}
+
+/*
+ * When directory content is modified, [mc]time is updated. On
+ * Linux, the filesystem does it, while at least on NetBSD, the
+ * kernel file-system independent code does it. This means that
+ * when entries are added while bricks are down, the kernel sends
+ * a SETATTR [mc]time which will cause metadata split brain for
+ * the directory. In this case, clear the split brain by finding
+ * the source with the most recent modification date.
+ */
+static int
+afr_dirtime_splitbrain_source (call_frame_t *frame, xlator_t *this,
+                               struct afr_reply *replies,
+                               unsigned char *locked_on)
+{
+        afr_private_t *priv  = NULL;
+        int            source = -1;
+        struct iatt    source_ia;
+        struct iatt    child_ia;
+        uint64_t       mtime = 0;
+        int            i;
+        int            ret   = -1;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!locked_on[i])
+                        continue;
+
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret != 0)
+                        continue;
+
+                if (mtime_ns(&replies[i].poststat) <= mtime)
+                        continue;
+
+                mtime = mtime_ns(&replies[i].poststat);
+                source = i;
+        }
+
+        if (source == -1)
+                goto out;
+
+        source_ia = replies[source].poststat;
+        if (source_ia.ia_type != IA_IFDIR)
+                goto out;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (i == source)
+                        continue;
+
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret != 0)
+                        continue;
+
+                child_ia = replies[i].poststat;
+
+                if (!IA_EQUAL(source_ia, child_ia, gfid) ||
+                    !IA_EQUAL(source_ia, child_ia, type) ||
+                    !IA_EQUAL(source_ia, child_ia, prot) ||
+                    !IA_EQUAL(source_ia, child_ia, uid) ||
+                    !IA_EQUAL(source_ia, child_ia, gid) ||
+                    !afr_xattrs_are_equal (replies[source].xdata,
+                                           replies[i].xdata))
+                        goto out;
+        }
+
+        /*
+         * Metadata split brain is just about [amc]time
+         * We return our source.
+         */
+        ret = source;
+out:
+        return ret;
+}
+
 
 /*
  * Look for mismatching uid/gid or mode or user xattrs even if
@@ -107,6 +197,7 @@ out:
 static int
 __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
                                          unsigned char *sources,
+                                         unsigned char *sinks,
 					 unsigned char *healed_sinks,
 					 unsigned char *locked_on,
 					 struct afr_reply *replies)
@@ -122,10 +213,34 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
-            || !sources_count) {
+	    || !sources_count) {
+
+                source = afr_mark_split_brain_source_sinks (frame, this,
+                                                            sources, sinks,
+                                                            healed_sinks,
+                                                            locked_on, replies,
+                                                      AFR_METADATA_TRANSACTION);
+                if (source >= 0)
+                        return source;
+
+		/* If this is a directory mtime/ctime only split brain
+		   use the most recent */
+		source = afr_dirtime_splitbrain_source (frame, this,
+							replies, locked_on);
+		if (source != -1) {
+		        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_SPLIT_BRAIN, "clear time "
+				"split brain on %s",
+				 uuid_utoa (replies[source].poststat.ia_gfid));
+			sources[source] = 1;
+			healed_sinks[source] = 0;
+			return source;
+		}
+
 		if (!priv->metadata_splitbrain_forced_heal) {
 			return -EIO;
 		}
+
 		/* Metadata split brain, select one subvol
 		   arbitrarily */
 		for (i = 0; i < priv->child_count; i++) {
@@ -136,6 +251,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 			}
 		}
 	}
+
+        /* No split brain at this point. If we were called from
+         * afr_heal_splitbrain_file(), abort.*/
+        if (afr_dict_contains_heal_op(frame))
+                return -EIO;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!sources[i])
@@ -154,10 +274,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		    !IA_EQUAL (first, replies[i].poststat, uid) ||
 		    !IA_EQUAL (first, replies[i].poststat, gid) ||
 		    !IA_EQUAL (first, replies[i].poststat, prot)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: iatt mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: iatt mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
 			sources[i] = 0;
 			healed_sinks[i] = 1;
 		}
@@ -168,10 +289,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 			continue;
                 if (!afr_xattrs_are_equal (replies[source].xdata,
                                            replies[i].xdata)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: xattr mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: xattr mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
                         sources[i] = 0;
                         healed_sinks[i] = 1;
                 }
@@ -180,7 +302,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	return source;
 }
 
-static int
+
+int
 __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				 unsigned char *locked_on, unsigned char *sources,
 				 unsigned char *sinks, unsigned char *healed_sinks,
@@ -196,11 +319,11 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
-	if (ret)
-		return ret;
+        if (ret)
+                return ret;
 
         witness = alloca0 (sizeof (*witness) * priv->child_count);
-	ret = afr_selfheal_find_direction (frame, this, replies,
+        ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_METADATA_TRANSACTION,
 					   locked_on, sources, sinks, witness);
 	if (ret)
@@ -235,7 +358,7 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
         }
 
 	source = __afr_selfheal_metadata_finalize_source (frame, this, sources,
-                                                          healed_sinks,
+                                                          sinks, healed_sinks,
                                                           locked_on, replies);
 
 	if (source < 0)
@@ -244,9 +367,8 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	return source;
 }
 
-static int
-__afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
-			 unsigned char *locked_on)
+int
+afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
 	afr_private_t *priv = NULL;
 	int ret = -1;
@@ -255,6 +377,7 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	unsigned char *data_lock = NULL;
 	unsigned char *healed_sinks = NULL;
 	struct afr_reply *locked_replies = NULL;
+        gf_boolean_t did_sh = _gf_true;
 	int source = -1;
 
 	priv = this->private;
@@ -284,7 +407,7 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		source = ret;
 
                 if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
-                        ret = -ENOTCONN;
+                        did_sh = _gf_false;
                         goto unlock;
                 }
 
@@ -302,42 +425,13 @@ unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
 
-        afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
-	return ret;
-}
-
-
-int
-afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
-{
-	afr_private_t *priv = NULL;
-	unsigned char *locked_on = NULL;
-	int ret = 0;
-
-	priv = this->private;
-
-	locked_on = alloca0 (priv->child_count);
-
-	ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain, 0, 0,
-				       locked_on);
-	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-			/* Either less than two subvols available, or another
-			   selfheal (from another server) is in progress. Skip
-			   for now in any case there isn't anything to do.
-			*/
-			ret = -ENOTCONN;
-			goto unlock;
-		}
-
-		ret = __afr_selfheal_metadata (frame, this, inode, locked_on);
-	}
-unlock:
-	afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0, locked_on);
-
 	return ret;
 }

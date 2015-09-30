@@ -7,19 +7,31 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
-#include "xlator.h"
 #include "defaults.h"
 #include "read-only-common.h"
+#include "read-only-mem-types.h"
+#include "read-only.h"
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        ret = xlator_mem_acct_init (this, gf_read_only_mt_end + 1);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting "
+                        "initialization failed.");
+
+        return ret;
+}
 
 int32_t
 init (xlator_t *this)
 {
-	if (!this->children || this->children->next) {
+	int                     ret     = -1;
+        read_only_priv_t       *priv    = NULL;
+
+        if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"translator not configured with exactly one child");
 		return -1;
@@ -30,14 +42,50 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	return 0;
+        priv = GF_CALLOC (1, sizeof (*priv), gf_read_only_mt_priv_t);
+        if (!priv)
+                goto out;
+
+        GF_OPTION_INIT ("read-only", priv->readonly_or_worm_enabled, bool, out);
+
+        this->private = priv;
+        ret = 0;
+out:
+        return ret;
 }
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        read_only_priv_t  *priv             = NULL;
+        int                ret              = -1;
+        gf_boolean_t       readonly_or_worm_enabled = _gf_false;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_OPTION_RECONF ("read-only", readonly_or_worm_enabled, options, bool,
+                          out);
+        priv->readonly_or_worm_enabled = readonly_or_worm_enabled;
+        ret = 0;
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
 
 void
 fini (xlator_t *this)
 {
-	return;
+        read_only_priv_t         *priv    = NULL;
+
+        priv = this->private;
+        if (!priv)
+                return;
+
+        this->private = NULL;
+        GF_FREE (priv);
+
+        return;
 }
 
 
@@ -73,5 +121,10 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-	{ .key = {NULL} },
+	{ .key  = {"read-only"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "When \"on\", makes a volume read-only. It is turned "
+                         "\"off\" by default."
+        },
 };

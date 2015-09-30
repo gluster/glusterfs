@@ -24,7 +24,7 @@ struct gf_mount_pattern {
 typedef struct gf_mount_pattern gf_mount_pattern_t;
 
 struct gf_mount_spec {
-        struct list_head speclist;
+        struct cds_list_head speclist;
         char *label;
         gf_mount_pattern_t *patterns;
         size_t len;

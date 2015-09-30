@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "fuse-bridge.h"
 
 static int
@@ -26,34 +21,16 @@ int fuse_migrate_fd (xlator_t *this, fd_t *fd, xlator_t *old_subvol,
 fuse_fd_ctx_t *
 fuse_fd_ctx_get (xlator_t *this, fd_t *fd);
 
-gf_boolean_t fuse_inode_needs_lookup (inode_t *inode, xlator_t *this);
-
 static int
 fuse_resolve_loc_touchup (fuse_state_t *state)
 {
         fuse_resolve_t *resolve = NULL;
         loc_t          *loc     = NULL;
-        char           *path    = NULL;
-        int             ret     = 0;
 
         resolve = state->resolve_now;
         loc     = state->loc_now;
 
-        if (!loc->path) {
-                if (loc->parent && resolve->bname) {
-                        ret = inode_path (loc->parent, resolve->bname, &path);
-			uuid_copy (loc->pargfid, loc->parent->gfid);
-			loc->name = resolve->bname;
-                } else if (loc->inode) {
-                        ret = inode_path (loc->inode, NULL, &path);
-			uuid_copy (loc->gfid, loc->inode->gfid);
-                }
-                if (ret)
-                        gf_log (THIS->name, GF_LOG_TRACE,
-                                "return value inode_path %d", ret);
-                loc->path = path;
-        }
-
+        loc_touchup (loc, resolve->bname);
         return 0;
 }
 
@@ -109,7 +86,7 @@ fuse_resolve_entry (fuse_state_t *state)
 	resolve_loc = &resolve->resolve_loc;
 
 	resolve_loc->parent = inode_ref (state->loc_now->parent);
-	uuid_copy (resolve_loc->pargfid, state->loc_now->pargfid);
+	gf_uuid_copy (resolve_loc->pargfid, state->loc_now->pargfid);
         resolve_loc->name = resolve->bname;
         resolve_loc->inode = inode_new (state->itable);
 
@@ -153,7 +130,7 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * -2: entry (inode corresponding to path) could not be resolved
                  */
 
-                if (uuid_is_null (resolve->gfid)) {
+                if (gf_uuid_is_null (resolve->gfid)) {
                         resolve->op_ret = -1;
                 } else {
                         resolve->op_ret = -2;
@@ -170,13 +147,13 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!link_inode)
                 goto out;
 
-	if (!uuid_is_null (resolve->gfid)) {
+	if (!gf_uuid_is_null (resolve->gfid)) {
 		loc_now->inode = link_inode;
 		goto out;
 	}
 
 	loc_now->parent = link_inode;
-        uuid_copy (loc_now->pargfid, link_inode->gfid);
+        gf_uuid_copy (loc_now->pargfid, link_inode->gfid);
 
 	fuse_resolve_entry (state);
 
@@ -197,10 +174,10 @@ fuse_resolve_gfid (fuse_state_t *state)
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
-        if (!uuid_is_null (resolve->pargfid)) {
-                uuid_copy (resolve_loc->gfid, resolve->pargfid);
-        } else if (!uuid_is_null (resolve->gfid)) {
-                uuid_copy (resolve_loc->gfid, resolve->gfid);
+        if (!gf_uuid_is_null (resolve->pargfid)) {
+                gf_uuid_copy (resolve_loc->gfid, resolve->pargfid);
+        } else if (!gf_uuid_is_null (resolve->gfid)) {
+                gf_uuid_copy (resolve_loc->gfid, resolve->gfid);
         }
 
 	/* inode may already exist in case we are looking up an inode which was
@@ -245,12 +222,12 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 
 	parent = resolve->parhint;
 	if (parent->table == state->itable) {
-		if (fuse_inode_needs_lookup (parent, THIS))
+		if (inode_needs_lookup (parent, THIS))
 			return 1;
 
 		/* no graph switches since */
 		loc->parent = inode_ref (parent);
-		uuid_copy (loc->pargfid, parent->gfid);
+		gf_uuid_copy (loc->pargfid, parent->gfid);
 		loc->inode = inode_grep (state->itable, parent, loc->name);
 
                 /* nodeid for root is 1 and we blindly take the latest graph's
@@ -274,13 +251,13 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 		/* non decisive result - parent missing */
 		return 1;
 	}
-	if (fuse_inode_needs_lookup (parent, THIS)) {
+	if (inode_needs_lookup (parent, THIS)) {
 		inode_unref (parent);
 		return 1;
 	}
 
 	loc->parent = parent;
-        uuid_copy (loc->pargfid, resolve->pargfid);
+        gf_uuid_copy (loc->pargfid, resolve->pargfid);
 
 	inode = inode_grep (state->itable, parent, loc->name);
 	if (inode) {
@@ -333,7 +310,7 @@ fuse_resolve_inode_simple (fuse_state_t *state)
 		inode = inode_find (state->itable, resolve->gfid);
 
         if (inode) {
-		if (!fuse_inode_needs_lookup (inode, THIS))
+		if (!inode_needs_lookup (inode, THIS))
 			goto found;
 		/* inode was linked through readdirplus */
 		inode_unref (inode);
@@ -416,7 +393,7 @@ out:
 }
 
 
-static inline int
+static int
 fuse_migrate_fd_error (xlator_t *this, fd_t *fd)
 {
         fuse_fd_ctx_t *fdctx = NULL;
@@ -571,7 +548,7 @@ fuse_gfid_set (fuse_state_t *state)
 {
         int   ret = 0;
 
-        if (uuid_is_null (state->gfid))
+        if (gf_uuid_is_null (state->gfid))
                 goto out;
 
         if (!state->xdata)
@@ -596,7 +573,7 @@ fuse_resolve_entry_init (fuse_state_t *state, fuse_resolve_t *resolve,
 	inode_t       *parent = NULL;
 
 	parent = fuse_ino_to_inode (par, state->this);
-	uuid_copy (resolve->pargfid, parent->gfid);
+	gf_uuid_copy (resolve->pargfid, parent->gfid);
 	resolve->parhint = parent;
 	resolve->bname = gf_strdup (name);
 
@@ -611,7 +588,7 @@ fuse_resolve_inode_init (fuse_state_t *state, fuse_resolve_t *resolve,
 	inode_t       *inode = NULL;
 
 	inode = fuse_ino_to_inode (ino, state->this);
-	uuid_copy (resolve->gfid, inode->gfid);
+	gf_uuid_copy (resolve->gfid, inode->gfid);
 	resolve->hint = inode;
 
 	return 0;
@@ -639,11 +616,11 @@ fuse_resolve (fuse_state_t *state)
 
                 fuse_resolve_fd (state);
 
-        } else if (!uuid_is_null (resolve->pargfid)) {
+        } else if (!gf_uuid_is_null (resolve->pargfid)) {
 
                 fuse_resolve_parent (state);
 
-        } else if (!uuid_is_null (resolve->gfid)) {
+        } else if (!gf_uuid_is_null (resolve->gfid)) {
 
                 fuse_resolve_inode (state);
 

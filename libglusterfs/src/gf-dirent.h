@@ -12,15 +12,20 @@
 #ifndef _GF_DIRENT_H
 #define _GF_DIRENT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "iatt.h"
 #include "inode.h"
 
 #define gf_dirent_size(name) (sizeof (gf_dirent_t) + strlen (name) + 1)
+
+int
+gf_deitransform(xlator_t *this, uint64_t y);
+
+int
+gf_itransform (xlator_t *this, uint64_t x, uint64_t *y_p, int client_id);
+
+uint64_t
+gf_dirent_orig_offset (xlator_t *this, uint64_t offset);
+
 
 struct _dir_entry_t {
         struct _dir_entry_t *next;
@@ -51,8 +56,12 @@ struct _gf_dirent_t {
 #define DT_ISDIR(mode) (mode == DT_DIR)
 
 gf_dirent_t *gf_dirent_for_name (const char *name);
+gf_dirent_t *entry_copy (gf_dirent_t *source);
+void gf_dirent_entry_free (gf_dirent_t *entry);
 void gf_dirent_free (gf_dirent_t *entries);
 int gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
                                 gf_dirent_t *entries);
 
+void
+gf_link_inode_from_dirent (xlator_t *this, inode_t *parent, gf_dirent_t *entry);
 #endif /* _GF_DIRENT_H */

@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <regex.h>
 #include <signal.h>
 
@@ -20,25 +15,34 @@
 #include "dht-messages.h"
 #include "libxlator.h"
 #include "syncop.h"
+#include "refcount.h"
 
 #ifndef _DHT_H
 #define _DHT_H
 
 #define GF_XATTR_FIX_LAYOUT_KEY     "distribute.fix.layout"
+#define GF_XATTR_FILE_MIGRATE_KEY   "trusted.distribute.migrate-data"
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
+#define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
+#define TIERING_MIGRATION_KEY       "tiering.migration"
+#define DHT_LAYOUT_HASH_INVALID     1
 
 #include <fnmatch.h>
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
                                        xlator_t     *this,
                                        int32_t       op_ret, int32_t op_errno,
-                                       dict_t *xdata);
-typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, call_frame_t *frame,
-                                    int              ret);
+                                       dict_t       *xdata);
+typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, xlator_t *dst_node,
+                                    call_frame_t    *frame);
 
+typedef int (*dht_refresh_layout_unlock) (call_frame_t *frame, xlator_t *this,
+                                         int op_ret);
+
+typedef int (*dht_refresh_layout_done_handle) (call_frame_t *frame);
 
 struct dht_layout {
         int                spread_cnt;  /* layout spread count per directory,
@@ -46,6 +50,20 @@ struct dht_layout {
                                            special key */
         int                cnt;
         int                preset;
+        /*
+         * The last *configuration* state for which this directory was known
+         * to be in balance.  The corresponding vol_commit_hash changes
+         * whenever bricks are added or removed.  This value changes when a
+         * (full) rebalance is complete.  If they match, it's safe to assume
+         * that every file is where it should be and there's no need to do
+         * lookups for files elsewhere.  If they don't, then we have to do a
+         * global lookup to be sure.
+         */
+        uint32_t           commit_hash;
+        /*
+         * The *runtime* state of the volume, changes when connections to
+         * bricks are made or lost.
+         */
         int                gen;
         int                type;
         int                ref; /* use with dht_conf_t->layout_lock */
@@ -57,6 +75,7 @@ struct dht_layout {
                                   */
                 uint32_t   start;
                 uint32_t   stop;
+                uint32_t   commit_hash;
                 xlator_t  *xlator;
         } list[];
 };
@@ -128,8 +147,17 @@ typedef struct {
         char         *domain;  /* Only locks within a single domain
                                 * contend with each other
                                 */
+        gf_lkowner_t  lk_owner;
         gf_boolean_t  locked;
 } dht_lock_t;
+
+typedef
+int (*dht_selfheal_layout_t)(call_frame_t *frame, loc_t *loc,
+                             dht_layout_t *layout);
+
+typedef
+gf_boolean_t (*dht_need_heal_t)(call_frame_t *frame, dht_layout_t **inmem,
+                                dht_layout_t **ondisk);
 
 struct dht_local {
         int                      call_cnt;
@@ -173,13 +201,20 @@ struct dht_local {
                 xlator_t        *srcvol;
         } linkfile;
         struct {
-                uint32_t         hole_cnt;
-                uint32_t         overlaps_cnt;
-                uint32_t         down;
-                uint32_t         misc;
-                dht_selfheal_dir_cbk_t   dir_cbk;
-                dht_layout_t    *layout;
+                uint32_t                hole_cnt;
+                uint32_t                overlaps_cnt;
+                uint32_t                down;
+                uint32_t                misc;
+                dht_selfheal_dir_cbk_t  dir_cbk;
+                dht_selfheal_layout_t   healer;
+                dht_need_heal_t         should_heal;
+                gf_boolean_t            force_mkdir;
+                dht_layout_t           *layout, *refreshed_layout;
         } selfheal;
+
+        dht_refresh_layout_unlock              refresh_layout_unlock;
+        dht_refresh_layout_done_handle         refresh_layout_done;
+
         uint32_t                 uid;
         uint32_t                 gid;
 
@@ -201,9 +236,6 @@ struct dht_local {
 
         /* gfid related */
         uuid_t  gfid;
-
-        /*Marker Related*/
-        struct marker_str    marker;
 
         /* flag used to make sure we need to return estale in
            {lookup,revalidate}_cbk */
@@ -253,6 +285,11 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_STATUS = 1 + 2,
         GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
         GF_DEFRAG_CMD_START_FORCE = 1 + 4,
+        GF_DEFRAG_CMD_START_TIER = 1 + 5,
+        GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
+	GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
+	GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
+
 };
 typedef enum gf_defrag_type gf_defrag_type;
 
@@ -277,6 +314,20 @@ struct gf_defrag_pattern_list {
         gf_defrag_pattern_list_t  *next;
 };
 
+struct dht_container {
+        union {
+                struct list_head             list;
+                struct {
+                        struct _gf_dirent_t *next;
+                        struct _gf_dirent_t *prev;
+                };
+        };
+        gf_dirent_t     *df_entry;
+        xlator_t        *this;
+        loc_t           *parent_loc;
+        dict_t          *migrate_data;
+};
+
 struct gf_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
@@ -295,10 +346,52 @@ struct gf_defrag_info_ {
         uuid_t                       node_uuid;
         struct timeval               start_time;
         gf_boolean_t                 stats;
+        uint32_t                     new_commit_hash;
         gf_defrag_pattern_list_t    *defrag_pattern;
+        int                          tier_promote_frequency;
+        int                          tier_demote_frequency;
+
+        /*Data Tiering params for scanner*/
+        uint64_t                     total_files_promoted;
+        uint64_t                     total_files_demoted;
+        int                          write_freq_threshold;
+        int                          read_freq_threshold;
+
+        pthread_cond_t               parallel_migration_cond;
+        pthread_mutex_t              dfq_mutex;
+        pthread_cond_t               rebalance_crawler_alarm;
+        int32_t                      q_entry_count;
+        int32_t                      global_error;
+        struct  dht_container       *queue;
+        int32_t                      crawl_done;
+        int32_t                      abort;
+        int32_t                      wakeup_crawler;
+
+        /*Throttle params*/
+        /*stands for reconfigured thread count*/
+        int32_t                      recon_thread_count;
+        /*stands for current running thread count*/
+        int32_t                      current_thread_count;
+        pthread_cond_t               df_wakeup_thread;
+
+        /* Hard link handle requirement */
+        synclock_t                   link_lock;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
+
+struct dht_methods_s {
+        int32_t      (*migration_get_dst_subvol)(xlator_t *this,
+                                                 dht_local_t *local);
+        int32_t      (*migration_other)(xlator_t *this,
+                                        gf_defrag_info_t *defrag);
+        int32_t      (*migration_needed)(xlator_t *this);
+        xlator_t*    (*layout_search)(xlator_t *this,
+                                      dht_layout_t *layout,
+                                         const char *name);
+};
+
+typedef struct dht_methods_s dht_methods_t;
 
 struct dht_conf {
         gf_lock_t      subvolume_lock;
@@ -309,6 +402,7 @@ struct dht_conf {
         dht_layout_t **file_layouts;
         dht_layout_t **dir_layouts;
         gf_boolean_t   search_unhashed;
+        gf_boolean_t   lookup_optimize;
         int            gen;
         dht_du_t      *du_stats;
         double         min_free_disk;
@@ -318,6 +412,7 @@ struct dht_conf {
         gf_boolean_t   unhashed_sticky_bit;
         struct timeval last_stat_fetch;
         gf_lock_t      layout_lock;
+        dict_t        *leaf_to_subvol;
         void          *private;     /* Can be used by wrapper xlators over
                                        dht */
         gf_boolean_t   use_readdirp;
@@ -329,7 +424,7 @@ struct dht_conf {
         /* Will be a global flag to control the layout spread count */
         uint32_t       dir_spread_cnt;
 
-        /* to keep track of nodes which are decomissioned */
+        /* to keep track of nodes which are decommissioned */
         xlator_t     **decommissioned_bricks;
         int            decommission_in_progress;
         int            decommission_subvols_cnt;
@@ -350,16 +445,37 @@ struct dht_conf {
         /* Support variable xattr names. */
         char            *xattr_name;
         char            *link_xattr_name;
+        char            *commithash_xattr_name;
         char            *wild_xattr_name;
 
         /* Support size-weighted rebalancing (heterogeneous bricks). */
         gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
+        char           *dthrottle;
+
+        dht_methods_t  *methods;
 
         struct mem_pool *lock_pool;
+
+        /*local subvol storage for rebalance*/
+        xlator_t       **local_subvols;
+        int32_t          local_subvols_cnt;
+
+        /*
+         * "Commit hash" for this volume topology.  Changed whenever bricks
+         * are added or removed.
+         */
+        uint32_t        vol_commit_hash;
+        gf_boolean_t    vch_forced;
 };
 typedef struct dht_conf dht_conf_t;
 
+struct dht_dfoffset_ctx {
+        xlator_t       *this;
+        off_t           offset;
+        int32_t         readdir_done;
+};
+typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
 
 struct dht_disk_layout {
         uint32_t           cnt;
@@ -377,6 +493,26 @@ typedef enum {
         GF_DHT_MIGRATE_HARDLINK,
         GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS
 } gf_dht_migrate_data_type_t;
+
+typedef enum {
+        GF_DHT_EQUAL_DISTRIBUTION,
+        GF_DHT_WEIGHTED_DISTRIBUTION
+} dht_distribution_type_t;
+
+struct dir_dfmeta {
+        gf_dirent_t             *equeue;
+        dht_dfoffset_ctx_t      *offset_var;
+        struct list_head        **head;
+        struct list_head        **iterator;
+        int                     *fetch_entries;
+};
+
+typedef struct dht_migrate_info {
+        xlator_t *src_subvol;
+        xlator_t *dst_subvol;
+        GF_REF_DECL;
+} dht_migrate_info_t;
+
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
@@ -435,15 +571,14 @@ typedef enum {
         } while (0)
 
 #define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, inode, post) do {\
-                int32_t sec = 0;                                        \
-                sec = new_sec;                                          \
                 LOCK (&inode->lock);                                    \
                 {                                                       \
-                        new_sec = max(new_sec, ctx_sec);                \
-                        if (sec < new_sec)                              \
-                                new_nsec = ctx_nsec;                    \
-                        if (sec == new_sec)                             \
+                        if (ctx_sec == new_sec)                         \
                                 new_nsec = max (new_nsec, ctx_nsec);    \
+                        else if (ctx_sec > new_sec) {                   \
+                                new_sec = ctx_sec;                      \
+                                new_nsec = ctx_nsec;                    \
+                        }                                               \
                         if (post) {                                     \
                                 ctx_sec = new_sec;                      \
                                 ctx_nsec = new_nsec;                    \
@@ -453,11 +588,33 @@ typedef enum {
         } while (0)
 
 #define is_greater_time(a, an, b, bn) (((a) < (b)) || (((a) == (b)) && ((an) < (bn))))
+
+#define DHT_MARK_FOP_INTERNAL(xattr) do {                                      \
+                int tmp = -1;                                                  \
+                if (!xattr) {                                                  \
+                        xattr = dict_new ();                                   \
+                        if (!xattr)                                            \
+                                break;                                         \
+                }                                                              \
+                tmp = dict_set_str (xattr, GLUSTERFS_INTERNAL_FOP_KEY, "yes"); \
+                if (tmp) {                                                     \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
+                                DHT_MSG_DICT_SET_FAILED,                       \
+                                "Failed to set dictionary value: key = %s,"    \
+                                " path = %s", GLUSTERFS_INTERNAL_FOP_KEY,      \
+                                 local->loc.path);                             \
+                }                                                              \
+        } while (0)
+
 dht_layout_t                            *dht_layout_new (xlator_t *this, int cnt);
 dht_layout_t                            *dht_layout_get (xlator_t *this, inode_t *inode);
 dht_layout_t                            *dht_layout_for_subvol (xlator_t *this, xlator_t *subvol);
 xlator_t *dht_layout_search (xlator_t   *this, dht_layout_t *layout,
                              const char *name);
+int32_t
+dht_migration_get_dst_subvol(xlator_t *this, dht_local_t  *local);
+int32_t
+dht_migration_needed(xlator_t *this);
 int                                      dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout);
 int dht_layout_anomalies (xlator_t      *this, loc_t *loc, dht_layout_t *layout,
                           uint32_t      *holes_p, uint32_t *overlaps_p,
@@ -475,7 +632,7 @@ int dht_layouts_init (xlator_t *this, dht_conf_t *conf);
 int dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                       int       op_ret, int op_errno, dict_t *xattr);
 
-int dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
+int     dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
                              int       pos, int32_t **disk_layout_p);
 int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
                            int         pos, void *disk_layout_raw, int disk_layout_len);
@@ -483,9 +640,7 @@ int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
 
 int dht_frame_return (call_frame_t *frame);
 
-int                             dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y);
-int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
-                      uint64_t *x);
+int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol);
 
 void dht_local_wipe (xlator_t *this, dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t    *frame, loc_t *loc, fd_t *fd,
@@ -532,6 +687,7 @@ xlator_t *dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol,
 int       dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx);
 
 int dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode);
+int dht_layout_index_for_subvol (dht_layout_t *layout, xlator_t *subvol);
 int           dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);;
 void          dht_layout_unref (xlator_t *this, dht_layout_t *layout);
 dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
@@ -550,6 +706,7 @@ int dht_rename_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt      *preparent, struct iatt *postparent,
                          dict_t *xdata);
 
+int dht_update_commit_hash_for_layout (call_frame_t *frame);
 int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t  dir_cbk,
                               dht_layout_t           *layout);
@@ -562,6 +719,8 @@ int dht_start_rebalance_task (xlator_t *this, call_frame_t *frame);
 int dht_rebalance_in_progress_check (xlator_t *this, call_frame_t *frame);
 int dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame);
 
+int
+dht_init_local_subvolumes (xlator_t *this, dht_conf_t *conf);
 
 /* FOPS */
 int32_t dht_lookup (call_frame_t *frame,
@@ -757,6 +916,8 @@ int32_t dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                     off_t offset, off_t len, dict_t *xdata);
 
+int
+dht_set_subvol_range(xlator_t *this);
 int32_t dht_init (xlator_t *this);
 void    dht_fini (xlator_t *this);
 int     dht_reconfigure (xlator_t *this, dict_t *options);
@@ -791,6 +952,9 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
+
+int
+gf_defrag_start_detach_tier (gf_defrag_info_t *defrag);
 
 int
 gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
@@ -843,7 +1007,11 @@ int32_t
 dht_inodectx_dump (xlator_t *this, inode_t *inode);
 
 int
-dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol);
+dht_inode_ctx_get_mig_info (xlator_t *this, inode_t *inode,
+                            xlator_t **src_subvol, xlator_t **dst_subvol);
+gf_boolean_t
+dht_mig_info_is_invalid (xlator_t *current, xlator_t *src_subvol,
+                         xlator_t *dst_subvol);
 
 int
 dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
@@ -893,5 +1061,21 @@ dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
               const char *domain);
 void
 dht_lock_array_free (dht_lock_t **lk_array, int count);
+
+int32_t
+dht_lock_count (dht_lock_t **lk_array, int lk_count);
+
+int
+dht_layout_sort (dht_layout_t *layout);
+
+int
+dht_layout_missing_dirs (dht_layout_t *layout);
+
+int
+dht_refresh_layout (call_frame_t *frame);
+
+int
+dht_build_parent_loc (xlator_t *this, loc_t *parent, loc_t *child,
+                                                 int32_t *op_errno);
 
 #endif/* _DHT_H */

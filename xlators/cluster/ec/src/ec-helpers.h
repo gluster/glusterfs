@@ -1,21 +1,11 @@
 /*
-  Copyright (c) 2012 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  This file is part of GlusterFS.
 
-  This file is part of the cluster/ec translator for GlusterFS.
-
-  The cluster/ec translator for GlusterFS is free software: you can
-  redistribute it and/or modify it under the terms of the GNU General
-  Public License as published by the Free Software Foundation, either
-  version 3 of the License, or (at your option) any later version.
-
-  The cluster/ec translator for GlusterFS is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
-  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE. See the GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with the cluster/ec translator for GlusterFS. If not, see
-  <http://www.gnu.org/licenses/>.
+  This file is licensed to you under your choice of the GNU Lesser
+  General Public License, version 3 or any later version (LGPLv3 or
+  later), or the GNU General Public License, version 2 (GPLv2), in all
+  cases as published by the Free Software Foundation.
 */
 
 #ifndef __EC_HELPERS_H__
@@ -26,22 +16,24 @@
 const char * ec_bin(char * str, size_t size, uint64_t value, int32_t digits);
 const char * ec_fop_name(int32_t id);
 void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...);
-uint64_t ec_itransform(ec_t * ec, int32_t idx, uint64_t offset);
-uint64_t ec_deitransform(ec_t * ec, int32_t * idx, uint64_t offset);
 int32_t ec_bits_count(uint64_t n);
 int32_t ec_bits_index(uint64_t n);
 int32_t ec_bits_consume(uint64_t * n);
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
                       off_t offset, size_t size);
 
+int32_t ec_dict_set_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
+int32_t ec_dict_del_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value);
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value);
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
 int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config);
 
 int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent);
-int32_t ec_loc_prepare(xlator_t * xl, loc_t * loc, inode_t * inode,
-                       struct iatt * iatt);
+int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
+                      struct iatt *iatt);
 
 int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd);
 int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src);
@@ -62,4 +54,16 @@ static inline int32_t ec_is_power_of_2(uint32_t value)
     return (value != 0) && ((value & (value - 1)) == 0);
 }
 
+gf_boolean_t
+ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data);
+
+void
+ec_filter_internal_xattrs (dict_t *xattr);
+
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop);
+/*
+gf_boolean_t
+ec_is_metadata_fop (glusterfs_fop_t fop);
+*/
 #endif /* __EC_HELPERS_H__ */

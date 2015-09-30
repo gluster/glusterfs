@@ -13,15 +13,11 @@
 #include <stdlib.h>
 #include <fnmatch.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr-common.c"
 #include "defaults.c"
 #include "glusterfs.h"
 #include "pump.h"
+#include "afr-messages.h"
 
 
 static int
@@ -38,11 +34,12 @@ afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
                 goto out;
         }
 
-        uuid_copy (*pgfid, gfid);
+        gf_uuid_copy (*pgfid, gfid);
 
         ret = dict_set_dynptr (dict, "gfid-req", pgfid, sizeof (uuid_t));
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "gfid set failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, -ret,
+                        AFR_MSG_DICT_SET_FAILED, "gfid set failed");
 
 out:
         if (ret && pgfid)
@@ -73,12 +70,12 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         if (!child)
                 goto out;
 
-        if (!uuid_is_null (parent->inode->gfid))
-                uuid_copy (pargfid, parent->inode->gfid);
-        else if (!uuid_is_null (parent->gfid))
-                uuid_copy (pargfid, parent->gfid);
+        if (!gf_uuid_is_null (parent->inode->gfid))
+                gf_uuid_copy (pargfid, parent->inode->gfid);
+        else if (!gf_uuid_is_null (parent->gfid))
+                gf_uuid_copy (pargfid, parent->gfid);
 
-        if (uuid_is_null (pargfid))
+        if (gf_uuid_is_null (pargfid))
                 goto out;
 
         if (strcmp (parent->path, "/") == 0)
@@ -88,8 +85,6 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
                                    name);
 
         if (-1 == ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "asprintf failed while setting child path");
         }
 
         child->name = strrchr (child->path, '/');
@@ -98,7 +93,7 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 
         child->parent = inode_ref (parent->inode);
         child->inode = inode_new (parent->inode->table);
-        uuid_copy (child->pargfid, pargfid);
+        gf_uuid_copy (child->pargfid, pargfid);
 
         if (!child->inode) {
                 ret = -1;
@@ -122,7 +117,7 @@ afr_build_root_loc (xlator_t *this, loc_t *loc)
         loc->path = gf_strdup ("/");
         loc->name = "";
         loc->inode = inode_ref (priv->root_inode);
-        uuid_copy (loc->gfid, loc->inode->gfid);
+        gf_uuid_copy (loc->gfid, loc->inode->gfid);
 }
 
 static void
@@ -131,17 +126,17 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
         GF_ASSERT (loc);
         GF_ASSERT (buf);
 
-        uuid_copy (loc->gfid, buf->ia_gfid);
+        gf_uuid_copy (loc->gfid, buf->ia_gfid);
         if (postparent)
-                uuid_copy (loc->pargfid, postparent->ia_gfid);
+                gf_uuid_copy (loc->pargfid, postparent->ia_gfid);
 }
 
 static uint64_t pump_pid = 0;
-static inline void
+static void
 pump_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 {
         afr_update_loc_gfids (loc, iatt, parent);
-        uuid_copy (loc->inode->gfid, iatt->ia_gfid);
+        gf_uuid_copy (loc->inode->gfid, iatt->ia_gfid);
 }
 
 static int
@@ -231,10 +226,9 @@ pump_change_state (xlator_t *this, pump_state_t state)
         }
         UNLOCK (&pump_priv->pump_state_lock);
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Pump changing state from %d to %d",
-                state_old,
-                state_new);
+        gf_msg_debug (this->name, 0,
+                      "Pump changing state from %d to %d",
+                      state_old, state_new);
 
         return  0;
 }
@@ -284,17 +278,19 @@ pump_save_path (xlator_t *this, const char *path)
         dict = dict_new ();
         dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
         if (dict_ret)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -dict_ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: failed to set the key %s", path, PUMP_PATH);
 
-        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
+        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0, NULL,
+                               NULL);
 
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, -ret, AFR_MSG_INFO_COMMON,
                         "setxattr failed - could not save path=%s", path);
         } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "setxattr succeeded - saved path=%s", path);
+                gf_msg_debug (this->name, 0,
+                              "setxattr succeeded - saved path=%s", path);
         }
 
         dict_unref (dict);
@@ -332,8 +328,8 @@ pump_check_and_update_status (xlator_t *this)
         }
         default:
         {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Unknown pump state");
+                gf_msg_debug (this->name, 0,
+                              "Unknown pump state");
                 ret = -1;
                 break;
         }
@@ -370,19 +366,21 @@ pump_update_resume_state (xlator_t *this, const char *path)
         if (state == PUMP_STATE_RESUME) {
                 resume_path = pump_get_resume_path (this);
                 if (strcmp (resume_path, "/") == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Reached the resume path (/). Proceeding to change state"
-                                " to running");
+                        gf_msg_debug (this->name, 0,
+                                      "Reached the resume path (/). Proceeding to change state"
+                                      " to running");
+
                         pump_change_state (this, PUMP_STATE_RUNNING);
                 } else if (strcmp (resume_path, path) == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Reached the resume path. Proceeding to change state"
-                                " to running");
+                        gf_msg_debug (this->name, 0,
+                                      "Reached the resume path. Proceeding to change state"
+                                      " to running");
+
                         pump_change_state (this, PUMP_STATE_RUNNING);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Not yet hit the resume path:res-path=%s,path=%s",
-                                resume_path, path);
+                        gf_msg_debug (this->name, 0,
+                                      "Not yet hit the resume path:res-path=%s,path=%s",
+                                      resume_path, path);
                 }
         }
 
@@ -401,12 +399,12 @@ is_pump_traversal_allowed (xlator_t *this, const char *path)
         if (state == PUMP_STATE_RESUME) {
                 resume_path = pump_get_resume_path (this);
                 if (strstr (resume_path, path)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "On the right path to resumption path");
+                        gf_msg_debug (this->name, 0,
+                                      "On the right path to resumption path");
                         ret = _gf_true;
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Not the right path to resuming=> ignoring traverse");
+                        gf_msg_debug (this->name, 0,
+                                      "Not the right path to resuming=> ignoring traverse");
                         ret = _gf_false;
                 }
         }
@@ -459,38 +457,40 @@ gf_pump_traverse_directory (loc_t *loc)
 
 	fd = fd_create (loc->inode, pump_pid);
         if (!fd) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_FD_CREATE_FAILED,
                         "Failed to create fd for %s", loc->path);
                 goto out;
         }
 
-        ret = syncop_opendir (this, loc, fd);
+        ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "opendir failed on %s", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "opendir failed on %s", loc->path);
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "pump opendir on %s returned=%d",
-                loc->path, ret);
+        gf_msg_trace (this->name, 0,
+                      "pump opendir on %s returned=%d",
+                      loc->path, ret);
 
-        while (syncop_readdirp (this, fd, 131072, offset, NULL, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, &entries, NULL,
+                                NULL)) {
                 free_entries = _gf_true;
 
                 if (list_empty (&entries.list)) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "no more entries in directory");
+                        gf_msg_trace (this->name, 0,
+                                      "no more entries in directory");
                         goto out;
                 }
 
                 list_for_each_entry_safe (entry, tmp, &entries.list, list) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "found readdir entry=%s", entry->d_name);
+                        gf_msg_debug (this->name, 0,
+                                      "found readdir entry=%s", entry->d_name);
 
                         offset = entry->d_off;
-                        if (uuid_is_null (entry->d_stat.ia_gfid)) {
-                                gf_log (this->name, GF_LOG_WARNING, "%s/%s: No "
+                        if (gf_uuid_is_null (entry->d_stat.ia_gfid)) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        AFR_MSG_GFID_NULL, "%s/%s: No "
                                         "gfid present skipping",
                                         loc->path, entry->d_name);
                                 continue;
@@ -506,35 +506,39 @@ gf_pump_traverse_directory (loc_t *loc)
 				continue;
 
 			is_directory_empty = _gf_false;
-			gf_log (this->name, GF_LOG_DEBUG,
-				"lookup %s => %"PRId64,
-				entry_loc.path,
-				iatt.ia_ino);
+	                gf_msg_debug (this->name, 0,
+	                              "lookup %s => %"PRId64,
+                                      entry_loc.path,
+                                      iatt.ia_ino);
 
-			ret = syncop_lookup (this, &entry_loc, NULL, &iatt,
-					     &xattr_rsp, &parent);
+			ret = syncop_lookup (this, &entry_loc, &iatt, &parent,
+					     NULL, &xattr_rsp);
 
 			if (ret) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"%s: lookup failed", entry_loc.path);
+			        gf_msg (this->name, GF_LOG_ERROR,
+                                        -ret, AFR_MSG_INFO_COMMON,
+			                "%s: lookup failed", entry_loc.path);
 				continue;
 			}
 
 			ret = afr_selfheal_name (this, loc->gfid, entry->d_name,
                                                  NULL);
 			if (ret) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"%s: name self-heal failed (%s/%s)",
-					entry_loc.path, uuid_utoa (loc->gfid),
-					entry->d_name);
+			        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_SELF_HEAL_FAILED,
+			                "%s: name self-heal failed (%s/%s)",
+			                entry_loc.path, uuid_utoa (loc->gfid),
+				        entry->d_name);
 				continue;
 			}
 
 			ret = afr_selfheal (this, iatt.ia_gfid);
-			if (ret) {
-				gf_log (this->name, GF_LOG_ERROR,
-					"%s: self-heal failed (%s)",
-					entry_loc.path, uuid_utoa (iatt.ia_gfid));
+			if (ret < 0) {
+			        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_SELF_HEAL_FAILED,
+				        "%s: self-heal failed (%s)",
+				        entry_loc.path,
+                                        uuid_utoa (iatt.ia_gfid));
 				continue;
 			}
 
@@ -547,15 +551,16 @@ gf_pump_traverse_directory (loc_t *loc)
 
 			ret = pump_check_and_update_status (this);
 			if (ret < 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"Pump beginning to exit out");
+			        gf_msg_debug (this->name, 0,
+			                      "Pump beginning to exit out");
 				goto out;
 			}
 
 			if (IA_ISDIR (iatt.ia_type)) {
 				if (is_pump_traversal_allowed (this, entry_loc.path)) {
-					gf_log (this->name, GF_LOG_TRACE,
-						"entering dir=%s", entry->d_name);
+				        gf_msg_trace (this->name, 0,
+				                      "entering dir=%s",
+                                                      entry->d_name);
 					gf_pump_traverse_directory (&entry_loc);
 				}
                         }
@@ -563,19 +568,19 @@ gf_pump_traverse_directory (loc_t *loc)
 
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
-                gf_log (this->name, GF_LOG_TRACE, "offset incremented to %d",
-                        (int32_t ) offset);
+                gf_msg_trace (this->name, 0, "offset incremented to %d",
+                              (int32_t) offset);
 
         }
 
         ret = syncop_close (fd);
         if (ret < 0)
-                gf_log (this->name, GF_LOG_DEBUG, "closing the fd failed");
+                gf_msg_debug (this->name, 0, "closing the fd failed");
 
         if (is_directory_empty && (strcmp (loc->path, "/") == 0)) {
                pump_change_state (this, PUMP_STATE_RUNNING);
-               gf_log (this->name, GF_LOG_INFO, "Empty source brick. "
-                                "Nothing to be done.");
+                gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_INFO_COMMON,
+                       "Empty source brick. Nothing to be done.");
         }
 
 out:
@@ -594,13 +599,13 @@ pump_update_resume_path (xlator_t *this)
         resume_path = pump_get_resume_path (this);
 
         if (resume_path) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Found a path to resume from: %s",
-                        resume_path);
+                gf_msg_debug (this->name, 0,
+                              "Found a path to resume from: %s",
+                              resume_path);
 
         }else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Did not find a path=> setting to '/'");
+                gf_msg_debug (this->name, 0,
+                              "Did not find a path=> setting to '/'");
                 pump_set_resume_path (this, "/");
         }
 
@@ -625,17 +630,17 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_build_root_loc (this, &loc);
 
         ret = syncop_removexattr (priv->children[source], &loc,
-				  PUMP_PATH, 0);
+				  PUMP_PATH, 0, NULL);
 
         ret = syncop_removexattr (priv->children[sink], &loc,
-                                  PUMP_SINK_COMPLETE, 0);
+                                  PUMP_SINK_COMPLETE, 0, NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = syncop_removexattr (priv->children[i], &loc,
-                                          PUMP_SOURCE_COMPLETE, 0);
+                                          PUMP_SOURCE_COMPLETE, 0, NULL);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "removexattr "
-                                "failed with %s", strerror (-ret));
+                        gf_msg_debug (this->name, 0, "removexattr "
+                                     "failed with %s", strerror (-ret));
                 }
         }
 
@@ -665,39 +670,45 @@ pump_complete_migration (xlator_t *this)
 
         state = pump_get_state ();
         if (state == PUMP_STATE_RUNNING) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Pump finished pumping");
+                gf_msg_debug (this->name, 0,
+                              "Pump finished pumping");
 
                 pump_priv->pump_finished = _gf_true;
 
                 dict_ret = dict_set_str (dict, PUMP_SOURCE_COMPLETE, "jargon");
                 if (dict_ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, -dict_ret,
+                                AFR_MSG_DICT_SET_FAILED,
                                 "%s: failed to set the key %s",
                                 loc.path, PUMP_SOURCE_COMPLETE);
 
-                ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
+                ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0,
+                                       NULL, NULL);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "setxattr failed - while  notifying source complete");
+                        gf_msg_debug (this->name, 0,
+                                      "setxattr failed - while "
+                                      "notifying source complete");
                 }
                 dict_ret = dict_set_str (dict, PUMP_SINK_COMPLETE, "jargon");
                 if (dict_ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, -dict_ret,
+                                AFR_MSG_DICT_SET_FAILED,
                                 "%s: failed to set the key %s",
                                 loc.path, PUMP_SINK_COMPLETE);
 
-                ret = syncop_setxattr (PUMP_SINK_CHILD (this), &loc, dict, 0);
+                ret = syncop_setxattr (PUMP_SINK_CHILD (this), &loc, dict, 0,
+                                       NULL, NULL);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "setxattr failed - while notifying sink complete");
+                        gf_msg_debug (this->name, 0,
+                                      "setxattr failed - while "
+                                      "notifying sink complete");
                 }
 
                 pump_save_path (this, "/");
 
         } else if (state == PUMP_STATE_ABORT) {
-                gf_log (this->name, GF_LOG_DEBUG, "Starting cleanup "
-                        "of pump internal xattrs");
+                gf_msg_debug (this->name, 0, "Starting cleanup "
+                              "of pump internal xattrs");
                 call_resume (pump_priv->cleaner);
         }
 
@@ -722,12 +733,12 @@ pump_lookup_sink (loc_t *loc)
         if (ret)
                 goto out;
 
-        ret = syncop_lookup (PUMP_SINK_CHILD (this), loc,
-                             xattr_req, &iatt, &xattr_rsp, &parent);
+        ret = syncop_lookup (PUMP_SINK_CHILD (this), loc, &iatt, &parent,
+                             xattr_req, &xattr_rsp);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Lookup on sink child failed");
+                gf_msg_debug (this->name, 0,
+                              "Lookup on sink child failed");
                 ret = -1;
                 goto out;
         }
@@ -761,19 +772,19 @@ pump_task (void *data)
         afr_build_root_loc (this, &loc);
         xattr_req = dict_new ();
         if (!xattr_req) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Out of memory");
+                gf_msg_debug (this->name, ENOMEM,
+                              "Out of memory");
                 ret = -1;
                 goto out;
         }
 
         afr_set_root_gfid (xattr_req);
-        ret = syncop_lookup (this, &loc, xattr_req,
-                             &iatt, &xattr_rsp, &parent);
+        ret = syncop_lookup (this, &loc, &iatt, &parent,
+                             xattr_req, &xattr_rsp);
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "lookup: path=%s gfid=%s",
-                loc.path, uuid_utoa (loc.inode->gfid));
+        gf_msg_trace (this->name, 0,
+                      "lookup: path=%s gfid=%s",
+                      loc.path, uuid_utoa (loc.inode->gfid));
 
         ret = pump_check_and_update_status (this);
         if (ret < 0) {
@@ -814,8 +825,8 @@ pump_task_completion (int ret, call_frame_t *sync_frame, void *data)
         inode_unref (priv->root_inode);
         STACK_DESTROY (sync_frame->root);
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Pump xlator exiting");
+        gf_msg_debug (this->name, 0,
+                      "Pump xlator exiting");
 	return 0;
 }
 
@@ -837,15 +848,12 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
                             pump_task_completion,
                             pump_frame, NULL);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "starting pump failed");
-                pump_change_state (this, PUMP_STATE_ABORT);
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "setting pump as started lk_owner: %s %"PRIu64,
-                lkowner_utoa (&pump_frame->root->lk_owner), pump_pid);
+        gf_msg_debug (this->name, 0,
+                      "setting pump as started lk_owner: %s %"PRIu64,
+                      lkowner_utoa (&pump_frame->root->lk_owner), pump_pid);
 
         priv->use_afr_in_pump = 1;
 out:
@@ -860,8 +868,6 @@ pump_start_synctask (xlator_t *this)
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -889,16 +895,17 @@ pump_cmd_start_setxattr_cbk (call_frame_t *frame,
         local = frame->local;
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_INFO_COMMON,
                         "Could not initiate destination "
                         "brick connect");
                 ret = op_ret;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Successfully initiated destination "
-                "brick connect");
+        gf_msg_debug (this->name, 0,
+                      "Successfully initiated destination "
+                      "brick connect");
 
         pump_mark_start_pending (this);
 
@@ -936,7 +943,8 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
         data = data_ref (dict_get (local->dict, RB_PUMP_CMD_START));
         if (!data) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        AFR_MSG_DICT_GET_FAILED,
                         "Could not get destination brick value");
                 goto out;
         }
@@ -955,12 +963,13 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
         memcpy (clnt_cmd, data->data, data->len);
         clnt_cmd[data->len] = '\0';
-        gf_log (this->name, GF_LOG_DEBUG, "Got destination brick %s\n",
-                        clnt_cmd);
+        gf_msg_debug (this->name, 0, "Got destination brick %s\n",
+                      clnt_cmd);
 
         ret = dict_set_dynstr (dict, CLIENT_CMD_CONNECT, clnt_cmd);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        AFR_MSG_DICT_SET_FAILED,
                         "Could not inititiate destination brick "
                         "connect");
                 goto out;
@@ -1019,14 +1028,14 @@ pump_cmd_start_getxattr_cbk (call_frame_t *frame,
         local = frame->local;
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "getxattr failed - changing pump "
-                        "state to RUNNING with '/'");
+                gf_msg_debug (this->name, 0,
+                              "getxattr failed - changing pump "
+                              "state to RUNNING with '/'");
                 path = "/";
                 ret = op_ret;
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "getxattr succeeded");
+                gf_msg_trace (this->name, 0,
+                              "getxattr succeeded");
 
                 dict_ret =  dict_get_str (dict, PUMP_PATH, &path);
                 if (dict_ret < 0)
@@ -1036,7 +1045,8 @@ pump_cmd_start_getxattr_cbk (call_frame_t *frame,
         state = pump_get_state ();
         if ((state == PUMP_STATE_RUNNING) ||
             (state == PUMP_STATE_RESUME)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR,
+                        0, AFR_MSG_PUMP_XLATOR_ERROR,
                         "Pump is already started");
                 ret = -1;
                 goto out;
@@ -1050,8 +1060,8 @@ pump_cmd_start_getxattr_cbk (call_frame_t *frame,
         else {
                 /* We're re-starting pump from a previous
                    pause */
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "about to start synctask");
+                gf_msg_debug (this->name, 0,
+                              "about to start synctask");
                 ret = pump_start_synctask (this);
                 need_unwind = 1;
         }
@@ -1094,8 +1104,6 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         dict_str     = GF_CALLOC (1, PATH_MAX + 256, gf_afr_mt_char);
         if (!dict_str) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
@@ -1116,8 +1124,8 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         ret = dict_set_dynstr (dict, RB_PUMP_CMD_STATUS, dict_str);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "dict_set_dynstr returned negative value");
+                gf_msg_debug (this->name, 0,
+                              "dict_set_dynstr returned negative value");
         } else {
                 dict_str = NULL;
         }
@@ -1164,7 +1172,8 @@ pump_execute_start (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (!priv->root_inode) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR,
+                        0, AFR_MSG_PUMP_XLATOR_ERROR,
                         "Pump xlator cannot be started without an initial "
                         "lookup");
                 ret = -1;
@@ -1231,13 +1240,14 @@ pump_execute_commit (call_frame_t *frame, xlator_t *this)
                 ret = synctask_new (pump_priv->env, pump_cleanup_helper,
                                     pump_cleanup_done, sync_frame, frame);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Couldn't create "
-                                "synctask for cleaning up xattrs.");
+                        gf_msg_debug (this->name, 0, "Couldn't create "
+                                      "synctask for cleaning up xattrs.");
                 }
 
         } else {
-                gf_log (this->name, GF_LOG_ERROR, "Commit can't proceed. "
-                        "Migration in progress");
+                gf_msg (this->name, GF_LOG_ERROR, EINPROGRESS,
+                        AFR_MSG_MIGRATION_IN_PROGRESS,
+                        "Commit can't proceed. Migration in progress");
                 local->op_ret = -1;
                 local->op_errno = EINPROGRESS;
                 pump_command_reply (frame, this);
@@ -1273,8 +1283,8 @@ pump_execute_abort (call_frame_t *frame, xlator_t *this)
                 ret = synctask_new (pump_priv->env, pump_cleanup_helper,
                                     pump_cleanup_done, sync_frame, frame);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Couldn't create "
-                                "synctask for cleaning up xattrs.");
+                        gf_msg_debug (this->name, 0, "Couldn't create "
+                                      "synctask for cleaning up xattrs.");
                 }
 
         } else {
@@ -1295,14 +1305,14 @@ pump_command_status (xlator_t *this, dict_t *dict)
 
         dict_ret = dict_get_str (dict, RB_PUMP_CMD_STATUS, &cmd);
         if (dict_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Not a pump status command");
+                gf_msg_debug (this->name, 0,
+                              "Not a pump status command");
                 ret = _gf_false;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Hit a pump command - status");
+        gf_msg_debug (this->name, 0,
+                      "Hit a pump command - status");
         ret = _gf_true;
 
 out:
@@ -1319,14 +1329,14 @@ pump_command_pause (xlator_t *this, dict_t *dict)
 
         dict_ret = dict_get_str (dict, RB_PUMP_CMD_PAUSE, &cmd);
         if (dict_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Not a pump pause command");
+                gf_msg_debug (this->name, 0,
+                              "Not a pump pause command");
                 ret = _gf_false;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Hit a pump command - pause");
+        gf_msg_debug (this->name, 0,
+                      "Hit a pump command - pause");
         ret = _gf_true;
 
 out:
@@ -1343,14 +1353,14 @@ pump_command_commit (xlator_t *this, dict_t *dict)
 
         dict_ret = dict_get_str (dict, RB_PUMP_CMD_COMMIT, &cmd);
         if (dict_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Not a pump commit command");
+                gf_msg_debug (this->name, 0,
+                              "Not a pump commit command");
                 ret = _gf_false;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Hit a pump command - commit");
+        gf_msg_debug (this->name, 0,
+                      "Hit a pump command - commit");
         ret = _gf_true;
 
 out:
@@ -1367,14 +1377,14 @@ pump_command_abort (xlator_t *this, dict_t *dict)
 
         dict_ret = dict_get_str (dict, RB_PUMP_CMD_ABORT, &cmd);
         if (dict_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Not a pump abort command");
+                gf_msg_debug (this->name, 0,
+                              "Not a pump abort command");
                 ret = _gf_false;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Hit a pump command - abort");
+        gf_msg_debug (this->name, 0,
+                      "Hit a pump command - abort");
         ret = _gf_true;
 
 out:
@@ -1391,14 +1401,14 @@ pump_command_start (xlator_t *this, dict_t *dict)
 
         dict_ret = dict_get_str (dict, RB_PUMP_CMD_START, &cmd);
         if (dict_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Not a pump start command");
+                gf_msg_debug (this->name, 0,
+                              "Not a pump start command");
                 ret = _gf_false;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Hit a pump command - start");
+        gf_msg_debug (this->name, 0,
+                      "Hit a pump command - start");
         ret = _gf_true;
 
 out:
@@ -1429,21 +1439,20 @@ pump_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                               strlen (AFR_XATTR_PREFIX))) {
 
                         op_errno = ENODATA;
+                        ret = -1;
                         goto out;
                 }
 
                 if (!strcmp (name, RB_PUMP_CMD_STATUS)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Hit pump command - status");
+                        gf_msg_debug (this->name, 0,
+                                      "Hit pump command - status");
                         pump_execute_status (frame, this);
-                        ret = 0;
                         goto out;
                 }
         }
 
 	afr_getxattr (frame, this, loc, name, xdata);
 
-	ret = 0;
 out:
 	if (ret < 0)
 		AFR_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL, NULL);
@@ -1458,10 +1467,12 @@ pump_command_reply (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (local->op_ret < 0)
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO,
+                        0, AFR_MSG_INFO_COMMON,
                         "Command failed");
         else
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO,
+                        0, AFR_MSG_INFO_COMMON,
                         "Command succeeded");
 
         AFR_STACK_UNWIND (setxattr,
@@ -2150,8 +2161,6 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_afr_mt_end + 1);
 
         if (ret != 0) {
-                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
                 return ret;
         }
 
@@ -2190,13 +2199,13 @@ notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
                 if (is_xlator_pump_sink (child_xl))
                         if (is_pump_start_pending (this)) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "about to start synctask");
+                                gf_msg_debug (this->name, 0,
+                                              "about to start synctask");
                                 ret = pump_start_synctask (this);
                                 if (ret < 0)
-                                        gf_log (this->name, GF_LOG_DEBUG,
-                                                "Could not start pump "
-                                                "synctask");
+                                        gf_msg_debug (this->name, 0,
+                                                      "Could not start pump "
+                                                      "synctask");
                                 else
                                         pump_remove_start_pending (this);
                         }
@@ -2219,15 +2228,16 @@ init (xlator_t *this)
         int source_child = 0;
 
 	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"pump translator needs a source and sink"
+                gf_msg (this->name, GF_LOG_ERROR,
+                        0, AFR_MSG_CHILD_MISCONFIGURED,
+		        "pump translator needs a source and sink"
                         "subvolumes defined.");
 		return -1;
 	}
 
 	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"Volume is dangling.");
+	        gf_msg (this->name, GF_LOG_WARNING, 0,
+		        AFR_MSG_VOL_MISCONFIGURED, "Volume is dangling.");
 	}
 
 	priv = GF_CALLOC (1, sizeof (afr_private_t), gf_afr_mt_afr_private_t);
@@ -2238,7 +2248,8 @@ init (xlator_t *this)
 
         child_count = xlator_subvolume_count (this);
         if (child_count != 2) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR,
+                        0, AFR_MSG_CHILD_MISCONFIGURED,
                         "There should be exactly 2 children - one source "
                         "and one sink");
                 return -1;
@@ -2271,8 +2282,6 @@ init (xlator_t *this)
 	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                  gf_afr_mt_char);
 	if (!priv->child_up) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
 		op_errno = ENOMEM;
 		goto out;
 	}
@@ -2280,8 +2289,6 @@ init (xlator_t *this)
 	priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                  gf_afr_mt_xlator_t);
 	if (!priv->children) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
 		op_errno = ENOMEM;
 		goto out;
 	}
@@ -2290,8 +2297,6 @@ init (xlator_t *this)
                                        child_count,
                                        gf_afr_mt_char);
         if (!priv->pending_key) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_errno = ENOMEM;
                 goto out;
         }
@@ -2305,8 +2310,6 @@ init (xlator_t *this)
                                    AFR_XATTR_PREFIX,
                                    trav->xlator->name);
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "asprintf failed to set pending key");
                         op_errno = ENOMEM;
                         goto out;
                 }
@@ -2333,8 +2336,6 @@ init (xlator_t *this)
 	pump_priv = GF_CALLOC (1, sizeof (*pump_priv),
                             gf_afr_mt_pump_priv);
 	if (!pump_priv) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
                 op_errno = ENOMEM;
 		goto out;
 	}
@@ -2345,15 +2346,12 @@ init (xlator_t *this)
         pump_priv->resume_path = GF_CALLOC (1, PATH_MAX,
                                             gf_afr_mt_char);
         if (!pump_priv->resume_path) {
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
         }
 
 	pump_priv->env = this->ctx->env;
         if (!pump_priv->env) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not create new sync-environment");
                 ret = -1;
                 goto out;
         }
@@ -2362,8 +2360,6 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (afr_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to create local_t's memory pool");
                 goto out;
         }
 

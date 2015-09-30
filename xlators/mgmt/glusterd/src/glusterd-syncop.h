@@ -33,15 +33,25 @@
                                                 (xdrproc_t)xdrproc);           \
                 if (!ret)                                                      \
                         synctask_yield (stb->task);                            \
+                else                                                           \
+                        gf_asprintf (&stb->errstr, "%s failed. Check log file" \
+                                     " for more details", (prog)->progname);   \
                 synclock_lock (&conf->big_lock);                               \
         } while (0)
 
+#define GD_ALLOC_COPY_UUID(dst_ptr, uuid, ret) do {                            \
+        dst_ptr = GF_CALLOC (1, sizeof (*dst_ptr), gf_common_mt_uuid_t);       \
+        if (dst_ptr) {                                                         \
+                gf_uuid_copy (*dst_ptr, uuid);                                 \
+                ret = 0;                                                       \
+        } else {                                                               \
+                ret = -1;                                                      \
+        }                                                                      \
+} while (0)
 
 int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req, void *local,
                               void *cookie, rpc_clnt_prog_t *prog, int procnum,
                               fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
-
-
 int gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *arg,
                          uuid_t my_uuid, uuid_t recv_uuid);
 
@@ -61,9 +71,6 @@ int gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo,
 void
 gd_synctask_barrier_wait (struct syncargs *args, int count);
 
-int
-gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers,
-                     glusterd_op_t op);
 int
 gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                    char **op_errstr);

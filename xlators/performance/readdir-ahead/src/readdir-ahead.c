@@ -23,18 +23,13 @@
  * preloads on the directory.
  */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "call-stub.h"
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
 #include "defaults.h"
-
+#include "readdir-ahead-messages.h"
 static int rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
 
 /*
@@ -83,6 +78,7 @@ rda_reset_ctx(struct rda_fd_ctx *ctx)
 	ctx->cur_offset = 0;
 	ctx->cur_size = 0;
 	ctx->next_offset = 0;
+        ctx->op_errno = 0;
 	gf_dirent_free(&ctx->entries);
 }
 
@@ -142,7 +138,7 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	gf_dirent_t entries;
 	int32_t ret;
 	struct rda_fd_ctx *ctx;
-	int op_errno = 0;
+        int op_errno = 0;
 
 	ctx = get_rda_fd_ctx(fd, this);
 	INIT_LIST_HEAD(&entries.list);
@@ -150,7 +146,6 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	if (!ret && (ctx->state & RDA_FD_ERROR)) {
 		ret = -1;
-		op_errno = ctx->op_errno;
 		ctx->state &= ~RDA_FD_ERROR;
 
 		/*
@@ -159,6 +154,12 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		 */
 		ctx->state |= RDA_FD_BYPASS;
 	}
+
+        /*
+         * Use the op_errno sent by lower layers as xlators above will check
+         * the op_errno for identifying whether readdir is completed or not.
+         */
+        op_errno = ctx->op_errno;
 
 	STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries, xdata);
 	gf_dirent_free(&entries);
@@ -256,8 +257,9 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 	/* Verify that the preload buffer is still pending on this data. */
 	if (ctx->next_offset != local->offset) {
-		gf_log(this->name, GF_LOG_ERROR,
-			"Out of sequence directory preload.");
+		gf_msg(this->name, GF_LOG_ERROR,
+                       0, READDIR_AHEAD_MSG_OUT_OF_SEQUENCE,
+                       "Out of sequence directory preload.");
 		ctx->state |= (RDA_FD_BYPASS|RDA_FD_ERROR);
 		ctx->op_errno = EUCLEAN;
 
@@ -282,6 +284,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		/* we've hit eod */
 		ctx->state &= ~RDA_FD_RUNNING;
 		ctx->state |= RDA_FD_EOD;
+                ctx->op_errno = op_errno;
 	} else if (op_ret == -1) {
 		/* kill the preload and pend the error */
 		ctx->state &= ~RDA_FD_RUNNING;
@@ -427,8 +430,9 @@ rda_releasedir(xlator_t *this, fd_t *fd)
 		STACK_DESTROY(ctx->fill_frame->root);
 
 	if (ctx->stub)
-		gf_log(this->name, GF_LOG_ERROR,
-			"released a directory with a pending stub");
+		gf_msg(this->name, GF_LOG_ERROR, 0,
+		        READDIR_AHEAD_MSG_DIR_RELEASE_PENDING_STUB,
+                       "released a directory with a pending stub");
 
 	GF_FREE(ctx);
 	return 0;
@@ -445,7 +449,8 @@ mem_acct_init(xlator_t *this)
 	ret = xlator_mem_acct_init(this, gf_rda_mt_end + 1);
 
 	if (ret != 0)
-		gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+		gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
+                       READDIR_AHEAD_MSG_NO_MEMORY, "Memory accounting init"
 		       "failed");
 
 out:
@@ -477,14 +482,16 @@ init(xlator_t *this)
         GF_VALIDATE_OR_GOTO("readdir-ahead", this, err);
 
         if (!this->children || this->children->next) {
-                gf_log(this->name,  GF_LOG_ERROR,
+                gf_msg(this->name,  GF_LOG_ERROR, 0,
+                        READDIR_AHEAD_MSG_XLATOR_CHILD_MISCONFIGURED,
                         "FATAL: readdir-ahead not configured with exactly one"
                         " child");
                 goto err;
         }
 
         if (!this->parents) {
-                gf_log(this->name, GF_LOG_WARNING,
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_VOL_MISCONFIGURED,
                         "dangling volume. check volfile ");
         }
 

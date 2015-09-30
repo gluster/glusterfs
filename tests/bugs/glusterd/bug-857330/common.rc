@@ -1,0 +1,57 @@
+. $(dirname $0)/../../../include.rc
+
+UUID_REGEX='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'
+
+TASK_ID=""
+COMMAND=""
+PATTERN=""
+
+function check-and-store-task-id()
+{
+        TASK_ID=""
+
+        local task_id=$($CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX")
+
+        if [ -z "$task_id" ] && [ "${task_id+asdf}" = "asdf" ]; then
+                return 1
+        fi
+
+        TASK_ID=$task_id
+        return 0;
+}
+
+function get-task-id()
+{
+        $CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX" | tail -n1
+
+}
+
+function check-and-store-task-id-xml()
+{
+        TASK_ID=""
+
+        local task_id=$($CLI $COMMAND --xml | xmllint --format - | grep $PATTERN | grep -o -E "$UUID_REGEX")
+
+        if [ -z "$task_id" ] && [ "${task_id+asdf}" = "asdf" ]; then
+                return 1
+        fi
+
+        TASK_ID=$task_id
+        return 0;
+}
+
+function get-task-id-xml()
+{
+        $CLI $COMMAND --xml | xmllint --format - | grep $PATTERN | grep -o -E "$UUID_REGEX"
+}
+
+function get-task-status()
+{
+        pattern=$1
+        val=1
+        test=$(gluster $COMMAND | grep -o $pattern 2>&1)
+        if [ $? -eq 0 ]; then
+                 val=0
+        fi
+        echo $val
+}

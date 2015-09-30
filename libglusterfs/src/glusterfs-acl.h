@@ -11,6 +11,17 @@
 #ifndef _GLUSTERFS_ACL_H
 #define _GLUSTERFS_ACL_H
 
+
+/* WARNING: Much if this code is restricted to Linux usage.
+ *
+ * It would be much cleaner to replace the code with something that is based on
+ * libacl (or its libc implementation on *BSD).
+ *
+ * Initial work for replacing this Linux specific implementation has been
+ * started as part of the "Improve POSIX ACLs" feature. Functionality for this
+ * feature has been added to the end of this file.
+ */
+
 #include <stdint.h>
 #include <sys/types.h> /* For uid_t */
 
@@ -99,4 +110,56 @@ struct posix_acl_conf {
         struct posix_acl *minimal_acl;
 };
 
+
+/* Above this comment, the legacy POSIX ACL support is kept until it is not
+ * used anymore. Below you will find the more portable version to support POSIX
+ * ACls based on the implementation of libacl (see sys/acl.h). */
+
+/* virtual xattrs passed over RPC, not stored on disk */
+#define GF_POSIX_ACL_ACCESS       "glusterfs.posix.acl"
+#define GF_POSIX_ACL_DEFAULT      "glusterfs.posix.default_acl"
+#define GF_POSIX_ACL_REQUEST(key) \
+        (!strncmp(key, GF_POSIX_ACL_ACCESS, strlen(GF_POSIX_ACL_ACCESS)) || \
+         !strncmp(key, GF_POSIX_ACL_DEFAULT, strlen(GF_POSIX_ACL_DEFAULT)))
+
+#ifdef HAVE_SYS_ACL_H /* only NetBSD does not support POSIX ACLs */
+
+#include <sys/acl.h>
+
+static inline const char*
+gf_posix_acl_get_key (const acl_type_t type)
+{
+        char *acl_key = NULL;
+
+        switch (type) {
+        case ACL_TYPE_ACCESS:
+                acl_key = GF_POSIX_ACL_ACCESS;
+                break;
+        case ACL_TYPE_DEFAULT:
+                acl_key = GF_POSIX_ACL_DEFAULT;
+                break;
+        default:
+                errno = EINVAL;
+        }
+
+        return acl_key;
+}
+
+static inline const acl_type_t
+gf_posix_acl_get_type (const char *key)
+{
+        acl_type_t type = 0;
+
+        if (!strncmp (key, GF_POSIX_ACL_ACCESS, strlen (GF_POSIX_ACL_ACCESS)))
+                type = ACL_TYPE_ACCESS;
+        else if (!strncmp (key, GF_POSIX_ACL_DEFAULT,
+                           strlen (GF_POSIX_ACL_DEFAULT)))
+                type = ACL_TYPE_DEFAULT;
+        else
+                errno = EINVAL;
+
+        return type;
+}
+
+#endif /* HAVE_SYS_ACL_H */
 #endif /* _GLUSTERFS_ACL_H */

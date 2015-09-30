@@ -17,10 +17,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <lvm2app.h>
 #include <openssl/md5.h>
 #include <time.h>
@@ -693,7 +689,8 @@ out:
 
         GF_FREE (devpath);
         if (ret) {
-                close (_fd);
+                if (_fd >= 0)
+                        close (_fd);
                 GF_FREE (bd_fd);
         }
 
@@ -795,7 +792,7 @@ bd_fsync (call_frame_t *frame, xlator_t *this,
                 local->bdatt->type = gf_strdup (bdatt->type);
                 memcpy (&local->bdatt->iatt, &bdatt->iatt, sizeof (struct iatt));
                 bd_update_amtime (&local->bdatt->iatt, valid);
-                uuid_copy (local->loc.gfid, fd->inode->gfid);
+                gf_uuid_copy (local->loc.gfid, fd->inode->gfid);
                 STACK_WIND (frame, bd_fsync_setattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->setattr, &local->loc,
                             &local->bdatt->iatt,
@@ -852,7 +849,7 @@ bd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
 
         local->fd = fd_ref (fd);
-        uuid_copy (loc.gfid, bdatt->iatt.ia_gfid);
+        gf_uuid_copy (loc.gfid, bdatt->iatt.ia_gfid);
 
         /* Update the a|mtime during flush */
         STACK_WIND (frame, bd_flush_setattr_cbk, FIRST_CHILD (this),
@@ -1268,7 +1265,7 @@ bd_do_merge(call_frame_t *frame, xlator_t *this)
                 op_errno = EINVAL;
                 goto out;
         }
-        uuid_copy (local->loc.pargfid, parent->gfid);
+        gf_uuid_copy (local->loc.pargfid, parent->gfid);
 
         p = strrchr (local->loc.path, '/');
         if (p)
@@ -1326,7 +1323,7 @@ bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        uuid_parse (gfid, local->dloc->gfid);
+        gf_uuid_parse (gfid, local->dloc->gfid);
         local->offload = offload;
 
         STACK_WIND (frame, bd_offload_dest_lookup_cbk, FIRST_CHILD (this),
@@ -1445,7 +1442,6 @@ bd_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
         bd_inode_ctx_get (fd->inode, this, &bdatt);
 
-        data =  dict_get (dict, BD_XATTR);
         if ((data = dict_get (dict, BD_XATTR)))
                 cl_type = BD_OF_NONE;
         else if ((data = dict_get (dict, BD_CLONE)))
@@ -1593,7 +1589,8 @@ revert_xattr:
         /* revert setxattr */
         op_ret = dict_get_str (local->dict, BD_XATTR, &bd);
         GF_FREE (bd);
-        gf_asprintf (&bd, "%s:%ld", bdatt->type, bdatt->iatt.ia_size);
+	if (bdatt)
+		gf_asprintf (&bd, "%s:%ld", bdatt->type, bdatt->iatt.ia_size);
 
         if (local->fd)
                 STACK_WIND (frame, bd_trunc_setxattr_setx_cbk,

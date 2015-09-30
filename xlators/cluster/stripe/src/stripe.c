@@ -244,11 +244,11 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->postparent_size < postparent->ia_size)
                                 local->postparent_size = postparent->ia_size;
 
-                        if (uuid_is_null (local->ia_gfid))
-                                uuid_copy (local->ia_gfid, buf->ia_gfid);
+                        if (gf_uuid_is_null (local->ia_gfid))
+                                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
 
                         /* Make sure the gfid on all the nodes are same */
-                        if (uuid_compare (local->ia_gfid, buf->ia_gfid)) {
+                        if (gf_uuid_compare (local->ia_gfid, buf->ia_gfid)) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "%s: gfid different on subvolume %s",
                                         local->loc.path, prev->this->name);
@@ -259,7 +259,7 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!callcnt) {
                 if (local->op_ret == 0 && local->entry_self_heal_needed &&
-                    !uuid_is_null (local->loc.inode->gfid))
+                    !gf_uuid_is_null (local->loc.inode->gfid))
                         stripe_entry_self_heal (frame, this, local);
 
                 if (local->failed)
@@ -346,7 +346,7 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         }
 
-        /* Everytime in stripe lookup, all child nodes
+        /* Every time in stripe lookup, all child nodes
            should be looked up */
         local->call_count = priv->child_count;
         while (trav) {
@@ -1485,8 +1485,8 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         /* Can be used as a mechanism to understand if mknod
                            was successful in at least one place */
-                        if (uuid_is_null (local->ia_gfid))
-                                uuid_copy (local->ia_gfid, buf->ia_gfid);
+                        if (gf_uuid_is_null (local->ia_gfid))
+                                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
 
 			if (stripe_ctx_handle(this, prev, local, xdata))
 				gf_log(this->name, GF_LOG_ERROR,
@@ -1512,7 +1512,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->failed)
                         local->op_ret = -1;
 
-                if ((local->op_ret == -1) && !uuid_is_null (local->ia_gfid)) {
+                if ((local->op_ret == -1) && !gf_uuid_is_null (local->ia_gfid)) {
                         /* ia_gfid set means, at least on one node 'mknod'
                            is successful */
                         local->call_count = priv->child_count;
@@ -1590,8 +1590,8 @@ stripe_mknod_first_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->preparent  = *preparent;
         local->postparent = *postparent;
 
-        if (uuid_is_null (local->ia_gfid))
-                uuid_copy (local->ia_gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->ia_gfid))
+                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
         local->preparent.ia_blocks  = local->preparent_blocks;
         local->preparent.ia_size    = local->preparent_size;
         local->postparent.ia_blocks = local->postparent_blocks;
@@ -1707,7 +1707,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 local->umask = umask;
                 local->rdev = rdev;
 
-                /* Everytime in stripe lookup, all child nodes should
+                /* Every time in stripe lookup, all child nodes should
                    be looked up */
                 local->call_count = priv->child_count;
 
@@ -1918,7 +1918,7 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         loc_copy (&local->loc, loc);
         frame->local = local;
 
-        /* Everytime in stripe lookup, all child nodes should be looked up */
+        /* Every time in stripe lookup, all child nodes should be looked up */
         STACK_WIND (frame, stripe_first_mkdir_cbk, trav->xlator,
                     trav->xlator->fops->mkdir, loc, mode, umask, xdata);
 
@@ -2051,7 +2051,7 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc, 
         frame->local = local;
         local->call_count = priv->child_count;
 
-        /* Everytime in stripe lookup, all child
+        /* Every time in stripe lookup, all child
            nodes should be looked up */
         while (trav) {
                 STACK_WIND (frame, stripe_link_cbk,
@@ -3256,6 +3256,11 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         GF_FREE (local->replies[i].vector);
                 }
 
+                /* ENOENT signals EOF to the NFS-server */
+                if (op_ret != -1 && op_ret < local->readv_size &&
+                    (local->offset + op_ret == buf->ia_size))
+                        op_errno = ENOENT;
+
                 /* FIXME: notice that st_ino, and st_dev (gen) will be
                  * different than what inode will have. Make sure this doesn't
                  * cause any bugs at higher levels */
@@ -4423,7 +4428,7 @@ stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
 
                 /**
                  * We overwrite ->op_* values here for subsequent faliure
-                 * conditions, hence we propogate the last errno down the
+                 * conditions, hence we propagate the last errno down the
                  * stack.
                  */
                 if (op_ret < 0) {
@@ -4459,7 +4464,7 @@ stripe_is_bd (dict_t *this, char *key, data_t *value, void *data)
         return 0;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 stripe_setxattr_is_bd (dict_t *dict)
 {
         gf_boolean_t is_bd = _gf_false;
@@ -4628,7 +4633,7 @@ out:
         return ret;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 stripe_fsetxattr_is_special (dict_t *dict)
 {
         gf_boolean_t is_spl = _gf_false;
@@ -4910,7 +4915,7 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 loc.inode = inode_ref (local_entry->inode);
 
-                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
+                gf_uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
 
                 local_ent->orig_frame = frame;
 
@@ -5440,18 +5445,43 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
                 }
 
         unwind:
+                /*
+                 * Among other things, STRIPE_STACK_UNWIND will free "local"
+                 * for us.  That means we can't dereference it afterward.
+                 * Fortunately, the actual result is in stripe_xattr now, so we
+                 * can simply clean up before unwinding.
+                 */
+                ret = stripe_free_xattr_str (local);
+                GF_FREE (local->xattr_list);
+                local->xattr_list = NULL;
+
                 STRIPE_STACK_UNWIND (getxattr, frame, op_ret, op_errno,
                                      stripe_xattr, NULL);
-
-                ret = stripe_free_xattr_str (local);
-
-                GF_FREE (local->xattr_list);
 
                 if (stripe_xattr)
                         dict_unref (stripe_xattr);
         }
 
         return ret;
+}
+
+int
+stripe_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                            xlator_t **subvols)
+{
+        xlator_t         *this  = frame->this;
+        stripe_private_t *priv  = this->private;
+        stripe_local_t   *local = frame->local;
+        int              count  = 0;
+
+        count = priv->child_count;
+        if (MARKER_XTIME_TYPE == type) {
+                if (!IA_FILE_OR_DIR (local->loc.inode->ia_type))
+                        count = 1;
+        }
+        memcpy (subvols, priv->xl_array, sizeof (*subvols) * count);
+
+        return count;
 }
 
 int32_t
@@ -5463,7 +5493,6 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         stripe_private_t  *priv     = NULL;
         int32_t            op_errno = EINVAL;
         int                i        = 0;
-        xlator_t         **sub_volumes;
         int                ret      = 0;
 
         VALIDATE_OR_GOTO (frame, err);
@@ -5485,31 +5514,6 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         frame->local = local;
         loc_copy (&local->loc, loc);
 
-
-        if (name && (strcmp (GF_XATTR_MARKER_KEY, name) == 0)
-            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                local->marker.call_count = priv->child_count;
-
-                sub_volumes = alloca ( priv->child_count *
-                                       sizeof (xlator_t *));
-                for (i = 0, trav = this->children; trav ;
-                     trav = trav->next, i++) {
-
-                        *(sub_volumes + i)  = trav->xlator;
-
-                }
-
-                if (cluster_getmarkerattr (frame, this, loc, name,
-                                           local, stripe_getxattr_unwind,
-                                           sub_volumes, priv->child_count,
-                                           MARKER_UUID_TYPE, marker_uuid_default_gauge,
-                                           priv->vol_uuid)) {
-                        op_errno = EINVAL;
-                        goto err;
-                }
-
-                return 0;
-        }
 
         if (name && strncmp (name, GF_XATTR_QUOTA_SIZE_KEY,
                              strlen (GF_XATTR_QUOTA_SIZE_KEY)) == 0) {
@@ -5555,41 +5559,10 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (name &&(*priv->vol_uuid)) {
-                if ((match_uuid_local (name, priv->vol_uuid) == 0)
-                    && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-
-                        if (!IA_FILE_OR_DIR (loc->inode->ia_type))
-                                local->marker.call_count = 1;
-                        else
-                                local->marker.call_count = priv->child_count;
-
-                        sub_volumes = alloca (local->marker.call_count *
-                                              sizeof (xlator_t *));
-
-                        for (i = 0, trav = this->children;
-                             i < local->marker.call_count;
-                             i++, trav = trav->next) {
-                                *(sub_volumes + i) = trav->xlator;
-
-                        }
-
-                        if (cluster_getmarkerattr (frame, this, loc, name,
-                                                   local,
-                                                   stripe_getxattr_unwind,
-                                                   sub_volumes,
-                                                   local->marker.call_count,
-                                                   MARKER_XTIME_TYPE,
-                                                   marker_xtime_default_gauge,
-                                                   priv->vol_uuid)) {
-                                op_errno = EINVAL;
-                                goto err;
-                        }
-
-                        return 0;
-                }
-        }
-
+        if (cluster_handle_marker_getxattr (frame, loc, name, priv->vol_uuid,
+                                            stripe_getxattr_unwind,
+                                            stripe_marker_populate_args) == 0)
+                return 0;
 
         STACK_WIND (frame, stripe_internal_getxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
@@ -5601,7 +5574,7 @@ err:
         return 0;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 stripe_is_special_xattr (const char *name)
 {
         gf_boolean_t    is_spl = _gf_false;

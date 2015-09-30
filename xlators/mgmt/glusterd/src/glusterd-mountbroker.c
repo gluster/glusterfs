@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <inttypes.h>
 #include <fnmatch.h>
 #include <pwd.h>
@@ -31,6 +27,7 @@
 #include "common-utils.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-messages.h"
 
 static int
 seq_dict_foreach (dict_t *dict,
@@ -217,7 +214,8 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 
  out:
         if (ret == SYNTAX_ERR) {
-                gf_log ("", GF_LOG_ERROR, "cannot parse mount patterns %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "cannot parse mount patterns %s",
                         pdesc);
         }
 
@@ -232,6 +230,7 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 const char *georep_mnt_desc_template =
         "SUP("
                 "aux-gfid-mount "
+                "acl "
                 "volfile-server=localhost "
                 "client-pid=%d "
                 "user-map-root=%s "
@@ -545,8 +544,8 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         }
 
         /* look up spec for label */
-        list_for_each_entry (mspec, &priv->mount_specs,
-                             speclist) {
+        cds_list_for_each_entry (mspec, &priv->mount_specs,
+                                 speclist) {
                 if (strcmp (mspec->label, label) != 0)
                         continue;
                 uid = evaluate_mount_request (mspec, argdict);
@@ -669,7 +668,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
 
         if (*op_errno) {
                 ret = -1;
-                gf_log ("", GF_LOG_WARNING, "unsuccessful mount request (%s)",
+                gf_msg (this->name, GF_LOG_WARNING, *op_errno,
+                        GD_MSG_MOUNT_REQ_FAIL,
+                        "unsuccessful mount request (%s)",
                         strerror (*op_errno));
                 if (mtptemp) {
                         *cookieswitch = '/';

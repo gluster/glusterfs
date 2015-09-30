@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpcsvc.h"
 #include "dict.h"
 #include "xlator.h"
@@ -32,6 +27,7 @@
 #include "nfs.h"
 #include "xdr-rpc.h"
 #include "xdr-generic.h"
+#include "nfs-messages.h"
 
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -42,8 +38,10 @@
         do      {                                                       \
                 if ((str)) {                                            \
                         if (strlen ((str)) > (len)) {                   \
-                                gf_log (GF_NFS3, GF_LOG_ERROR, "strlen "\
-                                        "too long");                    \
+                                gf_msg (GF_NFS3, GF_LOG_ERROR,          \
+                                        ENAMETOOLONG,                   \
+                                        NFS_MSG_STR_TOO_LONG,           \
+                                        "strlen too long");             \
                                 status = NFS3ERR_NAMETOOLONG;           \
                                 retval = -ENAMETOOLONG;                 \
                                 goto label;                             \
@@ -54,8 +52,9 @@
 #define nfs3_validate_nfs3_state(request, state, status, label, retval) \
         do      {                                                       \
                 state = rpcsvc_request_program_private (request);       \
-                if (!state) {                                            \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "NFSv3 state "   \
+                if (!state) {                                           \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, EFAULT,          \
+                                NFS_MSG_STATE_MISSING, "NFSv3 state "   \
                                 "missing from RPC request");            \
                         status = NFS3ERR_SERVERFAULT;                   \
                         ret = -EFAULT;                                  \
@@ -80,7 +79,8 @@ __nfs3_get_export_by_index (struct nfs3_state *nfs3, uuid_t exportid)
         }
 
         exp = NULL;
-        gf_log (GF_NFS, GF_LOG_ERROR, "searchindex=%d not found", searchindex);
+        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_INDEX_NOT_FOUND,
+                "searchindex=%d not found", searchindex);
 found:
         return exp;
 }
@@ -92,7 +92,7 @@ __nfs3_get_export_by_volumeid (struct nfs3_state *nfs3, uuid_t exportid)
         struct nfs3_export      *exp = NULL;
 
         list_for_each_entry (exp, &nfs3->exports, explist) {
-                if (!uuid_compare (exportid, exp->volumeid))
+                if (!gf_uuid_compare (exportid, exp->volumeid))
                         goto found;
         }
 
@@ -130,7 +130,8 @@ nfs3_export_access (struct nfs3_state *nfs3, uuid_t exportid)
         exp = __nfs3_get_export_by_exportid (nfs3, exportid);
 
         if (!exp) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to get export by ID");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_EXPORT_ID_FAIL,
+                        "Failed to get export by ID");
                 goto err;
         }
 
@@ -143,7 +144,9 @@ err:
 #define nfs3_check_rw_volaccess(nfs3state, exid, status, label)         \
         do {                                                            \
                 if (nfs3_export_access (nfs3state,exid)!=GF_NFS3_VOLACCESS_RW){\
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "No read-write access");\
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, EACCES,          \
+                                NFS_MSG_NO_RW_ACCESS,                   \
+                                "No read-write access");                \
                         status = NFS3ERR_ROFS;                          \
                         goto label;                                     \
                 }                                                       \
@@ -214,8 +217,8 @@ out:
                 rpc_transport_t *trans = NULL;                          \
                 volume = nfs3_fh_to_xlator ((nfs3state), handle);       \
                 if (!volume) {                                          \
-                        uuid_unparse (handle->exportid, exportid);      \
-                        uuid_unparse (handle->gfid, gfid);              \
+                        gf_uuid_unparse (handle->exportid, exportid);   \
+                        gf_uuid_unparse (handle->gfid, gfid);           \
                         trans = rpcsvc_request_transport (req);         \
                         GF_LOG_OCCASIONALLY (nfs3state->occ_logger,     \
                                 GF_NFS3, GF_LOG_ERROR, "Failed to map " \
@@ -230,7 +233,7 @@ out:
                         status = NFS3ERR_STALE;                         \
                         goto label;                                     \
                 } else {                                                \
-                        gf_log (GF_NFS3, GF_LOG_TRACE, "FH to Volume:"  \
+                        gf_msg_trace (GF_NFS3, 0, "FH to Volume:"       \
                                 "%s", volume->name);                    \
                         rpcsvc_request_set_private (req, volume);       \
                 }                                                       \
@@ -240,9 +243,38 @@ out:
 #define nfs3_validate_gluster_fh(handle, status, errlabel)              \
         do {                                                            \
                 if (!nfs3_fh_validate (handle)) {                       \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Bad Handle");   \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_BAD_HANDLE,                     \
+                                "Bad Handle");                          \
                         status = NFS3ERR_BADHANDLE;                     \
                         goto errlabel;                                  \
+                }                                                       \
+        } while (0)                                                     \
+
+
+#define nfs3_check_fh_auth_status(cst, nfstat, is_write_op, erlabl)     \
+        do {                                                            \
+                int auth_ret = 0;                                       \
+                int auth_errno = 0;                                     \
+                xlator_t *xlatorp = NULL;                               \
+                char buf[256], gfid[256];                               \
+                rpc_transport_t *trans = NULL;                          \
+                                                                        \
+                auth_ret = auth_errno =                                 \
+                        nfs3_fh_auth_nfsop (cst, is_write_op);          \
+                if (auth_ret < 0) {                                     \
+                        trans = rpcsvc_request_transport (cst->req);    \
+                        xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
+                                                     &cst->resolvefh);  \
+                        gf_uuid_unparse (cst->resolvefh.gfid, gfid);    \
+                        sprintf (buf, "(%s) %s : %s",                   \
+                                 trans->peerinfo.identifier,            \
+                        xlatorp ? xlatorp->name : "ERR", gfid);         \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_RESOLVE_FH_FAIL, "Unable to "   \
+                                        "resolve FH: %s", buf);         \
+                        nfstat = nfs3_errno_to_nfsstat3 (-auth_errno);  \
+                        goto erlabl;                                    \
                 }                                                       \
         } while (0)                                                     \
 
@@ -255,13 +287,15 @@ out:
                         trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
-                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
+                        gf_uuid_unparse (cst->resolvefh.gfid, gfid);    \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",    \
                                   trans->peerinfo.identifier,           \
                                   xlatorp ? xlatorp->name : "ERR",      \
-                                  gfid );                                \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "%s: %s",        \
-                                strerror(cst->resolve_errno), buf);     \
+                                  gfid);                                \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_RESOLVE_STAT,                   \
+                                "%s: %s", strerror(cst->resolve_errno), \
+                                buf);                                   \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
@@ -277,12 +311,13 @@ out:
                         trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
-                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
-                                  trans->peerinfo.identifier,     \
+                        gf_uuid_unparse (cst->resolvefh.gfid, gfid);    \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",    \
+                                  trans->peerinfo.identifier,           \
                                   xlatorp ? xlatorp->name : "ERR",      \
-                                  gfid);         \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "%s: %s",        \
+                                  gfid);                                \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_RESOLVE_STAT, "%s: %s",         \
                                 strerror(cst->resolve_errno), buf);     \
                         nfstat = nfs3_errno_to_nfsstat3 (cs->resolve_errno);\
                         goto erlabl;                                    \
@@ -302,7 +337,7 @@ __nfs3_get_volume_id (struct nfs3_state *nfs3, xlator_t *xl,
 
         list_for_each_entry (exp, &nfs3->exports, explist) {
                 if (exp->subvol == xl) {
-                        uuid_copy (volumeid, exp->volumeid);
+                        gf_uuid_copy (volumeid, exp->volumeid);
                         ret = 0;
                         goto out;
                 }
@@ -323,7 +358,7 @@ out:
                         goto erl;                                       \
                 }                                                       \
                                                                         \
-                uuid_copy ((fhd)->gfid, zero);                          \
+                gf_uuid_copy ((fhd)->gfid, zero);                       \
                 (fhd)->gfid[15] = 1;                                    \
                 (enam) = NULL;                                          \
                 if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx))))        \
@@ -340,8 +375,10 @@ out:
 #define nfs3_volume_started_check(nf3stt, vlm, rtval, erlbl)            \
         do {                                                            \
               if ((!nfs_subvolume_started (nfs_state (nf3stt->nfsx), vlm))){\
-                      gf_log (GF_NFS3, GF_LOG_ERROR, "Volume is disabled: %s",\
-                              vlm->name);                               \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_VOL_DISABLE,                    \
+                                "Volume is disabled: %s",               \
+                                vlm->name);                             \
                       rtval = RPCSVC_ACTOR_IGNORE;                      \
                       goto erlbl;                                       \
               }                                                         \
@@ -416,7 +453,8 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v)
 
         cs = (nfs3_call_state_t *) mem_get (s->localpool);
         if (!cs) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "out of memory");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "out of memory");
                 return NULL;
         }
 
@@ -439,7 +477,7 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
                 return;
 
         if (cs->fd) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "fd 0x%lx ref: %d",
+                gf_msg_trace (GF_NFS3, 0, "fd 0x%lx ref: %d",
                         (long)cs->fd, cs->fd->refcount);
                 fd_unref (cs->fd);
         }
@@ -469,8 +507,9 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         do {                                                            \
                 calls = nfs3_call_state_init ((nfs3state), (rq), (vl)); \
                 if (!calls) {                                           \
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to "     \
-                                "init call state");                     \
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,               \
+                                NFS_MSG_INIT_CALL_STAT_FAIL, "Failed to"\
+                                " init call state");                    \
                         opstat = NFS3ERR_SERVERFAULT;                   \
                         goto errlabel;                                  \
                 }                                                       \
@@ -488,8 +527,8 @@ nfs3_serialize_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc,
 
         nfs3 = (struct nfs3_state *)rpcsvc_request_program_private (req);
         if (!nfs3) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "NFSv3 state not found in RPC"
-                        " request");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_STATE_MISSING,
+                        "NFSv3 state not found in RPC request");
                 goto ret;
         }
 
@@ -500,7 +539,8 @@ nfs3_serialize_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc,
            can have 'xdr_sizeof' */
         iob = iobuf_get (nfs3->iobpool);
         if (!iob) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -513,7 +553,8 @@ nfs3_serialize_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc,
          */
         retlen = sfunc (*outmsg, arg);
         if (retlen == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to encode message");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ENCODE_FAIL,
+                        "Failed to encode message");
                 goto ret;
         }
 
@@ -543,26 +584,30 @@ nfs3svc_submit_reply (rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
 
         iob = nfs3_serialize_reply (req, arg, sfunc, &outmsg);
         if (!iob) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to serialize reply");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SERIALIZE_REPLY_FAIL,
+                        "Failed to serialize reply");
                 goto ret;
         }
 
         iobref = iobref_new ();
         if (!iobref) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "failed on iobref_new()");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "failed on iobref_new()");
                 goto ret;
         }
 
         ret = iobref_add (iobref, iob);
         if (ret) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
         if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Reply submission failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SUBMIT_REPLY_FAIL,
+                        "Reply submission failed");
                 goto ret;
         }
 
@@ -595,13 +640,15 @@ nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
 
         iob = nfs3_serialize_reply (req, arg, sfunc, &outmsg);
         if (!iob) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to serialize reply");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SERIALIZE_REPLY_FAIL,
+                        "Failed to serialize reply");
                 goto ret;
         }
         if (iobref == NULL) {
                 iobref = iobref_new ();
                 if (!iobref) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "failed on iobref_new");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "failed on iobref_new");
                         goto ret;
                 }
                 new_iobref = 1;
@@ -609,14 +656,16 @@ nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
 
         ret = iobref_add (iobref, iob);
         if (ret) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, payload, vcount, iobref);
         if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Reply submission failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SUBMIT_REPLY_FAIL,
+                        "Reply submission failed");
                 goto ret;
         }
 
@@ -701,17 +750,15 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
         else {
                 nfs_fix_generation(this,inode);
         }
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
-                             status, op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_GETATTR, status, op_errno,
+                             cs->resolvedloc.path);
 
         nfs3_getattr_reply (cs->req, status, buf);
         nfs3_call_state_wipe (cs);
@@ -731,14 +778,12 @@ nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
-                             status, op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_GETATTR, status, op_errno,
+                             cs->resolvedloc.path);
 
         nfs3_getattr_reply (cs->req, status, buf);
         nfs3_call_state_wipe (cs);
@@ -762,6 +807,7 @@ nfs3_getattr_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         /* If inode which is to be getattr'd is the root, we need to do a
@@ -777,11 +823,11 @@ nfs3_getattr_resume (void *carg)
                 ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
         */
 
-	if (cs->hardresolved) {
-		ret = -EFAULT;
-		stat = NFS3_OK;
-		goto nfs3err;
-	}
+        if (cs->hardresolved) {
+                ret = -EFAULT;
+                stat = NFS3_OK;
+                goto nfs3err;
+        }
 
         /*
          * If brick state changed, we need to force a proper lookup cycle (as
@@ -806,15 +852,17 @@ nfs3_getattr_resume (void *carg)
 
 check_err:
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Stat fop failed: %s: %s",
-                        cs->oploc.path, strerror (-ret));
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_STAT_FOP_FAIL,
+                        "Stat fop failed: %s: %s", cs->oploc.path,
+                        strerror (-ret));
                 stat = nfs3_errno_to_nfsstat3 (-ret);
         }
 
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_GETATTR, stat, -ret);
+                                     NFS3_GETATTR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_getattr_reply (cs->req, stat, &cs->stbuf);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -849,8 +897,9 @@ nfs3_getattr (rpcsvc_request_t *req, struct nfs3_fh *fh)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_GETATTR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_GETATTR, stat, -ret,
+                                     NULL);
                 nfs3_getattr_reply (req, stat, NULL);
                 ret = 0;
                 nfs3_call_state_wipe (cstate);
@@ -872,14 +921,16 @@ nfs3svc_getattr (rpcsvc_request_t *req)
 
         nfs3_prep_getattr3args (&args, &fh);
         if (xdr_to_getattr3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_getattr (req, &fh);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "GETATTR procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_GETATTR_FAIL,
+                        "GETATTR procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -915,9 +966,6 @@ nfs3svc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -933,8 +981,9 @@ nfs3svc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         stat = NFS3_OK;
 nfs3err:
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_SETATTR, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_SETATTR, stat, op_errno,
+                             cs->resolvedloc.path);
         nfs3_setattr_reply (cs->req, stat, prestat, postbuf);
         nfs3_call_state_wipe (cs);
 
@@ -955,9 +1004,6 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -988,7 +1034,8 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_SETATTR, stat, op_errno);
+                                     NFS3_SETATTR, stat, op_errno,
+                                     cs->resolvedloc.path);
                 nfs3_setattr_reply (cs->req, stat, prebuf, postop);
                 nfs3_call_state_wipe (cs);
         }
@@ -1011,15 +1058,13 @@ nfs3svc_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
         if (buf->ia_ctime != cs->timestamp.seconds) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Timestamps not in sync");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_TIMESTAMP_NO_SYNC,
+                        "Timestamps not in sync");
                 stat = NFS3ERR_NOT_SYNC;
                 goto nfs3err;
         }
@@ -1035,7 +1080,8 @@ nfs3svc_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_SETATTR, stat, op_errno);
+                                     NFS3_SETATTR, stat, op_errno,
+                                     cs->resolvedloc.path);
                 nfs3_setattr_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -1068,7 +1114,8 @@ nfs3_setattr_resume (void *carg)
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_SETATTR, stat, -ret);
+                                     NFS3_SETATTR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_setattr_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -1103,18 +1150,19 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
         cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
                                                           NULL);
         if (guard->check) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Guard check required");
+                gf_msg_trace (GF_NFS3, 0, "Guard check required");
                 cs->timestamp = guard->sattrguard3_u.obj_ctime;
                 cs->sattrguardcheck = 1;
         } else {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Guard check not required");
+                gf_msg_trace (GF_NFS3, 0, "Guard check not required");
                 cs->sattrguardcheck = 0;
         }
 
         if (!cs->setattr_valid) {
                 ret = -EINVAL;  /* Force a reply */
                 stat = NFS3_OK;
-                gf_log (GF_NFS3, GF_LOG_ERROR, "cs->setattr_valid is invalid");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_SETATTR_INVALID,
+                        "cs->setattr_valid is invalid");
                 goto nfs3err;
         }
 
@@ -1124,8 +1172,9 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_SETATTR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_SETATTR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_setattr_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -1150,14 +1199,17 @@ nfs3svc_setattr (rpcsvc_request_t *req)
 
         nfs3_prep_setattr3args (&args, &fh);
         if (xdr_to_setattr3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0,
+                        NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_setattr (req, &fh, &args.new_attributes, &args.guard);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "SETATTR procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_SETATTR_FAIL,
+                        "SETATTR procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -1192,7 +1244,7 @@ nfs3_fresh_lookup (nfs3_call_state_t *cs)
         char    *oldresolventry = NULL;
 
         GF_VALIDATE_OR_GOTO (GF_NFS3, cs, err);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "inode needs fresh lookup");
+        gf_msg_debug (GF_NFS3, 0, "inode needs fresh lookup");
         inode_unlink (cs->resolvedloc.inode, cs->resolvedloc.parent,
                       cs->resolventry);
         nfs_loc_wipe (&cs->resolvedloc);
@@ -1224,10 +1276,6 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS,
-                        (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto xmit_res;
         }
@@ -1242,8 +1290,9 @@ xmit_res:
                 goto out;
         }
 
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP, status,
-                            op_errno, &newfh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
+                            status, op_errno, &newfh,
+                            cs->resolvedloc.path);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
         nfs3_call_state_wipe (cs);
 out:
@@ -1265,13 +1314,11 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfsstat3                        status = NFS3_OK;
         nfs3_call_state_t               *cs = NULL;
         uuid_t                          volumeid = {0, };
+        uuid_t                          mountid = {1, };
         struct nfs3_state               *nfs3 = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto xmit_res;
         }
@@ -1291,12 +1338,13 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                        cs->vol);
         else {
                 __nfs3_get_volume_id (nfs3, cs->vol, volumeid);
-                newfh = nfs3_fh_build_uuid_root_fh (volumeid);
+                newfh = nfs3_fh_build_uuid_root_fh (volumeid, mountid);
         }
 
 xmit_res:
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP, status,
-                            op_errno, &newfh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
+                            status, op_errno, &newfh,
+                            cs->resolvedloc.path);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
         nfs3_call_state_wipe (cs);
 
@@ -1315,12 +1363,13 @@ nfs3_lookup_parentdir_resume (void *carg)
         inode_t                         *parent = NULL;
 
         if (!carg) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Invalid argument,"
-                        " carg value NULL");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, carg value NULL");
                 return EINVAL;
         }
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
 
         /* At this point now, the loc in cs is for the directory file handle
@@ -1353,7 +1402,9 @@ nfs3_lookup_parentdir_resume (void *carg)
                                           NFS_RESOLVE_CREATE);
 
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "nfs_inode_loc_fill"
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                                NFS_MSG_INODE_LOC_FILL_ERROR,
+                                "nfs_inode_loc_fill"
                                 " error");
                         goto errtostat;
                 }
@@ -1367,8 +1418,9 @@ errtostat:
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_LOOKUP, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_lookup_reply (cs->req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -1390,12 +1442,13 @@ nfs3_lookup_resume (void *carg)
         struct nfs3_fh                  newfh = {{0},};
 
         if (!carg) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Invalid argument,"
-                        " carg value NULL");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, carg value NULL");
                 return EINVAL;
         }
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->parent = cs->resolvefh;
 
@@ -1413,10 +1466,11 @@ nfs3_lookup_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_LOOKUP, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_lookup_reply (cs->req, stat, &newfh, &cs->stbuf,
-				   &cs->postparent);
+                                   &cs->postparent);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -1454,15 +1508,17 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
                                           nfs3_lookup_resume);
 
         if (ret < 0) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "failed to start hard reslove");
+                gf_msg (GF_NFS, GF_LOG_ERROR, -ret,
+                        NFS_MSG_HARD_RESOLVE_FAIL,
+                        "failed to start hard reslove");
                 stat = nfs3_errno_to_nfsstat3 (-ret);
         }
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_LOOKUP,
-                                     stat,
-                                     -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_LOOKUP, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_lookup_reply (req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -1487,14 +1543,17 @@ nfs3svc_lookup (rpcsvc_request_t *req)
 
         nfs3_prep_lookup3args (&args, &fh, name);
         if (xdr_to_lookup3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_lookup (req, &fh, args.what.dir.data.data_len, name);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "LOOKUP procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_LOOKUP_PROC_FAIL,
+                        "LOOKUP procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -1527,13 +1586,12 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS, status,
-                             op_errno);
+
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_ACCESS, status, op_errno,
+                             cs->resolvedloc.path);
         nfs3_access_reply (cs->req, status, op_errno, cs->accessbits);
         nfs3_call_state_wipe (cs);
 
@@ -1549,12 +1607,24 @@ nfs3_access_resume (void *carg)
         nfs3_call_state_t       *cs = NULL;
 
         if (!carg) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Invalid argument,"
-                        " carg value NULL");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, carg value NULL");
                 return EINVAL;
         }
 
         cs = (nfs3_call_state_t *)carg;
+
+        /* Additional checks on the NFS file handle
+         * go here. The path for an NFS ACCESS call
+         * goes like this:
+         * nfs3_access -> nfs3_fh_resolve_and_resume -> nfs3_resolve_resume ->
+         * nfs3_access_resume -> <macro/function performs check on FH> ->
+         * <continue or return from function based on check.> ('goto nfs3err'
+         * terminates this function and writes the appropriate response to the
+         * client). It is important that you do NOT stick any sort of check
+         * on the file handle outside of the nfs3_##OP_resume functions.
+         */
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fh = cs->resolvefh;
         nfs_request_user_init (&nfu, cs->req);
@@ -1565,8 +1635,9 @@ nfs3_access_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_ACCESS, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_access_reply (cs->req, stat, 0, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -1601,8 +1672,9 @@ nfs3_access (rpcsvc_request_t *req, struct nfs3_fh *fh, uint32_t accbits)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_ACCESS,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_ACCESS, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_access_reply (req, stat, 0, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -1624,14 +1696,17 @@ nfs3svc_access (rpcsvc_request_t *req)
 
         nfs3_prep_access3args (&args, &fh);
         if (xdr_to_access3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_access (req, &fh, args.access);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "ACCESS procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_ACCESS_PROC_FAIL,
+                        "ACCESS procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -1667,9 +1742,6 @@ nfs3svc_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -1677,8 +1749,9 @@ nfs3svc_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stat = NFS3_OK;
 
 nfs3err:
-        nfs3_log_readlink_res (rpcsvc_request_xid (cs->req), stat, op_errno,
-                               (char *)path);
+        nfs3_log_readlink_res (rpcsvc_request_xid (cs->req),
+                               stat, op_errno, (char *)path,
+                               cs->resolvedloc.path);
         nfs3_readlink_reply (cs->req, stat, (char *)path, buf);
         nfs3_call_state_wipe (cs);
 
@@ -1698,6 +1771,7 @@ nfs3_readlink_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         ret = nfs_readlink (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
@@ -1708,7 +1782,8 @@ nfs3_readlink_resume (void *carg)
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_READLINK, stat, -ret);
+                                     NFS3_READLINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_readlink_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -1727,7 +1802,8 @@ nfs3_readlink (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -1744,8 +1820,9 @@ nfs3_readlink (rpcsvc_request_t *req, struct nfs3_fh *fh)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_READLINK,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_READLINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_readlink_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -1770,14 +1847,17 @@ nfs3svc_readlink (rpcsvc_request_t *req)
 
         nfs3_prep_readlink3args (&args, &fh);
         if (xdr_to_readlink3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_readlink (req, &fh);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "READLINK procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_READLINK_PROC_FAIL,
+                        "READLINK procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -1834,9 +1914,6 @@ nfs3svc_read_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         } else
@@ -1846,8 +1923,10 @@ nfs3svc_read_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 is_eof = 1;
 
 err:
-        nfs3_log_read_res (rpcsvc_request_xid (cs->req), stat, op_errno,
-                           op_ret, is_eof, vector, count);
+        nfs3_log_read_res (rpcsvc_request_xid (cs->req),
+                           stat, op_errno,
+                           op_ret, is_eof, vector, count,
+                           cs->resolvedloc.path);
         nfs3_read_reply (cs->req, stat, op_ret, vector, count, iobref, stbuf,
                          is_eof);
         nfs3_call_state_wipe (cs);
@@ -1876,8 +1955,9 @@ nfs3_read_fd_resume (void *carg)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_READ,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_READ, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_read_reply (cs->req, stat, 0, NULL, 0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
         }
@@ -1898,10 +1978,12 @@ nfs3_read_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         fd = fd_anonymous (cs->resolvedloc.inode);
         if (!fd) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to create anonymous fd");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ANONYMOUS_FD_FAIL,
+                        "Failed to create anonymous fd");
                 goto nfs3err;
         }
 
@@ -1910,8 +1992,9 @@ nfs3_read_resume (void *carg)
         ret = 0;
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_READ,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_READ, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_read_reply (cs->req, stat, 0, NULL,0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
         }
@@ -1930,7 +2013,8 @@ nfs3_read (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -1950,8 +2034,9 @@ nfs3_read (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_READ, stat,
-                                     -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_READ, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_read_reply (req, stat, 0, NULL,0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -1973,14 +2058,17 @@ nfs3svc_read (rpcsvc_request_t *req)
 
         nfs3_prep_read3args (&args, &fh);
         if (xdr_to_read3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_read (req, &fh, args.offset, args.count);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "READ procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_READ_FAIL,
+                        "READ procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -2020,15 +2108,14 @@ nfs3svc_write_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3 = rpcsvc_request_program_private (cs->req);
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
-        nfs3_log_write_res (rpcsvc_request_xid (cs->req), stat, op_errno,
-                            cs->maxcount, cs->writetype, nfs3->serverstart);
+        nfs3_log_write_res (rpcsvc_request_xid (cs->req),
+                            stat, op_errno,
+                            cs->maxcount, cs->writetype, nfs3->serverstart,
+                            cs->resolvedloc.path);
         nfs3_write_reply (cs->req, stat, cs->maxcount, cs->writetype,
                           nfs3->serverstart, &cs->stbuf, postbuf);
         nfs3_call_state_wipe (cs);
@@ -2080,9 +2167,6 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         nfs3 = rpcsvc_request_program_private (cs->req);
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
@@ -2091,9 +2175,9 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->maxcount = op_ret;
 
 err:
-	nfs3_log_write_res (rpcsvc_request_xid (cs->req), stat,
-			    op_errno, cs->maxcount, cs->writetype,
-			    nfs3->serverstart);
+	nfs3_log_write_res (rpcsvc_request_xid (cs->req),
+                            stat, op_errno, cs->maxcount, cs->writetype,
+			    nfs3->serverstart, cs->resolvedloc.path);
 	nfs3_write_reply (cs->req, stat, cs->maxcount,
 			  cs->writetype, nfs3->serverstart, prebuf,
 			  postbuf);
@@ -2145,10 +2229,12 @@ nfs3_write_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_true, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         fd = fd_anonymous (cs->resolvedloc.inode);
         if (!fd) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to create anonymous fd");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ANONYMOUS_FD_FAIL,
+                        "Failed to create anonymous fd");
                 goto nfs3err;
         }
 
@@ -2177,8 +2263,9 @@ nfs3_write_resume (void *carg)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_WRITE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_WRITE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_write_reply (cs->req, stat, 0, cs->writetype, 0, NULL,
                                   NULL);
                 nfs3_call_state_wipe (cs);
@@ -2199,7 +2286,8 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh) || (!payload.iov_base)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -2217,15 +2305,15 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         cs->iobref = iobref;
         cs->datavec = payload;
 
-
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_write_resume);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_WRITE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_WRITE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_write_reply (req, stat, 0, stable, 0, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2264,7 +2352,8 @@ nfs3svc_write_vecsizer (int state, ssize_t *readsize, char *base_addr,
                 ret = 0;
                 *readsize = 0;
         } else
-                gf_log ("nfs", GF_LOG_ERROR, "state wrong");
+                gf_msg ("nfs", GF_LOG_ERROR, 0, NFS_MSG_STATE_WRONG,
+                        "state wrong");
 
         return ret;
 }
@@ -2281,7 +2370,8 @@ nfs3svc_write (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_write3args (&args, &fh);
         if (xdr_to_write3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -2295,7 +2385,9 @@ nfs3svc_write (rpcsvc_request_t *req)
         ret = nfs3_write (req, &fh, args.offset, args.count, args.stable,
                           req->msg[1], rpcsvc_request_iobref_ref (req));
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "WRITE procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_WRITE_FAIL,
+                        "WRITE procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -2332,17 +2424,15 @@ nfs3svc_create_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
         stat = NFS3_OK;
 nfs3err:
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_CREATE, stat,
-                            op_errno, &cs->fh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                            NFS3_CREATE, stat, op_errno,
+                            &cs->fh, cs->resolvedloc.path);
         nfs3_create_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                            &cs->postparent);
         nfs3_call_state_wipe (cs);
@@ -2361,13 +2451,10 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                     ret = -EFAULT;
         nfs_user_t              nfu = {0, };
         nfs3_call_state_t       *cs = NULL;
-	inode_t			*oldinode = NULL;
+        inode_t                 *oldinode = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -2386,7 +2473,7 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->preparent = *preparent;
         cs->postparent = *postparent;
         nfs_request_user_init (&nfu, cs->req);
-        uuid_copy (cs->resolvedloc.gfid, inode->gfid);
+        gf_uuid_copy (cs->resolvedloc.gfid, inode->gfid);
         ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_create_setattr_cbk, cs);
         if (ret < 0)
@@ -2399,8 +2486,9 @@ nfs3err:
         }
 
         if (ret < 0) {
-                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_CREATE,
-                                    stat, op_errno, &cs->fh);
+                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                                    NFS3_CREATE, stat, op_errno, &cs->fh,
+                                    cs->resolvedloc.path);
                 nfs3_create_reply (cs->req, stat, &cs->fh, buf, preparent,
                                    postparent);
                 nfs3_call_state_wipe (cs);
@@ -2469,9 +2557,6 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         nfs_request_user_init (&nfu, cs->req);
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 ret = -op_errno;
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
@@ -2479,13 +2564,13 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((cs->stbuf.ia_mtime == buf->ia_mtime) &&
             (cs->stbuf.ia_atime == buf->ia_atime)) {
-                gf_log (GF_NFS3, GF_LOG_DEBUG,
+                gf_msg_debug (GF_NFS3, 0,
                         "Create req retransmitted verf %x %x",
                         cs->stbuf.ia_mtime, cs->stbuf.ia_atime);
                 stat = NFS3_OK;
                 nfs3_fh_build_child_fh (&cs->parent, buf, &cs->fh);
         } else {
-                gf_log (GF_NFS3, GF_LOG_DEBUG,
+                gf_msg_debug (GF_NFS3, 0,
                         "File already exist new_verf %x %x"
                         "old_verf %x %x", cs->stbuf.ia_mtime,
                         cs->stbuf.ia_atime,
@@ -2495,8 +2580,9 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_CREATE,
-                                     stat, op_errno);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_CREATE, stat, op_errno,
+                                     cs->resolvedloc.path);
                 nfs3_create_reply (cs->req, stat, &cs->fh, buf, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -2553,6 +2639,7 @@ nfs3_create_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_true, nfs3err);
         nfs3_check_new_fh_resolve_status (cs, stat, nfs3err);
         if (cs->createmode == EXCLUSIVE)
                 ret = nfs3_create_exclusive (cs);
@@ -2565,8 +2652,9 @@ nfs3_create_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_CREATE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_CREATE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_create_reply (cs->req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -2612,8 +2700,9 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_CREATE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_CREATE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_create_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2638,7 +2727,8 @@ nfs3svc_create (rpcsvc_request_t *req)
 
         nfs3_prep_create3args (&args, &dirfh, name);
         if (xdr_to_create3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -2649,7 +2739,8 @@ nfs3svc_create (rpcsvc_request_t *req)
         ret = nfs3_create (req, &dirfh, name, args.how.mode,
                            &args.how.createhow3_u.obj_attributes, cverf);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "CREATE procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_CREATE_FAIL,
+                        "CREATE procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -2685,17 +2776,15 @@ nfs3svc_mkdir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
         stat = NFS3_OK;
 nfs3err:
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_MKDIR, stat,
-                            op_errno, &cs->fh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                            NFS3_MKDIR, stat, op_errno, &cs->fh,
+                            cs->resolvedloc.path);
         nfs3_mkdir_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                           &cs->postparent);
         nfs3_call_state_wipe (cs);
@@ -2717,9 +2806,6 @@ nfs3svc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -2742,8 +2828,9 @@ nfs3svc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_MKDIR,
-                                    stat, op_errno, &cs->fh);
+                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                                    NFS3_MKDIR, stat, op_errno, &cs->fh,
+                                    cs->resolvedloc.path);
                 nfs3_mkdir_reply (cs->req, stat, &cs->fh, buf, preparent,
                                   postparent);
                 nfs3_call_state_wipe (cs);
@@ -2781,8 +2868,9 @@ nfs3_mkdir_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_MKDIR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_MKDIR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_mkdir_reply (cs->req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -2803,7 +2891,8 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!dirfh) || (!name) || (!sattr)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -2826,8 +2915,9 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_MKDIR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_MKDIR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_mkdir_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2849,14 +2939,16 @@ nfs3svc_mkdir (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_mkdir3args (&args, &dirfh, name);
         if (xdr_to_mkdir3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_mkdir (req, &dirfh, name, &args.attributes);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "MKDIR procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_DIR_OP_FAIL,
+                        "MKDIR procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -2895,9 +2987,6 @@ nfs3svc_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -2906,8 +2995,9 @@ nfs3svc_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stat = NFS3_OK;
 
 nfs3err:
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_SYMLINK, stat,
-                            op_errno, &cs->fh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                            NFS3_SYMLINK, stat, op_errno, &cs->fh,
+                            cs->resolvedloc.path);
         nfs3_symlink_reply (cs->req, stat, &cs->fh, buf, preparent,
                             postparent);
         nfs3_call_state_wipe (cs);
@@ -2937,7 +3027,8 @@ nfs3_symlink_resume (void *carg)
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_SYMLINK, stat, -ret);
+                                     NFS3_SYMLINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_symlink_reply (cs->req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -2957,7 +3048,8 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!dirfh) || (!name) || (!target) || (!sattr)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -2985,8 +3077,9 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_SYMLINK,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_SYMLINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_symlink_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3012,7 +3105,8 @@ nfs3svc_symlink (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_symlink3args (&args, &dirfh, name, target);
         if (xdr_to_symlink3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -3020,7 +3114,8 @@ nfs3svc_symlink (rpcsvc_request_t *req)
         ret = nfs3_symlink (req, &dirfh, name, target,
                             &args.symlink.symlink_attributes);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "SYMLINK procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EXDEV, NFS_MSG_SYMLINK_FAIL,
+                        "SYMLINK procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -3030,7 +3125,7 @@ rpcerr:
 }
 
 
-int
+static int
 nfs3_mknod_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *fh,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent)
@@ -3057,17 +3152,15 @@ nfs3svc_mknod_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
         stat = NFS3_OK;
 nfs3err:
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_MKNOD, stat,
-                            op_errno, &cs->fh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                            NFS3_MKNOD, stat, op_errno, &cs->fh,
+                            cs->resolvedloc.path);
         nfs3_mknod_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                           &cs->postparent);
         nfs3_call_state_wipe (cs);
@@ -3089,9 +3182,6 @@ nfs3svc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -3114,9 +3204,9 @@ nfs3svc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
         if (ret < 0) {
-                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_MKNOD,
-                                    stat,
-                                    op_errno, &cs->fh);
+                nfs3_log_newfh_res (rpcsvc_request_xid (cs->req),
+                                    NFS3_MKNOD, stat, op_errno, &cs->fh,
+                                    cs->resolvedloc.path);
                 nfs3_mknod_reply (cs->req, stat, &cs->fh, buf, preparent,
                                   postparent);
                 nfs3_call_state_wipe (cs);
@@ -3126,7 +3216,7 @@ nfs3err:
 }
 
 
-int
+static int
 nfs3_mknod_device (nfs3_call_state_t *cs)
 {
         int                             ret = -EFAULT;
@@ -3157,12 +3247,11 @@ nfs3_mknod_device (nfs3_call_state_t *cs)
 }
 
 
-int
-nfs3_mknod_fifo (nfs3_call_state_t *cs)
+static int
+nfs3_mknod_fifo (nfs3_call_state_t *cs, mode_t mode)
 {
         int                             ret = -EFAULT;
         nfs_user_t                      nfu = {0, };
-        mode_t                          mode = S_IFIFO;
 
         if (!cs)
                 return ret;
@@ -3181,7 +3270,7 @@ nfs3_mknod_fifo (nfs3_call_state_t *cs)
 }
 
 
-int
+static int
 nfs3_mknod_resume (void *carg)
 {
         nfsstat3                        stat = NFS3ERR_SERVERFAULT;
@@ -3200,8 +3289,10 @@ nfs3_mknod_resume (void *carg)
                 ret = nfs3_mknod_device (cs);
                 break;
         case NF3SOCK:
+                ret = nfs3_mknod_fifo (cs, S_IFSOCK);
+                break;
         case NF3FIFO:
-                ret = nfs3_mknod_fifo (cs);
+                ret = nfs3_mknod_fifo (cs, S_IFIFO);
                 break;
         default:
                 ret = -EBADF;
@@ -3213,8 +3304,9 @@ nfs3_mknod_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_MKNOD,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_MKNOD, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_mknod_reply (cs->req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3236,7 +3328,8 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
         sattr3                          *sattr = NULL;
 
         if ((!req) || (!fh) || (!name) || (!nodedata)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -3279,8 +3372,9 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_MKNOD,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_MKNOD, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_mknod_reply (req, stat, NULL, NULL, NULL, NULL);
                 /* Ret must be 0 after this so that the caller does not
                  * also send an RPC reply.
@@ -3305,14 +3399,16 @@ nfs3svc_mknod (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_mknod3args (&args, &fh, name);
         if (xdr_to_mknod3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_mknod (req, &fh, name, &args.what);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "MKNOD procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_MKNOD_FAIL,
+                        "MKNOD procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -3347,17 +3443,15 @@ nfs3svc_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         }
 
         if (op_ret == 0)
                 stat = NFS3_OK;
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_REMOVE, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_REMOVE, stat, op_errno,
+                             cs->resolvedloc.path);
         nfs3_remove_reply (cs->req, stat, preparent, postparent);
         nfs3_call_state_wipe (cs);
 
@@ -3405,8 +3499,9 @@ nfs3_remove_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_REMOVE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_REMOVE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_remove_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3425,7 +3520,8 @@ nfs3_remove (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh) || (!name)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -3445,8 +3541,9 @@ nfs3_remove (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_REMOVE,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_REMOVE, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_remove_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3471,14 +3568,16 @@ nfs3svc_remove (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_remove3args (&args, &fh, name);
         if (xdr_to_remove3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_remove (req, &fh, name);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "REMOVE procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_REMOVE_FAIL,
+                        "REMOVE procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -3513,7 +3612,7 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
+                gf_msg (GF_NFS, GF_LOG_WARNING, op_errno, NFS_MSG_RMDIR_CBK,
                         "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
                         cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
@@ -3521,8 +3620,9 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = NFS3_OK;
         }
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_RMDIR, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_RMDIR, stat, op_errno,
+                             cs->resolvedloc.path);
         nfs3_rmdir_reply (cs->req, stat, preparent, postparent);
         nfs3_call_state_wipe (cs);
 
@@ -3550,8 +3650,9 @@ nfs3_rmdir_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_RMDIR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_RMDIR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_rmdir_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3571,7 +3672,8 @@ nfs3_rmdir (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh) || (!name)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -3591,8 +3693,9 @@ nfs3_rmdir (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_RMDIR,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_RMDIR, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_rmdir_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3617,14 +3720,16 @@ nfs3svc_rmdir (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_rmdir3args (&args, &fh, name);
         if (xdr_to_rmdir3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_rmdir (req, &fh, name);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "RMDIR procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_DIR_OP_FAIL,
+                        "RMDIR procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -3667,18 +3772,15 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: rename %s -> %s => -1 (%s)",
-                        rpcsvc_request_xid (cs->req), cs->oploc.path,
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
 
         stat = NFS3_OK;
 nfs3err:
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_RENAME, stat,
-                             -ret);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_RENAME, stat,
+                             -ret, cs->resolvedloc.path);
         nfs3_rename_reply (cs->req, stat, buf, preoldparent, postoldparent,
                            prenewparent, postnewparent);
         nfs3_call_state_wipe (cs);
@@ -3708,8 +3810,9 @@ nfs3_rename_resume_dst (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_RENAME,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_RENAME, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_rename_reply (cs->req, stat, NULL, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3745,8 +3848,9 @@ nfs3_rename_resume_src (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_RENAME,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_RENAME, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_rename_reply (cs->req, stat, NULL, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3766,7 +3870,8 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!olddirfh) || (!oldname) || (!newdirfh) || (!newname)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -3800,8 +3905,9 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_RENAME,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_RENAME, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_rename_reply (req, stat, NULL, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3828,14 +3934,16 @@ nfs3svc_rename (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_rename3args (&args, &olddirfh, oldname, &newdirfh, newname);
         if (xdr_to_rename3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_rename (req, &olddirfh, oldname, &newdirfh, newname);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "RENAME procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_RENAME_FAIL,
+                        "RENAME procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -3872,16 +3980,13 @@ nfs3svc_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: link %s <- %s => -1 (%s)",
-                        rpcsvc_request_xid (cs->req), cs->oploc.path,
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LINK, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_LINK, stat, op_errno,
+                             cs->resolvedloc.path);
         nfs3_link_reply (cs->req, stat, buf, preparent, postparent);
         nfs3_call_state_wipe (cs);
 
@@ -3911,8 +4016,9 @@ nfs3_link_resume_lnk (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LINK,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_LINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_link_reply (cs->req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3942,8 +4048,9 @@ nfs3_link_resume_tgt (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LINK,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_LINK, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_link_reply (cs->req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -3963,7 +4070,8 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
         nfs3_call_state_t       *cs = NULL;
 
         if ((!req) || (!targetfh) || (!dirfh) || (!newname)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -3991,8 +4099,9 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_LINK, stat,
-                                     -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_LINK, stat,
+                                     -ret, cs->resolvedloc.path);
                 nfs3_link_reply (req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4017,14 +4126,16 @@ nfs3svc_link (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_link3args (&args, &targetfh, &dirfh, newpath);
         if (xdr_to_link3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_link (req, &targetfh, &dirfh, newpath);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "LINK procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EXDEV, NFS_MSG_LINK_FAIL,
+                        "LINK procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4083,9 +4194,6 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto nfs3err;
         }
@@ -4094,7 +4202,7 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * readdir'ing.
          */
         if (cs->operrno == ENOENT) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Reached end-of-directory");
+                gf_msg_trace (GF_NFS3, 0, "Reached end-of-directory");
                 is_eof = 1;
         }
 
@@ -4105,16 +4213,18 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 nfs3err:
         if (cs->maxcount == 0) {
-                nfs3_log_readdir_res (rpcsvc_request_xid (cs->req), stat,
-                                      op_errno, (uintptr_t)cs->fd,
-                                      cs->dircount, is_eof);
+                nfs3_log_readdir_res (rpcsvc_request_xid (cs->req),
+                                      stat, op_errno, (uintptr_t)cs->fd,
+                                      cs->dircount, is_eof,
+                                      cs->resolvedloc.path);
                 nfs3_readdir_reply (cs->req, stat, &cs->parent,
                                     (uintptr_t)cs->fd, buf, &cs->entries,
                                     cs->dircount, is_eof);
         } else {
-                nfs3_log_readdirp_res (rpcsvc_request_xid (cs->req), stat,
-                                       op_errno, (uintptr_t)cs->fd,
-                                       cs->dircount, cs->maxcount, is_eof);
+                nfs3_log_readdirp_res (rpcsvc_request_xid (cs->req),
+                                       stat, op_errno, (uintptr_t)cs->fd,
+                                       cs->dircount, cs->maxcount, is_eof,
+                                       cs->resolvedloc.path);
                 nfs3_readdirp_reply (cs->req, stat, &cs->parent,
                                      (uintptr_t)cs->fd, buf,
                                      &cs->entries, cs->dircount,
@@ -4142,9 +4252,6 @@ nfs3svc_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
@@ -4166,11 +4273,13 @@ err:
 
         if (cs->maxcount == 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_READDIR, stat, op_errno);
+                                     NFS3_READDIR, stat, op_errno,
+                                     cs->resolvedloc.path);
                 nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL, 0, 0);
         } else {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_READDIRP, stat, op_errno);
+                                     NFS3_READDIRP, stat, op_errno,
+                                     cs->resolvedloc.path);
                 nfs3_readdirp_reply (cs->req, stat, NULL, 0, NULL, NULL,
                                      0, 0, 0);
         }
@@ -4226,12 +4335,14 @@ nfs3err:
         if (ret < 0) {
                 if (cs->maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                             NFS3_READDIR, stat, -ret);
+                                             NFS3_READDIR, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL,
                                             0, 0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                             NFS3_READDIRP, stat, -ret);
+                                             NFS3_READDIRP, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdirp_reply (cs->req, stat, NULL, 0, NULL, NULL,
                                              0, 0, 0);
                 }
@@ -4274,7 +4385,8 @@ nfs3_readdir_open_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fd = fd_anonymous (cs->resolvedloc.inode);
         if (!cs->fd) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Faile to create anonymous fd");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ANONYMOUS_FD_FAIL,
+                        "Fail to create anonymous fd");
                 goto nfs3err;
         }
 
@@ -4290,7 +4402,9 @@ nfs3_readdir_open_resume (void *carg)
                 ret = nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                    nfs3svc_readdir_opendir_cbk, cs);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "auto-opendir failed");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                                NFS_MSG_DIR_OP_FAIL,
+                                "auto-opendir failed");
                 }
         }
 
@@ -4302,12 +4416,14 @@ nfs3err:
         if (ret < 0) {
                 if (cs->maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                             NFS3_READDIR, stat, -ret);
+                                             NFS3_READDIR, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL,
                                             0, 0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                             NFS3_READDIRP, stat, -ret);
+                                             NFS3_READDIRP, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdirp_reply (cs->req, stat, NULL, 0, NULL, NULL,
                                              0, 0, 0);
                 }
@@ -4330,7 +4446,8 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
         nfs3_call_state_t       *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -4356,12 +4473,14 @@ nfs3err:
         if (ret < 0) {
                 if (maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (req),
-                                             NFS3_READDIR, stat, -ret);
+                                             NFS3_READDIR, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdir_reply (req, stat, NULL, 0, NULL, NULL, 0,
                                             0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (req),
-                                             NFS3_READDIRP, stat, -ret);
+                                             NFS3_READDIRP, stat, -ret,
+                                             cs->resolvedloc.path);
                         nfs3_readdirp_reply (req, stat, NULL, 0, NULL, NULL, 0,
                                              0, 0);
                 }
@@ -4389,7 +4508,8 @@ nfs3svc_readdir (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_readdir3args (&ra, &fh);
         if (xdr_to_readdir3args (req->msg[0], &ra) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -4398,7 +4518,9 @@ nfs3svc_readdir (rpcsvc_request_t *req)
 
         ret = nfs3_readdir (req, &fh, ra.cookie, verf, ra.count, 0);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "READDIR procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_READDIR_FAIL,
+                        "READDIR procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4421,7 +4543,8 @@ nfs3svc_readdirp (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_readdirp3args (&ra, &fh);
         if (xdr_to_readdirp3args (req->msg[0], &ra) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -4431,7 +4554,9 @@ nfs3svc_readdirp (rpcsvc_request_t *req)
         ret = nfs3_readdir (req, &fh, ra.cookie, cverf, ra.dircount,
                             ra.maxcount);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "READDIRP procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_READDIRP_FAIL,
+                        "READDIRP procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4466,15 +4591,13 @@ nfs3_fsstat_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_FSSTAT, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_FSSTAT, stat,
+                             op_errno, cs->resolvedloc.path);
         nfs3_fsstat_reply (cs->req, stat, &cs->fsstat, buf);
         nfs3_call_state_wipe (cs);
         return 0;
@@ -4493,9 +4616,6 @@ nfs3_fsstat_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 ret = -op_errno;
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
@@ -4513,8 +4633,9 @@ nfs3_fsstat_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_FSSTAT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_FSSTAT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_fsstat_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -4545,8 +4666,9 @@ nfs3_fsstat_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_FSSTAT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_FSSTAT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_fsstat_reply (cs->req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -4566,7 +4688,8 @@ nfs3_fsstat (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -4583,8 +4706,9 @@ nfs3_fsstat (rpcsvc_request_t *req, struct nfs3_fh *fh)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_FSSTAT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_FSSTAT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_fsstat_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4608,14 +4732,16 @@ nfs3svc_fsstat (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_fsstat3args (&args, &fh);
         if (xdr_to_fsstat3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_fsstat (req, &fh);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "FSTAT procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_FSTAT_FAIL,
+                        "FSTAT procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4653,15 +4779,13 @@ nfs3svc_fsinfo_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }else
                 status = NFS3_OK;
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_FSINFO, status,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_FSINFO, status,
+                             op_errno, cs->resolvedloc.path);
 
         nfs3_fsinfo_reply (cs->req, status, buf);
         nfs3_call_state_wipe (cs);
@@ -4693,8 +4817,9 @@ nfs3_fsinfo_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_FSINFO,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_FSINFO, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_fsinfo_reply (cs->req, stat, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -4713,7 +4838,8 @@ nfs3_fsinfo (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -4730,8 +4856,9 @@ nfs3_fsinfo (rpcsvc_request_t *req, struct nfs3_fh *fh)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_FSINFO,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_FSINFO, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_fsinfo_reply (req, stat, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -4753,14 +4880,16 @@ nfs3svc_fsinfo (rpcsvc_request_t *req)
 
         nfs3_prep_fsinfo3args (&args, &root);
         if (xdr_to_fsinfo3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding arguments");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_fsinfo (req, &root);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "FSINFO procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_FSINFO_FAIL,
+                        "FSINFO procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4795,9 +4924,6 @@ nfs3svc_pathconf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else {
                 /* If stat fop failed, we can still send the other components
@@ -4807,8 +4933,9 @@ nfs3svc_pathconf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = NFS3_OK;
         }
 
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_PATHCONF, stat,
-                             op_errno);
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                             NFS3_PATHCONF, stat,
+                             op_errno, cs->resolvedloc.path);
         nfs3_pathconf_reply (cs->req, stat, sbuf);
         nfs3_call_state_wipe (cs);
 
@@ -4837,7 +4964,8 @@ nfs3_pathconf_resume (void *carg)
 nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req),
-                                     NFS3_PATHCONF, stat, -ret);
+                                     NFS3_PATHCONF, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_pathconf_reply (cs->req, stat, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -4855,7 +4983,8 @@ nfs3_pathconf (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -4872,8 +5001,9 @@ nfs3_pathconf (rpcsvc_request_t *req, struct nfs3_fh *fh)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_PATHCONF,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_PATHCONF, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_pathconf_reply (req, stat, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4897,14 +5027,17 @@ nfs3svc_pathconf (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_pathconf3args (&args, &fh);
         if (xdr_to_pathconf3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_pathconf (req, &fh);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "PATHCONF procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_PATHCONF_FAIL,
+                        "PATHCONF procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -4939,16 +5072,14 @@ nfs3svc_commit_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_WARNING,
-                        "%x: %s => -1 (%s)", rpcsvc_request_xid (cs->req),
-                        cs->resolvedloc.path, strerror (op_errno));
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
         } else
                 stat = NFS3_OK;
 
         nfs3 = rpcsvc_request_program_private (cs->req);
-        nfs3_log_commit_res (rpcsvc_request_xid (cs->req), stat, op_errno,
-                             nfs3->serverstart);
+        nfs3_log_commit_res (rpcsvc_request_xid (cs->req),
+                             stat, op_errno, nfs3->serverstart,
+                             cs->resolvedloc.path);
         nfs3_commit_reply (cs->req, stat, nfs3->serverstart, NULL, NULL);
         nfs3_call_state_wipe (cs);
 
@@ -4983,8 +5114,9 @@ nfs3_commit_resume (void *carg)
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_COMMIT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_COMMIT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_commit_reply (cs->req, stat, cs->nfs3state->serverstart,
                                    NULL, NULL);
                 nfs3_call_state_wipe (cs);
@@ -5009,7 +5141,8 @@ nfs3_commit_open_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fd = fd_anonymous (cs->resolvedloc.inode);
         if (!cs->fd) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to create anonymous fd.");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ANONYMOUS_FD_FAIL,
+                        "Failed to create anonymous fd.");
                 goto nfs3err;
         }
 
@@ -5018,8 +5151,9 @@ nfs3_commit_open_resume (void *carg)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_COMMIT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (cs->req),
+                                     NFS3_COMMIT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_commit_reply (cs->req, stat, 0, NULL, NULL);
                 nfs3_call_state_wipe (cs);
         }
@@ -5040,7 +5174,8 @@ nfs3_commit (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_call_state_t               *cs = NULL;
 
         if ((!req) || (!fh)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Bad arguments");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Bad arguments");
                 return -1;
         }
 
@@ -5062,8 +5197,9 @@ nfs3_commit (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
 
 nfs3err:
         if (ret < 0) {
-                nfs3_log_common_res (rpcsvc_request_xid (req), NFS3_COMMIT,
-                                     stat, -ret);
+                nfs3_log_common_res (rpcsvc_request_xid (req),
+                                     NFS3_COMMIT, stat, -ret,
+                                     cs->resolvedloc.path);
                 nfs3_commit_reply (req, stat, 0, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -5085,14 +5221,16 @@ nfs3svc_commit (rpcsvc_request_t *req)
                 return ret;
         nfs3_prep_commit3args (&args, &fh);
         if (xdr_to_commit3args (req->msg[0], &args) <= 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ret = nfs3_commit (req, &fh, args.offset, args.count);
         if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "COMMIT procedure failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_COMMIT_FAIL,
+                        "COMMIT procedure failed");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
         }
@@ -5184,16 +5322,16 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
         if (dict_get (options, "nfs3.read-size")) {
                 ret = dict_get_str (options, "nfs3.read-size", &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: nfs3.read-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: nfs3.read-size");
                         ret = -1;
                         goto err;
                 }
 
                 ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
-                                " option: nfs3.read-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_FORMAT_FAIL,
+                                "Failed to format option: nfs3.read-size");
                         ret = -1;
                         goto err;
                 }
@@ -5207,16 +5345,16 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
         if (dict_get (options, "nfs3.write-size")) {
                 ret = dict_get_str (options, "nfs3.write-size", &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: nfs3.write-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read  option: nfs3.write-size");
                         ret = -1;
                         goto err;
                 }
 
                 ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
-                                " option: nfs3.write-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_FORMAT_FAIL,
+                                "Failed to format option: nfs3.write-size");
                         ret = -1;
                         goto err;
                 }
@@ -5230,16 +5368,16 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
         if (dict_get (options, "nfs3.readdir-size")) {
                 ret = dict_get_str (options,"nfs3.readdir-size", &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read"
-                                " option: nfs3.readdir-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: nfs3.readdir-size");
                         ret = -1;
                         goto err;
                 }
 
                 ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
-                                " option: nfs3.readdir-size");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_FORMAT_FAIL,
+                                "Failed to format option: nfs3.readdir-size");
                         ret = -1;
                         goto err;
                 }
@@ -5288,13 +5426,14 @@ nfs3_init_subvolume_options (xlator_t *nfsx,
         if (!options)
                 return (-1);
 
-        uuid_clear (volumeid);
+        gf_uuid_clear (volumeid);
         if (gf_nfs_dvm_off (nfs_state (nfsx)))
                 goto no_dvm;
 
         ret = snprintf (searchkey, 1024, "nfs3.%s.volume-id",exp->subvol->name);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -5302,27 +5441,29 @@ nfs3_init_subvolume_options (xlator_t *nfsx,
         if (dict_get (options, searchkey)) {
                 ret = dict_get_str (options, searchkey, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option"
-                                ": %s", searchkey);
+                        gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: %s", searchkey);
                         ret = -1;
                         goto err;
                 }
         } else {
-                gf_log (GF_MNT, GF_LOG_ERROR, "DVM is on but volume-id not "
-                        "given for volume: %s", exp->subvol->name);
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_VOLID_MISSING, "DVM is"
+                        " on but volume-id not given for volume: %s",
+                        exp->subvol->name);
                 ret = -1;
                 goto err;
         }
 
         if (optstr) {
-                ret = uuid_parse (optstr, volumeid);
+                ret = gf_uuid_parse (optstr, volumeid);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to parse volume "
-                                "UUID");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                NFS_MSG_PARSE_VOL_UUID_FAIL,
+                                "Failed to parse volume UUID");
                         ret = -1;
                         goto err;
                 }
-                uuid_copy (exp->volumeid, volumeid);
+                gf_uuid_copy (exp->volumeid, volumeid);
         }
 
 no_dvm:
@@ -5330,7 +5471,8 @@ no_dvm:
         name = exp->subvol->name;
         ret = snprintf (searchkey, 1024, "nfs3.%s.volume-access", name);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -5339,8 +5481,8 @@ no_dvm:
         if (dict_get (options, searchkey)) {
                 ret = dict_get_str (options, searchkey, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: %s", searchkey);
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: %s", searchkey);
                         ret = -1;
                         goto err;
                 }
@@ -5351,7 +5493,8 @@ no_dvm:
 
         ret = snprintf (searchkey, 1024, "rpc-auth.%s.unix", name);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -5359,8 +5502,8 @@ no_dvm:
         if (dict_get (options, searchkey)) {
                 ret = dict_get_str (options, searchkey, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: %s", searchkey);
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: %s", searchkey);
                         ret = -1;
                         goto err;
                 }
@@ -5369,7 +5512,8 @@ no_dvm:
         exp->trusted_sync = 0;
         ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-sync", name);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -5377,15 +5521,16 @@ no_dvm:
         if (dict_get (options, searchkey)) {
                 ret = dict_get_str (options, searchkey, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: %s", searchkey);
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: %s", searchkey);
                         ret = -1;
                         goto err;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to convert str "
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,
+                                NFS_MSG_STR2BOOL_FAIL, "Failed to convert str "
                                 "to gf_boolean_t");
                         ret = -1;
                         goto err;
@@ -5398,7 +5543,8 @@ no_dvm:
         exp->trusted_write = 0;
         ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-write", name);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -5406,16 +5552,17 @@ no_dvm:
         if (dict_get (options, searchkey)) {
                 ret = dict_get_str (options, searchkey, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
-                                " option: %s", searchkey);
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                                "Failed to read option: %s", searchkey);
                         ret = -1;
                         goto err;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to convert str "
-                                "to gf_boolean_t");
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,
+                                NFS_MSG_STR2BOOL_FAIL, "Failed to convert str"
+                                " to gf_boolean_t");
                         ret = -1;
                         goto err;
                 }
@@ -5431,7 +5578,7 @@ no_dvm:
         if (exp->trusted_sync)
                 exp->trusted_write = 1;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "%s: %s, %s, %s", exp->subvol->name,
+        gf_msg_trace (GF_NFS3, 0, "%s: %s, %s, %s", exp->subvol->name,
                 (exp->access == GF_NFS3_VOLACCESS_RO)?"read-only":"read-write",
                 (exp->trusted_sync == 0)?"no trusted_sync":"trusted_sync",
                 (exp->trusted_write == 0)?"no trusted_write":"trusted_write");
@@ -5453,11 +5600,12 @@ nfs3_init_subvolume (struct nfs3_state *nfs3, xlator_t *subvol)
         exp = GF_CALLOC (1, sizeof (*exp), gf_nfs_mt_nfs3_export);
         exp->subvol = subvol;
         INIT_LIST_HEAD (&exp->explist);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Initing state: %s", exp->subvol->name);
+        gf_msg_trace (GF_NFS3, 0, "Initing state: %s", exp->subvol->name);
 
         ret = nfs3_init_subvolume_options (nfs3->nfsx, exp, NULL);
         if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init subvol");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SUBVOL_INIT_FAIL,
+                        "Failed to init subvol");
                 goto exp_free;
         }
 
@@ -5487,8 +5635,9 @@ nfs3_init_subvolumes (struct nfs3_state *nfs3)
         while (xl_list) {
                 exp = nfs3_init_subvolume (nfs3, xl_list->xlator);
                 if (!exp) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init subvol: "
-                                "%s", xl_list->xlator->name);
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,
+                                NFS_MSG_SUBVOL_INIT_FAIL, "Failed to init "
+                                "subvol: %s", xl_list->xlator->name);
                         goto err;
                 }
                 list_add_tail (&exp->explist, &nfs3->exports);
@@ -5515,24 +5664,27 @@ nfs3_init_state (xlator_t *nfsx)
         nfs3 = (struct nfs3_state *)GF_CALLOC (1, sizeof (*nfs3),
                                     gf_nfs_mt_nfs3_state);
         if (!nfs3) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 return NULL;
         }
 
         nfs = nfsx->private;
         ret = nfs3_init_options (nfs3, nfsx->options);
         if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init options");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_OPT_INIT_FAIL,
+                        "Failed to init options");
                 goto ret;
         }
 
         nfs3->iobpool = nfsx->ctx->iobuf_pool;
 
         localpool = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
-        gf_log (GF_NFS3, GF_LOG_TRACE, "local pool: %d", localpool);
+        gf_msg_trace (GF_NFS3, 0, "local pool: %d", localpool);
         nfs3->localpool = mem_pool_new (nfs3_call_state_t, localpool);
         if (!nfs3->localpool) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "local mempool creation failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "local mempool creation failed");
                 ret = -1;
                 goto ret;
         }
@@ -5542,8 +5694,8 @@ nfs3_init_state (xlator_t *nfsx)
         INIT_LIST_HEAD (&nfs3->exports);
         ret = nfs3_init_subvolumes (nfs3);
         if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init per-subvolume "
-                        "state");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SUBVOL_INIT_FAIL,
+                        "Failed to init per-subvolume state");
                 goto free_localpool;
         }
 
@@ -5554,7 +5706,8 @@ nfs3_init_state (xlator_t *nfsx)
 
         ret = rpcsvc_create_listeners (nfs->rpcsvc, nfsx->options, nfsx->name);
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
+                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_LISTENERS_CREATE_FAIL,
+                        "Unable to create listeners");
                 goto free_localpool;
         }
 
@@ -5585,7 +5738,8 @@ nfs3svc_init (xlator_t *nfsx)
 
         nfs3 = nfs3_init_state (nfsx);
         if (!nfs3) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "NFSv3 state init failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_STATE_INIT_FAIL,
+                        "NFSv3 state init failed");
                 return NULL;
         }
 
@@ -5612,7 +5766,7 @@ nfs3_reconfigure_state (xlator_t *nfsx, dict_t *options)
 
         ret = nfs3_init_options (nfs3, options);
         if (ret) {
-                gf_log (GF_NFS3, GF_LOG_ERROR,
+                gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_RECONF_FAIL,
                         "Failed to reconfigure options");
                 goto out;
         }
@@ -5620,7 +5774,8 @@ nfs3_reconfigure_state (xlator_t *nfsx, dict_t *options)
         list_for_each_entry (exp, &nfs3->exports, explist) {
                 ret = nfs3_init_subvolume_options (nfsx, exp, options);
                 if (ret) {
-                        gf_log (GF_NFS3, GF_LOG_ERROR,
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, 0,
+                                NFS_MSG_RECONF_SUBVOL_FAIL,
                                 "Failed to reconfigure subvol options");
                         goto out;
                 }

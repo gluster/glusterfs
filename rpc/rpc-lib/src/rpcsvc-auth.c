@@ -38,7 +38,7 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
         }
 
         new->init = init;
-        strcpy (new->name, idfier);
+        strncpy (new->name, idfier, sizeof (new->name) - 1);
         INIT_LIST_HEAD (&new->authlist);
         list_add_tail (&new->authlist, list);
         return 0;
@@ -221,9 +221,20 @@ rpcsvc_set_allow_insecure (rpcsvc_t *svc, dict_t *options)
                         else
                                 svc->allow_insecure = 0;
                 }
+        } else {
+                /* By default set allow-insecure to true */
+                svc->allow_insecure = 1;
+
+                /* setting in options for the sake of functions that look
+                 * configuration params for allow insecure,  eg: gf_auth
+                 */
+                ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
+                if (ret < 0)
+                        gf_log ("rpc-auth", GF_LOG_DEBUG,
+                                        "dict_set failed for 'allow-insecure'");
         }
 
-        return 0;
+        return ret;
 }
 
 int

@@ -30,7 +30,7 @@ typedef enum {
         PUMP_STATE_RESUME,              /* Pump is resuming from a previous pause */
         PUMP_STATE_PAUSE,               /* Pump is paused */
         PUMP_STATE_ABORT,               /* Pump is aborted */
-        PUMP_STATE_COMMIT,              /* Pump is commited */
+        PUMP_STATE_COMMIT,              /* Pump is committed */
 } pump_state_t;
 
 typedef struct _pump_private {

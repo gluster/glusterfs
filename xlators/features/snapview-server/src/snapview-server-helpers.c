@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
 
@@ -98,7 +93,7 @@ out:
 }
 
 svs_inode_t *
-svs_inode_new ()
+svs_inode_new (void)
 {
         svs_inode_t    *svs_inode = NULL;
 
@@ -120,7 +115,7 @@ svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
         {
                 svs_inode = __svs_inode_ctx_get (this, inode);
                 if (!svs_inode) {
-                        svs_inode = svs_inode_new (this, inode);
+                        svs_inode = svs_inode_new ();
                         if (svs_inode) {
                                 ret = __svs_inode_ctx_set (this, inode,
                                                            svs_inode);
@@ -138,7 +133,7 @@ out:
 }
 
 svs_fd_t *
-svs_fd_new ()
+svs_fd_new (void)
 {
         svs_fd_t    *svs_fd = NULL;
 
@@ -243,7 +238,7 @@ __svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        svs_fd = svs_fd_new (this, fd);
+        svs_fd = svs_fd_new ();
         if (!svs_fd) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate new fd "
                         "context for gfid %s", uuid_utoa (inode->gfid));
@@ -348,7 +343,7 @@ svs_fill_ino_from_gfid (struct iatt *buf)
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
 
         /* consider least significant 8 bytes of value out of gfid */
-        if (uuid_is_null (buf->ia_gfid)) {
+        if (gf_uuid_is_null (buf->ia_gfid)) {
                 buf->ia_ino = -1;
                 goto out;
         }
@@ -380,7 +375,7 @@ svs_iatt_fill (uuid_t gfid, struct iatt *buf)
         buf->ia_blocks = 8;
         buf->ia_size = 4096;
 
-        uuid_copy (buf->ia_gfid, gfid);
+        gf_uuid_copy (buf->ia_gfid, gfid);
         svs_fill_ino_from_gfid (buf);
 
         buf->ia_prot = ia_prot_from_st_mode (0755);
@@ -446,7 +441,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name,
 
         dirent = __svs_get_snap_dirent (this, name);
         if (!dirent) {
-                gf_log (this->name, GF_LOG_ERROR, "snap entry for "
+                gf_log (this->name, GF_LOG_DEBUG, "snap entry for "
                         "name %s not found", name);
                 local_errno = ENOENT;
                 goto out;
@@ -475,7 +470,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name,
                                        24007);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "setting the "
-                        "volfile srever for snap volume %s "
+                        "volfile server for snap volume %s "
                         "failed", dirent->name);
                 goto out;
         }

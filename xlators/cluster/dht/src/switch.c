@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dht-common.h"
 #include "dht-mem-types.h"
 
@@ -295,7 +290,8 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "failed to set dict value for %s",
                                 conf->xattr_name);
 
@@ -314,14 +310,16 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "failed to set dict value for %s",
                                 conf->xattr_name);
 
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->link_xattr_name, 256);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "failed to set dict value for %s",
                                 conf->link_xattr_name);
 
@@ -662,7 +660,8 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                 pattern = strtok_r (dup_str, ":", &tmp_str1);
                 childs = strtok_r (NULL, ":", &tmp_str1);
                 if (strncmp (pattern, "*", 2) == 0) {
-                        gf_log ("switch", GF_LOG_INFO,
+                        gf_msg ("switch", GF_LOG_INFO, 0,
+                                DHT_MSG_SWITCH_PATTERN_INFO,
                                 "'*' pattern will be taken by default "
                                 "for all the unconfigured child nodes,"
                                 " hence neglecting current option");
@@ -681,7 +680,8 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                         idx++;
                                         child = strtok_r (NULL, ",", &tmp);
                                 } else {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_SUBVOL_ERROR,
                                                 "%s is not a subvolume of %s. "
                                                 "pattern can only be scheduled "
                                                 "only to a subvolume of %s",
@@ -723,7 +723,8 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         }
                 } else {
                         /* error */
-                        gf_log ("switch", GF_LOG_ERROR,
+                        gf_msg ("switch", GF_LOG_ERROR, 0,
+                                DHT_MSG_SET_SWITCH_PATTERN_ERROR,
                                 "Check \"scheduler.switch.case\" "
                                 "option in unify volume. Exiting");
                         goto err;
@@ -755,7 +756,8 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         flag++;
                 }
                 if (!flag) {
-                        gf_log ("switch", GF_LOG_ERROR,
+                        gf_msg ("switch", GF_LOG_ERROR, 0,
+                                DHT_MSG_SET_SWITCH_PATTERN_ERROR,
                                 "No nodes left for pattern '*'. Exiting");
                         goto err;
                 }
