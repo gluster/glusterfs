@@ -10,6 +10,11 @@
 #ifndef _POSIX_H
 #define _POSIX_H
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -47,8 +52,6 @@
 
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
-
-#define ACL_BUFFER_MAX 4096 /* size of character buffer */
 
 #define LINKTO "trusted.glusterfs.dht.linkto"
 
@@ -178,8 +181,7 @@ typedef struct {
         struct iatt *stbuf;
         loc_t       *loc;
         inode_t     *inode; /* for all do_xattrop() key handling */
-        fd_t        *fd;
-        int          fdnum;
+        int          fd;
         int          flags;
         int32_t     op_errno;
 } posix_xattr_filler_t;
@@ -199,12 +201,12 @@ int posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
                  struct iatt *iatt);
 int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
                  struct iatt *iatt);
-dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
-                          fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
+dict_t *posix_lookup_xattr_fill (xlator_t *this, const char *path,
+                                 loc_t *loc, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,
-                       data_t *value, int flags, struct iatt *stbuf);
+                       data_t *value, int flags);
 int posix_fhandle_pair (xlator_t *this, int fd, char *key, data_t *value,
-                        int flags, struct iatt *stbuf);
+                        int flags);
 void posix_spawn_janitor_thread (xlator_t *this);
 int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                              const char *name, char **contents);
@@ -233,17 +235,5 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
 
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
-
-int
-posix_pacl_set (const char *path, const char *key, const char *acl_s);
-
-int
-posix_pacl_get (const char *path, const char *key, char **acl_s);
-
-int32_t
-posix_get_objectsignature (char *, dict_t *);
-
-int32_t
-posix_fdget_objectsignature (int, dict_t *);
 
 #endif /* _POSIX_H */

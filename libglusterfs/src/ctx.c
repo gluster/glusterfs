@@ -8,8 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* !_CONFIG_H */
+
 #include <pthread.h>
-#include "globals.h"
 
 #include "glusterfs.h"
 
@@ -27,7 +31,7 @@ glusterfs_ctx_new ()
                 goto out;
         }
 
-        ctx->mem_acct_enable = gf_global_mem_acct_enable_get();
+	ctx->mem_acct_enable = 1;
 
         INIT_LIST_HEAD (&ctx->graphs);
 	INIT_LIST_HEAD (&ctx->mempool_list);

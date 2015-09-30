@@ -1,11 +1,21 @@
 /*
-  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
-  This file is part of GlusterFS.
+  Copyright (c) 2012 DataLab, s.l. <http://www.datalab.es>
 
-  This file is licensed to you under your choice of the GNU Lesser
-  General Public License, version 3 or any later version (LGPLv3 or
-  later), or the GNU General Public License, version 2 (GPLv2), in all
-  cases as published by the Free Software Foundation.
+  This file is part of the cluster/ec translator for GlusterFS.
+
+  The cluster/ec translator for GlusterFS is free software: you can
+  redistribute it and/or modify it under the terms of the GNU General
+  Public License as published by the Free Software Foundation, either
+  version 3 of the License, or (at your option) any later version.
+
+  The cluster/ec translator for GlusterFS is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE. See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with the cluster/ec translator for GlusterFS. If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef __EC_COMMON_H__
@@ -15,41 +25,34 @@
 
 #include "ec-data.h"
 
-typedef enum {
-        EC_DATA_TXN,
-        EC_METADATA_TXN
-} ec_txn_t;
-
-#define EC_FOP_HEAL     -1
-#define EC_FOP_FHEAL    -2
-
 #define EC_CONFIG_VERSION 0
 
 #define EC_CONFIG_ALGORITHM 0
 
-#define EC_FLAG_LOCK_SHARED       0x0001
-#define EC_FLAG_WAITING_SIZE      0x0002
+#define EC_FLAG_UPDATE_LOC_PARENT 0x0001
+#define EC_FLAG_UPDATE_LOC_INODE  0x0002
+#define EC_FLAG_UPDATE_FD         0x0004
+#define EC_FLAG_UPDATE_FD_INODE   0x0008
 
-#define EC_SELFHEAL_BIT 62
+#define EC_FLAG_WAITING_WINDS     0x0010
 
 #define EC_MINIMUM_ONE   -1
 #define EC_MINIMUM_MIN   -2
 #define EC_MINIMUM_ALL   -3
 
-#define EC_UPDATE_DATA   1
-#define EC_UPDATE_META   2
-#define EC_QUERY_INFO    4
-#define EC_INODE_SIZE    8
+#define EC_LOCK_ENTRY   0
+#define EC_LOCK_INODE   1
 
 #define EC_STATE_START                        0
 #define EC_STATE_END                          0
 #define EC_STATE_INIT                         1
 #define EC_STATE_LOCK                         2
-#define EC_STATE_DISPATCH                     3
-#define EC_STATE_PREPARE_ANSWER               4
-#define EC_STATE_REPORT                       5
-#define EC_STATE_LOCK_REUSE                   6
-#define EC_STATE_UNLOCK                       7
+#define EC_STATE_GET_SIZE_AND_VERSION         3
+#define EC_STATE_DISPATCH                     4
+#define EC_STATE_PREPARE_ANSWER               5
+#define EC_STATE_REPORT                       6
+#define EC_STATE_LOCK_REUSE                   7
+#define EC_STATE_UNLOCK                       8
 
 #define EC_STATE_DELAYED_START              100
 
@@ -73,35 +76,24 @@ typedef enum {
 #define EC_STATE_HEAL_POST_INODELK_UNLOCK   217
 #define EC_STATE_HEAL_DISPATCH              218
 
-gf_boolean_t ec_dispatch_one_retry (ec_fop_data_t *fop, ec_cbk_data_t **cbk);
+int32_t ec_dispatch_one_retry(ec_fop_data_t * fop, int32_t idx, int32_t op_ret,
+                              int32_t op_errno);
 int32_t ec_dispatch_next(ec_fop_data_t * fop, int32_t idx);
 
-void ec_complete(ec_fop_data_t *fop);
+void ec_complete(ec_fop_data_t * fop);
 
-void ec_update_good(ec_fop_data_t *fop, uintptr_t good);
+void ec_update_bad(ec_fop_data_t * fop, uintptr_t good);
 
-void ec_fop_set_error(ec_fop_data_t *fop, int32_t error);
+void ec_fop_set_error(ec_fop_data_t * fop, int32_t error);
 
-ec_cbk_data_t *
-ec_fop_prepare_answer(ec_fop_data_t *fop, gf_boolean_t ro);
-
-gf_boolean_t
-ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro);
-
-void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags);
-void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
-                                  uint32_t flags);
-void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags);
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update);
+void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update);
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update);
 void ec_lock(ec_fop_data_t * fop);
 void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
 
-gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
-                               uint64_t *size);
-gf_boolean_t ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
-                               uint64_t size);
-void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode);
-
+void ec_get_size_version(ec_fop_data_t * fop);
 void ec_flush_size_version(ec_fop_data_t * fop);
 
 void ec_dispatch_all(ec_fop_data_t * fop);
@@ -109,12 +101,11 @@ void ec_dispatch_inc(ec_fop_data_t * fop);
 void ec_dispatch_min(ec_fop_data_t * fop);
 void ec_dispatch_one(ec_fop_data_t * fop);
 
-void ec_sleep(ec_fop_data_t *fop);
+void ec_wait_winds(ec_fop_data_t * fop);
+
 void ec_resume(ec_fop_data_t * fop, int32_t error);
 void ec_resume_parent(ec_fop_data_t * fop, int32_t error);
 
 void ec_manager(ec_fop_data_t * fop, int32_t error);
-gf_boolean_t ec_is_recoverable_error (int32_t op_errno);
-void ec_handle_healers_done (ec_fop_data_t *fop);
 
 #endif /* __EC_COMMON_H__ */

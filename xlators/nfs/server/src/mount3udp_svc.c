@@ -13,7 +13,6 @@
 #include "logging.h"
 #include "mem-pool.h"
 #include "nfs-mem-types.h"
-#include "nfs-messages.h"
 #include "mount3.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,14 +63,12 @@ mountudpproc3_mnt_3_svc(dirpath **dpp, struct svc_req *req)
 
         res = GF_CALLOC (1, sizeof(*res), gf_nfs_mt_mountres3);
         if (res == NULL) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 goto err;
         }
         autharr = GF_CALLOC (MNT3UDP_AUTH_LEN, sizeof(int), gf_nfs_mt_int);
         if (autharr == NULL) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 goto err;
         }
 
@@ -81,8 +78,7 @@ mountudpproc3_mnt_3_svc(dirpath **dpp, struct svc_req *req)
 
         /* FAILURE: No FH */
         if (fh == NULL) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, errno, NFS_MSG_GET_FH_FAIL,
-                        "Unable to get fh for %s", mpath);
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to get fh for %s", mpath);
                 if (errno)
                         stat = mnt3svc_errno_to_mnterr (errno);
                 *res = mnt3svc_set_mountres3 (stat, NULL /* fh */,
@@ -112,8 +108,7 @@ mountudpproc3_umnt_3_svc(dirpath **dp, struct svc_req *req)
 
         stat = GF_CALLOC (1, sizeof(mountstat3), gf_nfs_mt_mountstat3);
         if (stat == NULL) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 return NULL;
         }
         *stat = MNT3_OK;
@@ -168,19 +163,17 @@ mountudp_program_3(struct svc_req *rqstp, register SVCXPRT *transp)
         }
         result = (*local)((char *)&argument, rqstp);
         if (result == NULL) {
-                gf_msg_debug (GF_MNT, 0, "PROC returned error");
+                gf_log (GF_MNT, GF_LOG_DEBUG, "PROC returned error");
                 svcerr_systemerr (transp);
         }
         if (result != NULL && !svc_sendreply(transp, (xdrproc_t) _xdr_result,
                                              result)) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_ERROR,
-                        "svc_sendreply returned error");
+                gf_log (GF_MNT, GF_LOG_ERROR, "svc_sendreply returned error");
                 svcerr_systemerr (transp);
         }
         if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument,
                            (caddr_t) &argument)) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_ARG_FREE_FAIL,
-                        "Unable to free arguments");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to free arguments");
         }
         if (result == NULL)
                 return;
@@ -209,26 +202,23 @@ mount3udp_thread (void *argv)
         GF_ASSERT (nfsx);
 
         if (glusterfs_this_set(nfsx)) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_XLATOR_SET_FAIL,
+                gf_log (GF_MNT, GF_LOG_ERROR,
                         "Failed to set xlator, nfs.mount-udp will not work");
                 return NULL;
         }
 
         transp = svcudp_create(RPC_ANYSOCK);
         if (transp == NULL) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_ERROR,
-                        "svcudp_create error");
+                gf_log (GF_MNT, GF_LOG_ERROR, "svcudp_create error");
                 return NULL;
         }
         if (!svc_register(transp, MOUNT_PROGRAM, MOUNT_V3,
                           mountudp_program_3, IPPROTO_UDP)) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_ERROR,
-                        "svc_register error");
+                gf_log (GF_MNT, GF_LOG_ERROR, "svc_register error");
                 return NULL;
         }
 
         svc_run ();
-        gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
-                "svc_run returned");
+        gf_log (GF_MNT, GF_LOG_ERROR, "svc_run returned");
         return NULL;
 }

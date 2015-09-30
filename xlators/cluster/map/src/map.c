@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "xlator.h"
 #include "map.h"
 
@@ -565,7 +570,7 @@ map_statfs_cbk (call_frame_t *frame,
 		}
 		local->op_ret = 0;
 		
-		/* when a call is successful, add it to local->dict */
+		/* when a call is successfull, add it to local->dict */
 		dict_buf = &local->statvfs;
 		
 		if (dict_buf->f_bsize != 0) {

@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "compat.h"
 #include "xlator.h"
@@ -93,23 +98,14 @@ names_conflict (const char *n1, const char *n2)
 }
 
 
-static int
+static inline int
 __same_entrylk_owner (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 {
+
         return (is_same_lkowner (&l1->owner, &l2->owner) &&
                 (l1->client  == l2->client));
 }
 
-/* Just as in inodelk, allow conflicting name locks from same (lk_owner, conn)*/
-static int
-__conflicting_entrylks (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
-{
-        if (names_conflict (l1->basename, l2->basename)
-            && !__same_entrylk_owner (l1, l2))
-                return 1;
-
-        return 0;
-}
 
 /**
  * entrylk_grantable - is this lock grantable?
@@ -126,7 +122,7 @@ __entrylk_grantable (pl_dom_list_t *dom, pl_entry_lock_t *lock)
                 return NULL;
 
         list_for_each_entry (tmp, &dom->entrylk_list, domain_list) {
-                if (__conflicting_entrylks (tmp, lock))
+                if (names_conflict (tmp->basename, lock->basename))
                         return tmp;
         }
 
@@ -322,20 +318,6 @@ __find_most_matching_lock (pl_dom_list_t *dom, const char *basename)
         return (exact ? exact : all);
 }
 
-static pl_entry_lock_t*
-__find_matching_lock (pl_dom_list_t *dom, pl_entry_lock_t *lock)
-{
-        pl_entry_lock_t *tmp = NULL;
-
-        list_for_each_entry (tmp, &dom->entrylk_list, domain_list) {
-                if (names_equal (lock->basename, tmp->basename)
-                    && __same_entrylk_owner (lock, tmp)
-                    && (lock->type == tmp->type))
-                        return tmp;
-        }
-        return NULL;
-}
-
 /**
  * __lock_entrylk - lock a name in a directory
  * @inode: inode for the directory in which to lock
@@ -370,17 +352,6 @@ __lock_entrylk (xlator_t *this, pl_inode_t *pinode, pl_entry_lock_t *lock,
                 goto out;
         }
 
-        /* To prevent blocked locks starvation, check if there are any blocked
-         * locks thay may conflict with this lock. If there is then don't grant
-         * the lock. BUT grant the lock if the owner already has lock to allow
-         * nested locks.
-         * Example: SHD from Machine1 takes (gfid, basename=257-length-name)
-         * and is granted.
-         * SHD from machine2 takes (gfid, basename=NULL) and is blocked.
-         * When SHD from Machine1 takes (gfid, basename=NULL) it needs to be
-         * granted, without which self-heal can't progress.
-         * TODO: Find why 'owner_has_lock' is checked even for blocked locks.
-         */
         if (__blocked_entrylk_conflict (dom, lock) && !(__owner_has_lock (dom, lock))) {
                 ret = -EAGAIN;
                 if (nonblock)
@@ -417,18 +388,31 @@ out:
 pl_entry_lock_t *
 __unlock_entrylk (pl_dom_list_t *dom, pl_entry_lock_t *lock)
 {
+        pl_entry_lock_t *tmp = NULL;
         pl_entry_lock_t *ret_lock = NULL;
 
-        ret_lock = __find_matching_lock (dom, lock);
+        tmp = __find_most_matching_lock (dom, lock->basename);
 
-        if (ret_lock) {
-                list_del_init (&ret_lock->domain_list);
-        } else {
-                gf_log ("locks", GF_LOG_ERROR, "unlock on %s "
-                        "(type=ENTRYLK_WRLCK) attempted but no matching lock "
-                        "found", lock->basename);
+        if (!tmp) {
+                gf_log ("locks", GF_LOG_ERROR,
+                        "unlock on %s (type=ENTRYLK_WRLCK) attempted but no matching lock found",
+                        lock->basename);
+                goto out;
         }
 
+        if (names_equal (tmp->basename, lock->basename)
+            && tmp->type == lock->type) {
+
+		list_del_init (&tmp->domain_list);
+		ret_lock = tmp;
+
+        } else {
+                gf_log ("locks", GF_LOG_ERROR,
+                        "Unlock on %s for a non-existing lock!", lock->basename);
+                goto out;
+        }
+
+out:
         return ret_lock;
 }
 

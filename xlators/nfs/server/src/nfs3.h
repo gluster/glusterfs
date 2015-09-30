@@ -11,6 +11,11 @@
 #ifndef _NFS3_H_
 #define _NFS3_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "rpcsvc.h"
 #include "dict.h"
 #include "xlator.h"
@@ -227,7 +232,7 @@ struct nfs3_local {
         mode_t                  mode;
 
         /* NFSv3 FH resolver state */
-        int                     hardresolved;
+	int			hardresolved;
         struct nfs3_fh          resolvefh;
         loc_t                   resolvedloc;
         int                     resolve_ret;

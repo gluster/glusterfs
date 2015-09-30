@@ -48,9 +48,7 @@ int link_based_fops (char *filename);
 /* to test open syscall with open modes available. */
 int test_open_modes (char *filename);
 /* generic function which does open write and read. */
-int generic_open_read_write (char *filename, int flag, mode_t mode);
-
-#define OPEN_MODE   0666
+int generic_open_read_write (char *filename, int flag);
 
 int
 main (int argc, char *argv[])
@@ -133,7 +131,7 @@ fd_based_fops_1 (char *filename)
         char        wstr[50]  = {0,};
         char        rstr[50]  = {0,};
 
-        fd = open (filename, O_RDWR|O_CREAT, OPEN_MODE);
+        fd = open (filename, O_RDWR|O_CREAT);
         if (fd < 0) {
                 fprintf (stderr, "open failed : %s\n", strerror (errno));
                 return ret;
@@ -252,7 +250,7 @@ fd_based_fops_2 (char *filename)
         char        wstr[50]    = {0,};
         char        rstr[50]    = {0,};
 
-        fd = open (filename, O_RDWR|O_CREAT, OPEN_MODE);
+        fd = open (filename, O_RDWR|O_CREAT);
         if (fd < 0) {
                 fprintf (stderr, "open failed : %s\n", strerror (errno));
                 return ret;
@@ -526,7 +524,7 @@ dup_fd_based_fops (char *filename)
         char        wstr[50]  = {0,};
         char        rstr[50]  = {0,};
 
-        fd = open (filename, O_RDWR|O_CREAT, OPEN_MODE);
+        fd = open (filename, O_RDWR|O_CREAT);
         if (fd < 0) {
                 fprintf (stderr, "open failed : %s\n", strerror (errno));
                 return ret;
@@ -837,19 +835,19 @@ test_open_modes (char *filename)
         int ret         = -1;
         int result      = 0;
 
-        ret = generic_open_read_write (filename, O_CREAT|O_WRONLY, OPEN_MODE);
+        ret = generic_open_read_write (filename, O_CREAT|O_WRONLY);
         if (ret != 0) {
                fprintf (stderr, "flag O_CREAT|O_WRONLY failed: \n");
                result |= ret;
         }
 
-        ret = generic_open_read_write (filename, O_CREAT|O_RDWR, OPEN_MODE);
+        ret = generic_open_read_write (filename, O_CREAT|O_RDWR);
         if (ret != 0) {
                fprintf (stderr, "flag O_CREAT|O_RDWR failed\n");
                result |= ret;
         }
 
-        ret = generic_open_read_write (filename, O_CREAT|O_RDONLY, OPEN_MODE);
+        ret = generic_open_read_write (filename, O_CREAT|O_RDONLY);
         if (ret != 0) {
                 fprintf (stderr, "flag O_CREAT|O_RDONLY failed\n");
                 result |= ret;
@@ -857,7 +855,7 @@ test_open_modes (char *filename)
 
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_WRONLY, 0);
+        ret = generic_open_read_write (filename, O_WRONLY);
         if (ret != 0) {
                fprintf (stderr, "flag O_WRONLY failed\n");
                result |= ret;
@@ -865,7 +863,7 @@ test_open_modes (char *filename)
 
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_RDWR, 0);
+        ret = generic_open_read_write (filename, O_RDWR);
         if (0 != ret) {
                fprintf (stderr, "flag O_RDWR failed\n");
                result |= ret;
@@ -873,7 +871,7 @@ test_open_modes (char *filename)
 
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_RDONLY, 0);
+        ret = generic_open_read_write (filename, O_RDONLY);
         if (0 != ret) {
                fprintf (stderr, "flag O_RDONLY failed\n");
                result |= ret;
@@ -881,7 +879,7 @@ test_open_modes (char *filename)
 
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_TRUNC|O_WRONLY, 0);
+        ret = generic_open_read_write (filename, O_TRUNC|O_WRONLY);
         if (0 != ret) {
                fprintf (stderr, "flag O_TRUNC|O_WRONLY failed\n");
                result |= ret;
@@ -890,15 +888,14 @@ test_open_modes (char *filename)
 #if 0 /* undefined behaviour, unable to reliably test */
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_TRUNC|O_RDONLY, 0);
+        ret = generic_open_read_write (filename, O_TRUNC|O_RDONLY);
         if (0 != ret) {
                fprintf (stderr, "flag O_TRUNC|O_RDONLY failed\n");
                result |= ret;
         }
 #endif
 
-        ret = generic_open_read_write (filename, O_CREAT|O_RDWR|O_SYNC,
-                                       OPEN_MODE);
+        ret = generic_open_read_write (filename, O_CREAT|O_RDWR|O_SYNC);
         if (0 != ret) {
                fprintf (stderr, "flag O_CREAT|O_RDWR|O_SYNC failed\n");
                result |= ret;
@@ -906,7 +903,7 @@ test_open_modes (char *filename)
 
         ret = creat (filename, 0644);
         close (ret);
-        ret = generic_open_read_write (filename, O_CREAT|O_EXCL, OPEN_MODE);
+        ret = generic_open_read_write (filename, O_CREAT|O_EXCL);
         if (0 != ret) {
                 fprintf (stderr, "flag O_CREAT|O_EXCL failed\n");
                 result |= ret;
@@ -916,14 +913,14 @@ test_open_modes (char *filename)
 }
 
 int
-generic_open_read_write (char *filename, int flag, mode_t mode)
+generic_open_read_write (char *filename, int flag)
 {
         int  fd          = 0;
         int  ret         = -1;
         char wstring[50] = {0,};
         char rstring[50] = {0,};
 
-        fd = open (filename, flag, mode);
+        fd = open (filename, flag);
         if (fd < 0) {
                 if (flag == (O_CREAT|O_EXCL) && errno == EEXIST) {
                         unlink (filename);

@@ -10,7 +10,6 @@
 
 #include "quick-read.h"
 #include "statedump.h"
-#include "quick-read-messages.h"
 
 qr_inode_t *qr_inode_ctx_get (xlator_t *this, inode_t *inode);
 void __qr_inode_prune (qr_inode_table_t *table, qr_inode_t *qr_inode);
@@ -409,11 +408,6 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 	}
 
-        if (dict_get (xdata, GLUSTERFS_BAD_INODE)) {
-                qr_inode_prune (this, inode);
-                goto out;
-        }
-
 	if (dict_get (xdata, "sh-failed")) {
 		qr_inode_prune (this, inode);
 		goto out;
@@ -477,9 +471,8 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 		ret = dict_set (xdata, GF_CONTENT_KEY,
 				data_from_uint64 (conf->max_file_size));
 	if (ret)
-		gf_msg (this->name, GF_LOG_WARNING, 0,
-			QUICK_READ_MSG_DICT_SET_FAILED,
-                        "cannot set key in request dict (%s)",
+		gf_log (this->name, GF_LOG_WARNING,
+			"cannot set key in request dict (%s)",
 			loc->path);
 wind:
 	frame->local = inode_ref (loc->inode);
@@ -594,11 +587,9 @@ unlock:
 		STACK_UNWIND_STRICT (readv, frame, op_ret, 0, &iov, 1,
 				     &buf, iobref, xdata);
 	}
-        if (iobuf)
-                iobuf_unref (iobuf);
+	iobuf_unref (iobuf);
 
-        if (iobref)
-	        iobref_unref (iobref);
+	iobref_unref (iobref);
 
 	return op_ret;
 }
@@ -791,9 +782,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_qr_mt_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        QUICK_READ_MSG_NO_MEMORY,
-                        "Memory accounting init failed");
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        "failed");
                 return ret;
         }
 
@@ -813,8 +803,7 @@ check_cache_size_ok (xlator_t *this, int64_t cache_size)
         opt = xlator_volume_option_get (this, "cache-size");
         if (!opt) {
                 ret = _gf_false;
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        QUICK_READ_MSG_INVALID_ARGUMENT,
+                gf_log (this->name, GF_LOG_ERROR,
                         "could not get cache-size option");
                 goto out;
         }
@@ -825,12 +814,11 @@ check_cache_size_ok (xlator_t *this, int64_t cache_size)
         else
                 max_cache_size = total_mem;
 
-        gf_msg_debug (this->name, 0, "Max cache size is %"PRIu64,
-                      max_cache_size);
+        gf_log (this->name, GF_LOG_DEBUG, "Max cache size is %"PRIu64,
+                max_cache_size);
         if (cache_size > max_cache_size) {
                 ret = _gf_false;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        QUICK_READ_MSG_INVALID_ARGUMENT, "Cache size %"PRIu64
+                gf_log (this->name, GF_LOG_ERROR, "Cache size %"PRIu64
                         " is greater than the max size of %"PRIu64,
                         cache_size, max_cache_size);
                 goto out;
@@ -864,8 +852,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-size", cache_size_new, options, size_uint64, out);
         if (!check_cache_size_ok (this, cache_size_new)) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        QUICK_READ_MSG_INVALID_CONFIG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Not reconfiguring cache-size");
                 goto out;
         }
@@ -934,9 +921,10 @@ qr_get_priority_list (const char *opt_str, struct list_head *first)
                         goto out;
                 }
 
-                gf_msg_trace ("quick-read", 0,
-                              "quick-read priority : pattern %s : priority %s",
-                              pattern, priority);
+                gf_log ("quick-read", GF_LOG_TRACE,
+                        "quick-read priority : pattern %s : priority %s",
+                        pattern,
+                        priority);
 
                 curr->pattern = gf_strdup (pattern);
                 if (curr->pattern == NULL) {
@@ -982,16 +970,14 @@ init (xlator_t *this)
         qr_conf_t    *conf = NULL;
 
         if (!this->children || this->children->next) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        QUICK_READ_MSG_XLATOR_CHILD_MISCONFIGURED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: volume (%s) not configured with exactly one "
                         "child", this->name);
                 return -1;
         }
 
         if (!this->parents) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        QUICK_READ_MSG_VOL_MISCONFIGURED,
+                gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfile ");
         }
 
@@ -1019,8 +1005,8 @@ init (xlator_t *this)
         if (dict_get (this->options, "priority")) {
                 char *option_list = data_to_str (dict_get (this->options,
                                                            "priority"));
-                gf_msg_trace (this->name, 0,
-                              "option path %s", option_list);
+                gf_log (this->name, GF_LOG_TRACE,
+                        "option path %s", option_list);
                 /* parse the list of pattern:priority */
                 conf->max_pri = qr_get_priority_list (option_list,
                                                       &conf->priority_list);
@@ -1063,14 +1049,7 @@ qr_inode_table_destroy (qr_private_t *priv)
         conf = &priv->conf;
 
         for (i = 0; i < conf->max_pri; i++) {
-                /* There is a known leak of inodes, hence until
-                 * that is fixed, log the assert as warning.
-                GF_ASSERT (list_empty (&priv->table.lru[i]));*/
-                if (!list_empty (&priv->table.lru[i])) {
-                        gf_msg ("quick-read", GF_LOG_INFO, 0,
-                                QUICK_READ_MSG_LRU_NOT_EMPTY,
-                                "quick read inode table lru not empty");
-                }
+                GF_ASSERT (list_empty (&priv->table.lru[i]));
         }
 
         LOCK_DESTROY (&priv->table.lock);

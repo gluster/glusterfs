@@ -27,13 +27,12 @@ from ipaddr import IPAddress, IPNetwork
 
 from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize
-from syncdutils import log_raise_exception, privileged
+from syncdutils import log_raise_exception, privileged, update_file
 from syncdutils import GsyncdError, select, set_term_handler
 from configinterface import GConffile, upgrade_config_file
 import resource
 from monitor import monitor
 from changelogagent import agent, Changelog
-from gsyncdstatus import set_monitor_status, GeorepStatus
 
 
 class GLogger(Logger):
@@ -232,10 +231,6 @@ def main_i():
     op.add_option('--ignore-deletes', default=False, action='store_true')
     op.add_option('--isolated-slave', default=False, action='store_true')
     op.add_option('--use-rsync-xattrs', default=False, action='store_true')
-    op.add_option('--sync-xattrs', default=True, action='store_true')
-    op.add_option('--sync-acls', default=True, action='store_true')
-    op.add_option('--log-rsync-performance', default=False,
-                  action='store_true')
     op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
@@ -257,18 +252,13 @@ def main_i():
     op.add_option('--sync-jobs', metavar='N', type=int, default=3)
     op.add_option('--replica-failover-interval', metavar='N',
                   type=int, default=1)
-    op.add_option('--changelog-archive-format', metavar='N',
-                  type=str, default="%Y%m")
-    op.add_option('--use-meta-volume', default=False, action='store_true')
-    op.add_option('--meta-volume-mnt', metavar='N',
-                  type=str, default="/var/run/gluster/shared_storage")
     op.add_option(
         '--turns', metavar='N', type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network', metavar='IPS', default='')
     op.add_option('--socketdir', metavar='DIR')
     op.add_option('--state-socket-unencoded', metavar='SOCKF',
                   type=str, action='callback', callback=store_abs)
-    op.add_option('--checkpoint', metavar='LABEL', default='0')
+    op.add_option('--checkpoint', metavar='LABEL', default='')
 
     # tunables for failover/failback mechanism:
     # None   - gsyncd behaves as normal
@@ -304,8 +294,6 @@ def main_i():
     op.add_option('--feedback-fd', dest='feedback_fd', type=int,
                   help=SUPPRESS_HELP, action='callback', callback=store_local)
     op.add_option('--rpc-fd', dest='rpc_fd', type=str, help=SUPPRESS_HELP)
-    op.add_option('--subvol-num', dest='subvol_num', type=int,
-                  help=SUPPRESS_HELP)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,
                   action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",
@@ -315,8 +303,6 @@ def main_i():
     op.add_option('--create', type=str, dest="create",
                   action='callback', callback=store_local)
     op.add_option('--delete', dest='delete', action='callback',
-                  callback=store_local_curry(True))
-    op.add_option('--status-get', dest='status_get', action='callback',
                   callback=store_local_curry(True))
     op.add_option('--debug', dest="go_daemon", action='callback',
                   callback=lambda *a: (store_local_curry('dont')(*a),
@@ -586,8 +572,15 @@ def main_i():
             GLogger._gsyncd_loginit(log_file=gconf.log_file, label='conf')
             if confdata.op == 'set':
                 logging.info('checkpoint %s set' % confdata.val)
+                gcnf.delete('checkpoint_completed')
+                gcnf.delete('checkpoint_target')
             elif confdata.op == 'del':
                 logging.info('checkpoint info was reset')
+                # if it is removing 'checkpoint' then we need
+                # to remove 'checkpoint_completed' and 'checkpoint_target' too
+                gcnf.delete('checkpoint_completed')
+                gcnf.delete('checkpoint_target')
+
         except IOError:
             if sys.exc_info()[1].errno == ENOENT:
                 # directory of log path is not present,
@@ -603,7 +596,7 @@ def main_i():
     create = rconf.get('create')
     if create:
         if getattr(gconf, 'state_file', None):
-            set_monitor_status(gconf.state_file, create)
+            update_file(gconf.state_file, lambda f: f.write(create + '\n'))
         return
 
     go_daemon = rconf['go_daemon']
@@ -611,16 +604,6 @@ def main_i():
     be_agent = rconf.get('agent')
 
     rscs, local, remote = makersc(args)
-
-    status_get = rconf.get('status_get')
-    if status_get:
-        for brick in gconf.path:
-            brick_status = GeorepStatus(gconf.state_file, brick,
-                                        getattr(gconf, "pid_file", None))
-            checkpoint_time = int(getattr(gconf, "checkpoint", "0"))
-            brick_status.print_status(checkpoint_time=checkpoint_time)
-        return
-
     if not be_monitor and isinstance(remote, resource.SSH) and \
        go_daemon == 'should':
         go_daemon = 'postconn'

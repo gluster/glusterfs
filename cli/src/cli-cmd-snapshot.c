@@ -13,6 +13,11 @@
 #include <stdint.h>
 #include <pthread.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "cli.h"
 #include "cli-cmd.h"
 
@@ -77,14 +82,9 @@ struct cli_cmd snapshot_cmds[] = {
           cli_cmd_snapshot_help_cbk,
           "display help for snapshot commands"
         },
-        { "snapshot create <snapname> <volname> [no-timestamp] "
-                "[description <description>] [force]",
+        { "snapshot create <snapname> <volname(s)> [description <description>] [force]",
           cli_cmd_snapshot_cbk,
           "Snapshot Create."
-        },
-        { "snapshot clone <clonename> <snapname>",
-          cli_cmd_snapshot_cbk,
-          "Snapshot Clone."
         },
         { "snapshot restore <snapname>",
           cli_cmd_snapshot_cbk,

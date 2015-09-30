@@ -9,6 +9,11 @@
 */
 
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 /* TODO: add NS locking */
 
 #include "glusterfs.h"
@@ -39,8 +44,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 
 	if (op_ret == -1) {
-		gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_GET_DISK_INFO_ERROR,
+		gf_log (this->name, GF_LOG_WARNING,
 			"failed to get disk info from %s", prev->this->name);
 		goto out;
 	}
@@ -185,8 +189,7 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = dict_set_int8 (statfs_local->params,
                                      GF_INTERNAL_IGNORE_DEEM_STATFS, 1);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_DICT_SET_FAILED,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set "
                                 GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
                         goto err;
@@ -256,7 +259,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 			gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_SUBVOL_INSUFF_SPACE,
 				"disk space on subvolume '%s' is getting "
-				"full (%.2f %%), consider adding more bricks",
+				"full (%.2f %%), consider adding more nodes",
 				subvol->name,
 				(100 - conf->du_stats[i].avail_percent));
 		}
@@ -267,7 +270,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 			gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                 DHT_MSG_SUBVOL_INSUFF_INODES,
 				"inodes on subvolume '%s' are at "
-				"(%.2f %%), consider adding more bricks",
+				"(%.2f %%), consider adding more nodes",
 				subvol->name,
 				(100 - conf->du_stats[i].avail_inodes));
 		}
@@ -334,8 +337,7 @@ out:
 }
 
 static inline
-int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
-                                         dht_layout_t *layout)
+int32_t dht_subvol_has_err (xlator_t *this, dht_layout_t *layout)
 {
         int ret = -1;
         int i   = 0;
@@ -351,17 +353,6 @@ int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
                         goto out;
                 }
         }
-
-        /* discard decommissioned subvol */
-        if (conf->decommission_subvols_cnt) {
-                for (i = 0; i < conf->subvolume_cnt; i++) {
-                        if (conf->decommissioned_bricks[i] &&
-                            conf->decommissioned_bricks[i] == this)
-                                ret = -1;
-                                goto out;
-                }
-        }
-
         ret = 0;
 out:
         return ret;
@@ -383,9 +374,8 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
         conf = this->private;
 
         for(i=0; i < conf->subvolume_cnt; i++) {
-                /* check if subvol has layout errors and also it is not a
-                 * decommissioned brick, before selecting it */
-                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
+                /* check if subvol has layout errors, before selecting it */
+                ignore_subvol = dht_subvol_has_err (conf->subvolumes[i],
                                                     layout);
                 if (ignore_subvol)
                         continue;
@@ -432,10 +422,8 @@ dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
         conf = this->private;
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                /* check if subvol has layout errors and also it is not a
-                 * decommissioned brick, before selecting it*/
-
-                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
+                /* check if subvol has layout errors, before selecting it */
+                ignore_subvol = dht_subvol_has_err (conf->subvolumes[i],
                                                     layout);
                 if (ignore_subvol)
                         continue;

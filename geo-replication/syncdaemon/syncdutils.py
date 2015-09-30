@@ -43,7 +43,7 @@ except ImportError:
     # py 2.4
     from md5 import new as md5
 
-# auxiliary gfid based access prefix
+# auxillary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
 GF_OP_RETRIES = 20
 
@@ -203,19 +203,13 @@ def finalize(*a, **kw):
                 else:
                     raise
     if gconf.ssh_ctl_dir and not gconf.cpid:
-        def handle_rm_error(func, path, exc_info):
-            if exc_info[1].errno == ENOENT:
-                return
-            raise exc_info[1]
-
-        shutil.rmtree(gconf.ssh_ctl_dir, onerror=handle_rm_error)
+        shutil.rmtree(gconf.ssh_ctl_dir)
     if getattr(gconf, 'state_socket', None):
         try:
             os.unlink(gconf.state_socket)
         except:
             if sys.exc_info()[0] == OSError:
                 pass
-
     if gconf.log_exit:
         logging.info("exiting.")
     sys.stdout.flush()
@@ -466,8 +460,9 @@ def selfkill(sig=SIGTERM):
     os.kill(os.getpid(), sig)
 
 
-def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
+def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
     """ wrapper around calls resilient to errnos.
+    retry in case of ESTALE by default.
     """
     nr_tries = 0
     while True:
@@ -482,14 +477,21 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
             nr_tries += 1
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
-                logging.warn('reached maximum retries (%s)...%s' %
-                             (repr(arg), ex))
-                return ex.errno
+                logging.warn('reached maximum retries (%s)...' % repr(arg))
+                return
             time.sleep(0.250)  # retry the call
 
 
 def lstat(e):
-    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE])
+    try:
+        return os.lstat(e)
+    except (IOError, OSError):
+        ex = sys.exc_info()[1]
+        if ex.errno == ENOENT:
+            return ex.errno
+        else:
+            raise
+
 
 class NoPurgeTimeAvailable(Exception):
     pass

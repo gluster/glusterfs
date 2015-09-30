@@ -8,6 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "xlator.h"
 #include "defaults.h"
 
@@ -39,7 +44,8 @@ frames_file_fill (xlator_t *this, inode_t *file, strfd_t *strfd)
                         strprintf (strfd, "\t\t\"Number\": %d,\n", ++i);
                         strprintf (strfd, "\t\t\"Frame\": [\n");
                         j = 1;
-                        list_for_each_entry (frame, &stack->myframes, frames) {
+                        for (frame = &stack->frames; frame;
+                             frame = frame->next) {
                                 strprintf (strfd, "\t\t   {\n");
                                 strprintf (strfd, "\t\t\t\"Number\": %d,\n",
                                                 j++);
@@ -70,8 +76,7 @@ frames_file_fill (xlator_t *this, inode_t *file, strfd_t *strfd)
                                                         frame->unwind_to);
                                 strprintf (strfd, "\t\t\t\"Complete\": %d\n",
                                                 frame->complete);
-                                if (list_is_last (&frame->frames,
-                                                  &stack->myframes))
+                                if (frame->next == NULL)
                                         strprintf (strfd, "\t\t   }\n");
                                 else
                                         strprintf (strfd, "\t\t   },\n");

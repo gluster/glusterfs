@@ -8,12 +8,16 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "timer.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "globals.h"
 #include "timespec.h"
-#include "libglusterfs-messages.h"
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
@@ -28,27 +32,14 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 
         if (ctx == NULL)
         {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
-                return NULL;
-        }
-
-        /* ctx and its fields are not accessed inside mutex!?
-         * TODO: Even with this there is a possiblity of race
-         * when cleanup_started is set after checking for it
-         */
-        if (ctx->cleanup_started) {
-                gf_msg_callingfn ("timer", GF_LOG_INFO, 0,
-                                  LG_MSG_CTX_CLEANUP_STARTED, "ctx cleanup "
-                                  "started");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
         reg = gf_timer_registry_init (ctx);
 
         if (!reg) {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, 0,
-                                  LG_MSG_TIMER_REGISTER_ERROR, "!reg");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "!reg");
                 return NULL;
         }
 
@@ -80,50 +71,53 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 }
 
 int32_t
+gf_timer_call_stale (gf_timer_registry_t *reg,
+                     gf_timer_t *event)
+{
+        if (reg == NULL || event == NULL)
+        {
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                return 0;
+        }
+
+        event->next->prev = event->prev;
+        event->prev->next = event->next;
+        event->next = &reg->stale;
+        event->prev = event->next->prev;
+        event->next->prev = event;
+        event->prev->next = event;
+
+        return 0;
+}
+
+int32_t
 gf_timer_call_cancel (glusterfs_ctx_t *ctx,
                       gf_timer_t *event)
 {
         gf_timer_registry_t *reg = NULL;
-        gf_boolean_t fired = _gf_false;
 
         if (ctx == NULL || event == NULL)
         {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return 0;
         }
 
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
-                gf_msg ("timer", GF_LOG_ERROR, 0, LG_MSG_INIT_TIMER_FAILED,
-                        "!reg");
+                gf_log ("timer", GF_LOG_ERROR, "!reg");
                 GF_FREE (event);
                 return 0;
         }
 
         pthread_mutex_lock (&reg->lock);
         {
-		fired = event->fired;
-		if (fired)
-			goto unlock;
-
                 event->next->prev = event->prev;
                 event->prev->next = event->next;
         }
-unlock:
         pthread_mutex_unlock (&reg->lock);
 
-	if (!fired) {
-		GF_FREE (event);
-		return 0;
-        }
-        return -1;
-}
-
-static void __delete_entry (gf_timer_t *event) {
-        event->next->prev = event->prev;
-        event->prev->next = event->next;
         GF_FREE (event);
+        return 0;
 }
 
 void *
@@ -131,26 +125,23 @@ gf_timer_proc (void *ctx)
 {
         gf_timer_registry_t *reg = NULL;
         const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
-        gf_timer_t *event = NULL;
-        xlator_t   *old_THIS = NULL;
 
         if (ctx == NULL)
         {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
-                gf_msg ("timer", GF_LOG_ERROR, 0, LG_MSG_INIT_TIMER_FAILED,
-                        "!reg");
+                gf_log ("timer", GF_LOG_ERROR, "!reg");
                 return NULL;
         }
 
         while (!reg->fin) {
                 uint64_t now;
                 struct timespec now_ts;
+                gf_timer_t *event = NULL;
 
                 timespec_now (&now_ts);
                 now = TS (now_ts);
@@ -164,40 +155,29 @@ gf_timer_proc (void *ctx)
                                 at = TS (event->at);
                                 if (event != &reg->active && now >= at) {
                                         need_cbk = 1;
-                                        event->next->prev = event->prev;
-                                        event->prev->next = event->next;
-                                        event->fired = _gf_true;
+                                        gf_timer_call_stale (reg, event);
                                 }
                         }
                         pthread_mutex_unlock (&reg->lock);
-                        if (need_cbk) {
-                                old_THIS = NULL;
-                                if (event->xl) {
-                                        old_THIS = THIS;
-                                        THIS = event->xl;
-                                }
-                                event->callbk (event->data);
-                                GF_FREE (event);
-                                if (old_THIS) {
-                                        THIS = old_THIS;
-                                }
-                        } else {
+                        if (event->xl)
+                                THIS = event->xl;
+                        if (need_cbk)
+                                event->callbk  (event->data);
+
+                        else
                                 break;
-                        }
                 }
                 nanosleep (&sleepts, NULL);
         }
 
         pthread_mutex_lock (&reg->lock);
         {
-                /* Do not call gf_timer_call_cancel(),
-                 * it will lead to deadlock
-                 */
                 while (reg->active.next != &reg->active) {
-                        event = reg->active.next;
-                        /* cannot call list_del as the event doesnt have
-                         * list_head*/
-                        __delete_entry (event);
+                        gf_timer_call_cancel (ctx, reg->active.next);
+                }
+
+                while (reg->stale.next != &reg->stale) {
+                        gf_timer_call_cancel (ctx, reg->stale.next);
                 }
         }
         pthread_mutex_unlock (&reg->lock);
@@ -211,8 +191,7 @@ gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
         if (ctx == NULL) {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
@@ -227,25 +206,12 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
                 pthread_mutex_init (&reg->lock, NULL);
                 reg->active.next = &reg->active;
                 reg->active.prev = &reg->active;
+                reg->stale.next = &reg->stale;
+                reg->stale.prev = &reg->stale;
 
                 ctx->timer = reg;
                 gf_thread_create (&reg->th, NULL, gf_timer_proc, ctx);
         }
 out:
         return ctx->timer;
-}
-
-void
-gf_timer_registry_destroy (glusterfs_ctx_t *ctx)
-{
-        pthread_t thr_id;
-        gf_timer_registry_t *reg = NULL;
-
-        if (ctx == NULL)
-                return;
-
-        reg = ctx->timer;
-        thr_id = reg->th;
-        reg->fin = 1;
-        pthread_join (thr_id, NULL);
 }

@@ -1,7 +1,0 @@
-
-function run_cmd_as_user {
-        local user=$1
-        shift
-        su -m $user -c "$*" || return 1
-    return 0
-}

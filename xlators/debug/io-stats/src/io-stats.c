@@ -7,7 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
 #include "xlator.h"
+#endif
 
 /**
  * xlators/debug/io_stats :
@@ -150,7 +154,7 @@ struct ios_local {
 
 struct volume_options options[];
 
-static int
+inline static int
 is_fop_latency_started (call_frame_t *frame)
 {
         GF_ASSERT (frame);
@@ -446,7 +450,7 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         if (cnt == list_head->members)
                                 last = entry;
 
-                        if (!gf_uuid_compare (iosstat->gfid,
+                        if (!uuid_compare (iosstat->gfid,
                             entry->iosstat->gfid)) {
                                 list_entry = entry;
                                 found = cnt;
@@ -477,13 +481,11 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         new->value = value;
                         ios_stat_ref (iosstat);
                         list_add_tail (&new->list, &tmp->list);
-                        if (last) {
-                                stat = last->iosstat;
-                                last->iosstat = NULL;
-                                ios_stat_unref (stat);
-                                list_del (&last->list);
-                                GF_FREE (last);
-                        }
+                        stat = last->iosstat;
+                        last->iosstat = NULL;
+                        ios_stat_unref (stat);
+                        list_del (&last->list);
+                        GF_FREE (last);
                         if (reposition == MAX_LIST_MEMBERS)
                                 list_head->min_cnt = value;
                         else if (min_count) {
@@ -510,7 +512,7 @@ out:
         return 0;
 }
 
-static int
+static inline int
 ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 
@@ -1254,7 +1256,7 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
         iosstat->filename = gf_strdup (path);
-        gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
+        uuid_copy (iosstat->gfid, buf->ia_gfid);
         LOCK_INIT (&iosstat->lock);
         ios_inode_ctx_set (fd->inode, this, iosstat);
 
@@ -1304,7 +1306,7 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      gf_io_stats_mt_ios_stat);
                 if (iosstat) {
                         iosstat->filename = gf_strdup (path);
-                        gf_uuid_copy (iosstat->gfid, fd->inode->gfid);
+                        uuid_copy (iosstat->gfid, fd->inode->gfid);
                         LOCK_INIT (&iosstat->lock);
                         ios_inode_ctx_set (fd->inode, this, iosstat);
                 }
@@ -1558,7 +1560,7 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (iosstat) {
                 LOCK_INIT (&iosstat->lock);
                 iosstat->filename = gf_strdup(path);
-                gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
+                uuid_copy (iosstat->gfid, buf->ia_gfid);
                 ios_inode_ctx_set (inode, this, iosstat);
         }
 
@@ -2795,8 +2797,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ret = 0;
 out:
-        gf_log (this ? this->name : "io-stats",
-                        GF_LOG_DEBUG, "reconfigure returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
         return ret;
 }
 

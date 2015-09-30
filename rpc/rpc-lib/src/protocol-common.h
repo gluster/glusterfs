@@ -59,7 +59,6 @@ enum gf_fop_procnum {
 	GFS3_OP_FALLOCATE,
 	GFS3_OP_DISCARD,
         GFS3_OP_ZEROFILL,
-        GFS3_OP_IPC,
         GFS3_OP_MAXVALUE,
 } ;
 
@@ -132,7 +131,6 @@ enum gf_cbk_procnum {
         GF_CBK_INO_FLUSH,
         GF_CBK_EVENT_NOTIFY,
         GF_CBK_GET_SNAPS,
-        GF_CBK_CACHE_INVALIDATION,
         GF_CBK_MAXVALUE,
 };
 
@@ -179,11 +177,6 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_SNAP,
         GLUSTER_CLI_BARRIER_VOLUME,
         GLUSTER_CLI_GET_VOL_OPT,
-        GLUSTER_CLI_GANESHA,
-        GLUSTER_CLI_BITROT,
-        GLUSTER_CLI_ATTACH_TIER,
-        GLUSTER_CLI_DETACH_TIER,
-        GLUSTER_CLI_TIER,
         GLUSTER_CLI_MAXVALUE,
 };
 
@@ -228,42 +221,31 @@ enum glusterd_mgmt_hndsk_procnum {
 };
 
 typedef enum {
-        GF_SHD_OP_INVALID,
-        GF_SHD_OP_HEAL_INDEX,
-        GF_SHD_OP_HEAL_FULL,
-        GF_SHD_OP_INDEX_SUMMARY,
-        GF_SHD_OP_HEALED_FILES,
-        GF_SHD_OP_HEAL_FAILED_FILES,
-        GF_SHD_OP_SPLIT_BRAIN_FILES,
-        GF_SHD_OP_STATISTICS,
-        GF_SHD_OP_STATISTICS_HEAL_COUNT,
-        GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA,
-        GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE,
-        GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK,
-        GF_SHD_OP_HEAL_ENABLE,
-        GF_SHD_OP_HEAL_DISABLE,
+        GF_AFR_OP_INVALID,
+        GF_AFR_OP_HEAL_INDEX,
+        GF_AFR_OP_HEAL_FULL,
+        GF_AFR_OP_INDEX_SUMMARY,
+        GF_AFR_OP_HEALED_FILES,
+        GF_AFR_OP_HEAL_FAILED_FILES,
+        GF_AFR_OP_SPLIT_BRAIN_FILES,
+        GF_AFR_OP_STATISTICS,
+        GF_AFR_OP_STATISTICS_HEAL_COUNT,
+        GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA,
 } gf_xl_afr_op_t ;
 
 struct gf_gsync_detailed_status_ {
         char node[NAME_MAX];
         char master[NAME_MAX];
         char brick[NAME_MAX];
-        char slave_user[NAME_MAX];
-        char slave[NAME_MAX];
         char slave_node[NAME_MAX];
         char worker_status[NAME_MAX];
+        char checkpoint_status[NAME_MAX];
         char crawl_status[NAME_MAX];
-        char last_synced[NAME_MAX];
-        char last_synced_utc[NAME_MAX];
-        char entry[NAME_MAX];
-        char data[NAME_MAX];
-        char meta[NAME_MAX];
-        char failures[NAME_MAX];
-        char checkpoint_time[NAME_MAX];
-        char checkpoint_time_utc[NAME_MAX];
-        char checkpoint_completed[NAME_MAX];
-        char checkpoint_completion_time[NAME_MAX];
-        char checkpoint_completion_time_utc[NAME_MAX];
+        char files_syncd[NAME_MAX];
+        char files_remaining[NAME_MAX];
+        char bytes_remaining[NAME_MAX];
+        char purges_remaining[NAME_MAX];
+        char total_files_skipped[NAME_MAX];
         char brick_host_uuid[NAME_MAX];
         char slavekey[NAME_MAX];
         char session_slave[NAME_MAX];

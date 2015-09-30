@@ -8,6 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "string.h"
 
 #include "inode.h"
@@ -15,7 +20,6 @@
 #include "nfs-inodes.h"
 #include "nfs-fops.h"
 #include "xlator.h"
-#include "nfs-messages.h"
 
 #include <libgen.h>
 
@@ -104,8 +108,7 @@ nfs_inode_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu,
 
         newfd = fd_create (pathloc->inode, 0);
         if (!newfd) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to create new fd");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to create new fd");
                 ret = -ENOMEM;
                 goto wipe_nfl;
         }
@@ -215,8 +218,7 @@ nfs_inode_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 
         newfd = fd_create (loc->inode, 0);
         if (!newfd) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to create fd");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to create fd");
                 ret = -ENOMEM;
                 goto err;
         }
@@ -586,8 +588,7 @@ nfs_inode_opendir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 
         newfd = fd_create (loc->inode, 0);
         if (!newfd) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to create fd");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to create fd");
                 ret = -ENOMEM;
                 goto err;
         }

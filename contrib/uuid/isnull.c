@@ -35,7 +35,7 @@
 #include "uuidP.h"
 
 /* Returns 1 if the uuid is the NULL uuid */
-int gf_uuid_is_null(const uuid_t uu)
+int uuid_is_null(const uuid_t uu)
 {
 	const unsigned char 	*cp;
 	int			i;

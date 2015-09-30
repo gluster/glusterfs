@@ -21,6 +21,3 @@ access-control-compat:
 
 
 install-exec-local: access-control-compat
-
-uninstall-local:
-	rm -f $(DESTDIR)$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features/access-control.so

@@ -19,6 +19,11 @@
 #include <sys/time.h>
 #include <fnmatch.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* _CONFIG_H */
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "xlator.h"
@@ -123,13 +128,6 @@ struct fuse_private {
 
         /* for using fuse-kernel readdirp*/
         gf_boolean_t use_readdirp;
-
-        /* fini started, helps prevent multiple epoll worker threads
-         * firing up the fini routine */
-        gf_boolean_t fini_invoked;
-
-        /* resolve gid with getgrouplist() instead of /proc/%d/status */
-        gf_boolean_t resolve_gids;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -150,9 +148,6 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 #define _FH_TO_FD(fh) ((fd_t *)(uintptr_t)(fh))
 
 #define FH_TO_FD(fh) ((_FH_TO_FD (fh))?(fd_ref (_FH_TO_FD (fh))):((fd_t *) 0))
-
-/* Use the same logic as the Linux NFS-client */
-#define GF_FUSE_SQUASH_INO(ino) (((uint32_t) ino) ^ (ino >> 32))
 
 #define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
         do {                                                            \

@@ -125,7 +125,6 @@ struct rpc_clnt_config {
         int    rpc_timeout;
         int    remote_port;
         char * remote_host;
-        int    ping_timeout;
 };
 
 
@@ -188,11 +187,9 @@ typedef struct rpc_clnt {
         int                   refcount;
         int                   auth_null;
         char                  disabled;
-        xlator_t             *owner;
 } rpc_clnt_t;
 
-
-struct rpc_clnt *rpc_clnt_new (dict_t *options, xlator_t *owner,
+struct rpc_clnt *rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx,
                                char *name, uint32_t reqpool_size);
 
 int rpc_clnt_start (struct rpc_clnt *rpc);
@@ -246,9 +243,6 @@ int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
 
 void
 rpc_clnt_disable (struct rpc_clnt *rpc);
-
-void
-rpc_clnt_disconnect (struct rpc_clnt *rpc);
 
 char
 rpc_clnt_is_disabled (struct rpc_clnt *rpc);

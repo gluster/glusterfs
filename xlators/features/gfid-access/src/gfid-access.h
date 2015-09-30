@@ -10,6 +10,11 @@
 #ifndef __GFID_ACCESS_H__
 #define __GFID_ACCESS_H__
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -96,11 +101,7 @@ struct __ga_local {
         call_frame_t *orig_frame;
         unsigned int uid;
         unsigned int gid;
-        loc_t        loc;
-        mode_t       mode;
-        dev_t        rdev;
-        mode_t       umask;
-        dict_t      *xdata;
+        loc_t loc;
 };
 typedef struct __ga_local ga_local_t;
 

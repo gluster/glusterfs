@@ -15,8 +15,11 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 #include "afr-common.c"
-#include "afr-messages.h"
 
 struct volume_options options[];
 
@@ -47,6 +50,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_afr_mt_end + 1);
 
         if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                       "failed");
                 return ret;
         }
 
@@ -76,26 +81,18 @@ xlator_subvolume_index (xlator_t *this, xlator_t *subvol)
         return index;
 }
 
-static void
-fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
-                    dict_t *options)
+void
+fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
 {
-        if (dict_get (options, "quorum-type") == NULL) {
-                /* If user doesn't configure anything enable auto-quorum if the
-                 * replica has odd number of subvolumes */
-                if (priv->child_count % 2)
-                        qtype = "auto";
-        }
-
-        if (priv->quorum_count && strcmp (qtype, "fixed")) {
+        if (priv->quorum_count && strcmp(qtype,"fixed")) {
                 gf_msg (this->name,GF_LOG_WARNING, 0, AFR_MSG_QUORUM_OVERRIDE,
                        "quorum-type %s overriding quorum-count %u",
                        qtype, priv->quorum_count);
         }
-
-        if (!strcmp (qtype, "none")) {
+        if (!strcmp(qtype,"none")) {
                 priv->quorum_count = 0;
-        } else if (!strcmp (qtype, "auto")) {
+        }
+        else if (!strcmp(qtype,"auto")) {
                 priv->quorum_count = AFR_QUORUM_AUTO;
         }
 }
@@ -157,8 +154,7 @@ reconfigure (xlator_t *this, dict_t *options)
         if (read_subvol) {
                 index = xlator_subvolume_index (this, read_subvol);
                 if (index == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume",
+                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
                                 read_subvol->name);
                         goto out;
                 }
@@ -170,9 +166,8 @@ reconfigure (xlator_t *this, dict_t *options)
         if (read_subvol_index >-1) {
                 index=read_subvol_index;
                 if (index >= priv->child_count) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL,
-                                "%d not a subvolume-index", index);
+                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
+                                index);
                         goto out;
                 }
                 priv->read_child = index;
@@ -184,7 +179,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
-        fix_quorum_options (this, priv, qtype, options);
+        fix_quorum_options(this,priv,qtype);
         if (priv->quorum_count && !afr_has_quorum (priv->child_up, this))
                 gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
                         "Client-quorum is not met");
@@ -204,14 +199,6 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("iam-self-heal-daemon", priv->shd.iamshd, options,
 			  bool, out);
-
-        GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
-                          int32, out);
-
-        GF_OPTION_RECONF ("quorum-reads", priv->quorum_reads, options,
-                          bool, out);
-        GF_OPTION_RECONF ("consistent-metadata", priv->consistent_metadata,
-                          options, bool, out);
 
         priv->did_discovery = _gf_false;
 
@@ -246,16 +233,15 @@ init (xlator_t *this)
         char          *qtype       = NULL;
 
         if (!this->children) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        AFR_MSG_CHILD_MISCONFIGURED,
+                gf_log (this->name, GF_LOG_ERROR,
                         "replicate translator needs more than one "
                         "subvolume defined.");
                 return -1;
         }
 
         if (!this->parents) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        AFR_MSG_VOL_MISCONFIGURED, "Volume is dangling.");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Volume is dangling.");
         }
 
 	this->private = GF_CALLOC (1, sizeof (afr_private_t),
@@ -272,10 +258,6 @@ init (xlator_t *this)
 
         priv->read_child = -1;
 
-        GF_OPTION_INIT ("arbiter-count", priv->arbiter_count, uint32, out);
-
-        priv->spb_choice_timeout = AFR_DEFAULT_SPB_CHOICE_TIMEOUT;
-
 	GF_OPTION_INIT ("afr-dirty-xattr", priv->afr_dirty, str, out);
 
 	GF_OPTION_INIT ("metadata-splitbrain-forced-heal",
@@ -285,8 +267,7 @@ init (xlator_t *this)
         if (read_subvol) {
                 priv->read_child = xlator_subvolume_index (this, read_subvol);
                 if (priv->read_child == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume",
+                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
                                 read_subvol->name);
                         goto out;
                 }
@@ -294,9 +275,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("read-subvolume-index",read_subvol_index,int32,out);
         if (read_subvol_index > -1) {
                 if (read_subvol_index >= priv->child_count) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL,
-                                "%d not a subvolume-index", read_subvol_index);
+                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
+                                read_subvol_index);
                         goto out;
                 }
                 priv->read_child = read_subvol_index;
@@ -310,13 +290,11 @@ init (xlator_t *this)
         if (fav_child) {
                 priv->favorite_child = xlator_subvolume_index (this, fav_child);
                 if (priv->favorite_child == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume, "
-                                "cannot set it as favorite child",
+                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
                                 fav_child->name);
                         goto out;
                 }
-                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_FAVORITE_CHILD,
+                gf_log (this->name, GF_LOG_WARNING,
                         favorite_child_warning_str, fav_child->name,
                         fav_child->name, fav_child->name);
         }
@@ -359,7 +337,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
                         out);
-        fix_quorum_options (this, priv, qtype, this->options);
+        fix_quorum_options(this,priv,qtype);
 
 	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
         GF_OPTION_INIT ("ensure-durability", priv->ensure_durability, bool,
@@ -368,11 +346,6 @@ init (xlator_t *this)
 	GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
 
 	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
-        GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
-
-        GF_OPTION_INIT ("quorum-reads", priv->quorum_reads, bool, out);
-        GF_OPTION_INIT ("consistent-metadata", priv->consistent_metadata, bool,
-                        out);
 
         priv->wait_count = 1;
 
@@ -446,6 +419,8 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (afr_local_t, 512);
         if (!this->local_pool) {
                 ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create local_t's memory pool");
                 goto out;
         }
 
@@ -737,12 +712,6 @@ struct volume_options options[] = {
                          "this many bricks or present.  Other quorum types "
                          "will OVERWRITE this value.",
         },
-        { .key = {"quorum-reads"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "no",
-          .description = "If quorum-reads is \"true\" only allow reads if "
-                         "quorum is met when quorum is enabled.",
-        },
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Local glusterd uuid string, used in starting "
@@ -780,27 +749,5 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "off",
 	},
-        { .key  = {"heal-timeout"},
-          .type = GF_OPTION_TYPE_INT,
-          .min  = 60,
-          .max  = INT_MAX,
-          .default_value = "600",
-          .description = "time interval for checking the need to self-heal "
-                         "in self-heal-daemon"
-        },
-        { .key = {"consistent-metadata"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "no",
-          .description = "If this option is enabled, readdirp will force "
-                         "lookups on those entries read whose read child is "
-                         "not the same as that of the parent. This will "
-                         "guarantee that all read operations on a file serve "
-                         "attributes from the same subvol as long as it holds "
-                         " a good copy of the file/dir.",
-        },
-        { .key = {"arbiter-count"},
-          .type = GF_OPTION_TYPE_INT,
-          .description = "subset of child_count. Has to be 0 or 1."
-        },
         { .key  = {NULL} },
 };

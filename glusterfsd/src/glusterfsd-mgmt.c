@@ -13,6 +13,11 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* _CONFIG_H */
+
 #include "glusterfs.h"
 #include "stack.h"
 #include "dict.h"
@@ -909,10 +914,6 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                 ret = gf_asprintf (&node_name, "%s", "glustershd");
         else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0)
                 ret = gf_asprintf (&node_name, "%s", "quotad");
-        else if ((cmd & GF_CLI_STATUS_BITD) != 0)
-                ret = gf_asprintf (&node_name, "%s", "bitd");
-        else if ((cmd & GF_CLI_STATUS_SCRUB) != 0)
-                ret = gf_asprintf (&node_name, "%s", "scrubber");
 
         else {
                 ret = -1;
@@ -937,10 +938,6 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
         else if ((cmd & GF_CLI_STATUS_SHD) != 0)
                 ret = gf_asprintf (&subvol_name, "%s-replicate-0", volname);
         else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0)
-                ret = gf_asprintf (&subvol_name, "%s", volname);
-        else if ((cmd & GF_CLI_STATUS_BITD) != 0)
-                ret = gf_asprintf (&subvol_name, "%s", volname);
-        else if ((cmd & GF_CLI_STATUS_SCRUB) != 0)
                 ret = gf_asprintf (&subvol_name, "%s", volname);
         else {
                 ret = -1;
@@ -2033,7 +2030,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_new (options, THIS, THIS->name, 8);
+        rpc = rpc_clnt_new (options, THIS->ctx, THIS->name, 8);
         if (!rpc) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_WARNING, "failed to create rpc clnt");

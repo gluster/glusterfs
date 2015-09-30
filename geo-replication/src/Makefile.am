@@ -1,7 +1,6 @@
 gsyncddir = $(libexecdir)/glusterfs
 
-gsyncd_SCRIPTS = gverify.sh peer_gsec_create \
-	set_geo_rep_pem_keys.sh peer_mountbroker
+gsyncd_SCRIPTS = gverify.sh peer_add_secret_pub peer_gsec_create set_geo_rep_pem_keys.sh
 
 # peer_gsec_create and peer_add_secret_pub are not added to
 # EXTRA_DIST as it's derived from a .in file
@@ -11,7 +10,7 @@ gsyncd_PROGRAMS = gsyncd
 
 gsyncd_SOURCES = gsyncd.c procdiggy.c
 
-gsyncd_LDADD = $(GF_LDADD) $(top_builddir)/libglusterfs/src/libglusterfs.la
+gsyncd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 gsyncd_LDFLAGS = $(GF_LDFLAGS)
 

@@ -13,6 +13,11 @@
  */
 
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "defaults.h"
 #include "rpcsvc.h"
 #include "dict.h"
@@ -31,8 +36,6 @@
 #include "acl3.h"
 #include "rpc-drc.h"
 #include "syscall.h"
-#include "rpcsvc.h"
-#include "nfs-messages.h"
 
 #define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
@@ -43,12 +46,10 @@
 #define NFS_DATADIR                     GLUSTERD_DEFAULT_WORKDIR "/nfs"
 
 /* Forward declaration */
-static int nfs_add_initer (struct list_head *list, nfs_version_initer_t init,
-                           gf_boolean_t required);
+int nfs_add_initer (struct list_head *list, nfs_version_initer_t init);
 
 static int
-nfs_init_version (xlator_t *this, nfs_version_initer_t init,
-                  gf_boolean_t required)
+nfs_init_version (xlator_t *this, nfs_version_initer_t init)
 {
         int                       ret       = -1;
         struct nfs_initer_list    *version  = NULL;
@@ -63,10 +64,10 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init,
 
         nfs = (struct nfs_state *)this->private;
 
-        ret = nfs_add_initer (&nfs->versions, init, required);
+        ret = nfs_add_initer (&nfs->versions, init);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
-                        "Failed to add protocol initializer");
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                                "Failed to add protocol initializer");
                 goto err;
         }
 
@@ -87,8 +88,8 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init,
 
         /* program not added */
         if (!found) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PGM_NOT_FOUND,
-                        "Program: %s NOT found", prog->progname);
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                                "Program: %s NOT found", prog->progname);
                 goto err;
         }
 
@@ -96,12 +97,12 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init,
         if (nfs->override_portnum)
                 prog->progport = nfs->override_portnum;
 
-        gf_msg_debug (GF_NFS, 0, "Starting program: %s", prog->progname);
+        gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s", prog->progname);
 
         ret = rpcsvc_program_register (nfs->rpcsvc, prog);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PGM_INIT_FAIL,
-                        "Program: %s init failed", prog->progname);
+                gf_log (GF_NFS, GF_LOG_ERROR, "Program: %s init failed",
+                                                      prog->progname);
                 goto err;
         }
 
@@ -111,8 +112,9 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init,
 
         ret = rpcsvc_program_register_portmap (prog, prog->progport);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PGM_REG_FAIL,
-                        "Program  %s registration failed", prog->progname);
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                                "Program  %s registration failed",
+                                prog->progname);
                 goto err;
         }
         ret = 0; /* All well */
@@ -161,7 +163,7 @@ nfs_reconfigure_acl3 (xlator_t *this)
 
         /* ACL is enabled */
         if (nfs->enable_acl)
-                return nfs_init_version (this, acl3svc_init, _gf_false);
+                return nfs_init_version (this, acl3svc_init);
 
         /* ACL is disabled */
         return nfs_deinit_version (nfs, acl3svc_init);
@@ -179,7 +181,7 @@ nfs_reconfigure_nlm4 (xlator_t *this)
 
         /* NLM is enabled */
         if (nfs->enable_nlm)
-                return nfs_init_version (this, nlm4svc_init, _gf_false);
+                return nfs_init_version (this, nlm4svc_init);
 
         /* NLM is disabled */
         return nfs_deinit_version (nfs, nlm4svc_init);
@@ -234,9 +236,8 @@ nfs_program_unregister_portmap_all (struct nfs_state *nfs)
 /* Every NFS version must call this function with the init function
  * for its particular version.
  */
-static int
-nfs_add_initer (struct list_head *list, nfs_version_initer_t init,
-                gf_boolean_t required)
+int
+nfs_add_initer (struct list_head *list, nfs_version_initer_t init)
 {
         struct nfs_initer_list  *new = NULL;
         if ((!list) || (!init))
@@ -244,13 +245,11 @@ nfs_add_initer (struct list_head *list, nfs_version_initer_t init,
 
         new = GF_CALLOC (1, sizeof (*new), gf_nfs_mt_nfs_initer_list);
         if (!new) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Memory allocation failed");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Memory allocation failed");
                 return -1;
         }
 
         new->init = init;
-        new->required = required;
         list_add_tail (&new->list, list);
         return 0;
 }
@@ -297,7 +296,7 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
         if ((!nfs) || (!this))
                 return -1;
 
-        gf_msg_debug (GF_NFS, 0, "Initing protocol versions");
+        gf_log (GF_NFS, GF_LOG_DEBUG, "Initing protocol versions");
         versions = &nfs->versions;
         list_for_each_entry_safe (version, tmp, versions, list) {
                 if (!version->init) {
@@ -314,30 +313,23 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                 version->program = prog;
                 if (nfs->override_portnum)
                         prog->progport = nfs->override_portnum;
-                gf_msg_debug (GF_NFS, 0, "Starting program: %s",
+                gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s",
                         prog->progname);
 
                 ret = rpcsvc_program_register (nfs->rpcsvc, prog);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_PGM_INIT_FAIL,
-                                "Program: %s init failed", prog->progname);
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Program: %s init failed",
+                                                      prog->progname);
                         goto err;
                 }
                 if (nfs->register_portmap) {
                         ret = rpcsvc_program_register_portmap (prog,
                                                                prog->progport);
                         if (ret == -1) {
-                                gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                        NFS_MSG_PGM_REG_FAIL,
-                                        "%s program  %s registration failed",
-                                        version->required ?
-                                        "Required" : "Optional",
+                                gf_log (GF_NFS, GF_LOG_ERROR,
+                                        "Program  %s registration failed",
                                         prog->progname);
-
-                                /* fatal error if the program is required */
-                                if (version->required)
-                                        goto err;
+                                goto err;
                         }
                 }
 
@@ -355,43 +347,41 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         int     ret = 0;
 
         /* Add the initializers for all versions. */
-        ret = nfs_add_initer (&nfs->versions, mnt3svc_init, _gf_true);
+        ret = nfs_add_initer (&nfs->versions, mnt3svc_init);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
-                        "Failed to add MOUNT3 protocol initializer");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
+                                "MOUNT3 protocol initializer");
                 goto ret;
         }
 
-        ret = nfs_add_initer (&nfs->versions, mnt1svc_init, _gf_true);
+        ret = nfs_add_initer (&nfs->versions, mnt1svc_init);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
-                        "Failed to add MOUNT1 protocol initializer");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
+                                "MOUNT1 protocol initializer");
                 goto ret;
         }
 
-        ret = nfs_add_initer (&nfs->versions, nfs3svc_init, _gf_true);
+        ret = nfs_add_initer (&nfs->versions, nfs3svc_init);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
-                        "Failed to add NFS3 protocol initializer");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
+                                "NFS3 protocol initializer");
                 goto ret;
         }
 
         if (nfs->enable_nlm == _gf_true) {
-                ret = nfs_add_initer (&nfs->versions, nlm4svc_init, _gf_false);
+                ret = nfs_add_initer (&nfs->versions, nlm4svc_init);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_PROT_INIT_ADD_FAIL,
-                                "Failed to add protocol initializer");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
+                                " initializer");
                         goto ret;
                 }
         }
 
         if (nfs->enable_acl == _gf_true) {
-                ret = nfs_add_initer (&nfs->versions, acl3svc_init, _gf_false);
+                ret = nfs_add_initer (&nfs->versions, acl3svc_init);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_PROT_INIT_ADD_FAIL,
-                                "Failed to add ACL protocol initializer");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
+                                "ACL protocol initializer");
                         goto ret;
                 }
         }
@@ -439,7 +429,7 @@ nfs_subvolume_set_started (struct nfs_state *nfs, xlator_t *xl)
         {
                 for (;x < nfs->allsubvols; ++x) {
                         if (nfs->initedxl[x] == xl) {
-                                gf_msg_debug (GF_NFS, 0,
+                                gf_log (GF_NFS, GF_LOG_DEBUG,
                                         "Volume already started %s",
                                         xl->name);
                                 break;
@@ -448,7 +438,7 @@ nfs_subvolume_set_started (struct nfs_state *nfs, xlator_t *xl)
                         if (nfs->initedxl[x] == NULL) {
                                 nfs->initedxl[x] = xl;
                                 ++nfs->upsubvols;
-                                gf_msg_debug (GF_NFS, 0, "Starting up: %s "
+                                gf_log (GF_NFS, GF_LOG_DEBUG, "Starting up: %s "
                                         ", vols started till now: %d", xl->name,
                                         nfs->upsubvols);
                                 goto unlock;
@@ -469,15 +459,13 @@ nfs_start_subvol_lookup_cbk (call_frame_t *frame, void *cookie,
                              struct iatt *postparent)
 {
         if (op_ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, op_errno,
-                        NFS_MSG_LOOKUP_ROOT_FAIL,
-                        "Failed to lookup root: %s",
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to lookup root: %s",
                         strerror (op_errno));
                 goto err;
         }
 
         nfs_subvolume_set_started (this->private, ((xlator_t *)cookie));
-        gf_msg_trace (GF_NFS, 0, "Started %s", ((xlator_t *)cookie)->name);
+        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", ((xlator_t *)cookie)->name);
 err:
         return 0;
 }
@@ -494,7 +482,7 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
                 return -1;
 
         if (nfs_subvolume_started (nfsx->private, xl)) {
-                gf_msg_trace (GF_NFS, 0, "Subvolume already started: %s",
+                gf_log (GF_NFS,GF_LOG_TRACE, "Subvolume already started: %s",
                         xl->name);
                 ret = 0;
                 goto err;
@@ -502,9 +490,7 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
 
         ret = nfs_root_loc_fill (xl->itable, &rootloc);
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, 0,
-                        NFS_MSG_ROOT_LOC_INIT_FAIL,
-                        "Failed to init root loc");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
                 goto err;
         }
 
@@ -513,9 +499,8 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
                               nfs_start_subvol_lookup_cbk,
                               (void *)nfsx->private);
         if (ret < 0) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, -ret,
-                        NFS_MSG_LOOKUP_ROOT_FAIL,
-                        "Failed to lookup root: %s", strerror (-ret));
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to lookup root: %s",
+                        strerror (-ret));
                 goto err;
         }
 
@@ -538,14 +523,12 @@ nfs_startup_subvolumes (xlator_t *nfsx)
         nfs = nfsx->private;
         cl = nfs->subvols;
         while (cl) {
-                gf_msg_debug (GF_NFS, 0, "Starting subvolume: %s",
+                gf_log (GF_NFS, GF_LOG_DEBUG, "Starting subvolume: %s",
                         cl->xlator->name);
                 ret = nfs_startup_subvolume (nfsx, cl->xlator);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_CRITICAL, 0,
-                                NFS_MSG_STARTUP_FAIL,
-                                "Failed to start-up xlator: %s",
-                                cl->xlator->name);
+                        gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to start-up "
+                                "xlator: %s", cl->xlator->name);
                         goto err;
                 }
                 cl = cl->next;
@@ -569,8 +552,8 @@ nfs_init_subvolume (struct nfs_state *nfs, xlator_t *xl)
         lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
         xl->itable = inode_table_new (lrusize, xl);
         if (!xl->itable) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocate inode table");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to allocate "
+                        "inode table");
                 goto err;
         }
         ret = 0;
@@ -590,15 +573,14 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
 
         lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
         nfs->subvols = cl;
-        gf_msg_trace (GF_NFS, 0, "inode table lru: %d", lrusize);
+        gf_log (GF_NFS, GF_LOG_TRACE, "inode table lru: %d", lrusize);
 
         while (cl) {
-                gf_msg_debug (GF_NFS, 0, "Initing subvolume: %s",
+                gf_log (GF_NFS, GF_LOG_DEBUG, "Initing subvolume: %s",
                         cl->xlator->name);
                 ret = nfs_init_subvolume (nfs, cl->xlator);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_CRITICAL, 0,
-                                NFS_MSG_XLATOR_INIT_FAIL, "Failed to init "
+                        gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init "
                                 "xlator: %s", cl->xlator->name);
                         goto err;
                 }
@@ -610,13 +592,12 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
         nfs->initedxl = GF_CALLOC (svcount, sizeof (xlator_t *),
                                    gf_nfs_mt_xlator_t );
         if (!nfs->initedxl) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocated inited xls");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocated inited xls");
                 ret = -1;
                 goto err;
         }
 
-        gf_msg_trace (GF_NFS, 0, "Inited volumes: %d", svcount);
+        gf_log (GF_NFS, GF_LOG_TRACE, "Inited volumes: %d", svcount);
         nfs->allsubvols = svcount;
         ret = 0;
 err:
@@ -656,7 +637,7 @@ nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid, gid_t *auxgids,
         newnfu->gids[0] = gid;
         newnfu->ngrps = 1;
 
-        gf_msg_trace (GF_NFS, 0, "uid: %d, gid %d, gids: %d", uid, gid,
+        gf_log (GF_NFS, GF_LOG_TRACE, "uid: %d, gid %d, gids: %d", uid, gid,
                 auxcount);
 
         if (!auxgids)
@@ -665,7 +646,7 @@ nfs_user_create (nfs_user_t *newnfu, uid_t uid, gid_t gid, gid_t *auxgids,
         for (; y < auxcount; ++x,++y) {
                 newnfu->gids[x] = auxgids[y];
                 ++newnfu->ngrps;
-                gf_msg_trace (GF_NFS, 0, "gid: %d", auxgids[y]);
+                gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", auxgids[y]);
         }
 
         return 0;
@@ -716,8 +697,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_nfs_mt_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Memory accounting init failed");
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
                 return ret;
         }
 
@@ -739,7 +720,7 @@ nfs_init_state (xlator_t *this)
                 return NULL;
 
         if (!this->children) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_NFS_MAN_DISABLE,
+                gf_log (GF_NFS, GF_LOG_INFO,
                         "NFS is manually disabled: Exiting");
                 /* Nothing for nfs process to do, exit cleanly */
                 kill (getpid (), SIGTERM);
@@ -747,8 +728,7 @@ nfs_init_state (xlator_t *this)
 
         nfs = GF_CALLOC (1, sizeof (*nfs), gf_nfs_mt_nfs_state);
         if (!nfs) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "memory allocation failed");
+                gf_log (GF_NFS, GF_LOG_ERROR, "memory allocation failed");
                 return NULL;
         }
 
@@ -757,16 +737,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "nfs.mem-factor",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret,
-                                NFS_MSG_DICT_GET_FAILED,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_rpcsvc;
                 }
 
                 ret = gf_string2uint (optstr, &nfs->memfactor);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse uint string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
                         goto free_rpcsvc;
                 }
         }
@@ -775,8 +753,8 @@ nfs_init_state (xlator_t *this)
         /* FIXME: Really saddens me to see this as xlator wide. */
         nfs->foppool = mem_pool_new (struct nfs_fop_local, fopspoolsize);
         if (!nfs->foppool) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocate fops local pool");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to allocate fops "
+                        "local pool");
                 goto free_rpcsvc;
         }
 
@@ -785,16 +763,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "nfs.dynamic-volumes",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret,
-                                NFS_MSG_DICT_GET_FAILED,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
                         goto free_foppool;
                 }
 
@@ -805,16 +781,14 @@ nfs_init_state (xlator_t *this)
         nfs->enable_nlm = _gf_true;
         ret = dict_get_str_boolean (this->options, "nfs.nlm", _gf_true);
         if (ret == _gf_false) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_NLM_MAN_DISABLE,
-                        "NLM is manually disabled");
+                gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually disabled");
                 nfs->enable_nlm = _gf_false;
         }
 
         nfs->enable_acl = _gf_true;
         ret = dict_get_str_boolean (this->options, "nfs.acl", _gf_true);
         if (ret == _gf_false) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_ACL_MAN_DISABLE,
-                        "ACL is manually disabled");
+                gf_log (GF_NFS, GF_LOG_INFO, "ACL is manually disabled");
                 nfs->enable_acl = _gf_false;
         }
 
@@ -823,15 +797,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "nfs.enable-ino32",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
                         goto free_foppool;
                 }
 
@@ -843,15 +816,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "nfs.port",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2uint (optstr, &nfs->override_portnum);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse uint string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
                         goto free_foppool;
                 }
         }
@@ -863,16 +835,13 @@ nfs_init_state (xlator_t *this)
                 else
                         ret = gf_asprintf (&optstr, "%d", GF_NFS3_PORT);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                                "failed mem-allocation");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "failed mem-allocation");
                         goto free_foppool;
                 }
                 ret = dict_set_dynstr (this->options,
                                        "transport.socket.listen-port", optstr);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_DICT_SET_FAILED,
-                                "dict_set_dynstr error");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_dynstr error");
                         goto free_foppool;
                 }
         }
@@ -882,8 +851,7 @@ nfs_init_state (xlator_t *this)
          */
         ret = dict_set_str (this->options, "transport-type", "socket");
         if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_DICT_SET_FAILED,
-                        "dict_set_str error");
+                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
                 goto free_foppool;
         }
 
@@ -891,15 +859,13 @@ nfs_init_state (xlator_t *this)
         if (dict_get(this->options, "nfs.mount-udp")) {
                 ret = dict_get_str (this->options, "nfs.mount-udp", &optstr);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool "
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
                                 "string");
                         goto free_foppool;
                 }
@@ -908,80 +874,12 @@ nfs_init_state (xlator_t *this)
                         nfs->mount_udp = 1;
         }
 
-        nfs->exports_auth = GF_NFS_DEFAULT_EXPORT_AUTH;
-        if (dict_get(this->options, "nfs.exports-auth-enable")) {
-                ret = dict_get_str (this->options, "nfs.exports-auth-enable",
-                                    &optstr);
-                if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
-                        goto free_foppool;
-                }
-
-                ret = gf_string2boolean (optstr, &boolt);
-                if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool string");
-                        goto free_foppool;
-                }
-
-                if (boolt == _gf_true)
-                        nfs->exports_auth = 1;
-        }
-
-        nfs->auth_refresh_time_secs = GF_NFS_DEFAULT_AUTH_REFRESH_INTERVAL_SEC;
-        if (dict_get (this->options, "nfs.auth-refresh-interval-sec")) {
-                ret = dict_get_str (this->options,
-                                    "nfs.auth-refresh-interval-sec", &optstr);
-                if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
-                        goto free_foppool;
-                }
-
-                ret = gf_string2uint (optstr, &nfs->auth_refresh_time_secs);
-                if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse uint string");
-                        goto free_foppool;
-                }
-        }
-
-        nfs->auth_cache_ttl_sec = GF_NFS_DEFAULT_AUTH_CACHE_TTL_SEC;
-        if (dict_get (this->options, "nfs.auth-cache-ttl-sec")) {
-                ret = dict_get_str (this->options,
-                                    "nfs.auth-cache-ttl-sec", &optstr);
-                if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
-                        goto free_foppool;
-                }
-
-                ret = gf_string2uint (optstr, &nfs->auth_cache_ttl_sec);
-                if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse uint string");
-                        goto free_foppool;
-                }
-        }
-
-        /* TODO: Make this a configurable option in case we don't want to read
-         * exports/netgroup files off disk when they change. */
-        nfs->refresh_auth = 1;
-
         nfs->rmtab = gf_strdup (NFS_DATADIR "/rmtab");
         if (dict_get(this->options, "nfs.mount-rmtab")) {
                 ret = dict_get_str (this->options, "nfs.mount-rmtab", &nfs->rmtab);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
-                }
-
-                /* check if writing the rmtab is disabled*/
-                if (nfs->rmtab && strcmp ("/-", nfs->rmtab) == 0) {
-                        GF_FREE (nfs->rmtab);
-                        nfs->rmtab = NULL;
                 }
         }
 
@@ -993,15 +891,13 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "rpc-auth.ports.insecure",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool "
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
                                 "string");
                         goto free_foppool;
                 }
@@ -1014,15 +910,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_get_str (this->options, "rpc-auth-allow-insecure",
                                     &optstr);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
                         goto free_foppool;
                 }
 
@@ -1036,16 +931,14 @@ nfs_init_state (xlator_t *this)
                 ret = dict_set_str (this->options,
                                     "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
                         goto free_foppool;
                 }
                 dict_del (this->options, "rpc-auth.ports.insecure");
                 ret = dict_set_str (this->options,
                                     "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
                         goto free_foppool;
                 }
         }
@@ -1060,24 +953,21 @@ nfs_init_state (xlator_t *this)
                         uint32, free_foppool);
 
         if (gid_cache_init(&nfs->gid_cache, nfs->server_aux_gids_max_age) < 0) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                        NFS_MSG_INIT_GRP_CACHE_FAIL,
-                        "Failed to initialize group cache.");
+                gf_log(GF_NFS, GF_LOG_ERROR, "Failed to initialize group cache.");
                 goto free_foppool;
         }
 
         ret = sys_access (nfs->rpc_statd, X_OK);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_WARNING, EPERM, NFS_MSG_NO_PERM,
-                        "%s not enough permissions to access. Disabling NLM",
-                        nfs->rpc_statd);
+                gf_log (GF_NFS, GF_LOG_WARNING, "%s not enough permissions to"
+                        " access. Disabling NLM", nfs->rpc_statd);
                 nfs->enable_nlm = _gf_false;
         }
 
         ret = sys_stat (nfs->rpc_statd, &stbuf);
         if (ret || !S_ISREG (stbuf.st_mode)) {
-                gf_msg (GF_NFS, GF_LOG_WARNING, 0, NFS_MSG_REG_FILE_ERROR,
-                        "%s not a regular file. Disabling NLM", nfs->rpc_statd);
+                gf_log (GF_NFS, GF_LOG_WARNING, "%s not a regular file."
+                        " Disabling NLM", nfs->rpc_statd);
                 nfs->enable_nlm = _gf_false;
         }
 
@@ -1085,15 +975,7 @@ nfs_init_state (xlator_t *this)
                                     this->options, fopspoolsize);
         if (!nfs->rpcsvc) {
                 ret = -1;
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RPC_INIT_FAIL,
-                        "RPC service init failed");
-                goto free_foppool;
-        }
-
-        ret = rpcsvc_set_throttle_on (nfs->rpcsvc);
-        if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_ENABLE_THROTTLE_FAIL,
-                        "Enabling throttle failed");
+                gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
                 goto free_foppool;
         }
 
@@ -1101,7 +983,7 @@ nfs_init_state (xlator_t *this)
                                                 this->options,
                                                 RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT);
         if (ret < 0) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RPC_CONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "Failed to configure outstanding-rpc-limit");
                 goto free_foppool;
         }
@@ -1175,8 +1057,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
          * 1. SET */
         while (blacklist_keys[keyindx]) {
                 if (dict_get (options, blacklist_keys[keyindx])) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0,
-                                NFS_MSG_RECONFIG_FAIL,
+                        gf_log (GF_NFS, GF_LOG_ERROR,
                                 "Reconfiguring %s needs NFS restart",
                                 blacklist_keys[keyindx]);
                         goto out;
@@ -1187,7 +1068,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         /* UNSET for nfs.mem-factor */
         if ((!dict_get (options, "nfs.mem-factor")) &&
             (nfs->memfactor != GF_NFS_DEFAULT_MEMFACTOR)) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_INFO,
                         "Reconfiguring nfs.mem-factor needs NFS restart");
                 goto out;
         }
@@ -1195,7 +1076,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         /* UNSET for nfs.port */
         if ((!dict_get (options, "nfs.port")) &&
             (nfs->override_portnum)) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "Reconfiguring nfs.port needs NFS restart");
                 goto out;
         }
@@ -1205,15 +1086,14 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         if (dict_get (options, OPT_SERVER_RPC_STATD_PIDFILE)) {
                 ret = dict_get_str (options, "nfs.rpc-statd", &rpc_statd);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
-                                "Failed to read reconfigured option: "
-                                "nfs.rpc-statd");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to read "
+                                "reconfigured option: nfs.rpc-statd");
                         goto out;
                 }
         }
 
         if (strcmp(nfs->rpc_statd, rpc_statd) != 0) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_INFO,
                         "Reconfiguring nfs.rpc-statd needs NFS restart");
                 goto out;
         }
@@ -1223,32 +1103,25 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         if (dict_get (options, "nfs.mount-rmtab")) {
                 ret = dict_get_str (options, "nfs.mount-rmtab", &rmtab);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
-                                "Failed to read reconfigured option:"
-                                " nfs.mount-rmtab");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to read "
+                                "reconfigured option: nfs.mount-rmtab");
                         goto out;
                 }
                 gf_path_strip_trailing_slashes (rmtab);
         }
-        /* check if writing the rmtab is disabled*/
-        if (strcmp ("/-", rmtab) == 0) {
-                GF_FREE (nfs->rmtab);
-                nfs->rmtab = NULL;
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_WRITE_FAIL,
-                        "Disabled writing of nfs.mount-rmtab");
-        } else if (!nfs->rmtab || strcmp (nfs->rmtab, rmtab) != 0) {
+        if (strcmp (nfs->rmtab, rmtab) != 0) {
                 mount_rewrite_rmtab (nfs->mstate, rmtab);
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_PATH,
-                        "Reconfigured nfs.mount-rmtab path: %s", nfs->rmtab);
+                gf_log (GF_NFS, GF_LOG_INFO,
+                                "Reconfigured nfs.mount-rmtab path: %s",
+                                nfs->rmtab);
         }
 
         GF_OPTION_RECONF (OPT_SERVER_AUX_GIDS, optbool,
                                                options, bool, out);
         if (nfs->server_aux_gids != optbool) {
                 nfs->server_aux_gids = optbool;
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_VALUE,
-                        "Reconfigured %s with value %d", OPT_SERVER_AUX_GIDS,
-                        optbool);
+                gf_log(GF_NFS, GF_LOG_INFO, "Reconfigured %s with value %d",
+                               OPT_SERVER_AUX_GIDS, optbool);
         }
 
         GF_OPTION_RECONF (OPT_SERVER_GID_CACHE_TIMEOUT, optuint32,
@@ -1256,9 +1129,8 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         if (nfs->server_aux_gids_max_age != optuint32) {
                 nfs->server_aux_gids_max_age = optuint32;
                 gid_cache_reconf (&nfs->gid_cache, optuint32);
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_VALUE,
-                        "Reconfigured %s with value %d",
-                        OPT_SERVER_GID_CACHE_TIMEOUT, optuint32);
+                gf_log(GF_NFS, GF_LOG_INFO, "Reconfigured %s with value %d",
+                               OPT_SERVER_GID_CACHE_TIMEOUT, optuint32);
         }
 
         /* reconfig nfs.dynamic-volumes */
@@ -1275,9 +1147,8 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         }
         if (nfs->dynamicvolumes != optbool) {
                 nfs->dynamicvolumes = optbool;
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_VOL,
-                        "Reconfigured nfs.dynamic-volumes with value %d",
-                        optbool);
+                gf_log(GF_NFS, GF_LOG_INFO, "Reconfigured nfs.dynamic-volumes"
+                                            " with value %d", optbool);
         }
 
         optbool = _gf_false;
@@ -1285,7 +1156,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 ret = dict_get_str_boolean (options, "nfs.enable-ino32",
                                                       _gf_false);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_READ_FAIL,
+                        gf_log (GF_NFS, GF_LOG_ERROR,
                                 "Failed to read reconfigured option: "
                                 "nfs.enable-ino32");
                         goto out;
@@ -1294,8 +1165,8 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
         }
         if (nfs->enable_ino32 != optbool) {
                 nfs->enable_ino32 = optbool;
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_ENABLE,
-                        "Reconfigured nfs.enable-ino32 with value %d", optbool);
+                gf_log(GF_NFS, GF_LOG_INFO, "Reconfigured nfs.enable-ino32"
+                                            " with value %d", optbool);
         }
 
         /* nfs.nlm is enabled by default */
@@ -1306,8 +1177,8 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 optbool = ret;
         }
         if (nfs->enable_nlm != optbool) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_NLM_INFO, "NLM is"
-                        " manually %s", (optbool ? "enabled":"disabled"));
+                gf_log (GF_NFS, GF_LOG_INFO, "NLM is manually %s",
+                                (optbool ? "enabled":"disabled"));
                 nfs->enable_nlm = optbool;
                 nfs_reconfigure_nlm4 (this);
         }
@@ -1320,8 +1191,8 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 optbool = ret;
         }
         if (nfs->enable_acl != optbool) {
-                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_ACL_INFO, "ACL is "
-                        "manually %s", (optbool ? "enabled":"disabled"));
+                gf_log (GF_NFS, GF_LOG_INFO, "ACL is manually %s",
+                                (optbool ? "enabled":"disabled"));
                 nfs->enable_acl = optbool;
                 nfs_reconfigure_acl3 (this);
         }
@@ -1350,7 +1221,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /* Reconfigure nfs options */
         ret = nfs_reconfigure_state(this, options);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "nfs reconfigure state failed");
                 return (-1);
         }
@@ -1358,7 +1229,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /* Reconfigure nfs3 options */
         ret = nfs3_reconfigure_state(this, options);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "nfs3 reconfigure state failed");
                 return (-1);
         }
@@ -1366,7 +1237,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /* Reconfigure mount options */
         ret = mount_reconfigure_state(this, options);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "mount reconfigure state failed");
                 return (-1);
         }
@@ -1374,7 +1245,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /* Reconfigure rpc layer */
         ret = rpcsvc_reconfigure_options (nfs->rpcsvc, options);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "rpcsvc reconfigure options failed");
                 return (-1);
         }
@@ -1384,7 +1255,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                        options,
                                        RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT);
         if (ret < 0) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "Failed to reconfigure outstanding-rpc-limit");
                 return (-1);
         }
@@ -1402,7 +1273,7 @@ reconfigure (xlator_t *this, dict_t *options)
         /* Reconfigure drc */
         ret = rpcsvc_drc_reconfigure (nfs->rpcsvc, options);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
+                gf_log (GF_NFS, GF_LOG_ERROR,
                         "rpcsvc DRC reconfigure failed");
                 return (-1);
         }
@@ -1438,55 +1309,47 @@ init (xlator_t *this) {
 
         nfs = nfs_init_state (this);
         if (!nfs) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_OPT_INIT_FAIL,
-                        "Failed to init nfs option");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to init nfs option");
                 return (-1);
         }
 
         ret = nfs_add_all_initiators (nfs);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to add initiators");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add initiators");
                 return (-1);
         }
 
         ret = nfs_init_subvolumes (nfs, this->children);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to init NFS exports");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS exports");
                 return (-1);
         }
 
         ret = mount_init_state (this);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to init Mount state");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init Mount state");
                 return (-1);
         }
 
         ret = nlm4_init_state (this);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_CRITICAL, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to init NLM state");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NLM state");
                 return (-1);
         }
 
         ret = nfs_init_versions (nfs, this);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to initialize protocols");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize protocols");
                 return (-1);
         }
 
         ret = nfs_drc_init (this);
         if (ret) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_INIT_FAIL,
-                        "Failed to initialize DRC");
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize DRC");
                 return (-1);
         }
 
-        gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_STARTED,
-                "NFS service started");
+        gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
         return (0); /* SUCCESS */
 }
 
@@ -1499,7 +1362,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
         subvol = (xlator_t *)data;
 
-        gf_msg_trace (GF_NFS, 0, "Notification received: %d",
+        gf_log (GF_NFS, GF_LOG_TRACE, "Notification received: %d",
                 event);
 
         switch (event) {
@@ -1527,9 +1390,8 @@ fini (xlator_t *this)
 
         struct nfs_state        *nfs = NULL;
 
-        mnt3svc_deinit (this);
         nfs = (struct nfs_state *)this->private;
-        gf_msg_debug (GF_NFS, 0, "NFS service going down");
+        gf_log (GF_NFS, GF_LOG_DEBUG, "NFS service going down");
         nfs_deinit_versions (&nfs->versions, this);
         return 0;
 }
@@ -1583,8 +1445,7 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, -ret, NFS_MSG_VOL_NOT_FOUND,
-                        "Could not get volname");
+                gf_log (this->name, GF_LOG_ERROR, "Could not get volname");
                 goto out;
         }
 
@@ -1596,8 +1457,7 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict)
                 snprintf (key, sizeof (key), "client%d.hostname", count);
                 ret = dict_set_str (dict, key, mentry->hostname);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                NFS_MSG_WRITE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Error writing hostname to dict");
                         goto out;
                 }
@@ -1609,8 +1469,7 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict)
                 snprintf (key, sizeof (key), "client%d.bytesread", count);
                 ret = dict_set_uint64 (dict, key, 0);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                NFS_MSG_WRITE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Error writing bytes read to dict");
                         goto out;
                 }
@@ -1619,8 +1478,7 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict)
                 snprintf (key, sizeof (key), "client%d.byteswrite", count);
                 ret = dict_set_uint64 (dict, key, 0);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                NFS_MSG_WRITE_FAIL,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Error writing bytes write to dict");
                         goto out;
                 }
@@ -1630,11 +1488,11 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict)
 
         ret = dict_set_int32 (dict, "clientcount", count);
         if (ret)
-                gf_msg (this->name, GF_LOG_ERROR, 0, NFS_MSG_WRITE_FAIL,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Error writing client count to dict");
 
 out:
-        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -1649,13 +1507,13 @@ nfs_priv (xlator_t *this)
         /* DRC needs the global drc structure, xl is of no use to it. */
         ret = rpcsvc_drc_priv (((struct nfs_state *)(this->private))->rpcsvc->drc);
         if (ret) {
-                gf_msg_debug (this->name, 0, "Statedump of DRC failed");
+                gf_log (this->name, GF_LOG_DEBUG, "Statedump of DRC failed");
                 goto out;
         }
 
         ret = nlm_priv (this);
         if (ret) {
-                gf_msg_debug (this->name, 0, "Statedump of NLM failed");
+                gf_log (this->name, GF_LOG_DEBUG, "Statedump of NLM failed");
                 goto out;
         }
  out:
@@ -1965,6 +1823,17 @@ struct volume_options options[] = {
           .description = "This option is used to start or stop the NFS server "
                          "for individual volumes."
         },
+        { .key  = {"nfs-ganesha.*.host"},
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .default_value = "none",
+          .description = "Set nfs-ganesha host IP"
+        },
+        { .key  = {"nfs-ganesha.*.enable"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option, if set to 'on', enables exports via nfs-ganesha "
+        },
+
         { .key  = {"nfs.nlm"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
@@ -1988,8 +1857,7 @@ struct volume_options options[] = {
                          "list all the NFS-clients that have connected "
                          "through the MOUNT protocol. If this is on shared "
                          "storage, all GlusterFS servers will update and "
-                         "output (with 'showmount') the same list. Set to "
-                         "\"/-\" to disable."
+                         "output (with 'showmount') the same list."
         },
         { .key = {OPT_SERVER_RPC_STATD},
           .type = GF_OPTION_TYPE_PATH,
@@ -2017,7 +1885,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 3600,
-          .default_value = "300",
+          .default_value = "5",
           .description = "Number of seconds to cache auxiliary-GID data, when "
                          OPT_SERVER_AUX_GIDS " is set."
         },
@@ -2039,23 +1907,5 @@ struct volume_options options[] = {
           .description = "Sets the number of non-idempotent "
                          "requests to cache in drc"
         },
-        { .key = {"nfs.exports-auth-enable"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .description = "Set the option to 'on' to enable exports/netgroup "
-                         "authentication in the NFS server and mount daemon."
-        },
-
-        { .key = {"nfs.auth-refresh-interval-sec"},
-          .type = GF_OPTION_TYPE_INT,
-          .description = "Frequency in seconds that the daemon should check for"
-                         " changes in the exports/netgroups file."
-        },
-
-       { .key = {"nfs.auth-cache-ttl-sec"},
-          .type = GF_OPTION_TYPE_INT,
-          .description = "Sets the TTL of an entry in the auth cache. Value is "
-                         "in seconds."
-        },
-
         { .key  = {NULL} },
 };

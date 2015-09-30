@@ -10,8 +10,13 @@
 #ifndef _GLUSTERD_SM_H_
 #define _GLUSTERD_SM_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <pthread.h>
-#include "compat-uuid.h"
+#include "uuid.h"
 
 #include "rpc-clnt.h"
 #include "glusterfs.h"
@@ -23,8 +28,6 @@
 //#include "glusterd.h"
 #include "rpcsvc.h"
 #include "store.h"
-
-#include "glusterd-rcu.h"
 
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
@@ -55,7 +58,7 @@ typedef struct glusterd_peer_state_info_ {
 
 typedef struct glusterd_peer_hostname_ {
         char                    *hostname;
-        struct cds_list_head     hostname_list;
+        struct list_head        hostname_list;
 } glusterd_peer_hostname_t;
 
 typedef struct glusterd_sm_transition_ {
@@ -81,10 +84,10 @@ struct glusterd_peerinfo_ {
                                                        */
         glusterd_peer_state_info_t      state;
         char                            *hostname;
-        struct cds_list_head            hostnames;
+        struct list_head                hostnames;
         int                             port;
-        struct cds_list_head            uuid_list;
-        struct cds_list_head            op_peers_list;
+        struct list_head                uuid_list;
+        struct list_head                op_peers_list;
         struct rpc_clnt                 *rpc;
         rpc_clnt_prog_t                 *mgmt;
         rpc_clnt_prog_t                 *peer;
@@ -96,18 +99,9 @@ struct glusterd_peerinfo_ {
         gd_quorum_contrib_t             quorum_contrib;
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
-        /* Members required for proper cleanup using RCU */
-        gd_rcu_head                     rcu_head;
-        pthread_mutex_t                 delete_lock;
-        uint32_t                        generation;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
-
-typedef struct glusterd_local_peers_ {
-        glusterd_peerinfo_t   *peerinfo;
-        struct cds_list_head  op_peers_list;
-} glusterd_local_peers_t;
 
 typedef enum glusterd_ev_gen_mode_ {
         GD_MODE_OFF,
@@ -123,9 +117,7 @@ typedef struct glusterd_peer_ctx_args_ {
 
 typedef struct glusterd_peer_ctx_ {
         glusterd_peerctx_args_t        args;
-        uuid_t                         peerid;
-        char                           *peername;
-        uint32_t                       peerinfo_gen;
+        glusterd_peerinfo_t            *peerinfo;
         char                           *errstr;
 } glusterd_peerctx_t;
 
@@ -154,11 +146,10 @@ typedef enum glusterd_friend_update_op_ {
 
 
 struct glusterd_friend_sm_event_ {
-        struct cds_list_head             list;
-        uuid_t                           peerid;
-        char                            *peername;
-        void                            *ctx;
-        glusterd_friend_sm_event_type_t  event;
+        struct list_head        list;
+        glusterd_peerinfo_t     *peerinfo;
+        void                    *ctx;
+        glusterd_friend_sm_event_type_t event;
 };
 
 typedef struct glusterd_friend_sm_event_ glusterd_friend_sm_event_t;

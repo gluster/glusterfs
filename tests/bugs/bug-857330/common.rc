@@ -1,0 +1,55 @@
+. $(dirname $0)/../../include.rc
+
+UUID_REGEX='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'
+
+TASK_ID=""
+COMMAND=""
+PATTERN=""
+
+function check-and-store-task-id()
+{
+        TASK_ID=""
+
+        local task_id=$($CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX")
+
+        if [ -z "$task_id" ] && [ "${task_id+asdf}" = "asdf" ]; then
+                return 1
+        fi
+
+        TASK_ID=$task_id
+        return 0;
+}
+
+function get-task-id()
+{
+        $CLI $COMMAND | grep $PATTERN | grep -o -E "$UUID_REGEX" | tail -n1
+
+}
+
+function check-and-store-task-id-xml()
+{
+        TASK_ID=""
+
+        local task_id=$($CLI $COMMAND --xml | xmllint --format - | grep $PATTERN | grep -o -E "$UUID_REGEX")
+
+        if [ -z "$task_id" ] && [ "${task_id+asdf}" = "asdf" ]; then
+                return 1
+        fi
+
+        TASK_ID=$task_id
+        return 0;
+}
+
+function get-task-id-xml()
+{
+        $CLI $COMMAND --xml | xmllint --format - | grep $PATTERN | grep -o -E "$UUID_REGEX"
+}
+
+function get-task-status()
+{
+        $CLI $COMMAND | grep -o $PATTERN
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                return 1
+        fi
+        return 0
+}

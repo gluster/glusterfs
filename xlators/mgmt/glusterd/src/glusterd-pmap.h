@@ -10,8 +10,13 @@
 #ifndef _GLUSTERD_PMAP_H_
 #define _GLUSTERD_PMAP_H_
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <pthread.h>
-#include "compat-uuid.h"
+#include "uuid.h"
 
 #include "glusterfs.h"
 #include "xlator.h"

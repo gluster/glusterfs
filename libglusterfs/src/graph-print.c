@@ -8,12 +8,17 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <sys/uio.h>
 
 #include "common-utils.h"
 #include "xlator.h"
 #include "graph-utils.h"
-#include "libglusterfs-messages.h"
+
 
 
 struct gf_printer {
@@ -28,8 +33,8 @@ gp_write_file (struct gf_printer *gp, char *buf, size_t len)
         FILE *f = gp->priv;
 
         if (fwrite (buf, len, 1, f) != 1) {
-                gf_msg ("graph-print", GF_LOG_ERROR, errno,
-                        LG_MSG_FWRITE_FAILED, "fwrite failed");
+                gf_log ("graph-print", GF_LOG_ERROR, "fwrite failed (%s)",
+                        strerror (errno));
 
                 return -1;
         }
@@ -43,8 +48,7 @@ gp_write_buf (struct gf_printer *gp, char *buf, size_t len)
         struct iovec *iov = gp->priv;
 
         if (iov->iov_len < len) {
-                gf_msg ("graph-print", GF_LOG_ERROR, 0, LG_MSG_BUFFER_FULL,
-                        "buffer full");
+                gf_log ("graph-print", GF_LOG_ERROR, "buffer full");
 
                 return -1;
         }
@@ -135,8 +139,7 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
 out:
         len = gp->len;
         if (ret == -1) {
-                gf_msg ("graph-print", GF_LOG_ERROR, 0, LG_MSG_PRINT_FAILED,
-                        "printing failed");
+                gf_log ("graph-print", GF_LOG_ERROR, "printing failed");
 
                 return -1;
         }
@@ -169,8 +172,8 @@ glusterfs_graph_print_buf (glusterfs_graph_t *graph)
 
         f = fopen ("/dev/null", "a");
         if (!f) {
-                gf_msg ("graph-print", GF_LOG_ERROR, errno,
-                        LG_MSG_DIR_OP_FAILED, "cannot open /dev/null");
+                gf_log ("graph-print", GF_LOG_ERROR,
+                        "cannot open /dev/null (%s)", strerror (errno));
 
                 return NULL;
         }

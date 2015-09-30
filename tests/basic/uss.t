@@ -12,17 +12,6 @@ function check_readonly()
     return $?
 }
 
-function lookup()
-{
-    ls $1
-    if [ "$?" == "0" ]
-    then
-        echo "Y"
-    else
-        echo "N"
-    fi
-}
-
 cleanup;
 TESTS_EXPECTED_IN_LOOP=10
 
@@ -43,11 +32,11 @@ for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
 TEST $CLI snapshot config activate-on-create enable
 
-TEST $CLI snapshot create snap1 $V0 no-timestamp;
+TEST $CLI snapshot create snap1 $V0;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
 
-TEST $CLI snapshot create snap2 $V0 no-timestamp;
+TEST $CLI snapshot create snap2 $V0;
 
 mkdir $M0/dir1;
 mkdir $M0/dir2;
@@ -55,16 +44,17 @@ mkdir $M0/dir2;
 for i in {1..10} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {1..10} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap3 $V0 no-timestamp;
+TEST $CLI snapshot create snap3 $V0;
 
 for i in {11..20} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap4 $V0 no-timestamp;
+TEST $CLI snapshot create snap4 $V0;
+
 ## Test that features.uss takes only options enable/disable and throw error for
 ## any other argument.
 for i in {1..10}; do
-        RANDOM_STRING=$(uuidgen | tr -dc 'a-zA-Z' | head -c 8)
+        RANDOM_STRING=`cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1`
         TEST_IN_LOOP ! $CLI volume set $V0 features.uss $RANDOM_STRING
 done
 
@@ -75,11 +65,12 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 # test 15
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "4" count_snaps $M0
+TEST ls $M0/.snaps;
 
 NUM_SNAPS=$(ls $M0/.snaps | wc -l);
 
 TEST [ $NUM_SNAPS == 4 ]
+
 TEST ls $M0/.snaps/snap1;
 TEST ls $M0/.snaps/snap2;
 TEST ls $M0/.snaps/snap3;
@@ -188,9 +179,7 @@ TEST fd_close $fd3;
 # test 73
 TEST $CLI volume set $V0 "features.snapshot-directory" .history
 
-#snapd client might take fraction of time to compare the volfile from glusterd
-#hence a EXPECT_WITHIN is a better choice here
-EXPECT_WITHIN 2 "Y" lookup "$M0/.history";
+TEST ls $M0/.history;
 
 NUM_SNAPS=$(ls $M0/.history | wc -l);
 
@@ -288,7 +277,7 @@ TEST fd_close $fd3;
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 #test 131
-TEST $CLI snapshot create snap5 $V0 no-timestamp
+TEST $CLI snapshot create snap5 $V0
 TEST ls $M0/.history;
 
 function count_snaps
@@ -317,19 +306,19 @@ EXPECT_WITHIN 30 "5" count_snaps $M0;
 
 echo "aaa" > $M0/aaa;
 
-TEST $CLI snapshot create snap6 $V0 no-timestamp
+TEST $CLI snapshot create snap6 $V0
 
 TEST ls $M0/.history;
 
 EXPECT_WITHIN 30 "6" count_snaps $M0;
 
-EXPECT_WITHIN 10 "Y" lookup $M0/.history/snap6/aaa
+TEST stat $M0/.history/snap6/aaa
 
 TEST rm -f $M0/aaa;
 
 TEST $CLI snapshot delete snap6;
 
-TEST $CLI snapshot create snap6 $V0 no-timestamp
+TEST $CLI snapshot create snap6 $V0
 
 TEST ls $M0/.history;
 

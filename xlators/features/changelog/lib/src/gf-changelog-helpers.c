@@ -10,7 +10,6 @@
 
 #include "changelog-mem-types.h"
 #include "gf-changelog-helpers.h"
-#include "changelog-lib-messages.h"
 
 ssize_t gf_changelog_read_path (int fd, char *buffer, size_t bufsize)
 {
@@ -178,39 +177,4 @@ gf_ftruncate (int fd, off_t length)
         tsd->rl_bufptr = tsd->rl_buf;
 
         return 0;
-}
-
-int
-gf_thread_cleanup (xlator_t *this, pthread_t thread)
-{
-        int ret = 0;
-        void *res = NULL;
-
-        ret = pthread_cancel (thread);
-        if (ret != 0) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        CHANGELOG_LIB_MSG_THREAD_CLEANUP_WARNING,
-                        "Failed to send cancellation to thread");
-                goto error_return;
-        }
-
-        ret = pthread_join (thread, &res);
-        if (ret != 0) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        CHANGELOG_LIB_MSG_THREAD_CLEANUP_WARNING,
-                        "failed to join thread");
-                goto error_return;
-        }
-
-        if (res != PTHREAD_CANCELED) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        CHANGELOG_LIB_MSG_THREAD_CLEANUP_WARNING,
-                        "Thread could not be cleaned up");
-                goto error_return;
-        }
-
-        return 0;
-
- error_return:
-        return -1;
 }

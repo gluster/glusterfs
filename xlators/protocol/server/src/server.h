@@ -54,7 +54,7 @@ struct server_conf {
                                             heal is on else off. */
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
-        uint32_t                grace_timeout;
+        struct timespec         grace_ts;
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
         struct list_head        xprt_list;
@@ -63,11 +63,6 @@ struct server_conf {
         gf_boolean_t            server_manage_gids; /* resolve gids on brick */
         gid_cache_t             gid_cache;
         int32_t                 gid_cache_timeout;
-
-        int                     event_threads; /* # of event threads
-                                                * configured */
-
-        gf_boolean_t            parent_up;
 };
 typedef struct server_conf server_conf_t;
 
@@ -171,8 +166,5 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
 int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
-
-void
-forget_inode_if_no_dentry (inode_t *inode);
 
 #endif /* !_SERVER_H */

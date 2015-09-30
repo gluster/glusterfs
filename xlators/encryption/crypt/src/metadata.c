@@ -8,6 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "defaults.h"
 #include "crypt-common.h"
 #include "crypt.h"
@@ -399,7 +404,7 @@ int32_t check_format_v1(uint32_t len, unsigned char *wire)
  * return:
  * -1 on errors;
  *  0 on failed verification;
- *  1 on successful verification
+ *  1 on sucessful verification
  */
 static int32_t verify_link_mac_v1(struct mtd_format_v1 *fmt,
 				  uint32_t idx /* index of the mac to verify */,
@@ -470,30 +475,24 @@ static int32_t open_format_v1(unsigned char *wire,
 	num_nmtd_macs = check_format_v1(len, wire);
 	if (num_nmtd_macs <= 0)
 		return EIO;
+	fmt = (struct mtd_format_v1 *)wire;
 
-	ret = lookup_link_mac_v1((struct mtd_format_v1 *)wire,
-				 num_nmtd_macs, loc, info, master);
+	ret = lookup_link_mac_v1(fmt, num_nmtd_macs, loc, info, master);
 	if (ret < 0) {
 		gf_log("crypt", GF_LOG_ERROR, "NMTD verification failed");
 		return EINVAL;
 	}
-
 	local->mac_idx = ret;
 	if (load_info == _gf_false)
 		/* the case of partial open */
 		return 0;
-
-	fmt = GF_CALLOC(1, len, gf_crypt_mt_mtd);
-	if (!fmt)
-		return ENOMEM;
-	memcpy(fmt, wire, len);
 
 	object = &info->cinfo;
 
 	ret = get_emtd_file_key(info, master, mtd_key);
 	if (ret) {
 		gf_log("crypt", GF_LOG_ERROR, "Can not retrieve metadata key");
-		goto out;
+		return ret;
 	}
 	/*
 	 * decrypt encrypted meta-data
@@ -501,14 +500,12 @@ static int32_t open_format_v1(unsigned char *wire,
 	ret = AES_set_encrypt_key(mtd_key, sizeof(mtd_key)*8, &EMTD_KEY);
 	if (ret < 0) {
 		gf_log("crypt", GF_LOG_ERROR, "Can not set encrypt key");
-		ret = EIO;
-		goto out;
+		return ret;
 	}
 	gctx = CRYPTO_gcm128_new(&EMTD_KEY, (block128_f)AES_encrypt);
 	if (!gctx) {
 		gf_log("crypt", GF_LOG_ERROR, "Can not alloc gcm context");
-		ret = ENOMEM;
-		goto out;
+		return ENOMEM;
 	}
 	CRYPTO_gcm128_setiv(gctx, info->oid, sizeof(uuid_t));
 
@@ -517,8 +514,7 @@ static int32_t open_format_v1(unsigned char *wire,
 	if (ret) {
 		gf_log("crypt", GF_LOG_ERROR, " CRYPTO_gcm128_aad failed");
 		CRYPTO_gcm128_release(gctx);
-		ret = EIO;
-		goto out;
+		return ret;	
 	}
 	ret = CRYPTO_gcm128_decrypt(gctx,
 				    get_EMTD_V1(fmt),
@@ -527,8 +523,7 @@ static int32_t open_format_v1(unsigned char *wire,
 	if (ret) {
 		gf_log("crypt", GF_LOG_ERROR, " CRYPTO_gcm128_decrypt failed");
 		CRYPTO_gcm128_release(gctx);
-		ret = EIO;
-		goto out;
+		return ret;
 	}
 	/*
 	 * verify metadata
@@ -537,8 +532,7 @@ static int32_t open_format_v1(unsigned char *wire,
 	CRYPTO_gcm128_release(gctx);
 	if (memcmp(gmac, get_EMTD_V1_MAC(fmt), SIZE_OF_EMTD_V1_MAC)) {
 		gf_log("crypt", GF_LOG_ERROR, "EMTD verification failed");
-		ret = EINVAL;
-		goto out;
+		return EINVAL;
 	}
 	/*
 	 * load verified metadata to the private part of inode
@@ -550,10 +544,7 @@ static int32_t open_format_v1(unsigned char *wire,
 	object->o_block_bits = fmt->block_bits;
 	object->o_mode = fmt->mode_id;
 
-	ret = check_file_metadata(info);
- out:
-	GF_FREE(fmt);
-	return ret;
+	return check_file_metadata(info);
 }
 
 /*

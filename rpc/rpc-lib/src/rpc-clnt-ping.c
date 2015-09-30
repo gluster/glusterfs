@@ -9,6 +9,11 @@
 */
 
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
 #include "byte-order.h"
@@ -30,71 +35,6 @@ struct rpc_clnt_program clnt_ping_prog = {
         .procnames = clnt_ping_procs,
 };
 
-/* Must be called under conn->lock */
-static int
-__rpc_clnt_rearm_ping_timer (struct rpc_clnt *rpc, gf_timer_cbk_t cbk)
-{
-        rpc_clnt_connection_t *conn    = &rpc->conn;
-        rpc_transport_t       *trans   = conn->trans;
-        struct timespec        timeout = {0, };
-        gf_timer_t            *timer   = NULL;
-
-        if (conn->ping_timer) {
-                gf_log_callingfn ("", GF_LOG_CRITICAL,
-                                  "%s: ping timer event already scheduled",
-                                  conn->trans->peerinfo.identifier);
-                return -1;
-        }
-
-        timeout.tv_sec = conn->ping_timeout;
-        timeout.tv_nsec = 0;
-
-        rpc_clnt_ref (rpc);
-        timer = gf_timer_call_after (rpc->ctx, timeout,
-                                     cbk,
-                                     (void *) rpc);
-        if (timer == NULL) {
-                gf_log (trans->name, GF_LOG_WARNING,
-                        "unable to setup ping timer");
-
-                /* This unref can't be the last. We just took a ref few lines
-                 * above. So this can be performed under conn->lock. */
-                rpc_clnt_unref (rpc);
-                conn->ping_started = 0;
-                return -1;
-        }
-
-        conn->ping_timer = timer;
-        conn->ping_started = 1;
-        return 0;
-}
-
-/* Must be called under conn->lock */
-int
-rpc_clnt_remove_ping_timer_locked (struct rpc_clnt *rpc)
-{
-        rpc_clnt_connection_t *conn  = &rpc->conn;
-        gf_timer_t            *timer = NULL;
-
-        if (conn->ping_timer) {
-                timer = conn->ping_timer;
-                conn->ping_timer = NULL;
-                gf_timer_call_cancel (rpc->ctx, timer);
-                conn->ping_started = 0;
-                return 1;
-
-        }
-
-        /* This is to account for rpc_clnt_disable that might have set
-         *  conn->trans to NULL. */
-        if (conn->trans)
-                gf_log_callingfn ("", GF_LOG_DEBUG, "%s: ping timer event "
-                                  "already removed",
-                                   conn->trans->peerinfo.identifier);
-
-        return 0;
-}
-
 static void
 rpc_clnt_start_ping (void *rpc_ptr);
 
@@ -106,8 +46,8 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
         rpc_clnt_connection_t   *conn               = NULL;
         int                      disconnect         = 0;
         int                      transport_activity = 0;
+        struct timespec          timeout            = {0, };
         struct timeval           current            = {0, };
-        int                      unref              = 0;
 
         rpc = (struct rpc_clnt*) rpc_ptr;
         conn = &rpc->conn;
@@ -121,7 +61,12 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
 
         pthread_mutex_lock (&conn->lock);
         {
-                unref = rpc_clnt_remove_ping_timer_locked (rpc);
+                if (conn->ping_timer) {
+                        gf_timer_call_cancel (rpc->ctx,
+                                              conn->ping_timer);
+                        conn->ping_timer = NULL;
+                        rpc_clnt_unref (rpc);
+                }
 
                 gettimeofday (&current, NULL);
                 if (((current.tv_sec - conn->last_received.tv_sec) <
@@ -135,22 +80,26 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
                         gf_log (trans->name, GF_LOG_TRACE,
                                 "ping timer expired but transport activity "
                                 "detected - not bailing transport");
+                        timeout.tv_sec = conn->ping_timeout;
+                        timeout.tv_nsec = 0;
 
-                        if (__rpc_clnt_rearm_ping_timer (rpc,
-                                         rpc_clnt_ping_timer_expired) == -1) {
+                        rpc_clnt_ref (rpc);
+                        conn->ping_timer =
+                                gf_timer_call_after (rpc->ctx, timeout,
+                                                     rpc_clnt_ping_timer_expired,
+                                                     (void *) rpc);
+                        if (conn->ping_timer == NULL) {
                                 gf_log (trans->name, GF_LOG_WARNING,
                                         "unable to setup ping timer");
+                                conn->ping_started = 0;
+                                rpc_clnt_unref (rpc);
                         }
-
                 } else {
                         conn->ping_started = 0;
                         disconnect = 1;
                 }
         }
         pthread_mutex_unlock (&conn->lock);
-
-        if (unref)
-                rpc_clnt_unref (rpc);
 
         if (disconnect) {
                 gf_log (trans->name, GF_LOG_CRITICAL,
@@ -175,7 +124,6 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         rpc_clnt_connection_t *conn    = NULL;
         call_frame_t          *frame   = NULL;
         struct timespec       timeout  = {0, };
-        int                   unref    = 0;
 
         if (!myframe) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -192,10 +140,13 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         pthread_mutex_lock (&conn->lock);
         {
                 if (req->rpc_status == -1) {
-                        unref = rpc_clnt_remove_ping_timer_locked (rpc);
-                        if (unref) {
+                        if (conn->ping_timer != NULL) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "socket or ib related error");
+                                gf_timer_call_cancel (rpc->ctx,
+                                                      conn->ping_timer);
+                                conn->ping_timer = NULL;
+                                rpc_clnt_unref (rpc);
 
                         } else {
                                 /* timer expired and transport bailed out */
@@ -207,20 +158,27 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
-                unref = rpc_clnt_remove_ping_timer_locked (rpc);
-                if (__rpc_clnt_rearm_ping_timer (rpc,
-                                                 rpc_clnt_start_ping) == -1) {
+                gf_timer_call_cancel (this->ctx,
+                                      conn->ping_timer);
+
+                timeout.tv_sec = conn->ping_timeout;
+                timeout.tv_nsec = 0;
+                rpc_clnt_ref (rpc);
+                conn->ping_timer = gf_timer_call_after (this->ctx, timeout,
+                                                        rpc_clnt_start_ping,
+                                                        (void *)rpc);
+
+                if (conn->ping_timer == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to set the ping timer");
+                        conn->ping_started = 0;
+                        rpc_clnt_unref (rpc);
                 }
 
         }
 unlock:
         pthread_mutex_unlock (&conn->lock);
 out:
-        if (unref)
-                rpc_clnt_unref (rpc);
-
         if (frame)
                 STACK_DESTROY (frame->root);
         return 0;
@@ -236,7 +194,7 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         conn = &rpc->conn;
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
-                return ret;
+                goto fail;
 
         frame->local = rpc;
 
@@ -257,6 +215,13 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
 
         return ret;
 
+fail:
+        if (frame) {
+                STACK_DESTROY (frame->root);
+        }
+
+        return ret;
+
 }
 
 static void
@@ -266,7 +231,6 @@ rpc_clnt_start_ping (void *rpc_ptr)
         rpc_clnt_connection_t   *conn        = NULL;
         struct timespec          timeout     = {0, };
         int                      frame_count = 0;
-        int                      unref       = 0;
 
         rpc = (struct rpc_clnt*) rpc_ptr;
         conn = &rpc->conn;
@@ -279,7 +243,12 @@ rpc_clnt_start_ping (void *rpc_ptr)
 
         pthread_mutex_lock (&conn->lock);
         {
-                unref = rpc_clnt_remove_ping_timer_locked (rpc);
+                if (conn->ping_timer) {
+                        gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
+                        conn->ping_timer = NULL;
+                        conn->ping_started = 0;
+                        rpc_clnt_unref (rpc);
+                }
 
                 if (conn->saved_frames) {
                         GF_ASSERT (conn->saved_frames->count >= 0);
@@ -295,26 +264,29 @@ rpc_clnt_start_ping (void *rpc_ptr)
                                 !conn->connected, frame_count);
 
                         pthread_mutex_unlock (&conn->lock);
-                        if (unref)
-                                rpc_clnt_unref (rpc);
                         return;
                 }
 
-                if (__rpc_clnt_rearm_ping_timer (rpc,
-                                         rpc_clnt_ping_timer_expired) == -1) {
+                timeout.tv_sec = conn->ping_timeout;
+                timeout.tv_nsec = 0;
+
+                rpc_clnt_ref (rpc);
+                conn->ping_timer =
+                        gf_timer_call_after (rpc->ctx, timeout,
+                                             rpc_clnt_ping_timer_expired,
+                                             (void *) rpc);
+
+                if (conn->ping_timer == NULL) {
                         gf_log (THIS->name, GF_LOG_WARNING,
                                 "unable to setup ping timer");
+                        rpc_clnt_unref (rpc);
                         pthread_mutex_unlock (&conn->lock);
-                        if (unref)
-                                rpc_clnt_unref (rpc);
                         return;
-
+                } else {
+                        conn->ping_started = 1;
                 }
-
         }
         pthread_mutex_unlock (&conn->lock);
-        if (unref)
-                rpc_clnt_unref (rpc);
 
         rpc_clnt_ping(rpc);
 }

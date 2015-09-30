@@ -9,7 +9,7 @@
 #
 
 import os
-from ctypes import CDLL, create_string_buffer, get_errno
+from ctypes import CDLL, c_int, create_string_buffer
 from ctypes.util import find_library
 
 
@@ -25,11 +25,11 @@ class Xattr(object):
          sizes we expect
     """
 
-    libc = CDLL(find_library("libc"), use_errno=True)
+    libc = CDLL(find_library("libc"))
 
     @classmethod
     def geterrno(cls):
-        return get_errno()
+        return c_int.in_dll(cls.libc, 'errno').value
 
     @classmethod
     def raise_oserr(cls):

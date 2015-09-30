@@ -8,6 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* !_CONFIG_H */
+
 #include <pthread.h>
 
 #include "glusterfs.h"
@@ -15,7 +20,6 @@
 #include "xlator.h"
 #include "mem-pool.h"
 #include "syncop.h"
-#include "libglusterfs-messages.h"
 
 const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]        = "NULL",
@@ -66,8 +70,7 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_FREMOVEXATTR]= "FREMOVEXATTR",
 	[GF_FOP_FALLOCATE]   = "FALLOCATE",
 	[GF_FOP_DISCARD]     = "DISCARD",
-        [GF_FOP_ZEROFILL]    = "ZEROFILL",
-        [GF_FOP_IPC]         = "IPC",
+        [GF_FOP_ZEROFILL]     = "ZEROFILL",
 };
 /* THIS */
 
@@ -78,22 +81,7 @@ static pthread_key_t uuid_buf_key;
 static char          global_uuid_buf[GF_UUID_BUF_SIZE];
 static pthread_key_t lkowner_buf_key;
 static char          global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
-static int gf_global_mem_acct_enable = 1;
-static pthread_once_t globals_inited = PTHREAD_ONCE_INIT;
 
-
-int
-gf_global_mem_acct_enable_get (void)
-{
-	return gf_global_mem_acct_enable;
-}
-
-int
-gf_global_mem_acct_enable_set (int val)
-{
-	gf_global_mem_acct_enable = val;
-	return 0;
-}
 
 void
 glusterfs_this_destroy (void *ptr)
@@ -109,9 +97,7 @@ glusterfs_this_init ()
 
         ret = pthread_key_create (&this_xlator_key, glusterfs_this_destroy);
         if (ret != 0) {
-                gf_msg ("", GF_LOG_WARNING, ret,
-                        LG_MSG_PTHREAD_KEY_CREATE_FAILED, "failed to create "
-                        "the pthread key");
+                gf_log ("", GF_LOG_WARNING, "failed to create the pthread key");
                 return ret;
         }
 
@@ -329,54 +315,6 @@ glusterfs_lkowner_buf_get ()
         return buf;
 }
 
-static void
-gf_globals_init_once ()
-{
-        int ret = 0;
-
-        ret = glusterfs_this_init ();
-        if (ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_TRANSLATOR_INIT_FAILED,
-                        "ERROR: glusterfs-translator init failed");
-                goto out;
-        }
-
-        ret = glusterfs_uuid_buf_init ();
-        if(ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_UUID_BUF_INIT_FAILED,
-                        "ERROR: glusterfs uuid buffer init failed");
-                goto out;
-        }
-
-        ret = glusterfs_lkowner_buf_init ();
-        if(ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_LKOWNER_BUF_INIT_FAILED,
-                        "ERROR: glusterfs lkowner buffer init failed");
-                goto out;
-        }
-
-        ret = synctask_init ();
-        if (ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_SYNCTASK_INIT_FAILED,
-                        "ERROR: glusterfs synctask init failed");
-                goto out;
-        }
-
-        ret = syncopctx_init ();
-        if (ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_SYNCOPCTX_INIT_FAILED,
-                        "ERROR: glusterfs syncopctx init failed");
-                goto out;
-        }
-out:
-
-        if (ret) {
-                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_GLOBAL_INIT_FAILED,
-                        "Exiting as global initialization failed");
-                exit (ret);
-        }
-}
-
 int
 glusterfs_globals_init (glusterfs_ctx_t *ctx)
 {
@@ -384,11 +322,40 @@ glusterfs_globals_init (glusterfs_ctx_t *ctx)
 
         gf_log_globals_init (ctx);
 
-        ret =  pthread_once (&globals_inited, gf_globals_init_once);
+        ret = glusterfs_this_init ();
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs-translator init failed");
+                goto out;
+        }
 
-        if (ret)
-                gf_msg ("", GF_LOG_CRITICAL, ret, LG_MSG_PTHREAD_FAILED,
-                        "pthread_once failed");
+        ret = glusterfs_uuid_buf_init ();
+        if(ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs uuid buffer init failed");
+                goto out;
+        }
 
+        ret = glusterfs_lkowner_buf_init ();
+        if(ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs lkowner buffer init failed");
+                goto out;
+        }
+
+        ret = synctask_init ();
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs synctask init failed");
+                goto out;
+        }
+
+        ret = syncopctx_init ();
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs syncopctx init failed");
+                goto out;
+        }
+out:
         return ret;
 }

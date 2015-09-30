@@ -7,6 +7,11 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
 #include "compat.h"
 #include "xlator.h"
@@ -66,7 +71,7 @@ out:
         return ret_lock;
 }
 
-static int
+static inline int
 __same_owner_reservelk (posix_lock_t *l1, posix_lock_t *l2)
 {
         return (is_same_lkowner (&l1->owner, &l2->owner));

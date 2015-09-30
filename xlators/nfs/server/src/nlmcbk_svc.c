@@ -15,7 +15,6 @@
 
 #include "nlm4.h"
 #include "logging.h"
-#include "nfs-messages.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <rpc/pmap_clnt.h>
@@ -73,8 +72,7 @@ nlmcbk_program_0(struct svc_req *rqstp, register SVCXPRT *transp)
 	}
 
 	if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument, (caddr_t) &argument)) {
-		gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_ARG_FREE_FAIL,
-                        "unable to free arguments");
+		gf_log (GF_NLM, GF_LOG_ERROR, "unable to free arguments");
                 return;
 	}
 	return;
@@ -88,39 +86,31 @@ nsm_thread (void *argv)
 
         ret = pmap_unset (NLMCBK_PROGRAM, NLMCBK_V1);
         if (ret == 0) {
-                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_PMAP_UNSET_FAIL,
-                        "pmap_unset failed");
+                gf_log (GF_NLM, GF_LOG_ERROR, "pmap_unset failed");
                 return NULL;
         }
         transp = svcudp_create(RPC_ANYSOCK);
 	if (transp == NULL) {
-		gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UDP_SERV_FAIL,
-                        "cannot create udp service.");
+		gf_log (GF_NLM, GF_LOG_ERROR, "cannot create udp service.");
                 return NULL;
 	}
 	if (!svc_register(transp, NLMCBK_PROGRAM, NLMCBK_V1, nlmcbk_program_0, IPPROTO_UDP)) {
-		gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_REG_NLMCBK_FAIL,
-                        "unable to register (NLMCBK_PROGRAM, "
-                        "NLMCBK_V0, udp).");
+		gf_log (GF_NLM, GF_LOG_ERROR, "unable to register (NLMCBK_PROGRAM, NLMCBK_V0, udp).");
                 return NULL;
 	}
 
 	transp = svctcp_create(RPC_ANYSOCK, 0, 0);
 	if (transp == NULL) {
-		gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_TCP_SERV_FAIL,
-                        "cannot create tcp service.");
+		gf_log (GF_NLM, GF_LOG_ERROR, "cannot create tcp service.");
                 return NULL;
 	}
 	if (!svc_register(transp, NLMCBK_PROGRAM, NLMCBK_V1, nlmcbk_program_0, IPPROTO_TCP)) {
-		gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_REG_NLMCBK_FAIL,
-                        "unable to register (NLMCBK_PROGRAM, "
-                        "NLMCBK_V0, tcp).");
+		gf_log (GF_NLM, GF_LOG_ERROR, "unable to register (NLMCBK_PROGRAM, NLMCBK_V0, tcp).");
                 return NULL;
 	}
 
 	svc_run ();
-	gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
-                "svc_run returned");
+	gf_log (GF_NLM, GF_LOG_ERROR, "svc_run returned");
         return NULL;
 	/* NOTREACHED */
 }

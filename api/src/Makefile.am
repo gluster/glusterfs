@@ -1,9 +1,7 @@
 lib_LTLIBRARIES = libgfapi.la
-noinst_HEADERS = glfs-mem-types.h glfs-internal.h gfapi-messages.h
+noinst_HEADERS = glfs-mem-types.h glfs-internal.h
 libgfapi_HEADERS = glfs.h glfs-handles.h
 libgfapidir = $(includedir)/glusterfs/api
-
-EXTRA_DIST = gfapi.map gfapi.aliases
 
 libgfapi_la_SOURCES = glfs.c glfs-mgmt.c glfs-fops.c glfs-resolve.c \
 	glfs-handleops.c
@@ -18,7 +16,7 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(top_srcdir)/rpc/xdr/src
 
 libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) \
-	$(GFAPI_EXTRA_LDFLAGS) $(ACL_LIBS)
+	-Wl,--version-script=gfapi.map
 
 xlator_LTLIBRARIES = api.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
