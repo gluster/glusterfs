@@ -1055,7 +1055,7 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 
         if (wordcount < 4) {
                 cli_usage_out (word->pattern);
-                if (!strcmp(words[2], "help"))
+                if (wordcount == 3 && !strcmp(words[2], "help"))
                         ret = 0;
                 goto out;
         }
