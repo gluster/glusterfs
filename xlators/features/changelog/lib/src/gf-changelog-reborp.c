@@ -15,6 +15,8 @@
 #include "changelog-rpc-common.h"
 #include "changelog-lib-messages.h"
 
+#include "syscall.h"
+
 /**
  * Reverse socket: actual data transfer handler. Connection
  * initiator is PROBER, data transfer is REBORP.
@@ -113,7 +115,7 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
 
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
-                ret = unlink (RPC_SOCK(entry));
+                ret = sys_unlink (RPC_SOCK(entry));
                 if (ret != 0)
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 CHANGELOG_LIB_MSG_UNLINK_FAILED,
