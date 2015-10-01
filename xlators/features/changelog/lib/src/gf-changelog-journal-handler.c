@@ -11,6 +11,7 @@
 #include "compat-uuid.h"
 #include "globals.h"
 #include "glusterfs.h"
+#include "syscall.h"
 #include "compat-errno.h"
 
 #include "gf-changelog-helpers.h"
@@ -440,7 +441,7 @@ gf_changelog_copy (xlator_t *this, int from_fd, int to_fd)
         char   buffer[COPY_BUFSIZE+1] = {0,};
 
         while (1) {
-                size = read (from_fd, buffer, COPY_BUFSIZE);
+                size = sys_read (from_fd, buffer, COPY_BUFSIZE);
                 if (size <= 0)
                         break;
 
@@ -500,7 +501,7 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
         /**
          * start processing after the header
          */
-        lseek (from_fd, elen, SEEK_SET);
+        sys_lseek (from_fd, elen, SEEK_SET);
 
         switch (encoding) {
         case CHANGELOG_ENCODE_BINARY:
@@ -539,7 +540,7 @@ gf_changelog_publish (xlator_t *this,
                          jnl->jnl_current_dir, basename (from_path));
 
         /* handle zerob file that wont exist in current */
-        ret = stat (to_path, &stbuf);
+        ret = sys_stat (to_path, &stbuf);
         if (ret) {
                 if (errno == ENOENT)
                         ret = 0;
@@ -549,7 +550,7 @@ gf_changelog_publish (xlator_t *this,
         (void) snprintf (dest, PATH_MAX, "%s%s",
                          jnl->jnl_processing_dir, basename (from_path));
 
-        ret = rename (to_path, dest);
+        ret = sys_rename (to_path, dest);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_RENAME_FAILED,
@@ -574,7 +575,7 @@ gf_changelog_consume (xlator_t *this,
         char dest[PATH_MAX]    = {0,};
         char to_path[PATH_MAX] = {0,};
 
-        ret = stat (from_path, &stbuf);
+        ret = sys_stat (from_path, &stbuf);
         if (ret || !S_ISREG(stbuf.st_mode)) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -609,14 +610,14 @@ gf_changelog_consume (xlator_t *this,
                 ret = gf_changelog_decode (this, jnl, fd1,
                                            fd2, &stbuf, &zerob);
 
-                close (fd2);
+                sys_close (fd2);
 
                 if (!ret) {
                         /* move it to processing on a successful
                            decode */
                         if (no_publish == _gf_true)
                                 goto close_fd;
-                        ret = rename (to_path, dest);
+                        ret = sys_rename (to_path, dest);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         CHANGELOG_LIB_MSG_RENAME_FAILED,
@@ -627,7 +628,7 @@ gf_changelog_consume (xlator_t *this,
                 /* remove it from .current if it's an empty file */
                 if (zerob) {
                         /* zerob changelogs must be unlinked */
-                        ret = unlink (to_path);
+                        ret = sys_unlink (to_path);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         CHANGELOG_LIB_MSG_UNLINK_FAILED,
@@ -637,7 +638,7 @@ gf_changelog_consume (xlator_t *this,
         }
 
  close_fd:
-        close (fd1);
+        sys_close (fd1);
 
  out:
         return ret;
@@ -830,10 +831,10 @@ gf_changelog_cleanup_fds (gf_changelog_journal_t *jnl)
 {
         /* tracker fd */
         if (jnl->jnl_fd != -1)
-                close (jnl->jnl_fd);
+                sys_close (jnl->jnl_fd);
         /* processing dir */
         if (jnl->jnl_dir)
-                closedir (jnl->jnl_dir);
+                sys_closedir (jnl->jnl_dir);
 
         if (jnl->jnl_working_dir)
                 free (jnl->jnl_working_dir); /* allocated by realpath */
@@ -888,7 +889,7 @@ gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
         if (ret)
                 goto out;
 
-        dir = opendir (jnl->jnl_processing_dir);
+        dir = sys_opendir (jnl->jnl_processing_dir);
         if (!dir) {
                 gf_msg ("", GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_OPENDIR_ERROR,
@@ -904,7 +905,7 @@ gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
         tracker_fd = open (tracker_path, O_CREAT | O_APPEND | O_RDWR,
                            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         if (tracker_fd < 0) {
-                closedir (jnl->jnl_dir);
+                sys_closedir (jnl->jnl_dir);
                 ret = -1;
                 goto out;
         }
@@ -1007,7 +1008,7 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
         if (!jnl)
                 goto error_return;
 
-        if (stat (scratch_dir, &buf) && errno == ENOENT) {
+        if (sys_stat (scratch_dir, &buf) && errno == ENOENT) {
                 ret = mkdir_p (scratch_dir, 0600, _gf_true);
                 if (ret)
                         goto dealloc_private;

@@ -10,6 +10,8 @@
 
 #include "changelog-rpc-common.h"
 #include "changelog-messages.h"
+
+#include "syscall.h"
 /**
 *****************************************************
                   Client Interface
@@ -271,7 +273,7 @@ changelog_rpc_server_destroy (xlator_t *this, rpcsvc_t *rpc, char *sockfile,
         }
 
         (void) rpcsvc_unregister_notify (rpc, fn, this);
-        unlink (sockfile);
+        sys_unlink (sockfile);
 
         GF_FREE (rpc);
 }

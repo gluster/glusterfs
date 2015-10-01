@@ -10,6 +10,7 @@
 
 #include "xlator.h"
 #include "defaults.h"
+#include "syscall.h"
 #include "logging.h"
 #include "iobuf.h"
 
@@ -1918,7 +1919,7 @@ changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
         if (priv->cr.rollover_th) {
                 (void) changelog_thread_cleanup (this, priv->cr.rollover_th);
                 priv->cr.rollover_th = 0;
-                ret = close (priv->cr_wfd);
+                ret = sys_close (priv->cr_wfd);
                 if (ret)
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_CLOSE_ERROR,

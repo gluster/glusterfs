@@ -11,6 +11,7 @@
 #include "compat-uuid.h"
 #include "globals.h"
 #include "glusterfs.h"
+#include "syscall.h"
 
 #include "gf-changelog-helpers.h"
 #include "gf-changelog-journal.h"
@@ -52,7 +53,7 @@ gf_changelog_done (char *file)
                          jnl->jnl_processed_dir, basename (buffer));
         gf_msg_debug (this->name, 0,
                       "moving %s to processed directory", file);
-        ret = rename (buffer, to_path);
+        ret = sys_rename (buffer, to_path);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_RENAME_FAILED,

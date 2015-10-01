@@ -75,7 +75,7 @@ gf_history_changelog_done (char *file)
                          hist_jnl->jnl_processed_dir, basename (buffer));
         gf_msg_debug (this->name, 0,
                       "moving %s to processed directory", file);
-        ret = rename (buffer, to_path);
+        ret = sys_rename (buffer, to_path);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_RENAME_FAILED,
@@ -678,7 +678,7 @@ gf_history_consume (void * data)
 
 out:
         if (fd != -1)
-                close (fd);
+                sys_close (fd);
         GF_FREE (hist_data);
         return NULL;
 }
@@ -728,7 +728,7 @@ gf_changelog_extract_min_max (const char *dname, const char *htime_dir,
         iter = (htime_file + strlen (htime_file) - TIMESTAMP_LENGTH);
         sscanf (iter ,"%lu",min_ts);
 
-        ret = stat (htime_file, &stbuf);
+        ret = sys_stat (htime_file, &stbuf);
         if (ret) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -841,7 +841,7 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
         CHANGELOG_FILL_HTIME_DIR (changelog_dir, htime_dir);
 
-        dirp = opendir (htime_dir);
+        dirp = sys_opendir (htime_dir);
         if (dirp == NULL) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_HTIME_ERROR,
@@ -851,7 +851,7 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                 goto out;
         }
 
-        while ((dp = readdir (dirp)) != NULL) {
+        while ((dp = sys_readdir (dirp)) != NULL) {
                 ret = gf_changelog_extract_min_max (dp->d_name, htime_dir,
                                                     &fd, &total_changelog,
                                                     &min_ts, &max_ts);
@@ -865,7 +865,7 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         /**
                          * TODO: handle short reads later...
                          */
-                        n_read = read (fd, buffer, PATH_MAX);
+                        n_read = sys_read (fd, buffer, PATH_MAX);
                         if (n_read < 0) {
                                 ret = -1;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -968,11 +968,11 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
 out:
         if (dirp != NULL)
-                closedir (dirp);
+                sys_closedir (dirp);
 
         if (ret < 0) {
                 if (fd != -1)
-                        close (fd);
+                        sys_close (fd);
                 GF_FREE (hist_data);
                 (void) pthread_attr_destroy (&attr);
 

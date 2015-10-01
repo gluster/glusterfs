@@ -262,7 +262,7 @@ changelog_write (int fd, char *buffer, size_t len)
         size_t written = 0;
 
         while (written < len) {
-                size = write (fd,
+                size = sys_write (fd,
                               buffer + written, len - written);
                 if (size <= 0)
                         break;
@@ -303,7 +303,8 @@ htime_update (xlator_t *this,
                 goto out;
         }
 
-        sprintf (x_value,"%lu:%d",ts, priv->rollover_count);
+        snprintf (x_value, sizeof x_value, "%lu:%d",
+                 ts, priv->rollover_count);
 
         if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
                            strlen (x_value), XATTR_REPLACE)) {
@@ -348,7 +349,7 @@ cl_is_empty (xlator_t *this, int fd)
         int             major_version   = -1;
         int             minor_version   = -1;
 
-        ret = fstat (fd, &stbuf);
+        ret = sys_fstat (fd, &stbuf);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_MSG_FSTAT_OP_FAILED,
@@ -356,7 +357,7 @@ cl_is_empty (xlator_t *this, int fd)
                 goto out;
         }
 
-        ret = lseek (fd, 0, SEEK_SET);
+        ret = sys_lseek (fd, 0, SEEK_SET);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_MSG_LSEEK_OP_FAILED,
@@ -422,7 +423,7 @@ changelog_rollover_changelog (xlator_t *this,
         changelog_event_t ev  = {0,};
 
         if (priv->changelog_fd != -1) {
-                ret = fsync (priv->changelog_fd);
+                ret = sys_fsync (priv->changelog_fd);
                 if (ret < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_FSYNC_OP_FAILED,
@@ -437,7 +438,7 @@ changelog_rollover_changelog (xlator_t *this,
                                 CHANGELOG_MSG_DETECT_EMPTY_CHANGELOG_FAILED,
                                 "Error detecting empty changelog");
                 }
-                close (priv->changelog_fd);
+                sys_close (priv->changelog_fd);
                 priv->changelog_fd = -1;
         }
 
@@ -448,7 +449,7 @@ changelog_rollover_changelog (xlator_t *this,
                          priv->changelog_dir, ts);
 
         if (cl_empty_flag == 1) {
-                ret = unlink (ofile);
+                ret = sys_unlink (ofile);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_UNLINK_OP_FAILED,
@@ -459,7 +460,7 @@ changelog_rollover_changelog (xlator_t *this,
                                      reset return value to 0*/
                 }
         } else {
-                ret = rename (ofile, nfile);
+                ret = sys_rename (ofile, nfile);
 
                 if (ret && (errno == ENOENT)) {
                         ret = 0;
@@ -584,7 +585,7 @@ find_current_htime (int ht_dir_fd, const char *ht_dir_path, char *ht_file_bname)
                         goto out;
                 }
 
-                if (fsync (ht_dir_fd) < 0) {
+                if (sys_fsync (ht_dir_fd) < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_FSYNC_OP_FAILED,
                                 "fsync failed");
@@ -704,7 +705,7 @@ htime_open (xlator_t *this,
 
 out:
         if (ht_dir_fd != -1)
-                close (ht_dir_fd);
+                sys_close (ht_dir_fd);
         return ret;
 }
 
@@ -754,7 +755,7 @@ htime_create (xlator_t *this,
                 goto out;
         }
 
-        ret = fsync (ht_file_fd);
+        ret = sys_fsync (ht_file_fd);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_MSG_FSYNC_OP_FAILED,
@@ -783,7 +784,7 @@ htime_create (xlator_t *this,
                 goto out;
         }
 
-        ret = fsync (ht_dir_fd);
+        ret = sys_fsync (ht_dir_fd);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_MSG_FSYNC_OP_FAILED,
@@ -798,7 +799,7 @@ htime_create (xlator_t *this,
 
 out:
         if (ht_dir_fd != -1)
-                close (ht_dir_fd);
+                sys_close (ht_dir_fd);
         return ret;
 }
 
@@ -846,7 +847,7 @@ changelog_snap_open (xlator_t *this,
                         priv->ce->encoder);
         ret = changelog_snap_write_change (priv, buffer, strlen (buffer));
         if (ret < 0) {
-                close (priv->c_snap_fd);
+                sys_close (priv->c_snap_fd);
                 priv->c_snap_fd = -1;
                 goto out;
         }
@@ -889,7 +890,7 @@ changelog_snap_logging_stop (xlator_t *this,
 {
         int ret         = 0;
 
-        close (priv->c_snap_fd);
+        sys_close (priv->c_snap_fd);
         priv->c_snap_fd = -1;
 
         gf_msg (this->name, GF_LOG_INFO, 0,
@@ -936,7 +937,7 @@ changelog_open_journal (xlator_t *this,
                          priv->ce->encoder);
         ret = changelog_write_change (priv, buffer, strlen (buffer));
         if (ret) {
-                close (priv->changelog_fd);
+                sys_close (priv->changelog_fd);
                 priv->changelog_fd = -1;
                 goto out;
         }
@@ -1080,7 +1081,7 @@ changelog_handle_change (xlator_t *this,
                 return 0;
 
         if (CHANGELOG_TYPE_IS_FSYNC (cld->cld_type)) {
-                ret = fsync (priv->changelog_fd);
+                ret = sys_fsync (priv->changelog_fd);
                 if (ret < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_FSYNC_OP_FAILED,
@@ -1302,7 +1303,7 @@ changelog_rollover (void *data)
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 CHANGELOG_MSG_BARRIER_INFO,
                                 "Explicit wakeup of select on barrier notify");
-                        len = read(priv->cr.rfd, buf, 1);
+                        len = sys_read (priv->cr.rfd, buf, 1);
                         if (len == 0) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         CHANGELOG_MSG_READ_ERROR, "BUG: Got EOF"
@@ -1955,7 +1956,7 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
                 snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
                           pargfid[0], pargfid[1], uuid_utoa (pargfid));
 
-                len = readlink (dir_handle, linkname, PATH_MAX);
+                len = sys_readlink (dir_handle, linkname, PATH_MAX);
                 if (len < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 CHANGELOG_MSG_READLINK_OP_FAILED,

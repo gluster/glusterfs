@@ -80,7 +80,7 @@
                                 }                                       \
                                 fclose (fp);                            \
                         } else {                                        \
-                                close (fd_dup);                         \
+                                sys_close (fd_dup);                     \
                         }                                               \
                 }                                                       \
         } while (0)
