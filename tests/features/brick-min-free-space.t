@@ -41,12 +41,16 @@ TEST dd if=/dev/zero of=$M0/test bs=1M count=10 oflag=direct
 TEST $CLI volume set $V0 storage.freespace-check-interval 1
 TEST $CLI volume set $V0 storage.min-free-disk 8388608
 
+sleep 5
+
 # Now even a tiny write ought fail.
 TEST ! dd if=/dev/zero of=$M0/test1 bs=1M count=1 oflag=direct
 TEST rm $M0/test1
 
 # Repeat using percent syntax.
 TEST $CLI volume set $V0 storage.min-free-disk 33%
+
+sleep 5
 
 TEST ! dd if=/dev/zero of=$M0/test1 bs=4K count=1 oflag=direct
 TEST rm $M0/test1
@@ -87,12 +91,16 @@ TEST dd if=/dev/zero of=$M0/test bs=1M count=10 oflag=direct
 TEST $CLI volume set $V0 storage.freespace-check-interval 1
 TEST $CLI volume set $V0 storage.min-free-disk 8388608
 
+sleep 5
+
 # Now even a tiny write ought fail.
 TEST ! dd if=/dev/zero of=$M0/test1 bs=1M count=1 oflag=direct
 TEST rm $M0/test1
 
 # Repeat using percent syntax.
 TEST $CLI volume set $V0 storage.min-free-disk 33%
+
+sleep 5
 
 TEST ! dd if=/dev/zero of=$M0/test1 bs=4K count=1 oflag=direct
 TEST rm $M0/test1

@@ -66,7 +66,30 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 			ret = syncop_unlink (subvol, &loc, NULL, NULL);
 			break;
 		}
-	}
+        /* Handle edge case where directories exist in a partially
+         * created state: empty, without a gfid assigned.  We need to
+         * remove these bad dirs so the normal entry heal process
+         * can take place.
+         */
+        } else if (replies[child].valid &&
+                   replies[child].op_ret == -1 &&
+                   replies[child].op_errno == ENODATA &&
+                   gf_uuid_is_null (replies[child].poststat.ia_gfid)) {
+                if (replies[child].poststat.ia_type == IA_INVAL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "expunging orphaned (gfid-less) dir "
+                                "%s/%s (%s) on %s",
+                                uuid_utoa (dir->gfid), name,
+                                uuid_utoa_r (replies[child].poststat.ia_gfid,
+                                g), subvol->name);
+                        /* We will only do this for _directories_, and this
+                         * will only succeed for directories _without_
+                         * data.  The file case is handled well already
+                         * through the metadata self-heal process.
+                         */
+                        ret = syncop_rmdir (subvol, &loc, 1, NULL, NULL);
+                }
+        }
 
 	loc_wipe (&loc);
 
@@ -302,13 +325,11 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
         /* Returning EIO here isn't needed if GFID forced heal is
          * enabled.
          */
-        if (!priv->gfid_splitbrain_forced_heal) {
-                /* In case of a gfid or type mismatch on the entry, return -1.*/
-                ret = afr_selfheal_detect_gfid_and_type_mismatch (this,
-                    replies, fd->inode->gfid, name, source);
-                if (ret < 0)
-                        return ret;
-        }
+        /* In case of a gfid or type mismatch on the entry, return -1.*/
+        ret = afr_selfheal_detect_gfid_and_type_mismatch (this,
+            replies, fd->inode->gfid, name, source);
+        if (ret < 0)
+                return ret;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || !healed_sinks[i])
@@ -317,10 +338,20 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		if (replies[i].op_errno != ENOENT)
 			continue;
 
-		ret = afr_selfheal_recreate_entry (frame, i, source, sources,
-                                                   fd->inode, name, inode,
-                                                   replies);
-	}
+                /* Re-create the entry in the event the child
+                 * does not have it, or the entry does not have
+                 * a gfid.  In the latter case we'll only do
+                 * this for now if it's directory, this can be
+                 * widened to include files at a later time.
+                 */
+                if (replies[i].op_errno == ENOENT ||
+                    (replies[i].op_errno == ENODATA &&
+                     gf_uuid_is_null (replies[i].poststat.ia_gfid))) {
+                        ret = afr_selfheal_recreate_entry (
+                            frame, i, source, sources, fd->inode, name, inode,
+                            replies);
+                }
+        }
 
 	return ret;
 }
@@ -690,10 +721,34 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 			    !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR))
 				continue;
 
+                        /* Common Case: First do a cheap normal entry_dirent
+                         * flow */
 			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
                                                          entry->d_name,
                                                          loc.inode, subvol,
                                                         local->need_full_crawl);
+
+                        /* Edge Case: Do name heal to fix gfid split
+                         * brains and other damage to directory
+                         * entries.
+                         */
+                        if (ret) {
+                                /* If the cheap flow didn't work, let's head
+                                 * into the name self-heal flow.  Here we'll
+                                 * inspect for GFID split-brains and fix if
+                                 * found.  Then send it back to the normal
+                                 * entry_dirent flow.
+                                 */
+                                ret = afr_selfheal_name (this, fd->inode->gfid,
+                                        entry->d_name,  NULL);
+                                if (!ret) {
+                                        ret = afr_selfheal_entry_dirent (
+                                            iter_frame, this, fd,
+                                            entry->d_name, loc.inode, subvol,
+                                            local->need_full_crawl);
+                                }
+                        }
+
 			AFR_STACK_RESET (iter_frame);
 			if (iter_frame->local == NULL) {
                                 ret = -ENOTCONN;

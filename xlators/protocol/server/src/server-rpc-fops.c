@@ -4648,7 +4648,7 @@ server3_3_unlink (rpcsvc_request_t *req)
                 goto out;
         }
 
-        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.type   = RESOLVE_MAY;
         state->resolve.bname  = gf_strdup (args.bname);
         memcpy (state->resolve.pargfid, args.pargfid, 16);
 
@@ -5646,7 +5646,7 @@ server3_3_rmdir (rpcsvc_request_t *req)
                 goto out;
         }
 
-        state->resolve.type    = RESOLVE_MUST;
+        state->resolve.type    = RESOLVE_MAY;
         memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.bname   = gf_strdup (args.bname);
 

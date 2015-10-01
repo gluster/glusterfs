@@ -1598,9 +1598,10 @@ marker_get_oldpath_contribution (call_frame_t *lk_frame, void *cookie,
          */
         MARKER_SET_UID_GID (frame, local, frame->root);
 
-        if (gf_uuid_is_null (oplocal->loc.gfid))
-                        gf_uuid_copy (oplocal->loc.gfid,
-                                   oplocal->loc.inode->gfid);
+        if (gf_uuid_is_null (oplocal->loc.gfid)) {
+                gf_uuid_copy (oplocal->loc.gfid,
+                           oplocal->loc.inode->gfid);
+        }
 
         GF_UUID_ASSERT (oplocal->loc.gfid);
 

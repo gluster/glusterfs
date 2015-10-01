@@ -58,6 +58,10 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
+        if (!state->loc.inode && inode) {
+                state->loc.inode = inode;
+        }
+
         if (op_ret == -1) {
                 if (op_errno == ENOENT) {
                         gf_msg_debug (this->name, 0, "%s/%s: failed to resolve"
@@ -71,7 +75,6 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 uuid_utoa (resolve_loc->pargfid),
                                 resolve_loc->name, strerror (op_errno));
                 }
-                goto out;
         }
 
         link_inode = inode_link (inode, resolve_loc->parent,
