@@ -145,7 +145,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                   priv_base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
                   uuid_utoa (gfid));
 
-        len = readlink (dir_handle, linkname, PATH_MAX);
+        len = sys_readlink (dir_handle, linkname, PATH_MAX);
         if (len < 0) {
                 gf_msg (this->name, (errno == ENOENT || errno == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, errno,
@@ -278,7 +278,7 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
         int        link_len = 0;
 
         /* is a directory's symlink-handle */
-        ret = readlink (base_str, linkname, 512);
+        ret = sys_readlink (base_str, linkname, 512);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
                         "internal readlink failed on %s ",
@@ -373,7 +373,7 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename,
                 len = snprintf (buf, maxlen, "%s", base_str);
         }
 
-        ret = lstat (base_str, &stat);
+        ret = sys_lstat (base_str, &stat);
 
         if (!(ret == 0 && S_ISLNK(stat.st_mode) && stat.st_nlink == 1))
                 goto out;
@@ -387,7 +387,7 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename,
                 if (ret == -1)
                         break;
 
-                ret = lstat (buf, &stat);
+                ret = sys_lstat (buf, &stat);
         } while ((ret == -1) && errno == ELOOP);
 
 out:
@@ -462,7 +462,7 @@ posix_handle_init (xlator_t *this)
 
         priv = this->private;
 
-        ret = stat (priv->base_path, &exportbuf);
+        ret = sys_stat (priv->base_path, &exportbuf);
         if (ret || !S_ISDIR (exportbuf.st_mode)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         P_MSG_HANDLE_CREATE,
@@ -475,11 +475,11 @@ posix_handle_init (xlator_t *this)
 
         sprintf (handle_pfx, "%s/%s", priv->base_path, GF_HIDDEN_PATH);
 
-        ret = stat (handle_pfx, &stbuf);
+        ret = sys_stat (handle_pfx, &stbuf);
         switch (ret) {
         case -1:
                 if (errno == ENOENT) {
-                        ret = mkdir (handle_pfx, 0600);
+                        ret = sys_mkdir (handle_pfx, 0600);
                         if (ret != 0) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         P_MSG_HANDLE_CREATE,
@@ -508,11 +508,11 @@ posix_handle_init (xlator_t *this)
                 break;
         }
 
-        stat (handle_pfx, &priv->handledir);
+        sys_stat (handle_pfx, &priv->handledir);
 
         MAKE_HANDLE_ABSPATH(rootstr, this, gfid);
 
-        ret = stat (rootstr, &rootbuf);
+        ret = sys_stat (rootstr, &rootbuf);
         switch (ret) {
         case -1:
                 if (errno != ENOENT) {
@@ -530,7 +530,7 @@ posix_handle_init (xlator_t *this)
                         return -1;
                 }
 
-                ret = symlink ("../../..", rootstr);
+                ret = sys_symlink ("../../..", rootstr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 P_MSG_HANDLE_CREATE,
@@ -566,7 +566,7 @@ posix_does_old_trash_exists (char *old_trash)
         struct stat           stbuf = {0};
         int                   ret = 0;
 
-        ret = lstat (old_trash, &stbuf);
+        ret = sys_lstat (old_trash, &stbuf);
         if ((ret == 0) && S_ISDIR (stbuf.st_mode)) {
                 ret = sys_lgetxattr (old_trash, "trusted.gfid", gfid, 16);
                 if ((ret < 0) && (errno == ENODATA || errno == ENOATTR) )
@@ -581,11 +581,11 @@ posix_handle_new_trash_init (xlator_t *this, char *trash)
         int                     ret = 0;
         struct stat             stbuf = {0};
 
-        ret = lstat (trash, &stbuf);
+        ret = sys_lstat (trash, &stbuf);
         switch (ret) {
         case -1:
                 if (errno == ENOENT) {
-                        ret = mkdir (trash, 0755);
+                        ret = sys_mkdir (trash, 0755);
                         if (ret != 0) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         P_MSG_HANDLE_TRASH_CREATE,
@@ -624,7 +624,7 @@ posix_mv_old_trash_into_new_trash (xlator_t *this, char *old, char *new)
         gf_uuid_generate (dest_name);
         snprintf (dest_old, sizeof (dest_old), "%s/%s", new,
                   uuid_utoa (dest_name));
-        ret = rename (old, dest_old);
+        ret = sys_rename (old, dest_old);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         P_MSG_HANDLE_TRASH_CREATE,
@@ -675,7 +675,7 @@ posix_handle_mkdir_hashes (xlator_t *this, const char *newpath)
         parpath = dirname (duppath);
         parpath = dirname (duppath);
 
-        ret = mkdir (parpath, 0700);
+        ret = sys_mkdir (parpath, 0700);
         if (ret == -1 && errno != EEXIST) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         P_MSG_HANDLE_CREATE,
@@ -686,7 +686,7 @@ posix_handle_mkdir_hashes (xlator_t *this, const char *newpath)
         strcpy (duppath, newpath);
         parpath = dirname (duppath);
 
-        ret = mkdir (parpath, 0700);
+        ret = sys_mkdir (parpath, 0700);
         if (ret == -1 && errno != EEXIST) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         P_MSG_HANDLE_CREATE,
@@ -708,7 +708,7 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
 
         MAKE_HANDLE_ABSPATH (newpath, this, gfid);
 
-        ret = lstat (newpath, &newbuf);
+        ret = sys_lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_CREATE,
@@ -734,7 +734,7 @@ posix_handle_hard (xlator_t *this, const char *oldpath, uuid_t gfid, struct stat
                         return -1;
                 }
 
-                ret = lstat (newpath, &newbuf);
+                ret = sys_lstat (newpath, &newbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_HANDLE_CREATE,
@@ -770,7 +770,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
         MAKE_HANDLE_ABSPATH (newpath, this, gfid);
         MAKE_HANDLE_RELPATH (oldpath, this, loc->pargfid, loc->name);
 
-        ret = lstat (newpath, &newbuf);
+        ret = sys_lstat (newpath, &newbuf);
         if (ret == -1 && errno != ENOENT) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_CREATE, "%s", newpath);
@@ -792,7 +792,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
                         return -1;
                 }
 
-                ret = symlink (oldpath, newpath);
+                ret = sys_symlink (oldpath, newpath);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_HANDLE_CREATE,
@@ -801,7 +801,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
                         return -1;
                 }
 
-                ret = lstat (newpath, &newbuf);
+                ret = sys_lstat (newpath, &newbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_HANDLE_CREATE,
@@ -810,7 +810,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
                 }
         }
 
-        ret = stat (real_path, &newbuf);
+        ret = sys_stat (real_path, &newbuf);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_CREATE,
@@ -845,7 +845,7 @@ posix_handle_unset_gfid (xlator_t *this, uuid_t gfid)
 
         MAKE_HANDLE_GFID_PATH (path, this, gfid, NULL);
 
-        ret = lstat (path, &stat);
+        ret = sys_lstat (path, &stat);
 
         if (ret == -1) {
                 if (errno != ENOENT) {
@@ -855,7 +855,7 @@ posix_handle_unset_gfid (xlator_t *this, uuid_t gfid)
                 goto out;
         }
 
-        ret = unlink (path);
+        ret = sys_unlink (path);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_DELETE, "unlink %s failed ", path);
@@ -917,7 +917,7 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
                 return ret;
         }
 
-        ret = lstat (newpath, &stbuf);
+        ret = sys_lstat (newpath, &stbuf);
         if (!ret) {
                 ret = sys_link (newpath, real_path);
         }

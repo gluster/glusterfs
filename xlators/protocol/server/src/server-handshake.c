@@ -17,6 +17,7 @@
 #include "glusterfs3.h"
 #include "authenticate.h"
 #include "server-messages.h"
+#include "syscall.h"
 
 struct __get_xl_struct {
         const char *name;
@@ -208,7 +209,7 @@ _validate_volfile_checksum (xlator_t *this, char *key,
                 }
                 get_checksum_for_file (fd, &local_checksum);
                 _volfile_update_checksum (this, key, local_checksum);
-                close (fd);
+                sys_close (fd);
         }
 
         temp_volfile = conf->volfile;
@@ -267,7 +268,7 @@ server_getspec (rpcsvc_request_t *req)
                                           filename, sizeof (filename));
         if (ret > 0) {
                 /* to allocate the proper buffer to hold the file data */
-                ret = stat (filename, &stbuf);
+                ret = sys_stat (filename, &stbuf);
                 if (ret < 0){
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 PS_MSG_STAT_ERROR, "Unable to stat %s (%s)",
@@ -302,7 +303,7 @@ server_getspec (rpcsvc_request_t *req)
                         op_errno = ENOMEM;
                         goto fail;
                 }
-                ret = read (spec_fd, rsp.spec, file_len);
+                ret = sys_read (spec_fd, rsp.spec, file_len);
         }
 
         /* convert to XDR */
@@ -314,7 +315,7 @@ fail:
         rsp.op_ret   = ret;
 
         if (spec_fd != -1)
-                close (spec_fd);
+                sys_close (spec_fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_getspec_rsp);

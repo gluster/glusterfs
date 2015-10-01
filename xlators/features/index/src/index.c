@@ -144,7 +144,7 @@ index_dir_create (xlator_t *this, const char *subdir)
         priv = this->private;
         make_index_dir_path (priv->index_basepath, subdir, fullpath,
                              sizeof (fullpath));
-        ret = stat (fullpath, &st);
+        ret = sys_stat (fullpath, &st);
         if (!ret) {
                 if (!S_ISDIR (st.st_mode))
                         ret = -2;
@@ -163,7 +163,7 @@ index_dir_create (xlator_t *this, const char *subdir)
                         len = pathlen;
                 strncpy (path, fullpath, len);
                 path[len] = '\0';
-                ret = mkdir (path, 0600);
+                ret = sys_mkdir (path, 0600);
                 if (ret && (errno != EEXIST))
                         goto out;
         }
@@ -236,9 +236,10 @@ make_file_path (char *base, const char *subdir, const char *filename,
 static int
 is_index_file_current (char *filename, uuid_t priv_index)
 {
-        char *current_index = alloca (strlen ("xattrop-") + GF_UUID_BUF_SIZE);
+        char current_index[GF_UUID_BUF_SIZE + 16] = {0, };
 
-        sprintf (current_index, "xattrop-%s", uuid_utoa(priv_index));
+        snprintf (current_index, sizeof current_index,
+                  "xattrop-%s", uuid_utoa(priv_index));
         return (!strcmp(filename, current_index));
 }
 
@@ -257,9 +258,9 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
 
         make_file_path (priv->index_basepath, XATTROP_SUBDIR,
                         filename, filepath, sizeof (filepath));
-        ret = stat (filepath, &st);
+        ret = sys_stat (filepath, &st);
         if (!ret && st.st_nlink == 1)
-                unlink (filepath);
+                sys_unlink (filepath);
 }
 
 static int
@@ -370,7 +371,7 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 count ++;
         }
 
-        if ((!readdir (dir) && (errno == 0))) {
+        if ((!sys_readdir (dir) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
                 /* Remember EOF offset for later detection */
@@ -399,7 +400,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         make_gfid_path (priv->index_basepath, subdir, gfid,
                         gfid_path, sizeof (gfid_path));
 
-        ret = stat (gfid_path, &st);
+        ret = sys_stat (gfid_path, &st);
         if (!ret)
                 goto out;
         index_get_index (priv, index);
@@ -424,7 +425,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
                 goto out;
         }
 
-        fd = creat (index_path, 0);
+        fd = sys_creat (index_path, 0);
         if ((fd < 0) && (errno != EEXIST)) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
@@ -434,7 +435,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         }
 
         if (fd >= 0)
-                close (fd);
+                sys_close (fd);
 
         ret = sys_link (index_path, gfid_path);
         if (ret && (errno != EEXIST)) {
@@ -462,7 +463,7 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir)
                                        out, op_errno, EINVAL);
         make_gfid_path (priv->index_basepath, subdir, gfid,
                         gfid_path, sizeof (gfid_path));
-        ret = unlink (gfid_path);
+        ret = sys_unlink (gfid_path);
         if (ret && (errno != ENOENT)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to delete from index (%s)",
@@ -590,7 +591,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
 
         make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
                              index_dir, sizeof (index_dir));
-        fctx->dir = opendir (index_dir);
+        fctx->dir = sys_opendir (index_dir);
         if (!fctx->dir) {
                 ret = -errno;
                 GF_FREE (fctx);
@@ -601,7 +602,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long)fctx);
         if (ret) {
-                closedir (fctx->dir);
+                sys_closedir (fctx->dir);
                 GF_FREE (fctx);
                 fctx = NULL;
                 ret = -EINVAL;
@@ -822,7 +823,7 @@ index_entry_count (xlator_t *this, char *subdir)
 	make_index_dir_path (priv->index_basepath, subdir,
 			     index_dir, sizeof (index_dir));
 
-	dirp = opendir (index_dir);
+	dirp = sys_opendir (index_dir);
 	if (!dirp)
 		return 0;
 
@@ -836,7 +837,7 @@ index_entry_count (xlator_t *this, char *subdir)
 			continue;
 		count++;
 	}
-	closedir (dirp);
+	sys_closedir (dirp);
 
 	return count;
 }
@@ -918,7 +919,7 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
                                 loc->name, path, sizeof (path));
         }
 
-        ret = lstat (path, &lstatbuf);
+        ret = sys_lstat (path, &lstatbuf);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "Stat failed on index dir "
                         "(%s)", strerror (errno));
@@ -1010,7 +1011,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         priv = this->private;
         make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
                              index_dir, sizeof (index_dir));
-        ret = lstat (index_dir, &lstatbuf);
+        ret = sys_lstat (index_dir, &lstatbuf);
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = errno;
@@ -1028,7 +1029,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 goto done;
         }
         memset (&lstatbuf, 0, sizeof (lstatbuf));
-        ret = lstat (index_dir, &lstatbuf);
+        ret = sys_lstat (index_dir, &lstatbuf);
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = errno;
@@ -1380,7 +1381,7 @@ index_releasedir (xlator_t *this, fd_t *fd)
 
         fctx = (index_fd_ctx_t*) (long) ctx;
         if (fctx->dir) {
-                ret = closedir (fctx->dir);
+                ret = sys_closedir (fctx->dir);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "closedir error: %s", strerror (errno));
         }

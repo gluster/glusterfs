@@ -31,6 +31,7 @@
 #include "statedump.h"
 #include "syncop.h"
 #include "xlator.h"
+#include "syscall.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 int need_emancipate = 0;
@@ -399,12 +400,12 @@ glusterfs_volume_top_write_perf (uint32_t blk_size, uint32_t blk_count,
 
         gettimeofday (&begin, NULL);
         for (iter = 0; iter < blk_count; iter++) {
-                ret = read (input_fd, buf, blk_size);
+                ret = sys_read (input_fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
                 }
-                ret = write (fd, buf, blk_size);
+                ret = sys_write (fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
@@ -427,11 +428,11 @@ glusterfs_volume_top_write_perf (uint32_t blk_size, uint32_t blk_count,
 
 out:
         if (fd >= 0)
-                close (fd);
+                sys_close (fd);
         if (input_fd >= 0)
-                close (input_fd);
+                sys_close (input_fd);
         GF_FREE (buf);
-        unlink (export_path);
+        sys_unlink (export_path);
 
         return ret;
 }
@@ -488,24 +489,24 @@ glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
         }
 
         for (iter = 0; iter < blk_count; iter++) {
-                ret = read (input_fd, buf, blk_size);
+                ret = sys_read (input_fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
                 }
-                ret = write (fd, buf, blk_size);
+                ret = sys_write (fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
                 }
         }
 
-        ret = fsync (fd);
+        ret = sys_fsync (fd);
         if (ret) {
                 gf_log ("glusterd", GF_LOG_ERROR, "could not flush cache");
                 goto out;
         }
-        ret = lseek (fd, 0L, 0);
+        ret = sys_lseek (fd, 0L, 0);
         if (ret != 0) {
                 gf_log ("glusterd", GF_LOG_ERROR,
                         "could not seek back to start");
@@ -514,12 +515,12 @@ glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
         }
         gettimeofday (&begin, NULL);
         for (iter = 0; iter < blk_count; iter++) {
-                ret = read (fd, buf, blk_size);
+                ret = sys_read (fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
                 }
-                ret = write (output_fd, buf, blk_size);
+                ret = sys_write (output_fd, buf, blk_size);
                 if (ret != blk_size) {
                         ret = -1;
                         goto out;
@@ -542,13 +543,13 @@ glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
 
 out:
         if (fd >= 0)
-                close (fd);
+                sys_close (fd);
         if (input_fd >= 0)
-                close (input_fd);
+                sys_close (input_fd);
         if (output_fd >= 0)
-                close (output_fd);
+                sys_close (output_fd);
         GF_FREE (buf);
-        unlink (export_path);
+        sys_unlink (export_path);
 
         return ret;
 }
@@ -1973,7 +1974,7 @@ glusterfs_listener_stop (glusterfs_ctx_t *ctx)
 
         cmd_args = &ctx->cmd_args;
         if (cmd_args->sock_file) {
-                ret = unlink (cmd_args->sock_file);
+                ret = sys_unlink (cmd_args->sock_file);
                 if (ret && (ENOENT == errno)) {
                         ret = 0;
                 }

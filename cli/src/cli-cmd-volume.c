@@ -1123,7 +1123,7 @@ gf_cli_create_auxiliary_mount (char *volname)
         }
 
         GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
-        ret = mkdir (mountdir, 0777);
+        ret = sys_mkdir (mountdir, 0777);
         if (ret && errno != EEXIST) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to create auxiliary mount "
                         "directory %s. Reason : %s", mountdir,
@@ -1253,9 +1253,10 @@ _limits_set_on_volume (char *volname, int type) {
         /* TODO: fix hardcoding; Need to perform an RPC call to glusterd
          * to fetch working directory
          */
-        sprintf (quota_conf_file, "%s/vols/%s/quota.conf",
-                 GLUSTERD_DEFAULT_WORKDIR,
-                 volname);
+        snprintf (quota_conf_file, sizeof quota_conf_file,
+                  "%s/vols/%s/quota.conf",
+                  GLUSTERD_DEFAULT_WORKDIR,
+                  volname);
         fd = open (quota_conf_file, O_RDONLY);
         if (fd == -1)
                 goto out;
@@ -1283,7 +1284,7 @@ _limits_set_on_volume (char *volname, int type) {
         }
 out:
         if (fd != -1)
-                close (fd);
+                sys_close (fd);
 
         return limits_set;
 }
@@ -1421,9 +1422,10 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
 
         //TODO: fix hardcoding; Need to perform an RPC call to glusterd
         //to fetch working directory
-        sprintf (quota_conf_file, "%s/vols/%s/quota.conf",
-                 GLUSTERD_DEFAULT_WORKDIR,
-                 volname);
+        snprintf (quota_conf_file, sizeof quota_conf_file,
+                  "%s/vols/%s/quota.conf",
+                  GLUSTERD_DEFAULT_WORKDIR,
+                  volname);
         fd = open (quota_conf_file, O_RDONLY);
         if (fd == -1) {
                 //This may because no limits were yet set on the volume
@@ -1504,7 +1506,7 @@ out:
         }
 
         if (fd != -1) {
-                close (fd);
+                sys_close (fd);
         }
 
         GF_FREE (gfid_str);

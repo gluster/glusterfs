@@ -405,7 +405,7 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
         state->argv=&argv[1];
 
         /* Do this first so that an option can override. */
-        if (access(SECURE_ACCESS_FILE,F_OK) == 0) {
+        if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 state->ctx->secure_mgmt = 1;
         }
 

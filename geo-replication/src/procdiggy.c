@@ -16,6 +16,7 @@
 #include <sys/param.h> /* for PATH_MAX */
 
 #include "common-utils.h"
+#include "syscall.h"
 #include "procdiggy.h"
 
 pid_t
@@ -27,7 +28,7 @@ pidinfo (pid_t pid, char **name)
         char *p                = NULL;
         int ret                = 0;
 
-        sprintf (path, PROC"/%d/status", pid);
+        snprintf (path, sizeof path, PROC"/%d/status", pid);
 
         f = fopen (path, "r");
         if (!f)
@@ -89,10 +90,10 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
         pid_t ppid        = -1;
         int ret           = 0;
 
-        d = opendir (PROC);
+        d = sys_opendir (PROC);
         if (!d)
                 return -1;
-        while (errno = 0, de = readdir (d)) {
+        while (errno = 0, de = sys_readdir (d)) {
                 if (gf_string2int (de->d_name, &pid) != -1 && pid >= 0) {
                         ppid = pidinfo (pid, &name);
                         switch (ppid) {
@@ -105,7 +106,7 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
                                 break;
                 }
         }
-        closedir (d);
+        sys_closedir (d);
         if (!de && errno) {
                 fprintf (stderr, "failed to traverse "PROC" (%s)\n",
                          strerror (errno));

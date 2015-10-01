@@ -11,6 +11,7 @@
 
 #include "dht-common.h"
 #include "xlator.h"
+#include "syscall.h"
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
@@ -1718,7 +1719,7 @@ gf_listener_stop (xlator_t *this)
         GF_ASSERT (ctx);
         cmd_args = &ctx->cmd_args;
         if (cmd_args->sock_file) {
-                ret = unlink (cmd_args->sock_file);
+                ret = sys_unlink (cmd_args->sock_file);
                 if (ret && (ENOENT == errno)) {
                         ret = 0;
                 }

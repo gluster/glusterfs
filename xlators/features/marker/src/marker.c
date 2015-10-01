@@ -17,6 +17,7 @@
 #include "marker-common.h"
 #include "byte-order.h"
 #include "syncop.h"
+#include "syscall.h"
 
 #include <fnmatch.h>
 
@@ -178,7 +179,7 @@ marker_error_handler (xlator_t *this, marker_local_t *local, int32_t op_errno)
                  "Indexing gone corrupt at %s (reason: %s)."
                  " Geo-replication slave content needs to be revalidated",
                  path, strerror (op_errno));
-        unlink (priv->timestamp_file);
+        sys_unlink (priv->timestamp_file);
 
         return 0;
 }
@@ -235,7 +236,7 @@ stat_stampfile (xlator_t *this, marker_conf_t *priv,
         GF_ASSERT (sizeof (priv->volume_uuid_bin) == 16);
         memcpy (vol_mark->uuid, priv->volume_uuid_bin, 16);
 
-        if (stat (priv->timestamp_file, &buf) != -1) {
+        if (sys_stat (priv->timestamp_file, &buf) != -1) {
                 vol_mark->retval = 0;
                 vol_mark->sec = htonl (buf.st_mtime);
                 vol_mark->usec = htonl (ST_MTIM_NSEC (&buf)/1000);
@@ -2101,7 +2102,7 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
                         /* TODO check  whether the O_TRUNC would update the
                          * timestamps on a zero length file on all machies.
                          */
-                        close (fd);
+                        sys_close (fd);
                 }
 
                 if (fd != -1 || errno == ENOENT) {

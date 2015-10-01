@@ -15,6 +15,7 @@
 #include "rpc-transport.h"
 #include "logging.h"
 #include "xlator.h"
+#include "syscall.h"
 #include "byte-order.h"
 #include "common-utils.h"
 #include "compat-errno.h"
@@ -380,7 +381,7 @@ __socket_ssl_readv (rpc_transport_t *this, struct iovec *opvector, int opcount)
 	if (priv->use_ssl) {
 		ret = ssl_read_one (this, opvector->iov_base, opvector->iov_len);
 	} else {
-		ret = readv (sock, opvector, IOV_MIN(opcount));
+		ret = sys_readv (sock, opvector, IOV_MIN(opcount));
 	}
 
 	return ret;
@@ -538,7 +539,7 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                                 ret = ssl_write_one (this, opvector->iov_base,
                                                      opvector->iov_len);
 			} else {
-				ret = writev (sock, opvector, IOV_MIN(opcount));
+				ret = sys_writev (sock, opvector, IOV_MIN(opcount));
 			}
 
                         if (ret == 0 || (ret == -1 && errno == EAGAIN)) {
@@ -701,7 +702,7 @@ __socket_disconnect (rpc_transport_t *this)
                          * Without this, reconnect (= disconnect + connect)
                          * won't work except by accident.
                          */
-                        close(priv->sock);
+                        sys_close (priv->sock);
                         priv->sock = -1;
                         gf_log (this->name, GF_LOG_TRACE,
                                 "OT_PLEASE_DIE on %p", this);
@@ -749,9 +750,9 @@ __socket_server_bind (rpc_transport_t *this)
                         ret = connect (reuse_check_sock, SA (&unix_addr),
                                        this->myinfo.sockaddr_len);
                         if ((ret == -1) && (ECONNREFUSED == errno)) {
-                                unlink (((struct sockaddr_un*)&unix_addr)->sun_path);
+                                sys_unlink (((struct sockaddr_un *)&unix_addr)->sun_path);
                         }
-                        close (reuse_check_sock);
+                        sys_close (reuse_check_sock);
                 }
         }
 
@@ -1081,7 +1082,7 @@ __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry, int direct)
 			 * more entries after this, so drain the byte
 			 * representing this entry.
 			 */
-			if (!direct && read(priv->pipe[0],&a_byte,1) < 1) {
+			if (!direct && sys_read (priv->pipe[0], &a_byte, 1) < 1) {
 				gf_log(this->name,GF_LOG_WARNING,
 				       "read error on pipe");
 			}
@@ -2516,7 +2517,7 @@ err:
                 ssl_teardown_connection(priv);
         }
         __socket_shutdown(this);
-        close(priv->sock);
+        sys_close (priv->sock);
         priv->sock = -1;
         priv->ot_state = OT_IDLE;
         pthread_mutex_unlock(&priv->lock);
@@ -2617,7 +2618,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         new_trans = GF_CALLOC (1, sizeof (*new_trans),
                                                gf_common_mt_rpc_trans_t);
                         if (!new_trans) {
-                                close (new_sock);
+                                sys_close (new_sock);
                                 goto unlock;
                         }
 
@@ -2626,7 +2627,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "pthread_mutex_init() failed: %s",
                                         strerror (errno));
-                                close (new_sock);
+                                sys_close (new_sock);
                                 GF_FREE (new_trans);
                                 goto unlock;
                         }
@@ -2648,7 +2649,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "getsockname on %d failed (%s)",
                                         new_sock, strerror (errno));
-                                close (new_sock);
+                                sys_close (new_sock);
                                 GF_FREE (new_trans->name);
                                 GF_FREE (new_trans);
                                 goto unlock;
@@ -2657,7 +2658,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         get_transport_identifiers (new_trans);
                         ret = socket_init(new_trans);
                         if (ret != 0) {
-                                close(new_sock);
+                                sys_close (new_sock);
                                 GF_FREE (new_trans->name);
                                 GF_FREE (new_trans);
                                 goto unlock;
@@ -2699,7 +2700,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 if (!cname) {
 					gf_log(this->name,GF_LOG_ERROR,
 					       "server setup failed");
-					close(new_sock);
+					sys_close (new_sock);
                                         GF_FREE (new_trans->name);
                                         GF_FREE (new_trans);
 					goto unlock;
@@ -2715,7 +2716,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                                 "NBIO on %d failed (%s)",
                                                 new_sock, strerror (errno));
 
-                                        close (new_sock);
+                                        sys_close (new_sock);
                                         GF_FREE (new_trans->name);
                                         GF_FREE (new_trans);
                                         goto unlock;
@@ -2756,7 +2757,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "failed to register the socket with event");
-                                close (new_sock);
+                                sys_close (new_sock);
                                 rpc_transport_unref (new_trans);
                                 goto unlock;
                         }
@@ -3051,7 +3052,7 @@ socket_connect (rpc_transport_t *this, int port)
 handler:
                 if (ret < 0) {
                         if (priv->own_thread) {
-                                close(priv->sock);
+                                sys_close (priv->sock);
                                 priv->sock = -1;
                         }
                         else {
@@ -3088,7 +3089,7 @@ handler:
                         if (priv->idx == -1) {
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to register the event");
-                                close(priv->sock);
+                                sys_close (priv->sock);
                                 priv->sock = -1;
                                 ret = -1;
                         }
@@ -3224,7 +3225,7 @@ socket_listen (rpc_transport_t *this)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "NBIO on %d failed (%s)",
                                         priv->sock, strerror (errno));
-                                close (priv->sock);
+                                sys_close (priv->sock);
                                 priv->sock = -1;
                                 goto unlock;
                         }
@@ -3234,7 +3235,7 @@ socket_listen (rpc_transport_t *this)
 
                 if (ret == -1) {
                         /* logged inside __socket_server_bind() */
-                        close (priv->sock);
+                        sys_close (priv->sock);
                         priv->sock = -1;
                         goto unlock;
                 }
@@ -3248,7 +3249,7 @@ socket_listen (rpc_transport_t *this)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not set socket %d to listen mode (%s)",
                                 priv->sock, strerror (errno));
-                        close (priv->sock);
+                        sys_close (priv->sock);
                         priv->sock = -1;
                         goto unlock;
                 }
@@ -3264,7 +3265,7 @@ socket_listen (rpc_transport_t *this)
                                 "could not register socket %d with events",
                                 priv->sock);
                         ret = -1;
-                        close (priv->sock);
+                        sys_close (priv->sock);
                         priv->sock = -1;
                         goto unlock;
                 }
@@ -3329,7 +3330,7 @@ socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
 				 * Make sure the polling thread wakes up, by
 				 * writing a byte to represent this entry.
 				 */
-				if (write(priv->pipe[1],&a_byte,1) < 1) {
+				if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
 					gf_log(this->name,GF_LOG_WARNING,
 					       "write error on pipe");
 				}
@@ -3403,7 +3404,7 @@ socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
 				 * Make sure the polling thread wakes up, by
 				 * writing a byte to represent this entry.
 				 */
-				if (write(priv->pipe[1],&a_byte,1) < 1) {
+				if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
 					gf_log(this->name,GF_LOG_WARNING,
 					       "write error on pipe");
 				}

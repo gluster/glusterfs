@@ -9,6 +9,7 @@
 */
 #include "trash.h"
 #include "trash-mem-types.h"
+#include "syscall.h"
 
 #define root_gfid        (uuid_t){0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 #define trash_gfid       (uuid_t){0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}
@@ -48,7 +49,7 @@ get_permission (char *path)
         struct iatt             ibuf                    = {0,};
         int                     ret                     = 0;
 
-        ret = stat (path, &sbuf);
+        ret = sys_stat (path, &sbuf);
         if (!ret) {
                 iatt_from_stat (&ibuf, &sbuf);
                 mode = st_mode_from_ia (ibuf.ia_prot, ibuf.ia_type);

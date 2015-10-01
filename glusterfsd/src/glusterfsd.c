@@ -1322,8 +1322,8 @@ emancipate (glusterfs_ctx_t *ctx, int ret)
 {
         /* break free from the parent */
         if (ctx->daemon_pipe[1] != -1) {
-                write (ctx->daemon_pipe[1], (void *) &ret, sizeof (ret));
-                close (ctx->daemon_pipe[1]);
+                sys_write (ctx->daemon_pipe[1], (void *) &ret, sizeof (ret));
+                sys_close (ctx->daemon_pipe[1]);
                 ctx->daemon_pipe[1] = -1;
         }
 }
@@ -1766,7 +1766,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         cmd_args = &ctx->cmd_args;
 
         /* Do this before argp_parse so it can be overridden. */
-        if (access(SECURE_ACCESS_FILE,F_OK) == 0) {
+        if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 cmd_args->secure_mgmt = 1;
         }
 
@@ -1818,7 +1818,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
                 /* Check if the volfile exists, if not give usage output
                    and exit */
-                ret = stat (cmd_args->volfile, &stbuf);
+                ret = sys_stat (cmd_args->volfile, &stbuf);
                 if (ret) {
                         gf_msg ("glusterfs", GF_LOG_CRITICAL, errno,
                                 glusterfsd_msg_16);
@@ -1923,7 +1923,7 @@ glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx)
                       cmd_args->pid_file);
 
         if (ctx->cmd_args.pid_file) {
-                unlink (ctx->cmd_args.pid_file);
+                sys_unlink (ctx->cmd_args.pid_file);
                 ctx->cmd_args.pid_file = NULL;
         }
 
@@ -1954,7 +1954,7 @@ glusterfs_pidfile_update (glusterfs_ctx_t *ctx)
                 return ret;
         }
 
-        ret = ftruncate (fileno (pidfp), 0);
+        ret = sys_ftruncate (fileno (pidfp), 0);
         if (ret) {
                 gf_msg ("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_20,
                         cmd_args->pid_file);
@@ -2113,8 +2113,8 @@ daemonize (glusterfs_ctx_t *ctx)
         switch (ret) {
         case -1:
                 if (ctx->daemon_pipe[0] != -1) {
-                        close (ctx->daemon_pipe[0]);
-                        close (ctx->daemon_pipe[1]);
+                        sys_close (ctx->daemon_pipe[0]);
+                        sys_close (ctx->daemon_pipe[1]);
                 }
 
                 gf_msg ("daemonize", GF_LOG_ERROR, errno, glusterfsd_msg_24);
@@ -2122,12 +2122,12 @@ daemonize (glusterfs_ctx_t *ctx)
         case 0:
                 /* child */
                 /* close read */
-                close (ctx->daemon_pipe[0]);
+                sys_close (ctx->daemon_pipe[0]);
                 break;
         default:
                 /* parent */
                 /* close write */
-                close (ctx->daemon_pipe[1]);
+                sys_close (ctx->daemon_pipe[1]);
 
                 if (ctx->mnt_pid > 0) {
                         ret = waitpid (ctx->mnt_pid, &cstatus, 0);
@@ -2139,7 +2139,7 @@ daemonize (glusterfs_ctx_t *ctx)
                 }
 
                 err = 1;
-                read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
+                sys_read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
                 _exit (err);
         }
 
