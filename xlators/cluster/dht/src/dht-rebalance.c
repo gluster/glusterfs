@@ -2102,6 +2102,12 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                 gf_uuid_copy (entry_loc.pargfid, loc->gfid);
 
                 entry_loc.inode->ia_type = df_entry->d_stat.ia_type;
+
+                if (xattr_rsp) {
+                        dict_unref (xattr_rsp);
+                        xattr_rsp = NULL;
+                }
+
                 ret = syncop_lookup (conf->local_subvols[i], &entry_loc,
                                         &iatt, NULL, xattr_req, &xattr_rsp);
                 if (ret) {
