@@ -3374,9 +3374,6 @@ gf_defrag_start_crawl (void *data)
                         if (ret)
                                 goto out;
 
-                        ret = gf_defrag_fix_layout (this, defrag, &loc,
-                                                    fix_layout,
-                                                    migrate_data);
                 }
         }
         gf_log ("DHT", GF_LOG_INFO, "crawling file-system completed");

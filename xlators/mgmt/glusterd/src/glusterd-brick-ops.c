@@ -2046,6 +2046,31 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                                 GD_MSG_VOL_NOT_TIER, "%s", errstr);
                         goto out;
                 }
+                ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
+                                                             dict, volinfo,
+                                                             &errstr);
+                if (ret)
+                        goto out;
+
+                /* If geo-rep is configured, for this volume, it should be
+                 * stopped.
+                 */
+                param.volinfo = volinfo;
+                ret = glusterd_check_geo_rep_running (&param, op_errstr);
+                if (ret || param.is_active) {
+                        ret = -1;
+                        goto out;
+                }
+
+                if (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED) {
+                        ret = -1;
+                        errstr = gf_strdup("Detach is in progress. Please "
+                                           "retry after completion");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OIP_RETRY_LATER, "%s", errstr);
+                        goto out;
+                }
+                break;
 
         case GF_OP_CMD_COMMIT:
                 if (volinfo->decommission_in_progress) {
