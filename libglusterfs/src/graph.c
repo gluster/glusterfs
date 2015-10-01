@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include "defaults.h"
 #include <unistd.h>
+#include "syscall.h"
 
 #include "libglusterfs-messages.h"
 
@@ -834,13 +835,13 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                 /*Calling unlink so that when the file is closed or program
                  *terminates the tempfile is deleted.
                  */
-                u_ret = unlink(temp_file);
+                u_ret = sys_unlink(temp_file);
 
                 if (u_ret < 0) {
                         gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, errno,
                                 LG_MSG_TMPFILE_DELETE_FAILED, "Temporary file"
                                 " delete failed.");
-                        close (file_desc);
+                        sys_close (file_desc);
                         goto out;
                 }
 

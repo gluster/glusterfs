@@ -20,6 +20,7 @@
 #include "event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
+#include "syscall.h"
 #include "libglusterfs-messages.h"
 
 
@@ -227,7 +228,7 @@ event_slot_unref (struct event_pool *event_pool, struct event_slot_epoll *slot,
 	event_slot_dealloc (event_pool, idx);
 
 	if (do_close)
-		close (fd);
+		sys_close (fd);
 done:
 	return;
 }
@@ -866,7 +867,7 @@ event_pool_destroy_epoll (struct event_pool *event_pool)
         int ret = 0, i = 0, j = 0;
         struct event_slot_epoll *table = NULL;
 
-        ret = close (event_pool->fd);
+        ret = sys_close (event_pool->fd);
 
         for (i = 0; i < EVENT_EPOLL_TABLES; i++) {
                 if (event_pool->ereg[i]) {

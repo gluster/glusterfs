@@ -90,7 +90,7 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
                         continue;
 
                 dir[i] = '\0';
-                ret = mkdir (dir, mode);
+                ret = sys_mkdir (dir, mode);
                 if (ret && errno != EEXIST) {
                         gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
                                 "Failed due to reason");
@@ -98,7 +98,7 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
                 }
 
                 if (ret && errno == EEXIST && !allow_symlinks) {
-                        ret = lstat (dir, &stbuf);
+                        ret = sys_lstat (dir, &stbuf);
                         if (ret)
                                 goto out;
 
@@ -114,7 +114,7 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
 
         } while (path[i++] != '\0');
 
-        ret = stat (dir, &stbuf);
+        ret = sys_stat (dir, &stbuf);
         if (ret || !S_ISDIR (stbuf.st_mode)) {
                 if (ret == 0)
                         errno = 0;
@@ -1898,16 +1898,16 @@ get_checksum_for_file (int fd, uint32_t *checksum)
         char buf[GF_CHECKSUM_BUF_SIZE] = {0,};
 
         /* goto first place */
-        lseek (fd, 0L, SEEK_SET);
+        sys_lseek (fd, 0L, SEEK_SET);
         do {
-                ret = read (fd, &buf, GF_CHECKSUM_BUF_SIZE);
+                ret = sys_read (fd, &buf, GF_CHECKSUM_BUF_SIZE);
                 if (ret > 0)
                         compute_checksum (buf, GF_CHECKSUM_BUF_SIZE,
                                           checksum);
         } while (ret > 0);
 
         /* set it back */
-        lseek (fd, 0L, SEEK_SET);
+        sys_lseek (fd, 0L, SEEK_SET);
 
         return ret;
 }
@@ -1934,7 +1934,7 @@ get_checksum_for_path (char *path, uint32_t *checksum)
 
 out:
         if (fd != -1)
-                close (fd);
+                sys_close (fd);
 
         return ret;
 }
@@ -1957,7 +1957,7 @@ get_file_mtime (const char *path, time_t *stamp)
         GF_VALIDATE_OR_GOTO (THIS->name, path, out);
         GF_VALIDATE_OR_GOTO (THIS->name, stamp, out);
 
-        ret = stat (path, &f_stat);
+        ret = sys_stat (path, &f_stat);
         if (ret < 0) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         LG_MSG_FILE_STAT_FAILED, "failed to stat %s",
@@ -2902,7 +2902,7 @@ gf_get_reserved_ports ()
                 goto out;
         }
 
-        ret = read (proc_fd, buffer, sizeof (buffer));
+        ret = sys_read (proc_fd, buffer, sizeof (buffer));
         if (ret < 0) {
                 gf_msg ("glusterfs", GF_LOG_WARNING, errno,
                         LG_MSG_FILE_OP_FAILED, "could not read the file %s for"
@@ -2913,7 +2913,7 @@ gf_get_reserved_ports ()
 
 out:
         if (proc_fd != -1)
-                close (proc_fd);
+                sys_close (proc_fd);
 #endif /* GF_LINUX_HOST_OS */
         return ports_info;
 }
@@ -3477,7 +3477,7 @@ gf_skip_header_section (int fd, int header_len)
 {
         int  ret           = -1;
 
-        ret = lseek (fd, header_len, SEEK_SET);
+        ret = sys_lseek (fd, header_len, SEEK_SET);
         if (ret == (off_t) -1) {
                 gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_SKIP_HEADER_FAILED,
                         "Failed to skip header section");
@@ -3637,7 +3637,7 @@ gf_set_timestamp  (const char *src, const char* dest)
         GF_ASSERT (src);
         GF_ASSERT (dest);
 
-        ret = stat (src, &sb);
+        ret = sys_stat (src, &sb);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         LG_MSG_FILE_STAT_FAILED, "stat on %s", src);
@@ -3653,7 +3653,7 @@ gf_set_timestamp  (const char *src, const char* dest)
          * requiremnt. Hence using 'utimes'. This can be updated
          * to 'utimensat' if we need timestamp in nanoseconds.
          */
-        ret = utimes (dest, new_time);
+        ret = sys_utimes (dest, new_time);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, LG_MSG_UTIMES_FAILED,
                         "utimes on %s", dest);
@@ -3719,7 +3719,7 @@ gf_backtrace_fillframes (char *buf)
 
         fp = fdopen (fd, "r");
         if (!fp) {
-                close (fd);
+                sys_close (fd);
                 ret = -1;
                 goto out;
         }
@@ -3744,7 +3744,7 @@ out:
         if (fp)
                 fclose (fp);
 
-        unlink (tmpl);
+        sys_unlink (tmpl);
 
         return (idx > 0)? 0: -1;
 
@@ -3968,7 +3968,7 @@ recursive_rmdir (const char *delete_path)
         GF_ASSERT (this);
         GF_VALIDATE_OR_GOTO (this->name, delete_path, out);
 
-        dir = opendir (delete_path);
+        dir = sys_opendir (delete_path);
         if (!dir) {
                 gf_msg_debug (this->name, 0, "Failed to open directory %s. "
                               "Reason : %s", delete_path, strerror (errno));
@@ -3979,7 +3979,7 @@ recursive_rmdir (const char *delete_path)
         GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         while (entry) {
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
-                ret = lstat (path, &st);
+                ret = sys_lstat (path, &st);
                 if (ret == -1) {
                         gf_msg_debug (this->name, 0, "Failed to stat entry %s :"
                                       " %s", path, strerror (errno));
@@ -3989,7 +3989,7 @@ recursive_rmdir (const char *delete_path)
                 if (S_ISDIR (st.st_mode))
                         ret = recursive_rmdir (path);
                 else
-                        ret = unlink (path);
+                        ret = sys_unlink (path);
 
                 if (ret) {
                         gf_msg_debug (this->name, 0, " Failed to remove %s. "
@@ -4002,13 +4002,13 @@ recursive_rmdir (const char *delete_path)
                 GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
-        ret = closedir (dir);
+        ret = sys_closedir (dir);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to close dir %s. Reason :"
                               " %s", delete_path, strerror (errno));
         }
 
-        ret = rmdir (delete_path);
+        ret = sys_rmdir (delete_path);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to rmdir: %s,err: %s",
                               delete_path, strerror (errno));
@@ -4094,7 +4094,7 @@ gf_nread (int fd, void *buf, size_t count)
         ssize_t  read_bytes    = 0;
 
         for (read_bytes = 0; read_bytes < count; read_bytes += ret) {
-                ret = read (fd, buf + read_bytes, count - read_bytes);
+                ret = sys_read (fd, buf + read_bytes, count - read_bytes);
                 if (ret == 0) {
                         break;
                 } else if (ret < 0) {
@@ -4117,7 +4117,7 @@ gf_nwrite (int fd, const void *buf, size_t count)
         ssize_t  written    = 0;
 
         for (written = 0; written != count; written += ret) {
-                ret = write (fd, buf + written, count - written);
+                ret = sys_write (fd, buf + written, count - written);
                 if (ret < 0) {
                         if (errno == EINTR)
                                 ret = 0;

@@ -15,6 +15,7 @@
 #include "statedump.h"
 #include "stack.h"
 #include "common-utils.h"
+#include "syscall.h"
 
 
 #ifdef HAVE_MALLOC_H
@@ -73,7 +74,7 @@ gf_proc_dump_open (char *tmpname)
 static void
 gf_proc_dump_close (void)
 {
-        close (gf_dump_fd);
+        sys_close (gf_dump_fd);
         gf_dump_fd = -1;
 }
 
@@ -131,7 +132,7 @@ gf_proc_dump_add_section_fd (char *key, va_list ap)
                    GF_DUMP_MAX_BUF_LEN - strlen (buf), key, ap);
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
-        return write (gf_dump_fd, buf, strlen (buf));
+        return sys_write (gf_dump_fd, buf, strlen (buf));
 }
 
 
@@ -184,7 +185,7 @@ gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
-        return write (gf_dump_fd, buf, strlen (buf));
+        return sys_write (gf_dump_fd, buf, strlen (buf));
 }
 
 
@@ -668,7 +669,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 //None of dump options match the key, return back
                 snprintf (buf, sizeof (buf), "[Warning]:None of the options "
                           "matched key : %s\n", key);
-                ret = write (gf_dump_fd, buf, strlen (buf));
+                ret = sys_write (gf_dump_fd, buf, strlen (buf));
 
                 if (ret >= 0)
                         ret = -1;
@@ -810,7 +811,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
                   timestr);
 
         //swallow the errors of write for start and end marker
-        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
         memset (sign_string, 0, sizeof (sign_string));
         memset (timestr, 0, sizeof (timestr));
@@ -857,12 +858,12 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 
         snprintf (sign_string, sizeof (sign_string), "\nDUMP-END-TIME: %s",
                   timestr);
-        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
 out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
-        rename (tmp_dump_name, path);
+        sys_rename (tmp_dump_name, path);
         GF_FREE (dump_options.dump_path);
         dump_options.dump_path = NULL;
         gf_proc_dump_unlock ();
