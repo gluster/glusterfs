@@ -12,6 +12,7 @@
 
 #include "dht-common.h"
 #include "tier.h"
+#include "syscall.h"
 
 /*Hard coded DB info*/
 static gfdb_db_type_t dht_tier_db_type = GFDB_SQLITE3;
@@ -1088,8 +1089,8 @@ tier_migrate_files_using_qfile (demotion_args_t *comp,
         fclose (query_cbk_args->queryFILE);
         query_cbk_args->queryFILE = NULL;
         if (ret) {
-                sprintf (renamed_file, "%s.err", qfile);
-                rename (qfile, renamed_file);
+                snprintf (renamed_file, sizeof renamed_file, "%s.err", qfile);
+                sys_rename (qfile, renamed_file);
         }
 out:
         return ret;
@@ -1224,7 +1225,7 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
                                 goto out;
                         }
 
-                        sprintf(local_brick->brick_db_path, "%s/%s/%s", rv,
+                        snprintf(local_brick->brick_db_path, PATH_MAX, "%s/%s/%s", rv,
                                 GF_HIDDEN_PATH,
                                 db_name);
 
@@ -1855,8 +1856,8 @@ tier_init (xlator_t *this)
                 goto out;
         }
 
-        unlink (promotion_qfile);
-        unlink (demotion_qfile);
+        sys_unlink(promotion_qfile);
+        sys_unlink(demotion_qfile);
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_LOG_TIER_STATUS,

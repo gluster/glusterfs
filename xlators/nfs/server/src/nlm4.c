@@ -15,6 +15,7 @@
 #include "nfs.h"
 #include "mem-pool.h"
 #include "logging.h"
+#include "syscall.h"
 #include "nfs-fops.h"
 #include "inode.h"
 #include "mount3.h"
@@ -2505,7 +2506,7 @@ nlm4svc_init(xlator_t *nfsx)
            instead. This is still a theory but we need to thoroughly test it
            out. Until then NLM support is non-existent on OSX.
         */
-        ret = unlink (GF_SM_NOTIFY_PIDFILE);
+        ret = sys_unlink (GF_SM_NOTIFY_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
                 gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
                         "unable to unlink %s: %d",
@@ -2542,7 +2543,7 @@ nlm4svc_init(xlator_t *nfsx)
                 ret = runcmd (KILLALL_CMD, "-9", "rpc.statd", NULL);
         }
 
-        ret = unlink (GF_RPC_STATD_PIDFILE);
+        ret = sys_unlink (GF_RPC_STATD_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
                 gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
                         "unable to unlink %s", pid_file);

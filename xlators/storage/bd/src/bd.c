@@ -614,7 +614,7 @@ bd_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "bd_fd is NULL from fd=%p", fd);
                 goto out;
         }
-        close (bd_fd->fd);
+        sys_close (bd_fd->fd);
         GF_FREE (bd_fd);
 
 out:
@@ -690,7 +690,7 @@ out:
         GF_FREE (devpath);
         if (ret) {
                 if (_fd >= 0)
-                        close (_fd);
+                        sys_close (_fd);
                 GF_FREE (bd_fd);
         }
 
@@ -892,7 +892,7 @@ bd_release (xlator_t *this, fd_t *fd)
         }
         bd_fd = (bd_fd_t *)(long)tmp_bfd;
 
-        close (bd_fd->fd);
+        sys_close (bd_fd->fd);
         GF_FREE (bd_fd);
 out:
         return 0;

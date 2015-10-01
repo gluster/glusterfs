@@ -401,7 +401,7 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                                 goto err;
                         }
 
-                        ret = read (_fd, databuf, filler->stbuf->ia_size);
+                        ret = sys_read (_fd, databuf, filler->stbuf->ia_size);
                         if (ret == -1) {
                                 gf_msg (filler->this->name, GF_LOG_ERROR, errno,
                                          P_MSG_XDATA_GETXATTR,
@@ -410,7 +410,7 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                                 goto err;
                         }
 
-                        ret = close (_fd);
+                        ret = sys_close (_fd);
                         _fd = -1;
                         if (ret == -1) {
                                 gf_msg (filler->this->name, GF_LOG_ERROR, errno,
@@ -435,7 +435,7 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                         databuf = NULL;
                 err:
                         if (_fd != -1)
-                                close (_fd);
+                                sys_close (_fd);
                         GF_FREE (databuf);
                 }
         } else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
@@ -552,7 +552,7 @@ posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p)
         struct stat            fstatbuf = {0, };
         struct iatt            stbuf = {0, };
 
-        ret = fstat (fd, &fstatbuf);
+        ret = sys_fstat (fd, &fstatbuf);
         if (ret == -1)
                 goto out;
 
@@ -596,7 +596,7 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
                 goto out;
         }
 
-        ret = lstat (real_path, &lstatbuf);
+        ret = sys_lstat (real_path, &lstatbuf);
 
         if (ret != 0) {
                 if (ret == -1) {
@@ -886,7 +886,7 @@ posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
                 }
 
                 if (value->len) {
-                        ret = write (file_fd, value->data, value->len);
+                        ret = sys_write (file_fd, value->data, value->len);
                         if (ret == -1) {
                                 op_ret = -errno;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -896,7 +896,7 @@ posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
                                 goto out;
                         }
 
-                        ret = close (file_fd);
+                        ret = sys_close (file_fd);
                         if (ret == -1) {
                                 op_ret = -errno;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -919,7 +919,7 @@ posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
                         goto out;
                 }
 
-                ret = write (file_fd, value->data, value->len);
+                ret = sys_write (file_fd, value->data, value->len);
                 if (ret == -1) {
                         op_ret = -errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -928,7 +928,7 @@ posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
                         goto out;
                 }
 
-                ret = close (file_fd);
+                ret = sys_close (file_fd);
                 if (ret == -1) {
                         op_ret = -errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -989,7 +989,7 @@ posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                 goto out;
         }
 
-        ret = read (file_fd, *contents, stbuf.ia_size);
+        ret = sys_read (file_fd, *contents, stbuf.ia_size);
         if (ret <= 0) {
                 op_ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
@@ -999,7 +999,7 @@ posix_get_file_contents (xlator_t *this, uuid_t pargfid,
 
         *contents[stbuf.ia_size] = '\0';
 
-        op_ret = close (file_fd);
+        op_ret = sys_close (file_fd);
         file_fd = -1;
         if (op_ret == -1) {
                 op_ret = -errno;
@@ -1012,7 +1012,7 @@ out:
         if (op_ret < 0) {
                 GF_FREE (*contents);
                 if (file_fd != -1)
-                        close (file_fd);
+                        sys_close (file_fd);
         }
 
         return op_ret;
@@ -1313,7 +1313,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
         case S_IFSOCK:
                 gf_msg_trace (THIS->name, 0,
                         "unlinking %s", fpath);
-                unlink (fpath);
+                sys_unlink (fpath);
                 if (stbuf.ia_nlink == 1)
                         posix_handle_unset (this, stbuf.ia_gfid, NULL);
                 break;
@@ -1323,7 +1323,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
                         gf_msg_debug (THIS->name, 0,
                                 "removing directory %s", fpath);
 
-                        rmdir (fpath);
+                        sys_rmdir (fpath);
                         del_stale_dir_handle (this, stbuf.ia_gfid);
                 }
                 break;
@@ -1402,11 +1402,11 @@ posix_janitor_thread_proc (void *data)
                         if (pfd->dir == NULL) {
                                 gf_msg_trace (this->name, 0,
                                         "janitor: closing file fd=%d", pfd->fd);
-                                close (pfd->fd);
+                                sys_close (pfd->fd);
                         } else {
                                 gf_msg_debug (this->name, 0, "janitor: closing"
                                               " dir fd=%p", pfd->dir);
-                                closedir (pfd->dir);
+                                sys_closedir (pfd->dir);
                         }
 
                         GF_FREE (pfd);
@@ -1647,7 +1647,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         pfd->fd = -1;
 
         if (fd->inode->ia_type == IA_IFDIR) {
-                dir = opendir (real_path);
+                dir = sys_opendir (real_path);
                 if (!dir) {
                         GF_FREE (pfd);
                         pfd = NULL;
@@ -1675,9 +1675,9 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         ret = __fd_ctx_set (fd, this, (uint64_t) (long) pfd);
         if (ret != 0) {
                 if (_fd != -1)
-                        close (_fd);
+                        sys_close (_fd);
                 if (dir)
-                        closedir (dir);
+                        sys_closedir (dir);
                 GF_FREE (pfd);
                 pfd = NULL;
                 goto out;
@@ -1738,7 +1738,7 @@ posix_fs_health_check (xlator_t *this)
                         "open() on %s returned", file_path);
                 goto out;
         }
-        nofbytes = write (fd, timestamp, timelen);
+        nofbytes = sys_write (fd, timestamp, timelen);
         if (nofbytes != timelen) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HEALTHCHECK_FAILED,
@@ -1747,8 +1747,8 @@ posix_fs_health_check (xlator_t *this)
         }
         /* Seek the offset to the beginning of the file, so that the offset for
         read is from beginning of file */
-        lseek(fd, 0, SEEK_SET);
-        nofbytes = read (fd, buff, timelen);
+        sys_lseek(fd, 0, SEEK_SET);
+        nofbytes = sys_read (fd, buff, timelen);
         if (nofbytes == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HEALTHCHECK_FAILED,
@@ -1758,7 +1758,7 @@ posix_fs_health_check (xlator_t *this)
         ret = 0;
 out:
         if (fd != -1) {
-                close (fd);
+                sys_close (fd);
         }
         return ret;
 

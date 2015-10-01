@@ -293,7 +293,7 @@ posix_do_chmod (xlator_t *this, const char *path, struct iatt *stbuf)
                         goto out;
                 }
 
-                ret = chmod (path, mode);
+                ret = sys_chmod (path, mode);
         }
 out:
         return ret;
@@ -315,7 +315,7 @@ posix_do_chown (xlator_t *this,
         if (valid & GF_SET_ATTR_GID)
                 gid = stbuf->ia_gid;
 
-        ret = lchown (path, uid, gid);
+        ret = sys_lchown (path, uid, gid);
 
         return ret;
 }
@@ -354,7 +354,7 @@ posix_do_utimes (xlator_t *this,
                         goto out;
                 }
 
-                ret = utimes (path, tv);
+                ret = sys_utimes (path, tv);
         }
 
 out:
@@ -423,7 +423,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (!valid) {
-                op_ret = lchown (real_path, -1, -1);
+                op_ret = sys_lchown (real_path, -1, -1);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -474,7 +474,7 @@ posix_do_fchown (xlator_t *this,
         if (valid & GF_SET_ATTR_GID)
                 gid = stbuf->ia_gid;
 
-        ret = fchown (fd, uid, gid);
+        ret = sys_fchown (fd, uid, gid);
 
         return ret;
 }
@@ -487,7 +487,7 @@ posix_do_fchmod (xlator_t *this,
         mode_t  mode = 0;
 
         mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
-        return fchmod (fd, mode);
+        return sys_fchmod (fd, mode);
 }
 
 static int
@@ -572,7 +572,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (!valid) {
-                op_ret = fchown (pfd->fd, -1, -1);
+                op_ret = sys_fchown (pfd->fd, -1, -1);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -724,24 +724,24 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
                 vector[idx].iov_base = iov_base;
                 vector[idx].iov_len  = vect_size;
         }
-        if (lseek(fd, offset, SEEK_SET) < 0) {
+        if (sys_lseek (fd, offset, SEEK_SET) < 0) {
                 op_ret = -1;
                 goto err;
         }
 
         for (idx = 0; idx < num_loop; idx++) {
-                op_ret = writev(fd, vector, num_vect);
+                op_ret = sys_writev (fd, vector, num_vect);
                 if (op_ret < 0)
                         goto err;
         }
         if (extra) {
-                op_ret = writev(fd, vector, extra);
+                op_ret = sys_writev (fd, vector, extra);
                 if (op_ret < 0)
                         goto err;
         }
         if (remain) {
                 vector[0].iov_len = remain;
-                op_ret = writev(fd, vector , 1);
+                op_ret = sys_writev (fd, vector , 1);
                 if (op_ret < 0)
                         goto err;
         }
@@ -792,7 +792,7 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
         if (pfd->flags & (O_SYNC|O_DSYNC)) {
-                ret = fsync (pfd->fd);
+                ret = sys_fsync (pfd->fd);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 P_MSG_WRITEV_FAILED, "fsync() in writev on fd"
@@ -932,7 +932,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = -1;
-        dir = opendir (real_path);
+        dir = sys_opendir (real_path);
 
         if (dir == NULL) {
                 op_errno = errno;
@@ -970,7 +970,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 out:
         if (op_ret == -1) {
                 if (dir) {
-                        closedir (dir);
+                        sys_closedir (dir);
                         dir = NULL;
                 }
                 if (pfd) {
@@ -1150,21 +1150,21 @@ real_op:
 		op_ret = mkfifo (real_path, mode);
 	else
 #endif /* __NetBSD__ */
-        op_ret = mknod (real_path, mode, dev);
+        op_ret = sys_mknod (real_path, mode, dev);
 
         if (op_ret == -1) {
                 op_errno = errno;
                 if ((op_errno == EINVAL) && S_ISREG (mode)) {
                         /* Over Darwin, mknod with (S_IFREG|mode)
                            doesn't work */
-                        tmp_fd = creat (real_path, mode);
+                        tmp_fd = sys_creat (real_path, mode);
                         if (tmp_fd == -1) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         P_MSG_CREATE_FAILED, "create failed on"
                                         "%s", real_path);
                                 goto out;
                         }
-                        close (tmp_fd);
+                        sys_close (tmp_fd);
                 } else {
 
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -1177,7 +1177,7 @@ real_op:
         entry_created = _gf_true;
 
 #ifndef HAVE_SET_FSID
-        op_ret = lchown (real_path, frame->root->uid, gid);
+        op_ret = sys_lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LCHOWN_FAILED,
@@ -1348,7 +1348,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 mode |= S_ISGID;
         }
 
-        op_ret = mkdir (real_path, mode);
+        op_ret = sys_mkdir (real_path, mode);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_MKDIR_FAILED,
@@ -1359,7 +1359,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         entry_created = _gf_true;
 
 #ifndef HAVE_SET_FSID
-        op_ret = chown (real_path, frame->root->uid, gid);
+        op_ret = sys_chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_CHOWN_FAILED,
@@ -1662,7 +1662,7 @@ out:
                              &preparent, &postparent, unwind_dict);
 
         if (fd != -1) {
-                close (fd);
+                sys_close (fd);
         }
 
         /* unref unwind_dict*/
@@ -1732,17 +1732,17 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                                          strlen ("/") +
                                          strlen (gfid_str) + 1);
 
-                op_ret = mkdir (priv->trash_path, 0755);
+                op_ret = sys_mkdir (priv->trash_path, 0755);
                 if (errno != EEXIST && op_ret == -1) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 P_MSG_MKDIR_FAILED,
                                 "mkdir of %s failed", priv->trash_path);
                 } else {
                         sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
-                        op_ret = rename (real_path, tmp_path);
+                        op_ret = sys_rename (real_path, tmp_path);
                 }
         } else {
-                op_ret = rmdir (real_path);
+                op_ret = sys_rmdir (real_path);
         }
         op_errno = errno;
 
@@ -1842,7 +1842,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 gid = preparent.ia_gid;
         }
 
-        op_ret = symlink (linkname, real_path);
+        op_ret = sys_symlink (linkname, real_path);
 
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1855,7 +1855,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         entry_created = _gf_true;
 
 #ifndef HAVE_SET_FSID
-        op_ret = lchown (real_path, frame->root->uid, gid);
+        op_ret = sys_lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LCHOWN_FAILED,
@@ -2295,7 +2295,7 @@ posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto out;
         }
 
-        op_ret = truncate (real_path, offset);
+        op_ret = sys_truncate (real_path, offset);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_TRUNCATE_FAILED,
@@ -2415,7 +2415,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto fill_stat;
 
 #ifndef HAVE_SET_FSID
-        op_ret = chown (real_path, frame->root->uid, gid);
+        op_ret = sys_chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_CHOWN_FAILED,
@@ -2497,7 +2497,7 @@ out:
         SET_TO_OLD_FS_ID ();
 
         if ((-1 == op_ret) && (_fd != -1)) {
-                close (_fd);
+                sys_close (_fd);
         }
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
@@ -2593,7 +2593,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 out:
         if (op_ret == -1) {
                 if (_fd != -1) {
-                        close (_fd);
+                        sys_close (_fd);
                 }
         }
 
@@ -2940,7 +2940,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
         if (flags & (O_SYNC|O_DSYNC)) {
-                ret = fsync (_fd);
+                ret = sys_fsync (_fd);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 P_MSG_WRITEV_FAILED,
@@ -2998,7 +2998,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        op_ret = statvfs (real_path, &buf);
+        op_ret = sys_statvfs (real_path, &buf);
 
         if (op_ret == -1) {
                 op_errno = errno;
@@ -3457,24 +3457,24 @@ posix_xattr_get_real_filename (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 return -ESTALE;
         }
 
-	fd = opendir (real_path);
+	fd = sys_opendir (real_path);
 	if (!fd)
 		return -errno;
 
 	fname = key + strlen (GF_XATTR_GET_REAL_FILENAME_KEY);
 
-	while ((dirent = readdir (fd))) {
+	while ((dirent = sys_readdir (fd))) {
 		if (strcasecmp (dirent->d_name, fname) == 0) {
 			found = gf_strdup (dirent->d_name);
 			if (!found) {
-				closedir (fd);
+				sys_closedir (fd);
 				return -ENOMEM;
 			}
 			break;
 		}
 	}
 
-	closedir (fd);
+	sys_closedir (fd);
 
 	if (!found)
 		return -ENOENT;
@@ -3549,7 +3549,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
 
         priv = this->private;
 
-        dirp = opendir (dirpath);
+        dirp = sys_opendir (dirpath);
         if (!dirp) {
                 *op_errno = errno;
                 gf_msg (this->name, GF_LOG_WARNING, errno, P_MSG_OPEN_FAILED,
@@ -3629,7 +3629,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
         op_ret = 0;
 out:
         if (dirp) {
-                op_ret = closedir (dirp);
+                op_ret = sys_closedir (dirp);
                 if (op_ret == -1) {
                         *op_errno = errno;
                         gf_msg (this->name, GF_LOG_WARNING, errno,
@@ -4523,7 +4523,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (!ret && xdata && dict_get (xdata, GLUSTERFS_DURABLE_OP)) {
-                op_ret = fsync (_fd);
+                op_ret = sys_fsync (_fd);
                 if (op_ret < 0) {
                         op_ret = -1;
                         op_errno = errno;
@@ -5252,7 +5252,7 @@ posix_access (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = access (real_path, mask & 07);
+        op_ret = sys_access (real_path, mask & 07);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_ACCESS_FAILED,
@@ -5310,7 +5310,7 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = ftruncate (_fd, offset);
+        op_ret = sys_ftruncate (_fd, offset);
 
         if (op_ret == -1) {
                 op_errno = errno;
@@ -5585,7 +5585,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                                 continue;
                         } else if (hpath) {
                                 strcpy (&hpath[len+1],entry->d_name);
-                                ret = lstat (hpath, &stbuf);
+                                ret = sys_lstat (hpath, &stbuf);
                                 if (!ret && S_ISDIR (stbuf.st_mode))
                                         continue;
                         }
@@ -5640,7 +5640,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 count ++;
         }
 
-        if ((!readdir (dir) && (errno == 0))) {
+        if ((!sys_readdir (dir) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
                 /* Remember EOF offset for later detection */
@@ -6219,7 +6219,7 @@ init (xlator_t *this)
         umask (000); // umask `masking' is done at the client side
 
         /* Check whether the specified directory exists, if not log it. */
-        op_ret = stat (dir_data->data, &buf);
+        op_ret = sys_stat (dir_data->data, &buf);
         if ((op_ret != 0) || !S_ISDIR (buf.st_mode)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_DIR_OPERATION_FAILED,
                         "Directory '%s' doesn't exist, exiting.",
@@ -6526,7 +6526,7 @@ init (xlator_t *this)
         /* performing open dir on brick dir locks the brick dir
          * and prevents it from being unmounted
          */
-        _private->mount_lock = opendir (dir_data->data);
+        _private->mount_lock = sys_opendir (dir_data->data);
         if (!_private->mount_lock) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_DIR_OPERATION_FAILED,
@@ -6672,7 +6672,7 @@ fini (xlator_t *this)
         this->private = NULL;
         /*unlock brick dir*/
         if (priv->mount_lock)
-                closedir (priv->mount_lock);
+                sys_closedir (priv->mount_lock);
         GF_FREE (priv);
         return;
 }

@@ -364,7 +364,7 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
                 strcpy (gfid_path, slavemnt);
                 strcat (gfid_path, "/.gfid/");
                 strcat (gfid_path, result->d_name);
-                ret = lstat (gfid_path, &statbuf);
+                ret = sys_lstat (gfid_path, &statbuf);
 
                 if (ret && errno == ENOENT) {
                         out ("%s\n", result->d_name);

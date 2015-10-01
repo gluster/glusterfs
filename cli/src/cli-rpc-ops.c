@@ -5280,7 +5280,7 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
                   "%s/geo-replication/common_secret.pem.pub",
                   workdir);
 
-        unlink (common_pem_file);
+        sys_unlink (common_pem_file);
 
         fd = open (common_pem_file, O_WRONLY | O_CREAT, 0600);
         if (fd == -1) {
@@ -5302,7 +5302,7 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
                         cli_out ("Unable to fetch output.");
                 }
                 if (output) {
-                        bytes_written = write (fd, output, strlen(output));
+                        bytes_written = sys_write (fd, output, strlen(output));
                         if (bytes_written != strlen(output)) {
                                 gf_log ("", GF_LOG_ERROR, "Failed to write "
                                         "to %s", common_pem_file);
@@ -5310,7 +5310,7 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
                                 goto out;
                         }
                         /* Adding the new line character */
-                        bytes_written = write (fd, "\n", strlen("\n"));
+                        bytes_written = sys_write (fd, "\n", strlen("\n"));
                         if (bytes_written != strlen("\n")) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Failed to add new line char");
@@ -5325,7 +5325,7 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
         ret = 0;
 out:
         if (fd >= 0)
-                close (fd);
+                sys_close (fd);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -10488,7 +10488,7 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
         cli_out ("%-40s%-40s", "Option", "Value");
         cli_out ("%-40s%-40s", "------", "-----");
         for (i=1; i<=count; i++) {
-                sprintf (dict_key, "key%d", i);
+                snprintf (dict_key, sizeof dict_key, "key%d", i);
                 ret = dict_get_str (dict, dict_key, &key);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to"
@@ -10496,7 +10496,7 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                 "dictionary", dict_key);
                         goto out;
                 }
-                sprintf (dict_key, "value%d", i);
+                snprintf (dict_key, sizeof dict_key, "value%d", i);
                 ret = dict_get_str (dict, dict_key, &value);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to "

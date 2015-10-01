@@ -7,6 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+#include "compat.h"
+#include "syscall.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -189,12 +191,12 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         if (ppid != pida[0])
                 return 0;
 
-        sprintf (path, PROC"/%d/cmdline", pid);
+        snprintf (path, sizeof path, PROC"/%d/cmdline", pid);
         fd = open (path, O_RDONLY);
         if (fd == -1)
                 return 0;
-        ret = read (fd, buf, sizeof (buf));
-        close (fd);
+        ret = sys_read (fd, buf, sizeof (buf));
+        sys_close (fd);
         if (ret == -1)
                 return 0;
         for (zeros = 0, p = buf; zeros < 2 && p < buf + ret; p++)
@@ -270,8 +272,8 @@ invoke_rsync (int argc, char **argv)
                 goto error;
         }
         /* check if rsync target matches gsyncd target */
-        sprintf (path, PROC"/%d/cwd", pida[1]);
-        ret = readlink (path, buf, sizeof (buf));
+        snprintf (path, sizeof path, PROC"/%d/cwd", pida[1]);
+        ret = sys_readlink (path, buf, sizeof (buf));
         if (ret == -1 || ret == sizeof (buf))
                 goto error;
         if (strcmp (argv[argc - 1], "/") == 0 /* root dir cannot be a target */ ||

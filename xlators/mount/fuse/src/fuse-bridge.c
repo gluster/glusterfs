@@ -15,6 +15,7 @@
 #include "byte-order.h"
 #include "compat-errno.h"
 #include "glusterfs-acl.h"
+#include "syscall.h"
 
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
@@ -155,7 +156,7 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
                 fouh->len += iov_out[i].iov_len;
         fouh->unique = finh->unique;
 
-        res = writev (priv->fd, iov_out, count);
+        res = sys_writev (priv->fd, iov_out, count);
         gf_log ("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s",
                 res, fouh->len, res == -1 ? strerror (errno) : "");
 
@@ -168,9 +169,9 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
                 char w = 'W';
 
                 pthread_mutex_lock (&priv->fuse_dump_mutex);
-                res = write (priv->fuse_dump_fd, &w, 1);
+                res = sys_write (priv->fuse_dump_fd, &w, 1);
                 if (res != -1)
-                        res = writev (priv->fuse_dump_fd, iov_out, count);
+                        res = sys_writev (priv->fuse_dump_fd, iov_out, count);
                 pthread_mutex_unlock (&priv->fuse_dump_mutex);
 
                 if (res == -1)
@@ -3863,7 +3864,7 @@ notify_kernel_loop (void *data)
 
                 fouh = (struct fuse_out_header *)node->inval_buf;
 
-                rv = write (priv->fd, node->inval_buf, fouh->len);
+                rv = sys_write (priv->fd, node->inval_buf, fouh->len);
 
                 GF_FREE (node);
 
@@ -3895,7 +3896,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "got INIT after first message");
 
-                close (priv->fd);
+                sys_close (priv->fd);
                 goto out;
         }
 
@@ -3906,7 +3907,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "unsupported FUSE protocol version %d.%d",
                         fini->major, fini->minor);
 
-                close (priv->fd);
+                sys_close (priv->fd);
                 goto out;
         }
         priv->proto_minor = fini->minor;
@@ -3945,7 +3946,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                                 "failed to start messenger daemon (%s)",
                                 strerror(errno));
 
-                        close (priv->fd);
+                        sys_close (priv->fd);
                         goto out;
                 }
                 priv->reverse_fuse_thread_started = _gf_true;
@@ -4032,7 +4033,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "FUSE init failed (%s)", strerror (ret));
 
-                close (priv->fd);
+                sys_close (priv->fd);
         }
 
  out:
@@ -4762,14 +4763,14 @@ fuse_get_mount_status (xlator_t *this)
         int             kid_status = -1;
         fuse_private_t *priv = this->private;
 
-        if (read(priv->status_pipe[0],&kid_status, sizeof(kid_status)) < 0) {
+        if (sys_read (priv->status_pipe[0], &kid_status, sizeof(kid_status)) < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "could not get mount status");
                 kid_status = -1;
         }
         gf_log (this->name, GF_LOG_DEBUG, "mount status is %d", kid_status);
 
-        close(priv->status_pipe[0]);
-        close(priv->status_pipe[1]);
+        sys_close(priv->status_pipe[0]);
+        sys_close(priv->status_pipe[1]);
         return kid_status;
 }
 
@@ -4870,7 +4871,7 @@ fuse_thread_proc (void *data)
 
                 iov_in[1].iov_base = iobuf->ptr;
 
-                res = readv (priv->fd, iov_in, 2);
+                res = sys_readv (priv->fd, iov_in, 2);
 
                 if (res == -1) {
                         if (errno == ENODEV || errno == EBADF) {
@@ -5321,7 +5322,7 @@ fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
         diov[2].iov_len  = finh->len - sizeof (*finh);
 
         pthread_mutex_lock (&priv->fuse_dump_mutex);
-        ret = writev (priv->fuse_dump_fd, diov, 3);
+        ret = sys_writev (priv->fuse_dump_fd, diov, 3);
         pthread_mutex_unlock (&priv->fuse_dump_mutex);
         if (ret == -1)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -5398,7 +5399,7 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        if (stat (value_string, &stbuf) != 0) {
+        if (sys_stat (value_string, &stbuf) != 0) {
                 if (errno == ENOENT) {
                         gf_log (this_xl->name, GF_LOG_ERROR,
                                 "%s %s does not exist",
@@ -5473,7 +5474,7 @@ init (xlator_t *this_xl)
         priv->fuse_dump_fd = -1;
         ret = dict_get_str (options, "dump-fuse", &value_string);
         if (ret == 0) {
-                ret = unlink (value_string);
+                ret = sys_unlink (value_string);
                 if (ret != -1 || errno == ENOENT)
                         ret = open (value_string, O_RDWR|O_CREAT|O_EXCL,
                                     S_IRUSR|S_IWUSR);
@@ -5642,9 +5643,9 @@ cleanup_exit:
         if (priv) {
                 GF_FREE (priv->mount_point);
                 if (priv->fd != -1)
-                        close (priv->fd);
+                        sys_close (priv->fd);
                 if (priv->fuse_dump_fd != -1)
-                        close (priv->fuse_dump_fd);
+                        sys_close (priv->fuse_dump_fd);
                 GF_FREE (priv);
         }
         GF_FREE (mnt_args);
@@ -5683,7 +5684,7 @@ fini (xlator_t *this_xl)
                         "Unmounting '%s'.", mount_point);
 
                 gf_fuse_unmount (mount_point, priv->fd);
-                close (priv->fuse_dump_fd);
+                sys_close (priv->fuse_dump_fd);
                 dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
         }
         /* Process should terminate once fuse xlator is finished.

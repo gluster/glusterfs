@@ -12,6 +12,7 @@
 #include "server-helpers.h"
 #include "gidcache.h"
 #include "server-messages.h"
+#include "syscall.h"
 
 #include <fnmatch.h>
 #include <pwd.h>
@@ -556,7 +557,7 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         if (data) {
                 /* Check whether the specified directory exists,
                    or directory specified is non standard */
-                ret = stat (data->data, &buf);
+                ret = sys_stat (data->data, &buf);
                 if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 PS_MSG_DIR_NOT_FOUND, "Directory '%s' doesn't "
