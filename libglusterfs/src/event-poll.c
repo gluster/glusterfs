@@ -20,6 +20,7 @@
 #include "event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
+#include "syscall.h"
 #include "libglusterfs-messages.h"
 
 
@@ -49,7 +50,7 @@ __flush_fd (int fd, int idx, void *data,
                 return ret;
 
         do {
-                ret = read (fd, buf, 64);
+                ret = sys_read (fd, buf, 64);
                 if (ret == -1 && errno != EAGAIN) {
                         gf_msg ("poll", GF_LOG_ERROR, errno,
                                 LG_MSG_FILE_OP_FAILED, "read on %d returned "
@@ -128,8 +129,8 @@ event_pool_new_poll (int count, int eventthreadcount)
         if (ret == -1) {
                 gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
                         "could not set pipe to non blocking mode");
-                close (event_pool->breaker[0]);
-                close (event_pool->breaker[1]);
+                sys_close (event_pool->breaker[0]);
+                sys_close (event_pool->breaker[1]);
                 event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
                 GF_FREE (event_pool->reg);
@@ -142,8 +143,8 @@ event_pool_new_poll (int count, int eventthreadcount)
                 gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
                         "could not set pipe to non blocking mode");
 
-                close (event_pool->breaker[0]);
-                close (event_pool->breaker[1]);
+                sys_close (event_pool->breaker[0]);
+                sys_close (event_pool->breaker[1]);
                 event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
                 GF_FREE (event_pool->reg);
@@ -156,8 +157,8 @@ event_pool_new_poll (int count, int eventthreadcount)
         if (ret == -1) {
                 gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
                         "could not register pipe fd with poll event loop");
-                close (event_pool->breaker[0]);
-                close (event_pool->breaker[1]);
+                sys_close (event_pool->breaker[0]);
+                sys_close (event_pool->breaker[1]);
                 event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
                 GF_FREE (event_pool->reg);
@@ -288,7 +289,7 @@ event_unregister_close_poll (struct event_pool *event_pool, int fd,
 
 	ret = event_unregister_poll (event_pool, fd, idx_hint);
 
-	close (fd);
+	sys_close (fd);
 
         return ret;
 }
@@ -506,11 +507,11 @@ event_pool_destroy_poll (struct event_pool *event_pool)
 {
         int ret = 0;
 
-        ret = close (event_pool->breaker[0]);
+        ret = sys_close (event_pool->breaker[0]);
         if (ret)
                 return ret;
 
-        ret = close (event_pool->breaker[1]);
+        ret = sys_close (event_pool->breaker[1]);
         if (ret)
                 return ret;
 

@@ -24,6 +24,7 @@
 #include "common-utils.h"
 #include "iatt.h"
 #include "inode.h"
+#include "syscall.h"
 #include "run.h"
 #include "libglusterfs-messages.h"
 
@@ -570,7 +571,7 @@ gf_umount_lazy (char *xlname, char *path, int rmdir_flag)
 
 #ifdef GF_LINUX_HOST_OS
         if (!ret && rmdir_flag) {
-                ret = rmdir (path);
+                ret = sys_rmdir (path);
                 if (ret)
                         gf_msg (xlname, GF_LOG_WARNING, errno,
                                 LG_MSG_DIR_OP_FAILED, "rmdir %s", path);

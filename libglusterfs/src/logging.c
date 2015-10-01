@@ -26,6 +26,8 @@
 
 #include <sys/stat.h>
 
+#include "syscall.h"
+
 #define GF_JSON_MSG_LENGTH      8192
 #define GF_SYSLOG_CEE_FORMAT    \
         "@cee: {\"msg\": \"%s\", \"gf_code\": \"%u\", \"gf_message\": \"%s\"}"
@@ -369,7 +371,7 @@ gf_log_rotate(glusterfs_ctx_t *ctx)
                                 "logfile");
                         return;
                 }
-                close (fd);
+                sys_close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
@@ -689,7 +691,7 @@ gf_log_init (void *data, const char *file, const char *ident)
                 gf_openlog (NULL, -1, LOG_DAEMON);
         }
         /* TODO: make FACILITY configurable than LOG_DAEMON */
-        if (stat (GF_LOG_CONTROL_FILE, &buf) == 0) {
+        if (sys_stat (GF_LOG_CONTROL_FILE, &buf) == 0) {
                 /* use syslog logging */
                 ctx->log.log_control_file_found = 1;
         } else {
@@ -741,7 +743,7 @@ gf_log_init (void *data, const char *file, const char *ident)
                          " \"%s\" (%s)\n", file, strerror (errno));
                 return -1;
         }
-        close (fd);
+        sys_close (fd);
 
         ctx->log.logfile = fopen (file, "a");
         if (!ctx->log.logfile) {
@@ -1234,7 +1236,7 @@ _gf_msg_nomem (const char *domain, const char *file,
 
                         /* write directly to the fd to prevent out of order
                          * message and stack */
-                        ret = write (fd, msg, wlen);
+                        ret = sys_write (fd, msg, wlen);
                         if (ret == -1) {
                                 pthread_mutex_unlock (&ctx->log.logfile_mutex);
                                 goto out;
@@ -2179,7 +2181,7 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                                 "failed to open logfile");
                         return -1;
                 }
-                close (fd);
+                sys_close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
@@ -2353,7 +2355,7 @@ gf_cmd_log_init (const char *filename)
                         LG_MSG_FILE_OP_FAILED, "failed to open cmd_log_file");
                 return -1;
         }
-        close (fd);
+        sys_close (fd);
 
         ctx->log.cmdlogfile = fopen (ctx->log.cmd_log_filename, "a");
         if (!ctx->log.cmdlogfile){

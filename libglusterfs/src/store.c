@@ -15,13 +15,16 @@
 #include "store.h"
 #include "dict.h"
 #include "xlator.h"
+#include "syscall.h"
 #include "libglusterfs-messages.h"
+
+
 int32_t
 gf_store_mkdir (char *path)
 {
         int32_t     ret = -1;
 
-        ret = mkdir (path, 0777);
+        ret = sys_mkdir (path, 0777);
 
         if ((-1 == ret) && (EEXIST != errno)) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED, "mkdir()"
@@ -93,7 +96,7 @@ gf_store_sync_direntry (char *path)
                 goto out;
         }
 
-        ret = fsync (dirfd);
+        ret = sys_fsync (dirfd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         LG_MSG_DIR_OP_FAILED, "Failed to fsync %s.", pdir);
@@ -103,7 +106,7 @@ gf_store_sync_direntry (char *path)
         ret = 0;
 out:
         if (dirfd >= 0) {
-                ret = close (dirfd);
+                ret = sys_close (dirfd);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 LG_MSG_DIR_OP_FAILED, "Failed to close %s", pdir);
@@ -125,14 +128,14 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
         GF_VALIDATE_OR_GOTO ("store", shandle, out);
         GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
-        ret = fsync (shandle->tmp_fd);
+        ret = sys_fsync (shandle->tmp_fd);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                         "Failed to fsync %s", shandle->path);
                 goto out;
         }
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
-        ret = rename (tmppath, shandle->path);
+        ret = sys_rename (tmppath, shandle->path);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                         "Failed to rename %s to %s", tmppath,
@@ -143,7 +146,7 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
         ret = gf_store_sync_direntry (tmppath);
 out:
         if (shandle && shandle->tmp_fd >= 0) {
-                close (shandle->tmp_fd);
+                sys_close (shandle->tmp_fd);
                 shandle->tmp_fd = -1;
         }
         return ret;
@@ -159,7 +162,7 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
         GF_VALIDATE_OR_GOTO ("store", shandle->path, out);
 
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
-        ret = unlink (tmppath);
+        ret = sys_unlink (tmppath);
         if (ret && (errno != ENOENT)) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                         "Failed to mv %s to %s", tmppath,
@@ -169,7 +172,7 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
         }
 out:
         if (shandle && shandle->tmp_fd >= 0) {
-                close (shandle->tmp_fd);
+                sys_close (shandle->tmp_fd);
                 shandle->tmp_fd = -1;
         }
         return ret;
@@ -243,7 +246,7 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 handle->fd = open (handle->path, O_RDWR);
         else
                 /* handle->fd is valid already, kept open for lockf() */
-                lseek (handle->fd, 0, SEEK_SET);
+                sys_lseek (handle->fd, 0, SEEK_SET);
 
         if (handle->fd == -1) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
@@ -261,7 +264,7 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 goto out;
         }
 
-        ret = fstat (handle->fd, &st);
+        ret = sys_fstat (handle->fd, &st);
         if (ret < 0) {
                 gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
                         "stat on file %s failed", handle->path);
@@ -315,7 +318,7 @@ out:
 
         if (handle->fd > 0 && handle->locked == F_ULOCK) {
                 /* only invalidate handle->fd if not locked */
-                close (handle->fd);
+                sys_close (handle->fd);
         }
 
         GF_FREE (free_str);
@@ -407,7 +410,7 @@ gf_store_handle_new (const char *path, gf_store_handle_t **handle)
         ret = 0;
 out:
         if (fd >= 0)
-                close (fd);
+                sys_close (fd);
 
         if (ret == -1) {
                 GF_FREE (spath);
@@ -424,7 +427,7 @@ gf_store_handle_retrieve (char *path, gf_store_handle_t **handle)
         int32_t                 ret = -1;
         struct stat statbuf = {0};
 
-        ret = stat (path, &statbuf);
+        ret = sys_stat (path, &statbuf);
         if (ret) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_PATH_NOT_FOUND, "Path "
                         "corresponding to %s.", path);
@@ -548,7 +551,7 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        ret = stat (iter->filepath, &st);
+        ret = sys_stat (iter->filepath, &st);
         if (ret < 0) {
                 gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
                         "stat on file failed");
@@ -717,7 +720,7 @@ gf_store_unlock (gf_store_handle_t *sh)
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_UNLOCK_FAILED,
                         "Failed to release lock on '%s'", sh->path);
 
-        close (sh->fd);
+        sys_close (sh->fd);
 }
 
 int
