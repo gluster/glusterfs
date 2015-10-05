@@ -2794,7 +2794,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                         }
 
                         tier_vol_type = value[HOT_TYPE];
-                        value[hot_dist_count] = (value[HOT_REPLICA_COUNT] ?
+                        hot_dist_count = (value[HOT_REPLICA_COUNT] ?
                                           value[HOT_REPLICA_COUNT] : 1);
                         if ((value[HOT_TYPE] != GF_CLUSTER_TYPE_TIER) &&
                             (value[HOT_TYPE] > 0) &&
