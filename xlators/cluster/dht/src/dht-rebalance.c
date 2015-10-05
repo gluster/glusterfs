@@ -727,7 +727,7 @@ out:
 
 static int
 __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                             uint64_t ia_size, int hole_exists)
+                              uint64_t ia_size, int hole_exists)
 {
         int            ret    = 0;
         int            count  = 0;
@@ -755,6 +755,68 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                 else
                         ret = syncop_writev (to, dst, vector, count,
                                              offset, iobref, 0, NULL, NULL);
+                if (ret < 0) {
+                        break;
+                }
+                offset += ret;
+                total += ret;
+
+                GF_FREE (vector);
+                if (iobref)
+                        iobref_unref (iobref);
+                iobref = NULL;
+                vector = NULL;
+        }
+        if (iobref)
+                iobref_unref (iobref);
+        GF_FREE (vector);
+
+        if (ret >= 0)
+                ret = 0;
+        else
+                ret = -1;
+
+        return ret;
+}
+
+static int
+__tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
+                     uint64_t ia_size, int hole_exists)
+{
+        int            ret    = 0;
+        int            count  = 0;
+        off_t          offset = 0;
+        struct iovec  *vector = NULL;
+        struct iobref *iobref = NULL;
+        uint64_t       total  = 0;
+        size_t         read_size = 0;
+
+        /* if file size is '0', no need to enter this loop */
+        while (total < ia_size) {
+
+                read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE) ?
+                             DHT_REBALANCE_BLKSIZE : (ia_size - total));
+
+                ret = syncop_readv (from, src, read_size,
+                                    offset, 0, &vector, &count, &iobref, NULL,
+                                    NULL);
+                if (!ret || (ret < 0)) {
+                        break;
+                }
+
+                if (hole_exists)
+                        ret = dht_write_with_holes (to, dst, vector, count,
+                                                    ret, offset, iobref);
+                else
+                        ret = syncop_writev (to, dst, vector, count,
+                                             offset, iobref, 0, NULL, NULL);
+                if (defrag->tier_conf.request_pause) {
+                        gf_msg ("tier", GF_LOG_INFO, 0,
+                                DHT_MSG_TIER_PAUSED,
+                                "Migrate file paused");
+                        ret = -1;
+                }
+
                 if (ret < 0) {
                         break;
                 }
@@ -1251,8 +1313,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
 
         /* All I/O happens in this function */
-        ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
-					    stbuf.ia_size, file_has_holes);
+        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                ret = __tier_migrate_data (defrag, from, to, src_fd, dst_fd,
+                                                    stbuf.ia_size, file_has_holes);
+        } else {
+                ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
+                                                    stbuf.ia_size, file_has_holes);
+        }
+
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -3411,6 +3479,57 @@ log:
 
 
 out:
+        return 0;
+}
+
+int
+gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag)
+{
+        int          poll           = 0;
+        int          ret            = 0;
+        int          usec_sleep     = 100000;  /* 1/10th of a sec */
+        int          poll_max       = 15;      /* 15 times = wait at most 3/2 sec */
+
+        if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED)
+                goto out;
+
+        /*
+         * Set flag requesting to pause tiering. Wait a finite time for
+         * tiering to actually stop as indicated by the "paused" boolean,
+         * before returning success or failure.
+         */
+        defrag->tier_conf.request_pause = 1;
+
+        for (poll = 0; poll < poll_max; poll++) {
+                if ((defrag->tier_conf.paused == _gf_true) ||
+                    (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED)) {
+                        goto out;
+                }
+
+                usleep (usec_sleep);
+        }
+
+        ret = -1;
+
+out:
+
+        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                DHT_MSG_TIER_PAUSED,
+                "Pause tiering ret=%d", ret);
+
+        return ret;
+}
+
+int
+gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag)
+{
+        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                DHT_MSG_TIER_RESUME,
+                "Resume tiering");
+
+        defrag->tier_conf.request_pause = 0;
+        defrag->tier_conf.paused = _gf_false;
+
         return 0;
 }
 

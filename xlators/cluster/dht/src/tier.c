@@ -307,6 +307,13 @@ tier_migrate_using_query_file (void *_args)
                 per_file_status      = 0;
                 per_link_status      = 0;
 
+                if (defrag->tier_conf.request_pause) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_LOG_TIER_STATUS,
+                                "Tiering paused. Exiting tier_migrate_using_query_file");
+                        break;
+                }
+
                 memset (gfid_str, 0, UUID_CANONICAL_FORM_LEN+1);
                 memset (query_record->_link_info_str, 0, DB_QUERY_RECORD_SIZE);
 
@@ -367,6 +374,14 @@ tier_migrate_using_query_file (void *_args)
 
                 /* Per link of file */
                 while (token_str != NULL) {
+
+                        if (defrag->tier_conf.request_pause) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "Tiering paused. "
+                                        "Exiting tier_migrate_using_query_file");
+                                goto abort;
+                        }
 
                         link_str = gf_strdup (token_str);
 
@@ -484,6 +499,14 @@ tier_migrate_using_query_file (void *_args)
                         }
 
                         gf_uuid_copy (loc.gfid, loc.inode->gfid);
+
+                        if (defrag->tier_conf.request_pause) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "Tiering paused. "
+                                        "Exiting tier_migrate_using_query_file");
+                                goto abort;
+                        }
 
                         ret = syncop_setxattr (this, &loc, migrate_data, 0,
                                                NULL, NULL);
@@ -1347,6 +1370,11 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
+                if (defrag->tier_conf.request_pause)
+                        defrag->tier_conf.paused = _gf_true;
+                else
+                        defrag->tier_conf.paused = _gf_false;
+
                 sleep(1);
 
                 if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
@@ -1367,6 +1395,11 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                                       "GF_DEFRAG_CMD_START_DETACH_TIER");
                         goto out;
                 }
+
+                if ((defrag->tier_conf.paused) ||
+                    (defrag->tier_conf.request_pause))
+                        continue;
+
 
                 /* To have proper synchronization amongst all
                  * brick holding nodes, so that promotion and demotions
@@ -1658,6 +1691,7 @@ tier_init (xlator_t *this)
         gf_defrag_info_t *defrag         = NULL;
         char             *voldir         = NULL;
         char             *mode           = NULL;
+        char             *paused         = NULL;
 
         ret = dht_init (this);
         if (ret) {
@@ -1776,7 +1810,15 @@ tier_init (xlator_t *this)
                 defrag->tier_conf.mode = ret;
         }
 
-        ret = gf_asprintf (&voldir, "%s/%s",
+        defrag->tier_conf.request_pause = 0;
+
+        ret = dict_get_str (this->options,
+                              "tier-pause", &paused);
+
+        if (paused && strcmp (paused, "on") == 0)
+                defrag->tier_conf.request_pause = 1;
+
+        ret = gf_asprintf(&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
                           this->name);
         if (ret < 0)
@@ -1844,6 +1886,9 @@ tier_reconfigure (xlator_t *this, dict_t *options)
         gf_defrag_info_t *defrag         = NULL;
         char             *mode           = NULL;
         int               migrate_mb     = 0;
+        gf_boolean_t      req_pause      = _gf_false;
+        int               ret            = 0;
+
         conf = this->private;
 
         if (conf->defrag) {
@@ -1885,6 +1930,27 @@ tier_reconfigure (xlator_t *this, dict_t *options)
                 GF_OPTION_RECONF ("tier-max-files",
                                   defrag->tier_conf.max_migrate_files, options,
                                   int32, out);
+
+                GF_OPTION_RECONF ("tier-pause",
+                                  req_pause, options,
+                                  bool, out);
+
+                if (req_pause == _gf_true) {
+                        ret = gf_defrag_pause_tier (this, defrag);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_LOG_TIER_ERROR,
+                                        "pause tier failed on reconfigure");
+                        }
+                } else {
+                        ret = gf_defrag_resume_tier (this, defrag);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_LOG_TIER_ERROR,
+                                        "resume tier failed on reconfigure");
+                        }
+                }
+
         }
 
 out:

@@ -293,7 +293,8 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
 	GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
 	GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
-
+	GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
+	GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
 };
 typedef enum gf_defrag_type gf_defrag_type;
 
@@ -353,6 +354,8 @@ typedef struct gf_tier_conf {
         int                          tier_demote_frequency;
         uint64_t                     st_last_promoted_size;
         uint64_t                     st_last_demoted_size;
+        int                          request_pause;
+        gf_boolean_t                 paused;
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {
@@ -980,6 +983,12 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
+
+int
+gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag);
+
+int
+gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag);
 
 int
 gf_defrag_start_detach_tier (gf_defrag_info_t *defrag);
