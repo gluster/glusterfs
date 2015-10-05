@@ -396,7 +396,7 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        if (shard_modify_size_and_block_count (&local->postbuf, xdata)) {
+        if (shard_modify_size_and_block_count (&local->postbuf, dict)) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto err;
