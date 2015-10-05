@@ -77,16 +77,36 @@ out:
 
 
 int
-fuse_resolve_entry (fuse_state_t *state)
+fuse_resolve_entry (fuse_state_t *state, gf_boolean_t resolve_path)
 {
-	fuse_resolve_t   *resolve = NULL;
-	loc_t            *resolve_loc = NULL;
+        fuse_resolve_t   *resolve        = NULL;
+        loc_t            *resolve_loc    = NULL;
+        loc_t             tmp_loc        = {0, };
+        uuid_t            gfid           = {0, };
+        inode_t          *parent         = NULL;
 
 	resolve = state->resolve_now;
 	resolve_loc = &resolve->resolve_loc;
 
-	resolve_loc->parent = inode_ref (state->loc_now->parent);
+        parent = resolve->parhint ? resolve->parhint : resolve->hint;
+
 	gf_uuid_copy (resolve_loc->pargfid, state->loc_now->pargfid);
+
+        if (parent && parent->table != state->itable && resolve_path) {
+		/* graph switch happened */
+                if (!gf_uuid_is_null (resolve->pargfid)) {
+                        gf_uuid_copy (gfid, resolve->pargfid);
+                } else if (!gf_uuid_is_null (resolve->gfid)) {
+                        gf_uuid_copy (gfid, resolve->gfid);
+                }
+
+                /* sending lookup on parent directories */
+                fuse_nameless_lookup (state->active_subvol,
+                                      gfid,
+                                      &tmp_loc, _gf_true);
+        }
+
+        resolve_loc->parent = inode_ref (state->loc_now->parent);
         resolve_loc->name = resolve->bname;
         resolve_loc->inode = inode_new (state->itable);
 
@@ -108,7 +128,7 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_state_t   *state      = NULL;
         fuse_resolve_t *resolve    = NULL;
         inode_t        *link_inode = NULL;
-        loc_t          *loc_now   = NULL;
+        loc_t          *loc_now    = NULL;
 
         state = frame->root->state;
         resolve = state->resolve_now;
@@ -155,7 +175,7 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	loc_now->parent = link_inode;
         gf_uuid_copy (loc_now->pargfid, link_inode->gfid);
 
-	fuse_resolve_entry (state);
+	fuse_resolve_entry (state, _gf_false);
 
         return 0;
 out:
@@ -163,6 +183,73 @@ out:
         return 0;
 }
 
+inode_t*
+fuse_resolve_path (xlator_t *this, char *path)
+{
+        int             ret             = -1;
+        dict_t         *xattr_req       = NULL;
+        struct iatt     iatt            = {0, };
+        inode_t        *linked_inode    = NULL;
+        loc_t           loc             = {0, };
+        char           *bname           = NULL;
+        char           *save_ptr        = NULL;
+        uuid_t          gfid            = {0, };
+        char           *tmp_path        = NULL;
+
+
+        tmp_path = gf_strdup (path);
+
+        memset (gfid, 0, 16);
+        gfid[15] = 1;
+
+        gf_uuid_copy (loc.pargfid, gfid);
+        loc.parent = inode_ref (this->itable->root);
+
+        xattr_req = dict_new ();
+        if (xattr_req == NULL) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        bname = strtok_r (tmp_path, "/",  &save_ptr);
+
+        /* sending a lookup on parent directory,
+         * Eg:  if  path is like /a/b/c/d/e/f/g/
+         * then we will send a lookup on a first and then b,c,d,etc
+         */
+
+        while (bname) {
+                loc.inode = inode_grep (this->itable, loc.parent, bname);
+                if (loc.inode == NULL) {
+                        loc.inode = inode_new (this->itable);
+                        if (loc.inode == NULL) {
+                                ret = -ENOMEM;
+                                goto out;
+                        }
+                }
+
+                loc.name = bname;
+                ret = loc_path (&loc, bname);
+
+                ret = syncop_lookup (this, &loc, &iatt, NULL, xattr_req, NULL);
+                if (ret)
+                        goto out;
+
+                linked_inode = inode_link (loc.inode, loc.parent, bname, &iatt);
+                if (!linked_inode)
+                        goto out;
+
+                loc_wipe (&loc);
+                gf_uuid_copy (loc.pargfid, linked_inode->gfid);
+                loc.inode = NULL;
+                loc.parent = linked_inode;
+
+                bname = strtok_r (NULL, "/",  &save_ptr);
+        }
+        return linked_inode;
+out:
+        return NULL;
+}
 
 int
 fuse_resolve_gfid (fuse_state_t *state)
@@ -170,9 +257,12 @@ fuse_resolve_gfid (fuse_state_t *state)
         fuse_resolve_t *resolve  = NULL;
         loc_t          *resolve_loc = NULL;
         int             ret      = 0;
+        loc_t           tmp_loc = {0, };
+        inode_t        *inode = NULL;
 
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
+
 
         if (!gf_uuid_is_null (resolve->pargfid)) {
                 gf_uuid_copy (resolve_loc->gfid, resolve->pargfid);
@@ -185,12 +275,19 @@ fuse_resolve_gfid (fuse_state_t *state)
 	resolve_loc->inode = inode_find (state->itable, resolve_loc->gfid);
 	if (!resolve_loc->inode)
 		resolve_loc->inode = inode_new (state->itable);
-	ret = loc_path (resolve_loc, NULL);
 
+	ret = loc_path (resolve_loc, NULL);
         if (ret <= 0) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to get the path for inode %s",
                         uuid_utoa (resolve->gfid));
+        }
+
+        inode = resolve->parhint ? resolve->parhint : resolve->hint;
+        if (inode && inode->table != state->itable) {
+                /* sending lookup on parent directories */
+                fuse_nameless_lookup (state->active_subvol, resolve_loc->gfid,
+                                      &tmp_loc, _gf_true);
         }
 
         FUSE_FOP (state, fuse_resolve_gfid_cbk, GF_FOP_LOOKUP,
@@ -283,7 +380,7 @@ fuse_resolve_parent (fuse_state_t *state)
         }
 
 	if (ret < 0) {
-		fuse_resolve_entry (state);
+                fuse_resolve_entry (state, _gf_true);
 		return 0;
 	}
 
