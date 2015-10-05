@@ -963,6 +963,11 @@ struct volume_options options[] = {
         },
 
         /* tier options */
+        { .key  = {"tier-pause"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+
         { .key  = {"tier-promote-frequency"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "120",

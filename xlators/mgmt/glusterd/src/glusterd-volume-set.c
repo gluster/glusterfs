@@ -47,6 +47,15 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 goto out;
         }
 
+        else if (strstr (key, "tier-pause")) {
+                if (strcmp(value, "off") &&
+                    strcmp(value, "on")) {
+                        ret = -1;
+                        goto out;
+                }
+                goto out;
+        }
+
         /*
          * Rest of the volume set options for tier are expecting a positive
          * Integer. Change the function accordingly if this constraint is
@@ -1993,6 +2002,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "cycle, that would mark a file HOT for promotion. Any "
                          "file that has read hits less than this value will be "
                          "considered as COLD and will be demoted."
+        },
+        { .key         = "cluster.tier-pause",
+          .voltype     = "cluster/tier",
+          .option      = "tier-pause",
+          .op_version  = GD_OP_VERSION_3_7_6,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
         },
         { .key         = "cluster.tier-promote-frequency",
           .voltype     = "cluster/tier",

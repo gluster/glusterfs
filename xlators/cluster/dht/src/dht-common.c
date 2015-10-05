@@ -7661,10 +7661,14 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                                  cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER)
                                 gf_defrag_stop (defrag,
                                                 GF_DEFRAG_STATUS_STOPPED, output);
+                        else if (cmd == GF_DEFRAG_CMD_PAUSE_TIER)
+                                ret = gf_defrag_pause_tier (this, defrag);
+                        else if (cmd == GF_DEFRAG_CMD_RESUME_TIER)
+                                ret = gf_defrag_resume_tier (this, defrag);
                 }
 unlock:
                 UNLOCK (&defrag->lock);
-                return 0;
+                return ret;
                 break;
         }
 

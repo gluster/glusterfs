@@ -1948,6 +1948,142 @@ out:
 }
 
 int
+glusterd_snapshot_pause_tier (xlator_t *this, glusterd_volinfo_t *volinfo)
+{
+        int                     ret             = -1;
+        dict_t                 *dict            = NULL;
+        char                   *op_errstr       = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                ret = 0;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "rebalance-command",
+                              GF_DEFRAG_CMD_PAUSE_TIER);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to set rebalance-command");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volinfo->volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to set volname");
+                goto out;
+        }
+
+        ret = gd_brick_op_phase (GD_OP_DEFRAG_BRICK_VOLUME, NULL,
+                                 dict, &op_errstr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_PAUSE_TIER_FAIL,
+                        "Failed to pause tier. Errstr=%s",
+                        op_errstr);
+                goto out;
+        }
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+
+int
+glusterd_snapshot_resume_tier (xlator_t *this, dict_t *snap_dict)
+{
+        int                     ret             = -1;
+        dict_t                 *dict            = NULL;
+        int64_t                 volcount        = 0;
+        char                    key[PATH_MAX]   = "";
+        char                   *volname         = NULL;
+        int                     i               = 0;
+        char                   *op_errstr       = NULL;
+        glusterd_volinfo_t     *volinfo         = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, snap_dict, out);
+
+        ret = dict_get_int64 (snap_dict, "volcount", &volcount);
+        if (ret) {
+                goto out;
+        }
+        if (volcount <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        for (i = 1; i <= volcount; i++) {
+                snprintf (key, sizeof (key), "volname%d", i);
+                ret = dict_get_str (snap_dict, key, &volname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to get key %s", volname);
+                        goto out;
+                }
+
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret)
+                        goto out;
+
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER)
+                        continue;
+
+                ret = dict_set_int32 (dict, "rebalance-command",
+                                      GF_DEFRAG_CMD_RESUME_TIER);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                        "Failed to set rebalance-command");
+
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "volname", volname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set volname");
+                        goto out;
+                }
+
+                ret = gd_brick_op_phase (GD_OP_DEFRAG_BRICK_VOLUME, NULL,
+                                         dict, &op_errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_RESUME_TIER_FAIL,
+                                "Failed to resume tier");
+                        goto out;
+                }
+        }
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+
+int
 glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                                                char *snapname, char *err_str,
                                                char *snap_volname,
@@ -2249,7 +2385,12 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = 0;
+        ret = glusterd_snapshot_pause_tier (this, snap_vol);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_PAUSE_TIER_FAIL,
+                        "Failed to pause tier in clone prevalidate.");
+        }
 out:
 
         if (ret && err_str[0] != '\0') {
@@ -2439,6 +2580,14 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
+                ret = glusterd_snapshot_pause_tier (this, volinfo);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_PAUSE_TIER_FAIL,
+                                "Failed to pause tier in snap prevalidate.");
+                        goto out;
+                }
+
         }
 
         ret = dict_set_int64 (rsp_dict, "volcount", volcount);
@@ -2449,6 +2598,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         }
 
         ret = 0;
+
 out:
         if (ret && err_str[0] != '\0') {
                 gf_msg (this->name, loglevel, 0,
@@ -7819,7 +7969,12 @@ glusterd_snapshot_clone_postvalidate (dict_t *dict, int32_t op_ret,
         }
         snap_vol->snapshot = NULL;
 
-        ret = 0;
+        ret = glusterd_snapshot_resume_tier (this, dict);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_RESUME_TIER_FAIL,
+                        "Failed to resume tier in clone postvalidate.");
+        }
 
 out:
         return ret;
@@ -7914,7 +8069,13 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                 //ignore the errors of autodelete
                 ret = glusterd_handle_snap_limit (dict, rsp_dict);
         }
-        ret = 0;
+
+        ret = glusterd_snapshot_resume_tier (this, dict);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_RESUME_TIER_FAIL,
+                        "Failed to resume tier in snapshot postvalidate.");
+        }
 
 out:
         return ret;
