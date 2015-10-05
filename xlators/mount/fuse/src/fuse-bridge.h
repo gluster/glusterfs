@@ -401,6 +401,9 @@ int fuse_flip_xattr_ns (struct fuse_private *priv, char *okey, char **nkey);
 fuse_fd_ctx_t * __fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd);
 fuse_fd_ctx_t * fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd);
 
+inode_t*
+fuse_resolve_path (xlator_t *this, char *path);
+
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int fuse_resolve_inode_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			     ino_t ino);
@@ -408,6 +411,10 @@ int fuse_resolve_entry_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			     ino_t par, char *name);
 int fuse_resolve_fd_init (fuse_state_t *state, fuse_resolve_t *resolve,
 			  fd_t *fd);
+int
+fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc,
+                      gf_boolean_t resolve_path);
+
 int fuse_ignore_xattr_set (fuse_private_t *priv, char *key);
 void fuse_fop_resume (fuse_state_t *state);
 int dump_history_fuse (circular_buffer_t *cb, void *data);
