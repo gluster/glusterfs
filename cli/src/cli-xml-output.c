@@ -1668,15 +1668,19 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                         goto out;
 
                 ret = xmlTextWriterStartElement
-                        (local->writer, (xmlChar *)"hotBrick");
+                        (local->writer, (xmlChar *)"hotBricks");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
         }
         for (i = 0; i <= index_max; i++) {
 
-                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                if (type == GF_CLUSTER_TYPE_TIER && i == hot_brick_count) {
+
+                        /* </hotBricks>*/
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
                         ret = xmlTextWriterStartElement (local->writer,
-                                        (xmlChar *)"coldBrick");
+                                        (xmlChar *)"coldBricks");
                         XML_RET_CHECK_AND_GOTO (ret, out);
                 }
                 ret = cli_xml_output_vol_status_common (local->writer, dict, i,
@@ -1749,16 +1753,13 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                if (type == GF_CLUSTER_TYPE_TIER && i < hot_brick_count) {
-                        ret = xmlTextWriterEndElement (local->writer);
-                        XML_RET_CHECK_AND_GOTO (ret, out);
-                }
-                if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
-                        ret = xmlTextWriterEndElement (local->writer);
-                        XML_RET_CHECK_AND_GOTO (ret, out);
-                }
         }
 
+        /* </coldBricks>*/
+        if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
+                ret = xmlTextWriterEndElement (local->writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
 
         /* Tasks are only present when a normal volume status call is done on a
          * single volume or on all volumes
