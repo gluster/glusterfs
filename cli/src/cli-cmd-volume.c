@@ -996,7 +996,8 @@ do_cli_cmd_volume_detach_tier (struct cli_state *state,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_detach_tier_parse(words, wordcount, &options);
+        ret = cli_cmd_volume_detach_tier_parse(words, wordcount, &options,
+                                               &need_question);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;

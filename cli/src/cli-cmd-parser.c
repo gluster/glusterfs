@@ -1757,7 +1757,7 @@ out:
 
 int32_t
 cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
-                                  dict_t **options)
+                                  dict_t **options, int *question)
 {
         int      ret = -1;
         char    *word = NULL;
@@ -1789,8 +1789,10 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         if (!strcmp(word, "start")) {
                 command = GF_OP_CMD_DETACH_START;
         } else if (!strcmp(word, "commit")) {
+                *question = 1;
                 command = GF_OP_CMD_DETACH_COMMIT;
         } else if (!strcmp(word, "force")) {
+                *question = 1;
                 command = GF_OP_CMD_DETACH_COMMIT_FORCE;
         } else if (!strcmp(word, "stop"))
                 command = GF_OP_CMD_STOP_DETACH_TIER;
