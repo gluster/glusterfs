@@ -43,7 +43,6 @@
 #include <sys/resource.h>
 #include <inttypes.h>
 
-#include "defaults.c"
 #include "common-utils.h"
 
 #include "globals.h"
