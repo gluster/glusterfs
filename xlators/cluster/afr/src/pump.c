@@ -14,7 +14,7 @@
 #include <fnmatch.h>
 
 #include "afr-common.c"
-#include "defaults.c"
+#include "defaults.h"
 #include "glusterfs.h"
 #include "pump.h"
 #include "afr-messages.h"

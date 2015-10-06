@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <ucontext.h>
 #include "defaults.h"
+#include "default-args.h"
 #include "syncop.h"
 
 typedef struct cluster_local_ {
