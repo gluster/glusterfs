@@ -1371,7 +1371,7 @@ do_quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         if (parent == NULL)
                 goto out;
 
-        new_frame = create_frame (this, this->ctx->pool);
+        new_frame = copy_frame (frame);
         if (new_frame == NULL)
                 goto out;
 
@@ -1379,7 +1379,6 @@ do_quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         if (new_local == NULL)
                 goto out;
 
-        new_frame->root->uid = new_frame->root->gid = 0;
         new_frame->local = new_local;
         new_local->par_frame = frame;
 
