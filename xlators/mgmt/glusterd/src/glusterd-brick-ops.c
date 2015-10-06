@@ -14,10 +14,12 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
+#include "glusterd-mgmt.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-svc-helper.h"
 #include "glusterd-messages.h"
+#include "glusterd-server-quorum.h"
 #include "run.h"
 #include <sys/signal.h>
 
@@ -412,10 +414,15 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         int32_t                         replica_count = 0;
         int32_t                         stripe_count = 0;
         int                             type = 0;
+        glusterd_conf_t                 *conf = NULL;
+
         this = THIS;
         GF_ASSERT(this);
 
         GF_ASSERT (req);
+
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = xdr_to_generic (req->msg[0], &cli_req,
                               (xdrproc_t)xdr_gf_cli_req);
@@ -635,7 +642,17 @@ brick_val:
                 }
         }
 
-        ret = glusterd_op_begin_synctask (req, GD_OP_ADD_BRICK, dict);
+        if (conf->op_version <= GD_OP_VERSION_3_7_5) {
+                gf_msg_debug (this->name, 0, "The cluster is operating at "
+                          "version less than or equal to %d. Falling back "
+                          "to syncop framework.",
+                          GD_OP_VERSION_3_7_5);
+                ret = glusterd_op_begin_synctask (req, GD_OP_ADD_BRICK, dict);
+        } else {
+                ret = glusterd_mgmt_v3_initiate_all_phases (req,
+                                                            GD_OP_ADD_BRICK,
+                                                            dict);
+        }
 
 out:
         if (ret) {
@@ -1318,12 +1335,12 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         volinfo->subvol_count = (volinfo->brick_count /
                                  volinfo->dist_leaf_count);
 
-        ret = glusterd_create_volfiles (volinfo);
-        if (ret)
-                goto out;
-
         ret = 0;
         if (GLUSTERD_STATUS_STARTED != volinfo->status)
+                goto out;
+
+        ret = generate_brick_volfiles (volinfo);
+        if (ret)
                 goto out;
 
         brick_list = gf_strdup (bricks);
@@ -1396,8 +1413,16 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                               _glusterd_restart_gsync_session, &param);
         }
         volinfo->caps = caps;
-
-        ret = glusterd_fetchspec_notify (this);
+        if (conf->op_version <= GD_OP_VERSION_3_7_5) {
+               ret = glusterd_create_volfiles_and_notify_services (volinfo);
+        } else {
+                /*
+                 * The cluster is operating at version greater than
+                 * gluster-3.7.5. So no need to sent volfile fetch
+                 * request in commit phase, the same will be done
+                 * in post validate phase with v3 framework.
+                 */
+        }
 
 out:
         GF_FREE (free_ptr1);
@@ -1522,6 +1547,28 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;
+
+        if (conf->op_version > GD_OP_VERSION_3_7_5 &&
+            is_origin_glusterd (dict)) {
+                ret = glusterd_validate_quorum (this, GD_OP_ADD_BRICK, dict,
+                                                op_errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_SERVER_QUORUM_NOT_MET,
+                                "Server quorum not met. Rejecting operation.");
+                        goto out;
+                }
+        } else {
+                /* Case 1: conf->op_version <= GD_OP_VERSION_3_7_5
+                 *         in this case the add-brick is running
+                 *         syncop framework that will do a quorum
+                 *         check by default
+                 * Case 2: We don't need to do quorum check on every
+                 *         node, only originator glusterd need to
+                 *         check for quorum
+                 * So nothing need to be done in else
+                 */
+        }
 
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
@@ -2220,10 +2267,19 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                         GD_MSG_BRICK_ADD_FAIL, "Unable to add bricks");
                 goto out;
         }
-
-        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-        if (ret)
-                goto out;
+        if (priv->op_version <= GD_OP_VERSION_3_7_5) {
+               ret = glusterd_store_volinfo (volinfo,
+                                             GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret)
+                        goto out;
+        } else {
+                 /*
+                 * The cluster is operating at version greater than
+                 * gluster-3.7.5. So no need to store volfiles
+                 * in commit phase, the same will be done
+                 * in post validate phase with v3 framework.
+                 */
+        }
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
                 ret = glusterd_svcs_manager (volinfo);
