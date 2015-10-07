@@ -164,6 +164,15 @@ out:
         return -1;
 }
 
+/* This function should be used only in inspect_directory and inspect_file
+ * function to heal quota xattrs.
+ * Inode quota feature is introduced in 3.7.
+ * If gluster setup is upgraded from 3.6 to 3.7, there can be a
+ * getxattr and setxattr spikes with quota heal as inode quota is missing.
+ * So this wrapper function is to avoid xattrs spikes during upgrade.
+ * This function returns success even is inode-quota xattrs are missing and
+ * hence no healing performed.
+ */
 int32_t
 _quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
                       quota_meta_t *meta, ia_type_t ia_type,
@@ -193,6 +202,34 @@ _quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
                 }
         }
 
+        return ret;
+}
+
+int32_t
+quota_dict_set_size_meta (dict_t *dict, const quota_meta_t *meta)
+{
+        int32_t         ret      = -ENOMEM;
+        quota_meta_t   *value    = NULL;
+
+        value = GF_CALLOC (2, sizeof (quota_meta_t), gf_common_quota_meta_t);
+        if (value == NULL) {
+                goto out;
+        }
+        value[0].size = hton64 (meta->size);
+        value[0].file_count = hton64 (meta->file_count);
+        value[0].dir_count = hton64 (meta->dir_count);
+
+        value[1].size = 0;
+        value[1].file_count = 0;
+        value[1].dir_count = hton64 (1);
+
+        ret = dict_set_bin (dict, QUOTA_SIZE_KEY, value,
+                            (sizeof (quota_meta_t) * 2));
+        if (ret < 0) {
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "dict set failed");
+                GF_FREE (value);
+        }
+out:
         return ret;
 }
 
@@ -239,8 +276,8 @@ quota_meta_is_null (const quota_meta_t *meta)
 }
 
 int32_t
-mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
-                   gf_boolean_t *objects)
+mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
+                   gf_boolean_t *size_set)
 {
         int32_t        ret                         = -1;
         char           contri_key[CONTRI_KEY_MAX]  = {0, };
@@ -268,33 +305,25 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
                 goto out;
         }
 
-        if (rsp_dict == NULL) {
-                *result = _gf_false;
+        if (rsp_dict == NULL)
                 goto out;
-        }
 
-        *result = _gf_true;
+        *contri_set = _gf_true;
+        *size_set = _gf_true;
         if (loc->inode->ia_type == IA_IFDIR) {
-                ret = _quota_dict_get_meta (this, rsp_dict, QUOTA_SIZE_KEY,
-                                            &meta, IA_IFDIR, _gf_false);
-                if (ret < 0 || meta.dir_count == 0) {
-                        ret = 0;
-                        *result = _gf_false;
-                        goto out;
-                }
-                *objects = _gf_true;
+                ret = quota_dict_get_inode_meta (rsp_dict, QUOTA_SIZE_KEY,
+                                                 &meta);
+                if (ret < 0 || meta.dir_count == 0)
+                        *size_set = _gf_false;
         }
 
         if (!loc_is_root(loc)) {
-                ret = _quota_dict_get_meta (this, rsp_dict, contri_key,
-                                            &meta, IA_IFREG, _gf_false);
-                if (ret < 0) {
-                        ret = 0;
-                        *result = _gf_false;
-                        goto out;
-                }
+                ret = quota_dict_get_inode_meta (rsp_dict, contri_key, &meta);
+                if (ret < 0)
+                        *contri_set = _gf_false;
         }
 
+        ret = 0;
 out:
         if (dict)
                 dict_unref (dict);
@@ -306,18 +335,19 @@ out:
 }
 
 int32_t
-mq_create_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc,
-                  gf_boolean_t objects)
+mq_create_size_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 {
-        quota_meta_t           size                 = {0, };
-        quota_meta_t           contri               = {0, };
         int32_t                ret                  = -1;
-        char                   key[CONTRI_KEY_MAX]  = {0, };
+        quota_meta_t           size                 = {0, };
         dict_t                *dict                 = NULL;
-        inode_contribution_t  *contribution         = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
         GF_VALIDATE_OR_GOTO ("marker", loc->inode, out);
+
+        if (loc->inode->ia_type != IA_IFDIR) {
+                ret = 0;
+                goto out;
+        }
 
         dict = dict_new ();
         if (!dict) {
@@ -326,33 +356,13 @@ mq_create_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc,
                 goto out;
         }
 
-        if (loc->inode->ia_type == IA_IFDIR) {
-                if (objects == _gf_false) {
-                        /* Initial object count of a directory is 1 */
-                        size.dir_count = 1;
-                }
-                ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, &size,
-                                           IA_IFDIR);
-                if (ret < 0)
-                        goto out;
-        }
+        ret = quota_dict_set_size_meta (dict, &size);
+        if (ret < 0)
+                goto out;
 
-        if (!loc_is_root (loc)) {
-                contribution = mq_add_new_contribution_node (this, ctx, loc);
-                if (contribution == NULL) {
-                        ret = -1;
-                        goto out;
-                }
-
-                GET_CONTRI_KEY (key, contribution->gfid, ret);
-                ret = quota_dict_set_meta (dict, key, &contri,
-                                           loc->inode->ia_type);
-                if (ret < 0)
-                        goto out;
-        }
-
-        ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                              dict, NULL, NULL);
+        ret = syncop_xattrop (FIRST_CHILD(this), loc,
+                              GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT, dict, NULL,
+                              NULL);
 
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
@@ -364,9 +374,6 @@ mq_create_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc,
 out:
         if (dict)
                 dict_unref (dict);
-
-        if (contribution)
-                GF_REF_PUT (contribution);
 
         return ret;
 }
@@ -877,13 +884,13 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
                 goto out;
         }
 
-        ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, delta,
-                                   loc->inode->ia_type);
+        ret = quota_dict_set_size_meta (dict, delta);
         if (ret < 0)
                 goto out;
 
-        ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL, NULL);
+        ret = syncop_xattrop(FIRST_CHILD(this), loc,
+                             GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT, dict, NULL,
+                             NULL);
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                                   ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
@@ -895,7 +902,10 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
         {
                 ctx->size += delta->size;
                 ctx->file_count += delta->file_count;
-                ctx->dir_count += delta->dir_count;
+                if (ctx->dir_count == 0)
+                        ctx->dir_count += delta->dir_count + 1;
+                else
+                        ctx->dir_count += delta->dir_count;
         }
         UNLOCK (&ctx->lock);
 
@@ -1036,8 +1046,8 @@ mq_create_xattrs_task (void *opaque)
 {
         int32_t                  ret        = -1;
         gf_boolean_t             locked     = _gf_false;
-        gf_boolean_t             xattrs_set = _gf_false;
-        gf_boolean_t             objects    = _gf_false;
+        gf_boolean_t             contri_set = _gf_false;
+        gf_boolean_t             size_set   = _gf_false;
         gf_boolean_t             need_txn   = _gf_false;
         quota_synctask_t        *args       = NULL;
         quota_inode_ctx_t       *ctx        = NULL;
@@ -1067,16 +1077,18 @@ mq_create_xattrs_task (void *opaque)
                 locked = _gf_true;
         }
 
-        ret = mq_are_xattrs_set (this, loc, &xattrs_set, &objects);
-        if (ret < 0 || xattrs_set)
+        ret = mq_are_xattrs_set (this, loc, &contri_set, &size_set);
+        if (ret < 0 || (contri_set && size_set))
                 goto out;
 
         mq_set_ctx_create_status (ctx, _gf_false);
         status = _gf_true;
 
-        ret = mq_create_xattrs (this, ctx, loc, objects);
-        if (ret < 0)
-                goto out;
+        if (loc->inode->ia_type == IA_IFDIR && size_set == _gf_false) {
+                ret = mq_create_size_xattrs (this, ctx, loc);
+                if (ret < 0)
+                        goto out;
+        }
 
         need_txn = _gf_true;
 out:
@@ -1096,10 +1108,11 @@ static int
 _mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, struct iatt *buf,
                        gf_boolean_t spawn)
 {
-        int32_t                  ret        = -1;
-        quota_inode_ctx_t       *ctx        = NULL;
-        gf_boolean_t             status     = _gf_true;
-        loc_t                    loc        = {0, };
+        int32_t                  ret          = -1;
+        quota_inode_ctx_t       *ctx          = NULL;
+        gf_boolean_t             status       = _gf_true;
+        loc_t                    loc          = {0, };
+        inode_contribution_t    *contribution = NULL;
 
         ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx, buf);
         if (ret < 0)
@@ -1108,6 +1121,19 @@ _mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, struct iatt *buf,
         ret = mq_test_and_set_ctx_create_status (ctx, &status);
         if (ret < 0 || status == _gf_true)
                 goto out;
+
+        if (!loc_is_root(&loc)) {
+                contribution = mq_add_new_contribution_node (this, ctx, &loc);
+                if (contribution == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot add a new contribution node "
+                                "(%s)", uuid_utoa (loc.gfid));
+                        ret = -1;
+                        goto out;
+                } else {
+                        GF_REF_PUT (contribution);
+                }
+        }
 
         ret = mq_synctask (this, mq_create_xattrs_task, spawn, &loc);
 out:
