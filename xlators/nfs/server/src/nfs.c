@@ -369,13 +369,6 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         int     ret = 0;
 
         /* Add the initializers for all versions. */
-        ret = nfs_add_initer (&nfs->versions, mnt3svc_init, _gf_true);
-        if (ret == -1) {
-                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
-                        "Failed to add MOUNT3 protocol initializer");
-                goto ret;
-        }
-
         ret = nfs_add_initer (&nfs->versions, mnt1svc_init, _gf_true);
         if (ret == -1) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
@@ -387,6 +380,13 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         if (ret == -1) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
                         "Failed to add NFS3 protocol initializer");
+                goto ret;
+        }
+
+        ret = nfs_add_initer (&nfs->versions, mnt3svc_init, _gf_true);
+        if (ret == -1) {
+                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PROT_INIT_ADD_FAIL,
+                        "Failed to add MOUNT3 protocol initializer");
                 goto ret;
         }
 
@@ -957,24 +957,22 @@ nfs_init_state (xlator_t *this)
         }
 
         nfs->exports_auth = GF_NFS_DEFAULT_EXPORT_AUTH;
-        if (dict_get(this->options, "nfs.exports-auth-enable")) {
+        if (dict_get (this->options, "nfs.exports-auth-enable")) {
                 ret = dict_get_str (this->options, "nfs.exports-auth-enable",
                                     &optstr);
                 if (ret == -1) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse dict");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
 
                 ret = gf_string2boolean (optstr, &boolt);
                 if (ret < 0) {
-                        gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_PARSE_FAIL,
-                                "Failed to parse bool string");
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
                         goto free_foppool;
                 }
 
-                if (boolt == _gf_true)
-                        nfs->exports_auth = 1;
+                nfs->exports_auth = boolt;
         }
 
         nfs->auth_refresh_time_secs = GF_NFS_DEFAULT_AUTH_REFRESH_INTERVAL_SEC;
@@ -1214,6 +1212,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                                         "nfs.transport-type",
                                         "nfs.mem-factor",
                                         NULL};
+        char                *exports_auth_enable = NULL;
 
         GF_VALIDATE_OR_GOTO (GF_NFS, this, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, this->private, out);
@@ -1291,6 +1290,21 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 mount_rewrite_rmtab (nfs->mstate, rmtab);
                 gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_PATH,
                         "Reconfigured nfs.mount-rmtab path: %s", nfs->rmtab);
+        }
+
+        /* reconfig nfs.exports-auth-enable */
+        if (dict_get (options, "nfs.exports-auth-enable")) {
+                ret = dict_get_str (options, "nfs.exports-auth-enable",
+                                    &exports_auth_enable);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to read "
+                                "reconfigured option: nfs.exports-auth-enable");
+                        goto out;
+                }
+                ret = gf_string2int (exports_auth_enable, &nfs->exports_auth);
+                if (ret < 0) {
+                        goto out;
+                }
         }
 
         GF_OPTION_RECONF (OPT_SERVER_AUX_GIDS, optbool,
@@ -2099,7 +2113,7 @@ struct volume_options options[] = {
           .description = "Sets the number of non-idempotent "
                          "requests to cache in drc"
         },
-        { .key = {"nfs.exports-auth-enable"},
+        { .key = {"nfs.*.exports-auth-enable"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Set the option to 'on' to enable exports/netgroup "
                          "authentication in the NFS server and mount daemon."

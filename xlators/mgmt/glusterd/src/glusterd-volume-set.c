@@ -2434,8 +2434,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         /* Cli options for Export authentication on nfs mount */
         { .key         = "nfs.exports-auth-enable",
           .voltype     = "nfs/server",
-          .option      = "nfs.exports-auth-enable",
-          .type        = GLOBAL_DOC,
+          .option      = "!nfs.*.exports-auth-enable",
+          //.type        = GLOBAL_DOC,
           .op_version  = GD_OP_VERSION_3_7_0
         },
         { .key         = "nfs.auth-refresh-interval-sec",

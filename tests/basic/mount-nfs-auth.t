@@ -48,7 +48,7 @@ EXPORT_ALLOW_L1="/$V0L1 $H0(sec=sys,rw,anonuid=0) @ngtop(sec=sys,rw,anonuid=0)"
 EXPORT_WILDCARD="/$V0 *(sec=sys,rw,anonuid=0) @ngtop(sec=sys,rw,anonuid=0)"
 
 function build_dirs () {
-        mkdir -p $B0/b{0,1,2}/L1/L2/L3
+        mkdir -p $B0/b{0,1,2,3,4,5}/L1/L2/L3
 }
 
 function export_allow_this_host_ipv6 () {
@@ -64,6 +64,9 @@ function export_allow_this_host_with_slash () {
 }
 
 function export_deny_this_host () {
+        if [[ "$1" && "$1" != "$V0" ]]; then
+                local EXPORT_DENY=$(echo $EXPORT_DENY | sed "s/$V0/$1/")
+        fi
         printf "$EXPORT_DENY\n" > ${NFSDIR}/exports
 }
 
@@ -132,6 +135,10 @@ function check_mount_failure {
                         sleep 1
                 done
         fi
+}
+
+function do_mount () {
+        mount_nfs $H0:/$1 $N0 nolock
 }
 
 function small_write () {
@@ -377,9 +384,40 @@ TEST $CLI vol set $V0 nfs.auth-refresh-interval-sec 20
 ## Do a simple test to see if the volume option exists
 TEST $CLI vol set $V0 nfs.auth-cache-ttl-sec 400
 
+## Test authentication in 1 of 2 (sub)volumes
+ME=$(hostname)
+TEST $CLI vol create $V1 replica 3 $ME:$B0/b3 $ME:$B0/b4 $ME:$B0/b5
+TEST $CLI vol set $V1 cluster.self-heal-daemon off
+TEST $CLI vol set $V1 nfs.disable off
+TEST $CLI vol set $V1 cluster.choose-local off
+TEST $CLI vol start $V1
+TEST $CLI volume info $V1;
+
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "2" is_nfs_export_available $V0
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available $V1
+TEST $CLI vol set $V0 nfs.exports-auth-enable on
+TEST $CLI vol set $V1 nfs.exports-auth-enable off
+# Deny the hosts, but only effective on $V0
+TEST export_deny_this_host $V0
+TEST netgroup_deny_this_host
+TEST export_deny_this_host $V1
+
+sleep $AUTH_REFRESH_INTERVAL
+TEST ! do_mount $V0 # Do a mount & test
+TEST do_mount $V1 # Do a mount & test
+
+TEST touch /tmp/foo
+TEST cp /tmp/foo $N0/
+
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 ## Finish up
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;
+
+TEST $CLI volume stop $V1
+TEST $CLI volume delete $V1;
+TEST ! $CLI volume info $V1;
 
 cleanup

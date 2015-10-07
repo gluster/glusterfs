@@ -31,6 +31,7 @@
 #define GF_NFS3_IOBPOOL_MULT            GF_NFS_CONCURRENT_OPS_MULT
 #define GF_NFS3_CLTABLE_BUCKETS_MULT    2
 #define GF_NFS3_FDTABLE_BUCKETS_MULT    2
+#define GF_NFS3_DEFAULT_EXPORT_AUTH     _gf_false
 
 
 /* Static values used for FSINFO
@@ -99,6 +100,7 @@ struct nfs3_export {
         int                     trusted_sync;
         int                     trusted_write;
         int                     rootlookedup;
+        int                     exports_auth;
 };
 
 #define GF_NFS3_DEFAULT_VOLACCESS       (GF_NFS3_VOLACCESS_RW)
@@ -142,6 +144,9 @@ typedef struct nfs3_state {
         gf_lock_t               fdlrulock;
         int                     fdcount;
         uint32_t                occ_logger;
+
+        /* Enable exports auth model */
+        gf_boolean_t            exports_auth;
 } nfs3_state_t;
 
 typedef enum nfs3_lookup_type {
@@ -279,5 +284,8 @@ nfs3_reconfigure_state (xlator_t *nfsx, dict_t *options);
 
 extern uint64_t
 nfs3_request_xlator_deviceid (rpcsvc_request_t *req);
+
+extern int
+nfs3_is_exports_auth (struct nfs3_state *nfs3, const char *volname);
 
 #endif

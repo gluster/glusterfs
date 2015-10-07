@@ -3975,11 +3975,18 @@ nfs3_fh_auth_nfsop (nfs3_call_state_t *cs, gf_boolean_t is_write_op)
 {
         struct nfs_state    *nfs = NULL;
         struct mount3_state *ms  = NULL;
+        int                  auth_status = -1;
 
         nfs = (struct nfs_state *)cs->nfsx->private;
         ms  = (struct mount3_state *)nfs->mstate;
-        return  mnt3_authenticate_request (ms, cs->req, &cs->resolvefh, NULL,
-                                           NULL, NULL, NULL, is_write_op);
+        auth_status =  mnt3_authenticate_request (ms, cs->req, &cs->resolvefh,
+                                                  cs->vol->name, NULL, NULL,
+                                                  NULL, is_write_op);
+ 
+        if (auth_status != 0) {
+                cs->resolve_errno = auth_status;
+        }
+        return auth_status;
 }
 
 int

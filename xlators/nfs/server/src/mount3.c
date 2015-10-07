@@ -24,6 +24,7 @@
 #include "iatt.h"
 #include "nfs-mem-types.h"
 #include "nfs.h"
+#include "nfs3.h"
 #include "common-utils.h"
 #include "store.h"
 #include "glfs-internal.h"
@@ -1169,7 +1170,8 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 mres->exp->expname, mres->resolveloc.path);
 
                 /* Check if this path is authorized to be mounted */
-                authcode = mnt3_authenticate_request (ms, mres->req, NULL, NULL,
+                authcode = mnt3_authenticate_request (ms, mres->req, NULL,
+                                                      mres->exp->vol->name,
                                                       mres->exp->fullpath,
                                                       &authorized_path,
                                                       &authorized_host,
@@ -2086,15 +2088,18 @@ mnt3_authenticate_request (struct mount3_state *ms, rpcsvc_request_t *req,
                            const char *path, char **authorized_path,
                            char **authorized_host, gf_boolean_t is_write_op)
 {
-        int          auth_status_code       = -EACCES;
-        char         *parent_path = NULL;
-        const char   *parent_old  = NULL;
+        int                 auth_status_code = -EACCES;
+        char                *parent_path     = NULL;
+        const char          *parent_old      = NULL;
+        struct mnt3_export  *exp             = NULL;
+        struct nfs3_state   *nfs3            = ms->nfs->nfs3state;
 
         GF_VALIDATE_OR_GOTO (GF_MNT, ms, out);
         GF_VALIDATE_OR_GOTO (GF_MNT, req, out);
+        GF_VALIDATE_OR_GOTO (GF_MNT, volname, out);
 
         /* If this option is not set, just allow it through */
-        if (!ms->nfs->exports_auth) {
+        if (!nfs3->exports_auth || !nfs3_is_exports_auth(nfs3, volname)) {
                 /* This function is called in a variety of use-cases (mount
                  * + each fop) so path/authorized_path are not always present.
                  * For the cases which it _is_ present we need to populate the
@@ -2219,8 +2224,8 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         /* The second authentication check is the exports/netgroups
          * check.
          */
-        authcode = mnt3_authenticate_request (ms, req, NULL, NULL, path, NULL,
-                                              NULL, _gf_false);
+        authcode = mnt3_authenticate_request (ms, req, NULL, exp->vol->name,
+                                              path, NULL, NULL, FALSE);
         if (authcode != 0) {
                 mntstat = MNT3ERR_ACCES;
                 gf_msg_debug (GF_MNT, 0, "Client mount not allowed");
@@ -3726,6 +3731,9 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  *                                and umounts them.
  *
  * @ms: The mountstate for this service that holds all the information we need
+        if (!nfs->nfs3state)
+                return NULL;
+
  *
  */
 void
@@ -3811,6 +3819,9 @@ _mnt3_auth_param_refresh_thread (void *argv)
 
                 /* Sleep before checking the file again */
                 sleep (mstate->nfs->auth_refresh_time_secs);
+
+                if (!mstate->nfs->nfs3state->exports_auth)
+                        continue;
 
                 if (_mnt3_has_file_changed (exp_file_path, &exp_time)) {
                         gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_UPDATING_EXP,
@@ -3990,7 +4001,7 @@ mnt3svc_init (xlator_t *nfsx)
                 goto err;
         }
 
-        if (nfs->exports_auth) {
+        if (nfs->nfs3state->exports_auth) {
                 ret = _mnt3_init_auth_params (mstate);
                 if (ret < 0)
                         goto err;

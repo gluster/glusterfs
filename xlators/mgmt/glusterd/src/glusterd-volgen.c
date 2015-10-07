@@ -4493,6 +4493,19 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
+        if (! strcmp (vme->option, "!nfs.*.exports-auth-enable")) {
+                ret = gf_asprintf (&aa, "nfs.%s.exports-auth-enable",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
         if ((strcmp (vme->voltype, "nfs/server") == 0) &&
              (vme->option && vme->option[0]!='!') ) {
                ret = xlator_set_option (xl, vme->option, vme->value);

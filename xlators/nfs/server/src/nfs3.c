@@ -210,6 +210,25 @@ out:
         return ret;
 }
 
+int
+nfs3_is_exports_auth (struct nfs3_state *nfs3, const char *volname)
+{
+        int                 ret = 0;
+        struct nfs3_export  *exp = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS3, nfs3, out);
+
+        list_for_each_entry (exp, &nfs3->exports, explist) {
+                if (strcmp (exp->subvol->name, volname) == 0) {
+                        ret = exp->exports_auth;
+                        break;
+                }
+        }
+
+out:
+        return ret;
+}
+
 
 #define nfs3_map_fh_to_volume(nfs3state, handle, req, volume, status, label) \
         do {                                                            \
@@ -5624,6 +5643,35 @@ no_dvm:
                 (exp->trusted_sync == 0)?"no trusted_sync":"trusted_sync",
                 (exp->trusted_write == 0)?"no trusted_write":"trusted_write");
         ret = 0;
+
+        ret = snprintf (searchkey, 1024, "nfs.%s.exports-auth-enable", name);
+        if (ret < 0) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (options, searchkey)) {
+                ret = dict_get_str (options, searchkey, &optstr);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto err;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto err;
+                }
+
+                exp->exports_auth = boolt ? TRUE : FALSE;
+                if (boolt) {
+                        struct nfs_state *priv = nfsx->private;
+                        priv->nfs3state->exports_auth = boolt;
+                }
+        }
+
 err:
         return ret;
 }
@@ -5730,6 +5778,7 @@ nfs3_init_state (xlator_t *nfsx)
                 goto ret;
         }
 
+        nfs->nfs3state = nfs3;
         nfs3->nfsx = nfsx;
         nfs3->exportslist = nfsx->children;
         INIT_LIST_HEAD (&nfs3->exports);
@@ -5752,7 +5801,6 @@ nfs3_init_state (xlator_t *nfsx)
                 goto free_localpool;
         }
 
-        nfs->nfs3state = nfs3;
         ret = 0;
 
 free_localpool:
