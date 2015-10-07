@@ -545,6 +545,10 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
                                                          entry->d_name);
 			AFR_STACK_RESET (iter_frame);
+			if (iter_frame->local == NULL) {
+                                ret = -ENOTCONN;
+                                break;
+                        }
 
                         if (ret == -1) {
                                 /* gfid or type mismatch. */
