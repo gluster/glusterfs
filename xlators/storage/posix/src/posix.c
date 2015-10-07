@@ -212,7 +212,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         if (priv->update_pgfid_nlinks) {
-                if (!gf_uuid_is_null (loc->pargfid) && !IA_ISDIR (buf.ia_type)) {
+                if (!gf_uuid_is_null (loc->pargfid)) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
                                               PGFID_XATTR_KEY_PREFIX,
                                               loc->pargfid);
@@ -2543,8 +2543,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         LOCK (&oldloc->inode->lock);
         {
-                if (!IA_ISDIR (oldloc->inode->ia_type)
-                    && priv->update_pgfid_nlinks) {
+                if (priv->update_pgfid_nlinks) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
                                               PGFID_XATTR_KEY_PREFIX,
                                               oldloc->pargfid);
@@ -2610,8 +2609,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                                 P_MSG_SET_XDATA_FAIL, "failed to set "
                                 GET_LINK_COUNT" for %s", real_newpath);
 
-                if (!IA_ISDIR (oldloc->inode->ia_type)
-                    && priv->update_pgfid_nlinks) {
+                if (priv->update_pgfid_nlinks) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
                                               PGFID_XATTR_KEY_PREFIX,
                                               newloc->pargfid);

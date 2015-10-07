@@ -1212,12 +1212,72 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-
         /* count the number of dirty fops witnessed */
         for (i = 0; i < priv->child_count; i++)
                 witness[i] += dirty[i];
 
 	return 0;
+}
+
+/*
+ * This function will examine a reply and look for a PGFID xattr
+ * and if found will record this in the frame's local struct.
+ *
+ * This can then be used to fall-back to healing the parent
+ * directory in cases where metadata/data healing isn't yet
+ * possible because an entry heal of the parent directory has not
+ * yet taken place.
+ *
+ * This is critical for a couple reasons:
+ *      1. General healing predictability - When the SHD
+ *         attempts to heal a given GFID, it should be able
+ *         to do so without having to wait for some other
+ *         dependent heal to take place.
+ *      2. Reliability - In some cases the parent directory
+ *         may require healing, but the req'd entry in the
+ *         indices/xattrop directory may not exist
+ *         (e.g. bugs/crashes etc).  This feature removes
+ *
+ */
+void
+_afr_set_heal_pgfid_from_reply (xlator_t *this, afr_local_t  *local,
+                                struct afr_reply reply)
+{
+        data_pair_t *trav = reply.xdata->members_list;
+        uuid_t *pgfid = NULL;
+        int32_t ret = 0;
+        int32_t pgfid_prefix_len = sizeof (PGFID_XATTR_KEY_PREFIX) - 1;
+        char *pgfid_str = NULL;
+        data_t *ancestry_path_data = NULL;
+        char *ancestry_path = "Unknown";
+
+        pgfid = &local->heal_pgfid;
+
+        while (trav) {
+                if (!strncmp (PGFID_XATTR_KEY_PREFIX, trav->key,
+                    pgfid_prefix_len)) {
+                        pgfid_str = trav->key + pgfid_prefix_len;
+                        ret = gf_uuid_parse (pgfid_str, *pgfid);
+                        break;
+                }
+                trav = trav->next;
+        }
+
+        if (!ret && !gf_uuid_is_null (*pgfid)) {
+                if (!dict_lookup (reply.xdata,
+                                "glusterfs.ancestry.path",
+                                &ancestry_path_data)) {
+                        ancestry_path = data_to_str (
+                            ancestry_path_data);
+                        /* Allocation free'd on local destroy */
+                        local->heal_ancestry_path =
+                                gf_strdup (ancestry_path);
+                }
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Found pgfid (%s) for %s",
+                        uuid_utoa (*pgfid),
+                        ancestry_path);
+        }
 }
 
 void
@@ -1788,6 +1848,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 			       gf_boolean_t *entry_selfheal)
 {
 	afr_private_t *priv = NULL;
+        afr_local_t  *local = NULL;
+
         inode_t *inode = NULL;
 	int i = 0;
 	int valid_cnt = 0;
@@ -1796,6 +1858,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 	int ret = -1;
 
 	priv = this->private;
+        local = frame->local;
 
         inode = afr_inode_find (this, gfid);
         if (!inode)
@@ -1812,6 +1875,10 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 			continue;
 		if (replies[i].op_ret == -1)
 			continue;
+
+                if (gf_uuid_is_null(local->heal_pgfid))
+                        _afr_set_heal_pgfid_from_reply (this,
+                            frame->local, replies[i]);
 
                 /* The data segment of the changelog can be non-zero to indicate
                  * the directory needs a full heal. So the check below ensures
@@ -2073,6 +2140,7 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
 					     &data_selfheal,
 					     &metadata_selfheal,
 					     &entry_selfheal);
+
 	if (ret)
 		goto out;
 
@@ -2119,10 +2187,16 @@ int
 afr_selfheal (xlator_t *this, uuid_t gfid)
 {
         int           ret   = -1;
-	call_frame_t *frame = NULL;
-        afr_local_t *local = NULL;
+        gf_boolean_t  tried_parent = _gf_false;
+ 	call_frame_t *frame = NULL;
+        afr_local_t  *local = NULL;
+        char *ancestry_path = "Unknown";
+        char *pgfid_str = NULL;
+        char *gfid_str = NULL;
+ 
+heal_gfid:
+ 	frame = afr_frame_create (this);
 
-	frame = afr_frame_create (this);
 	if (!frame)
 		return ret;
 
@@ -2130,6 +2204,42 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
         local->xdata_req = dict_new();
 
         ret = afr_selfheal_do (frame, this, gfid);
+
+        if (tried_parent == _gf_false && ret &&
+                        !gf_uuid_is_null (local->heal_pgfid)) {
+                tried_parent = _gf_true;
+                pgfid_str = alloca (strlen (UUID0_STR) + 1);
+                gfid_str = alloca (strlen (UUID0_STR) + 1);
+                uuid_utoa_r (local->heal_pgfid, pgfid_str);
+                uuid_utoa_r (gfid, gfid_str);
+                if (local->heal_ancestry_path)
+                        ancestry_path = local->heal_ancestry_path;
+                gf_log (this->name, GF_LOG_INFO,
+                        "PGFID Healing - Heal failed for %s (%s), "
+                        "but found parent gfid (%s), attempting to heal "
+                        "parent directory by gfid.",
+                        gfid_str,
+                        ancestry_path,
+                        pgfid_str);
+                ret = afr_selfheal (this, local->heal_pgfid);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "PGFID Healing - Healing of parent gfid "
+                                "(%s) unsuccessful!  Healing of %s (%s) "
+                                "failed.",
+                                pgfid_str,
+                                gfid_str,
+                                ancestry_path);
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "PGFID Healing - Healing of parent gfid %s "
+                                "successful!  Re-attempting heal of %s (%s).",
+                                pgfid_str,
+                                gfid_str,
+                                ancestry_path);
+                        goto heal_gfid;
+                }
+        }
 
 	if (frame)
 		AFR_STACK_DESTROY (frame);

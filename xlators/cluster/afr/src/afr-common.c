@@ -1381,6 +1381,12 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
                               "Unable to set list-xattr in dict ");
         }
 
+        ret = dict_set_int32 (xattr_req, GET_ANCESTRY_PATH_KEY, 42);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Unable to set ancestry path key in dict ");
+        }
+
 	return ret;
 }
 
@@ -1750,6 +1756,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->readable);
         GF_FREE (local->readable2);
+
+        GF_FREE (local->heal_ancestry_path);
 
 	if (local->inode)
 		inode_unref (local->inode);

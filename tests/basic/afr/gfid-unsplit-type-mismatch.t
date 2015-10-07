@@ -1,7 +1,7 @@
 #!/bin/bash
 
-. $(dirname $0)/../include.rc
-. $(dirname $0)/../volume.rc
+. $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -13,9 +13,9 @@ TEST $CLI volume info;
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1..3};
 TEST $CLI volume set $V0 cluster.choose-local off
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
-TEST $CLI volume set $V0 nfs.disable off
+TEST $CLI volume set $V0 nfs.disable on
 TEST $CLI volume set $V0 cluster.quorum-type none
-TEST $CLI volume set $V0 cluster.favorite-child-policy majority
+TEST $CLI volume set $V0 cluster.favorite-child-policy mtime
 #EST $CLI volume set $V0 cluster.favorite-child-by-majority on
 #EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
@@ -23,6 +23,8 @@ TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume start $V0
 sleep 5
+
+pkill -f gluster/glustershd
 
 # Part I: FUSE Test
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 \
@@ -69,7 +71,6 @@ sleep 1
 
 # Verify the file is readable
 TEST dd if=splitfile of=/dev/null 2>/dev/null
-
 # Verify entry healing happened on the back-end regardless of the
 # gfid-splitbrain state of the directory.
 TEST stat $B0/${V0}1/splitfile

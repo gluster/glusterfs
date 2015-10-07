@@ -390,13 +390,6 @@ _is_quota_internal_xattr (dict_t *d, char *k, data_t *v, void *data)
         if (fnmatch ("trusted.glusterfs.quota*", k, 0) == 0)
                 return _gf_true;
 
-        /* It would be nice if posix filters pgfid xattrs. But since marker
-         * also takes up responsibility to clean these up, adding the filtering
-         * here (Check 'quota_xattr_cleaner')
-         */
-        if (fnmatch (PGFID_XATTR_KEY_PREFIX"*", k, 0) == 0)
-                return _gf_true;
-
         return _gf_false;
 }
 

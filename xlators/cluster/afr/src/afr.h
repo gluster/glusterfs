@@ -825,6 +825,8 @@ typedef struct _afr_local {
         gf_boolean_t need_full_crawl;
         gf_boolean_t is_read_txn;
         loc_t           *unsplit_locs;   /* Un-split targets */
+        uuid_t          heal_pgfid;  /* pgfid of file being healed */
+        char            *heal_ancestry_path;  /* Full path if avail */
 } afr_local_t;
 
 
