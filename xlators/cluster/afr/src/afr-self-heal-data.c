@@ -364,6 +364,10 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			goto out;
 
 		AFR_STACK_RESET (iter_frame);
+		if (iter_frame->local == NULL) {
+		        ret = -ENOTCONN;
+		        goto out;
+                }
 	}
 
 	afr_selfheal_data_restore_time (frame, this, fd->inode, source,
