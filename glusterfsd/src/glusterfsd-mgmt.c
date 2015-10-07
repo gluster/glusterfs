@@ -2208,6 +2208,9 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
         char             brick_name[PATH_MAX] = {0,};
 
         frame = myframe;
+        ctx = glusterfsd_ctx;
+        cmd_args = &ctx->cmd_args;
+
 
         if (-1 == req->rpc_status) {
                 ret = -1;
@@ -2230,9 +2233,6 @@ mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 ret = -1;
                 goto out;
         }
-
-        ctx = glusterfsd_ctx;
-        cmd_args = &ctx->cmd_args;
 
         if (!cmd_args->brick_port2) {
                 /* We are done with signin process */
