@@ -1,0 +1,7 @@
+# Initial commit, git needs a file to add a directory
+# First tests to appear here, should remove this file
+# Directives:
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore

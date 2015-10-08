@@ -186,6 +186,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
+                xlators/experimental/Makefile
                 cli/Makefile
                 cli/src/Makefile
                 doc/Makefile
@@ -1259,6 +1260,18 @@ AC_SUBST(UNITTEST_LDFLAGS)
 AC_SUBST(CFLAGS)
 # end enable debug section
 
+# experimental section
+AC_ARG_ENABLE([experimental],
+              AC_HELP_STRING([--disable-experimental],
+                             [Disable building experimental xlators]))
+
+BUILD_EXPERIMENTAL="yes"
+if test "x$enable_experimental" == "xno"; then
+  BUILD_EXPERIMENTAL="no"
+fi
+AM_CONDITIONAL([ENABLE_EXPERIMENTAL], [test x$BUILD_EXPERIMENTAL = xyes])
+#end experimental section
+
 dnl libglusterfs.so uses math functions
 GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
@@ -1354,4 +1367,5 @@ echo "Unit Tests           : $BUILD_UNITTEST"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
 echo "firewalld-config     : $BUILD_FIREWALLD"
+echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo
