@@ -4813,6 +4813,8 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
         WIND_IF_QUOTAOFF (priv->is_quota_on, off);
 
+        INIT_LIST_HEAD (&head);
+
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO ("quota", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
