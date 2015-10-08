@@ -1479,6 +1479,74 @@ ioc_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
        return 0;
 }
 
+int32_t
+ioc_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret,	int32_t op_errno,
+                struct statvfs *buf, dict_t *xdata)
+{
+        ioc_table_t        *table  = NULL;
+        struct ioc_statvfs *cache = NULL;
+
+        if (op_ret != 0)
+                goto out;
+
+        table = this->private;
+        cache = &table->statfs_cache;
+
+        LOCK (&cache->lock);
+
+        gettimeofday (&cache->tv, NULL);
+        cache->buf = *buf;
+
+        UNLOCK (&cache->lock);
+
+out:
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf, xdata);
+        return 0;
+}
+
+int
+ioc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        ioc_table_t        *table  = NULL;
+        struct ioc_statvfs *cache = NULL;
+        struct statvfs     buf;
+        struct timeval     tv      = {0,};
+
+        table = this->private;
+        cache = &table->statfs_cache;
+
+        if (!cache->enabled)
+                goto disabled;
+
+        gettimeofday (&tv, NULL);
+
+        LOCK (&cache->lock);
+
+        if (time_elapsed (&tv, &cache->tv) >= cache->timeout) {
+                UNLOCK (&cache->lock);
+                goto uncached;
+        }
+
+        buf = cache->buf;
+
+        UNLOCK (&cache->lock);
+
+        STACK_UNWIND_STRICT (statfs, frame, 0, 0, &buf, xdata);
+
+        return 0;
+
+disabled:
+        STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
+                         FIRST_CHILD (frame->this)->fops->statfs, loc, xdata);
+        return 0;
+
+uncached:
+        STACK_WIND (frame, ioc_statfs_cbk,
+                    FIRST_CHILD (frame->this),
+                    FIRST_CHILD (frame->this)->fops->statfs, loc, xdata);
+        return 0;
+}
 
 int32_t
 ioc_get_priority_list (const char *opt_str, struct list_head *first)
@@ -1696,6 +1764,13 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
                 table->cache_size = cache_size_new;
 
+                GF_OPTION_RECONF ("statfs-cache", table->statfs_cache.enabled,
+                                  options, bool, unlock);
+
+                GF_OPTION_RECONF ("statfs-cache-timeout",
+                                  table->statfs_cache.timeout,
+                                  options, int32, unlock);
+
                 ret = 0;
         }
 unlock:
@@ -1754,6 +1829,10 @@ init (xlator_t *this)
         GF_OPTION_INIT ("min-file-size", table->min_file_size, size_uint64, out);
 
         GF_OPTION_INIT ("max-file-size", table->max_file_size, size_uint64, out);
+
+        GF_OPTION_INIT ("statfs-cache", table->statfs_cache.enabled, bool, out);
+
+        GF_OPTION_INIT ("statfs-cache-timeout", table->statfs_cache.timeout, int32, out);
 
         if  (!check_cache_size_ok (this, table->cache_size)) {
                 ret = -1;
@@ -1826,6 +1905,11 @@ init (xlator_t *this)
 
         ctx = this->ctx;
         ioc_log2_page_size = log_base2 (ctx->page_size);
+
+        LOCK_INIT (&table->statfs_cache.lock);
+        /* Invalidate statfs cache */
+        table->statfs_cache.tv.tv_sec  = 0;
+        table->statfs_cache.tv.tv_usec = 0;
 
 out:
         if (ret == -1) {
@@ -2096,6 +2180,7 @@ fini (xlator_t *this)
                 GF_ASSERT (list_empty (&table->inode_lru[i]));
         }
 
+        LOCK_DESTROY (&table->statfs_cache.lock);
         GF_ASSERT (list_empty (&table->inodes));
         */
         pthread_mutex_destroy (&table->table_lock);
@@ -2120,6 +2205,7 @@ struct xlator_fops fops = {
         .readdirp    = ioc_readdirp,
 	.discard     = ioc_discard,
         .zerofill    = ioc_zerofill,
+        .statfs      = ioc_statfs,
 };
 
 
@@ -2170,6 +2256,22 @@ struct volume_options options[] = {
           .default_value = "0",
           .description = "Maximum file size which would be cached by the "
           "io-cache translator."
+        },
+        { .key  = {"statfs-cache"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "0",
+          .description = "The cached statfs for a filesystem will be "
+          "till 'statfs-cache-timeout' seconds, after which re-validation "
+          "is performed."
+        },
+        { .key  = {"statfs-cache-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = 60,
+          .default_value = "1",
+          .description = "The cached statfs for a filesystem will be "
+          "till 'statfs-cache-timeout' seconds, after which re-validation "
+          "is performed."
         },
         { .key = {NULL} },
 };

@@ -148,23 +148,32 @@ struct ioc_inode {
         inode_t               *inode;
 };
 
+struct ioc_statvfs {
+        struct statvfs buf;
+        int32_t        timeout;
+        struct timeval tv;
+        gf_boolean_t   enabled;
+        gf_lock_t      lock;
+};
+
 struct ioc_table {
-        uint64_t         page_size;
-        uint64_t         cache_size;
-        uint64_t         cache_used;
-        uint64_t         min_file_size;
-        uint64_t         max_file_size;
-        struct list_head inodes; /* list of inodes cached */
-        struct list_head active;
-        struct list_head *inode_lru;
-        struct list_head priority_list;
-        int32_t          readv_count;
-        pthread_mutex_t  table_lock;
-        xlator_t         *xl;
-        uint32_t         inode_count;
-        int32_t          cache_timeout;
-        int32_t          max_pri;
-        struct mem_pool  *mem_pool;
+        uint64_t           page_size;
+        uint64_t           cache_size;
+        uint64_t           cache_used;
+        uint64_t           min_file_size;
+        uint64_t           max_file_size;
+        struct list_head   inodes; /* list of inodes cached */
+        struct list_head   active;
+        struct list_head   *inode_lru;
+        struct list_head   priority_list;
+        int32_t            readv_count;
+        pthread_mutex_t    table_lock;
+        xlator_t           *xl;
+        uint32_t           inode_count;
+        int32_t            cache_timeout;
+        int32_t            max_pri;
+        struct mem_pool    *mem_pool;
+        struct ioc_statvfs statfs_cache;
 };
 
 typedef struct ioc_table ioc_table_t;

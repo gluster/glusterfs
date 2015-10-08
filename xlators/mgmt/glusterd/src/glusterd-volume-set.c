@@ -1468,6 +1468,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.statfs-cache",
+          .voltype    = "performance/io-cache",
+          .option     = "statfs-cache",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.statfs-cache-timeout",
+          .voltype    = "performance/io-cache",
+          .option     = "statfs-cache-timeout",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
         /* IO-threads xlator options */
         { .key         = "performance.io-thread-count",
