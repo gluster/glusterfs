@@ -842,6 +842,15 @@ class GMasterChangelogMixin(GMasterCommon):
                     entries.append(edct(ty, gfid=gfid, entry=en,
                                         mode=int(ec[2]),
                                         uid=int(ec[3]), gid=int(ec[4])))
+
+                    # Special case: add DATA in case of tier linkto file,
+                    # Here, we have the assumption that only tier-gfid.linkto
+                    # causes this mknod
+                    if ty in ['MKNOD']:
+                        mode = int(ec[2])
+                        if mode & 01000:
+                            datas.add(os.path.join(pfx, ec[0]))
+
                 elif ty == "RENAME":
                     go = os.path.join(pfx, gfid)
                     st = lstat(go)
