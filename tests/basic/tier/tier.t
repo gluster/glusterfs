@@ -157,8 +157,12 @@ TEST touch delete_me.txt
 TEST rm -f delete_me.txt
 
 # stop the volume and restart it. The rebalance daemon should restart.
+cd /tmp
+umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
+cd $M0
 
 sleep_first_cycle
 $CLI volume tier $V0 status
