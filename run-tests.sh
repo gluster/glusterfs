@@ -232,7 +232,8 @@ function run_all ()
         if [ $retval -ne 0 ]; then
 	    if is_bad_test $t; then
 		echo  "Ignoring failure from known-bad test $t"
-	    else
+	        retval=0
+            else
                 echo
                 echo "Running failed test $t in debug mode"
                 echo "Just for debug data, does not change test result"
