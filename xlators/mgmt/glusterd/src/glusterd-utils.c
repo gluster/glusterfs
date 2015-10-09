@@ -3878,9 +3878,14 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
+                /* Ref count the old_volinfo such that deleting it doesn't crash
+                 * if its been already in use by other thread
+                 */
+                glusterd_volinfo_ref (old_volinfo);
                 (void) gd_check_and_update_rebalance_info (old_volinfo,
                                                            new_volinfo);
                 (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
+                glusterd_volinfo_unref (old_volinfo);
         }
 
         if (glusterd_is_volume_started (new_volinfo)) {

@@ -1450,6 +1450,14 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         volname);
                 goto out;
         }
+        /* This is an incremental approach to have all the volinfo objects ref
+         * count. The first attempt is made in volume start transaction to
+         * ensure it doesn't race with import volume where stale volume is
+         * deleted. There are multiple instances of GlusterD crashing in
+         * bug-948686.t because of this. Once this approach is full proof, all
+         * other volinfo objects will be refcounted.
+         */
+        glusterd_volinfo_ref (volinfo);
 
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
@@ -1580,6 +1588,9 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
         volinfo->caps = caps;
         ret = 0;
 out:
+        if (volinfo)
+                glusterd_volinfo_unref (volinfo);
+
         if (ret && (msg[0] != '\0')) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_OP_STAGE_START_VOL_FAIL, "%s", msg);
@@ -2463,6 +2474,14 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                         volname);
                 goto out;
         }
+        /* This is an incremental approach to have all the volinfo objects ref
+         * count. The first attempt is made in volume start transaction to
+         * ensure it doesn't race with import volume where stale volume is
+         * deleted. There are multiple instances of GlusterD crashing in
+         * bug-948686.t because of this. Once this approach is full proof, all
+         * other volinfo objects will be refcounted.
+         */
+        glusterd_volinfo_ref (volinfo);
 
         /* A bricks mount dir is required only by snapshots which were
          * introduced in gluster-3.6.0
@@ -2537,6 +2556,9 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         ret = glusterd_svcs_manager (volinfo);
 
 out:
+        if (!volinfo)
+                glusterd_volinfo_unref (volinfo);
+
         gf_msg_trace (this->name, 0, "returning %d ", ret);
         return ret;
 }
