@@ -1461,6 +1461,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "thread-count",
           .op_version  = 1
         },
+        { .key         = "performance.io-thread-fops-per-thread-ratio",
+          .voltype     = "performance/io-threads",
+          .option      = "fops-per-thread-ratio",
+          .op_version  = 1
+        },
         { .key         = "performance.high-prio-threads",
           .voltype     = "performance/io-threads",
           .op_version  = 1

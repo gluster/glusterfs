@@ -34,7 +34,9 @@ struct iot_conf;
 
 #define IOT_MIN_THREADS         1
 #define IOT_DEFAULT_THREADS     16
-#define IOT_MAX_THREADS         64
+#define IOT_MAX_THREADS         256
+#define IOT_MIN_FOP_PER_THREAD  0
+#define IOT_MAX_FOP_PER_THREAD  2000
 
 
 #define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
@@ -62,6 +64,7 @@ struct iot_conf {
         pthread_cond_t       cond;
 
         int32_t              max_count;   /* configured maximum */
+        int32_t              fops_per_thread_ratio;
         int32_t              curr_count;  /* actual number of threads running */
         int32_t              sleep_count;
 

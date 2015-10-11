@@ -202,7 +202,7 @@ iot_worker (void *data)
 						       &conf->mutex, &sleep);
 				pthread_mutex_unlock(&conf->mutex);
 				continue;
-			}
+                        }
                 }
                 pthread_mutex_unlock (&conf->mutex);
 
@@ -228,14 +228,25 @@ int
 do_iot_schedule (iot_conf_t *conf, call_stub_t *stub, int pri)
 {
         int   ret = 0;
+        int   active_count = 0;
 
         pthread_mutex_lock (&conf->mutex);
         {
                 __iot_enqueue (conf, stub, pri);
 
-                pthread_cond_signal (&conf->cond);
+                /* If we have an ample supply of threads alive already
+                 * it's massively more efficient to keep the ones you have
+                 * busy vs making new ones and signaling everyone
+                 */
+                active_count = conf->curr_count - conf->sleep_count;
+                if (conf->fops_per_thread_ratio == 0 || active_count == 0 ||
+                    (conf->queue_size/active_count >
+                     conf->fops_per_thread_ratio &&
+                     active_count < conf->max_count)) {
+                        pthread_cond_signal (&conf->cond);
 
-                ret = __iot_workers_scale (conf);
+                        ret = __iot_workers_scale (conf);
+                }
         }
         pthread_mutex_unlock (&conf->mutex);
 
@@ -900,6 +911,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("thread-count", conf->max_count, options, int32, out);
 
+        GF_OPTION_RECONF ("fops-per-thread-ratio", conf->fops_per_thread_ratio,
+                          options, int32, out);
+
         GF_OPTION_RECONF ("high-prio-threads",
                           conf->ac_iot_limit[IOT_PRI_HI], options, int32, out);
 
@@ -971,6 +985,9 @@ init (xlator_t *this)
         set_stack_size (conf);
 
         GF_OPTION_INIT ("thread-count", conf->max_count, int32, out);
+
+        GF_OPTION_INIT ("fops-per-thread-ratio", conf->fops_per_thread_ratio,
+                        int32, out);
 
         GF_OPTION_INIT ("high-prio-threads",
                         conf->ac_iot_limit[IOT_PRI_HI], int32, out);
@@ -1096,6 +1113,20 @@ struct volume_options options[] = {
                          "perform concurrent IO operations"
 
 	},
+        { .key  = {"fops-per-thread-ratio"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = IOT_MIN_FOP_PER_THREAD,
+          .max  = IOT_MAX_FOP_PER_THREAD,
+          .default_value = "20",
+          .description = "The optimal ratio of threads to FOPs in the queue "
+                         "we wish to achieve before creating a new thread. "
+                         "The idea here is it's far cheaper to keep our "
+                         "currently running threads busy than spin up "
+                         "new threads or cause a stampeding herd of threads "
+                         "to service a singlular FOP when you have a thread "
+                         "which will momentarily become available to do the "
+                         "work."
+        },
 	{ .key  = {"high-prio-threads"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = IOT_MIN_THREADS,
