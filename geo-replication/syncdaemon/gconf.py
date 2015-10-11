@@ -27,5 +27,6 @@ class GConf(object):
        to PASSIVE as well mainly for debugging"""
     active_earlier = False
     passive_earlier = False
+    mgmt_lock_fd = None
 
 gconf = GConf()
