@@ -468,10 +468,25 @@ class GMasterCommon(object):
                 raise
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Close the previously acquired lock so that
+            # fd will not leak. Reset fd to None
+            if gconf.mgmt_lock_fd:
+                os.close(gconf.mgmt_lock_fd)
+                gconf.mgmt_lock_fd = None
+
+            # Save latest FD for future use
+            gconf.mgmt_lock_fd = fd
         except:
             ex = sys.exc_info()[1]
             if fd:
                 os.close(fd)
+
+            # When previously Active becomes Passive, Close the
+            # fd of previously acquired lock
+            if gconf.mgmt_lock_fd:
+                os.close(gconf.mgmt_lock_fd)
+                gconf.mgmt_lock_fd = None
+
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
                 # cannot grab, it's taken
                 if not gconf.passive_earlier:
