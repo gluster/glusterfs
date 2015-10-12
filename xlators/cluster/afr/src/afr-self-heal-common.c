@@ -54,6 +54,27 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return 0;
 }
 
+int
+afr_check_stale_error (struct afr_reply *replies, afr_private_t *priv)
+{
+        int i = 0;
+        int op_errno = 0;
+        int tmp_errno = 0;
+        int stale_count = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                tmp_errno = replies[i].op_errno;
+                if (tmp_errno == ENOENT || tmp_errno == ESTALE) {
+                        op_errno = afr_higher_errno (op_errno, tmp_errno);
+                        stale_count++;
+                }
+        }
+        if (stale_count != priv->child_count)
+                return -ENOTCONN;
+        else
+                return -op_errno;
+}
+
 
 dict_t *
 afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
@@ -1196,7 +1217,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
         } else if (valid_cnt < 2) {
-                ret = -ENOTCONN;
+                ret = afr_check_stale_error (replies, priv);
                 goto out;
         }
 
