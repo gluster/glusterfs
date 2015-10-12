@@ -643,7 +643,7 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
 gf_boolean_t
 glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo);
 
-inline gf_boolean_t
+gf_boolean_t
 glusterd_is_shd_compatible_type (int type);
 
 gf_boolean_t
