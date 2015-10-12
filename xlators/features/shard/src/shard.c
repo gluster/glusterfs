@@ -14,6 +14,7 @@
 #include "shard-mem-types.h"
 #include "byte-order.h"
 #include "defaults.h"
+#include "statedump.h"
 
 static gf_boolean_t
 __is_shard_dir (uuid_t gfid)
@@ -4450,7 +4451,20 @@ shard_release (xlator_t *this, fd_t *fd)
 int
 shard_priv_dump (xlator_t *this)
 {
-        /* TBD */
+        shard_priv_t *priv                             = NULL;
+        char          key_prefix[GF_DUMP_MAX_BUF_LEN]  = {0,};
+
+        priv = this->private;
+
+        snprintf (key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type,
+                  this->name);
+        gf_proc_dump_add_section (key_prefix);
+        gf_proc_dump_write ("shard-block-size", "%s",
+                            gf_uint64_2human_readable (priv->block_size));
+        gf_proc_dump_write ("inode-count", "%d", priv->inode_count);
+        gf_proc_dump_write ("ilist_head", "%p", &priv->ilist_head);
+        gf_proc_dump_write ("lru-max-limit", "%d", SHARD_MAX_INODES);
+
         return 0;
 }
 
