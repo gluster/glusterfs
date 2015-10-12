@@ -2962,6 +2962,7 @@ out:
         GF_FREE (hl_str);
         GF_FREE (used_str);
         GF_FREE (avail_str);
+        GF_FREE (sl_val);
 
         return ret;
 }
