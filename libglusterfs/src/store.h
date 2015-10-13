@@ -59,7 +59,7 @@ int32_t
 gf_store_unlink_tmppath (gf_store_handle_t *shandle);
 
 int
-gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
+gf_store_read_and_tokenize (FILE *file, char *str, int size, char **iter_key,
                             char **iter_val, gf_store_op_errno_t *store_errno);
 
 int32_t

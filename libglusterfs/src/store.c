@@ -176,7 +176,7 @@ out:
 }
 
 int
-gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
+gf_store_read_and_tokenize (FILE *file, char *str, int size, char **iter_key,
                             char **iter_val, gf_store_op_errno_t *store_errno)
 {
         int32_t     ret         =   -1;
@@ -192,7 +192,7 @@ gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
         GF_ASSERT (iter_val);
         GF_ASSERT (store_errno);
 
-        temp = fgets (str, PATH_MAX, file);
+        temp = fgets (str, size, file);
         if (temp == NULL || feof (file)) {
                 ret = -1;
                 *store_errno = GD_STORE_EOF;
@@ -287,6 +287,7 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
 
         do {
                 ret = gf_store_read_and_tokenize (handle->read, scan_str,
+                                                  st.st_size + 1,
                                                   &iter_key, &iter_val,
                                                   &store_errno);
                 if (ret < 0) {
@@ -569,6 +570,7 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
         }
 
         ret = gf_store_read_and_tokenize (iter->file, scan_str,
+                                          st.st_size + 1,
                                           &iter_key, &iter_val,
                                           &store_errno);
         if (ret < 0) {
