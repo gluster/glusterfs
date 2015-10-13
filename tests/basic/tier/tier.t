@@ -26,7 +26,7 @@ function file_on_slow_tier {
     found=0
 
     for i in `seq 0 $LAST_BRICK`; do
-        test -e $B0/${V0}${i}/$1 && found=1 && break;
+        test -e "$B0/${V0}${i}/$1" && found=1 && break;
     done
 
     if [ "$found" == "1" ]
@@ -56,7 +56,7 @@ function file_on_fast_tier {
     found=0
 
     for j in `seq $CACHE_BRICK_FIRST $CACHE_BRICK_LAST`; do
-        test -e $B0/${V0}${j}/$1 && found=1 && break;
+        test -e "$B0/${V0}${j}/$1" && found=1 && break;
     done
 
 
@@ -162,9 +162,12 @@ uuidgen > /tmp/d1/data2.txt
 md5data2=$(fingerprint /tmp/d1/data2.txt)
 cp /tmp/d1/data2.txt ./d1/data2.txt
 
-uuidgen > /tmp/d1/data3.txt
-md5data3=$(fingerprint /tmp/d1/data3.txt)
-mv /tmp/d1/data3.txt ./d1/data3.txt
+#File with spaces and special characters.
+SPACE_FILE="file with spaces & $peci@l ch@r@cter$ @!@$%^$#@^^*&%$#$%.txt"
+
+uuidgen > "/tmp/d1/$SPACE_FILE"
+md5space=$(fingerprint "/tmp/d1/$SPACE_FILE")
+mv "/tmp/d1/$SPACE_FILE" "./d1/$SPACE_FILE"
 
 # Check auto-demotion on write new.
 sleep $DEMOTE_TIMEOUT
@@ -177,7 +180,7 @@ echo $UUID >> ./d1/data2.txt
 
 # Check promotion on read to slow tier
 drop_cache $M0
-cat d1/data3.txt
+cat "./d1/$SPACE_FILE"
 
 sleep $PROMOTE_TIMEOUT
 sleep $DEMOTE_FREQ
@@ -189,7 +192,7 @@ TEST glusterd
 
 EXPECT "0" file_on_slow_tier d1/data.txt $md5data
 EXPECT "0" file_on_slow_tier d1/data2.txt $md5data2
-EXPECT "0" file_on_slow_tier d1/data3.txt $md5data3
+EXPECT "0" file_on_slow_tier "./d1/$SPACE_FILE" $md5space
 
 TEST $CLI volume tier $V0 detach start
 

@@ -796,5 +796,16 @@ void get_gfdb_methods (gfdb_methods_t *methods)
         methods->get_db_version = get_db_version;
         methods->get_db_setting = get_db_setting;
         methods->get_db_path_key = get_db_path_key;
+
+        /* Query Record related functions */
+        methods->gfdb_query_record_new = gfdb_query_record_new;
+        methods->gfdb_query_record_free = gfdb_query_record_free;
+        methods->gfdb_add_link_to_query_record = gfdb_add_link_to_query_record;
+        methods->gfdb_write_query_record = gfdb_write_query_record;
+        methods->gfdb_read_query_record = gfdb_read_query_record;
+
+        /* Link info related functions */
+        methods->gfdb_link_info_new = gfdb_link_info_new;
+        methods->gfdb_link_info_free = gfdb_link_info_free;
 }
 

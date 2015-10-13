@@ -18,14 +18,14 @@ endif
 
 CONTRIB_BUILDDIR = $(top_builddir)/contrib
 
-libgfdb_la_SOURCES = gfdb_data_store.c gfdb_sqlite3_helper.c\
+libgfdb_la_SOURCES = gfdb_data_store.c gfdb_data_store_helper.c gfdb_sqlite3_helper.c\
    gfdb_sqlite3.c
 
 noinst_HEADERS =  gfdb_data_store.h gfdb_data_store_types.h gfdb_sqlite3_helper.h\
-   gfdb_sqlite3.h gfdb_mem-types.h
+   gfdb_sqlite3.h gfdb_mem-types.h gfdb_data_store_helper.h
 
-libgfdb_HEADERS = gfdb_data_store.h gfdb_data_store_types.h \
-                gfdb_sqlite3.h gfdb_mem-types.h gfdb_sqlite3_helper.c
+libgfdb_HEADERS = gfdb_data_store.h gfdb_data_store_types.h gfdb_data_store_helper.h\
+                gfdb_sqlite3.h gfdb_mem-types.h gfdb_sqlite3_helper.h
 
 CLEANFILES =
 

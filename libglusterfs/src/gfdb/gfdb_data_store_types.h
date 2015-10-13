@@ -10,16 +10,7 @@
 #ifndef __GFDB_DATA_STORE_TYPE_H
 #define __GFDB_DATA_STORE_TYPE_H
 
-
-#include <time.h>
-#include <sys/time.h>
-#include <string.h>
-
-#include "common-utils.h"
-#include "compat-uuid.h"
-#include "gfdb_mem-types.h"
-#include "dict.h"
-#include "libglusterfs-messages.h"
+#include "gfdb_data_store_helper.h"
 
 /*
  * Helps in dynamically choosing log level
@@ -149,7 +140,6 @@ typedef enum gfdb_db_type {
 } gfdb_db_type_t;
 
 /*String related to the db types*/
-#define GFDB_DATA_STORE               "gfdbdatastore"
 #define GFDB_STR_HASH_FILE_STORE      "hashfile"
 #define GFDB_STR_ROCKS_DB             "rocksdb"
 #define GFDB_STR_SQLITE3              "sqlite3"
@@ -312,168 +302,6 @@ typedef struct gfdb_db_record {
          * */
         gf_boolean_t                    ignore_errors;
 } gfdb_db_record_t;
-
-
-
-/*******************************************************************************
- *
- *                     Query related data structure and functions
- *
- * ****************************************************************************/
-
-
-
-/*Structure used for querying purpose*/
-typedef struct gfdb_query_record {
-        /*Inode info*/
-        uuid_t                          gfid;
-        /*All the hard link of the inode
-         * All the hard links will be queried as
-         * "GF_PID,FNAME,FPATH,W_DEL_FLAG,LINK_UPDATE"
-         * and multiple hardlinks will be seperated by "::"*/
-        /*Do only shallow copy. The gf_query_callback_t */
-        /* function should do the deep copy.*/
-        char                            *_link_info_str;
-        ssize_t                         link_info_size;
-} gfdb_query_record_t;
-
-/*Function to create the query_record*/
-static inline gfdb_query_record_t *
-gfdb_query_record_init()
-{
-        int ret = -1;
-        gfdb_query_record_t *gfdb_query_record = NULL;
-
-        gfdb_query_record = GF_CALLOC (1, sizeof(gfdb_query_record_t),
-                                        gf_mt_gfdb_query_record_t);
-        if (!gfdb_query_record) {
-                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ENOMEM,
-                        LG_MSG_NO_MEMORY, "Error allocating memory to "
-                        "gfdb_query_record ");
-                goto out;
-        }
-        ret = 0;
-out:
-        if (ret == -1) {
-                GF_FREE (gfdb_query_record);
-        }
-        return gfdb_query_record;
-}
-
-/*Function to destroy query record*/
-static inline void
-gfdb_query_record_fini(gfdb_query_record_t
-                                                **gfdb_query_record) {
-        GF_FREE (*gfdb_query_record);
-}
-
-
-
-
-
-
-
-
-/*Structure to hold the link information*/
-typedef struct gfdb_link_info {
-        uuid_t                          pargfid;
-        char                            file_name[PATH_MAX];
-        char                            file_path[PATH_MAX];
-        gf_boolean_t                    is_link_updated;
-        gf_boolean_t                    is_del_flag_set;
-} gfdb_link_info_t;
-
-/*Create a single link info structure*/
-static inline gfdb_link_info_t *
-gfdb_link_info_init ()
-{
-        gfdb_link_info_t *gfdb_link_info = NULL;
-
-        gfdb_link_info = GF_CALLOC (1, sizeof(gfdb_link_info_t),
-                                        gf_mt_gfdb_link_info_t);
-        if (!gfdb_link_info) {
-                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ENOMEM,
-                        LG_MSG_NO_MEMORY, "Error allocating memory to "
-                        "gfdb_link_info ");
-        }
-
-        return gfdb_link_info;
-}
-
-/*Destroy a link info structure*/
-static inline void
-gfdb_link_info_fini(gfdb_link_info_t **gfdb_link_info)
-{
-        if (gfdb_link_info)
-                GF_FREE (*gfdb_link_info);
-}
-
-
-/*Length of each hard link string */
-#define DEFAULT_LINK_INFO_STR_LEN       1024
-
-/* Parse a single link string into link_info structure
- * Input format of str_link
- *      "GF_PID,FNAME,FPATH,W_DEL_FLAG,LINK_UPDATE"
- *
- * */
-static inline int
-str_to_link_info (char *str_link,
-                             gfdb_link_info_t *link_info)
-{
-        int     ret = -1;
-        const char *delimiter = ",";
-        char *token_str = NULL;
-        char *saveptr = NULL;
-        char gfid[200] = "";
-
-        GF_ASSERT (str_link);
-        GF_ASSERT (link_info);
-
-        /*Parent GFID*/
-        token_str = strtok_r(str_link, delimiter, &saveptr);
-        if (token_str != NULL) {
-                strcpy (gfid, token_str);
-                ret = gf_uuid_parse (gfid, link_info->pargfid);
-                if (ret == -1)
-                        goto out;
-        }
-
-        /*Filename*/
-        token_str = strtok_r(NULL, delimiter, &saveptr);
-        if (token_str != NULL) {
-                strcpy (link_info->file_name, token_str);
-        }
-
-        /*Filepath*/
-        token_str = strtok_r(NULL, delimiter, &saveptr);
-        if (token_str != NULL) {
-                strcpy (link_info->file_path, token_str);
-        }
-
-        /*is_link_updated*/
-        token_str = strtok_r(NULL, delimiter, &saveptr);
-        if (token_str != NULL) {
-                link_info->is_link_updated = atoi(token_str);
-                if (link_info->is_link_updated != 0 &&
-                                link_info->is_link_updated != 1) {
-                        goto out;
-                }
-        }
-
-        /*is_del_flag_set*/
-        token_str = strtok_r(NULL, delimiter, &saveptr);
-        if (token_str != NULL) {
-                link_info->is_del_flag_set = atoi (token_str);
-                if (link_info->is_del_flag_set != 0 &&
-                                link_info->is_del_flag_set != 1) {
-                        goto out;
-                }
-        }
-        ret = 0;
-out:
-        return ret;
-}
 
 
 /*******************************************************************************

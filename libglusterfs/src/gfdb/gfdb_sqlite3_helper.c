@@ -1103,68 +1103,173 @@ gf_sql_query_function (sqlite3_stmt              *prep_stmt,
                       gf_query_callback_t       query_callback,
                       void                      *_query_cbk_args)
 {
-        int ret = -1;
-        gfdb_query_record_t *gfdb_query_record = NULL;
-        char *text_column = NULL;
-        sqlite3 *db_conn = NULL;
+        int ret                                         = -1;
+        gfdb_query_record_t *query_record               = NULL;
+        char *text_column                               = NULL;
+        sqlite3 *db_conn                                = NULL;
+        uuid_t  prev_gfid                               = {0};
+        uuid_t  curr_gfid                               = {0};
+        uuid_t  pgfid                                   = {0};
+        char *base_name                                 = NULL;
+        gf_boolean_t is_first_record                    = _gf_true;
+        gf_boolean_t is_query_empty                     = _gf_true;
 
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, prep_stmt, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, query_callback, out);
 
         db_conn = sqlite3_db_handle(prep_stmt);
 
-        gfdb_query_record = gfdb_query_record_init ();
-        if (!gfdb_query_record) {
-                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                                LG_MSG_CREATE_FAILED, "Failed to create "
-                                "gfdb_query_record");
-                                goto out;
-        }
-
-        /*Loop to access queried rows*/
+        /*
+         * Loop to access queried rows
+         * Each db record will have 3 columns
+         * GFID, PGFID, FILE_NAME
+         *
+         * For file with multiple hard links we will get multiple query rows
+         * with the same GFID, but different PGID and FILE_NAME Combination
+         * For Example if a file with
+         *         GFID = 00000000-0000-0000-0000-000000000006
+         * has 3 hardlinks file1, file2 and file3 in 3 different folder
+         * with GFID's
+         * 00000000-0000-0000-0000-0000EFC00001,
+         * 00000000-0000-0000-0000-00000ABC0001 and
+         * 00000000-0000-0000-0000-00000ABC00CD
+         * Then there will be 3 records
+         *         GFID         : 00000000-0000-0000-0000-000000000006
+         *         PGFID        : 00000000-0000-0000-0000-0000EFC00001
+         *         FILE_NAME    : file1
+         *
+         *         GFID         : 00000000-0000-0000-0000-000000000006
+         *         PGFID        : 00000000-0000-0000-0000-00000ABC0001
+         *         FILE_NAME    : file2
+         *
+         *         GFID         : 00000000-0000-0000-0000-000000000006
+         *         PGFID        : 00000000-0000-0000-0000-00000ABC00CD
+         *         FILE_NAME    : file3
+         *
+         * This is retrieved and added to a single query_record
+         *
+         * query_record->gfid = 00000000-0000-0000-0000-000000000006
+         *                  ->link_info = {00000000-0000-0000-0000-0000EFC00001,
+         *                                 "file1"}
+         *                                  |
+         *                                  V
+         *             link_info = {00000000-0000-0000-0000-00000ABC0001,
+         *                                 "file2"}
+         *                                  |
+         *                                  V
+         *             link_info = {00000000-0000-0000-0000-00000ABC0001,
+         *                                 "file3",
+         *                                 list}
+         *
+         * This query record is sent to the registered query_callback()
+         *
+         * */
         while ((ret = sqlite3_step (prep_stmt)) == SQLITE_ROW) {
-
-                /*Clear the query record*/
-                memset (gfdb_query_record, 0, sizeof(*gfdb_query_record));
 
                 if (sqlite3_column_count(prep_stmt) > 0) {
 
-                        /*Retriving GFID - column index is 0*/
+                        is_query_empty = _gf_false;
+
+                        /*Retrieving GFID - column index is 0*/
                         text_column = (char *)sqlite3_column_text
                                                         (prep_stmt, 0);
                         if (!text_column) {
                                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                                        LG_MSG_GET_ID_FAILED, "Failed "
-                                        "retriving GF_ID");
+                                        LG_MSG_GET_ID_FAILED, "Failed to"
+                                        "retrieve GFID");
                                 goto out;
                         }
-                        ret = gf_uuid_parse (text_column, gfdb_query_record->gfid);
+                        ret = gf_uuid_parse (text_column, curr_gfid);
                         if (ret) {
                                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                                        LG_MSG_PARSE_FAILED, "Failed parsing "
+                                        LG_MSG_PARSE_FAILED, "Failed to parse "
+                                        "GFID");
+                                goto out;
+                        }
+
+                        /*
+                         * if the previous record was not of the current gfid
+                         * call the call_back function and send the
+                         * query record, which will have all the link_info
+                         * objects associated with this gfid
+                         *
+                         * */
+                        if (gf_uuid_compare (curr_gfid, prev_gfid) != 0) {
+
+                                /* If this is not the first record */
+                                if (!is_first_record) {
+                                        /*Call the call_back function provided*/
+                                        ret = query_callback (query_record,
+                                                        _query_cbk_args);
+                                        if (ret) {
+                                                gf_msg (GFDB_STR_SQLITE3,
+                                                        GF_LOG_ERROR, 0,
+                                                LG_MSG_QUERY_CALL_BACK_FAILED,
+                                                        "Query call back "
+                                                        "failed");
+                                                goto out;
+                                        }
+
+                                }
+
+                                /*Clear the query record*/
+                                gfdb_query_record_free (query_record);
+                                query_record = NULL;
+                                query_record = gfdb_query_record_new ();
+                                if (!query_record) {
+                                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                                                0, LG_MSG_CREATE_FAILED,
+                                                "Failed to create "
+                                                "query_record");
+                                        goto out;
+                                }
+
+                                gf_uuid_copy(query_record->gfid,
+                                                                curr_gfid);
+                                gf_uuid_copy(prev_gfid, curr_gfid);
+
+                        }
+
+                        /* Get PGFID */
+                        text_column = (char *)sqlite3_column_text
+                                                        (prep_stmt, 1);
+                        if (!text_column) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_GET_ID_FAILED, "Failed to"
+                                        " retrieve GF_ID");
+                                goto out;
+                        }
+                        ret = gf_uuid_parse (text_column, pgfid);
+                        if (ret) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_PARSE_FAILED, "Failed to parse "
                                         "GF_ID");
                                 goto out;
                         }
 
-                        /*Retrive Link Buffer - column index 1*/
+                        /* Get Base name */
                         text_column = (char *)sqlite3_column_text
-                                                (prep_stmt, 1);
-                        /* Get link string. Do shallow copy here
-                         * query_callback function should do a
-                         * deep copy and then do operations on this field*/
-                        gfdb_query_record->_link_info_str = text_column;
-                        gfdb_query_record->link_info_size = strlen
-                                                                (text_column);
-
-                        /* Call the call back function provided*/
-                        ret = query_callback (gfdb_query_record,
-                                                        _query_cbk_args);
-                        if (ret) {
+                                                        (prep_stmt, 2);
+                        if (!text_column) {
                                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                                        LG_MSG_QUERY_CALL_BACK_FAILED,
-                                        "Query Call back failed!");
+                                        LG_MSG_GET_ID_FAILED, "Failed to"
+                                        " retrieve GF_ID");
                                 goto out;
                         }
+                        base_name = text_column;
+
+
+                        /* Add link info to the list */
+                        ret = gfdb_add_link_to_query_record (query_record,
+                                                         pgfid, base_name);
+                        if (ret) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_GET_ID_FAILED, "Failed to"
+                                        " add link info to query record");
+                                goto out;
+                        }
+
+                        is_first_record = _gf_false;
 
                 }
 
@@ -1172,15 +1277,31 @@ gf_sql_query_function (sqlite3_stmt              *prep_stmt,
 
         if (ret != SQLITE_DONE) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_GET_RECORD_FAILED, "Failed retriving records "
+                        LG_MSG_GET_RECORD_FAILED, "Failed to retrieve records "
                         "from db : %s", sqlite3_errmsg (db_conn));
                 ret = -1;
                 goto out;
         }
 
+
+        if (!is_query_empty) {
+                /*
+                 * Call the call_back function for the last record from the
+                 * Database
+                 * */
+                ret = query_callback (query_record, _query_cbk_args);
+                if (ret) {
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                LG_MSG_QUERY_CALL_BACK_FAILED,
+                                "Query call back failed");
+                        goto out;
+                }
+        }
+
         ret = 0;
 out:
-        gfdb_query_record_fini (&gfdb_query_record);
+        gfdb_query_record_free (query_record);
+        query_record = NULL;
         return ret;
 }
 
@@ -1204,7 +1325,7 @@ gf_sql_clear_counters (gf_sql_connection_t *sql_conn)
                                 &sql_strerror);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_EXEC_FAILED,
-                        "Failed executing: %s : %s",
+                        "Failed to execute: %s : %s",
                         query_str, sql_strerror);
                 sqlite3_free (sql_strerror);
                         ret = -1;

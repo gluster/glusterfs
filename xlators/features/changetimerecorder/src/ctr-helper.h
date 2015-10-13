@@ -32,7 +32,7 @@
 
 
 typedef struct ctr_query_cbk_args {
-        FILE *queryFILE;
+        int query_fd;
         int count;
 } ctr_query_cbk_args_t;
 
