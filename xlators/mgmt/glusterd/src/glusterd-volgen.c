@@ -3523,18 +3523,18 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
                                          glusterd_volinfo_t *volinfo,
                                          gf_boolean_t is_quotad)
 {
-        int                ret = -1;
-        xlator_t          *root;
+        int                ret                     = -1;
+        xlator_t          *root                    = NULL;
         xlator_t          *xl, *hxl, *cxl;
-        glusterd_brickinfo_t    *brick              = NULL;
-        char              *rule;
-        int                st_brick_count = 0;
-        int                st_replica_count = 0;
-        int                st_disperse_count = 0;
-        int                st_dist_leaf_count = 0;
-        int                st_type = 0;
-        int                dist_count = 0;
-        int                start_count = 0;
+        glusterd_brickinfo_t    *brick             = NULL;
+        char              *rule                    = NULL;
+        int                st_brick_count          = 0;
+        int                st_replica_count        = 0;
+        int                st_disperse_count       = 0;
+        int                st_dist_leaf_count      = 0;
+        int                st_type                 = 0;
+        int                dist_count              = 0;
+        int                start_count             = 0;
         char              *decommissioned_children = NULL;
 
         st_brick_count     = volinfo->brick_count;
@@ -3614,7 +3614,8 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         if (ret)
                 goto out;
 
-        ret = xlator_set_option(xl, "xattr-name", "trusted.tier-gfid");
+        /*Each dht/tier layer must have a different xattr name*/
+        ret = xlator_set_option(xl, "xattr-name", "trusted.tier.tier-dht");
         if (ret)
                 goto out;
 
@@ -3642,6 +3643,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->dist_leaf_count = st_dist_leaf_count;
         volinfo->tier_info.cur_tier_hot = 0;
 
+        GF_FREE (rule);
         return ret;
 }
 

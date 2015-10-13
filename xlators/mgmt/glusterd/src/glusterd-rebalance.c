@@ -287,7 +287,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner,
-                                  "*tier-dht.xattr-name=trusted.tier-gfid");
+                                  "*tier-dht.xattr-name=trusted.tier.tier-dht");
         }
 
         runner_add_arg (&runner, "--xlator-option");
