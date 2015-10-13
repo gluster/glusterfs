@@ -128,54 +128,63 @@ unlock:
 }
 
 
-inode_t *
-ec_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
+int
+ec_shd_inode_find (xlator_t *this, xlator_t *subvol,
+                   uuid_t gfid, inode_t **inode)
 {
-        inode_t     *inode = NULL;
         int         ret    = 0;
         loc_t       loc    = {0, };
         struct iatt iatt   = {0, };
+	*inode =  NULL;
 
-        inode = inode_find (this->itable, gfid);
-        if (inode) {
-                inode_lookup (inode);
+        *inode = inode_find (this->itable, gfid);
+        if (*inode) {
+                inode_lookup (*inode);
                 goto out;
         }
 
         loc.inode = inode_new (this->itable);
-        if (!loc.inode)
+        if (!loc.inode) {
+                ret = -ENOMEM;
                 goto out;
+        }
         gf_uuid_copy (loc.gfid, gfid);
 
         ret = syncop_lookup (subvol, &loc, &iatt, NULL, NULL, NULL);
         if (ret < 0)
                 goto out;
 
-        inode = inode_link (loc.inode, NULL, NULL, &iatt);
-        if (inode)
-                inode_lookup (inode);
+        *inode = inode_link (loc.inode, NULL, NULL, &iatt);
+        if (!*inode) {
+                ret = -ENOMEM;
+                goto out;
+        } else {
+                inode_lookup (*inode);
+        }
 out:
         loc_wipe (&loc);
-        return inode;
+        return ret;
 }
 
 
-inode_t*
-ec_shd_index_inode (xlator_t *this, xlator_t *subvol)
+int
+ec_shd_index_inode (xlator_t *this, xlator_t *subvol, inode_t **inode)
 {
         loc_t   rootloc     = {0, };
-        inode_t *inode      = NULL;
         int     ret         = 0;
         dict_t  *xattr      = NULL;
         void    *index_gfid = NULL;
 
+        *inode = NULL;
         rootloc.inode = inode_ref (this->itable->root);
         gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
         ret = syncop_getxattr (subvol, &rootloc, &xattr,
                                GF_XATTROP_INDEX_GFID, NULL, NULL);
-        if (ret || !xattr) {
-                errno = -ret;
+        if (ret < 0)
+                goto out;
+        if (!xattr) {
+                ret = -EINVAL;
                 goto out;
         }
 
@@ -186,7 +195,7 @@ ec_shd_index_inode (xlator_t *this, xlator_t *subvol)
         gf_msg_debug (this->name, 0, "index-dir gfid for %s: %s",
                 subvol->name, uuid_utoa (index_gfid));
 
-        inode = ec_shd_inode_find (this, subvol, index_gfid);
+        ret = ec_shd_inode_find (this, subvol, index_gfid, inode);
 
 out:
         loc_wipe (&rootloc);
@@ -194,7 +203,7 @@ out:
         if (xattr)
                 dict_unref (xattr);
 
-        return inode;
+        return ret;
 }
 
 int
@@ -243,18 +252,22 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         /* If this fails with ENOENT/ESTALE index is stale */
         ret = syncop_gfid_to_path (healer->this->itable, subvol, loc.gfid,
                                    (char **)&loc.path);
-        if (ret == -ENOENT || ret == -ESTALE) {
-                ec_shd_index_purge (subvol, parent->inode, entry->d_name);
+        if (ret < 0)
                 goto out;
-        }
 
-        loc.inode = ec_shd_inode_find (healer->this, healer->this, loc.gfid);
-        if (!loc.inode)
+        ret = ec_shd_inode_find (healer->this, healer->this, loc.gfid,
+                                  &loc.inode);
+        if (ret < 0)
                 goto out;
 
         ec_shd_selfheal (healer, healer->subvol, &loc);
-
 out:
+        if (ret == -ENOENT || ret == -ESTALE) {
+                gf_msg (healer->this->name, GF_LOG_DEBUG, 0,
+                        EC_MSG_HEAL_FAIL, "Purging index for gfid %s:",
+                        uuid_utoa(loc.gfid));
+                ec_shd_index_purge (subvol, parent->inode, entry->d_name);
+        }
         if (loc.inode)
                 inode_forget (loc.inode, 0);
         loc_wipe (&loc);
@@ -273,18 +286,19 @@ ec_shd_index_sweep (struct subvol_healer *healer)
         ec = healer->this->private;
         subvol = ec->xl_list[healer->subvol];
 
-        loc.inode = ec_shd_index_inode (healer->this, subvol);
-        if (!loc.inode) {
+        ret = ec_shd_index_inode (healer->this, subvol, &loc.inode);
+        if (ret < 0) {
                 gf_msg (healer->this->name, GF_LOG_WARNING, errno,
                         EC_MSG_INDEX_DIR_GET_FAIL,
                         "unable to get index-dir on %s", subvol->name);
-                return -errno;
+                goto out;
         }
 
         ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_AFR_SELF_HEALD,
                                healer, ec_shd_index_heal);
-
-        inode_forget (loc.inode, 0);
+out:
+        if (loc.inode)
+                inode_forget (loc.inode, 0);
         loc_wipe (&loc);
 
         return ret;
@@ -314,11 +328,9 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (ret < 0)
                 goto out;
 
-        loc.inode = ec_shd_inode_find (this, this, loc.gfid);
-        if (!loc.inode) {
-                ret = -EINVAL;
+        ret = ec_shd_inode_find (this, this, loc.gfid, &loc.inode);
+        if (ret < 0)
                 goto out;
-        }
 
         ec_shd_selfheal (healer, healer->subvol, &loc);
 
