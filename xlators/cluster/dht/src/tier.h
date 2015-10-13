@@ -39,18 +39,18 @@
 typedef struct _query_cbk_args {
         xlator_t *this;
         gf_defrag_info_t *defrag;
-        FILE *queryFILE;
+        int query_fd;
         int is_promotion;
 } query_cbk_args_t;
 
 int
 gf_run_tier(xlator_t *this, gf_defrag_info_t *defrag);
 
-typedef struct _gfdb_brick_dict_info {
+typedef struct gfdb_brick_info {
         gfdb_time_t           *time_stamp;
         gf_boolean_t            _gfdb_promote;
         query_cbk_args_t       *_query_cbk_args;
-} _gfdb_brick_dict_info_t;
+} gfdb_brick_info_t;
 
 typedef struct brick_list {
         xlator_t          *xlator;

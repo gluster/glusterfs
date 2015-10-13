@@ -56,7 +56,6 @@ do {\
                 );;\
 } while (0)
 
-
 #define GF_COL_TB_WSEC          GF_FILE_TABLE "." GF_COL_WSEC
 #define GF_COL_TB_WMSEC         GF_FILE_TABLE "." GF_COL_WMSEC
 #define GF_COL_TB_UWSEC         GF_FILE_TABLE "." GF_COL_UWSEC

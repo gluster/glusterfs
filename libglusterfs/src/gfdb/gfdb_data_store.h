@@ -345,6 +345,18 @@ typedef struct gfdb_methods_s {
         /* access function: get_db_path_key(). */
         char *dbpath;
         get_db_path_key_t get_db_path_key;
+
+        /* Query Record related functions */
+        gfdb_query_record_new_t gfdb_query_record_new;
+        gfdb_query_record_free_t gfdb_query_record_free;
+        gfdb_add_link_to_query_record_t gfdb_add_link_to_query_record;
+        gfdb_write_query_record_t gfdb_write_query_record;
+        gfdb_read_query_record_t gfdb_read_query_record;
+
+        /* Link info related functions */
+        gfdb_link_info_new_t gfdb_link_info_new;
+        gfdb_link_info_free_t gfdb_link_info_free;
+
 } gfdb_methods_t;
 
 void get_gfdb_methods (gfdb_methods_t *methods);
