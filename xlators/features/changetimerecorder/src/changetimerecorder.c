@@ -1386,15 +1386,18 @@ static int
 ctr_db_query_callback (gfdb_query_record_t *gfdb_query_record,
                         void *args) {
         int ret = -1;
-        char gfid_str[UUID_CANONICAL_FORM_LEN+1] = "";
         ctr_query_cbk_args_t *query_cbk_args = args;
 
         GF_VALIDATE_OR_GOTO ("ctr", query_cbk_args, out);
 
-        gf_uuid_unparse (gfdb_query_record->gfid, gfid_str);
-        fprintf (query_cbk_args->queryFILE, "%s|%s|%ld\n", gfid_str,
-                 gfdb_query_record->_link_info_str,
-                 gfdb_query_record->link_info_size);
+        ret = gfdb_write_query_record (query_cbk_args->query_fd,
+                                       gfdb_query_record);
+        if (ret) {
+                gf_msg ("ctr", GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "Failed to write to query file");
+                goto out;
+        }
 
         query_cbk_args->count++;
 
@@ -1429,8 +1432,10 @@ ctr_db_query (xlator_t *this,
         GF_VALIDATE_OR_GOTO (this->name, ipc_ctr_params, out);
 
         /*Query for eligible files from db*/
-        query_cbk_args.queryFILE = fopen(query_file, "a+");
-        if (!query_cbk_args.queryFILE) {
+        query_cbk_args.query_fd = open (query_file,
+                        O_WRONLY | O_CREAT | O_APPEND,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (query_cbk_args.query_fd < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CTR_MSG_FATAL_ERROR,
                         "Failed to open query file %s", query_file);
@@ -1494,9 +1499,9 @@ out:
         if (!ret)
                 ret = query_cbk_args.count;
 
-        if (query_cbk_args.queryFILE) {
-                fclose (query_cbk_args.queryFILE);
-                query_cbk_args.queryFILE = NULL;
+        if (query_cbk_args.query_fd >= 0) {
+                close (query_cbk_args.query_fd);
+                query_cbk_args.query_fd = -1;
         }
 
         return ret;
