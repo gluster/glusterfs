@@ -3233,8 +3233,7 @@ out:
 }
 
 int
-print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict,
-                              int32_t list_count)
+print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
 {
         char             *path          = NULL;
         char             *default_sl    = NULL;
@@ -3245,6 +3244,7 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict,
         quota_limits_t   limits         = {0, };
         quota_limits_t  *size_limits    = NULL;
         int32_t          type           = 0;
+        int32_t          success_count  = 0;
 
         GF_ASSERT (frame);
 
@@ -3308,7 +3308,25 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict,
                 goto out;
         }
 
-        if (list_count == 0) {
+        LOCK (&local->lock);
+        {
+                ret = dict_get_int32 (gd_rsp_dict, "quota-list-success-count",
+                                      &success_count);
+                if (ret)
+                        success_count = 0;
+
+                ret = dict_set_int32 (gd_rsp_dict,
+                                      "quota-list-success-count",
+                                      success_count + 1);
+        }
+        UNLOCK (&local->lock);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                        "quota-list-success-count in dict");
+                goto out;
+        }
+
+        if (success_count == 0) {
                 if (!(global_state->mode & GLUSTER_MODE_XML)) {
                         print_quota_list_header (type);
                 } else {
@@ -3413,7 +3431,8 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                                 "unserialize req-buffer to dictionary");
                         goto out;
                 }
-                print_quota_list_from_quotad (frame, dict, list_count);
+
+                print_quota_list_from_quotad (frame, dict);
         }
 
 out:
