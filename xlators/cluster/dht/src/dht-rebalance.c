@@ -389,6 +389,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                                 gf_defrag_info_t *defrag)
 {
         int ret = -1;
+        int lock_count = 0;
 
         if (IA_ISDIR (stbuf->ia_type)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -399,10 +400,30 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 goto out;
         }
 
+        ret = dict_get_int32 (xattrs, GLUSTERFS_POSIXLK_COUNT, &lock_count);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed:"
+                        "%s: Unable to get lock count for file", loc->path);
+                ret = -1;
+                goto out;
+        }
+
+        if (lock_count) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed: %s: File has locks."
+                        " Skipping file migration", loc->path);
+                ret = -1;
+                goto out;
+        }
+
         if (flags == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS) {
                 ret = 0;
                 goto out;
         }
+
         if (stbuf->ia_nlink > 1) {
                 /* support for decomission */
                 if (flags == GF_DHT_MIGRATE_HARDLINK) {
@@ -436,6 +457,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
 out:
         return ret;
 }
+
 
 static int
 __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struct iatt *stbuf,
@@ -993,7 +1015,6 @@ out:
         return ret;
 }
 
-
 static int
 __dht_migration_cleanup_src_file (xlator_t *this, loc_t *loc, fd_t *fd,
                                   xlator_t *from, ia_prot_t *src_ia_prot)
@@ -1084,11 +1105,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         dht_conf_t     *conf                 = this->private;
         int             rcvd_enoent_from_src = 0;
         struct gf_flock flock                = {0, };
+        struct gf_flock plock                = {0, };
         loc_t           tmp_loc              = {0, };
         gf_boolean_t    locked               = _gf_false;
+        gf_boolean_t    p_locked             = _gf_false;
         int             lk_ret               = -1;
         gf_defrag_info_t *defrag             =  NULL;
         gf_boolean_t    clean_src            = _gf_false;
+        gf_boolean_t    clean_dst            = _gf_false;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1107,6 +1131,17 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
                         "%s: failed to set 'linkto' key in dict", loc->path);
+                goto out;
+        }
+
+
+        /* Don't migrate files with POSIX locks */
+        ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, sizeof(int32_t));
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed: %s: failed to "
+                        "set "GLUSTERFS_POSIXLK_COUNT" key in dict", loc->path);
                 goto out;
         }
 
@@ -1162,6 +1197,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
+
         /* TODO: move all xattr related operations to fd based operations */
         ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
         if (ret < 0) {
@@ -1178,6 +1214,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                                &dst_fd, xattr);
         if (ret)
                 goto out;
+
+        clean_dst = _gf_true;
 
         ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
 
@@ -1211,6 +1249,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (stbuf.ia_size > (stbuf.ia_blocks * GF_DISK_SECTOR_SIZE))
                 file_has_holes = 1;
 
+
         /* All I/O happens in this function */
         ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
 					    stbuf.ia_size, file_has_holes);
@@ -1219,15 +1258,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed: %s: failed to migrate data",
                         loc->path);
-                /* reset the destination back to 0 */
-                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Migrate file failed: "
-                                "%s: failed to reset target size back to 0 (%s)",
-                                loc->path, strerror (-ret));
-                }
 
                 ret = -1;
                 goto out;
@@ -1256,6 +1286,35 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
                 goto out;
         }
+
+        /* Lock the entire source file to prevent clients from taking a
+           lock on it as dht_lk does not handle file migration.
+
+           This still leaves a small window where conflicting locks can
+           be granted to different clients. If client1 requests a blocking
+           lock on the src file, it will be granted after the migrating
+           process releases its lock. If client2 requests a lock on the dst
+           data file, it will also be granted, but all FOPs will be redirected
+           to the dst data file.
+        */
+
+        plock.l_type = F_WRLCK;
+        plock.l_start = 0;
+        plock.l_len = 0;
+        plock.l_whence = SEEK_SET;
+
+        ret = syncop_lk (from, src_fd, F_SETLK, &plock, NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed:"
+                        "%s: Failed to lock on %s",
+                        loc->path, from->name);
+                ret = -1;
+                goto out;
+        }
+
+        p_locked = _gf_true;
 
         /* source would have both sticky bit and sgid bit set, reset it to 0,
            and set the source permission on destination, if it was not set
@@ -1292,6 +1351,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, to->name);
                 ret = -1;
         }
+
+        clean_dst = _gf_false;
 
         /* Posix acls are not set on DHT linkto files as part of the initial
          * initial xattrs set on the dst file, so these need
@@ -1438,6 +1499,18 @@ out:
                 }
         }
 
+        /* reset the destination back to 0 */
+        if (clean_dst) {
+                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed: "
+                                "%s: failed to reset target size back to 0",
+                                loc->path);
+                }
+        }
+
         if (locked) {
                 flock.l_type = F_UNLCK;
 
@@ -1448,6 +1521,18 @@ out:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to unlock file on %s (%s)",
                                 loc->path, from->name, strerror (-lk_ret));
+                }
+        }
+
+        if (p_locked) {
+                plock.l_type = F_UNLCK;
+                lk_ret = syncop_lk (from, src_fd, F_SETLK, &plock, NULL, NULL);
+
+                if (lk_ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, -lk_ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "%s: failed to unlock file on %s",
+                                loc->path, from->name);
                 }
         }
 
