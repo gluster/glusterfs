@@ -1435,7 +1435,12 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # Note: if config.change_detector is xsync then
             # it will not use changelog history api
             try:
-                g3.crawlwrap(oneshot=True)
+                # if cold brick type, avoid changeloghistory and use xsync
+                if (boolify(gconf.is_coldtier)):
+                        logging.info("cold tier using xsync crawl")
+                        g1.crawlwrap(oneshot=True)
+                else:
+                        g3.crawlwrap(oneshot=True)
             except PartialHistoryAvailable as e:
                 logging.info('Partial history available, using xsync crawl'
                              ' after consuming history till %s' % str(e))
