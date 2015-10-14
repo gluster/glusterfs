@@ -893,11 +893,9 @@ AC_SUBST(ARGP_STANDALONE_DIR)
 
 # Check for atomic operation support
 echo -n "checking for atomic operation support... "
-AC_LANG_CONFTEST([int main() { long int a = 4; __sync_fetch_and_add_8 (&a, 1); }])
-$CC conftest.c $CFLAGS -o conftest > /dev/null 2> /dev/null
-ret=$?
-rm -f conftest.o conftest
-if test $ret -eq 0 ; then
+AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { long int a = 4; __sync_fetch_and_add_8 (&a, 1); }]])],
+                   [have_sync_fetch_and_add_8=yes], [have_sync_fetch_and_add_8=no])
+if test "x${have_sync_fetch_and_add_8}" = "xyes"; then
   echo "yes"
   AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [have atomic builtins])
 else
