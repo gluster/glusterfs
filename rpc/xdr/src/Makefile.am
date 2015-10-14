@@ -18,7 +18,10 @@ libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
 libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
 nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
 
-noinst_HEADERS = xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h
+libgfxdr_la_HEADERS = xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h \
+	$(XDRHEADERS)
+
+libgfxdr_ladir = $(includedir)/glusterfs/rpc
 
 BUILT_SOURCES = $(XDRSOURCES) $(XDRHEADERS)
 
