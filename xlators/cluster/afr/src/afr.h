@@ -139,6 +139,7 @@ typedef struct _afr_private {
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
 	char                   *locking_scheme;
+        gf_boolean_t            esh_granular;
 } afr_private_t;
 
 
@@ -755,6 +756,8 @@ typedef struct _afr_local {
         /* For  client side background heals. */
         struct list_head healer;
         call_frame_t *heal_frame;
+
+        gf_boolean_t need_full_crawl;
 } afr_local_t;
 
 
@@ -788,6 +791,14 @@ typedef struct afr_read_subvol_args {
         ia_type_t ia_type;
         uuid_t gfid;
 } afr_read_subvol_args_t;
+
+typedef struct afr_granular_esh_args {
+        fd_t *heal_fd;
+        xlator_t *xl;
+        call_frame_t *frame;
+        gf_boolean_t mismatch; /* flag to represent occurrence of type/gfid
+                                  mismatch */
+} afr_granular_esh_args_t;
 
 /* did a call fail due to a child failing? */
 #define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \

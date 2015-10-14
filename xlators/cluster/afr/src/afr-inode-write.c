@@ -1104,12 +1104,13 @@ _afr_handle_empty_brick_type (xlator_t *this, call_frame_t *frame,
                             afr_transaction_type type,
                             char *op_type)
 {
-        afr_local_t     *local            = NULL;
-        afr_private_t   *priv             = NULL;
-        unsigned char   *locked_nodes     = NULL;
         int              count            = 0;
         int              ret              = -ENOMEM;
         int              idx              = -1;
+        int              d_idx            = -1;
+        unsigned char   *locked_nodes     = NULL;
+        afr_local_t     *local            = NULL;
+        afr_private_t   *priv             = NULL;
 
         priv = this->private;
         local = frame->local;
@@ -1117,6 +1118,7 @@ _afr_handle_empty_brick_type (xlator_t *this, call_frame_t *frame,
         locked_nodes = alloca0 (priv->child_count);
 
         idx = afr_index_for_transaction_type (type);
+        d_idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
 
         local->pending = afr_matrix_create (priv->child_count,
                                             AFR_NUM_CHANGE_LOGS);
@@ -1124,6 +1126,9 @@ _afr_handle_empty_brick_type (xlator_t *this, call_frame_t *frame,
                 goto out;
 
         local->pending[empty_index][idx] = hton32 (1);
+
+        if ((priv->esh_granular) && (type == AFR_ENTRY_TRANSACTION))
+                        local->pending[empty_index][d_idx] = hton32 (1);
 
         local->xdata_req = dict_new ();
         if (!local->xdata_req)
@@ -1165,7 +1170,7 @@ _afr_handle_empty_brick_type (xlator_t *this, call_frame_t *frame,
 unlock:
         if (AFR_ENTRY_TRANSACTION == type) {
                 afr_selfheal_unentrylk (frame, this, loc->inode, this->name,
-                                        NULL, locked_nodes);
+                                        NULL, locked_nodes, NULL);
         } else {
                 afr_selfheal_uninodelk (frame, this, loc->inode, this->name,
                                         LLONG_MAX - 1, 0, locked_nodes);

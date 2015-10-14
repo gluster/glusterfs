@@ -4284,6 +4284,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 		goto out;
 	}
 
+        local->need_full_crawl = _gf_false;
+
         INIT_LIST_HEAD (&local->healer);
 	return 0;
 out:
@@ -4535,9 +4537,11 @@ afr_mark_pending_changelog (afr_private_t *priv, unsigned char *pending,
        int **changelog = NULL;
        int idx = -1;
        int m_idx = 0;
+       int d_idx = 0;
        int ret = 0;
 
        m_idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
+       d_idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
 
        idx = afr_index_from_ia_type (iat);
 
@@ -4552,6 +4556,11 @@ afr_mark_pending_changelog (afr_private_t *priv, unsigned char *pending,
                changelog[i][m_idx] = hton32(1);
                if (idx != -1)
                        changelog[i][idx] = hton32(1);
+                /* If the newentry marking is on a newly created directory,
+                 * then mark it with the full-heal indicator.
+                 */
+                if ((IA_ISDIR (iat)) && (priv->esh_granular))
+                        changelog[i][d_idx] = hton32(1);
        }
        ret = afr_set_pending_dict (priv, xattr, changelog);
        if (ret < 0) {
@@ -4764,12 +4773,12 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                         *esh = afr_decide_heal_info (priv, sources, ret);
                 }
                 afr_selfheal_unentrylk (frame, this, inode, this->name, NULL,
-                                        data_lock);
+                                        data_lock, NULL);
         }
 unlock:
         if (!granular_locks)
                 afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain,
-                                        NULL, locked_on);
+                                        NULL, locked_on, NULL);
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);

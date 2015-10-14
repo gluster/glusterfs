@@ -265,7 +265,7 @@ afr_shd_zero_xattrop (xlator_t *this, uuid_t gfid)
         /*Send xattrop to all bricks. Doing a lookup to see if bricks are up or
         * has valid repies for this gfid seems a bit of an overkill.*/
         for (i = 0; i < priv->child_count; i++)
-                afr_selfheal_post_op (frame, this, inode, i, xattr);
+                afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
 
 out:
         if (frame)

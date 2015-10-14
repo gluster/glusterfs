@@ -167,6 +167,7 @@
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
+#define GF_XATTROP_ENTRY_CHANGES_GFID "glusterfs.xattrop_entry_changes_gfid"
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
 #define GF_XATTROP_DIRTY_GFID "glusterfs.xattrop_dirty_gfid"
 #define GF_XATTROP_DIRTY_COUNT "glusterfs.xattrop_dirty_count"
@@ -180,6 +181,8 @@
 #define GF_AFR_ADD_BRICK "trusted.add-brick"
 #define GF_AFR_REPLACE_BRICK "trusted.replace-brick"
 #define GF_AFR_DIRTY "trusted.afr.dirty"
+#define GF_XATTROP_ENTRY_OUT "glusterfs.xattrop-entry-delete"
+#define GF_XATTROP_PURGE_INDEX "glusterfs.xattrop-purge-index"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */

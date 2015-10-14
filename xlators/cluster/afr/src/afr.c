@@ -186,6 +186,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           out);
         GF_OPTION_RECONF ("locking-scheme", priv->locking_scheme, options, str,
                           out);
+        GF_OPTION_RECONF ("granular-entry-heal", priv->esh_granular, options,
+                          bool, out);
 
         GF_OPTION_RECONF ("eager-lock", priv->eager_lock, options, bool, out);
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
@@ -379,6 +381,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("pre-op-compat", priv->pre_op_compat, bool, out);
         GF_OPTION_INIT ("locking-scheme", priv->locking_scheme, str, out);
+        GF_OPTION_INIT ("granular-entry-heal", priv->esh_granular, bool, out);
 
         GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
@@ -896,6 +899,13 @@ struct volume_options options[] = {
           .description = "If this option is set to granular, self-heal will "
                          "stop being compatible with afr-v1, which helps afr "
                          "be more granular while self-healing",
+        },
+        { .key = {"granular-entry-heal"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "If this option is enabled, self-heal will resort to "
+                         "granular way of recording changelogs and doing entry "
+                         "self-heal.",
         },
         { .key  = {NULL} },
 };
