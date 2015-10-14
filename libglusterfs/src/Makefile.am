@@ -36,23 +36,27 @@ nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 
 BUILT_SOURCES = graph.lex.c defaults.c
 
-noinst_HEADERS = common-utils.h defaults.h default-args.h dict.h glusterfs.h \
-	hashfn.h timespec.h \
-	logging.h xlator.h stack.h timer.h list.h inode.h call-stub.h compat.h \
-	fd.h revision.h compat-errno.h event.h mem-pool.h byte-order.h \
+libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
+	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
+	stack.h timer.h list.h inode.h call-stub.h compat.h fd.h \
+	revision.h compat-errno.h event.h mem-pool.h byte-order.h \
 	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \
-	checksum.h daemon.h $(CONTRIBDIR)/rbtree/rb.h store.h\
-	rbthash.h iatt.h latency.h mem-types.h syncop.h cluster-syncop.h \
-	graph-utils.h trie.h refcount.h \
-	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
-	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
-	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
-	libglusterfs-messages.h ctr-messages.h \
-	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
+	checksum.h daemon.h store.h rbthash.h iatt.h latency.h \
+	mem-types.h syncop.h cluster-syncop.h graph-utils.h trie.h \
+	refcount.h run.h options.h lkowner.h fd-lk.h circ-buff.h \
+	event-history.h gidcache.h client_t.h glusterfs-acl.h \
+	glfs-message-id.h template-component-messages.h strfd.h \
+	syncop-utils.h parse-utils.h libglusterfs-messages.h tw.h \
+	ctr-messages.h lvm-defaults.h quota-common-utils.h rot-buffs.h \
+	compat-uuid.h upcall-utils.h
+
+libglusterfs_ladir = $(includedir)/glusterfs
+
+noinst_HEADERS = unittest/unittest.h \
+	$(CONTRIBDIR)/rbtree/rb.h \
+	$(CONTRIBDIR)/mount/mntent_compat.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
-	unittest/unittest.h quota-common-utils.h rot-buffs.h \
-	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h \
-	tw.h upcall-utils.h
+	$(CONTRIBDIR)/timer-wheel/timer-wheel.h
 
 if !HAVE_LIBUUID
 # FIXME: unbundle libuuid, see compat-uuid.h.

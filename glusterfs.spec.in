@@ -629,20 +629,8 @@ pushd xlators/features/glupy/src
 python setup.py install --skip-build --verbose --root %{buildroot}
 popd
 # Install include directory
-mkdir -p %{buildroot}%{_includedir}/glusterfs
-install -p -m 0644 libglusterfs/src/*.h \
-    %{buildroot}%{_includedir}/glusterfs/
 install -p -m 0644 contrib/uuid/*.h \
     %{buildroot}%{_includedir}/glusterfs/
-# Following needed by hekafs multi-tenant translator
-mkdir -p %{buildroot}%{_includedir}/glusterfs/rpc
-install -p -m 0644 rpc/rpc-lib/src/*.h \
-    %{buildroot}%{_includedir}/glusterfs/rpc/
-install -p -m 0644 rpc/xdr/src/*.h \
-    %{buildroot}%{_includedir}/glusterfs/rpc/
-mkdir -p %{buildroot}%{_includedir}/glusterfs/server
-install -p -m 0644 xlators/protocol/server/src/*.h \
-    %{buildroot}%{_includedir}/glusterfs/server/
 %if ( 0%{_for_fedora_koji_builds} )
 install -D -p -m 0644 %{SOURCE1} \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
@@ -1027,8 +1015,8 @@ fi
 %{_sysconfdir}/bash_completion.d/gluster
 
 %files devel
-%{_includedir}/glusterfs
-%exclude %{_includedir}/glusterfs/y.tab.h
+%dir %{_includedir}/glusterfs
+%{_includedir}/glusterfs/*
 %exclude %{_includedir}/glusterfs/api
 %exclude %{_libdir}/libgfapi.so
 %{_libdir}/*.so
