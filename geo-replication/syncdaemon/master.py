@@ -809,6 +809,13 @@ class GMasterChangelogMixin(GMasterCommon):
             et = e[self.IDX_START:self.IDX_END]   # entry type
             ec = e[self.IDX_END:].split(' ')      # rest of the bits
 
+            # skip ENTRY operation if cold tier brick
+            if self.name == 'live_changelog':
+                if boolify(gconf.is_coldtier) and et == self.TYPE_ENTRY:
+                    logging.debug('skip ENTRY op: %s if cold tier brick'
+                                  % (ec[self.POS_TYPE]))
+                    continue
+
             if et == self.TYPE_ENTRY:
                 # extract information according to the type of
                 # the entry operation. create(), mkdir() and mknod()
@@ -1120,6 +1127,7 @@ class GMasterChangelogMixin(GMasterCommon):
         self.changelog_done_func = self.changelog_agent.done
         self.processed_changelogs_dir = os.path.join(self.setup_working_dir(),
                                                      ".processed")
+        self.name = "live_changelog"
         self.status = status
 
 
@@ -1132,6 +1140,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         self.history_turns = 0
         self.processed_changelogs_dir = os.path.join(self.setup_working_dir(),
                                                      ".history/.processed")
+        self.name = "history_changelog"
         self.status = status
 
     def crawl(self):
@@ -1226,6 +1235,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         self.tempdir = self.setup_working_dir()
         self.tempdir = os.path.join(self.tempdir, 'xsync')
         self.processed_changelogs_dir = self.tempdir
+        self.name = "xsync"
         logging.info('xsync temp directory: %s' % self.tempdir)
         try:
             os.makedirs(self.tempdir)
