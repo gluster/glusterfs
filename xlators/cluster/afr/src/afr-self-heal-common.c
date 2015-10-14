@@ -34,7 +34,7 @@ afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
-		      int subvol, dict_t *xattr)
+		      int subvol, dict_t *xattr, dict_t *xdata)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
@@ -48,7 +48,7 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	STACK_WIND (frame, afr_selfheal_post_op_cbk, priv->children[subvol],
 		    priv->children[subvol]->fops->xattrop, &loc,
-		    GF_XATTROP_ADD_ARRAY, xattr, NULL);
+		    GF_XATTROP_ADD_ARRAY, xattr, xdata);
 
 	syncbarrier_wait (&local->barrier, 1);
 
@@ -80,18 +80,22 @@ afr_check_stale_error (struct afr_reply *replies, afr_private_t *priv)
 
 
 dict_t *
-afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
-			   int *output_dirty, int **output_matrix, int subvol)
+afr_selfheal_output_xattr (xlator_t *this, gf_boolean_t is_full_crawl,
+                           afr_transaction_type type, int *output_dirty,
+                           int **output_matrix, int subvol,
+                           int **full_heal_mtx_out)
 {
-	dict_t *xattr = NULL;
-	afr_private_t *priv = NULL;
-	int j = 0;
-	int idx = 0;
-	int ret = 0;
-	int *raw = 0;
+	int                j     = 0;
+	int                idx   = 0;
+	int                d_idx = 0;
+	int                ret   = 0;
+	int               *raw   = 0;
+	dict_t            *xattr = NULL;
+	afr_private_t     *priv  = NULL;
 
 	priv = this->private;
 	idx = afr_index_for_transaction_type (type);
+        d_idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
 
 	xattr = dict_new ();
 	if (!xattr)
@@ -118,6 +122,8 @@ afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
 			goto err;
 
 		raw[idx] = hton32 (output_matrix[subvol][j]);
+                if (is_full_crawl)
+                        raw[d_idx] = hton32 (full_heal_mtx_out[subvol][j]);
 
 		ret = dict_set_bin (xattr, priv->pending_key[j],
 				    raw, sizeof(int) * AFR_NUM_CHANGE_LOGS);
@@ -142,26 +148,41 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   struct afr_reply *replies, unsigned char *locked_on)
 {
 	afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
 	int i = 0;
 	int j = 0;
 	unsigned char *pending = NULL;
 	int *input_dirty = NULL;
 	int **input_matrix = NULL;
+	int **full_heal_mtx_in = NULL;
+	int **full_heal_mtx_out = NULL;
 	int *output_dirty = NULL;
 	int **output_matrix = NULL;
 	dict_t *xattr = NULL;
+	dict_t *xdata = NULL;
 
 	priv = this->private;
+        local = frame->local;
 
 	pending = alloca0 (priv->child_count);
 
 	input_dirty = alloca0 (priv->child_count * sizeof (int));
 	input_matrix = ALLOC_MATRIX (priv->child_count, int);
+	full_heal_mtx_in = ALLOC_MATRIX (priv->child_count, int);
+	full_heal_mtx_out = ALLOC_MATRIX (priv->child_count, int);
 	output_dirty = alloca0 (priv->child_count * sizeof (int));
 	output_matrix = ALLOC_MATRIX (priv->child_count, int);
 
+        xdata = dict_new ();
+        if (!xdata)
+                return -1;
+
 	afr_selfheal_extract_xattr (this, replies, type, input_dirty,
 				    input_matrix);
+
+        if (local->need_full_crawl)
+                afr_selfheal_extract_xattr (this, replies, AFR_DATA_TRANSACTION,
+                                            NULL, full_heal_mtx_in);
 
 	for (i = 0; i < priv->child_count; i++)
 		if (sinks[i] && !healed_sinks[i])
@@ -169,10 +190,15 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	for (i = 0; i < priv->child_count; i++) {
 		for (j = 0; j < priv->child_count; j++) {
-			if (pending[j])
+			if (pending[j]) {
 				output_matrix[i][j] = 1;
-			else
+                                if (type == AFR_ENTRY_TRANSACTION)
+                                        full_heal_mtx_out[i][j] = 1;
+			} else {
 				output_matrix[i][j] = -input_matrix[i][j];
+                                if (type == AFR_ENTRY_TRANSACTION)
+                                        full_heal_mtx_out[i][j] = -full_heal_mtx_in[i][j];
+                        }
 		}
 	}
 
@@ -188,16 +214,29 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			*/
 			continue;
 
-		xattr = afr_selfheal_output_xattr (this, type, output_dirty,
-						   output_matrix, i);
+		xattr = afr_selfheal_output_xattr (this, local->need_full_crawl,
+                                                   type, output_dirty,
+                                                   output_matrix, i,
+                                                   full_heal_mtx_out);
 		if (!xattr) {
 			continue;
 		}
 
-		afr_selfheal_post_op (frame, this, inode, i, xattr);
+                if ((type == AFR_ENTRY_TRANSACTION) && (priv->esh_granular)) {
+                        if (xdata &&
+                            dict_set_int8 (xdata, GF_XATTROP_PURGE_INDEX, 1))
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        AFR_MSG_DICT_SET_FAILED, "Failed to set"
+                                        " dict value for %s",
+                                        GF_XATTROP_PURGE_INDEX);
+                }
 
+		afr_selfheal_post_op (frame, this, inode, i, xattr, xdata);
 		dict_unref (xattr);
 	}
+
+        if (xdata)
+                dict_unref (xdata);
 
 	return 0;
 }
@@ -242,6 +281,9 @@ afr_selfheal_fill_dirty (xlator_t *this, int *dirty, int subvol,
 	void *pending_raw = NULL;
 	int pending[3] = {0, };
 
+        if (!dirty)
+                return 0;
+
 	if (dict_get_ptr (xdata, AFR_DIRTY, &pending_raw))
 		return -1;
 
@@ -266,6 +308,9 @@ afr_selfheal_fill_matrix (xlator_t *this, int **matrix, int subvol,
 	afr_private_t *priv = NULL;
 
 	priv = this->private;
+
+        if (!matrix)
+                return 0;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (dict_get_ptr (xdata, priv->pending_key[i], &pending_raw))
@@ -1150,7 +1195,7 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		    local->replies[i].op_errno == EAGAIN) {
 			afr_locked_fill (frame, this, locked_on);
 			afr_selfheal_unentrylk (frame, this, inode, dom, name,
-						locked_on);
+						locked_on, NULL);
 
 			AFR_SEQ (frame, afr_selfheal_lock_cbk, entrylk, dom,
 				 &loc, name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
@@ -1189,7 +1234,7 @@ afr_selfheal_tie_breaker_entrylk (call_frame_t *frame, xlator_t *this,
 	if (lock_count > priv->child_count/2 && eagain_count) {
                 afr_locked_fill (frame, this, locked_on);
                 afr_selfheal_unentrylk (frame, this, inode, dom, name,
-                                        locked_on);
+                                        locked_on, NULL);
 
                 AFR_SEQ (frame, afr_selfheal_lock_cbk, entrylk, dom,
                          &loc, name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
@@ -1203,7 +1248,8 @@ afr_selfheal_tie_breaker_entrylk (call_frame_t *frame, xlator_t *this,
 
 int
 afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
-			char *dom, const char *name, unsigned char *locked_on)
+			char *dom, const char *name, unsigned char *locked_on,
+                        dict_t *xdata)
 {
 	loc_t loc = {0,};
 
@@ -1211,7 +1257,7 @@ afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	AFR_ONLIST (locked_on, frame, afr_selfheal_lock_cbk, entrylk,
-		    dom, &loc, name, ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
+		    dom, &loc, name, ENTRYLK_UNLOCK, ENTRYLK_WRLCK, xdata);
 
 	loc_wipe (&loc);
 
@@ -1316,7 +1362,12 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		if (replies[i].op_ret == -1)
 			continue;
 
-		if (data_selfheal && afr_is_data_set (this, replies[i].xdata))
+                /* The data segment of the changelog can be non-zero to indicate
+                 * the directory needs a full heal. So the check below ensures
+                 * it's not a directory before setting the data_selfheal boolean.
+                 */
+		if (data_selfheal && !IA_ISDIR (replies[i].poststat.ia_type) &&
+                    afr_is_data_set (this, replies[i].xdata))
 			*data_selfheal = _gf_true;
 
 		if (metadata_selfheal &&
@@ -1326,7 +1377,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		if (entry_selfheal && afr_is_entry_set (this, replies[i].xdata))
 			*entry_selfheal = _gf_true;
 
-		valid_cnt ++;
+		valid_cnt++;
 		if (valid_cnt == 1) {
 			first = replies[i].poststat;
 			continue;
@@ -1500,7 +1551,7 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	for (i = 0; i < priv->child_count; i++) {
 		if (!sources[i])
 			continue;
-		afr_selfheal_post_op (frame, this, inode, i, xattr);
+		afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
 	}
 out:
         if (changelog)

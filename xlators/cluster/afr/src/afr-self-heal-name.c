@@ -618,7 +618,7 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, parent, this->name, bname,
-				locked_on);
+				locked_on, NULL);
 	if (inode)
 		inode_unref (inode);
 

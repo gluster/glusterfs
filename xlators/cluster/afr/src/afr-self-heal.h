@@ -137,7 +137,8 @@ afr_selfheal_tie_breaker_entrylk (call_frame_t *frame, xlator_t *this,
 
 int
 afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
-			char *dom, const char *name, unsigned char *locked_on);
+			char *dom, const char *name, unsigned char *locked_on,
+                        dict_t *xdata);
 
 int
 afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
@@ -177,7 +178,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 
 int
 afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
-		      int subvol, dict_t *xattr);
+		      int subvol, dict_t *xattr, dict_t *xdata);
 
 call_frame_t *
 afr_frame_create (xlator_t *this);
