@@ -3115,7 +3115,8 @@ int32_t
 glusterd_snap_remove (dict_t *rsp_dict,
                       glusterd_snap_t *snap,
                       gf_boolean_t remove_lvm,
-                      gf_boolean_t force)
+                      gf_boolean_t force,
+                      gf_boolean_t is_clone)
 {
         int                 ret       = -1;
         int                 save_ret  =  0;
@@ -3150,14 +3151,20 @@ glusterd_snap_remove (dict_t *rsp_dict,
                 }
         }
 
-        ret = glusterd_store_delete_snap (snap);
-        if (ret) {
-                gf_msg(this->name, GF_LOG_WARNING, 0,
-                       GD_MSG_SNAP_REMOVE_FAIL, "Failed to remove snap %s "
-                       "from store", snap->snapname);
-                save_ret = ret;
-                if (!force)
-                        goto out;
+        /* A clone does not persist snap info in /var/lib/glusterd/snaps/ *
+         * and hence there is no snap info to be deleted from there       *
+         */
+        if (!is_clone) {
+                ret = glusterd_store_delete_snap (snap);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               GD_MSG_SNAP_REMOVE_FAIL,
+                               "Failed to remove snap %s from store",
+                               snap->snapname);
+                        save_ret = ret;
+                        if (!force)
+                                goto out;
+                }
         }
 
         ret = glusterd_snapobject_delete (snap);
@@ -4558,7 +4565,8 @@ out:
         if (ret) {
                 if (snap)
                         glusterd_snap_remove (rsp_dict, snap,
-                                              _gf_true, _gf_true);
+                                              _gf_true, _gf_true,
+                                              _gf_false);
                 snap = NULL;
         }
 
@@ -6135,7 +6143,8 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
                 }
         }
 
-        ret = glusterd_snap_remove (rsp_dict, snap, _gf_true, _gf_false);
+        ret = glusterd_snap_remove (rsp_dict, snap, _gf_true, _gf_false,
+                                    _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_SNAP_REMOVE_FAIL, "Failed to remove snap %s",
@@ -6207,7 +6216,8 @@ glusterd_do_snap_cleanup (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_snap_remove (rsp_dict, snap, _gf_true, _gf_true);
+        ret = glusterd_snap_remove (rsp_dict, snap, _gf_true, _gf_true,
+                                    _gf_false);
         if (ret) {
                 /* Ignore failure as this is a cleanup of half cooked
                    snapshot */
@@ -6497,7 +6507,7 @@ out:
         if (ret) {
                 if (snap)
                         glusterd_snap_remove (rsp_dict, snap,
-                                              _gf_true, _gf_true);
+                                              _gf_true, _gf_true, _gf_true);
                 snap = NULL;
         }
 
@@ -6633,7 +6643,8 @@ out:
        if (ret) {
                if (snap)
                        glusterd_snap_remove (rsp_dict, snap,
-                                             _gf_true, _gf_true);
+                                             _gf_true, _gf_true,
+                                             _gf_true);
                snap = NULL;
        }
 
@@ -6831,7 +6842,8 @@ out:
         if (ret) {
                 if (snap)
                         glusterd_snap_remove (rsp_dict, snap,
-                                              _gf_true, _gf_true);
+                                              _gf_true, _gf_true,
+                                              _gf_false);
                 snap = NULL;
         }
 
@@ -7876,7 +7888,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                         }
 
                         ret = glusterd_snap_remove (rsp_dict, snap,
-                                                    _gf_true, _gf_true);
+                                                    _gf_true, _gf_true,
+                                                    _gf_false);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         GD_MSG_SNAP_REMOVE_FAIL,
@@ -7912,27 +7925,6 @@ glusterd_snapshot_clone_postvalidate (dict_t *dict, int32_t op_ret,
         priv = this->private;
         GF_ASSERT (priv);
 
-        if (op_ret) {
-                ret = dict_get_int32 (dict, "cleanup", &cleanup);
-                if (!ret && cleanup) {
-                        ret = glusterd_do_snap_cleanup (dict, op_errstr,
-                                                        rsp_dict);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        GD_MSG_SNAP_CLEANUP_FAIL, "cleanup "
-                                        "operation failed");
-                                goto out;
-                        }
-                }
-                /* Irrespective of status of cleanup its better
-                 * to return from this function. As the functions
-                 * following this block is not required to be
-                 * executed in case of failure scenario.
-                 */
-                ret = 0;
-                goto out;
-        }
-
         ret = dict_get_str (dict, "clonename", &clonename);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -7949,16 +7941,29 @@ glusterd_snapshot_clone_postvalidate (dict_t *dict, int32_t op_ret,
                 goto out;
         }
 
-        ret = glusterd_snapshot_update_snaps_post_validate (dict,
-                                                            op_errstr,
-                                                            rsp_dict);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAP_CREATION_FAIL, "Failed to "
-                        "create snapshot");
+        if (snap_vol)
+                snap = snap_vol->snapshot;
+
+        /* Fetch snap object from snap_vol and delete it all in case of *
+         * a failure, or else, just delete the snap object as it is not *
+         * needed in case of a clone                                    *
+         */
+        if (op_ret) {
+                ret = dict_get_int32 (dict, "cleanup", &cleanup);
+                if (!ret && cleanup && snap) {
+                        glusterd_snap_remove (rsp_dict, snap,
+                                              _gf_true, _gf_true,
+                                              _gf_true);
+                }
+                /* Irrespective of status of cleanup its better
+                 * to return from this function. As the functions
+                 * following this block is not required to be
+                 * executed in case of failure scenario.
+                 */
+                ret = 0;
                 goto out;
         }
-        snap = snap_vol->snapshot;
+
         ret = glusterd_snapobject_delete (snap);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -8506,7 +8511,8 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
                   volname);
 
         /* Now delete the snap entry. */
-        ret = glusterd_snap_remove (rsp_dict, snap, _gf_false, _gf_true);
+        ret = glusterd_snap_remove (rsp_dict, snap, _gf_false, _gf_true,
+                                    _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_SNAP_REMOVE_FAIL, "Failed to delete "
