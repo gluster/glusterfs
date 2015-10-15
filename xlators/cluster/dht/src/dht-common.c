@@ -212,17 +212,22 @@ out:
         return ret;
 }
 
-
 int
 dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
 {
-        dht_local_t     *local = NULL;
-        call_frame_t    *main_frame = NULL;
-        int              op_errno = 0;
-        int              ret = -1;
-        dht_layout_t    *layout = NULL;
-        dht_conf_t      *conf = NULL;
+        dht_local_t     *local           = NULL;
+        dht_local_t     *heal_local      = NULL;
+        call_frame_t    *main_frame      = NULL;
+        call_frame_t    *heal_frame      = NULL;
+        int              op_errno        = 0;
+        int              ret             = -1;
+        dht_layout_t    *layout          = NULL;
+        dht_conf_t      *conf            = NULL;
         uint32_t         vol_commit_hash = 0;
+        xlator_t        *source          = NULL;
+        int              heal_path       = 0;
+        int              i               = 0;
+        loc_t            loc             = {0 };
 
         local = discover_frame->local;
         layout = local->layout;
@@ -301,6 +306,63 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 }
         }
 
+        if (IA_ISDIR (local->stbuf.ia_type)) {
+                for (i = 0; i < layout->cnt; i++) {
+                       if (!source && !layout->list[i].err)
+                                source = layout->list[i].xlator;
+                        if (layout->list[i].err == ENOENT ||
+                            layout->list[i].err == ESTALE) {
+                                heal_path = 1;
+                        }
+                        if (source && heal_path)
+                                break;
+                }
+        }
+        if (source && heal_path) {
+                gf_uuid_copy (loc.gfid, local->gfid);
+                if (gf_uuid_is_null (loc.gfid)) {
+                        goto done;
+                }
+
+                if (local->inode)
+                        loc.inode = inode_ref (local->inode);
+                else
+                        goto done;
+
+               heal_frame = create_frame (this, this->ctx->pool);
+               if (heal_frame) {
+                        heal_local = dht_local_init (heal_frame, &loc,
+                                                     NULL, 0);
+                        if (!heal_local)
+                                goto cleanup;
+
+                        gf_uuid_copy (heal_local->gfid, local->gfid);
+                        heal_frame->cookie = source;
+                        heal_local->xattr = dict_ref (local->xattr);
+                        heal_local->stbuf = local->stbuf;
+                        heal_local->postparent = local->postparent;
+                        heal_local->inode = inode_ref (loc.inode);
+                        heal_local->main_frame = main_frame;
+                        FRAME_SU_DO (heal_frame, dht_local_t);
+                        ret = synctask_new (this->ctx->env,
+                                            dht_heal_full_path,
+                                            dht_heal_full_path_done,
+                                            heal_frame, heal_frame);
+                        if (!ret) {
+                                loc_wipe (&loc);
+                                return 0;
+                        }
+                        /*
+                         * Failed to spawn the synctask. Returning
+                         * with out doing heal.
+                         */
+cleanup:
+                        loc_wipe (&loc);
+                        DHT_STACK_DESTROY (heal_frame);
+                }
+
+        }
+done:
         DHT_STACK_UNWIND (lookup, main_frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);

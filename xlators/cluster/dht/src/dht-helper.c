@@ -1917,3 +1917,174 @@ out:
 
         return -1;
 }
+inode_t*
+dht_heal_path (xlator_t *this, char *path, inode_table_t *itable)
+{
+        int             ret             = -1;
+        struct iatt     iatt            = {0, };
+        inode_t        *linked_inode    = NULL;
+        loc_t           loc             = {0, };
+        char           *bname           = NULL;
+        char           *save_ptr        = NULL;
+        uuid_t          gfid            = {0, };
+        char           *tmp_path        = NULL;
+
+
+        tmp_path = gf_strdup (path);
+        if (!tmp_path) {
+                goto out;
+        }
+
+        memset (gfid, 0, 16);
+        gfid[15] = 1;
+
+        gf_uuid_copy (loc.pargfid, gfid);
+        loc.parent = inode_ref (itable->root);
+
+        bname = strtok_r (tmp_path, "/",  &save_ptr);
+
+        /* sending a lookup on parent directory,
+         * Eg:  if  path is like /a/b/c/d/e/f/g/
+         * then we will send a lookup on a first and then b,c,d,etc
+         */
+
+        while (bname) {
+                linked_inode = NULL;
+                loc.inode = inode_grep (itable, loc.parent, bname);
+                if (loc.inode == NULL) {
+                        loc.inode = inode_new (itable);
+                        if (loc.inode == NULL) {
+                                ret = -ENOMEM;
+                                goto out;
+                        }
+                } else {
+                        /*
+                         * Inode is already populated in the inode table.
+                         * Which means we already looked up the inde and
+                         * linked with a dentry. So that we will skip
+                         * lookup on this entry, and proceed to next.
+                         */
+                        bname = strtok_r (NULL, "/",  &save_ptr);
+                        inode_unref (loc.parent);
+                        loc.parent = loc.inode;
+                        gf_uuid_copy (loc.pargfid, loc.inode->gfid);
+                        loc.inode = NULL;
+                        continue;
+                }
+
+                loc.name = bname;
+                ret = loc_path (&loc, bname);
+
+                ret = syncop_lookup (this, &loc, &iatt, NULL, NULL, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_INFO, -ret,
+                                DHT_MSG_DIR_SELFHEAL_FAILED,
+                                "Healing of path %s failed on subvolume %s for "
+                                "directory %s", path, this->name, bname);
+                        goto out;
+                }
+
+                linked_inode = inode_link (loc.inode, loc.parent, bname, &iatt);
+                if (!linked_inode)
+                        goto out;
+
+                loc_wipe (&loc);
+                gf_uuid_copy (loc.pargfid, linked_inode->gfid);
+                loc.inode = NULL;
+                loc.parent = linked_inode;
+
+                bname = strtok_r (NULL, "/",  &save_ptr);
+        }
+out:
+        inode_ref (linked_inode);
+        loc_wipe (&loc);
+        GF_FREE (tmp_path);
+
+        return linked_inode;
+}
+
+
+int
+dht_heal_full_path (void *data)
+{
+        call_frame_t            *heal_frame     = data;
+        dht_local_t             *local          = NULL;
+        loc_t                    loc            = {0, };
+        dict_t                  *dict           = NULL;
+        char                    *path           = NULL;
+        int                      ret            = -1;
+        xlator_t                *source         = NULL;
+        xlator_t                *this           = NULL;
+        inode_table_t           *itable         = NULL;
+        inode_t                 *inode          = NULL;
+        inode_t                 *tmp_inode      = NULL;
+
+        GF_VALIDATE_OR_GOTO ("DHT", heal_frame, out);
+
+        local = heal_frame->local;
+        this = heal_frame->this;
+        source = heal_frame->cookie;
+        heal_frame->cookie = NULL;
+        gf_uuid_copy (loc.gfid, local->gfid);
+
+        if (local->loc.inode)
+                loc.inode = inode_ref (local->loc.inode);
+        else
+                goto out;
+
+        itable = loc.inode->table;
+        ret = syncop_getxattr (source, &loc, &dict,
+                       GET_ANCESTRY_PATH_KEY, NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_INFO, -ret,
+                        DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "Failed to get path from subvol %s. Aborting "
+                        "directory healing.", source->name);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, GET_ANCESTRY_PATH_KEY, &path);
+        if (path) {
+                inode = dht_heal_path (this, path, itable);
+                if (inode && inode != local->inode) {
+                        /*
+                         * if inode returned by heal function is different
+                         * from what we passed, which means a racing thread
+                         * already linked a different inode for dentry.
+                         * So we will update our local->inode, so that we can
+                         * retrurn proper inode.
+                         */
+                        tmp_inode = local->inode;
+                        local->inode = inode;
+                        inode_unref (tmp_inode);
+                        tmp_inode = NULL;
+                } else {
+                        inode_unref (inode);
+                }
+        }
+
+out:
+        loc_wipe (&loc);
+        if (dict)
+                dict_unref (dict);
+        return 0;
+}
+
+int
+dht_heal_full_path_done (int op_ret, call_frame_t *heal_frame, void *data)
+{
+
+        call_frame_t            *main_frame       = NULL;
+        dht_local_t             *local            = NULL;
+
+        local = heal_frame->local;
+        main_frame = local->main_frame;
+        local->main_frame = NULL;
+
+        DHT_STACK_UNWIND (lookup, main_frame, 0, 0,
+                          local->inode, &local->stbuf, local->xattr,
+                          &local->postparent);
+
+        DHT_STACK_DESTROY (heal_frame);
+        return 0;
+}
