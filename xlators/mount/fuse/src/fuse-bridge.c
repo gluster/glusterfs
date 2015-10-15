@@ -4163,21 +4163,18 @@ fuse_first_lookup (xlator_t *this)
 
 
 int
-fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc,
-                      gf_boolean_t resolve_path)
+fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
 {
         int          ret          = -1;
         dict_t      *xattr_req    = NULL;
         struct iatt  iatt         = {0, };
         inode_t     *linked_inode = NULL;
-        inode_t     *inode        = NULL;
-        char        *path         = NULL;
-        dict_t      *xattr_ret    = NULL;
 
         if ((loc == NULL) || (xl == NULL)) {
                 ret = -EINVAL;
                 goto out;
         }
+
         if (loc->inode == NULL) {
                 loc->inode = inode_new (xl->itable);
                 if (loc->inode == NULL) {
@@ -4187,9 +4184,6 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc,
         }
 
         gf_uuid_copy (loc->gfid, gfid);
-        if (gf_uuid_is_null (loc->gfid)) {
-                goto out;
-        }
 
         xattr_req = dict_new ();
         if (xattr_req == NULL) {
@@ -4197,40 +4191,18 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc,
                 goto out;
         }
 
-        if (resolve_path) {
-                /*
-                 * setting virtual xattr glusterfs.ancestry.path to get
-                 * the path of the parent directory.
-                 */
-                ret = dict_set_int32 (xattr_req, GET_ANCESTRY_PATH_KEY, 42);
-                if (ret)
-                        goto out;
-        }
-
-        ret = syncop_lookup (xl, loc, &iatt, NULL, xattr_req, &xattr_ret);
+        ret = syncop_lookup (xl, loc, &iatt, NULL, xattr_req, NULL);
         if (ret < 0)
                 goto out;
 
-        if (resolve_path) {
-                ret = dict_get_str (xattr_ret, GET_ANCESTRY_PATH_KEY, &path);
-        }
-        if (path) {
-                inode = loc->inode;
-                loc->inode = fuse_resolve_path (xl, path);
-                inode_unref (inode);
-        } else {
-                linked_inode = inode_link (loc->inode, NULL, NULL, &iatt);
-                inode_unref (loc->inode);
-                loc->inode = linked_inode;
-        }
+        linked_inode = inode_link (loc->inode, NULL, NULL, &iatt);
+        inode_unref (loc->inode);
+        loc->inode = linked_inode;
+
         ret = 0;
 out:
         if (xattr_req != NULL) {
                 dict_unref (xattr_req);
-        }
-
-        if (xattr_ret) {
-                dict_unref (xattr_ret);
         }
 
         return ret;
@@ -4263,13 +4235,8 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
         loc.inode = inode_find (new_subvol->itable, basefd->inode->gfid);
 
         if (loc.inode == NULL) {
-
-                /* setting the get_resolve_path to send lookup
-                 * on parent directories
-                 * */
-
                 ret = fuse_nameless_lookup (new_subvol, basefd->inode->gfid,
-                                            &loc, _gf_true);
+                                            &loc);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "name-less lookup of gfid (%s) failed (%s)"
