@@ -1106,6 +1106,12 @@ int
 dht_layout_sort (dht_layout_t *layout);
 
 int
+dht_heal_full_path (void *data);
+
+int
+dht_heal_full_path_done (int op_ret, call_frame_t *frame, void *data);
+
+int
 dht_layout_missing_dirs (dht_layout_t *layout);
 
 int
