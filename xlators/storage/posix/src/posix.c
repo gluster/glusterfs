@@ -3802,14 +3802,14 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
 
         priv = this->private;
 
+        if (!priv->update_pgfid_nlinks)
+                goto out;
+
         if (IA_ISDIR (leaf_inode->ia_type)) {
                 ret = posix_get_ancestry_directory (this, leaf_inode,
                                                     head, path, type, op_errno,
                                                     xdata);
         } else  {
-
-                if (!priv->update_pgfid_nlinks)
-                        goto out;
                 ret = posix_get_ancestry_non_directory (this, leaf_inode,
                                                         head, path, type,
                                                         op_errno, xdata);
