@@ -465,9 +465,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              ret           = -1;
         int32_t              op_ret        = -1;
         int32_t              op_errno      = EINVAL;
-        uint32_t             lk_version    = 0;
         char                *buf           = NULL;
-        gf_boolean_t        cancelled      = _gf_false;
         uint32_t            opversion      = 0;
         rpc_transport_t     *xprt          = NULL;
         int32_t              fop_version   = 0;
@@ -617,20 +615,6 @@ server_setvolume (rpcsvc_request_t *req)
                 client_name = "unknown";
         }
 
-        /*lk_verion :: [1..2^31-1]*/
-        ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
-        if (ret < 0) {
-                ret = dict_set_str (reply, "ERROR",
-                                    "lock state version not supplied");
-                if (ret < 0)
-                        gf_msg_debug (this->name, 0, "failed to set error "
-                                      "msg");
-
-                op_ret = -1;
-                op_errno = EINVAL;
-                goto fail;
-        }
-
         client = gf_client_get (this, &req->cred, client_uid, subdir_mount);
         if (client == NULL) {
                 op_ret = -1;
@@ -641,24 +625,6 @@ server_setvolume (rpcsvc_request_t *req)
         client->client_name = gf_strdup(client_name);
 
         gf_msg_debug (this->name, 0, "Connected to %s", client->client_uid);
-        cancelled = server_cancel_grace_timer (this, client);
-        if (cancelled) {
-                /* If timer has been successfully cancelled then it means
-                 * that the client has reconnected within grace period.
-                 * Since we've bumped up the bind count with a gf_client_get()
-                 * for this connect attempt, we need to drop the bind count
-                 * for earlier connect, since grace timer handler couldn't
-                 * drop it since the timer was cancelled.
-                 */
-                gf_client_put (client, NULL);
-
-                /* We need to drop the ref count for this reconnected client
-                 * since one ref was taken before delegating to the grace
-                 * timer handler. Since grace timer handler was cancelled,
-                 * it couldn't run and drop the ref either.
-                 */
-                gf_client_unref (client);
-        }
 
         serv_ctx = server_ctx_get (client, client->this);
         if (serv_ctx == NULL) {
@@ -666,12 +632,6 @@ server_setvolume (rpcsvc_request_t *req)
                         PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
                         "failed");
                 goto fail;
-        }
-
-        if (serv_ctx->lk_version != 0 &&
-            serv_ctx->lk_version != lk_version) {
-                (void) server_connection_cleanup (this, client,
-                                                  INTERNAL_LOCKS | POSIX_LOCKS);
         }
 
         if (req->trans->xl_private != client)
@@ -878,12 +838,6 @@ server_setvolume (rpcsvc_request_t *req)
         if (ret)
                 gf_msg_debug (this->name, 0, "failed to set 'process-uuid'");
 
-        ret = dict_set_uint32 (reply, "clnt-lk-version", serv_ctx->lk_version);
-        if (ret)
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        PS_MSG_CLIENT_LK_VERSION_ERROR, "failed to set "
-                        "'clnt-lk-version'");
-
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) req->trans));
         if (ret)
@@ -976,47 +930,20 @@ server_ping (rpcsvc_request_t *req)
 int
 server_set_lk_version (rpcsvc_request_t *req)
 {
-        int                 op_ret   = -1;
-        int                 op_errno = EINVAL;
+        int                 ret      = -1;
         gf_set_lk_ver_req   args     = {0,};
         gf_set_lk_ver_rsp   rsp      = {0,};
-        client_t           *client   = NULL;
-        server_ctx_t       *serv_ctx = NULL;
-        xlator_t           *this     = NULL;
 
-        this = req->svc->xl;
-        //TODO: Decide on an appropriate errno for the error-path
-        //below
-        if (!this)
-                goto fail;
-
-        op_ret = xdr_to_generic (req->msg[0], &args,
+        ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_set_lk_ver_req);
-        if (op_ret < 0) {
-                //failed to decode msg;
+        if (ret < 0) {
+                /* failed to decode msg */
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
 
-        client = gf_client_get (this, &req->cred, args.uid, NULL);
-        serv_ctx = server_ctx_get (client, client->this);
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
-                goto fail;
-        }
-
-        serv_ctx->lk_version = args.lk_ver;
         rsp.lk_ver   = args.lk_ver;
-
-        op_ret = 0;
 fail:
-        if (client)
-                gf_client_put (client, NULL);
-
-        rsp.op_ret   = op_ret;
-        rsp.op_errno = op_errno;
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gf_set_lk_ver_rsp);
 

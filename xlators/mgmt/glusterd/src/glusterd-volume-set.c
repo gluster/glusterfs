@@ -1951,18 +1951,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
-        { .key        = "features.lock-heal",
-          .voltype    = "protocol/client",
-          .option     = "lk-heal",
-          .op_version = 1,
-          .flags      = VOLOPT_FLAG_CLIENT_OPT
-        },
-        { .key        = "features.grace-timeout",
-          .voltype    = "protocol/client",
-          .option     = "grace-timeout",
-          .op_version = 1,
-          .flags      = VOLOPT_FLAG_CLIENT_OPT
-        },
         { .key        = "client.ssl",
           .voltype    = "protocol/client",
           .option     = "transport.socket.ssl-enabled",
@@ -2075,18 +2063,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "rpc.outstanding-rpc-limit",
           .type        = GLOBAL_DOC,
           .op_version  = 3
-        },
-        { .key         = "features.lock-heal",
-          .voltype     = "protocol/server",
-          .option      = "lk-heal",
-          .type        = NO_DOC,
-          .op_version  = 1
-        },
-        { .key         = "features.grace-timeout",
-          .voltype     = "protocol/server",
-          .option      = "grace-timeout",
-          .type        = NO_DOC,
-          .op_version  = 1
         },
         { .key         = "server.ssl",
           .voltype     = "protocol/server",
