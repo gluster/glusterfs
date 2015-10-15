@@ -84,9 +84,6 @@
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
 #define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
-#define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
-#define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
-#define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
@@ -156,7 +153,11 @@
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
 
+/* quota xattrs */
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
+#define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
+#define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
+#define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"

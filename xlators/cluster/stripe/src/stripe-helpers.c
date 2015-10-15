@@ -51,7 +51,7 @@ stripe_aggregate (dict_t *this, char *key, data_t *value, void *data)
 
         dst = data;
 
-        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
+        if (strcmp (key, QUOTA_SIZE_KEY) == 0) {
                 ret = dict_get_bin (dst, key, (void **)&size);
                 if (ret < 0) {
                         size = GF_CALLOC (1, sizeof (int64_t),

@@ -2489,6 +2489,9 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         snprintf (key, sizeof (key), "%s%d.caps", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->caps);
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.quota-version", prefix, count);
+        ret = dict_set_int32 (dict, key, volinfo->quota_version);
 out:
         GF_FREE (volume_id_str);
         GF_FREE (rebalance_id_str);
@@ -3568,6 +3571,11 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.caps", prefix, count);
         /*This is not present in older glusterfs versions, so ignore ret value*/
         ret = dict_get_int32 (peer_data, key, &new_volinfo->caps);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.quota_version", prefix, count);
+        /*This is not present in older glusterfs versions, so ignore ret value*/
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->quota_version);
 
         ret = glusterd_import_bricks (peer_data, count, new_volinfo, prefix);
         if (ret)

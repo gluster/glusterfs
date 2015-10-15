@@ -1207,8 +1207,7 @@ glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr,
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_REMOVE) {
-                ret = sys_lremovexattr (abspath,
-                                        "trusted.glusterfs.quota.limit-set");
+                ret = sys_lremovexattr (abspath, QUOTA_LIMIT_KEY);
                 if (ret) {
                         gf_asprintf (op_errstr, "removexattr failed on %s. "
                                      "Reason : %s", abspath, strerror (errno));
@@ -1217,8 +1216,7 @@ glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr,
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
-                ret = sys_lremovexattr (abspath,
-                                "trusted.glusterfs.quota.limit-objects");
+                ret = sys_lremovexattr (abspath, QUOTA_LIMIT_OBJECTS_KEY);
                 if (ret) {
                         gf_asprintf (op_errstr, "removexattr failed on %s. "
                                      "Reason : %s", abspath, strerror (errno));
@@ -1494,18 +1492,32 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
         }
 
+
+        if (GF_QUOTA_OPTION_TYPE_ENABLE == type)
+                volinfo->quota_version++;
+        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret) {
+                if (GF_QUOTA_OPTION_TYPE_ENABLE == type)
+                        volinfo->quota_version--;
+                goto out;
+        }
+
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLFILE_CREATE_FAIL, "Unable to re-create "
                                                   "volfiles");
+                if (GF_QUOTA_OPTION_TYPE_ENABLE == type) {
+                        /* rollback volinfo */
+                        volinfo->quota_version--;
+                        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                }
+
                 ret = -1;
                 goto out;
         }
-
-        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-        if (ret)
-                goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 if (priv->op_version == GD_OP_VERSION_MIN)

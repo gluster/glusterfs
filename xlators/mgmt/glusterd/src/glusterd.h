@@ -407,6 +407,7 @@ struct glusterd_volinfo_ {
         gd_quorum_status_t        quorum_status;
 
         glusterd_snapdsvc_t       snapd;
+        int32_t                   quota_version;
 };
 
 typedef enum gd_snap_status_ {

@@ -255,19 +255,19 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
                           uuid_t gfid, char *contri_key)
 {
         int32_t ret                  = -1;
-        char    key[CONTRI_KEY_MAX]  = {0, };
+        char    key[QUOTA_KEY_MAX]   = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
 
         if (gfid && !gf_uuid_is_null(gfid)) {
-                GET_CONTRI_KEY (key, gfid, ret);
+                GET_CONTRI_KEY (this, key, gfid, ret);
         } else if (loc->parent) {
-                GET_CONTRI_KEY (key, loc->parent->gfid, ret);
+                GET_CONTRI_KEY (this, key, loc->parent->gfid, ret);
         } else {
                 /* nameless lookup, fetch contributions to all parents */
-                GET_CONTRI_KEY (key, NULL, ret);
+                GET_CONTRI_KEY (this, key, NULL, ret);
         }
 
         if (ret < 0)
@@ -278,7 +278,7 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
                 goto out;
 
         if (contri_key)
-                strncpy (contri_key, key, CONTRI_KEY_MAX);
+                strncpy (contri_key, key, QUOTA_KEY_MAX);
 
 out:
         if (ret < 0)

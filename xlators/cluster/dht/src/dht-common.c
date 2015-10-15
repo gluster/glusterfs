@@ -3245,8 +3245,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && (!strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key) ||
-                    !strcmp (GF_XATTR_QUOTA_LIMIT_LIST_OBJECT, key))) {
+        if (key && (!strcmp (QUOTA_LIMIT_KEY, key) ||
+                    !strcmp (QUOTA_LIMIT_OBJECTS_KEY, key))) {
                 /* quota hardlimit and aggregated size of a directory is stored
                  * in inode contexts of each brick. Hence its good enough that
                  * we send getxattr for this key to any brick.
