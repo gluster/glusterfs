@@ -1277,49 +1277,6 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
         return 0;
 }
 
-
-gf_boolean_t
-server_cancel_grace_timer (xlator_t *this, client_t *client)
-{
-        server_ctx_t  *serv_ctx  = NULL;
-        gf_timer_t    *timer     = NULL;
-        gf_boolean_t   cancelled = _gf_false;
-
-        if (!this || !client) {
-                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
-                        "Invalid arguments to cancel connection timer");
-                return cancelled;
-        }
-
-        serv_ctx = server_ctx_get (client, client->this);
-
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED,
-                        "server_ctx_get() failed");
-                goto out;
-        }
-
-        LOCK (&serv_ctx->fdtable_lock);
-        {
-                if (serv_ctx->grace_timer) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                        PS_MSG_GRACE_TIMER_CANCELLED,
-                                        "Cancelling the grace timer");
-                        timer = serv_ctx->grace_timer;
-                        serv_ctx->grace_timer = NULL;
-                }
-        }
-        UNLOCK (&serv_ctx->fdtable_lock);
-
-        if (timer) {
-                gf_timer_call_cancel (this->ctx, timer);
-                cancelled = _gf_true;
-        }
-out:
-        return cancelled;
-}
-
 server_ctx_t*
 server_ctx_get (client_t *client, xlator_t *xlator)
 {
@@ -1339,7 +1296,6 @@ server_ctx_get (client_t *client, xlator_t *xlator)
         if (ctx == NULL)
                 goto out;
 
-     /* ctx->lk_version = 0; redundant */
         ctx->fdtable = gf_fd_fdtable_alloc ();
 
         if (ctx->fdtable == NULL) {

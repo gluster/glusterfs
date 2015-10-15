@@ -31,61 +31,6 @@ rpcsvc_cbk_program_t server_cbk_prog = {
         .progver   = GLUSTER_CBK_VERSION,
 };
 
-void
-grace_time_handler (void *data)
-{
-        client_t      *client    = NULL;
-        xlator_t      *this      = NULL;
-        gf_timer_t    *timer     = NULL;
-        server_ctx_t  *serv_ctx  = NULL;
-        gf_boolean_t   cancelled = _gf_false;
-        gf_boolean_t   detached  = _gf_false;
-
-        client = data;
-        this = client->this;
-
-        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
-
-        gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_GRACE_TIMER_EXPD, "grace "
-                "timer expired for %s", client->client_uid);
-
-        serv_ctx = server_ctx_get (client, this);
-
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
-                goto out;
-        }
-
-        LOCK (&serv_ctx->fdtable_lock);
-        {
-                if (serv_ctx->grace_timer) {
-                        timer = serv_ctx->grace_timer;
-                        serv_ctx->grace_timer = NULL;
-                }
-        }
-        UNLOCK (&serv_ctx->fdtable_lock);
-        if (timer) {
-                gf_timer_call_cancel (this->ctx, timer);
-                cancelled = _gf_true;
-        }
-        if (cancelled) {
-
-                /*
-                 * ref has already been taken in server_rpc_notify()
-                 */
-                gf_client_put (client, &detached);
-
-                if (client && detached) /* reconnection did not happen :-( */
-                        server_connection_cleanup (this, client,
-                                                   INTERNAL_LOCKS | POSIX_LOCKS);
-                gf_client_unref (client);
-        }
-out:
-        return;
-}
-
 struct iobuf *
 gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                      xdrproc_t xdrproc)
@@ -145,7 +90,6 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         server_state_t         *state      = NULL;
         char                    new_iobref = 0;
         client_t               *client     = NULL;
-        gf_boolean_t            lk_heal    = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
@@ -154,9 +98,6 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                 frame->local = NULL;
                 client = frame->root->client;
         }
-
-        if (client)
-                lk_heal = ((server_conf_t *) client->this->private)->lk_heal;
 
         if (!iobref) {
                 iobref = iobref_new ();
@@ -193,7 +134,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                 gf_msg_callingfn ("", GF_LOG_ERROR, 0,
                                   PS_MSG_REPLY_SUBMIT_FAILED,
                                   "Reply submission failed");
-                if (frame && client && !lk_heal) {
+                if (frame && client) {
                         server_connection_cleanup (frame->this, client,
                                                   INTERNAL_LOCKS | POSIX_LOCKS);
                 } else {
@@ -472,8 +413,6 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         rpc_transport_t     *trans      = NULL;
         server_conf_t       *conf       = NULL;
         client_t            *client     = NULL;
-        server_ctx_t        *serv_ctx   = NULL;
-        struct timespec     grace_ts    = {0, };
         char                *auth_path  = NULL;
         int                 ret         = -1;
 
@@ -542,76 +481,24 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         auth_path = NULL;
                 }
 
-                /* If lock self heal is off, then destroy the
-                   conn object, else register a grace timer event */
-                if (!conf->lk_heal) {
-                        gf_client_ref (client);
-                        gf_client_put (client, &detached);
-                        if (client && detached) {
-                                server_connection_cleanup (this, client,
-                                                           INTERNAL_LOCKS | POSIX_LOCKS);
-
-                                gf_event (EVENT_CLIENT_DISCONNECT,
-                                          "client_uid=%s;"
-                                          "client_identifier=%s;"
-                                          "server_identifier=%s;"
-                                          "brick_path=%s",
-                                          client->client_uid,
-                                          trans->peerinfo.identifier,
-                                          trans->myinfo.identifier,
-                                          auth_path);
-                        }
-
-                        /*
-                         * gf_client_unref will be done while handling
-                         * RPC_EVENT_TRANSPORT_DESTROY
-                         */
-                        goto unref_transport;
+                gf_client_ref (client);
+                gf_client_put (client, &detached);
+                if (detached) {
+                        server_connection_cleanup (this, client,
+                                                   INTERNAL_LOCKS | POSIX_LOCKS);
+                        gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
+                                  "client_identifier=%s;server_identifier=%s;"
+                                  "brick_path=%s",
+                                  client->client_uid,
+                                  trans->peerinfo.identifier,
+                                  trans->myinfo.identifier,
+                                  auth_path);
                 }
 
-                serv_ctx = server_ctx_get (client, this);
-
-                if (serv_ctx == NULL) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                PS_MSG_SERVER_CTX_GET_FAILED,
-                                "server_ctx_get() failed");
-                        goto unref_transport;
-                }
-
-                grace_ts.tv_sec = conf->grace_timeout;
-                grace_ts.tv_nsec = 0;
-
-                LOCK (&serv_ctx->fdtable_lock);
-                {
-                        if (!serv_ctx->grace_timer) {
-
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        PS_MSG_GRACE_TIMER_START,
-                                        "starting a grace timer for %s",
-                                        client->client_uid);
-
-                                /* ref to protect against client destruction
-                                 * in RPCSVC_EVENT_TRANSPORT_DESTROY while
-                                 * we are starting a grace timer
-                                 */
-                                gf_client_ref (client);
-
-                                serv_ctx->grace_timer =
-                                        gf_timer_call_after (this->ctx,
-                                                             grace_ts,
-                                                             grace_time_handler,
-                                                             client);
-                        }
-                }
-                UNLOCK (&serv_ctx->fdtable_lock);
-
-                gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
-                          "client_identifier=%s;server_identifier=%s;"
-                          "brick_path=%s",
-                          client->client_uid,
-                          trans->peerinfo.identifier,
-                          trans->myinfo.identifier,
-                          auth_path);
+                /*
+                * gf_client_unref will be done while handling
+                * RPC_EVENT_TRANSPORT_DESTROY
+                */
 
 unref_transport:
                 /* rpc_transport_unref() causes a RPCSVC_EVENT_TRANSPORT_DESTROY
@@ -619,17 +506,13 @@ unref_transport:
                  * So no code should ideally be after this unref
                  */
                 rpc_transport_unref (trans);
-
                 break;
-
         case RPCSVC_EVENT_TRANSPORT_DESTROY:
                 client = trans->xl_private;
                 if (!client)
                         break;
 
-                /* unref only for if (!client->lk_heal) */
-                if (!conf->lk_heal)
-                        gf_client_unref (client);
+                gf_client_unref (client);
 
                 trans->xl_private = NULL;
                 break;
@@ -701,33 +584,6 @@ _copy_auth_opt (dict_t *unused, char *key, data_t *value, void *xl_dict)
         }
 
         return 0;
-}
-
-
-int
-server_init_grace_timer (xlator_t *this, dict_t *options,
-                         server_conf_t *conf)
-{
-        int32_t   ret            = -1;
-
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, options, out);
-        GF_VALIDATE_OR_GOTO (this->name, conf, out);
-
-        GF_OPTION_RECONF ("lk-heal", conf->lk_heal, options, bool, out);
-
-        gf_msg_debug (this->name, 0, "lk-heal = %s",
-                      (conf->lk_heal) ? "on" : "off");
-
-        GF_OPTION_RECONF ("grace-timeout", conf->grace_timeout,
-                                                options, uint32, out);
-
-        gf_msg_debug (this->name, 0, "Server grace timeout value = %d",
-                                conf->grace_timeout);
-
-        ret = 0;
-out:
-        return ret;
 }
 
 int
@@ -987,8 +843,6 @@ do_rpc:
         if (ret)
                 goto out;
 
-        ret = server_init_grace_timer (this, options, conf);
-
 out:
         THIS = oldTHIS;
         gf_msg_debug ("", 0, "returning %d", ret);
@@ -1082,10 +936,6 @@ server_init (xlator_t *this)
          /* Set event threads to the configured default */
         GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
         ret = server_check_event_threads (this, conf, conf->event_threads);
-        if (ret)
-                goto out;
-
-        ret = server_init_grace_timer (this, this->options, conf);
         if (ret)
                 goto out;
 
@@ -1771,20 +1621,6 @@ struct volume_options server_options[] = {
                          " statedumps.",
           .op_version = {1},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-        },
-        { .key   = {"lk-heal"},
-          .type  = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
-          .op_version = {1},
-          .flags = OPT_FLAG_SETTABLE
-        },
-        {.key  = {"grace-timeout"},
-         .type = GF_OPTION_TYPE_INT,
-         .min  = 10,
-         .max  = 1800,
-         .default_value = "10",
-         .op_version = {1},
-         .flags = OPT_FLAG_SETTABLE
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,

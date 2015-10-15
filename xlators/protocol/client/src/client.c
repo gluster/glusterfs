@@ -126,96 +126,6 @@ client_type_to_gf_type (short l_type)
         return gf_type;
 }
 
-uint32_t
-client_get_lk_ver (clnt_conf_t *conf)
-{
-        uint32_t  lk_ver = 0;
-
-        GF_VALIDATE_OR_GOTO ("client", conf, out);
-
-        pthread_mutex_lock (&conf->lock);
-        {
-                lk_ver = conf->lk_version;
-        }
-        pthread_mutex_unlock (&conf->lock);
-out:
-        return lk_ver;
-}
-
-void
-client_grace_timeout (void *data)
-{
-        int               ver  = 0;
-        xlator_t         *this = NULL;
-        struct clnt_conf *conf = NULL;
-
-        GF_VALIDATE_OR_GOTO ("client", data, out);
-
-        this = THIS;
-
-        conf = (struct clnt_conf *) this->private;
-
-        pthread_mutex_lock (&conf->lock);
-        {
-                ver = ++conf->lk_version;
-                /* ver == 0 is a special value used by server
-                   to notify client that this is a fresh connect.*/
-                if (ver == 0)
-                        ver = ++conf->lk_version;
-
-                gf_timer_call_cancel (this->ctx, conf->grace_timer);
-                conf->grace_timer = NULL;
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_TIMER_EXPIRED,
-                "client grace timer expired, updating "
-                "the lk-version to %d", ver);
-
-        client_mark_fd_bad (this);
-out:
-        return;
-}
-
-int32_t
-client_register_grace_timer (xlator_t *this, clnt_conf_t *conf)
-{
-        int32_t  ret = -1;
-        struct timespec grace_ts = {0, };
-
-        GF_VALIDATE_OR_GOTO ("client", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, conf, out);
-
-        grace_ts.tv_sec = conf->grace_timeout;
-        grace_ts.tv_nsec = 0;
-
-        pthread_mutex_lock (&conf->lock);
-        {
-                if (conf->grace_timer || !conf->grace_timer_needed) {
-                        gf_msg_trace (this->name, 0,
-				      "Client grace timer is already set "
-				      "or a grace-timer has already time "
-				      "out, not registering a new timer");
-                } else {
-                        gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_TIMER_REG,
-                                "Registering a grace timer");
-
-                        conf->grace_timer_needed = _gf_false;
-
-                        conf->grace_timer =
-                                gf_timer_call_after (this->ctx,
-                                                     grace_ts,
-                                                     client_grace_timeout,
-                                                     conf->rpc);
-                }
-        }
-        pthread_mutex_unlock (&conf->lock);
-
-        ret = 0;
-out:
-        return ret;
-}
-
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
@@ -2298,34 +2208,12 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 PC_MSG_HANDSHAKE_RETURN, "handshake "
                                 "msg returned %d", ret);
-
-                /* Cancel grace timer if set */
-                pthread_mutex_lock (&conf->lock);
-                {
-                        conf->grace_timer_needed = _gf_true;
-
-                        if (conf->grace_timer) {
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        PC_MSG_GRACE_TIMER_CANCELLED,
-                                        "Cancelling the grace timer");
-
-                                gf_timer_call_cancel (this->ctx,
-                                                      conf->grace_timer);
-
-                                conf->grace_timer      = NULL;
-                        }
-                }
-                pthread_mutex_unlock (&conf->lock);
-
                 break;
         }
         case RPC_CLNT_DISCONNECT:
                 gf_msg_debug (this->name, 0, "got RPC_CLNT_DISCONNECT");
 
-                if (!conf->lk_heal)
-                        client_mark_fd_bad (this);
-                else
-                        client_register_grace_timer (this, conf);
+                client_mark_fd_bad (this);
 
                 if (!conf->skip_notify) {
                         if (conf->connected) {
@@ -2378,9 +2266,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 } else {
                         rpc->conn.config.remote_port = 0;
                 }
-
                 break;
-
         case RPC_CLNT_DESTROY:
                 ret = client_fini_complete (this);
                 break;
@@ -2614,33 +2500,6 @@ out:
         return ret;
 }
 
-
-int
-client_init_grace_timer (xlator_t *this, dict_t *options,
-                         clnt_conf_t *conf)
-{
-        int32_t   ret            = -1;
-
-        GF_VALIDATE_OR_GOTO ("client", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, options, out);
-        GF_VALIDATE_OR_GOTO (this->name, conf, out);
-
-        GF_OPTION_RECONF ("lk-heal", conf->lk_heal, options, bool, out);
-
-        gf_msg_debug (this->name, 0, "lk-heal = %s",
-                      (conf->lk_heal) ? "on" : "off");
-
-        GF_OPTION_RECONF ("grace-timeout", conf->grace_timeout,
-                                                options, uint32, out);
-
-        gf_msg_debug (this->name, 0, "Client grace timeout value = %d",
-                                conf->grace_timeout);
-
-        ret = 0;
-out:
-        return ret;
-}
-
 int
 client_check_event_threads (xlator_t *this, clnt_conf_t *conf, int32_t old,
                             int32_t new)
@@ -2722,10 +2581,6 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("send-gids", conf->send_gids, options, bool, out);
 
-        ret = client_init_grace_timer (this, options, conf);
-        if (ret)
-                goto out;
-
         ret = 0;
 out:
         return ret;
@@ -2761,19 +2616,10 @@ init (xlator_t *this)
 
         conf->child_up = _gf_false;
 
-        /* Initialize parameters for lock self healing*/
-        conf->lk_version         = 1;
-        conf->grace_timer        = NULL;
-        conf->grace_timer_needed = _gf_true;
-
         /* Set event threads to the configured default */
         GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
         ret = client_check_event_threads (this, conf, STARTING_EVENT_THREADS,
                                           conf->event_threads);
-        if (ret)
-                goto out;
-
-        ret = client_init_grace_timer (this, this->options, conf);
         if (ret)
                 goto out;
 
@@ -3077,27 +2923,6 @@ struct volume_options options[] = {
         },
         { .key   = {"client-bind-insecure"},
           .type  = GF_OPTION_TYPE_BOOL
-        },
-        { .key   = {"lk-heal"},
-          .type  = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
-          .description = "When the connection to client is lost, server "
-                         "cleans up all the locks held by the client. After "
-                         "the connection is restored, the client reacquires "
-                         "(heals) the fcntl locks released by the server.",
-          .op_version = {1},
-          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-        },
-        { .key   = {"grace-timeout"},
-          .type  = GF_OPTION_TYPE_INT,
-          .min   = 10,
-          .max   = 1800,
-          .default_value = "10",
-          .description = "Specifies the duration for the lock state to be "
-                         "maintained on the client after a network "
-                         "disconnection. Range 10-1800 seconds.",
-          .op_version = {1},
-          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"tcp-window-size"},
           .type = GF_OPTION_TYPE_SIZET,
