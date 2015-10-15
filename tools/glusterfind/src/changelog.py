@@ -351,6 +351,8 @@ def _get_args():
     parser.add_argument("brick", help="Brick Name")
     parser.add_argument("outfile", help="Output File")
     parser.add_argument("start", help="Start Time", type=int)
+    parser.add_argument("--only-query", help="Query mode only (no session)",
+                        action="store_true")
     parser.add_argument("--debug", help="Debug", action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
@@ -378,19 +380,23 @@ if __name__ == "__main__":
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
 
-    try:
-        with open(status_file) as f:
-            start = int(f.read().strip())
-    except (ValueError, OSError, IOError):
+    if args.only_query:
         start = args.start
+    else:
+        try:
+            with open(status_file) as f:
+                start = int(f.read().strip())
+        except (ValueError, OSError, IOError):
+            start = args.start
 
     end = int(time.time()) - get_changelog_rollover_time(args.volume)
     logger.info("%s Started Changelog Crawl - Start: %s End: %s" % (args.brick,
                                                                     start,
                                                                     end))
     actual_end = changelog_crawl(args.brick, start, end, args)
-    with open(status_file_pre, "w", buffering=0) as f:
-        f.write(str(actual_end))
+    if not args.only_query:
+        with open(status_file_pre, "w", buffering=0) as f:
+            f.write(str(actual_end))
 
     logger.info("%s Finished Changelog Crawl - End: %s" % (args.brick,
                                                            actual_end))
