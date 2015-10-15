@@ -1030,7 +1030,8 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 
         switch (op) {
         case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_false);
+                ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_false,
+                                            _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SNAP_REMOVE_FAIL,
@@ -1630,7 +1631,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                         "The snap(%s) is scheduled to be decommissioned "
                         "Not accepting the snap.", peer_snap_name);
                 glusterd_snap_remove (dict, snap,
-                                      _gf_true, _gf_true);
+                                      _gf_true, _gf_true, _gf_false);
                 ret = 0;
                 goto out;
         }
@@ -1708,7 +1709,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
 out:
         if (ret)
                 glusterd_snap_remove (dict, snap,
-                                      _gf_true, _gf_true);
+                                      _gf_true, _gf_true, _gf_false);
 
         if (dict)
                 dict_unref (dict);
@@ -1935,7 +1936,8 @@ remove_my_data:
                 goto out;
         }
 
-        ret = glusterd_snap_remove (dict, snap, remove_lvm, _gf_false);
+        ret = glusterd_snap_remove (dict, snap, remove_lvm, _gf_false,
+                                    _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_SNAP_REMOVE_FAIL,
