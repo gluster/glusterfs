@@ -7574,7 +7574,7 @@ struct volume_options options[] = {
 	},
         { .key = {"update-link-count-parent"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+          .default_value = "on",
           .description = "Enable placeholders for gfid to path conversion"
         },
 #if GF_DARWIN_HOST_OS
