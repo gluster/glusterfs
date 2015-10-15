@@ -874,6 +874,12 @@ quota_build_ancestry (inode_t *inode, quota_ancestry_built_t ancestry_cbk,
                 goto err;
         }
 
+        op_ret = dict_set_int8 (xdata_req, QUOTA_LIMIT_OBJECTS_KEY, 1);
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                goto err;
+        }
+
         op_ret = dict_set_int8 (xdata_req, GET_ANCESTRY_DENTRY_KEY, 1);
         if (op_ret < 0) {
                 op_errno = -op_ret;

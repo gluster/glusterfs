@@ -3074,9 +3074,9 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
         GF_ASSERT (path);
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST)
-                key = "trusted.glusterfs.quota.limit-set";
+                key = QUOTA_LIMIT_KEY;
         else
-                key = "trusted.glusterfs.quota.limit-objects";
+                key = QUOTA_LIMIT_OBJECTS_KEY;
 
 
         ret = sys_lgetxattr (mountdir, key, (void *)&limits, sizeof (limits));
@@ -3104,8 +3104,7 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
         limits.hl = ntoh64 (limits.hl);
         limits.sl = ntoh64 (limits.sl);
 
-        xattr_size = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
-                                    NULL, 0);
+        xattr_size = sys_lgetxattr (mountdir, QUOTA_SIZE_KEY, NULL, 0);
         if (xattr_size < (sizeof (int64_t) * 2) &&
             type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS) {
                 ret = -1;
@@ -3114,13 +3113,13 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
                  * and the xattr healing is not completed.
                  */
         } else if (xattr_size > (sizeof (int64_t) * 2)) {
-                ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                ret = sys_lgetxattr (mountdir, QUOTA_SIZE_KEY,
                                      &used_space, sizeof (used_space));
         } else if (xattr_size > 0) {
                 /* This is for compatibility.
                  * Older version had only file usage
                  */
-                ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                ret = sys_lgetxattr (mountdir, QUOTA_SIZE_KEY,
                              &(used_space.size), sizeof (used_space.size));
                 used_space.file_count = 0;
                 used_space.dir_count = 0;

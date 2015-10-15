@@ -206,10 +206,12 @@ _quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
 }
 
 int32_t
-quota_dict_set_size_meta (dict_t *dict, const quota_meta_t *meta)
+quota_dict_set_size_meta (xlator_t *this, dict_t *dict,
+                          const quota_meta_t *meta)
 {
-        int32_t         ret      = -ENOMEM;
-        quota_meta_t   *value    = NULL;
+        int32_t         ret                        = -ENOMEM;
+        quota_meta_t   *value                      = NULL;
+        char            size_key[QUOTA_KEY_MAX]    = {0, };
 
         value = GF_CALLOC (2, sizeof (quota_meta_t), gf_common_quota_meta_t);
         if (value == NULL) {
@@ -223,7 +225,10 @@ quota_dict_set_size_meta (dict_t *dict, const quota_meta_t *meta)
         value[1].file_count = 0;
         value[1].dir_count = hton64 (1);
 
-        ret = dict_set_bin (dict, QUOTA_SIZE_KEY, value,
+        GET_SIZE_KEY (this, size_key, ret);
+        if (ret < 0)
+                goto out;
+        ret = dict_set_bin (dict, size_key, value,
                             (sizeof (quota_meta_t) * 2));
         if (ret < 0) {
                 gf_log_callingfn ("quota", GF_LOG_ERROR, "dict set failed");
@@ -280,7 +285,8 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
                    gf_boolean_t *size_set)
 {
         int32_t        ret                         = -1;
-        char           contri_key[CONTRI_KEY_MAX]  = {0, };
+        char           contri_key[QUOTA_KEY_MAX]   = {0, };
+        char           size_key[QUOTA_KEY_MAX]     = {0, };
         quota_meta_t   meta                        = {0, };
         struct iatt    stbuf                       = {0,};
         dict_t        *dict                        = NULL;
@@ -292,7 +298,7 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
                 goto out;
         }
 
-        ret = mq_req_xattr (this, loc, dict, contri_key);
+        ret = mq_req_xattr (this, loc, dict, contri_key, size_key);
         if (ret < 0)
                 goto out;
 
@@ -311,8 +317,7 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
         *contri_set = _gf_true;
         *size_set = _gf_true;
         if (loc->inode->ia_type == IA_IFDIR) {
-                ret = quota_dict_get_inode_meta (rsp_dict, QUOTA_SIZE_KEY,
-                                                 &meta);
+                ret = quota_dict_get_inode_meta (rsp_dict, size_key, &meta);
                 if (ret < 0 || meta.dir_count == 0)
                         *size_set = _gf_false;
         }
@@ -356,7 +361,7 @@ mq_create_size_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
                 goto out;
         }
 
-        ret = quota_dict_set_size_meta (dict, &size);
+        ret = quota_dict_set_size_meta (this, dict, &size);
         if (ret < 0)
                 goto out;
 
@@ -577,7 +582,8 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
 {
         int32_t            ret                         = -1;
         quota_meta_t       meta                        = {0, };
-        char               contri_key[CONTRI_KEY_MAX]  = {0, };
+        char               contri_key[QUOTA_KEY_MAX]   = {0, };
+        char               size_key[QUOTA_KEY_MAX]     = {0, };
         dict_t            *dict                        = NULL;
         dict_t            *rsp_dict                    = NULL;
         struct iatt        stbuf                       = {0,};
@@ -595,7 +601,10 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         }
 
         if (size && loc->inode->ia_type == IA_IFDIR) {
-                ret = dict_set_int64 (dict, QUOTA_SIZE_KEY, 0);
+                GET_SIZE_KEY (this, size_key, ret);
+                if (ret < 0)
+                        goto out;
+                ret = dict_set_int64 (dict, size_key, 0);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "dict_set failed.");
                         goto out;
@@ -620,7 +629,7 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
 
         if (size) {
                 if (loc->inode->ia_type == IA_IFDIR) {
-                        ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
+                        ret = quota_dict_get_meta (rsp_dict, size_key,
                                                    &meta);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -749,9 +758,9 @@ mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                   inode_contribution_t *contri, quota_meta_t *delta)
 {
         int32_t              ret                         = -1;
-        char                 contri_key[CONTRI_KEY_MAX]  = {0, };
+        char                 contri_key[QUOTA_KEY_MAX]   = {0, };
 
-        GET_CONTRI_KEY (contri_key, contri->gfid, ret);
+        GET_CONTRI_KEY (this, contri_key, contri->gfid, ret);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "get contri_key "
                         "failed for %s", uuid_utoa(contri->gfid));
@@ -798,7 +807,7 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
                   quota_meta_t *delta)
 {
         int32_t              ret                         = -1;
-        char                 contri_key[CONTRI_KEY_MAX]  = {0, };
+        char                 contri_key[QUOTA_KEY_MAX]   = {0, };
         dict_t              *dict                        = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
@@ -818,7 +827,7 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
                 goto out;
         }
 
-        GET_CONTRI_KEY (contri_key, contri->gfid, ret);
+        GET_CONTRI_KEY (this, contri_key, contri->gfid, ret);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "get contri_key "
                         "failed for %s", uuid_utoa(contri->gfid));
@@ -884,7 +893,7 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
                 goto out;
         }
 
-        ret = quota_dict_set_size_meta (dict, delta);
+        ret = quota_dict_set_size_meta (this, dict, delta);
         if (ret < 0)
                 goto out;
 
@@ -1795,12 +1804,13 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
                             inode_contribution_t *contribution, loc_t *loc,
                             dict_t *dict, struct iatt buf)
 {
-        int32_t               ret                          = 0;
+        int32_t               ret                          = -1;
         int8_t                dirty                        = -1;
         quota_meta_t          size                         = {0, };
         quota_meta_t          contri                       = {0, };
         quota_meta_t          delta                        = {0, };
-        char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        char                  contri_key[QUOTA_KEY_MAX]    = {0, };
+        char                  size_key[QUOTA_KEY_MAX]      = {0, };
         gf_boolean_t          status                       = _gf_false;
 
         ret = dict_get_int8 (dict, QUOTA_DIRTY_KEY, &dirty);
@@ -1812,13 +1822,16 @@ mq_inspect_directory_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
                 dirty = 0;
         }
 
-        ret = _quota_dict_get_meta (this, dict, QUOTA_SIZE_KEY, &size,
+        GET_SIZE_KEY (this, size_key, ret);
+        if (ret < 0)
+                goto out;
+        ret = _quota_dict_get_meta (this, dict, size_key, &size,
                                     IA_IFDIR, _gf_false);
         if (ret < 0)
                 goto create_xattr;
 
         if (!loc_is_root(loc)) {
-                GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
+                GET_CONTRI_KEY (this, contri_key, contribution->gfid, ret);
                 if (ret < 0)
                         goto out;
 
@@ -1883,7 +1896,7 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
         quota_meta_t          size                         = {0, };
         quota_meta_t          contri                       = {0, };
         quota_meta_t          delta                        = {0, };
-        char                  contri_key[CONTRI_KEY_MAX]   = {0, };
+        char                  contri_key[QUOTA_KEY_MAX]    = {0, };
         gf_boolean_t          status                       = _gf_false;
 
         LOCK (&ctx->lock);
@@ -1898,7 +1911,7 @@ mq_inspect_file_xattr (xlator_t *this, quota_inode_ctx_t *ctx,
         }
         UNLOCK (&ctx->lock);
 
-        GET_CONTRI_KEY (contri_key, contribution->gfid, ret);
+        GET_CONTRI_KEY (this, contri_key, contribution->gfid, ret);
         if (ret < 0)
                 goto out;
 
@@ -1975,9 +1988,10 @@ out:
 
 int32_t
 mq_req_xattr (xlator_t *this, loc_t *loc, dict_t *dict,
-              char *contri_key)
+              char *contri_key, char *size_key)
 {
-        int32_t               ret       = -1;
+        int32_t               ret                = -1;
+        char                  key[QUOTA_KEY_MAX] = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
@@ -1990,7 +2004,13 @@ mq_req_xattr (xlator_t *this, loc_t *loc, dict_t *dict,
                         goto out;
         }
 
-        ret = dict_set_uint64 (dict, QUOTA_SIZE_KEY, 0);
+        GET_SIZE_KEY (this, key, ret);
+        if (ret < 0)
+                goto out;
+        if (size_key)
+                strncpy (size_key, key, QUOTA_KEY_MAX);
+
+        ret = dict_set_uint64 (dict, key, 0);
         if (ret < 0)
                 goto out;
 

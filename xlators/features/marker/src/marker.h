@@ -142,6 +142,7 @@ struct marker_conf{
         char        *marker_xattr;
         uint64_t     quota_lk_owner;
         gf_lock_t    lock;
+        int32_t      version;
 };
 typedef struct marker_conf marker_conf_t;
 

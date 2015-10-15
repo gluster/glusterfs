@@ -1864,6 +1864,7 @@ brick_graph_add_marker (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t        *xl = NULL;
         char            tstamp_file[PATH_MAX] = {0,};
         char            volume_id[64] = {0,};
+        char            buf[32]       = {0,};
 
         if (!graph || !volinfo || !set_dict)
                 goto out;
@@ -1878,6 +1879,11 @@ brick_graph_add_marker (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         get_vol_tstamp_file (tstamp_file, volinfo);
         ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->quota_version);
+        ret = xlator_set_option (xl, "quota-version", buf);
         if (ret)
                 goto out;
 

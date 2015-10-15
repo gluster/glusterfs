@@ -19,7 +19,7 @@
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
 
 #define CONTRIBUTION  "contri"
-#define CONTRI_KEY_MAX 512
+#define QUOTA_KEY_MAX 512
 #define READDIR_BUF 4096
 
 
@@ -56,21 +56,39 @@
                 ret = 0;                                \
         } while (0);
 
-#define GET_CONTRI_KEY(var, _gfid, _ret)                                  \
+#define GET_CONTRI_KEY(_this, var, _gfid, _ret)                           \
         do {                                                              \
+                marker_conf_t  *_priv = _this->private;                   \
                 if (_gfid != NULL) {                                      \
                         char _gfid_unparsed[40];                          \
                         gf_uuid_unparse (_gfid, _gfid_unparsed);          \
-                        _ret = snprintf (var, CONTRI_KEY_MAX,             \
+                        _ret = snprintf (var, QUOTA_KEY_MAX,              \
                                          QUOTA_XATTR_PREFIX               \
-                                         ".%s.%s." CONTRIBUTION, "quota", \
-                                         _gfid_unparsed);                 \
+                                         ".%s.%s." CONTRIBUTION ".%d",    \
+                                         "quota", _gfid_unparsed,         \
+                                         _priv->version);                 \
                 } else {                                                  \
-                        _ret = snprintf (var, CONTRI_KEY_MAX,             \
+                        _ret = snprintf (var, QUOTA_KEY_MAX,              \
                                          QUOTA_XATTR_PREFIX               \
-                                         ".%s.." CONTRIBUTION, "quota");  \
+                                         ".%s.." CONTRIBUTION ".%d",      \
+                                         "quota", _priv->version);        \
                 }                                                         \
         } while (0)
+
+#define GET_QUOTA_KEY(_this, var, key, _ret)                              \
+        do {                                                              \
+                marker_conf_t  *_priv = _this->private;                   \
+                if (_priv->version > 0)                                   \
+                        _ret = snprintf (var, QUOTA_KEY_MAX, "%s.%d",     \
+                                         key, _priv->version);            \
+                else                                                      \
+                        _ret = snprintf (var, QUOTA_KEY_MAX, "%s", key);  \
+        } while (0)
+
+#define GET_SIZE_KEY(_this, var, _ret)                                    \
+        {                                                                 \
+                GET_QUOTA_KEY (_this, var, QUOTA_SIZE_KEY, _ret);         \
+        }
 
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
         do {                                    \
@@ -112,7 +130,7 @@ struct inode_contribution {
 typedef struct inode_contribution inode_contribution_t;
 
 int32_t
-mq_req_xattr (xlator_t *, loc_t *, dict_t *, char *);
+mq_req_xattr (xlator_t *, loc_t *, dict_t *, char *, char *);
 
 int32_t
 mq_xattr_state (xlator_t *, loc_t *, dict_t *, struct iatt);

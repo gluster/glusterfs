@@ -1008,6 +1008,12 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->quota_version);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
+                                   buf);
+        if (ret)
+                goto out;
+
         ret = glusterd_volume_write_tier_details (fd, volinfo);
 
         ret = glusterd_volume_write_snap_details (fd, volinfo);
@@ -2666,6 +2672,9 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_TYPE,
                                      strlen (key))) {
                         volinfo->tier_info.cold_type = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
+                            strlen (GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION))) {
+                        volinfo->quota_version = atoi (value);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {

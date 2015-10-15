@@ -5515,8 +5515,8 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         loc_copy (&local->loc, loc);
 
 
-        if (name && strncmp (name, GF_XATTR_QUOTA_SIZE_KEY,
-                             strlen (GF_XATTR_QUOTA_SIZE_KEY)) == 0) {
+        if (name && strncmp (name, QUOTA_SIZE_KEY,
+                             strlen (QUOTA_SIZE_KEY)) == 0) {
                 local->wind_count = priv->child_count;
 
                 for (i = 0, trav=this->children; i < priv->child_count; i++,
