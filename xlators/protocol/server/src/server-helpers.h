@@ -44,9 +44,6 @@ int
 server_connection_cleanup (xlator_t *this, struct _client *client,
                            int32_t flags);
 
-gf_boolean_t
-server_cancel_grace_timer (xlator_t *this, struct _client *client);
-
 int
 server_build_config (xlator_t *this, server_conf_t *conf);
 

@@ -34,11 +34,6 @@
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
 typedef enum {
-        GF_LK_HEAL_IN_PROGRESS,
-        GF_LK_HEAL_DONE,
-} lk_heal_state_t;
-
-typedef enum {
         DEFAULT_REMOTE_FD = 0,
         FALLBACK_TO_ANON_FD = 1
 } clnt_remote_fd_flags_t;
@@ -218,18 +213,6 @@ typedef struct clnt_conf {
         char                   disconnect_err_logged; /* flag used to prevent
                                                          excessive disconnect
                                                          logging */
-        gf_boolean_t           lk_heal;
-        uint16_t               lk_version; /* this variable is used to distinguish
-                                              client-server transaction while
-                                              performing lock healing */
-        uint32_t               grace_timeout;
-        gf_timer_t            *grace_timer;
-        gf_boolean_t           grace_timer_needed; /* The state of this flag will
-                                                      be used to decide whether
-                                                      a new grace-timer must be
-                                                      registered or not. False
-                                                      means dont register, true
-                                                      means register */
         char                   parent_down;
 	gf_boolean_t           quick_reconnect; /* When reconnecting after
 						   portmap query, do not let
@@ -266,7 +249,6 @@ typedef struct _client_fd_ctx {
         int32_t           flags;
         fd_lk_ctx_t      *lk_ctx;
         pthread_mutex_t   mutex;
-        lk_heal_state_t   lk_heal_state;
         uuid_t            gfid;
         void (*reopen_done)(struct _client_fd_ctx*, int64_t rfd, xlator_t *);
         struct list_head  lock_list;     /* List of all granted locks on this fd */
@@ -376,8 +358,6 @@ int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int32_t delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner);
-int client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
-                                  gf_lkowner_t *owner, int32_t cmd);
 int32_t delete_granted_locks_fd (clnt_fd_ctx_t *fdctx);
 int32_t client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd);
 void client_save_number_fds (clnt_conf_t *conf, int count);
@@ -388,13 +368,9 @@ int32_t client_dump_locks (char *name, inode_t *inode,
                            dict_t *dict);
 int client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx);
 
-uint32_t client_get_lk_ver (clnt_conf_t *conf);
-
 int32_t client_type_to_gf_type (short l_type);
 
 int client_mark_fd_bad (xlator_t *this);
-
-int client_set_lk_version (xlator_t *this);
 
 int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 void client_default_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd,

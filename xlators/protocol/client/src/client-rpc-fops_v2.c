@@ -2115,20 +2115,6 @@ client4_0_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto out;
         }
 
-        /* Save the lock to the client lock cache to be able
-           to recover in the case of server reboot.*/
-        /*
-          temporarily
-        if (local->cmd == F_SETLK || local->cmd == F_SETLKW) {
-                ret = client_add_lock_for_recovery (local->fd, &lock,
-                                                    local->owner, local->cmd);
-                if (ret < 0) {
-                        rsp.op_ret = -1;
-                        rsp.op_errno = -ret;
-                }
-        }
-        */
-
 out:
         if ((rsp.op_ret == -1) &&
             (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
@@ -2782,7 +2768,6 @@ client4_0_release (call_frame_t *frame, xlator_t *this,
         clnt_conf_t      *conf          = NULL;
         clnt_fd_ctx_t    *fdctx         = NULL;
         clnt_args_t      *args          = NULL;
-        lk_heal_state_t   lk_heal_state = GF_LK_HEAL_DONE;
         gf_boolean_t      destroy       = _gf_false;
 
         if (!this || !data)
@@ -2796,7 +2781,6 @@ client4_0_release (call_frame_t *frame, xlator_t *this,
                 fdctx = this_fd_del_ctx (args->fd, this);
                 if (fdctx != NULL) {
                         remote_fd     = fdctx->remote_fd;
-                        lk_heal_state = fdctx->lk_heal_state;
 
                         /* fdctx->remote_fd == -1 indicates a reopen attempt
                            in progress. Just mark ->released = 1 and let
@@ -2804,7 +2788,7 @@ client4_0_release (call_frame_t *frame, xlator_t *this,
                         */
                         if (remote_fd == -1) {
                                 fdctx->released = 1;
-                        } else if (lk_heal_state == GF_LK_HEAL_DONE) {
+                        } else {
                                 list_del_init (&fdctx->sfd_pos);
                                 destroy = _gf_true;
                         }

@@ -107,11 +107,8 @@ struct server_conf {
         int                     inode_lru_limit;
         gf_boolean_t            verify_volfile;
         gf_boolean_t            trace;
-        gf_boolean_t            lk_heal; /* If true means lock self
-                                            heal is on else off. */
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
-        uint32_t                grace_timeout;
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
         struct list_head        xprt_list;
@@ -244,8 +241,6 @@ extern struct rpcsvc_program glusterfs4_0_fop_prog;
 typedef struct _server_ctx {
         gf_lock_t            fdtable_lock;
         fdtable_t           *fdtable;
-        struct _gf_timer    *grace_timer;
-        uint32_t             lk_version;
 } server_ctx_t;
 
 
