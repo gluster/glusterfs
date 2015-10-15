@@ -4195,7 +4195,8 @@ glusterd_snap_cleanup (xlator_t  *this)
                         }
                 } else if (snap->snap_status != GD_SNAP_STATUS_IN_USE) {
                         ret = glusterd_snap_remove (dict, snap,
-                                                    _gf_true, _gf_true);
+                                                    _gf_true, _gf_true,
+                                                    _gf_false);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_SNAP_REMOVE_FAIL,
