@@ -33,8 +33,8 @@ sleep 2
 
 #Remove size and contri xattr from /dir1
 #Remove contri xattr from /dir1/dir2
-setfattr -x trusted.glusterfs.quota.size $B0/$V0/dir1
-setfattr -x trusted.glusterfs.quota.00000000-0000-0000-0000-000000000001.contri $B0/$V0/dir1
+setfattr -x trusted.glusterfs.quota.size.1 $B0/$V0/dir1
+setfattr -x trusted.glusterfs.quota.00000000-0000-0000-0000-000000000001.contri.1 $B0/$V0/dir1
 contri=$(getfattr -d -m . -e hex $B0/$V0/dir1/dir2 | grep contri | awk -F= '{print $1}')
 setfattr -x $contri $B0/$V0/dir1/dir2
 
