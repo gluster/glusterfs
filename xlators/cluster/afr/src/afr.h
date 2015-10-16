@@ -657,11 +657,8 @@ typedef struct _afr_local {
                 dict_t **pre_op_xdata;
                 unsigned char *pre_op_sources;
 
-		/* @fop_subvols: subvolumes on which FOP will be attempted */
-                unsigned char   *fop_subvols;
-
-		/* @failed_subvols: subvolumes on which FOP failed. Always
-		   a subset of @fop_subvols */
+		/* @failed_subvols: subvolumes on which a pre-op or a
+                    FOP failed. */
                 unsigned char   *failed_subvols;
 
 		/* @dirtied: flag which indicates whether we set dirty flag

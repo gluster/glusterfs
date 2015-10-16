@@ -1199,7 +1199,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         }
 
         GF_FREE (local->transaction.eager_lock);
-        GF_FREE (local->transaction.fop_subvols);
         GF_FREE (local->transaction.failed_subvols);
 
         GF_FREE (local->transaction.basename);
@@ -4170,12 +4169,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
                 if (!local->transaction.pre_op_sources)
                         goto out;
         }
-
-        local->transaction.fop_subvols = GF_CALLOC (sizeof (*local->transaction.fop_subvols),
-						    priv->child_count,
-						    gf_afr_mt_char);
-        if (!local->transaction.fop_subvols)
-                goto out;
 
         local->transaction.failed_subvols = GF_CALLOC (sizeof (*local->transaction.failed_subvols),
 						       priv->child_count,
