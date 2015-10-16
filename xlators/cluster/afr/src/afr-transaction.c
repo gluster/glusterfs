@@ -44,12 +44,16 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
         int call_count = -1;
+        unsigned char *failed_subvols = NULL;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
 
-        call_count = AFR_COUNT (local->transaction.pre_op, priv->child_count);
+        failed_subvols = local->transaction.failed_subvols;
+
+        call_count = priv->child_count - AFR_COUNT (failed_subvols,
+                                                    priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
