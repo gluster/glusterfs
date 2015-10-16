@@ -15,6 +15,7 @@
 #include "logging.h"
 #include "run.h"
 #include "defaults.h"
+#include "syscall.h"
 #include "compat.h"
 #include "compat-errno.h"
 #include "glusterd.h"
@@ -343,7 +344,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                 goto out;
         }
 
-        hookdir = opendir (hooks_path);
+        hookdir = sys_opendir (hooks_path);
         if (!hookdir) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -420,7 +421,7 @@ out:
         }
 
         if (hookdir)
-                closedir (hookdir);
+                sys_closedir (hookdir);
 
         return ret;
 }

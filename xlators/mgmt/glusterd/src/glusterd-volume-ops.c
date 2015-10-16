@@ -2781,7 +2781,7 @@ glusterd_clearlocks_rmdir_mount (glusterd_volinfo_t *volinfo, char *mntpt)
 
         priv = THIS->private;
 
-        ret = rmdir (mntpt);
+        ret = sys_rmdir (mntpt);
         if (ret) {
                 gf_msg_debug (THIS->name, 0, "rmdir failed");
                 goto out;

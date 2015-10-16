@@ -16,6 +16,7 @@
 #include "xlator.h"
 #include "glusterd.h"
 #include "defaults.h"
+#include "syscall.h"
 #include "logging.h"
 #include "dict.h"
 #include "graph-utils.h"
@@ -915,7 +916,7 @@ volgen_apply_filters (char *orig_volfile)
         char          *filterpath = NULL;
         struct stat    statbuf = {0,};
 
-        filterdir = opendir(FILTERDIR);
+        filterdir = sys_opendir (FILTERDIR);
         if (!filterdir) {
                 return;
         }
@@ -936,7 +937,7 @@ volgen_apply_filters (char *orig_volfile)
                         continue;
                 }
                 /* Deliberately use stat instead of lstat to allow symlinks. */
-                if (stat(filterpath,&statbuf) == (-1)) {
+                if (sys_stat(filterpath, &statbuf) == (-1)) {
                         goto free_fp;
                 }
                 if (!S_ISREG(statbuf.st_mode)) {
@@ -947,7 +948,7 @@ volgen_apply_filters (char *orig_volfile)
                  * this entirely and check for EPERM after exec fails, but this
                  * is cleaner.
                  */
-                if (access(filterpath,X_OK) != 0) {
+                if (sys_access(filterpath, X_OK) != 0) {
                         goto free_fp;
                 }
                 if (runcmd(filterpath,orig_volfile,NULL)) {
@@ -960,7 +961,7 @@ free_fp:
                 GF_FREE(filterpath);
         }
 
-        closedir (filterdir);
+        sys_closedir (filterdir);
 }
 
 static int
@@ -979,14 +980,14 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
                 goto error;
         }
 
-        fd = creat (ftmp, S_IRUSR | S_IWUSR);
+        fd = sys_creat (ftmp, S_IRUSR | S_IWUSR);
         if (fd < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED, "file creation failed");
                 goto error;
         }
 
-        close (fd);
+        sys_close (fd);
 
         f = fopen (ftmp, "w");
         if (!f)
@@ -1011,7 +1012,7 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
 
         f = NULL;
 
-        if (rename (ftmp, filename) == -1)
+        if (sys_rename (ftmp, filename) == -1)
                 goto error;
 
         GF_FREE (ftmp);
@@ -5058,7 +5059,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                         return -1;
                 }
                 if (ret >= 0) {
-                        close (ret);
+                        sys_close (ret);
                         /* If snap_volume, retain timestamp for marker.tstamp
                          * from parent. Geo-replication depends on mtime of
                          * 'marker.tstamp' to decide the volume-mark, i.e.,
@@ -5080,7 +5081,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                         }
                 }
         } else {
-                ret = unlink (tstamp_file);
+                ret = sys_unlink (tstamp_file);
                 if (ret == -1 && errno == ENOENT)
                         ret = 0;
                 if (ret == -1) {
@@ -5747,7 +5748,7 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
         GF_ASSERT (brickinfo);
 
         get_brick_filepath (filename, volinfo, brickinfo);
-        ret = unlink (filename);
+        ret = sys_unlink (filename);
         if (ret)
                 gf_msg ("glusterd", GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED,

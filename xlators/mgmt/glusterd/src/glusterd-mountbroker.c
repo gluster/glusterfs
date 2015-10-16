@@ -17,6 +17,7 @@
 #include "dict.h"
 #include "list.h"
 #include "logging.h"
+#include "syscall.h"
 #include "defaults.h"
 #include "compat.h"
 #include "compat-errno.h"
@@ -587,16 +588,16 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
 
         sla = strrchr (mtptemp, '/');
         *sla = '\0';
-        ret = mkdir (mtptemp, 0700);
+        ret = sys_mkdir (mtptemp, 0700);
         if (ret == 0)
-                ret = chown (mtptemp, uid, 0);
+                ret = sys_chown (mtptemp, uid, 0);
         else if (errno == EEXIST)
                 ret = 0;
         if (ret == -1) {
                 *op_errno = errno;
                 goto out;
         }
-        ret = lstat (mtptemp, &st);
+        ret = sys_lstat (mtptemp, &st);
         if (ret == -1) {
                 *op_errno = errno;
                 goto out;
@@ -628,7 +629,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                 *op_errno = errno;
                 goto out;
         }
-        close (ret);
+        sys_close (ret);
 
         /*** assembly the path from cookie to mountpoint */
         sla = strchr (sla - 1, '/');
@@ -642,9 +643,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         /*** create cookie link in (to-be) mountpoint,
              move it over to the final place */
         *cookieswitch = '/';
-        ret = symlink (mntlink, mtptemp);
+        ret = sys_symlink (mntlink, mtptemp);
         if (ret != -1)
-                ret = rename (mtptemp, cookie);
+                ret = sys_rename (mtptemp, cookie);
         *cookieswitch = '\0';
         if (ret == -1) {
                 *op_errno = errno;
@@ -674,12 +675,12 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                         strerror (*op_errno));
                 if (mtptemp) {
                         *cookieswitch = '/';
-                        unlink (mtptemp);
+                        sys_unlink (mtptemp);
                         *cookieswitch = '\0';
-                        rmdir (mtptemp);
+                        sys_rmdir (mtptemp);
                 }
                 if (cookie) {
-                        unlink (cookie);
+                        sys_unlink (cookie);
                         GF_FREE (cookie);
                 }
 

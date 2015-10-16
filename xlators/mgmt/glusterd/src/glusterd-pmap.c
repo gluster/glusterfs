@@ -10,6 +10,7 @@
 
 #include "xlator.h"
 #include "glusterfs.h"
+#include "syscall.h"
 #include "compat-errno.h"
 
 #include "glusterd.h"
@@ -42,7 +43,7 @@ pmap_port_isfree (int port)
                 return -1;
 
         ret = bind (sock, (struct sockaddr *)&sin, sizeof (sin));
-        close (sock);
+        sys_close (sock);
 
         return (ret == 0) ? 1 : 0;
 }

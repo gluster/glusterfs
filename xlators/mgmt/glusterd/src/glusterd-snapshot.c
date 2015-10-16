@@ -613,7 +613,7 @@ glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
                   priv->workdir);
 
         /* Create trash folder if it is not there */
-        ret = mkdir (trashdir, 0777);
+        ret = sys_mkdir (trashdir, 0777);
         if (ret && errno != EEXIST) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,
@@ -624,7 +624,7 @@ glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
         }
 
         /* Move the origin volume volder to the backup location */
-        ret = rename (pathname, delete_path);
+        ret = sys_rename (pathname, delete_path);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED,
@@ -635,7 +635,7 @@ glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
 
         /* Re-create an empty origin volume folder so that restore can
          * happen. */
-        ret = mkdir (pathname, 0777);
+        ret = sys_mkdir (pathname, 0777);
         if (ret && errno != EEXIST) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,
@@ -652,14 +652,14 @@ out:
         op_ret = ret;
         if (ret) {
                 /* Revert the changes in case of failure */
-                ret = rmdir (pathname);
+                ret = sys_rmdir (pathname);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                 "Failed to rmdir: %s,err: %s",
                                 pathname, strerror (errno));
                 }
 
-                ret = rename (delete_path, pathname);
+                ret = sys_rename (delete_path, pathname);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED,
@@ -667,7 +667,7 @@ out:
                                 delete_path, pathname);
                 }
 
-                ret = rmdir (trashdir);
+                ret = sys_rmdir (trashdir);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                 "Failed to rmdir: %s, Reason: %s",
@@ -712,7 +712,7 @@ glusterd_copy_geo_rep_files (glusterd_volinfo_t *origin_vol,
 
         GLUSTERD_GET_SNAP_GEO_REP_DIR(snapgeo_dir, snap_vol->snapshot, priv);
 
-        ret = mkdir (snapgeo_dir, 0777);
+        ret = sys_mkdir (snapgeo_dir, 0777);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,
@@ -2878,7 +2878,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         continue;
                 }
 
-                ret = lstat (brick_mount_path, &stbuf);
+                ret = sys_lstat (brick_mount_path, &stbuf);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                 "Brick %s:%s already deleted.",
@@ -2928,7 +2928,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                 }
 
                 /* Verify if the device path exists or not */
-                ret = stat (brickinfo->device_path, &stbuf);
+                ret = sys_stat (brickinfo->device_path, &stbuf);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                 "LV (%s) for brick (%s:%s) not present. "
@@ -4769,7 +4769,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                 goto out;
         }
 
-        ret = stat (brickinfo->path, &statbuf);
+        ret = sys_stat (brickinfo->path, &statbuf);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         GD_MSG_FILE_OP_FAILED,
@@ -8574,7 +8574,7 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
 
         /* Now move the backup copy of the vols to its original
          * location.*/
-        ret = rename (trash_path, pathname);
+        ret = sys_rename (trash_path, pathname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED, "Failed to rename folder "
@@ -8905,7 +8905,7 @@ glusterd_is_lvm_cmd_available (char *lvm_cmd)
         if (!lvm_cmd)
                 return _gf_false;
 
-        ret = stat (lvm_cmd, &buf);
+        ret = sys_stat (lvm_cmd, &buf);
         if (ret != 0) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED,

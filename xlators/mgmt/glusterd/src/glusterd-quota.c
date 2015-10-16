@@ -764,7 +764,7 @@ glusterd_copy_to_tmp_file (int src_fd, int dst_fd)
         this = THIS;
         GF_ASSERT (this);
 
-        while ((bytes_read = read (src_fd, (void *)&buf, entry_sz)) > 0) {
+        while ((bytes_read = sys_read (src_fd, (void *)&buf, entry_sz)) > 0) {
                 if (bytes_read % 16 != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_QUOTA_CONF_CORRUPT, "quota.conf "
@@ -772,7 +772,7 @@ glusterd_copy_to_tmp_file (int src_fd, int dst_fd)
                         ret = -1;
                         goto out;
                 }
-                ret = write (dst_fd, (void *) buf, bytes_read);
+                ret = sys_write (dst_fd, (void *) buf, bytes_read);
                 if (ret == -1) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_QUOTA_CONF_WRITE_FAIL,
@@ -834,7 +834,7 @@ glusterd_store_quota_conf_upgrade (glusterd_volinfo_t *volinfo)
 
 out:
         if (conf_fd != -1)
-                close (conf_fd);
+                sys_close (conf_fd);
 
         if (ret && (fd > 0)) {
                 gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
@@ -906,7 +906,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
 
         if (version < 1.2f && conf->op_version >= GD_OP_VERSION_3_7_0) {
                 /* Upgrade quota.conf file to newer format */
-                close (conf_fd);
+                sys_close (conf_fd);
                 ret = glusterd_store_quota_conf_upgrade(volinfo);
                 if (ret)
                         goto out;
@@ -959,7 +959,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 type = GF_QUOTA_CONF_TYPE_USAGE;
 
         for (;;) {
-                bytes_read = read (conf_fd, (void *)&buf, sizeof (buf));
+                bytes_read = sys_read (conf_fd, (void *)&buf, sizeof (buf));
                 if (bytes_read <= 0) {
                         /*The flag @is_first_read is TRUE when the loop is
                          * entered, and is set to false if the first read
@@ -983,7 +983,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 found = glusterd_find_gfid_match (gfid, type, buf, bytes_read,
                                                   opcode, &bytes_to_write);
 
-                ret = write (fd, (void *) buf, bytes_to_write);
+                ret = sys_write (fd, (void *) buf, bytes_to_write);
                 if (ret == -1) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_QUOTA_CONF_WRITE_FAIL,
@@ -1065,7 +1065,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         ret = 0;
 out:
         if (conf_fd != -1) {
-                close (conf_fd);
+                sys_close (conf_fd);
         }
 
         if (ret && (fd > 0)) {

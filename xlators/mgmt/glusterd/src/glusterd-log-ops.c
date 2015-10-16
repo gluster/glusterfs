@@ -16,6 +16,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
+#include "syscall.h"
 
 #include <signal.h>
 
@@ -253,7 +254,7 @@ cont:
                 snprintf (logfile, PATH_MAX, "%s.%"PRIu64,
                           brickinfo->logfile, key);
 
-                ret = rename (brickinfo->logfile, logfile);
+                ret = sys_rename (brickinfo->logfile, logfile);
                 if (ret)
                         gf_msg ("glusterd", GF_LOG_WARNING, errno,
                                 GD_MSG_FILE_OP_FAILED, "rename failed");

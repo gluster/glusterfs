@@ -20,6 +20,7 @@
 #include "glusterd-bitd-svc.h"
 #include "glusterd-scrub-svc.h"
 #include "glusterd-svc-helper.h"
+#include "syscall.h"
 
 int
 glusterd_svcs_reconfigure ()
@@ -194,10 +195,10 @@ glusterd_svc_check_volfile_identical (char *svc_name,
 
 out:
         if (need_unlink)
-                unlink (tmpvol);
+                sys_unlink (tmpvol);
 
         if (tmp_fd >= 0)
-                close (tmp_fd);
+                sys_close (tmp_fd);
 
         return ret;
 }
@@ -247,8 +248,8 @@ glusterd_svc_check_topology_identical (char *svc_name,
                                                  identical);
 out:
         if (tmpfd >= 0)
-                close (tmpfd);
+                sys_close (tmpfd);
         if (tmpclean)
-                unlink (tmpvol);
+                sys_unlink (tmpvol);
         return ret;
 }

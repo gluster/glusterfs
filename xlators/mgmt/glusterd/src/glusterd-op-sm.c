@@ -1220,7 +1220,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
                                         /* Checks whether a directory with
                                            given option exists or not */
-                                        if (!stat(trash_path, &stbuf)) {
+                                        if (!sys_stat (trash_path, &stbuf)) {
                                                 snprintf (errstr,
                                                           sizeof (errstr),
                                                           "Path %s exists",
@@ -2487,12 +2487,12 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
         for (count = 1; ret != -1 ; count++) {
 
-                sprintf (str, "key%d", count);
+                snprintf (str, sizeof str, "key%d", count);
                 ret = dict_get_str (dict, str, &key);
                 if (ret)
                         break;
 
-                sprintf (str, "value%d", count);
+                snprintf (str, sizeof str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,

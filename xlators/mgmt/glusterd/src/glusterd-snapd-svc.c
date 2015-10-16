@@ -20,6 +20,7 @@
 #include "glusterd-snapd-svc.h"
 #include "glusterd-snapd-svc-helper.h"
 #include "glusterd-snapshot-utils.h"
+#include "syscall.h"
 
 char *snapd_svc_name = "snapd";
 
@@ -251,7 +252,7 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                 goto out;
         }
 
-        ret = access (svc->proc.volfile, F_OK);
+        ret = sys_access (svc->proc.volfile, F_OK);
         if (ret) {
                 gf_msg (this->name, GF_LOG_DEBUG, 0,
                         GD_MSG_VOLINFO_GET_FAIL,

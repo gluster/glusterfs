@@ -473,16 +473,16 @@ group_write_allow (char *path, gid_t gid)
         struct stat st = {0,};
         int ret        = 0;
 
-        ret = stat (path, &st);
+        ret = sys_stat (path, &st);
         if (ret == -1)
                 goto out;
         GF_ASSERT (S_ISDIR (st.st_mode));
 
-        ret = chown (path, -1, gid);
+        ret = sys_chown (path, -1, gid);
         if (ret == -1)
                 goto out;
 
-        ret = chmod (path, (st.st_mode & ~S_IFMT) | S_IWGRP|S_IXGRP|S_ISVTX);
+        ret = sys_chmod (path, (st.st_mode & ~S_IFMT) | S_IWGRP|S_IXGRP|S_ISVTX);
 
  out:
         if (ret == -1)
@@ -847,7 +847,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         ret = open (mountbroker_root, O_RDONLY);
         if (ret != -1) {
                 dfd = ret;
-                ret = fstat (dfd, &st);
+                ret = sys_fstat (dfd, &st);
         }
         if (ret == -1 || !S_ISDIR (st.st_mode)) {
                 gf_msg ("glusterd", GF_LOG_ERROR, errno,
@@ -879,7 +879,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 ret = sys_openat (dfd, "..", O_RDONLY);
                 if (ret != -1) {
                         dfd2 = ret;
-                        ret = fstat (dfd2, &st2);
+                        ret = sys_fstat (dfd2, &st2);
                 }
                 if (ret == -1) {
                         gf_msg ("glusterd", GF_LOG_ERROR, errno,
@@ -909,7 +909,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                                 "directory are probably too strict");
                 }
 
-                close (dfd);
+                sys_close (dfd);
                 dfd = dfd2;
                 st = st2;
         }
@@ -932,11 +932,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
 
  out:
         if (dfd0 != -1)
-                close (dfd0);
+                sys_close (dfd0);
         if (dfd != -1)
-                close (dfd);
+                sys_close (dfd);
         if (dfd2 != -1)
-                close (dfd2);
+                sys_close (dfd2);
 
         return ret;
 }
@@ -1149,7 +1149,7 @@ glusterd_stop_uds_listener (xlator_t *this)
         } else {
                 strncpy (sockfile, sock_data->data, UNIX_PATH_MAX);
         }
-        unlink (sockfile);
+        sys_unlink (sockfile);
 
         return;
 }
@@ -1201,7 +1201,7 @@ glusterd_find_correct_var_run_dir (xlator_t *this, char *var_run_dir)
          * and glusterd maintained entry point will be different. Therefore
          * identify the correct run dir and use it
          */
-        ret = lstat (GLUSTERD_VAR_RUN_DIR, &buf);
+        ret = sys_lstat (GLUSTERD_VAR_RUN_DIR, &buf);
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED,
@@ -1237,7 +1237,7 @@ glusterd_init_var_run_dirs (xlator_t *this, char *var_run_dir,
         snprintf (abs_path, sizeof(abs_path), "%s%s",
                   var_run_dir, dir_to_be_created);
 
-        ret = stat (abs_path, &buf);
+        ret = sys_stat (abs_path, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED,
@@ -1357,7 +1357,7 @@ init (xlator_t *this)
                 strncpy (workdir, dir_data->data, PATH_MAX);
         }
 
-        ret = stat (workdir, &buf);
+        ret = sys_stat (workdir, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,
@@ -1436,7 +1436,7 @@ init (xlator_t *this)
 
         snprintf (storedir, PATH_MAX, "%s/vols", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1448,7 +1448,7 @@ init (xlator_t *this)
 
         snprintf (storedir, PATH_MAX, "%s/snaps", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1460,7 +1460,7 @@ init (xlator_t *this)
 
         snprintf (storedir, PATH_MAX, "%s/peers", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1471,7 +1471,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/bricks", DEFAULT_LOG_FILE_DIRECTORY);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1481,7 +1481,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/nfs", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1491,7 +1491,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/bitd", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1501,7 +1501,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/scrub", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1511,7 +1511,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/glustershd", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1521,7 +1521,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/quotad", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,
@@ -1531,7 +1531,7 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/groups", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_CREATE_DIR_FAILED,

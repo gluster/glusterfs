@@ -856,7 +856,7 @@ gsyncd_getpidfile (char *master, char *slave, char *pidfile,
         snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
                   "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
 
-        ret = lstat (conf_path, &stbuf);
+        ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_msg_debug (this->name, 0, "Using passed config template(%s).",
                         conf_path);
@@ -866,7 +866,7 @@ gsyncd_getpidfile (char *master, char *slave, char *pidfile,
                         GD_MSG_FILE_OP_FAILED,
                         "Config file (%s) missing. Looking for template "
                         "config file (%s)", conf_path, temp_conf_path);
-                ret = lstat (temp_conf_path, &stbuf);
+                ret = sys_lstat (temp_conf_path, &stbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                 GD_MSG_FILE_OP_FAILED,
@@ -1485,7 +1485,7 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = lstat (statefile, &stbuf);
+        ret = sys_lstat (statefile, &stbuf);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Session between %s and %s has"
                           " not been created. Please create session and retry.",
@@ -2021,10 +2021,10 @@ glusterd_op_stage_sys_exec (dict_t *dict, char **op_errstr)
 
         sprintf (command_path, GSYNCD_PREFIX"/peer_%s", command);
         /* check if it's executable */
-        ret = access (command_path, X_OK);
+        ret = sys_access (command_path, X_OK);
         if (!ret)
                 /* check if it's a regular file */
-                ret = stat (command_path, &st);
+                ret = sys_stat (command_path, &st);
         if (!ret && !S_ISREG (st.st_mode))
                 ret = -1;
 
@@ -2105,7 +2105,7 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
                 snprintf (abs_filename, sizeof(abs_filename),
                           "%s/%s", priv->workdir, filename);
 
-                ret = lstat (abs_filename, &stbuf);
+                ret = sys_lstat (abs_filename, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof (errmsg), "Source file"
                                   " does not exist in %s", priv->workdir);
@@ -2168,7 +2168,7 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
         snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
                   "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
 
-        ret = lstat (conf_path, &stbuf);
+        ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_CONFIG_INFO,
                         "Using passed config template(%s).",
@@ -2179,7 +2179,7 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
                         GD_MSG_FILE_OP_FAILED,
                         "Config file (%s) missing. Looking for template config"
                         " file (%s)", conf_path, temp_conf_path);
-                ret = lstat (temp_conf_path, &stbuf);
+                ret = sys_lstat (temp_conf_path, &stbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                 GD_MSG_FILE_OP_FAILED, "Template "
@@ -2399,7 +2399,7 @@ glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
         ret = 0;
 out:
         GF_FREE (slave_url_buf);
-        unlink (log_file_path);
+        sys_unlink (log_file_path);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
@@ -2636,7 +2636,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                         conf->workdir);
                         hook_script[ret] = '\0';
 
-                        ret = lstat (common_pem_file, &stbuf);
+                        ret = sys_lstat (common_pem_file, &stbuf);
                         if (ret) {
                                 snprintf (errmsg, sizeof (errmsg), "%s"
                                           " required for push-pem is"
@@ -2651,7 +2651,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
 
-                        ret = lstat (hook_script, &stbuf);
+                        ret = sys_lstat (hook_script, &stbuf);
                         if (ret) {
                                 snprintf (errmsg, sizeof (errmsg),
                                           "The hook-script (%s) required "
@@ -2703,7 +2703,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = lstat (statefile, &stbuf);
+        ret = sys_lstat (statefile, &stbuf);
         if (!ret && !is_force) {
                 snprintf (errmsg, sizeof (errmsg), "Session between %s"
                           " and %s is already created.",
@@ -2909,7 +2909,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
          * as this command acts as a fail safe method to stop geo-rep
          * session. */
         if (!((type == GF_GSYNC_OPTION_TYPE_STOP) && is_force)) {
-                ret = lstat (statefile, &stbuf);
+                ret = sys_lstat (statefile, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
                                   " session between %s and %s does not exist.",
@@ -3181,7 +3181,7 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
                 goto out;
         }
 
-        ret = read (pfd, buf, 1024);
+        ret = sys_read (pfd, buf, 1024);
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 if (is_pause) {
@@ -3317,7 +3317,7 @@ stop_gsync (char *master, char *slave, char **msg,
         if (pfd < 0)
                 goto out;
 
-        ret = read (pfd, buf, 1024);
+        ret = sys_read (pfd, buf, 1024);
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 ret = kill (-pid, SIGTERM);
@@ -3339,7 +3339,7 @@ stop_gsync (char *master, char *slave, char **msg,
                         usleep (50000);
                 }
                 kill (-pid, SIGKILL);
-                unlink (pidfile);
+                sys_unlink (pidfile);
         }
         ret = 0;
 
@@ -3557,7 +3557,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
 
         if ((!strcmp (op_name, "state_file")) && (op_value)) {
 
-                ret = lstat (op_value, &stbuf);
+                ret = sys_lstat (op_value, &stbuf);
                 if (ret) {
                         ret = dict_get_str (dict, "slave_host", &slave_host);
                         if (ret) {
@@ -3580,7 +3580,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                                                            slave_vol,
                                                            "Switching Status "
                                                            "File");
-                        if (ret || lstat (op_value, &stbuf)) {
+                        if (ret || sys_lstat (op_value, &stbuf)) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         GD_MSG_FILE_OP_FAILED, "Unable to "
                                         "create %s. Error : %s", op_value,
@@ -3635,7 +3635,7 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
                         "Unable to read gsyncd status file");
                 return -1;
         }
-        ret = read (status_fd, buf, blen - 1);
+        ret = sys_read (status_fd, buf, blen - 1);
         if (ret > 0) {
                 size_t len = strnlen (buf, ret);
                 /* Ensure there is a NUL byte and that it's not the first.  */
@@ -3650,7 +3650,7 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_GSYNCD_ERROR,
                         "Status file of gsyncd is corrupt");
 
-        close (status_fd);
+        sys_close (status_fd);
         return ret;
 }
 
@@ -3811,7 +3811,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
                   "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
 
-        ret = lstat (conf_path, &stbuf);
+        ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_CONFIG_INFO,
                         "Using passed config template(%s).",
@@ -3822,7 +3822,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
                         GD_MSG_FILE_OP_FAILED,
                         "Config file (%s) missing. Looking for template "
                         "config file (%s)", conf_path, temp_conf_path);
-                ret = lstat (temp_conf_path, &stbuf);
+                ret = sys_lstat (temp_conf_path, &stbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                 GD_MSG_FILE_OP_FAILED, "Template "
@@ -4231,7 +4231,7 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
-                ret = lstat (statefile, &stbuf);
+                ret = sys_lstat (statefile, &stbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_INFO, ENOENT,
                                 GD_MSG_FILE_OP_FAILED,
@@ -4433,7 +4433,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave,
                         volinfo->volname, slave_host, slave_vol);
         geo_rep_dir[ret] = '\0';
 
-        ret = rmdir (geo_rep_dir);
+        ret = sys_rmdir (geo_rep_dir);
         if (ret) {
                 if (errno == ENOENT)
                         gf_msg_debug (this->name, 0, "Geo Rep Dir(%s) Not Present.",
@@ -4656,7 +4656,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
 
         uuid_utoa_r (MY_UUID, uuid_str);
         if (!strcmp (uuid_str, host_uuid)) {
-                ret = lstat (abs_filename, &stbuf);
+                ret = sys_lstat (abs_filename, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof (errmsg), "Source file"
                                  " does not exist in %s", priv->workdir);
@@ -4691,7 +4691,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 }
 
                 do {
-                        ret = read (fd, buf, sizeof(buf));
+                        ret = sys_read (fd, buf, sizeof(buf));
                         if (ret > 0) {
                                 memcpy (contents+bytes_read, buf, ret);
                                 bytes_read += ret;
@@ -4785,7 +4785,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                bytes_writen = write (fd, contents, contents_size);
+                bytes_writen = sys_write (fd, contents, contents_size);
 
                 if (bytes_writen != contents_size) {
                         snprintf (errmsg, sizeof (errmsg), "Failed to write"
@@ -4797,13 +4797,13 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                fchmod (fd, file_mode);
+                sys_fchmod (fd, file_mode);
         }
 
         ret = 0;
 out:
         if (fd != -1)
-                close (fd);
+                sys_close (fd);
 
         if (free_contents)
                 GF_FREE(contents);
@@ -5541,13 +5541,13 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        ret = lstat (conf_path, &stbuf);
+        ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_msg_debug (this->name, 0, "Session already running."
                               " Not creating config file again.");
         } else {
                 ret = create_conf_file (conf, conf_path);
-                if (ret || lstat (conf_path, &stbuf)) {
+                if (ret || sys_lstat (conf_path, &stbuf)) {
                         snprintf (errmsg, sizeof (errmsg), "Failed to create"
                                   " config file(%s).", conf_path);
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -5556,7 +5556,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
                 }
         }
 
-        ret = lstat (statefile, &stbuf);
+        ret = sys_lstat (statefile, &stbuf);
         if (!ret) {
                 gf_msg_debug (this->name, 0, "Session already running."
                               " Not creating status file again.");
@@ -5565,7 +5565,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
                 ret = glusterd_create_status_file (volinfo->volname, slave,
                                                    slave_host, slave_vol,
                                                    "Created");
-                if (ret || lstat (statefile, &stbuf)) {
+                if (ret || sys_lstat (statefile, &stbuf)) {
                         snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
                                   ". Error : %s", statefile, strerror (errno));
                         *op_errstr = gf_strdup (errmsg);
