@@ -130,7 +130,7 @@ glusterd_is_fuse_available ()
         fd = open ("/dev/fuse", O_RDWR);
 #endif
 
-        if (fd > -1 && !close (fd))
+        if (fd > -1 && !sys_close (fd))
                 return _gf_true;
         else
                 return _gf_false;
@@ -1194,7 +1194,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
         char         msg[2048]           = {0,};
         gf_boolean_t is_created          = _gf_false;
 
-        ret = mkdir (brickinfo->path, 0777);
+        ret = sys_mkdir (brickinfo->path, 0777);
         if (ret) {
                 if (errno != EEXIST) {
                         snprintf (msg, sizeof (msg), "Failed to create brick "
@@ -1207,7 +1207,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                 is_created = _gf_true;
         }
 
-        ret = lstat (brickinfo->path, &brick_st);
+        ret = sys_lstat (brickinfo->path, &brick_st);
         if (ret) {
                 snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
                           brickinfo->path, strerror (errno));
@@ -1224,14 +1224,14 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
 
         snprintf (parentdir, sizeof (parentdir), "%s/..", brickinfo->path);
 
-        ret = lstat ("/", &root_st);
+        ret = sys_lstat ("/", &root_st);
         if (ret) {
                 snprintf (msg, sizeof (msg), "lstat failed on /. Reason : %s",
                           strerror (errno));
                 goto out;
         }
 
-        ret = lstat (parentdir, &parent_st);
+        ret = sys_lstat (parentdir, &parent_st);
         if (ret) {
                 snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
                           parentdir, strerror (errno));
@@ -1281,7 +1281,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
 
 out:
         if (ret && is_created)
-                rmdir (brickinfo->path);
+                sys_rmdir (brickinfo->path);
         if (ret && !*op_errstr && msg[0] != '\0')
                 *op_errstr = gf_strdup (msg);
 
@@ -1940,7 +1940,7 @@ glusterd_sort_and_redirect (const char *src_filepath, int dest_fd)
 
         for (counter = 0; lines[counter]; counter++) {
 
-                ret = write (dest_fd, lines[counter],
+                ret = sys_write (dest_fd, lines[counter],
                              strlen (lines[counter]));
                 if (ret < 0)
                         goto out;
@@ -2011,7 +2011,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
                         goto out;
                 }
 
-                ret = close (sort_fd);
+                ret = sys_close (sort_fd);
                 if (ret)
                         goto out;
         }
@@ -2027,7 +2027,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
         }
         if (!is_quota_conf) {
                 snprintf (buf, sizeof (buf), "%s=%u\n", "info", cksum);
-                ret = write (fd, buf, strlen (buf));
+                ret = sys_write (fd, buf, strlen (buf));
                 if (ret <= 0) {
                         ret = -1;
                         goto out;
@@ -2042,9 +2042,9 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
 
 out:
         if (fd > 0)
-               close (fd);
+               sys_close (fd);
         if (unlink_sortfile)
-               unlink (sort_filepath);
+               sys_unlink (sort_filepath);
         gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
@@ -2578,7 +2578,7 @@ glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
         ret = 0;
 out:
         if (fd != -1)
-                close (fd);
+                sys_close (fd);
         return ret;
 }
 
@@ -3755,7 +3755,7 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
          */
         (void) glusterd_delete_all_bricks (stale_volinfo);
         if (stale_volinfo->shandle) {
-                unlink (stale_volinfo->shandle->path);
+                sys_unlink (stale_volinfo->shandle->path);
                 (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
@@ -4157,7 +4157,7 @@ glusterd_unlink_file (char *sockfpath)
 {
         int             ret = 0;
 
-        ret = unlink (sockfpath);
+        ret = sys_unlink (sockfpath);
         if (ret) {
                 if (ENOENT == errno)
                         ret = 0;
@@ -4904,14 +4904,14 @@ glusterd_get_brick_root (char *path, char **mount_point)
         mnt_pt = gf_strdup (path);
         if (!mnt_pt)
                 goto err;
-        if (stat (mnt_pt, &brickstat))
+        if (sys_stat (mnt_pt, &brickstat))
                 goto err;
 
         while ((ptr = strrchr (mnt_pt, '/')) &&
                ptr != mnt_pt) {
 
                 *ptr = '\0';
-                if (stat (mnt_pt, &buf)) {
+                if (sys_stat (mnt_pt, &buf)) {
                         gf_msg (THIS->name, GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED, "error in "
                                 "stat: %s", strerror (errno));
@@ -4925,7 +4925,7 @@ glusterd_get_brick_root (char *path, char **mount_point)
         }
 
         if (ptr == mnt_pt) {
-                if (stat ("/", &buf)) {
+                if (sys_stat ("/", &buf)) {
                         gf_msg (THIS->name, GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED, "error in "
                                 "stat: %s", strerror (errno));
@@ -5022,12 +5022,12 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                 if (strcmp (fs_name, fs->fs_type_name) == 0) {
                         snprintf (fs_tool_name, sizeof (fs_tool_name),
                                   "/usr/sbin/%s", fs->fs_tool_name);
-                        if (access (fs_tool_name, R_OK|X_OK) == 0)
+                        if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
                                 runner_add_arg (&runner, fs_tool_name);
                         else {
                                 snprintf (fs_tool_name, sizeof (fs_tool_name),
                                           "/sbin/%s", fs->fs_tool_name);
-                                if (access (fs_tool_name, R_OK|X_OK) == 0)
+                                if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
                                         runner_add_arg (&runner, fs_tool_name);
                         }
                         break;
@@ -5266,7 +5266,7 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
 
-        ret = statvfs (brickinfo->path, &brickstat);
+        ret = sys_statvfs (brickinfo->path, &brickstat);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED, "statfs error: %s ",
@@ -6456,7 +6456,7 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
         while (option) {
                 if (!strcmp (option, priv->nfs_svc.name)) {
                         if (nfs_cnt > 0) {
-                                unlink (dumpoptions_path);
+                                sys_unlink (dumpoptions_path);
                                 ret = 0;
                                 goto out;
                         }
@@ -6551,7 +6551,7 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
         sleep (1);
         ret = 0;
 out:
-        unlink (dumpoptions_path);
+        sys_unlink (dumpoptions_path);
         if (pidfile)
                 fclose (pidfile);
         return ret;
@@ -6634,7 +6634,7 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
 out:
         if (pidfile)
                 fclose (pidfile);
-        unlink (dumpoptions_path);
+        sys_unlink (dumpoptions_path);
         GF_FREE (dup_options);
         return ret;
 }
@@ -6715,7 +6715,7 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
 out:
         if (pidfile)
                 fclose (pidfile);
-        unlink (dumpoptions_path);
+        sys_unlink (dumpoptions_path);
         GF_FREE (dup_options);
         return ret;
 }
@@ -7252,7 +7252,7 @@ glusterd_check_files_identical (char *filename1, char *filename2,
 
         this = THIS;
 
-        ret = stat (filename1, &buf1);
+        ret = sys_stat (filename1, &buf1);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -7262,7 +7262,7 @@ glusterd_check_files_identical (char *filename1, char *filename2,
                 goto out;
         }
 
-        ret = stat (filename2, &buf2);
+        ret = sys_stat (filename2, &buf2);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -9545,8 +9545,8 @@ glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo)
         snprintf (cksum_path, sizeof (cksum_path), "%s/%s", voldir,
                   GLUSTERD_VOL_QUOTA_CKSUM_FILE);
 
-        unlink (quota_confpath);
-        unlink (cksum_path);
+        sys_unlink (quota_confpath);
+        sys_unlink (cksum_path);
 
         gf_store_handle_destroy (volinfo->quota_conf_shandle);
         volinfo->quota_conf_shandle = NULL;

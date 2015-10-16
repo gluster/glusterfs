@@ -3218,7 +3218,7 @@ glusterd_copy_file (const char *source, const char *destination)
         GF_ASSERT (destination);
 
         /* Here is stat is made to get the file permission of source file*/
-        ret = lstat (source, &stbuf);
+        ret = sys_lstat (source, &stbuf);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED, "%s not found", source);
@@ -3236,7 +3236,7 @@ glusterd_copy_file (const char *source, const char *destination)
                 goto out;
         }
 
-        dest_fd = creat (destination, dest_mode);
+        dest_fd = sys_creat (destination, dest_mode);
         if (dest_fd < 0) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3246,7 +3246,7 @@ glusterd_copy_file (const char *source, const char *destination)
         }
 
         do {
-                ret = read (src_fd, buffer, sizeof (buffer));
+                ret = sys_read (src_fd, buffer, sizeof (buffer));
                 if (ret ==  -1) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED, "Error reading file "
@@ -3257,7 +3257,7 @@ glusterd_copy_file (const char *source, const char *destination)
                 if (read_len == 0)
                         break;
 
-                ret = write (dest_fd, buffer, read_len);
+                ret = sys_write (dest_fd, buffer, read_len);
                 if (ret != read_len) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_FILE_OP_FAILED, "Error writing in "
@@ -3267,10 +3267,10 @@ glusterd_copy_file (const char *source, const char *destination)
         } while (ret > 0);
 out:
         if (src_fd > 0)
-                close (src_fd);
+                sys_close (src_fd);
 
         if (dest_fd > 0)
-                close (dest_fd);
+                sys_close (dest_fd);
         return ret;
 }
 
@@ -3290,14 +3290,14 @@ glusterd_copy_folder (const char *source, const char *destination)
         GF_ASSERT (source);
         GF_ASSERT (destination);
 
-        dir_ptr = opendir (source);
+        dir_ptr = sys_opendir (source);
         if (!dir_ptr) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED,  "Unable to open %s", source);
                 goto out;
         }
 
-        while ((direntp = readdir (dir_ptr)) != NULL) {
+        while ((direntp = sys_readdir (dir_ptr)) != NULL) {
                 if (strcmp (direntp->d_name, ".") == 0 ||
                     strcmp (direntp->d_name, "..") == 0)
                         continue;
@@ -3321,7 +3321,7 @@ glusterd_copy_folder (const char *source, const char *destination)
         }
 out:
         if (dir_ptr)
-                closedir (dir_ptr);
+                sys_closedir (dir_ptr);
 
         return ret;
 }
@@ -3463,7 +3463,7 @@ glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
         /* quota.conf is not present if quota is not enabled, Hence ignoring
          * the absence of this file
          */
-        ret = lstat (src_path, &stbuf);
+        ret = sys_lstat (src_path, &stbuf);
         if (ret) {
                 ret = 0;
                 gf_msg_debug (this->name, 0, "%s not found", src_path);

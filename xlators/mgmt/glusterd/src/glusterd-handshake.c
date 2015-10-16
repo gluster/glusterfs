@@ -11,6 +11,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "glusterfs.h"
+#include "syscall.h"
 #include "compat-errno.h"
 
 #include "glusterd.h"
@@ -306,7 +307,7 @@ gotvolinfo:
         if (ret == -1)
                 goto out;
 
-        ret = stat (path, &stbuf);
+        ret = sys_stat (path, &stbuf);
 
         if ((ret == -1) && (errno == ENOENT)) {
                 strncpy (dup_volid, volid_ptr, (PATH_MAX - 1));
@@ -330,7 +331,7 @@ gotvolinfo:
                           path_prefix, volinfo->volname,
                           (trusted_str ? trusted_str : ""),
                           dup_volid);
-                ret = stat (path, &stbuf);
+                ret = sys_stat (path, &stbuf);
         }
 out:
         if (dup_volname)
@@ -798,7 +799,7 @@ __server_getspec (rpcsvc_request_t *req)
 
         if (ret == 0) {
                 /* to allocate the proper buffer to hold the file data */
-                ret = stat (filename, &stbuf);
+                ret = sys_stat (filename, &stbuf);
                 if (ret < 0){
                         gf_msg ("glusterd", GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED,
@@ -828,7 +829,7 @@ __server_getspec (rpcsvc_request_t *req)
                         op_errno = ENOMEM;
                         goto fail;
                 }
-                ret = read (spec_fd, rsp.spec, file_len);
+                ret = sys_read (spec_fd, rsp.spec, file_len);
         }
 
         if (brick_name) {
@@ -847,7 +848,7 @@ __server_getspec (rpcsvc_request_t *req)
         /* convert to XDR */
 fail:
         if (spec_fd > 0)
-                close (spec_fd);
+                sys_close (spec_fd);
 
         rsp.op_ret   = ret;
 

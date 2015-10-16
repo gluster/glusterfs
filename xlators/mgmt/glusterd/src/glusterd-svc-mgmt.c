@@ -17,6 +17,7 @@
 #include "glusterd-proc-mgmt.h"
 #include "glusterd-conn-mgmt.h"
 #include "glusterd-messages.h"
+#include "syscall.h"
 
 int
 glusterd_svc_create_rundir (char *rundir)
@@ -161,7 +162,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
                 goto out;
         }
 
-        ret = access (svc->proc.volfile, F_OK);
+        ret = sys_access (svc->proc.volfile, F_OK);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLFILE_NOT_FOUND, "Volfile %s is not present",

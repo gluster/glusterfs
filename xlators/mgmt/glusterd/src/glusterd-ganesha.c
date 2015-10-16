@@ -17,6 +17,7 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
+#include "syscall.h"
 #define MAXBUF 1024
 #define DELIM "=\""
 #define SHARED_STORAGE_MNT "/var/run/gluster/shared_storage/nfs-ganesha"
@@ -74,7 +75,7 @@ manage_service (char *action)
         };
 
         while (sc_list[i].binary != NULL) {
-                ret = stat (sc_list[i].binary, &stbuf);
+                ret = sys_stat (sc_list[i].binary, &stbuf);
                 if (ret == 0) {
                         gf_msg_debug (THIS->name, 0,
                                 "%s found.", sc_list[i].binary);
@@ -695,7 +696,7 @@ pre_setup (char **op_errstr)
 {
         int    ret = 0;
 
-        ret = mkdir (SHARED_STORAGE_MNT, 0775);
+        ret = sys_mkdir (SHARED_STORAGE_MNT, 0775);
 
         if ((-1 == ret) && (EEXIST != errno)) {
                 gf_msg ("THIS->name", GF_LOG_ERROR, errno,

@@ -16,6 +16,7 @@
 #include "protocol-common.h"
 #include "xlator.h"
 #include "logging.h"
+#include "syscall.h"
 #include "timer.h"
 #include "defaults.h"
 #include "compat.h"
@@ -3215,12 +3216,12 @@ __glusterd_handle_umount (rpcsvc_request_t *req)
         synclock_lock (&priv->big_lock);
         if (rsp.op_ret == 0) {
                 if (realpath (umnt_req.path, mntp))
-                        rmdir (mntp);
+                        sys_rmdir (mntp);
                 else {
                         rsp.op_ret = -1;
                         rsp.op_errno = errno;
                 }
-                if (unlink (umnt_req.path) != 0) {
+                if (sys_unlink (umnt_req.path) != 0) {
                         rsp.op_ret = -1;
                         rsp.op_errno = errno;
                 }
