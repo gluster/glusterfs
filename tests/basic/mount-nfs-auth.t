@@ -3,6 +3,12 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
 
+# Our mount timeout must be as long as the time for a regular configuration
+# change to be acted upon *plus* AUTH_REFRESH_TIMEOUT, not one replacing the
+# other.  Otherwise this process races vs. the one making the change we're
+# trying to test, which leads to spurious failures.
+MY_MOUNT_TIMEOUT=$((CONFIG_UPDATE_TIMEOUT+AUTH_REFRESH_INTERVAL))
+
 cleanup;
 ## Check whether glusterd is running
 TEST glusterd
@@ -166,7 +172,7 @@ TEST netgroup_deny_this_host
 
 ## Technically deauthorized this host, but since auth is disabled we should be
 ## able to do mounts, writes, etc.
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
@@ -200,7 +206,7 @@ EXPECT "Y" check_mount_failure $V0
 TEST export_allow_this_host
 TEST netgroup_allow_this_host
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Allow host in netgroups but not in exports, host should be allowed
@@ -208,9 +214,8 @@ TEST export_deny_this_host
 TEST netgroup_allow_this_host
 
 # wait for the mount authentication to rebuild
-sleep $[$AUTH_REFRESH_INTERVAL + 1]
 
-EXPECT "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "Y" small_write
 TEST big_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
@@ -219,14 +224,14 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 TEST export_allow_this_host
 TEST netgroup_deny_this_host
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Finally, reauth the host in export and netgroup, test mount & write
 TEST export_allow_this_host_l1
 TEST netgroup_allow_this_host
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0L1
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0L1
 EXPECT "Y" small_write
 
 ## Failover test: Restarting NFS and then doing a write should pass
@@ -250,7 +255,7 @@ TEST netgroup_deny_this_host
 $CLI vol stop $V0
 $CLI vol start $V0
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "N" small_write # Writes should not be allowed
 TEST ! create      # Create should not be allowed
 TEST stat_nfs      # Stat should be allowed
@@ -260,14 +265,14 @@ TEST export_deny_this_host
 TEST netgroup_deny_this_host
 TEST export_allow_this_host_l1 # Allow this host at L1
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_failure $V0 #V0 shouldnt be allowed
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_failure $V0 #V0 shouldnt be allowed
 EXPECT "Y" check_mount_success $V0L1 #V0L1 should be
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Test wildcard hosts
 TEST export_allow_wildcard
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
@@ -279,7 +284,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 TEST export_allow_this_host_with_slash
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
@@ -297,7 +302,7 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 TEST export_deny_this_host # Deny the host
 TEST netgroup_deny_this_host
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0 # Do a mount & test
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0 # Do a mount & test
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Turn back on the exports authentication
