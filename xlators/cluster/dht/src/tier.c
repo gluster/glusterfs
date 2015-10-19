@@ -68,6 +68,11 @@ out:
         return ret;
 }
 
+/*
+ * return 0 if the same node.
+ * return 1 if not the same node, but no errors.
+ * return -1 if errors.xs
+ */
 static int
 tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
 {
@@ -103,6 +108,7 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
                 gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
                         "%s does not belong to this node", loc->path);
+                ret = 1;
                 goto out;
         }
 
@@ -472,7 +478,8 @@ tier_migrate_using_query_file (void *_args)
                                 loc.name);
 
                         if (tier_check_same_node (this, &loc, defrag)) {
-                                per_link_status = -1;
+                                if (ret < 0)
+                                        per_link_status = -1;
                                 goto abort;
                         }
 
