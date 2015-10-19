@@ -105,6 +105,25 @@ Display the status of peers.
 .TP
 \fB\ peer help \fR
 Display help for the peer command.
+.SS "Tier Commands"
+.TP
+\fB\ volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... \fR
+Attach to an existing volume a tier of specified type using the specified bricks.
+.TP
+\fB\ volume tier <VOLNAME> status \fR
+Display statistics on data migration between the hot and cold tiers.
+.TP
+\fB\ volume tier <VOLNAME> detach start\fR
+Begin detaching the hot tier from the volume. Data will be moved from the hot tier to the cold tier.
+.TP
+\fB\ volume tier <VOLNAME> detach commit [force]\fR
+Commit detaching the hot tier from the volume. The volume will revert to its original state before the hot tier was attached.
+.TP
+\fB\ volume tier <VOLNAME> detach status\fR
+Check status of data movement from the hot to cold tier.
+.TP
+\fB\ volume tier <VOLNAME> detach stop\fR
+Stop detaching the hot tier from the volume.
 .SS "Bitrot Commands"
 .TP
 \fB\ volume bitrot <VOLNAME> {enable|disable} \fR
