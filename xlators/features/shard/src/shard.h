@@ -37,6 +37,7 @@
 #define SHARD_MASK_BLOCKS              (1 << 7)
 #define SHARD_MASK_TIMES               (1 << 8)
 #define SHARD_MASK_OTHERS              (1 << 9)
+#define SHARD_MASK_REFRESH_RESET       (1 << 10)
 
 #define SHARD_INODE_WRITE_MASK (SHARD_MASK_SIZE | SHARD_MASK_BLOCKS         \
                                                 | SHARD_MASK_TIMES)
@@ -261,6 +262,7 @@ typedef struct shard_inode_ctx {
         uint64_t block_size; /* The block size with which this inode is
                                 sharded */
         struct iatt stat;
+        gf_boolean_t refresh;
         /* The following members of inode ctx will be applicable only to the
          * individual shards' ctx and never the base file ctx.
          */
