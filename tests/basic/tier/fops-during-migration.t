@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../tier.rc
 
 
 NUM_BRICKS=3
@@ -9,16 +10,6 @@ DEMOTE_FREQ=5
 PROMOTE_FREQ=5
 
 TEST_STR="Testing write and truncate fops on tier migration"
-
-function is_sticky_set () {
-        echo $1
-        if [ -k $1 ];
-        then
-                echo "yes"
-        else
-                echo "no"
-        fi
-}
 
 
 # Creates a tiered volume with pure distribute hot and cold tiers

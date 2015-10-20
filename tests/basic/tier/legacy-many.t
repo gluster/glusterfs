@@ -2,6 +2,8 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../tier.rc
+
 
 LAST_BRICK=3
 CACHE_BRICK_FIRST=4
@@ -14,64 +16,6 @@ PROMOTE_FREQ=4
 TEST_DIR="test_files"
 NUM_FILES=20
 
-
-# Grab md5sum without file path (failed attempt notifications are discarded)
-function fingerprint {
-    md5sum $1 2> /dev/null | grep --only-matching -m 1 '^[0-9a-f]*'
-}
-
-# Create a large number of files. Store their md5 signatures.
-function create_many_files {
-    mkdir ${TEST_DIR}
-    for i in `seq 1 $NUM_FILES`; do
-        dd if=/dev/urandom of=./${TEST_DIR}/i$i bs=1048576 count=1;
-        id[i]=$(fingerprint "./${TEST_DIR}/i$i");
-    done
-}
-
-function confirm_tier_removed {
-    $CLI system getspec $V0 | grep $1
-    if [ $? == 0 ]; then
-        echo "1"
-    else
-        echo "0"
-    fi
-}
-
-function confirm_vol_stopped {
-    $CLI volume stop $1
-    if [ $? == 0 ]; then
-        echo "0"
-    else
-        echo "1"
-    fi
-}
-
-function check_counters {
-    index=0
-    ret=0
-    rm -f /tmp/tc*.txt
-    echo "0" > /tmp/tc2.txt
-
-    $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
-
-    promote=`cat /tmp/tc.txt |awk '{print $2}'`
-    demote=`cat /tmp/tc.txt |awk '{print $3}'`
-   if [ "${promote}" != "${1}" ]; then
-        echo "1" > /tmp/tc2.txt
-
-   elif [ "${demote}" != "${2}" ]; then
-        echo "2" > /tmp/tc2.txt
-   fi
-
-    # temporarily disable non-Linux tests.
-    case $OSTYPE in
-        NetBSD | FreeBSD | Darwin)
-            echo "0" > /tmp/tc2.txt
-            ;;
-    esac
-    cat /tmp/tc2.txt
-}
 
 function read_all {
     for file in *
@@ -96,8 +40,9 @@ TEST $CLI volume set $V0 features.ctr-enabled on
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 
 # Create a number of "legacy" files before attaching tier
-cd $M0
-TEST create_many_files
+mkdir $M0/${TEST_DIR}
+cd $M0/${TEST_DIR}
+TEST create_many_files tfile $NUM_FILES
 wait
 
 # Attach tier
@@ -116,7 +61,7 @@ TEST read_all
 
 # Test to make sure files were promoted as expected
 sleep $DEMOTE_TIMEOUT
-EXPECT_WITHIN $DEMOTE_TIMEOUT "0" check_counters 20 0
+EXPECT_WITHIN $DEMOTE_TIMEOUT "0" check_counters $NUM_FILES 0
 
 cd;
 cleanup
