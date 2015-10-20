@@ -802,7 +802,7 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto out;
         }
 
-        local->op_errno = op_errno;
+        local->op_ret = op_ret;
         inode = local->fd->inode;
 
         dht_inode_ctx_get_mig_info (this, inode, &src_subvol, &dst_subvol);
