@@ -216,37 +216,43 @@ fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
         dentry_t                           *dentry = NULL;
         inode_t                            *inode  = NULL;
         size_t                              nlen   = 0;
-        int                                 rv     = 0;
-        char inval_buf[INVAL_BUF_SIZE]             = {0,};
-
-        fouh  = (struct fuse_out_header *)inval_buf;
-        fnieo = (struct fuse_notify_inval_entry_out *)(fouh + 1);
+        fuse_invalidate_node_t             *node   = NULL;
 
         priv = this->private;
-        if (priv->revchan_out == -1)
+
+        if (!priv->reverse_fuse_thread_started)
                 return;
 
-        fouh->unique = 0;
-        fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
-
-        inode = fuse_ino_to_inode (fuse_ino, this);
-
         list_for_each_entry (dentry, &inode->dentry_list, inode_list) {
+                node = GF_CALLOC (1, sizeof (*node),
+                                  gf_fuse_mt_invalidate_node_t);
+                if (node == NULL)
+                        return;
+
+                INIT_LIST_HEAD (&node->next);
+
+                fouh  = (struct fuse_out_header *)node->inval_buf;
+                fnieo = (struct fuse_notify_inval_entry_out *)(fouh + 1);
+
+                fouh->unique = 0;
+                fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
+
+                inode = fuse_ino_to_inode (fuse_ino, this);
+
                 nlen = strlen (dentry->name);
                 fouh->len = sizeof (*fouh) + sizeof (*fnieo) + nlen + 1;
                 fnieo->parent = inode_to_fuse_nodeid (dentry->parent);
 
                 fnieo->namelen = nlen;
-                strcpy (inval_buf + sizeof (*fouh) + sizeof (*fnieo), dentry->name);
+                strcpy (node->inval_buf + sizeof (*fouh) + sizeof (*fnieo),
+                        dentry->name);
 
-                rv = write (priv->revchan_out, inval_buf, fouh->len);
-                if (rv != fouh->len) {
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                "kernel notification daemon defunct");
-
-                        close (priv->fd);
-                        break;
+                pthread_mutex_lock (&priv->invalidate_mutex);
+                {
+                        list_add_tail (&node->next, &priv->invalidate_list);
+                        pthread_cond_signal (&priv->invalidate_cond);
                 }
+                pthread_mutex_unlock (&priv->invalidate_mutex);
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE entry: "
                         "%"PRIu64"/%s", fnieo->parent, dentry->name);
@@ -277,17 +283,22 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
         struct fuse_out_header *fouh = NULL;
         struct fuse_notify_inval_inode_out *fniio = NULL;
         fuse_private_t *priv = NULL;
-        int rv = 0;
-        char inval_buf[INVAL_BUF_SIZE] = {0};
+        fuse_invalidate_node_t *node = NULL;
         inode_t    *inode = NULL;
-
-        fouh = (struct fuse_out_header *) inval_buf;
-        fniio = (struct fuse_notify_inval_inode_out *) (fouh + 1);
 
         priv = this->private;
 
-        if (priv->revchan_out < 0)
+        if (!priv->reverse_fuse_thread_started)
                 return;
+
+        node = GF_CALLOC (1, sizeof (*node), gf_fuse_mt_invalidate_node_t);
+        if (node == NULL)
+                return;
+
+        INIT_LIST_HEAD (&node->next);
+
+        fouh = (struct fuse_out_header *) node->inval_buf;
+        fniio = (struct fuse_notify_inval_inode_out *) (fouh + 1);
 
         fouh->unique = 0;
         fouh->error = FUSE_NOTIFY_INVAL_INODE;
@@ -301,12 +312,12 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
 
         inode = fuse_ino_to_inode (fuse_ino, this);
 
-        rv = write(priv->revchan_out, inval_buf, fouh->len);
-        if (rv != fouh->len) {
-                gf_log("glusterfs-fuse", GF_LOG_ERROR, "kernel notification "
-                        "daemon defunct");
-                close(priv->fd);
+        pthread_mutex_lock (&priv->invalidate_mutex);
+        {
+                list_add_tail (&node->next, &priv->invalidate_list);
+                pthread_cond_signal (&priv->invalidate_cond);
         }
+        pthread_mutex_unlock (&priv->invalidate_mutex);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE inode: %" PRIu64,
                 fuse_ino);
@@ -3827,28 +3838,38 @@ notify_kernel_loop (void *data)
         fuse_private_t         *priv = NULL;
         struct fuse_out_header *fouh = NULL;
         int                     rv   = 0;
-
-        char inval_buf[INVAL_BUF_SIZE] = {0,};
+        fuse_invalidate_node_t *node = NULL;
 
         this = data;
         priv = this->private;
 
         for (;;) {
-                rv = read (priv->revchan_in, inval_buf, sizeof (*fouh));
-                if (rv != sizeof (*fouh))
-                        break;
-                fouh = (struct fuse_out_header *)inval_buf;
-                rv = read (priv->revchan_in, inval_buf + sizeof (*fouh),
-                           fouh->len - sizeof (*fouh));
-                if (rv != fouh->len - sizeof (*fouh))
-                        break;
-                rv = write (priv->fd, inval_buf, fouh->len);
+                pthread_mutex_lock (&priv->invalidate_mutex);
+                {
+                        while (list_empty (&priv->invalidate_list))
+                                pthread_cond_wait (&priv->invalidate_cond,
+                                                   &priv->invalidate_mutex);
+
+                        node = list_entry (priv->invalidate_list.next,
+                                           fuse_invalidate_node_t, next);
+
+                        if (node == NULL)
+                                continue;
+
+                        list_del_init (&node->next);
+                }
+                pthread_mutex_unlock (&priv->invalidate_mutex);
+
+
+                fouh = (struct fuse_out_header *)node->inval_buf;
+
+                rv = write (priv->fd, node->inval_buf, fouh->len);
+
+                GF_FREE (node);
+
                 if (rv != fouh->len && !(rv == -1 && errno == ENOENT))
                         break;
         }
-
-        close (priv->revchan_in);
-        close (priv->revchan_out);
 
         gf_log ("glusterfs-fuse", GF_LOG_INFO,
                 "kernel notifier loop terminated");
@@ -3865,7 +3886,6 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_private_t       *priv      = NULL;
         int                   ret       = 0;
 #if FUSE_KERNEL_MINOR_VERSION >= 9
-        int                   pfd[2]    = {0,};
         pthread_t             messenger;
 #endif
 
@@ -3918,16 +3938,6 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         /* Used for 'reverse invalidation of inode' */
         if (fini->minor >= 12) {
-                if (pipe(pfd) == -1) {
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                "cannot create pipe pair (%s)",
-                                strerror(errno));
-
-                        close (priv->fd);
-                        goto out;
-                }
-                priv->revchan_in  = pfd[0];
-                priv->revchan_out = pfd[1];
                 ret = gf_thread_create (&messenger, NULL, notify_kernel_loop,
 					this);
                 if (ret != 0) {
@@ -5375,8 +5385,10 @@ init (xlator_t *this_xl)
         this_xl->private = (void *) priv;
         priv->mount_point = NULL;
         priv->fd = -1;
-        priv->revchan_in = -1;
-        priv->revchan_out = -1;
+
+        INIT_LIST_HEAD (&priv->invalidate_list);
+        pthread_cond_init (&priv->invalidate_cond, NULL);
+        pthread_mutex_init (&priv->invalidate_mutex, NULL);
 
         /* get options from option dictionary */
         ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
