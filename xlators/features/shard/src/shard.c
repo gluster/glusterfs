@@ -155,6 +155,9 @@ __shard_inode_ctx_set (inode_t *inode, xlator_t *this, struct iatt *stbuf,
                 ctx->stat.ia_blksize = stbuf->ia_blksize;
         }
 
+        if (valid & SHARD_MASK_REFRESH_RESET)
+                ctx->refresh = _gf_false;
+
         return 0;
 }
 
@@ -168,6 +171,37 @@ shard_inode_ctx_set (inode_t *inode, xlator_t *this, struct iatt *stbuf,
         {
                 ret = __shard_inode_ctx_set (inode, this, stbuf, block_size,
                                              valid);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
+}
+
+int
+__shard_inode_ctx_invalidate (inode_t *inode, xlator_t *this, struct iatt *stbuf)
+{
+        int                 ret = -1;
+        shard_inode_ctx_t  *ctx = NULL;
+
+        ret = __shard_inode_ctx_get (inode, this, &ctx);
+        if (ret)
+                return ret;
+
+        if ((stbuf->ia_size != ctx->stat.ia_size) ||
+            (stbuf->ia_blocks != ctx->stat.ia_blocks))
+                ctx->refresh = _gf_true;
+
+        return 0;
+}
+
+int
+shard_inode_ctx_invalidate (inode_t *inode, xlator_t *this, struct iatt *stbuf)
+{
+        int ret = -1;
+
+        LOCK (&inode->lock);
+        {
+                ret = __shard_inode_ctx_invalidate (inode, this, stbuf);
         }
         UNLOCK (&inode->lock);
 
@@ -236,6 +270,46 @@ shard_inode_ctx_get_all (inode_t *inode, xlator_t *this,
         LOCK (&inode->lock);
         {
                 ret = __shard_inode_ctx_get_all (inode, this, ctx_out);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
+}
+
+int
+__shard_inode_ctx_fill_iatt_from_cache (inode_t *inode, xlator_t *this,
+                                        struct iatt *buf,
+                                        gf_boolean_t *need_refresh)
+{
+        int                 ret      = -1;
+        uint64_t            ctx_uint = 0;
+        shard_inode_ctx_t  *ctx      = NULL;
+
+        ret = __inode_ctx_get (inode, this, &ctx_uint);
+        if (ret < 0)
+                return ret;
+
+        ctx = (shard_inode_ctx_t *) ctx_uint;
+
+        if (ctx->refresh == _gf_false)
+                *buf = ctx->stat;
+        else
+                *need_refresh = _gf_true;
+
+        return 0;
+}
+
+int
+shard_inode_ctx_fill_iatt_from_cache (inode_t *inode, xlator_t *this,
+                                      struct iatt *buf,
+                                      gf_boolean_t *need_refresh)
+{
+        int ret = -1;
+
+        LOCK (&inode->lock);
+        {
+                ret = __shard_inode_ctx_fill_iatt_from_cache (inode, this, buf,
+                                                              need_refresh);
         }
         UNLOCK (&inode->lock);
 
@@ -733,9 +807,10 @@ shard_inode_ctx_update (inode_t *inode, xlator_t *this, dict_t *xdata,
         /* If the file is sharded, also set the remaining attributes,
          * except for ia_size and ia_blocks.
          */
-        if (size)
+        if (size) {
                 shard_inode_ctx_set (inode, this, buf, 0, SHARD_LOOKUP_MASK);
-
+                (void) shard_inode_ctx_invalidate (inode, this, buf);
+        }
 }
 
 int
@@ -749,6 +824,14 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR (buf->ia_type))
                 goto unwind;
 
+        /* Also, if the file is sharded, get the file size and block cnt xattr,
+         * and store them in the stbuf appropriately.
+         */
+
+        if (dict_get (xdata, GF_XATTR_SHARD_FILE_SIZE) &&
+            frame->root->pid != GF_CLIENT_PID_GSYNCD)
+                shard_modify_size_and_block_count (buf, xdata);
+
         /* If this was a fresh lookup, there are two possibilities:
          * 1) If the file is sharded (indicated by the presence of block size
          *    xattr), store this block size, along with rdev and mode in its
@@ -759,14 +842,6 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
 
         (void) shard_inode_ctx_update (inode, this, xdata, buf);
-
-        /* Also, if the file is sharded, get the file size and block cnt xattr,
-         * and store them in the stbuf appropriately.
-         */
-
-        if (dict_get (xdata, GF_XATTR_SHARD_FILE_SIZE) &&
-            frame->root->pid != GF_CLIENT_PID_GSYNCD)
-                shard_modify_size_and_block_count (buf, xdata);
 
 unwind:
         SHARD_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
@@ -871,7 +946,8 @@ shard_lookup_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (shard_inode_ctx_get_all (inode, this, &ctx))
                 mask = SHARD_ALL_MASK;
 
-        ret = shard_inode_ctx_set (inode, this, &local->prebuf, 0, mask);
+        ret = shard_inode_ctx_set (inode, this, &local->prebuf, 0,
+                                   (mask | SHARD_MASK_REFRESH_RESET));
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         SHARD_MSG_INODE_CTX_SET_FAILED, 0, "Failed to set inode"
@@ -891,23 +967,24 @@ int
 shard_lookup_base_file (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         shard_post_fop_handler_t handler)
 {
-        int                 ret         = -1;
-        shard_local_t      *local       = NULL;
-        shard_inode_ctx_t   ctx         = {0,};
-        dict_t             *xattr_req   = NULL;
+        int                 ret          = -1;
+        shard_local_t      *local        = NULL;
+        dict_t             *xattr_req    = NULL;
+        gf_boolean_t        need_refresh = _gf_false;
 
         local = frame->local;
         local->handler = handler;
 
-        ret = shard_inode_ctx_get_all (loc->inode, this, &ctx);
+        ret = shard_inode_ctx_fill_iatt_from_cache (loc->inode, this,
+                                                        &local->prebuf,
+                                                        &need_refresh);
         /* By this time, inode ctx should have been created either in create,
          * mknod, readdirp or lookup. If not it is a bug!
          */
-        if ((ret == 0) && (ctx.stat.ia_size > 0)) {
+        if ((ret == 0) && (need_refresh == _gf_false)) {
                 gf_msg_debug (this->name, 0, "Skipping lookup on base file: %s"
                               "Serving prebuf off the inode ctx cache",
                               uuid_utoa (loc->gfid));
-                local->prebuf = ctx.stat;
                 goto out;
         }
 
@@ -972,6 +1049,7 @@ shard_common_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *buf,
                        dict_t *xdata)
 {
+        inode_t       *inode = NULL;
         shard_local_t *local = NULL;
 
         local = frame->local;
@@ -993,6 +1071,13 @@ shard_common_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
         local->xattr_rsp = dict_ref (xdata);
+
+        if (local->loc.inode)
+                inode = local->loc.inode;
+        else
+                inode = local->fd->inode;
+
+        shard_inode_ctx_invalidate (inode, this, buf);
 
 unwind:
         local->handler (frame, this);
@@ -3798,7 +3883,14 @@ shard_readdir_past_dot_shard_cbk (call_frame_t *frame, void *cookie,
                 if (IA_ISDIR (entry->d_stat.ia_type))
                         continue;
 
-                shard_modify_size_and_block_count (&entry->d_stat, entry->dict);
+                if (dict_get (entry->dict, GF_XATTR_SHARD_FILE_SIZE))
+                        shard_modify_size_and_block_count (&entry->d_stat,
+                                                           entry->dict);
+                if (!entry->inode)
+                        continue;
+
+                shard_inode_ctx_update (entry->inode, this, entry->dict,
+                                        &entry->d_stat);
         }
         local->op_ret += op_ret;
 
