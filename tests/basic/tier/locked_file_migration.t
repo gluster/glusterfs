@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../tier.rc
 
 
 NUM_BRICKS=3
@@ -10,41 +11,6 @@ PROMOTE_FREQ=30
 DEMOTE_TIMEOUT=15
 
 TEST_STR="Testing write and truncate fops on tier migration"
-
-function is_sticky_set () {
-        echo $1
-        if [ -k $1 ];
-        then
-                echo "yes"
-        else
-                echo "no"
-        fi
-}
-
-function check_counters {
-    index=0
-    ret=0
-    rm -f /tmp/tc*.txt
-    echo "0" > /tmp/tc2.txt
-    $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
-
-    promote=`cat /tmp/tc.txt |awk '{print $2}'`
-    demote=`cat /tmp/tc.txt |awk '{print $3}'`
-    if [ "${promote}" != "${1}" ]; then
-         echo "1" > /tmp/tc2.txt
-
-    elif [ "${demote}" != "${2}" ]; then
-         echo "2" > /tmp/tc2.txt
-    fi
-
-    # temporarily disable non-Linux tests.
-    case $OSTYPE in
-        NetBSD | FreeBSD | Darwin)
-            echo "0" > /tmp/tc2.txt
-            ;;
-    esac
-    cat /tmp/tc2.txt
-}
 
 
 # Creates a tiered volume with pure distribute hot and cold tiers
