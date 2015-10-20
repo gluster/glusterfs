@@ -909,8 +909,8 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                                                 GFDB_IPC_CTR_GET_DB_PARAM_OPS);
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "\
-                                "to params dictionary", GFDB_IPC_CTR_KEY);\
+                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
+                                "to params dictionary", GFDB_IPC_CTR_KEY);
                         goto out;
                 }
 
@@ -918,17 +918,17 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                                 GFDB_IPC_CTR_GET_DB_PARAM_OPS, "");
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "\
+                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
                                 "to params dictionary",
-                                GFDB_IPC_CTR_GET_DB_PARAM_OPS);\
+                                GFDB_IPC_CTR_GET_DB_PARAM_OPS);
                         goto out;
                 }
 
                 ret = dict_set_str (ctr_ipc_in_dict,
                                 GFDB_IPC_CTR_GET_DB_KEY, "journal_mode");
                 if (ret) {
-                        gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "\
+                        gf_msg ("tier", GF_LOG_ERROR, 0,
+                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
                                 "to params dictionary",
                                 GFDB_IPC_CTR_GET_DB_KEY);\
                         goto out;
@@ -948,10 +948,10 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
 
                 ret = dict_get_str (ctr_ipc_out_dict, "journal_mode", &strval);
                 if (ret) {
-                        gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_GET_PARAM_FAILED, "Failed getting %s "\
-                                "to params dictionary",
-                                "journal_mode");\
+                        gf_msg ("tier", GF_LOG_ERROR, 0,
+                                LG_MSG_GET_PARAM_FAILED, "Failed getting %s "
+                                "to params dictionary"
+                                "journal_mode", strval);
                         goto out;
                 }
 
@@ -1036,8 +1036,8 @@ tier_build_migration_qfile (demotion_args_t *args,
                 if (ret) {
                         gf_msg (args->this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_BRICK_QUERY_FAILED,
-                                "Brick query failed\n");
-                        goto out;
+                                "Brick %s query failed\n",
+                                local_brick->brick_db_path);
                 }
         }
         ret = 0;
