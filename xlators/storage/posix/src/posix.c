@@ -5895,9 +5895,13 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         int                     op_ret          = -1;
         int                     op_errno        = 0;
         int                     ret             = 0;
+        ssize_t                 bytes_read      = 0;
         int32_t                 weak_checksum   = 0;
+        int32_t                 zerofillcheck   = 0;
         unsigned char           strong_checksum[MD5_DIGEST_LENGTH] = {0};
         struct posix_private    *priv           = NULL;
+        dict_t                  *rsp_xdata      = NULL;
+        gf_boolean_t            buf_has_zeroes  = _gf_false;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -5908,6 +5912,12 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
 
         alloc_buf = _page_aligned_alloc (len, &buf);
         if (!alloc_buf) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        rsp_xdata = dict_new();
+        if (!rsp_xdata) {
                 op_errno = ENOMEM;
                 goto out;
         }
@@ -5927,12 +5937,12 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 if (priv->aio_capable && priv->aio_init_done)
                         __posix_fd_set_odirect (fd, pfd, 0, offset, len);
 
-                ret = pread (_fd, buf, len, offset);
-                if (ret < 0) {
+                bytes_read = pread (_fd, buf, len, offset);
+                if (bytes_read < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_PREAD_FAILED,
-                                "pread of %d bytes returned %d ",
-                                len, ret);
+                                "pread of %d bytes returned %ld ",
+                                len, bytes_read);
 
                         op_errno = errno;
                 }
@@ -5940,17 +5950,34 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         }
         UNLOCK (&fd->lock);
 
-        if (ret < 0)
+        if (bytes_read < 0)
                 goto out;
 
+        if (xdata && dict_get_int32 (xdata, "check-zero-filled",
+                                     &zerofillcheck) == 0) {
+                buf_has_zeroes = (mem_0filled (buf, bytes_read)) ? _gf_false :
+                                 _gf_true;
+                ret = dict_set_uint32 (rsp_xdata, "buf-has-zeroes",
+                                       buf_has_zeroes);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                P_MSG_DICT_SET_FAILED, "%s: Failed to set "
+                                "dictionary value for key: %s",
+                                uuid_utoa (fd->inode->gfid), "buf-has-zeroes");
+                        op_errno = -ret;
+                        goto out;
+                }
+        }
         weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) ret);
-        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) ret, (unsigned char *) strong_checksum);
+        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) bytes_read,
+                                  (unsigned char *) strong_checksum);
 
         op_ret = 0;
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
-                             weak_checksum, strong_checksum, NULL);
-
+                             weak_checksum, strong_checksum, rsp_xdata);
+        if (rsp_xdata)
+                dict_unref (rsp_xdata);
         GF_FREE (alloc_buf);
 
         return 0;

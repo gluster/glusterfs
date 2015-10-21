@@ -28,13 +28,18 @@ __checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		dict_t *xdata)
 {
 	afr_local_t *local = NULL;
+        struct afr_reply *replies = NULL;
 	int i = (long) cookie;
 
 	local = frame->local;
+        replies = local->replies;
 
-	local->replies[i].valid = 1;
-	local->replies[i].op_ret = op_ret;
-	local->replies[i].op_errno = op_errno;
+	replies[i].valid = 1;
+	replies[i].op_ret = op_ret;
+	replies[i].op_errno = op_errno;
+        if (xdata)
+                replies[i].buf_has_zeroes = dict_get_str_boolean (xdata,
+                                                   "buf-has-zeroes", _gf_false);
 	if (strong)
 		memcpy (local->replies[i].checksum, strong, MD5_DIGEST_LENGTH);
 
@@ -70,19 +75,23 @@ attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 static gf_boolean_t
-__afr_selfheal_data_checksums_match (call_frame_t *frame, xlator_t *this,
-				     fd_t *fd, int source,
-				     unsigned char *healed_sinks,
-				     off_t offset, size_t size)
+__afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                                int source, unsigned char *healed_sinks,
+				off_t offset, size_t size,
+                                struct iatt *poststat)
 {
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 	unsigned char *wind_subvols = NULL;
+        gf_boolean_t checksum_match = _gf_true;
+        dict_t *xdata = NULL;
 	int i = 0;
 
 	priv = this->private;
 	local = frame->local;
-
+        xdata = dict_new();
+        if (xdata)
+                i = dict_set_int32 (xdata, "check-zero-filled", 1);
 	wind_subvols = alloca0 (priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || healed_sinks[i])
@@ -90,7 +99,9 @@ __afr_selfheal_data_checksums_match (call_frame_t *frame, xlator_t *this,
 	}
 
 	AFR_ONLIST (wind_subvols, frame, __checksum_cbk, rchecksum, fd,
-		    offset, size, NULL);
+		    offset, size, xdata);
+        if (xdata)
+                dict_unref (xdata);
 
 	if (!local->replies[source].valid || local->replies[source].op_ret != 0)
 		return _gf_false;
@@ -101,12 +112,26 @@ __afr_selfheal_data_checksums_match (call_frame_t *frame, xlator_t *this,
                 if (local->replies[i].valid) {
                         if (memcmp (local->replies[source].checksum,
                                     local->replies[i].checksum,
-                                    MD5_DIGEST_LENGTH))
-                                return _gf_false;
+                                    MD5_DIGEST_LENGTH)) {
+                                checksum_match = _gf_false;
+                                break;
+                        }
                 }
 	}
 
-	return _gf_true;
+        if (checksum_match) {
+                if (HAS_HOLES (poststat))
+                        return _gf_true;
+
+                /* For non-sparse files, we might be better off writing the
+                 * zeroes to sinks to avoid mismatch of disk-usage in bricks. */
+                if (local->replies[source].buf_has_zeroes)
+                        return _gf_false;
+                else
+                        return _gf_true;
+        }
+
+        return _gf_false;
 }
 
 
@@ -220,7 +245,6 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	return ret;
 }
 
-
 static int
 afr_selfheal_data_block (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			 int source, unsigned char *healed_sinks, off_t offset,
@@ -244,8 +268,9 @@ afr_selfheal_data_block (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		}
 
 		if (type == AFR_SELFHEAL_DATA_DIFF &&
-		    __afr_selfheal_data_checksums_match (frame, this, fd, source,
-							 healed_sinks, offset, size)) {
+		    __afr_can_skip_data_block_heal (frame, this, fd, source,
+					            healed_sinks, offset, size,
+                                                   &replies[source].poststat)) {
 			ret = 0;
 			goto unlock;
 		}
