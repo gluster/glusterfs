@@ -905,20 +905,10 @@ do_cli_cmd_volume_attach_tier (struct cli_state *state,
         int                     parse_error = 0;
         cli_local_t             *local = NULL;
         int                     type = 0;
-        char                    *question = "Attach tier is recommended only "
-                                            "for testing purposes in this "
-                                            "release. Do you want to continue?";
-        gf_answer_t             answer = GF_ANSWER_NO;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
-
-        answer = cli_cmd_get_confirmation (state, question);
-        if (GF_ANSWER_NO == answer) {
-                ret = 0;
-                goto out;
-        }
 
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options, &type);
         if (ret) {
