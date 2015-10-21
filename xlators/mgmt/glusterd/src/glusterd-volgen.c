@@ -1831,6 +1831,7 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
         xlator_t        *xl = NULL;
+        char            *pending_xattr = NULL;
         char            index_basepath[PATH_MAX]   = {0};
         int             ret = -1;
 
@@ -1852,7 +1853,23 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
         }
+        if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE ||
+            volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
+                ret = xlator_set_option (xl, "xattrop-dirty-watchlist",
+                                         "trusted.afr.dirty");
+                if (ret)
+                        goto out;
+                ret = gf_asprintf (&pending_xattr, "trusted.afr.%s-",
+                                   volinfo->volname);
+                if (ret < 0)
+                        goto out;
+                ret = xlator_set_option (xl, "xattrop-pending-watchlist",
+                                         pending_xattr);
+                if (ret)
+                        goto out;
+        }
 out:
+        GF_FREE (pending_xattr);
         return ret;
 }
 
