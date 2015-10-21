@@ -162,6 +162,8 @@
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
+#define GF_XATTROP_DIRTY_GFID "glusterfs.xattrop_dirty_gfid"
+#define GF_XATTROP_DIRTY_COUNT "glusterfs.xattrop_dirty_count"
 
 #define GF_HEAL_INFO "glusterfs.heal-info"
 #define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
