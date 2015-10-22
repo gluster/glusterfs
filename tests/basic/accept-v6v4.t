@@ -119,4 +119,30 @@ EXPECT "Y" check_ip_port $V6 $NFSD_PORT "v4"
 EXPECT "Y" check_nfs $V6 "v6"
 EXPECT "Y" check_nfs $V4 "v4"
 
+# Test a rpcbind crash
+pkill -9 rpcbind && service rpcbind start
+sleep 15
+
+# Test that the port re-registered
+rpcinfo=$(rpcinfo -s | grep nfs | grep -v nfs_acl)
+
+function check_rpcinfo {
+        support=$1
+        type=$2
+
+        if [ ! $support ]; then
+          echo "Y"
+          return
+        fi
+
+        if [ "$type" == "v6" ]; then
+          echo $(echo $rpcinfo | grep tcp6 && echo "Y" || echo "N")
+        else
+          echo $(echo $rpcinfo | grep tcp && echo "Y" || echo "N")
+        fi
+}
+
+EXPECT "Y" check_rpcinfo $IPV4_SUPPORT "v4"
+EXPECT "Y" check_rpcinfo $IPV6_SUPPORT "v6"
+
 cleanup;

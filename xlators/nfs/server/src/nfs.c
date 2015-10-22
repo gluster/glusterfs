@@ -33,6 +33,7 @@
 #include "syscall.h"
 #include "rpcsvc.h"
 #include "nfs-messages.h"
+#include "syncop.h"
 
 #define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
@@ -205,7 +206,8 @@ nfs_program_register_portmap_all (struct nfs_state *nfs)
                         prog->progport = nfs->override_portnum;
                 (void) rpcsvc_program_register_portmap (prog, prog->progport);
 #ifdef IPV6_DEFAULT
-                (void) rpcsvc_program_register_rpcbind6 (prog, prog->progport);
+                (void) rpcsvc_program_register_rpcbind6 (prog, prog->progport,
+                                                         TRUE);
 #endif
         }
 
@@ -288,6 +290,55 @@ nfs_deinit_versions (struct list_head *versions, xlator_t *this)
         return 0;
 }
 
+void rpcbind_register_prog (rpcsvc_program_t *prog)
+{
+        if (!prog) {
+                return;
+        }
+
+        /*
+        * Attempt to register the program with rpcbind. In 99.9% of cases,
+        * This call will most likely *always* fail, since the program should already
+        * be registered. We don't care if this call fails since it is best effort.
+        */
+        rpcsvc_program_register_portmap (prog, prog->progport);
+#ifdef IPV6_DEFAULT
+        rpcsvc_program_register_rpcbind6 (prog, prog->progport, FALSE);
+#endif
+}
+
+/**
+ * rpcbind_autoregister_task
+ *
+ * The purpose of this task is to attempt to ensure that NFS stays
+ * registered with rpcbind. The thread is "best effort", and as a
+ * result we do not care what the result of the call is.
+ */
+int rpcbind_autoregister_task (void *arg)
+{
+        struct nfs_state                *nfs = arg;
+        struct nfs_initer_list          *version = NULL;
+        struct nfs_initer_list          *tmp = NULL;
+        rpcsvc_program_t                *prog = NULL;
+        struct list_head                *versions = &nfs->versions;
+
+        list_for_each_entry_safe (version, tmp, versions, list) {
+                rpcbind_register_prog (version->program);
+        }
+
+        return 0;
+}
+
+void *nfs_janitor (void *arg)
+{
+        struct nfs_state *nfs = arg;
+        while (_gf_true) {
+                synctask_new (nfs->this->ctx->env, rpcbind_autoregister_task,
+                              NULL, NULL, nfs);
+                sleep (10);
+        }
+}
+
 int
 nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
 {
@@ -344,7 +395,8 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                         }
 #ifdef IPV6_DEFAULT
                         ret = rpcsvc_program_register_rpcbind6 (prog,
-                                                                prog->progport);
+                                                                prog->progport,
+                                                                TRUE);
                         if (ret == -1) {
                                 gf_msg (GF_NFS, GF_LOG_ERROR, 0,
                                         NFS_MSG_PGM_REG_FAIL,
@@ -362,6 +414,18 @@ err:
         return ret;
 }
 
+int
+nfs_janitor_init (struct nfs_state *nfs)
+{
+        int ret = pthread_create (&nfs->janitor_thread, NULL, nfs_janitor, nfs);
+        if (ret != 0) {
+                gf_log (GF_NFS, GF_LOG_WARNING,
+                        "Unable to start rpcbind register thread! Error=%s",
+                        strerror (ret));
+                return -1;
+        }
+        return 0;
+}
 
 int
 nfs_add_all_initiators (struct nfs_state *nfs)
@@ -772,6 +836,8 @@ nfs_init_state (xlator_t *this)
                         "memory allocation failed");
                 return NULL;
         }
+
+        nfs->this = this;
 
         nfs->memfactor = GF_NFS_DEFAULT_MEMFACTOR;
         if (dict_get (this->options, "nfs.mem-factor")) {
@@ -1555,6 +1621,13 @@ init (xlator_t *this) {
         if (ret) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_INIT_FAIL,
                         "Failed to initialize DRC");
+                return (-1);
+        }
+
+        ret = nfs_janitor_init (nfs);
+        if (ret) {
+                gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_INIT_FAIL,
+                        "Failed to initialize janitor");
                 return (-1);
         }
 

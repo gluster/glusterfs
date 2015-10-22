@@ -96,6 +96,8 @@ struct nfs_state {
 	uint32_t		server_aux_gids_max_age;
 	gid_cache_t		gid_cache;
         uint32_t                generation;
+        pthread_t               janitor_thread;
+        xlator_t                *this;
         gf_boolean_t            register_portmap;
         char                    *rpc_statd;
         char                    *rpc_statd_pid_file;

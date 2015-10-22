@@ -1371,7 +1371,7 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
 
 #ifdef IPV6_DEFAULT
 int
-rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port)
+rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port, gf_boolean_t unregister_first)
 {
         const int IP_BUF_LEN = 64;
         char addr_buf[IP_BUF_LEN];
@@ -1405,11 +1405,13 @@ rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port)
                 goto out;
         }
 
-        /* Force the unregistration of the program first.
-         * This call may fail if nothing has been registered,
-         * which is fine.
-         */
-        rpcsvc_program_unregister_rpcbind6 (newprog);
+        if (unregister_first) {
+                /* Force the unregistration of the program first.
+                 * This call may fail if nothing has been registered,
+                 * which is fine.
+                 */
+                rpcsvc_program_unregister_rpcbind6 (newprog);
+        }
 
         success = rpcb_set (newprog->prognum, newprog->progver, nc, nb);
         if (!success) {
