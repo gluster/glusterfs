@@ -881,7 +881,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
                 GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WDEL);
 
         /*Internal FOP*/
-        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+        _inode_cx->is_internal_fop = is_internal_fop (frame, xdata);
 
         /* If its a internal FOP and dht link file donot record*/
         if (_inode_cx->is_internal_fop &&
@@ -1219,7 +1219,7 @@ ctr_create (call_frame_t *frame, xlator_t *this,
                 GFDB_FOP_CREATE_WRITE, GFDB_FOP_WIND);
 
         /*Internal FOP*/
-        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+        _inode_cx->is_internal_fop = is_internal_fop (frame, xdata);
 
         /* If its a internal FOP and dht link file donot record*/
         if (_inode_cx->is_internal_fop &&
@@ -1299,7 +1299,7 @@ ctr_link (call_frame_t *frame, xlator_t *this,
                 GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WIND);
 
         /*Internal FOP*/
-        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
+        _inode_cx->is_internal_fop = is_internal_fop (frame, xdata);
 
         /* If its a internal FOP and dht link file donot record*/
         if (_inode_cx->is_internal_fop &&
