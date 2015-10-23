@@ -282,23 +282,34 @@ do {\
  * Internal fop
  *
  * */
-#define CTR_IS_INTERNAL_FOP(frame, dict)\
-        (AFR_SELF_HEAL_FOP (frame) \
-        || (REBALANCE_FOP (frame) && dict && \
-            !dict_get (dict, CTR_ATTACH_TIER_LOOKUP)) \
-        || (TIER_REBALANCE_FOP (frame) && dict && \
-           !dict_get (dict, CTR_ATTACH_TIER_LOOKUP)) \
-        || (dict && \
-            dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)))
+static inline
+gf_boolean_t is_internal_fop (call_frame_t *frame,
+                              dict_t       *xdata)
+{
+        gf_boolean_t ret = _gf_false;
 
-/**
- * ignore internal fops for all clients except AFR self-heal daemon
- */
+        GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
+
+        if (AFR_SELF_HEAL_FOP (frame)) {
+                ret = _gf_true;
+        }
+        if (REBALANCE_FOP (frame) || TIER_REBALANCE_FOP (frame)) {
+                ret = _gf_true;
+                if (xdata && dict_get (xdata, CTR_ATTACH_TIER_LOOKUP)) {
+                        ret = _gf_false;
+                }
+        }
+        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                ret = _gf_true;
+        }
+
+        return ret;
+}
+
 #define CTR_IF_INTERNAL_FOP_THEN_GOTO(frame, dict, label)\
 do {\
-        GF_ASSERT(frame);\
-        GF_ASSERT(frame->root);\
-        if (CTR_IS_INTERNAL_FOP(frame, dict)) \
+        if (is_internal_fop (frame, dict)) \
                         goto label; \
 } while (0)
 
