@@ -609,6 +609,8 @@ typedef struct dht_fd_ctx {
 } dht_fd_ctx_t;
 
 
+#define NO_SUBVOL_HASH_ERRNO EROFS
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)

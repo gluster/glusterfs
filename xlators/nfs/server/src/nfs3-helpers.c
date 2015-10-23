@@ -239,7 +239,12 @@ nfs3_errno_to_nfsstat3 (int errnum)
                 break;
 
         case ENOTCONN:
-                stat = NFS3ERR_IO;
+                /* If connections to bricks cannot be established,
+                 * the filesystem is effectively in read-only mode
+                 * to protect data. E.g., when all bricks in a subvolume
+                 * crash.
+                 */
+                stat = NFS3ERR_ROFS;
                 break;
 
         case EDQUOT:

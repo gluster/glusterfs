@@ -5145,7 +5145,7 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->call_count = AFR_COUNT (local->child_up, priv->child_count);
         if (local->call_count == 0) {
                 gf_msg (THIS->name, GF_LOG_INFO, 0,
-                        AFR_MSG_ALL_SUBVOLS_DOWN, "no subvolumes up");
+                        AFR_MSG_ALL_SUBVOLS_DOWN, "no bricks up");
                 if (op_errno)
                         *op_errno = ENOTCONN;
                 goto out;

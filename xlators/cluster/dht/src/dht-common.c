@@ -6193,7 +6193,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                 gf_msg_debug (this->name, 0,
                               "no subvolume in layout for path=%s",
                               loc->path);
-                op_errno = EIO;
+                op_errno = NO_SUBVOL_HASH_ERRNO;
                 goto err;
         }
 
@@ -6603,7 +6603,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
                 gf_msg_debug (this->name, 0,
                               "no subvolume in layout for path=%s",
                               newloc->path);
-                op_errno = EIO;
+                op_errno = NO_SUBVOL_HASH_ERRNO;
                 goto err;
         }
 
@@ -7105,7 +7105,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
                         "no subvolume in layout for path=%s",
                         loc->path);
 
-                op_errno = EIO;
+                op_errno = NO_SUBVOL_HASH_ERRNO;
                 goto err;
         }
 
@@ -7628,7 +7628,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 gf_msg_debug (this->name, 0,
                               "hashed subvol not found for %s",
                               loc->path);
-                local->op_errno = EIO;
+                local->op_errno = NO_SUBVOL_HASH_ERRNO;
                 goto err;
         }
 
