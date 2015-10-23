@@ -895,8 +895,24 @@ changelog_mknod (call_frame_t *frame,
         gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
-        CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
+
+        /* Check whether changelog active */
+        if (!(priv->active))
+                goto wind;
+
+        /* Check whether rebalance activity */
+        if (frame->root->pid == GF_CLIENT_PID_DEFRAG)
+                goto wind;
+
+        /* If tier-dht linkto is SET, ignore about verifiying :
+         * 1. Whether internal fop AND
+         * 2. Whether tier rebalance process activity (this will help in
+         * recording mknod if tier rebalance process calls this mknod) */
+        if (!(dict_get (xdata, "trusted.tier.tier-dht.linkto"))) {
+                CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
+                if (frame->root->pid == GF_CLIENT_PID_TIER_DEFRAG)
+                        goto wind;
+        }
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
