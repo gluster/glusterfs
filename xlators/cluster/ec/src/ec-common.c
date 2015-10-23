@@ -1821,11 +1821,11 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     fop->frame->root->gid = 0;
 
     if (link->lock->fd == NULL) {
-            ec_xattrop(fop->frame, fop->xl, fop->good, EC_MINIMUM_MIN,
+            ec_xattrop(fop->frame, fop->xl, lock->good_mask, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, &link->lock->loc,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     } else {
-            ec_fxattrop(fop->frame, fop->xl, fop->good, EC_MINIMUM_MIN,
+            ec_fxattrop(fop->frame, fop->xl, lock->good_mask, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, link->lock->fd,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     }
@@ -2024,14 +2024,6 @@ void ec_unlock(ec_fop_data_t *fop)
 void ec_flush_size_version(ec_fop_data_t * fop)
 {
     GF_ASSERT(fop->lock_count == 1);
-
-    /* In normal circumstances, ec_update_info() is called after having
-     * executed a normal fop, and it uses fop->good to update only those bricks
-     * that succeeded. In this case we haven't executed any fop, so fop->good
-     * is 0. We use the current good mask of the lock itself to send the
-     * updates.*/
-    fop->good = fop->locks[0].lock->good_mask;
-
     ec_update_info(&fop->locks[0]);
 }
 
