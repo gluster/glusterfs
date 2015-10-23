@@ -95,8 +95,6 @@ TEST $CLI volume start $V0
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
 
-TEST $CLI volume set $V0 features.ctr-enabled on
-
 #Not a tier volume
 TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 

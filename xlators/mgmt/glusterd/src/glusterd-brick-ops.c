@@ -2204,6 +2204,9 @@ glusterd_op_perform_attach_tier (dict_t *dict,
         volinfo->tier_info.hot_type      = type;
         ret = dict_set_int32 (dict, "type", GF_CLUSTER_TYPE_TIER);
 
+        if (!ret)
+                ret = dict_set_str (volinfo->dict, "features.ctr-enabled", "on");
+
         return ret;
 }
 
