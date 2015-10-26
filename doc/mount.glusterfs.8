@@ -47,9 +47,6 @@ Mount the filesystem with POSIX ACL support
 \fBfopen\-keep\-cache
 Do not purge the cache on file open
 .TP
-\fBselinux
-Enable SELinux label (extened attributes) support on inodes
-.TP
 \fBworm
 Mount the filesystem in 'worm' mode
 .TP
@@ -133,7 +130,7 @@ Use readdirp() mode in fuse kernel module [default: on]
 .I /etc/fstab
 A typical GlusterFS entry in /etc/fstab looks like below
 
-\fBserver1:/mirror  /mnt/mirror  glusterfs log-file=/var/log/mirror.log,acl,selinux   0  0\fR
+\fBserver1:/mirror  /mnt/mirror  glusterfs log-file=/var/log/mirror.log,acl   0  0\fR
 
 .TP
 .I /proc/mounts
