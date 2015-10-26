@@ -106,8 +106,8 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         }
 
         if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
-                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
-                        "%s does not belong to this node", loc->path);
+                gf_msg_trace (this->name, 0,
+                              "%s does not belong to this node", loc->path);
                 ret = 1;
                 goto out;
         }
@@ -485,8 +485,8 @@ tier_migrate_using_query_file (void *_args)
                                 goto abort;
                         }
 
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                DHT_MSG_LOG_TIER_STATUS, "Tier %d"
+                        gf_msg_trace (this->name, 0,
+                                "Tier %d"
                                 " src_subvol %s file %s",
                                 query_cbk_args->is_promotion,
                                 src_subvol->name,
@@ -544,13 +544,6 @@ tier_migrate_using_query_file (void *_args)
                                         defrag->tier_conf.blocks_total;
                                 pthread_mutex_unlock (&dm_stat_mutex);
                         }
-abort:
-                        loc_wipe(&loc);
-                        loc_wipe(&p_loc);
-
-                        token_str = NULL;
-                        token_str = strtok (NULL, delimiter);
-                        GF_FREE (link_str);
 
                         if ((++total_files > defrag->tier_conf.max_migrate_files) ||
                             (total_migrated_bytes > defrag->tier_conf.max_migrate_bytes)) {
@@ -562,6 +555,15 @@ abort:
                                         total_files);
                                 goto out;
                         }
+
+abort:
+                        loc_wipe(&loc);
+                        loc_wipe(&p_loc);
+
+                        token_str = NULL;
+                        token_str = strtok (NULL, delimiter);
+                        GF_FREE (link_str);
+
                 }
                 per_file_status = per_link_status;
 per_file_out:
@@ -1031,8 +1033,7 @@ tier_build_migration_qfile (demotion_args_t *args,
 
         ret = remove (GET_QFILE_PATH (is_promotion));
         if (ret == -1) {
-                gf_msg (args->this->name, GF_LOG_INFO, 0,
-                        DHT_MSG_LOG_TIER_STATUS,
+                gf_msg_trace (args->this->name, 0,
                         "Failed to remove %s",
                         GET_QFILE_PATH (is_promotion));
         }

@@ -1175,12 +1175,17 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_defrag_info_t *defrag             =  NULL;
         gf_boolean_t    clean_src            = _gf_false;
         gf_boolean_t    clean_dst            = _gf_false;
+        int             log_level            = GF_LOG_INFO;
 
         defrag = conf->defrag;
         if (!defrag)
                 goto out;
 
-        gf_log (this->name, GF_LOG_INFO, "%s: attempting to move from %s to %s",
+        if (defrag->tier_conf.is_tier)
+                log_level = GF_LOG_TRACE;
+
+        gf_log (this->name,
+                log_level, "%s: attempting to move from %s to %s",
                 loc->path, from->name, to->name);
 
         dict = dict_new ();
@@ -1548,7 +1553,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
         }
 
-        gf_msg (this->name, GF_LOG_INFO, 0,
+        gf_msg (this->name, log_level, 0,
                 DHT_MSG_MIGRATE_FILE_COMPLETE,
                 "completed migration of %s from subvolume %s to %s",
                 loc->path, from->name, to->name);
@@ -2809,8 +2814,10 @@ gf_fix_layout_tier_attach_lookup (xlator_t *this,
         ret = syncop_lookup (conf->subvolumes[0], &file_loc, &iatt,
                         NULL, lookup_xdata, NULL);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-                        "%s lookup failed", file_loc.path);
+                /* If the file does not exist on the cold tier than it must */
+                /* have been discovered on the hot tier. This is not an error. */
+                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
+                        "%s lookup to cold tier on attach heal failed", file_loc.path);
                 goto out;
         }
 
