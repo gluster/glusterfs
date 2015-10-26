@@ -722,14 +722,18 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		ret = 0;
 
-		/* Locking from (LLONG_MAX - 2) to (LLONG_MAX - 1) is for
-		   compatibility with older self-heal clients which do not
-		   hold a lock in the @priv->sh_domain domain to guard
-		   against concurrent ongoing self-heals
-		*/
-		afr_selfheal_inodelk (frame, this, fd->inode, this->name,
-				      LLONG_MAX - 2, 1, compat_lock);
-		compat = _gf_true;
+                if (priv->arbiter_count == 0) {/*TODO: delete this code after
+                                                 3.5.x goes out of support*/
+                        /* Locking from (LLONG_MAX - 2) to (LLONG_MAX - 1) is
+                           for compatibility with older self-heal clients which
+                           do not hold a lock in the @priv->sh_domain domain to
+                           guard against concurrent ongoing self-heals
+                        */
+                        afr_selfheal_inodelk (frame, this, fd->inode,
+                                        this->name, LLONG_MAX - 2, 1,
+                                        compat_lock);
+                        compat = _gf_true;
+                }
 	}
 unlock:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
