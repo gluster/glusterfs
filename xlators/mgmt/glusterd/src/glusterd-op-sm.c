@@ -1636,7 +1636,8 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 }
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
                 if (glusterd_is_shd_compatible_volume (volinfo)) {
-                        shd_enabled = is_self_heal_enabled (volinfo, vol_opts);
+                        shd_enabled = gd_is_self_heal_enabled (volinfo,
+                                                               vol_opts);
                 } else {
                         ret = -1;
                         snprintf (msg, sizeof (msg),
@@ -3272,7 +3273,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         }
 
                         if (glusterd_is_shd_compatible_volume (volinfo))
-                                shd_enabled = is_self_heal_enabled (volinfo, vol_opts);
+                                shd_enabled = gd_is_self_heal_enabled
+                                                         (volinfo, vol_opts);
                         if (shd_enabled) {
                                 ret = glusterd_add_node_to_dict
                                         (priv->shd_svc.name, rsp_dict,

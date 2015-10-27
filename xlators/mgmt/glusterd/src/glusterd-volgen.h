@@ -286,6 +286,6 @@ int
 glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                           char *value, char **op_errstr);
 gf_boolean_t
-is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict);
+gd_is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict);
 
 #endif

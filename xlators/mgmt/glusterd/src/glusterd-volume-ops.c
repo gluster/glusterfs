@@ -676,7 +676,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                                             __glusterd_handle_cli_delete_volume);
 }
 static char*
-_get_shd_key (int type)
+gd_get_shd_key (int type)
 {
         char            *key               = NULL;
 
@@ -703,7 +703,7 @@ glusterd_handle_shd_option_for_tier (glusterd_volinfo_t *volinfo,
         char           *key             = NULL;
         int             ret             = 0;
 
-        key = _get_shd_key (volinfo->tier_info.cold_type);
+        key = gd_get_shd_key (volinfo->tier_info.cold_type);
         if (key) {
                 count++;
                 snprintf (dict_key, sizeof (dict_key), "key%d", count);
@@ -716,7 +716,7 @@ glusterd_handle_shd_option_for_tier (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        key = _get_shd_key (volinfo->tier_info.hot_type);
+        key = gd_get_shd_key (volinfo->tier_info.hot_type);
         if (key) {
                 count++;
                 snprintf (dict_key, sizeof (dict_key), "key%d", count);
@@ -1890,7 +1890,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 ret = 0;
                 goto out;
         }
-        enabled = is_self_heal_enabled (volinfo, opt_dict);
+        enabled = gd_is_self_heal_enabled (volinfo, opt_dict);
         if (!enabled) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Self-heal-daemon is "
