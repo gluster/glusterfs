@@ -4287,8 +4287,8 @@ volgen_graph_set_iam_shd (volgen_graph_t *graph)
 }
 
 static int
-prepare_shd_volume_options_for_tier (glusterd_volinfo_t *volinfo,
-                                     dict_t *set_dict)
+glusterd_prepare_shd_volume_options_for_tier (glusterd_volinfo_t *volinfo,
+                                              dict_t *set_dict)
 {
         int             ret             = -1;
         char           *key             = NULL;
@@ -4318,7 +4318,8 @@ prepare_shd_volume_options (glusterd_volinfo_t *volinfo,
         int     ret = 0;
 
         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                ret = prepare_shd_volume_options_for_tier (volinfo, set_dict);
+                ret = glusterd_prepare_shd_volume_options_for_tier (volinfo,
+                                                                    set_dict);
                 if (ret)
                         goto out;
         } else {
@@ -4443,7 +4444,7 @@ out:
 }
 
 gf_boolean_t
-is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict)
+gd_is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict)
 {
 
         char            *shd_key                = NULL;
