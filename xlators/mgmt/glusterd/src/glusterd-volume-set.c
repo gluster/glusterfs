@@ -75,8 +75,9 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         if (strstr (key, "watermark-hi") ||
             strstr (key, "watermark-low")) {
                 if ((origin_val < 1) || (origin_val > 99)) {
-                        snprintf (errstr, sizeof (errstr), "%s is not a compatible"
-                                  "value. %s expects a percentage from 1-99.",
+                        snprintf (errstr, sizeof (errstr), "%s is not a "
+                                  "compatible value. %s expects a "
+                                  "percentage from 1-99.",
                                   value, key);
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                                 GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
