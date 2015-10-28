@@ -960,6 +960,7 @@ class SlaveRemote(object):
         tar_cmd = ["tar"] + \
             ["-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.ssh_command_tar.split() + \
+            ["-p", str(gconf.ssh_port)] + \
             [host, "tar"] + \
             ["--overwrite", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
@@ -1545,8 +1546,9 @@ class SSH(AbstractUrl, SlaveRemote):
                                  self.inner_rsc.url)
 
         deferred = go_daemon == 'postconn'
-        ret = sup(self, gconf.ssh_command.split() + gconf.ssh_ctl_args +
-                  [self.remote_addr],
+        ret = sup(self, gconf.ssh_command.split() +
+                  ["-p", str(gconf.ssh_port)] +
+                  gconf.ssh_ctl_args + [self.remote_addr],
                   slave=self.inner_rsc.url, deferred=deferred)
 
         if deferred:
@@ -1570,7 +1572,9 @@ class SSH(AbstractUrl, SlaveRemote):
 
     def rsync(self, files):
         return sup(self, files, '-e',
-                   " ".join(gconf.ssh_command.split() + gconf.ssh_ctl_args),
+                   " ".join(gconf.ssh_command.split() +
+                            ["-p", str(gconf.ssh_port)] +
+                            gconf.ssh_ctl_args),
                    *(gconf.rsync_ssh_options.split() + [self.slaveurl]))
 
     def tarssh(self, files):
