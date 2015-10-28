@@ -905,11 +905,11 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
     LOCK(&lock->loc.inode->lock);
 
-    list_for_each_entry(tmp, &lock->owners, owner_list) {
-        if ((tmp->flags & EC_FLAG_WAITING_SIZE) != 0) {
-            tmp->flags ^= EC_FLAG_WAITING_SIZE;
+    list_for_each_entry(link, &lock->owners, owner_list) {
+        if ((link->fop->flags & EC_FLAG_WAITING_SIZE) != 0) {
+            link->fop->flags ^= EC_FLAG_WAITING_SIZE;
 
-            list_add_tail(&tmp->cbk_list, &list);
+            list_add_tail(&link->fop->cbk_list, &list);
         }
     }
 
@@ -1337,7 +1337,7 @@ ec_lock_wake_shared(ec_lock_t *lock, struct list_head *list)
 
         list_move_tail(&link->wait_list, list);
 
-        list_add_tail(&fop->owner_list, &lock->owners);
+        list_add_tail(&link->owner_list, &lock->owners);
 
         ec_lock_update_fd(lock, fop);
     }
@@ -1523,7 +1523,7 @@ ec_lock_assign_owner(ec_lock_link_t *link)
         }
     }
 
-    list_add_tail(&fop->owner_list, &lock->owners);
+    list_add_tail(&link->owner_list, &lock->owners);
 
     assigned = _gf_true;
 
@@ -1557,8 +1557,8 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
 
     ec_trace("LOCK_DONE", fop, "lock=%p", lock);
 
-    GF_ASSERT(!list_empty(&fop->owner_list));
-    list_del_init(&fop->owner_list);
+    GF_ASSERT(!list_empty(&link->owner_list));
+    list_del_init(&link->owner_list);
     lock->release |= release;
 
     if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
