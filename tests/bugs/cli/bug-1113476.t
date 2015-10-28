@@ -25,18 +25,19 @@ EXPECT '' volinfo_validate 'snap-max-soft-limit'
 EXPECT '' volinfo_validate 'auto-delete'
 
 TEST $CLI snapshot config snap-max-hard-limit 100
-EXPECT '100' volinfo_validate 'snap-max-hard-limit'
+TEST $CLI snapshot config $V0 snap-max-hard-limit 50
+EXPECT '' volinfo_validate 'snap-max-hard-limit'
 EXPECT '' volinfo_validate 'snap-max-soft-limit'
 EXPECT '' volinfo_validate 'auto-delete'
 
 TEST $CLI snapshot config snap-max-soft-limit 50
-EXPECT '100' volinfo_validate 'snap-max-hard-limit'
-EXPECT '50' volinfo_validate 'snap-max-soft-limit'
+EXPECT '' volinfo_validate 'snap-max-hard-limit'
+EXPECT '' volinfo_validate 'snap-max-soft-limit'
 EXPECT '' volinfo_validate 'auto-delete'
 
 TEST $CLI snapshot config auto-delete enable
-EXPECT '100' volinfo_validate 'snap-max-hard-limit'
-EXPECT '50' volinfo_validate 'snap-max-soft-limit'
+EXPECT '' volinfo_validate 'snap-max-hard-limit'
+EXPECT '' volinfo_validate 'snap-max-soft-limit'
 EXPECT 'enable' volinfo_validate 'auto-delete'
 
 cleanup;
