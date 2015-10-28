@@ -247,6 +247,7 @@ def main_i():
     op.add_option(
         '--local-path', metavar='PATH', help=SUPPRESS_HELP, default='')
     op.add_option('-s', '--ssh-command', metavar='CMD', default='ssh')
+    op.add_option('--ssh-port', metavar='PORT', type=int, default=22)
     op.add_option('--ssh-command-tar', metavar='CMD', default='ssh')
     op.add_option('--rsync-command', metavar='CMD', default='rsync')
     op.add_option('--rsync-options', metavar='OPTS', default='')
