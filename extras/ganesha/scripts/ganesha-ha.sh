@@ -262,7 +262,7 @@ ${current_host}:${HA_CONFDIR}/exports/
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
-uint16:$removed_id 2>&1 | grep -v \"^method return\"")
+uint16:$removed_id 2>&1")
                  ret=$?
                  logger <<< "${output}"
                  if [ ${ret} -ne 0 ]; then
@@ -272,10 +272,10 @@ uint16:$removed_id 2>&1 | grep -v \"^method return\"")
                  sleep 1
                  output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
-"dbus-send --system --dest=org.ganesha.nfsd \
+"dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\" 2>&1 | grep -v \"^method return\"")
+string:\"EXPORT(Path=/$VOL)\" 2>&1")
                  ret=$?
                  logger <<< "${output}"
                if [ ${ret} -ne 0 ]; then
@@ -295,7 +295,7 @@ string:\"EXPORT(Path=/$VOL)\" 2>&1 | grep -v \"^method return\"")
 #Run the same command on the localhost,
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
-uint16:$removed_id 2>&1 | grep -v "^method return")
+uint16:$removed_id 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ]; then
@@ -303,10 +303,10 @@ uint16:$removed_id 2>&1 | grep -v "^method return")
                 exit 1
         fi
         sleep 1
-        output=$(dbus-send --system --dest=org.ganesha.nfsd \
+        output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)" 2>&1 | grep -v "^method return")
+string:"EXPORT(Path=/$VOL)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
