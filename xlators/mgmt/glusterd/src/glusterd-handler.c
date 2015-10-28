@@ -307,6 +307,15 @@ _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
                     (strcmp (k, "features.soft-limit") == 0))
                         return 0;
         }
+
+        /* snap-max-hard-limit and snap-max-soft-limit are system   *
+         * options set and managed by snapshot config option. Hence *
+         * they should not be displayed in gluster volume info.     *
+         */
+        if ((strcmp (k, "snap-max-hard-limit") == 0) ||
+            (strcmp (k, "snap-max-soft-limit") == 0))
+                return 0;
+
         snprintf (reconfig_key, 256, "volume%d.option.%s",
                   pack->vol_count, k);
         ret = dict_set_str (pack->dict, reconfig_key, v->data);
