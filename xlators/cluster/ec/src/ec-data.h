@@ -167,6 +167,7 @@ struct _ec_lock_link
 {
     ec_lock_t        *lock;
     ec_fop_data_t    *fop;
+    struct list_head  owner_list;
     struct list_head  wait_list;
     gf_boolean_t      update[2];
     loc_t            *base;
@@ -187,7 +188,6 @@ struct _ec_fop_data
     xlator_t          *xl;
     call_frame_t      *req_frame;    /* frame of the calling xlator */
     call_frame_t      *frame;        /* frame used by this fop */
-    struct list_head   owner_list;   /* member of lock owner list */
     struct list_head   cbk_list;     /* sorted list of groups of answers */
     struct list_head   answer_list;  /* list of answers */
     struct list_head   pending_list; /* member of ec_t.pending_fops */

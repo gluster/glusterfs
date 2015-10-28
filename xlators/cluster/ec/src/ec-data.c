@@ -135,12 +135,13 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
         return NULL;
     }
 
-    INIT_LIST_HEAD(&fop->owner_list);
     INIT_LIST_HEAD(&fop->cbk_list);
     INIT_LIST_HEAD(&fop->healer);
     INIT_LIST_HEAD(&fop->answer_list);
     INIT_LIST_HEAD(&fop->pending_list);
+    INIT_LIST_HEAD(&fop->locks[0].owner_list);
     INIT_LIST_HEAD(&fop->locks[0].wait_list);
+    INIT_LIST_HEAD(&fop->locks[1].owner_list);
     INIT_LIST_HEAD(&fop->locks[1].wait_list);
 
     fop->xl = this;
