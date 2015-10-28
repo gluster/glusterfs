@@ -4501,26 +4501,28 @@ int
 dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, gf_dirent_t *orig_entries, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        gf_dirent_t   entries;
-        gf_dirent_t  *orig_entry = NULL;
-        gf_dirent_t  *entry = NULL;
-        call_frame_t *prev = NULL;
-        xlator_t     *next_subvol = NULL;
-        off_t         next_offset = 0;
-        int           count = 0;
-        dht_layout_t *layout = 0;
-        dht_conf_t   *conf   = NULL;
-        dht_methods_t *methods = NULL;
-        xlator_t     *subvol = 0;
-        xlator_t     *hashed_subvol = 0;
-        int           ret    = 0;
-        int           readdir_optimize = 0;
-        dht_inode_ctx_t *ctx = NULL;
+        dht_local_t             *local = NULL;
+        gf_dirent_t              entries;
+        gf_dirent_t             *orig_entry = NULL;
+        gf_dirent_t             *entry = NULL;
+        call_frame_t            *prev = NULL;
+        xlator_t                *next_subvol = NULL;
+        off_t                    next_offset = 0;
+        int                      count = 0;
+        dht_layout_t            *layout = 0;
+        dht_conf_t              *conf   = NULL;
+        dht_methods_t           *methods = NULL;
+        xlator_t                *subvol = 0;
+        xlator_t                *hashed_subvol = 0;
+        int                      ret    = 0;
+        int                      readdir_optimize = 0;
+        inode_table_t           *itable = NULL;
+        inode_t                 *inode = NULL;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
+        itable = local->fd ? local->fd->inode->table : NULL;
 
         conf  = this->private;
         GF_VALIDATE_OR_GOTO(this->name, conf, unwind);
@@ -4610,24 +4612,52 @@ list:
                 if (orig_entry->dict)
                         entry->dict = dict_ref (orig_entry->dict);
 
-                /* For non-directories don't set inode ctx from readdirp cbk,
-                 * let them populate on first lookup, for directories
-                 * don't set entry inodes */
-                if (orig_entry->inode) {
-                        ret = dht_inode_ctx_get (orig_entry->inode, this, &ctx);
-                            if (ret == -1) {
-                                 entry->inode = NULL;
-                            } else {
-                                   entry->inode = inode_ref (orig_entry->inode);
-                                if (IA_ISDIR (entry->d_stat.ia_type)) {
-                                   dht_inode_ctx_time_update (orig_entry->inode,
-                                                       this, &entry->d_stat, 1);
+                /* making sure we set the inode ctx right with layout,
+                   currently possible only for non-directories, so for
+                   directories don't set entry inodes */
+                if (IA_ISDIR(entry->d_stat.ia_type)) {
+                        if (orig_entry->inode) {
+                                dht_inode_ctx_time_update (orig_entry->inode,
+                                                           this, &entry->d_stat,
+                                                           1);
+                        }
+                } else {
+                        if (orig_entry->inode) {
+                                ret = dht_layout_preset (this, prev->this,
+                                                         orig_entry->inode);
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                                DHT_MSG_LAYOUT_SET_FAILED,
+                                                "failed to link the layout "
+                                                "in inode");
 
+                                entry->inode = inode_ref (orig_entry->inode);
+                        } else if (itable) {
+                                /*
+                                 * orig_entry->inode might be null if any upper
+                                 * layer xlators below client set to null, to
+                                 * force a lookup on the inode even if the inode
+                                 * is present in the inode table. In that case
+                                 * we just update the ctx to make sure we didn't
+                                 * missed anything.
+                                 */
+                                inode = inode_find (itable,
+                                                    orig_entry->d_stat.ia_gfid);
+                                if (inode) {
+                                        ret = dht_layout_preset
+                                                            (this, prev->this,
+                                                             inode);
+                                        if (ret)
+                                                gf_msg (this->name,
+                                                     GF_LOG_WARNING, 0,
+                                                     DHT_MSG_LAYOUT_SET_FAILED,
+                                                     "failed to link the layout"
+                                                     " in inode");
+                                        inode_unref (inode);
+                                        inode = NULL;
                                 }
-
-                            }
+                        }
                 }
-
                 list_add_tail (&entry->list, &entries.list);
                 count++;
         }
