@@ -9606,7 +9606,6 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
         strcpy (new_volinfo->volname, orig_vol->volname);
         gf_uuid_copy (new_volinfo->volume_id, orig_vol->volume_id);
         new_volinfo->snap_count = orig_vol->snap_count;
-        new_volinfo->snap_max_hard_limit = orig_vol->snap_max_hard_limit;
         gf_uuid_copy (new_volinfo->restored_from_snap,
                    snap_vol->snapshot->snap_id);
 

@@ -431,6 +431,22 @@ function uss_count_snap_displayed() {
         ls $path/.snaps | wc -l
 }
 
+function snap_info_volume()
+{
+        eval local cli_index=\$$1
+        local var=$2
+        local vol=$3
+        $cli_index snapshot info volume $vol | grep "^$var" | sed 's/.*: //'
+}
+
+function snap_config_volume()
+{
+        eval local cli_index=\$$1
+        local var=$2
+        local vol=$3
+        $cli_index snapshot config $vol| grep "^$var" | sed 's/.*: //'
+}
+
 #return specific fields of xml output
 function get-cmd-field-xml()
 {
