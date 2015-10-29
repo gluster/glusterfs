@@ -101,14 +101,14 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         }
 
         if (gf_uuid_parse (uuid_str, node_uuid)) {
-                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
                         "uuid_parse failed for %s", loc->path);
                 goto out;
         }
 
         if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
-                gf_msg_trace (this->name, 0,
-                              "%s does not belong to this node", loc->path);
+                 gf_msg_trace (this->name, 0,
+                        "%s does not belong to this node", loc->path);
                 ret = 1;
                 goto out;
         }
@@ -255,6 +255,12 @@ tier_migrate_using_query_file (void *_args)
         loc_t loc                               = {0,};
         dict_t *migrate_data                    = NULL;
         inode_t *linked_inode                   = NULL;
+        /*
+         * per_file_status and per_link_status
+         *  0  : success
+         * -1 : failure
+         *  1  : ignore the status and dont count for migration
+         * */
         int per_file_status                     = 0;
         int per_link_status                     = 0;
         int total_status                        = 0;
@@ -493,9 +499,18 @@ tier_migrate_using_query_file (void *_args)
                                 src_subvol->name,
                                 loc.name);
 
-                        if (tier_check_same_node (this, &loc, defrag)) {
-                                if (ret < 0)
+
+                        ret = tier_check_same_node (this, &loc, defrag);
+                        if (ret != 0) {
+                                if (ret < 0) {
                                         per_link_status = -1;
+                                        goto abort;
+                                }
+                                ret = 0;
+                                /* By setting per_linl_status to 1 we are
+                                 * ignoring this status and will not be counting
+                                 * this file for migration */
+                                per_link_status = 1;
                                 goto abort;
                         }
 
@@ -568,14 +583,16 @@ abort:
                 }
                 per_file_status = per_link_status;
 per_file_out:
-                if (per_file_status) {
+                if (per_file_status < 0) {/* Failure */
                         pthread_mutex_lock (&dm_stat_mutex);
                         defrag->total_failures++;
                         pthread_mutex_unlock (&dm_stat_mutex);
-                } else {
+                } else if (per_file_status == 0) {/* Success */
                         pthread_mutex_lock (&dm_stat_mutex);
                         defrag->total_files++;
                         pthread_mutex_unlock (&dm_stat_mutex);
+                } else if (per_file_status == 1) {/* Ignore */
+                        per_file_status = 0;
                 }
                 total_status = total_status + per_file_status;
                 per_link_status = 0;
