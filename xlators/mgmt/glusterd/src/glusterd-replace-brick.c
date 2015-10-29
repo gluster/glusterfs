@@ -49,6 +49,7 @@ glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
         runner_t                   runner            = {0};
         glusterd_conf_t           *priv              = NULL;
         char                      *pid               = NULL;
+        char                      *volfileserver     = NULL;
 
         priv = THIS->private;
 
@@ -78,9 +79,13 @@ glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
         if (ret < 0)
                 goto out;
 
+        if (dict_get_str (THIS->options, "transport.socket.bind-address",
+                          &volfileserver) != 0)
+                volfileserver = "localhost";
+
         runinit (&runner);
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", "localhost",
+                         "-s", volfileserver,
                          "--volfile-id", volinfo->volname,
                          "--client-pid", pid,
                          "-l", logfile, tmpmount, NULL);
