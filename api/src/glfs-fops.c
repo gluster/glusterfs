@@ -2850,13 +2850,13 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
-                goto invalid_fs;
+                goto out;
         }
 
         if (strlen(name) > GF_XATTR_NAME_MAX) {
                 ret = -1;
                 errno = ENAMETOOLONG;
-                goto invalid_fs;
+                goto out;
         }
 
 	subvol = glfs_active_subvol (fs);
@@ -2933,13 +2933,13 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
-                goto invalid_fs;
+                goto out;
         }
 
         if (strlen(name) > GF_XATTR_NAME_MAX) {
                 ret = -1;
                 errno = ENAMETOOLONG;
-                goto invalid_fs;
+                goto out;
         }
 
 	subvol = glfs_active_subvol (glfd->fs);
@@ -3138,13 +3138,13 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
-                goto invalid_fs;
+                goto out;
         }
 
         if (strlen(name) > GF_XATTR_NAME_MAX) {
                 ret = -1;
                 errno = ENAMETOOLONG;
-                goto invalid_fs;
+                goto out;
         }
 
 	subvol = glfs_active_subvol (fs);
@@ -3226,13 +3226,13 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
-                goto invalid_fs;
+                goto out;
         }
 
         if (strlen(name) > GF_XATTR_NAME_MAX) {
                 ret = -1;
                 errno = ENAMETOOLONG;
-                goto invalid_fs;
+                goto out;
         }
 
 	subvol = glfs_active_subvol (glfd->fs);
