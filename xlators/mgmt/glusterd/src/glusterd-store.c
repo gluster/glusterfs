@@ -905,11 +905,14 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         char         buf[PATH_MAX]  = "";
         int32_t      ret            = -1;
         xlator_t    *this           = NULL;
+        glusterd_conf_t  *conf      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (fd > 0);
         GF_ASSERT (volinfo);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
 
         snprintf (buf, sizeof (buf), "%d", volinfo->type);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_TYPE, buf);
@@ -942,17 +945,19 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->disperse_count);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
-                                   buf);
-        if (ret)
-                goto out;
+        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
+                snprintf (buf, sizeof (buf), "%d", volinfo->disperse_count);
+                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
+                                           buf);
+                if (ret)
+                        goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->redundancy_count);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT,
-                                   buf);
-        if (ret)
-                goto out;
+                snprintf (buf, sizeof (buf), "%d", volinfo->redundancy_count);
+                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT,
+                                           buf);
+                if (ret)
+                        goto out;
+        }
 
         snprintf (buf, sizeof (buf), "%d", volinfo->version);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_VERSION, buf);
