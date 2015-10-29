@@ -636,12 +636,13 @@ out:
 }
 
 static int32_t
-posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
-		   off_t offset, size_t len, struct iatt *statpre,
-		   struct iatt *statpost)
+posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                    int32_t flags, off_t offset, size_t len,
+                    struct iatt *statpre, struct iatt *statpost, dict_t *xdata)
 {
-        struct posix_fd *pfd = NULL;
-        int32_t          ret = -1;
+        int32_t             ret    = -1;
+        struct posix_fd    *pfd    = NULL;
+        gf_boolean_t        locked = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -657,6 +658,11 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
                 goto out;
         }
 
+        if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
+                locked = _gf_true;
+                LOCK(&fd->inode->lock);
+        }
+
         ret = posix_fdstat (this, pfd->fd, statpre);
         if (ret == -1) {
                 ret = -errno;
@@ -665,7 +671,7 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
                 goto out;
         }
 
-	ret = sys_fallocate(pfd->fd, flags, offset, len);
+	ret = sys_fallocate (pfd->fd, flags, offset, len);
 	if (ret == -1) {
 		ret = -errno;
 		goto out;
@@ -680,6 +686,10 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
         }
 
 out:
+        if (locked) {
+                UNLOCK (&fd->inode->lock);
+                locked = _gf_false;
+        }
         SET_TO_OLD_FS_ID ();
 
         return ret;
@@ -857,8 +867,8 @@ _posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_siz
 		flags = FALLOC_FL_KEEP_SIZE;
 #endif /* FALLOC_FL_KEEP_SIZE */
 
-	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
-				 &statpre, &statpost);
+	ret = posix_do_fallocate (frame, this, fd, flags, offset, len,
+				  &statpre, &statpost, xdata);
 	if (ret < 0)
 		goto err;
 
@@ -883,8 +893,8 @@ posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         struct iatt statpre = {0,};
         struct iatt statpost = {0,};
 
-	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
-				 &statpre, &statpost);
+	ret = posix_do_fallocate (frame, this, fd, flags, offset, len,
+				  &statpre, &statpost, xdata);
 	if (ret < 0)
 		goto err;
 
