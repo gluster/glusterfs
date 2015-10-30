@@ -1179,7 +1179,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_SETATTR, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_setattr_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -1523,7 +1523,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_LOOKUP, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_lookup_reply (req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -1679,7 +1679,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_ACCESS, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_access_reply (req, stat, 0, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -1827,7 +1827,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_READLINK, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_readlink_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -2041,7 +2041,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_READ, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_read_reply (req, stat, 0, NULL,0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2318,7 +2318,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_WRITE, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_write_reply (req, stat, 0, stable, 0, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2707,7 +2707,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_CREATE, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_create_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -2922,7 +2922,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_MKDIR, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_mkdir_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -3084,7 +3084,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_SYMLINK, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_symlink_reply (req, stat, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3379,7 +3379,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_MKNOD, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_mknod_reply (req, stat, NULL, NULL, NULL, NULL);
                 /* Ret must be 0 after this so that the caller does not
                  * also send an RPC reply.
@@ -3548,7 +3548,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_REMOVE, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_remove_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3700,7 +3700,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_RMDIR, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_rmdir_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -3912,7 +3912,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_RENAME, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_rename_reply (req, stat, NULL, NULL, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4106,7 +4106,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_LINK, stat,
-                                     -ret, cs->resolvedloc.path);
+                                     -ret, cs ? cs->pathname : NULL);
                 nfs3_link_reply (req, stat, NULL, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4479,13 +4479,13 @@ nfs3err:
                 if (maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (req),
                                              NFS3_READDIR, stat, -ret,
-                                             cs->resolvedloc.path);
+                                             cs ? cs->resolvedloc.path : NULL);
                         nfs3_readdir_reply (req, stat, NULL, 0, NULL, NULL, 0,
                                             0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (req),
                                              NFS3_READDIRP, stat, -ret,
-                                             cs->resolvedloc.path);
+                                             cs ? cs->resolvedloc.path : NULL);
                         nfs3_readdirp_reply (req, stat, NULL, 0, NULL, NULL, 0,
                                              0, 0);
                 }
@@ -4713,7 +4713,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_FSSTAT, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_fsstat_reply (req, stat, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -4863,7 +4863,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_FSINFO, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_fsinfo_reply (req, stat, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
@@ -5008,7 +5008,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_PATHCONF, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_pathconf_reply (req, stat, NULL);
                 nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
@@ -5204,7 +5204,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_COMMIT, stat, -ret,
-                                     cs->resolvedloc.path);
+                                     cs ? cs->resolvedloc.path : NULL);
                 nfs3_commit_reply (req, stat, 0, NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
