@@ -303,7 +303,7 @@ tier_migrate_using_query_file (void *_args)
                 goto out;
 
         /* Per file */
-        while (fscanf (queryFILE, "%s", query_record_str) != EOF) {
+        while (fgets (query_record_str, sizeof (query_record_str), queryFILE)) {
 
                 per_file_status      = 0;
                 per_link_status      = 0;
@@ -315,7 +315,7 @@ tier_migrate_using_query_file (void *_args)
                         break;
                 }
 
-                memset (gfid_str, 0, UUID_CANONICAL_FORM_LEN+1);
+                memset (gfid_str, 0, sizeof (gfid_str));
                 memset (query_record->_link_info_str, 0, DB_QUERY_RECORD_SIZE);
 
                 if (tier_parse_query_str (query_record_str, gfid_str,
