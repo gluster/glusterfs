@@ -1394,8 +1394,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # g3 ==> changelog History
             changelog_register_failed = False
             (inf, ouf, ra, wa) = gconf.rpc_fd.split(',')
-            os.close(int(ra))
-            os.close(int(wa))
             changelog_agent = RepceClient(int(inf), int(ouf))
             status = GeorepStatus(gconf.state_file, gconf.local_path)
             status.reset_on_worker_start()
