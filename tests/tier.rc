@@ -18,6 +18,22 @@ function is_sticky_set () {
 }
 
 
+function exists_and_regular_file () {
+        filepath=$1
+        if [ -n "$filepath" ];
+        then
+                if [ -k "$filepath" ]
+                then
+                        echo "no"
+                else
+                        echo "yes"
+                fi
+        else
+                echo "no"
+        fi
+}
+
+
 function check_counters {
     index=0
     ret=0
