@@ -579,14 +579,22 @@ out:
 void
 gf_cli_print_number_of_bricks (int type, int brick_count, int dist_count,
                                int stripe_count, int replica_count,
-                               int disperse_count, int redundancy_count)
+                               int disperse_count, int redundancy_count,
+                               int arbiter_count)
 {
        if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
-               cli_out ("Number of Bricks: %d x %d x %d = %d",
-                        (brick_count / dist_count),
-                        stripe_count,
-                        replica_count,
-                        brick_count);
+               if (arbiter_count == 0) {
+                       cli_out ("Number of Bricks: %d x %d x %d = %d",
+                                (brick_count / dist_count),
+                                stripe_count,
+                                replica_count,
+                                brick_count);
+               } else {
+                       cli_out ("Number of Bricks: %d x %d x (%d + %d) = %d",
+                                (brick_count / dist_count),
+                                stripe_count, replica_count - arbiter_count,
+                                arbiter_count, brick_count);
+               }
        } else if (type == GF_CLUSTER_TYPE_NONE ||
                   type == GF_CLUSTER_TYPE_TIER) {
                cli_out ("Number of Bricks: %d", brick_count);
@@ -598,9 +606,16 @@ gf_cli_print_number_of_bricks (int type, int brick_count, int dist_count,
        } else {
                /* For both replicate and stripe, dist_count is
                   good enough */
-               cli_out ("Number of Bricks: %d x %d = %d",
-                        (brick_count / dist_count),
-                        dist_count, brick_count);
+               if (arbiter_count == 0) {
+                       cli_out ("Number of Bricks: %d x %d = %d",
+                                (brick_count / dist_count),
+                                dist_count, brick_count);
+               } else {
+                       cli_out ("Number of Bricks: %d x (%d + %d) = %d",
+                                (brick_count / dist_count),
+                                dist_count - arbiter_count, arbiter_count,
+                                brick_count);
+               }
        }
 
 }
@@ -693,7 +708,7 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
                  cli_vol_type_str[vol_type]);
         gf_cli_print_number_of_bricks (hot_type,
                         hot_brick_count, hot_dist_count, 0,
-                        hot_replica_count, 0, 0);
+                        hot_replica_count, 0, 0, 0);
 
         ret = print_brick_details (dict, i, 1, hot_brick_count);
         if (ret)
@@ -711,7 +726,7 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
         gf_cli_print_number_of_bricks (cold_type,
                 cold_brick_count,
                 cold_dist_count, 0, cold_replica_count,
-                cold_disperse_count, cold_redundancy_count);
+                cold_disperse_count, cold_redundancy_count, 0);
 
         ret = print_brick_details (dict, i, hot_brick_count+1,
                                    brick_count);
@@ -737,6 +752,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    replica_count        = 0;
         int32_t                    disperse_count       = 0;
         int32_t                    redundancy_count     = 0;
+        int32_t                    arbiter_count        = 0;
         int32_t                    vol_type             = 0;
         int32_t                    transport            = 0;
         char                      *volume_id_str        = NULL;
@@ -900,6 +916,11 @@ xml_output:
                 if (ret)
                         goto out;
 
+                snprintf (key, sizeof(key), "volume%d.arbiter_count", i);
+                ret = dict_get_int32 (dict, key, &arbiter_count);
+                if (ret)
+                        goto out;
+
                 snprintf (key, 256, "volume%d.transport", i);
                 ret = dict_get_int32 (dict, key, &transport);
                 if (ret)
@@ -957,7 +978,8 @@ next:
 #endif
                 gf_cli_print_number_of_bricks (type, brick_count,
                                 dist_count, stripe_count, replica_count,
-                                disperse_count, redundancy_count);
+                                disperse_count, redundancy_count,
+                                arbiter_count);
 
                 cli_out ("Transport-type: %s",
                          ((transport == 0)?"tcp":

@@ -543,6 +543,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
 
         new_volinfo->type = volinfo->type;
         new_volinfo->replica_count = volinfo->replica_count;
+        new_volinfo->arbiter_count = volinfo->arbiter_count;
         new_volinfo->stripe_count = volinfo->stripe_count;
         new_volinfo->disperse_count = volinfo->disperse_count;
         new_volinfo->redundancy_count = volinfo->redundancy_count;
@@ -2232,6 +2233,12 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.arbiter_count", prefix, count);
+        ret = dict_set_int32 (dict, key, volinfo->arbiter_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.disperse_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->disperse_count);
         if (ret)
@@ -3303,6 +3310,16 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.replica_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->replica_count);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "peer is possibly old version");
+
+        /* not having a 'arbiter_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.arbiter_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key, &new_volinfo->arbiter_count);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_GET_FAILED,

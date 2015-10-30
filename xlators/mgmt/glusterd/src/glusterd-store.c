@@ -945,9 +945,20 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        if ((conf->op_version >= GD_OP_VERSION_3_7_6) &&
+            volinfo->arbiter_count) {
+                snprintf (buf, sizeof (buf), "%d", volinfo->arbiter_count);
+                ret = gf_store_save_value (fd,
+                                           GLUSTERD_STORE_KEY_VOL_ARBITER_CNT,
+                                           buf);
+                if (ret)
+                        goto out;
+        }
+
         if (conf->op_version >= GD_OP_VERSION_3_6_0) {
                 snprintf (buf, sizeof (buf), "%d", volinfo->disperse_count);
-                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
+                ret = gf_store_save_value (fd,
+                                           GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
                                            buf);
                 if (ret)
                         goto out;
@@ -2585,6 +2596,8 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
                         volinfo->replica_count = atoi (value);
+                } else if (!strcmp (key, GLUSTERD_STORE_KEY_VOL_ARBITER_CNT)) {
+                        volinfo->arbiter_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
                                      strlen (GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT))) {
                         volinfo->disperse_count = atoi (value);
