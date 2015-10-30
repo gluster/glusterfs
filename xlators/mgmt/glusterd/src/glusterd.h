@@ -78,6 +78,9 @@ typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 struct glusterd_snap_;
 typedef struct glusterd_snap_ glusterd_snap_t;
 
+/* For every new feature please add respective enum of new feature
+ * at the end of latest enum (just before the GD_OP_MAX enum)
+ */
 typedef enum glusterd_op_ {
         GD_OP_NONE = 0,
         GD_OP_CREATE_VOLUME,
@@ -89,8 +92,6 @@ typedef enum glusterd_op_ {
         GD_OP_DEFRAG_VOLUME,
         GD_OP_ADD_BRICK,
         GD_OP_REMOVE_BRICK,
-        GD_OP_DETACH_TIER,
-        GD_OP_TIER_MIGRATE,
         GD_OP_REPLACE_BRICK,
         GD_OP_SET_VOLUME,
         GD_OP_RESET_VOLUME,
@@ -113,6 +114,8 @@ typedef enum glusterd_op_ {
         GD_OP_BARRIER,
         GD_OP_GANESHA,
         GD_OP_BITROT,
+        GD_OP_DETACH_TIER,
+        GD_OP_TIER_MIGRATE,
         GD_OP_MAX,
 } glusterd_op_t;
 
