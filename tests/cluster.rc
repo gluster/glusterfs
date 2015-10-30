@@ -154,3 +154,19 @@ function cluster_volinfo_field()
     local field=$3;
     eval  \$CLI_$1  volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
+
+function volinfo_field_1()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI_1 volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+function volinfo_field_2()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI_2 volume info $vol | grep "^$field: " | sed 's/.*: //';
+}

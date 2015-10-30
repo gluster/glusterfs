@@ -480,6 +480,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, sizeof (key), "volume%d.arbiter_count", count);
+        ret = dict_set_int32 (volumes, key, volinfo->arbiter_count);
+        if (ret)
+                goto out;
+
         snprintf (key, 256, "volume%d.transport", count);
         ret = dict_set_int32 (volumes, key, volinfo->transport_type);
         if (ret)
