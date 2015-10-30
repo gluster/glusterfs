@@ -66,8 +66,6 @@ class Changelog(object):
 class ChangelogAgent(object):
     def __init__(self, obj, fd_tup):
         (inf, ouf, rw, ww) = fd_tup.split(',')
-        os.close(int(rw))
-        os.close(int(ww))
         repce = RepceServer(obj, int(inf), int(ouf), 1)
         t = syncdutils.Thread(target=lambda: (repce.service_loop(),
                                               syncdutils.finalize()))
