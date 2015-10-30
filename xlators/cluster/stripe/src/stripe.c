@@ -3256,6 +3256,11 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         GF_FREE (local->replies[i].vector);
                 }
 
+                /* ENOENT signals EOF to the NFS-server */
+                if (op_ret != -1 && op_ret < local->readv_size &&
+                    (local->offset + op_ret == buf->ia_size))
+                        op_errno = ENOENT;
+
                 /* FIXME: notice that st_ino, and st_dev (gen) will be
                  * different than what inode will have. Make sure this doesn't
                  * cause any bugs at higher levels */
