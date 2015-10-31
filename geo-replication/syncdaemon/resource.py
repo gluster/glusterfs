@@ -958,7 +958,7 @@ class SlaveRemote(object):
         logging.debug("files: " + ", ".join(files))
         (host, rdir) = slaveurl.split(':')
         tar_cmd = ["tar"] + \
-            ["-cf", "-", "--files-from", "-"]
+            ["--sparse", "-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.ssh_command_tar.split() + \
             ["-p", str(gconf.ssh_port)] + \
             [host, "tar"] + \
