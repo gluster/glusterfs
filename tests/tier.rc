@@ -99,3 +99,16 @@ function confirm_vol_stopped {
     fi
 }
 
+
+function sleep_first_cycle {
+    startTime=$(date +%s)
+    mod=$(( ( $startTime % $1 ) + 1 ))
+    sleep $mod
+}
+
+function sleep_until_mid_cycle {
+    startTime=$(date +%s)
+    mod=$(( ( $startTime % $1 ) + 1 ))
+    mod=$(( $mod + $1 / 2 ))
+    sleep $mod
+}
