@@ -11,15 +11,7 @@ DEMOTE_TIMEOUT=12
 PROMOTE_TIMEOUT=5
 MIGRATION_TIMEOUT=10
 DEMOTE_FREQ=4
-PROMOTE_FREQ=4
-
-
-# Timing adjustment to avoid spurious errors with first instances of file_on_fast_tier
-function sleep_first_cycle {
-    startTime=$(date +%s)
-    mod=$(( ( $startTime % $DEMOTE_FREQ ) + 1 ))
-    sleep $mod
-}
+PROMOTE_FREQ=12
 
 
 function file_on_slow_tier {
@@ -127,7 +119,7 @@ TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 cd $M0
 
-sleep_first_cycle
+sleep_first_cycle $DEMOTE_FREQ
 $CLI volume tier $V0 status
 
 #Tier options expect non-negative value
@@ -176,10 +168,11 @@ sleep $DEMOTE_TIMEOUT
 UUID=$(uuidgen)
 echo $UUID >> /tmp/d1/data2.txt
 md5data2=$(fingerprint /tmp/d1/data2.txt)
-echo $UUID >> ./d1/data2.txt
 
-# Check promotion on read to slow tier
+sleep_until_mid_cycle $DEMOTE_FREQ
 drop_cache $M0
+
+echo $UUID >> ./d1/data2.txt
 cat "./d1/$SPACE_FILE"
 
 sleep $PROMOTE_TIMEOUT

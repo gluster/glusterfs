@@ -28,7 +28,6 @@ static void *libhandle;
 static gfdb_methods_t gfdb_methods;
 
 #define DB_QUERY_RECORD_SIZE 4096
-#define  PROMOTION_CYCLE_CNT 4
 
 
 static int
@@ -1025,7 +1024,14 @@ tier_build_migration_qfile (demotion_args_t *args,
                 goto out;
         }
         time_in_past.tv_sec = current_time.tv_sec - time_in_past.tv_sec;
-        time_in_past.tv_usec = current_time.tv_usec - time_in_past.tv_usec;
+
+        /* The migration daemon may run a varrying numberof usec after the sleep */
+        /* call triggers. A file may be registered in CTR some number of usec X */
+        /* after the daemon started and missed in the subsequent cycle if the */
+        /* daemon starts Y usec after the period in seconds where Y>X. Normalize */
+        /* away this problem by always setting usec to 0. */
+        time_in_past.tv_usec = 0;
+
         gfdb_brick_info.time_stamp = &time_in_past;
         gfdb_brick_info._gfdb_promote = is_promotion;
         gfdb_brick_info._query_cbk_args = query_cbk_args;
@@ -1439,7 +1445,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         promotion_args.this = this;
                         promotion_args.brick_list = &bricklist_cold;
                         promotion_args.defrag = defrag;
-                        promotion_args.freq_time = freq_promote *  PROMOTION_CYCLE_CNT;
+                        promotion_args.freq_time = freq_promote;
                         ret_promotion = pthread_create (&promote_thread,
                                                 NULL, &tier_promote,
                                                 &promotion_args);
