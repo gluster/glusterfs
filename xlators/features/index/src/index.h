@@ -27,8 +27,9 @@ typedef enum {
 } index_state_t;
 
 typedef enum {
-        PENDING,
+        XATTROP,
         DIRTY,
+        ENTRY_CHANGES,
         XATTROP_TYPE_END
 } index_xattrop_type_t;
 
@@ -36,6 +37,8 @@ typedef struct index_inode_ctx {
         gf_boolean_t processing;
         struct list_head callstubs;
         int state[XATTROP_TYPE_END];
+        uuid_t virtual_pargfid; /* virtual gfid of dir under
+                                  .glusterfs/indices/entry-changes. */
 } index_inode_ctx_t;
 
 typedef struct index_fd_ctx {
@@ -48,8 +51,7 @@ typedef struct index_priv {
         char *dirty_basepath;
         uuid_t index;
         gf_lock_t lock;
-        uuid_t xattrop_vgfid;//virtual gfid of the xattrop index dir
-        uuid_t dirty_vgfid; // virtual gfid of the on-going/dirty index dir
+        uuid_t internal_vgfid[XATTROP_TYPE_END];
         struct list_head callstubs;
         pthread_mutex_t mutex;
         pthread_cond_t  cond;

@@ -365,7 +365,8 @@ afr_mark_entry_pending_changelog (call_frame_t *frame, xlator_t *this)
         if (local->op_ret < 0)
 		return;
 
-	if (local->op != GF_FOP_CREATE && local->op != GF_FOP_MKNOD)
+	if (local->op != GF_FOP_CREATE && local->op != GF_FOP_MKNOD &&
+            local->op != GF_FOP_MKDIR)
 		return;
 
 	pre_op_count = AFR_COUNT (local->transaction.pre_op, priv->child_count);
