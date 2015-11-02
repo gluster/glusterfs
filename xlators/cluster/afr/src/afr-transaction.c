@@ -20,6 +20,11 @@
 
 #include <signal.h>
 
+typedef enum {
+        AFR_TRANSACTION_PRE_OP,
+        AFR_TRANSACTION_POST_OP,
+} afr_xattrop_type_t;
+
 gf_boolean_t
 afr_changelog_pre_op_uninherit (call_frame_t *frame, xlator_t *this);
 
@@ -28,7 +33,8 @@ afr_changelog_pre_op_update (call_frame_t *frame, xlator_t *this);
 
 int
 afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
-		  afr_changelog_resume_t changelog_resume);
+		  afr_changelog_resume_t changelog_resume,
+                  afr_xattrop_type_t op);
 
 static int32_t
 afr_quorum_errno (afr_private_t *priv)
@@ -762,7 +768,8 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	afr_changelog_do (frame, this, xattr, afr_changelog_post_op_done);
+	afr_changelog_do (frame, this, xattr, afr_changelog_post_op_done,
+                          AFR_TRANSACTION_POST_OP);
 out:
 	if (xattr)
                 dict_unref (xattr);
@@ -996,13 +1003,75 @@ afr_changelog_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+void
+afr_changelog_populate_xdata (call_frame_t *frame, afr_xattrop_type_t op,
+                              dict_t **xdata, dict_t **newloc_xdata)
+{
+        dict_t      *xdata1 = NULL;
+        dict_t      *xdata2 = NULL;
+        afr_local_t *local  = NULL;
+        afr_private_t *priv = NULL;
+        int         ret     = 0;
+        const char  *name   = NULL;
+
+        local = frame->local;
+        priv = THIS->private;
+
+        /*Populate xdata for POST_OP only.*/
+        if (op == AFR_TRANSACTION_PRE_OP)
+                goto out;
+        if (local->transaction.type == AFR_DATA_TRANSACTION ||
+            local->transaction.type == AFR_METADATA_TRANSACTION)
+                goto out;
+
+        if (!priv->esh_granular)
+                goto out;
+
+        xdata1 = dict_new();
+        if (!xdata1)
+                goto out;
+        name = local->loc.name;
+        if (local->op == GF_FOP_LINK)
+                name = local->newloc.name;
+        ret = dict_set_str (xdata1, GF_XATTROP_ENTRY_IN_KEY, (char *)name);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
+                        "%s/%s: Could not set xattrop-entry key during post-op",
+                        uuid_utoa (local->loc.pargfid), local->loc.name);
+        if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                xdata2 = dict_new();
+                if (!xdata2)
+                        goto out;
+                ret = dict_set_str (xdata2, GF_XATTROP_ENTRY_IN_KEY,
+                                    (char *)local->newloc.name);
+                if (ret)
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_DICT_SET_FAILED,
+                                "%s/%s: Could not set xattrop-entry key during"
+                                " post-op", uuid_utoa (local->newloc.pargfid),
+                                local->newloc.name);
+        }
+
+        *xdata = xdata1;
+        *newloc_xdata = xdata2;
+        xdata1 = xdata2 = NULL;
+out:
+        if (xdata1)
+                dict_unref (xdata1);
+        if (xdata2)
+                dict_unref (xdata2);
+        return;
+}
 
 int
 afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
-		  afr_changelog_resume_t changelog_resume)
+		  afr_changelog_resume_t changelog_resume,
+                  afr_xattrop_type_t op)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+        dict_t *xdata = NULL;
+        dict_t *newloc_xdata = NULL;
 	int i = 0;
 	int call_count = 0;
 
@@ -1018,6 +1087,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 		return 0;
 	}
 
+        afr_changelog_populate_xdata (frame, op, &xdata, &newloc_xdata);
 	local->call_count = call_count;
 
 	local->transaction.changelog_resume = changelog_resume;
@@ -1036,7 +1106,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 						   priv->children[i]->fops->xattrop,
 						   &local->loc,
 						   GF_XATTROP_ADD_ARRAY, xattr,
-						   NULL);
+						   xdata);
                         } else {
                                 STACK_WIND_COOKIE (frame, afr_changelog_cbk,
 						   (void *) (long) i,
@@ -1044,7 +1114,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 						   priv->children[i]->fops->fxattrop,
 						   local->fd,
 						   GF_XATTROP_ADD_ARRAY, xattr,
-						   NULL);
+						   xdata);
                         }
 			break;
                 case AFR_ENTRY_RENAME_TRANSACTION:
@@ -1055,7 +1125,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 					   priv->children[i]->fops->xattrop,
 					   &local->transaction.new_parent_loc,
 					   GF_XATTROP_ADD_ARRAY, xattr,
-					   NULL);
+					   newloc_xdata);
                         call_count--;
 
                 /* fall through */
@@ -1068,7 +1138,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 						   priv->children[i]->fops->fxattrop,
 						   local->fd,
 						   GF_XATTROP_ADD_ARRAY, xattr,
-						   NULL);
+						   xdata);
                         else
                                 STACK_WIND_COOKIE (frame, afr_changelog_cbk,
 						   (void *) (long) i,
@@ -1076,7 +1146,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 						   priv->children[i]->fops->xattrop,
 						   &local->transaction.parent_loc,
 						   GF_XATTROP_ADD_ARRAY, xattr,
-						   NULL);
+						   xdata);
 			break;
 		}
 
@@ -1084,6 +1154,10 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                         break;
         }
 
+        if (xdata)
+                dict_unref (xdata);
+        if (newloc_xdata)
+                dict_unref (newloc_xdata);
 	return 0;
 }
 
@@ -1182,7 +1256,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		goto next;
 	}
 
-	afr_changelog_do (frame, this, xdata_req, afr_transaction_perform_fop);
+	afr_changelog_do (frame, this, xdata_req, afr_transaction_perform_fop,
+                          AFR_TRANSACTION_PRE_OP);
 
 	if (xdata_req)
 		dict_unref (xdata_req);
