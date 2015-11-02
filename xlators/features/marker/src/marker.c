@@ -941,7 +941,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_reduce_parent_size_txn (this, &local->loc, NULL);
+                mq_reduce_parent_size_txn (this, &local->loc, NULL, 1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -990,6 +990,8 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
+        uint32_t            nlink   = -1;
+        int32_t             ret     = 0;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -1009,8 +1011,14 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA) {
-                if (!local->skip_txn)
-                        mq_reduce_parent_size_txn (this, &local->loc, NULL);
+                if (!local->skip_txn) {
+                        if (xdata)
+                                ret = dict_get_uint32 (xdata,
+                                        GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
+
+                        mq_reduce_parent_size_txn (this, &local->loc, NULL,
+                                                   nlink);
+                }
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -1029,6 +1037,7 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         int32_t          ret   = 0;
         marker_local_t  *local = NULL;
         marker_conf_t   *priv  = NULL;
+        gf_boolean_t     dict_free = _gf_false;
 
         priv = this->private;
 
@@ -1051,12 +1060,26 @@ marker_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 goto unlink_wind;
         }
 
+        if (xdata == NULL) {
+                xdata = dict_new ();
+                dict_free = _gf_true;
+        }
+
+        ret = dict_set_int32 (xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
+        if (ret < 0)
+                goto err;
+
 unlink_wind:
         STACK_WIND (frame, marker_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
-        return 0;
+        goto out;
+
 err:
         MARKER_STACK_UNWIND (unlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+
+out:
+        if (dict_free)
+                dict_unref (xdata);
         return 0;
 }
 
@@ -1163,13 +1186,15 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->err != 0)
                 goto err;
 
-        mq_reduce_parent_size_txn (this, &oplocal->loc, &oplocal->contribution);
+        mq_reduce_parent_size_txn (this, &oplocal->loc, &oplocal->contribution,
+                                   -1);
 
         if (local->loc.inode != NULL) {
                 /* If destination file exits before rename, it would have
                  * been unlinked while renaming a file
                  */
-                mq_reduce_parent_size_txn (this, &local->loc, NULL);
+                mq_reduce_parent_size_txn (this, &local->loc, NULL,
+                                           local->ia_nlink);
         }
 
         newloc.inode = inode_ref (oplocal->loc.inode);
@@ -1326,6 +1351,12 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if ((op_ret < 0) || (local == NULL)) {
                         goto quota_err;
                 }
+
+                local->ia_nlink = 0;
+                if (xdata)
+                        ret = dict_get_uint32 (xdata,
+                                               GF_RESPONSE_LINK_COUNT_XDATA,
+                                               &local->ia_nlink);
 
                 local->buf = *buf;
                 stub = fop_rename_cbk_stub (frame, default_rename_cbk, op_ret,
@@ -1636,7 +1667,10 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         lock.l_type   = F_WRLCK;
         lock.l_whence = SEEK_SET;
 
-        local->xdata = dict_ref (xdata);
+        local->xdata = xdata ? dict_ref (xdata) : dict_new ();
+        ret = dict_set_int32 (local->xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
+        if (ret < 0)
+                goto err;
 
         local->frame = frame;
         local->lk_frame = create_frame (this, this->ctx->pool);

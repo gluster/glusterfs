@@ -755,10 +755,17 @@ out:
 
 int32_t
 mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
-                  inode_contribution_t *contri, quota_meta_t *delta)
+                  inode_contribution_t *contri, quota_meta_t *delta,
+                  uint32_t nlink)
 {
         int32_t              ret                         = -1;
         char                 contri_key[QUOTA_KEY_MAX]   = {0, };
+
+        if (nlink == 1) {
+                /*File was a last link and has been deleted */
+                ret = 0;
+                goto done;
+        }
 
         GET_CONTRI_KEY (this, contri_key, contri->gfid, ret);
         if (ret < 0) {
@@ -786,6 +793,7 @@ mq_remove_contri (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 }
         }
 
+done:
         LOCK (&contri->lock);
         {
                 contri->contribution += delta->size;
@@ -943,7 +951,7 @@ mq_synctask_cleanup (int ret, call_frame_t *frame, void *opaque)
 
 int
 mq_synctask1 (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn,
-              loc_t *loc, quota_meta_t *contri)
+              loc_t *loc, quota_meta_t *contri, uint32_t nlink)
 {
         int32_t              ret         = -1;
         quota_synctask_t    *args        = NULL;
@@ -959,6 +967,7 @@ mq_synctask1 (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn,
 
         args->this = this;
         loc_copy (&args->loc, loc);
+        args->ia_nlink = nlink;
 
         if (contri) {
                 args->contri = *contri;
@@ -988,7 +997,7 @@ out:
 int
 mq_synctask (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn, loc_t *loc)
 {
-        return mq_synctask1 (this, task, spawn, loc, NULL);
+        return mq_synctask1 (this, task, spawn, loc, NULL, -1);
 }
 
 int32_t
@@ -1196,12 +1205,14 @@ mq_reduce_parent_size_task (void *opaque)
         xlator_t                *this          = NULL;
         loc_t                   *loc           = NULL;
         gf_boolean_t             remove_xattr  = _gf_true;
+        uint32_t                 nlink         = 0;
 
         GF_ASSERT (opaque);
 
         args = (quota_synctask_t *) opaque;
         loc = &args->loc;
         contri = args->contri;
+        nlink = args->ia_nlink;
         this = args->this;
         THIS = this;
 
@@ -1261,7 +1272,8 @@ mq_reduce_parent_size_task (void *opaque)
         mq_sub_meta (&delta, NULL);
 
         if (remove_xattr) {
-                ret = mq_remove_contri (this, loc, ctx, contribution, &delta);
+                ret = mq_remove_contri (this, loc, ctx, contribution, &delta,
+                                        nlink);
                 if (ret < 0)
                         goto out;
         }
@@ -1307,7 +1319,7 @@ out:
 
 int32_t
 mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
-                           quota_meta_t *contri)
+                           quota_meta_t *contri, uint32_t nlink)
 {
         int32_t                  ret           = -1;
         loc_t                    loc           = {0, };
@@ -1325,7 +1337,7 @@ mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
         }
 
         ret = mq_synctask1 (this, mq_reduce_parent_size_task, _gf_true, &loc,
-                            contri);
+                            contri, nlink);
 out:
         loc_wipe (&loc);
         return ret;

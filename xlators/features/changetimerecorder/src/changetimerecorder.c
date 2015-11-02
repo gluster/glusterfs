@@ -814,15 +814,15 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /*
          *
-         * Extracting CTR_RESPONSE_LINK_COUNT_XDATA from POSIX Xlator
+         * Extracting GF_RESPONSE_LINK_COUNT_XDATA from POSIX Xlator
          *
          * */
-        ret = dict_get_uint32 (xdata , CTR_RESPONSE_LINK_COUNT_XDATA,
+        ret = dict_get_uint32 (xdata , GF_RESPONSE_LINK_COUNT_XDATA,
                                 &remaining_links);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_GET_CTR_RESPONSE_LINK_COUNT_XDATA_FAILED,
-                        "Failed to getting CTR_RESPONSE_LINK_COUNT_XDATA");
+                        "Failed to getting GF_RESPONSE_LINK_COUNT_XDATA");
                 remaining_links = -1;
         }
 
@@ -851,7 +851,7 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
-                        postparent, NULL);
+                             postparent, xdata);
 
         return 0;
 }
@@ -908,7 +908,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
 
         /*
          *
-         * Sending CTR_REQUEST_LINK_COUNT_XDATA
+         * Sending GF_REQUEST_LINK_COUNT_XDATA
          * to POSIX Xlator to send link count in unwind path
          *
          * */
@@ -920,15 +920,15 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         if (!xdata) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_XDATA_NULL, "xdata is NULL :Cannot send "
-                        "CTR_REQUEST_LINK_COUNT_XDATA to posix");
+                        "GF_REQUEST_LINK_COUNT_XDATA to posix");
                 goto out;
         }
 
-        ret = dict_set_int32 (xdata, CTR_REQUEST_LINK_COUNT_XDATA, 1);
+        ret = dict_set_int32 (xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_SET_CTR_RESPONSE_LINK_COUNT_XDATA_FAILED,
-                        "Failed setting CTR_REQUEST_LINK_COUNT_XDATA");
+                        "Failed setting GF_REQUEST_LINK_COUNT_XDATA");
                 if (is_xdata_created) {
                         dict_unref (xdata);
                 }
