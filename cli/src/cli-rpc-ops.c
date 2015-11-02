@@ -1740,12 +1740,25 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                  * case since unlock failures can be highlighted
                                  * event though rebalance command was successful
                                  */
-                                snprintf (msg, sizeof (msg),
-                                          "Rebalance on %s has been started "
-                                          "successfully. Use rebalance status "
-                                          "command to check status of the "
-                                          "rebalance process.\nID: %s\n%s",
-                                          volname, task_id_str, rsp.op_errstr);
+
+                                 if (cmd == GF_DEFRAG_CMD_START_TIER) {
+                                         snprintf (msg, sizeof (msg),
+                                                  "Attach tier is successful "
+                                                  "on %s. use tier status to "
+                                                  "check the status.\nID: %s"
+                                                  "\n%s",
+                                                  volname, task_id_str,
+                                                  rsp.op_errstr);
+                                 } else {
+                                         snprintf (msg, sizeof (msg),
+                                                  "Rebalance on %s has been "
+                                                  "started successfully. Use "
+                                                  "rebalance status command to"
+                                                  " check status of the "
+                                                  "rebalance process.\nID: %s\n%s",
+                                                  volname, task_id_str,
+                                                  rsp.op_errstr);
+                                 }
                          } else {
                                 snprintf (msg, sizeof (msg),
                                           "Starting rebalance on volume %s has "
@@ -1818,11 +1831,24 @@ done:
                                     rsp.op_errstr);
         else {
                 if (rsp.op_ret)
-                        cli_err ("volume rebalance: %s: failed%s%s",
-                                 volname, strlen (msg) ? ": " : "", msg);
+
+                        if (cmd == GF_DEFRAG_CMD_START_TIER) {
+                                cli_err ("Tiering Migration Functionality: %s:"
+                                         " failed%s%s", volname,
+                                         strlen (msg) ? ": " : "", msg);
+                        } else
+                                cli_err ("volume rebalance: %s: failed%s%s",
+                                         volname, strlen (msg) ? ": " : "",
+                                         msg);
                 else
-                        cli_out ("volume rebalance: %s: success%s%s",
-                                 volname, strlen (msg) ? ": " : "", msg);
+                        if (cmd == GF_DEFRAG_CMD_START_TIER) {
+                                cli_out ("Tiering Migration Functionality: %s:"
+                                         " success%s%s", volname,
+                                         strlen (msg) ? ": " : "", msg);
+                        } else
+                                cli_out ("volume rebalance: %s: success%s%s",
+                                         volname, strlen (msg) ? ": " : "",
+                                         msg);
         }
         ret = rsp.op_ret;
 
