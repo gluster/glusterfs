@@ -17,9 +17,12 @@
 #include "defaults.h"
 #include "call-stub.h"
 #include "bit-rot-stub-mem-types.h"
-
+#include "syscall.h"
 #include "bit-rot-common.h"
 #include "bit-rot-stub-messages.h"
+#include "glusterfs3-xdr.h"
+
+#define BAD_OBJECT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
 typedef int (br_stub_version_cbk) (call_frame_t *, void *,
                                    xlator_t *, int32_t, int32_t, dict_t *);
@@ -38,6 +41,10 @@ typedef struct br_stub_inode_ctx {
 typedef struct br_stub_fd {
         fd_t *fd;
         struct list_head list;
+        struct bad_object_dir {
+                DIR *dir;
+                off_t dir_eof;
+        } bad_object;
 } br_stub_fd_t;
 
 #define I_DIRTY  (1<<0)        /* inode needs writeback */
@@ -77,9 +84,34 @@ typedef struct br_stub_private {
 
         struct list_head squeue;      /* ordered signing queue */
         pthread_t signth;
-
+        struct bad_objects_container {
+                pthread_t thread;
+                pthread_mutex_t bad_lock;
+                pthread_cond_t  bad_cond;
+                struct list_head bad_queue;
+        } container;
         struct mem_pool *local_pool;
+
+        char stub_basepath[PATH_MAX];
+
+        uuid_t bad_object_dir_gfid;
 } br_stub_private_t;
+
+br_stub_fd_t *
+br_stub_fd_new (void);
+
+
+int
+__br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd);
+
+br_stub_fd_t *
+__br_stub_fd_ctx_get (xlator_t *this, fd_t *fd);
+
+br_stub_fd_t *
+br_stub_fd_ctx_get (xlator_t *this, fd_t *fd);
+
+int32_t
+br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd);
 
 static inline gf_boolean_t
 __br_stub_is_bad_object (br_stub_inode_ctx_t *ctx)
@@ -131,91 +163,6 @@ __br_stub_is_inode_modified (br_stub_inode_ctx_t *ctx)
         return (ctx->need_writeback & I_MODIFIED);
 }
 
-br_stub_fd_t *
-br_stub_fd_new (void)
-{
-        br_stub_fd_t    *br_stub_fd = NULL;
-
-        br_stub_fd = GF_CALLOC (1, sizeof (*br_stub_fd),
-                                gf_br_stub_mt_br_stub_fd_t);
-
-        return br_stub_fd;
-}
-
-int
-__br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd)
-{
-        uint64_t    value = 0;
-        int         ret   = -1;
-
-        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, br_stub_fd, out);
-
-        value = (uint64_t)(long) br_stub_fd;
-
-        ret = __fd_ctx_set (fd, this, value);
-
-out:
-        return ret;
-}
-
-br_stub_fd_t *
-__br_stub_fd_ctx_get (xlator_t *this, fd_t *fd)
-{
-        br_stub_fd_t *br_stub_fd = NULL;
-        uint64_t  value  = 0;
-        int       ret    = -1;
-
-        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        ret = __fd_ctx_get (fd, this, &value);
-        if (ret)
-                return NULL;
-
-        br_stub_fd = (br_stub_fd_t *) ((long) value);
-
-out:
-        return br_stub_fd;
-}
-
-br_stub_fd_t *
-br_stub_fd_ctx_get (xlator_t *this, fd_t *fd)
-{
-        br_stub_fd_t *br_stub_fd = NULL;
-
-        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-
-        LOCK (&fd->lock);
-        {
-                br_stub_fd = __br_stub_fd_ctx_get (this, fd);
-        }
-        UNLOCK (&fd->lock);
-
-out:
-        return br_stub_fd;
-}
-
-int32_t
-br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd)
-{
-        int32_t    ret = -1;
-
-        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, br_stub_fd, out);
-
-        LOCK (&fd->lock);
-        {
-                ret = __br_stub_fd_ctx_set (this, fd, br_stub_fd);
-        }
-        UNLOCK (&fd->lock);
-
-out:
-        return ret;
-}
 
 static inline int
 br_stub_require_release_call (xlator_t *this, fd_t *fd, br_stub_fd_t **fd_ctx)
@@ -477,4 +424,38 @@ br_stub_add_fd_to_inode (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx);
 br_sign_state_t
 __br_stub_inode_sign_state (br_stub_inode_ctx_t *ctx, glusterfs_fop_t fop,
                             fd_t *fd);
+
+int
+br_stub_dir_create (xlator_t *this, br_stub_private_t *priv);
+
+int
+br_stub_add (xlator_t *this, uuid_t gfid);
+
+int32_t
+br_stub_create_stub_gfid (xlator_t *this, char *stub_gfid_path, uuid_t gfid);
+
+int
+br_stub_dir_create (xlator_t *this, br_stub_private_t *priv);
+
+call_stub_t *
+__br_stub_dequeue (struct list_head *callstubs);
+
+void
+__br_stub_enqueue (struct list_head *callstubs, call_stub_t *stub);
+
+void
+br_stub_worker_enqueue (xlator_t *this, call_stub_t *stub);
+
+void *
+br_stub_worker (void *data);
+
+int32_t
+br_stub_lookup_wrapper (call_frame_t *frame, xlator_t *this,
+                        loc_t *loc, dict_t *xattr_req);
+
+int32_t
+br_stub_readdir_wrapper (call_frame_t *frame, xlator_t *this,
+                         fd_t *fd, size_t size, off_t off, dict_t *xdata);
+
+
 #endif /* __BIT_ROT_STUB_H__ */
