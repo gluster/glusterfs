@@ -6291,12 +6291,23 @@ glusterd_take_brick_snapshot_task (void *opaque)
 {
         int ret                             = 0;
         snap_create_args_t  *snap_args      = NULL;
+        char                *clonename      = NULL;
         char                 key[PATH_MAX]  = "";
 
         GF_ASSERT (opaque);
 
         snap_args = (snap_create_args_t*) opaque;
         THIS = snap_args->this;
+
+        /* Try and fetch clonename. If present set status with clonename *
+         * else do so as snap-vol */
+        ret = dict_get_str (snap_args->dict, "clonename", &clonename);
+        if (ret) {
+                snprintf (key, sizeof (key), "snap-vol%d.brick%d.status",
+                          snap_args->volcount, snap_args->brickorder);
+        } else
+                snprintf (key, sizeof (key), "clone%d.brick%d.status",
+                          snap_args->volcount, snap_args->brickorder);
 
         ret = glusterd_take_brick_snapshot (snap_args->dict,
                                             snap_args->snap_vol,
@@ -6313,8 +6324,6 @@ glusterd_take_brick_snapshot_task (void *opaque)
                         snap_args->snap_vol->volname);
         }
 
-        snprintf (key, sizeof (key), "snap-vol%d.brick%d.status",
-                  snap_args->volcount, snap_args->brickorder);
         if (dict_set_int32 (snap_args->rsp_dict, key, (ret)?0:1)) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED, "failed to "

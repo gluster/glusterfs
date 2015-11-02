@@ -2246,8 +2246,10 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
         int64_t        brick_count              = 0;
         int64_t        brick_order              = 0;
         char           key[PATH_MAX]            = {0, };
+        char           key_prefix[PATH_MAX]     = {0, };
         char           snapbrckcnt[PATH_MAX]    = {0, };
         char           snapbrckord[PATH_MAX]    = {0, };
+        char          *clonename                = NULL;
         int            ret                      = -1;
         int32_t        brick_online             = 0;
         xlator_t      *this                     = NULL;
@@ -2277,6 +2279,14 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                 ret = 0;
                 goto out;
         }
+
+        /* Try and fetch clonename. If present set status with clonename *
+         * else do so as snap-vol */
+        ret = dict_get_str (dst, "clonename", &clonename);
+        if (ret) {
+                snprintf (key_prefix, sizeof (key_prefix), "snap-vol");
+        } else
+                snprintf (key_prefix, sizeof (key_prefix), "clone");
 
         ret = dict_get_int64 (src, "volcount", &volume_count);
         if (ret) {
@@ -2313,8 +2323,8 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                         }
 
                         snprintf (key, sizeof (key) - 1,
-                                  "snap-vol%"PRId64".brick%"PRId64".status",
-                                  index+1, brick_order);
+                                  "%s%"PRId64".brick%"PRId64".status",
+                                  key_prefix, index+1, brick_order);
                         ret = dict_get_int32 (src, key, &brick_online);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2890,15 +2900,243 @@ out:
 }
 
 int32_t
+glusterd_snap_common_quorum_calculate (glusterd_volinfo_t *volinfo,
+                                       dict_t *dict, int64_t index,
+                                       char *key_prefix,
+                                       int8_t snap_force,
+                                       gf_boolean_t snap_volume,
+                                       char **op_errstr,
+                                       uint32_t *op_errno)
+{
+        int                 quorum_count      = 0;
+        char               *quorum_type       = NULL;
+        int32_t             tmp               = 0;
+        int32_t             ret               = -1;
+        xlator_t           *this              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+
+        /* for replicate volumes with replica count equal to or
+           greater than 3, do quorum check by getting what type
+           of quorum rule has been set by getting the volume
+           option set. If getting the option fails, then assume
+           default.
+           AFR does this:
+           if quorum type is "auto":
+           - for odd numner of bricks (n), n/2 + 1
+           bricks should be present
+           - for even number of bricks n, n/2 bricks
+           should be present along with the 1st
+           subvolume
+           if quorum type is not "auto":
+           - get the quorum count from dict with the
+           help of the option "cluster.quorum-count"
+           if the option is not there in the dict,
+           then assume quorum type is auto and follow
+           the above method.
+           For non replicate volumes quorum is met only if all
+           the bricks of the volume are online
+         */
+
+        if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
+                if (volinfo->replica_count % 2 == 0)
+                        quorum_count = volinfo->replica_count/2;
+                else
+                        quorum_count =
+                                       volinfo->replica_count/2 + 1;
+        } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
+                quorum_count = volinfo->disperse_count -
+                               volinfo->redundancy_count;
+        } else {
+                quorum_count = volinfo->brick_count;
+        }
+
+        ret = dict_get_str (volinfo->dict, "cluster.quorum-type",
+                            &quorum_type);
+        if (!ret && !strcmp (quorum_type, "fixed")) {
+                ret = dict_get_int32 (volinfo->dict,
+                                      "cluster.quorum-count", &tmp);
+                /* if quorum-type option is not found in the
+                   dict assume auto quorum type. i.e n/2 + 1.
+                   The same assumption is made when quorum-count
+                   option cannot be obtained from the dict (even
+                   if the quorum-type option is not set to auto,
+                   the behavior is set to the default behavior)
+                 */
+                if (!ret) {
+                        /* for dispersed volumes, only allow quorums
+                           equal or larger than minimum functional
+                           value.
+                         */
+                        if ((GF_CLUSTER_TYPE_DISPERSE != volinfo->type) ||
+                            (tmp >= quorum_count)) {
+                                quorum_count = tmp;
+                        } else {
+                                gf_msg(this->name, GF_LOG_INFO, 0,
+                                       GD_MSG_QUORUM_COUNT_IGNORED,
+                                       "Ignoring small quorum-count "
+                                       "(%d) on dispersed volume", tmp);
+                                quorum_type = NULL;
+                        }
+                } else
+                        quorum_type = NULL;
+        }
+
+        ret = glusterd_volume_quorum_check (volinfo, index, dict,
+                                            key_prefix,
+                                            snap_force,
+                                            quorum_count,
+                                            quorum_type,
+                                            op_errstr,
+                                            op_errno);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_VOL_NOT_FOUND, "volume %s "
+                        "is not in quorum", volinfo->volname);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+int32_t
+glusterd_snap_quorum_check_for_clone (dict_t *dict, gf_boolean_t snap_volume,
+                                      char **op_errstr, uint32_t *op_errno)
+{
+        int32_t             force             = 0;
+        char                err_str[PATH_MAX] = {0, };
+        char                key_prefix[PATH_MAX] = {0, };
+        char               *snapname          = NULL;
+        glusterd_snap_t    *snap              = NULL;
+        glusterd_volinfo_t *volinfo           = NULL;
+        glusterd_volinfo_t *tmp_volinfo       = NULL;
+        char               *volname           = NULL;
+        int64_t             volcount          = 0;
+        char                key[PATH_MAX]     = {0, };
+        int64_t             i                 = 0;
+        int32_t             ret               = -1;
+        xlator_t           *this              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+
+        if (!dict) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_EMPTY, "dict is NULL");
+                goto out;
+        }
+
+        if (snap_volume) {
+                ret = dict_get_str (dict, "snapname", &snapname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "failed to "
+                                "get snapname");
+                        goto out;
+                }
+
+                snap = glusterd_find_snap_by_name (snapname);
+                if (!snap) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_NOT_FOUND, "failed to "
+                                "get the snapshot %s", snapname);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        /* Do a quorum check of glusterds also. Because, the missed snapshot
+         * information will be saved by glusterd and if glusterds are not in
+         * quorum, then better fail the snapshot
+         */
+        if (!does_gd_meet_server_quorum (this)) {
+                snprintf (err_str, sizeof (err_str),
+                          "glusterds are not in quorum");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
+                *op_errstr = gf_strdup (err_str);
+                *op_errno = EG_NODEDWN;
+                ret = -1;
+                goto out;
+        } else
+                gf_msg_debug (this->name, 0, "glusterds are in quorum");
+
+        ret = dict_get_int64 (dict, "volcount", &volcount);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "failed to get "
+                        "volcount");
+                goto out;
+        }
+
+        for (i = 1; i <= volcount; i++) {
+                snprintf (key, sizeof (key), "%s%"PRId64,
+                          snap_volume?"snap-volname":"volname", i);
+                ret = dict_get_str (dict, "clonename", &volname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "failed to "
+                                "get clonename");
+                        goto out;
+                }
+
+                if (snap_volume && snap) {
+                        cds_list_for_each_entry (tmp_volinfo, &snap->volumes,
+                                                 vol_list) {
+                                if (!tmp_volinfo) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SNAP_NOT_FOUND,
+                                                "failed to get snap volume "
+                                                "for snap %s", snapname);
+                                        ret = -1;
+                                        goto out;
+                                }
+                                volinfo = tmp_volinfo;
+                        }
+                } else {
+                        ret = glusterd_volinfo_find (volname, &volinfo);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOL_NOT_FOUND,
+                                        "failed to find the volume %s",
+                                        volname);
+                                goto out;
+                        }
+                }
+
+                snprintf (key_prefix, sizeof (key_prefix),
+                          "%s", snap_volume?"vol":"clone");
+
+                ret = glusterd_snap_common_quorum_calculate (volinfo,
+                                                             dict, i,
+                                                             key_prefix,
+                                                             0,
+                                                             snap_volume,
+                                                             op_errstr,
+                                                             op_errno);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_VOL_NOT_FOUND, "volume %s "
+                                "is not in quorum", volinfo->volname);
+                        goto out;
+                }
+        }
+out:
+        return ret;
+}
+
+
+int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                                        char **op_errstr, uint32_t *op_errno)
 {
         int8_t              snap_force        = 0;
         int32_t             force             = 0;
         char                err_str[PATH_MAX] = {0, };
-        int                 quorum_count      = 0;
-        char               *quorum_type       = NULL;
-        int32_t             tmp               = 0;
         char                key_prefix[PATH_MAX] = {0, };
         char               *snapname          = NULL;
         glusterd_snap_t    *snap              = NULL;
@@ -3000,85 +3238,16 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                         }
                 }
 
-                /* for replicate volumes with replica count equal to or
-                   greater than 3, do quorum check by getting what type
-                   of quorum rule has been set by getting the volume
-                   option set. If getting the option fails, then assume
-                   default.
-                   AFR does this:
-                   if quorum type is "auto":
-                   - for odd numner of bricks (n), n/2 + 1
-                   bricks should be present
-                   - for even number of bricks n, n/2 bricks
-                   should be present along with the 1st
-                   subvolume
-                   if quorum type is not "auto":
-                   - get the quorum count from dict with the
-                   help of the option "cluster.quorum-count"
-                   if the option is not there in the dict,
-                   then assume quorum type is auto and follow
-                   the above method.
-                   For non replicate volumes quorum is met only if all
-                   the bricks of the volume are online
-                */
-
-                if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-                        if (volinfo->replica_count % 2 == 0)
-                                quorum_count = volinfo->replica_count/2;
-                        else
-                                quorum_count =
-                                        volinfo->replica_count/2 + 1;
-                } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
-                        quorum_count = volinfo->disperse_count -
-                                       volinfo->redundancy_count;
-                } else {
-                        quorum_count = volinfo->brick_count;
-                }
-
-                ret = dict_get_str (volinfo->dict,
-                                    "cluster.quorum-type",
-                                    &quorum_type);
-                if (!ret && !strcmp (quorum_type, "fixed")) {
-                        ret = dict_get_int32 (volinfo->dict,
-                                              "cluster.quorum-count",
-                                              &tmp);
-                        /* if quorum-type option is not found in the
-                           dict assume auto quorum type. i.e n/2 + 1.
-                           The same assumption is made when quorum-count
-                           option cannot be obtained from the dict (even
-                           if the quorum-type option is not set to auto,
-                           the behavior is set to the default behavior)
-                        */
-                        if (!ret) {
-                                /* for dispersed volumes, only allow quorums
-                                   equal or larger than minimum functional
-                                   value.
-                                */
-                                if ((GF_CLUSTER_TYPE_DISPERSE !=
-                                                              volinfo->type) ||
-                                    (tmp >= quorum_count)) {
-                                        quorum_count = tmp;
-                                } else {
-                                        gf_msg(this->name, GF_LOG_INFO, 0,
-                                               GD_MSG_QUORUM_COUNT_IGNORED,
-                                               "Ignoring small quorum-count "
-                                               "(%d) on dispersed volume", tmp);
-                                        quorum_type = NULL;
-                                }
-                        } else
-                                quorum_type = NULL;
-                }
-
                 snprintf (key_prefix, sizeof (key_prefix),
                           "%s", snap_volume?"snap-vol":"vol");
 
-                ret = glusterd_volume_quorum_check (volinfo, i, dict,
-                                                    key_prefix,
-                                                    snap_force,
-                                                    quorum_count,
-                                                    quorum_type,
-                                                    op_errstr,
-                                                    op_errno);
+                ret = glusterd_snap_common_quorum_calculate (volinfo,
+                                                             dict, i,
+                                                             key_prefix,
+                                                             snap_force,
+                                                             snap_volume,
+                                                             op_errstr,
+                                                             op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_VOL_NOT_FOUND, "volume %s "
@@ -3130,21 +3299,15 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                 }
                 break;
         case GF_SNAP_OPTION_TYPE_CLONE:
-
-                if (!does_gd_meet_server_quorum (this)) {
-                        ret = -1;
-                        snprintf (err_str, sizeof (err_str),
-                                  "glusterds are not in quorum");
+                ret = glusterd_snap_quorum_check_for_clone (dict, !snap_volume,
+                                                            op_errstr,
+                                                            op_errno);
+                if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                                GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
-                                err_str);
-                        *op_errstr = gf_strdup (err_str);
-                        *op_errno = EG_NODEDWN;
+                                GD_MSG_QUORUM_CHECK_FAIL, "Quorum check"
+                                "failed during snapshot clone command");
                         goto out;
                 }
-
-                gf_msg_debug (this->name, 0, "glusterds are in "
-                        "quorum");
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:
