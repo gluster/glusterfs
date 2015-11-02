@@ -191,8 +191,8 @@ is_fop_latency_started (call_frame_t *frame)
         return memcmp (&frame->begin, &epoch, sizeof (epoch));
 }
 
+#define _IOS_SAMP_DIR DEFAULT_LOG_FILE_DIRECTORY "/samples"
 #ifdef GF_LINUX_HOST_OS
-const char *_IOS_SAMP_DIR = "/var/log/glusterfs/samples";
 #define _IOS_DUMP_DIR DATADIR "/lib/glusterd/stats"
 #else
 #define _IOS_DUMP_DIR DATADIR "/db/glusterd/stats"
