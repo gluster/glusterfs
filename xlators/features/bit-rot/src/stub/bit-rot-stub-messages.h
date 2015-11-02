@@ -40,7 +40,7 @@
  */
 
 #define GLFS_BITROT_STUB_BASE                   GLFS_MSGID_COMP_BITROT_STUB
-#define GLFS_BITROT_STUB_NUM_MESSAGES           15
+#define GLFS_BITROT_STUB_NUM_MESSAGES           30
 #define GLFS_MSGID_END         (GLFS_BITROT_STUB_BASE + \
                                 GLFS_BITROT_STUB_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -182,6 +182,76 @@
  *
  */
 #define BRS_MSG_BAD_OBJECT_ACCESS           (GLFS_BITROT_STUB_BASE + 20)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_CONTAINER_FAIL          (GLFS_BITROT_STUB_BASE + 21)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJECT_DIR_FAIL        (GLFS_BITROT_STUB_BASE + 22)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL   (GLFS_BITROT_STUB_BASE + 23)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJECT_DIR_TELL_FAIL   (GLFS_BITROT_STUB_BASE + 24)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJECT_DIR_READ_FAIL   (GLFS_BITROT_STUB_BASE + 25)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_GET_FD_CONTEXT_FAILED      (GLFS_BITROT_STUB_BASE + 26)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_HANDLE_DIR_NULL        (GLFS_BITROT_STUB_BASE + 27)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJ_THREAD_FAIL        (GLFS_BITROT_STUB_BASE + 28)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL     (GLFS_BITROT_STUB_BASE + 29)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_LINK_FAIL                  (GLFS_BITROT_STUB_BASE + 30)
 /*!
  * @messageid
  * @diagnosis

@@ -55,6 +55,66 @@ mem_acct_init (xlator_t *this)
 }
 
 int32_t
+br_stub_bad_object_container_init (xlator_t *this, br_stub_private_t *priv)
+{
+        pthread_attr_t  w_attr;
+        int32_t         ret          = -1;
+
+        ret = pthread_cond_init(&priv->container.bad_cond, NULL);
+        if (ret != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                        "pthread_cond_init failed (%d)", ret);
+                goto out;
+        }
+
+        ret = pthread_mutex_init(&priv->container.bad_lock, NULL);
+        if (ret != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                        "pthread_mutex_init failed (%d)", ret);
+                goto cleanup_cond;
+        }
+
+        ret = pthread_attr_init (&w_attr);
+        if (ret != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                        "pthread_attr_init failed (%d)", ret);
+                goto cleanup_lock;
+        }
+
+        ret = pthread_attr_setstacksize (&w_attr, BAD_OBJECT_THREAD_STACK_SIZE);
+        if (ret == EINVAL) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                        "Using default thread stack size");
+        }
+
+        INIT_LIST_HEAD (&priv->container.bad_queue);
+        ret = br_stub_dir_create (this, priv);
+        if (ret < 0)
+                goto cleanup_lock;
+
+        ret = gf_thread_create (&priv->container.thread, &w_attr, br_stub_worker, this);
+        if (ret)
+                goto cleanup_attr;
+
+        return 0;
+
+cleanup_attr:
+        pthread_attr_destroy (&w_attr);
+cleanup_lock:
+        pthread_mutex_destroy (&priv->container.bad_lock);
+cleanup_cond:
+        pthread_cond_destroy (&priv->container.bad_cond);
+out:
+        return -1;
+}
+
+#define BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quanrantine"
+
+int32_t
 init (xlator_t *this)
 {
         int32_t ret = 0;
@@ -81,6 +141,9 @@ init (xlator_t *this)
         GF_OPTION_INIT ("export", tmp, str, free_mempool);
         memcpy (priv->export, tmp, strlen (tmp) + 1);
 
+        (void) snprintf (priv->stub_basepath, PATH_MAX,
+                         "%s/%s", priv->export, BR_STUB_QUARANTINE_DIR);
+
         (void) gettimeofday (&tv, NULL);
 
         /* boot time is in network endian format */
@@ -95,8 +158,16 @@ init (xlator_t *this)
         if (ret != 0)
                 goto cleanup_lock;
 
+        ret = br_stub_bad_object_container_init (this, priv);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL,
+                        "failed to launch the thread for storing bad gfids");
+                goto cleanup_lock;
+        }
+
+        this->private = priv;
+
         gf_msg_debug (this->name, 0, "bit-rot stub loaded");
-	this->private = priv;
 
         return 0;
 
@@ -117,6 +188,7 @@ fini (xlator_t *this)
         int32_t ret = 0;
 	br_stub_private_t *priv = this->private;
         struct br_stub_signentry *sigstub = NULL;
+        call_stub_t *stub = NULL;
 
         if (!priv)
                 return;
@@ -140,6 +212,24 @@ fini (xlator_t *this)
 
         pthread_mutex_destroy (&priv->lock);
         pthread_cond_destroy (&priv->cond);
+
+        ret = gf_thread_cleanup_xint (priv->container.thread);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                        "Could not cancel sign serializer thread");
+                goto out;
+        }
+
+        while (!list_empty (&priv->container.bad_queue)) {
+                stub = list_first_entry (&priv->container.bad_queue, call_stub_t,
+                                         list);
+                list_del_init (&stub->list);
+                call_stub_destroy (stub);
+        };
+
+        pthread_mutex_destroy (&priv->container.bad_lock);
+        pthread_cond_destroy (&priv->container.bad_cond);
 
         this->private = NULL;
 	GF_FREE (priv);
@@ -1017,6 +1107,8 @@ br_stub_fsetxattr_bad_object_cbk (call_frame_t *frame, void *cookie,
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_MARK_FAIL,
                         "failed to mark object %s as bad",
                         uuid_utoa (local->u.context.inode->gfid));
+
+        ret = br_stub_add (this, local->u.context.inode->gfid);
 
 unwind:
         STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xdata);
@@ -2306,6 +2398,74 @@ br_stub_lookup_version (xlator_t *this,
 
 /** {{{ */
 
+int32_t
+br_stub_opendir (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, fd_t *fd, dict_t *xdata)
+{
+        br_stub_private_t    *priv = NULL;
+        br_stub_fd_t         *fd_ctx = NULL;
+        int32_t               op_ret = -1;
+        int32_t               op_errno = EINVAL;
+
+        priv = this->private;
+        if (gf_uuid_compare (fd->inode->gfid, priv->bad_object_dir_gfid))
+                goto normal;
+
+        fd_ctx = br_stub_fd_new ();
+        if (!fd_ctx) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        fd_ctx->bad_object.dir_eof = -1;
+        fd_ctx->bad_object.dir = sys_opendir (priv->stub_basepath);
+        if (!fd_ctx->bad_object.dir) {
+                op_errno = errno;
+                goto err_freectx;
+        }
+
+        op_ret = br_stub_fd_ctx_set (this, fd, fd_ctx);
+        if (!op_ret)
+                goto unwind;
+
+        sys_closedir (fd_ctx->bad_object.dir);
+
+err_freectx:
+        GF_FREE (fd_ctx);
+unwind:
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd, NULL);
+        return 0;
+
+normal:
+        STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+        return 0;
+}
+
+int32_t
+br_stub_readdir (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, size_t size, off_t off, dict_t *xdata)
+{
+        call_stub_t     *stub = NULL;
+        br_stub_private_t    *priv = NULL;
+
+        priv = this->private;
+        if (gf_uuid_compare (fd->inode->gfid, priv->bad_object_dir_gfid))
+                goto out;
+        stub = fop_readdir_stub (frame, br_stub_readdir_wrapper, fd, size, off,
+                                 xdata);
+        if (!stub) {
+                STACK_UNWIND_STRICT (readdir, frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+        br_stub_worker_enqueue (this, stub);
+        return 0;
+out:
+        STACK_WIND (frame, default_readdir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdir, fd, size, off, xdata);
+        return 0;
+}
+
 int
 br_stub_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, gf_dirent_t *entries,
@@ -2480,10 +2640,27 @@ br_stub_lookup (call_frame_t *frame,
         void *cookie = NULL;
         uint64_t ctx_addr = 0;
         gf_boolean_t xref = _gf_false;
+        br_stub_private_t *priv = NULL;
+        call_stub_t       *stub = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        priv = this->private;
+
+        if (!gf_uuid_compare (loc->gfid, priv->bad_object_dir_gfid) ||
+            !gf_uuid_compare (loc->pargfid, priv->bad_object_dir_gfid)) {
+
+                stub = fop_lookup_stub (frame, br_stub_lookup_wrapper, loc,
+                                        xdata);
+                if (!stub) {
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+                br_stub_worker_enqueue (this, stub);
+                return 0;
+        }
 
         ret = br_stub_get_inode_ctx (this, loc->inode, &ctx_addr);
         if (ret < 0)
@@ -2727,6 +2904,31 @@ br_stub_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+int32_t
+br_stub_releasedir (xlator_t *this, fd_t *fd)
+{
+        br_stub_fd_t   *fctx = NULL;
+        uint64_t        ctx  = 0;
+        int             ret  = 0;
+
+        ret = fd_ctx_del (fd, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        fctx = (br_stub_fd_t *) (long) ctx;
+        if (fctx->bad_object.dir) {
+                ret = sys_closedir (fctx->bad_object.dir);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL,
+                                "closedir error: %s", strerror (errno));
+        }
+
+        GF_FREE (fctx);
+out:
+        return 0;
+}
+
 /** }}} */
 
 /** {{{ */
@@ -2790,6 +2992,8 @@ struct xlator_fops fops = {
         .removexattr = br_stub_removexattr,
         .fremovexattr = br_stub_fremovexattr,
         .setxattr  = br_stub_setxattr,
+        .opendir   = br_stub_opendir,
+        .readdir   = br_stub_readdir,
 };
 
 struct xlator_cbks cbks = {

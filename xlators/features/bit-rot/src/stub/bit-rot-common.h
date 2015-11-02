@@ -21,6 +21,8 @@
 #define BR_VXATTR_ALL_MISSING                           \
         (BR_VXATTR_VERSION | BR_VXATTR_SIGNATURE)
 
+#define BR_BAD_OBJ_CONTAINER (uuid_t){0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
+
 typedef enum br_vxattr_state {
         BR_VXATTR_STATUS_FULL     = 0,
         BR_VXATTR_STATUS_MISSING  = 1,
