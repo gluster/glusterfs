@@ -236,9 +236,9 @@
 #define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
 
-/*CTR requires inode dentry link count from posix*/
-#define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
-#define CTR_REQUEST_LINK_COUNT_XDATA  "ctr_request_link_count"
+/*CTR and Marker requires inode dentry link count from posix*/
+#define GF_RESPONSE_LINK_COUNT_XDATA "gf_response_link_count"
+#define GF_REQUEST_LINK_COUNT_XDATA  "gf_request_link_count"
 
 #define CTR_ATTACH_TIER_LOOKUP    "ctr_attach_tier_lookup"
 

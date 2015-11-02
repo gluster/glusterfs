@@ -115,6 +115,7 @@ struct quota_synctask {
         loc_t          loc;
         quota_meta_t   contri;
         gf_boolean_t   is_static;
+        uint32_t       ia_nlink;
 };
 typedef struct quota_synctask quota_synctask_t;
 
@@ -145,7 +146,8 @@ int
 mq_create_xattrs_txn (xlator_t *this, loc_t *loc, struct iatt *buf);
 
 int32_t
-mq_reduce_parent_size_txn (xlator_t *, loc_t *, quota_meta_t *);
+mq_reduce_parent_size_txn (xlator_t *, loc_t *, quota_meta_t *,
+                           uint32_t nlink);
 
 int32_t
 mq_forget (xlator_t *, quota_inode_ctx_t *);
