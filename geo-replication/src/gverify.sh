@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Script to verify the Master and Slave Gluster compatibility.
-# To use ./gverify <master volume> <slave host> <slave volume>
+# To use ./gverify <master volume> <slave user> <slave host> <slave volume> <ssh port> <log file>
 # Returns 0 if master and slave compatible.
 
 # Considering buffer_size 100MB
 BUFFER_SIZE=104857600;
+SSH_PORT=$5;
 slave_log_file=`gluster --print-logdir`/geo-replication-slaves/slave.log
 
 function SSHM()
 {
-    ssh -q \
+    ssh -p ${SSH_PORT} -q \
 	-oPasswordAuthentication=no \
 	-oStrictHostKeyChecking=no \
 	-oControlMaster=yes \
@@ -154,10 +155,9 @@ function ping_host ()
 
 function main()
 {
-    log_file=$5
+    log_file=$6
     > $log_file
 
-    SSH_PORT=22
     # Use FORCE_BLOCKER flag in the error message to differentiate
     # between the errors which the force command should bypass
 
@@ -172,7 +172,7 @@ function main()
         exit 1;
     fi;
 
-    ssh -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
+    ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
     if [ $? -ne 0 ]; then
         echo "FORCE_BLOCKER|Passwordless ssh login has not been setup with $3 for user $2." > $log_file
         exit 1;

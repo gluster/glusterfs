@@ -2305,7 +2305,8 @@ out:
 
 static int
 glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
-                       char **op_errstr, gf_boolean_t *is_force_blocker)
+                       int ssh_port, char **op_errstr,
+                       gf_boolean_t *is_force_blocker)
 {
         int32_t          ret                     = -1;
         runner_t         runner                  = {0,};
@@ -2357,7 +2358,12 @@ glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
         runner_argprintf (&runner, "%s", slave_user);
         runner_argprintf (&runner, "%s", slave_ip);
         runner_argprintf (&runner, "%s", slave_vol);
+        runner_argprintf (&runner, "%d", ssh_port);
         runner_argprintf (&runner, "%s", log_file_path);
+        gf_msg_debug (this->name, 0, "gverify Args = %s %s %s %s %s %s %s",
+                      runner.argv[0], runner.argv[1], runner.argv[2],
+                      runner.argv[3], runner.argv[4], runner.argv[5],
+                      runner.argv[6]);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         synclock_unlock (&priv->big_lock);
         ret = runner_run (&runner);
@@ -2498,6 +2504,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char                uuid_str [64]             = "";
         int                 ret                       = -1;
         int                 is_pem_push               = -1;
+        int                 ssh_port                  = 22;
         gf_boolean_t        is_force                  = -1;
         gf_boolean_t        is_no_verify              = -1;
         gf_boolean_t        is_force_blocker          = -1;
@@ -2591,6 +2598,16 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                          down_peerstr = NULL;
                 }
 
+                ret = dict_get_int32 (dict, "ssh_port", &ssh_port);
+                if (ret < 0 && ret != -ENOENT) {
+                        snprintf (errmsg, sizeof (errmsg),
+                                  "Fetching ssh_port failed while "
+                                  "handling "GEOREP" options");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "%s", errmsg);
+                        goto out;
+                }
+
                 is_no_verify = dict_get_str_boolean (dict, "no_verify", _gf_false);
 
                 if (!is_no_verify) {
@@ -2599,7 +2616,8 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                         * and if it has enough memory and bypass in case of force if
                         * the error is not a force blocker */
                         ret = glusterd_verify_slave (volname, slave_url, slave_vol,
-                                                     op_errstr, &is_force_blocker);
+                                                     ssh_port, op_errstr,
+                                                     &is_force_blocker);
                         if (ret) {
                                 if (is_force && !is_force_blocker) {
                                         gf_msg (this->name, GF_LOG_INFO, 0,
@@ -5600,6 +5618,7 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *slave                     = NULL;
         int32_t             ret                       = -1;
         int32_t             is_pem_push               = -1;
+        int32_t             ssh_port                  = 22;
         gf_boolean_t        is_force                  = -1;
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
@@ -5679,6 +5698,15 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
+        ret = dict_get_int32 (dict, "ssh_port", &ssh_port);
+        if (ret < 0 && ret != -ENOENT) {
+                snprintf (errmsg, sizeof (errmsg), "Fetching ssh_port failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "%s", errmsg);
+                ret = -1;
+                goto out;
+        }
+
         is_force = dict_get_str_boolean (dict, "force", _gf_false);
 
         uuid_utoa_r (MY_UUID, uuid_str);
@@ -5693,8 +5721,9 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 snprintf(hooks_args, sizeof(hooks_args),
                          "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s,"
-                         "slave_vol=%s", is_pem_push, common_pem_file,
-                         slave_user, slave_ip, slave_vol);
+                         "slave_vol=%s,ssh_port=%d", is_pem_push,
+                         common_pem_file, slave_user, slave_ip, slave_vol,
+                         ssh_port);
         } else
                 snprintf(hooks_args, sizeof(hooks_args),
                          "This argument will stop the hooks script");

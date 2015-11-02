@@ -2403,6 +2403,51 @@ out:
         return ret;
 }
 
+/* ssh_port_parse: Parses and validates when ssh_port is given.
+ *                 ssh_index refers to index of ssh_port and
+ *                 type refers to either push-pem or no-verify
+ */
+
+static int32_t
+parse_ssh_port (const char **words, int wordcount, dict_t *dict,
+                unsigned *cmdi, int ssh_index, char *type) {
+
+        int        ret         = 0;
+        char      *end_ptr     = NULL;
+        int64_t    limit       = 0;
+
+        if (!strcmp ((char *)words[ssh_index], "ssh-port")) {
+                if (strcmp ((char *)words[ssh_index-1], "create")) {
+                        ret = -1;
+                        goto out;
+                }
+                (*cmdi)++;
+                limit = strtol (words[ssh_index+1], &end_ptr, 10);
+                if (errno == ERANGE || errno == EINVAL || limit <= 0
+                                    || strcmp (end_ptr, "") != 0) {
+                        ret = -1;
+                        cli_err ("Please enter an interger value for ssh_port ");
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, "ssh_port", limit);
+                if (ret)
+                        goto out;
+                (*cmdi)++;
+        } else if (strcmp ((char *)words[ssh_index+1], "create")) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, type, 1);
+        if (ret)
+                goto out;
+        (*cmdi)++;
+
+ out:
+        return ret;
+}
+
 static int32_t
 force_push_pem_no_verify_parse (const char **words, int wordcount,
                       dict_t *dict, unsigned *cmdi)
@@ -2427,44 +2472,26 @@ force_push_pem_no_verify_parse (const char **words, int wordcount,
                 (*cmdi)++;
 
                 if (!strcmp ((char *)words[wordcount-2], "push-pem")) {
-                        if (strcmp ((char *)words[wordcount-3], "create")) {
-                                ret = -1;
-                                goto out;
-                        }
-                        ret = dict_set_int32 (dict, "push_pem", 1);
+                        ret = parse_ssh_port (words, wordcount, dict, cmdi,
+                                              wordcount-4, "push_pem");
                         if (ret)
                                 goto out;
-                        (*cmdi)++;
                 } else if (!strcmp ((char *)words[wordcount-2], "no-verify")) {
-                        if (strcmp ((char *)words[wordcount-3], "create")) {
-                                ret = -1;
-                                goto out;
-                        }
-                        ret = dict_set_uint32 (dict, "no_verify",
-                                               _gf_true);
+                        ret = parse_ssh_port (words, wordcount, dict, cmdi,
+                                              wordcount-4, "no_verify");
                         if (ret)
                                 goto out;
-                        (*cmdi)++;
                 }
         } else if (!strcmp ((char *)words[wordcount-1], "push-pem")) {
-                if (strcmp ((char *)words[wordcount-2], "create")) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_int32 (dict, "push_pem", 1);
+                ret = parse_ssh_port (words, wordcount, dict, cmdi, wordcount-3,
+                                      "push_pem");
                 if (ret)
                         goto out;
-                (*cmdi)++;
         } else if (!strcmp ((char *)words[wordcount-1], "no-verify")) {
-                if ((strcmp ((char *)words[wordcount-2], "create"))) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = dict_set_uint32 (dict, "no_verify",
-                                       _gf_true);
+                ret = parse_ssh_port (words, wordcount, dict, cmdi, wordcount-3,
+                                      "no_verify");
                 if (ret)
                         goto out;
-                (*cmdi)++;
         }
 
 out:
@@ -2485,9 +2512,9 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         unsigned           glob    = 0;
         unsigned           cmdi    = 0;
         char               *opwords[] = { "create", "status", "start", "stop",
-                                          "config", "force", "delete", "no-verify"
-                                          "push-pem", "detail", "pause",
-                                          "resume", NULL };
+                                          "config", "force", "delete",
+                                          "ssh-port", "no-verify", "push-pem",
+                                          "detail", "pause", "resume", NULL };
         char               *w = NULL;
         char               *save_ptr   = NULL;
         char               *slave_temp = NULL;
@@ -2502,7 +2529,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         /* new syntax:
          *
-         * volume geo-replication $m $s create [[no-verify] | [push-pem]] [force]
+         * volume geo-replication $m $s create [[ssh-port n] [[no-verify] | [push-pem]]] [force]
          * volume geo-replication [$m [$s]] status [detail]
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop [force]
