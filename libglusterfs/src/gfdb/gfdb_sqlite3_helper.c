@@ -795,7 +795,10 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                         gfdb_db_record->link_consistency,
                                         gfdb_db_record->ignore_errors);
                         if (ret) {
-                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                gf_msg (GFDB_STR_SQLITE3,
+                                        _gfdb_log_level (GF_LOG_ERROR,
+                                                gfdb_db_record->ignore_errors),
+                                        0,
                                         LG_MSG_INSERT_FAILED, "Failed "
                                         "inserting link in DB");
                                 goto out;
