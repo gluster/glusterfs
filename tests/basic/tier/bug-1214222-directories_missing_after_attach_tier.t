@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../tier.rc
 
 LAST_BRICK=3
 CACHE_BRICK_FIRST=4
@@ -9,23 +10,6 @@ CACHE_BRICK_LAST=5
 DEMOTE_TIMEOUT=12
 PROMOTE_TIMEOUT=5
 
-function confirm_tier_removed {
-    $CLI system getspec $V0 | grep $1
-    if [ $? == 0 ]; then
-        echo "1"
-    else
-        echo "0"
-    fi
-}
-
-function confirm_vol_stopped {
-    $CLI volume stop $1
-    if [ $? == 0 ]; then
-        echo "0"
-    else
-        echo "1"
-    fi
-}
 
 LAST_BRICK=1
 CACHE_BRICK=2

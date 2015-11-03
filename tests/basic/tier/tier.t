@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../tier.rc
 
 LAST_BRICK=3
 CACHE_BRICK_FIRST=4
@@ -20,10 +21,6 @@ function sleep_first_cycle {
     sleep $mod
 }
 
-# Grab md5sum without file path (failed attempt notifications are discarded).
-function fingerprint {
-    md5sum $1 2> /dev/null | grep --only-matching -m 1 '^[0-9a-f]*'
-}
 
 function file_on_slow_tier {
     found=0
@@ -79,49 +76,6 @@ function file_on_fast_tier {
     fi
 }
 
-function confirm_tier_removed {
-    $CLI system getspec $V0 | grep $1
-    if [ $? == 0 ]; then
-        echo "1"
-    else
-        echo "0"
-    fi
-}
-
-function confirm_vol_stopped {
-    $CLI volume stop $1
-    if [ $? == 0 ]; then
-        echo "0"
-    else
-        echo "1"
-    fi
-}
-
-function check_counters {
-    index=0
-    ret=0
-    rm -f /tmp/tc*.txt
-    echo "0" > /tmp/tc2.txt
-
-    $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
-
-    promote=`cat /tmp/tc.txt |awk '{print $2}'`
-    demote=`cat /tmp/tc.txt |awk '{print $3}'`
-   if [ "${promote}" != "${1}" ]; then
-        echo "1" > /tmp/tc2.txt
-
-   elif [ "${demote}" != "${2}" ]; then
-        echo "2" > /tmp/tc2.txt
-   fi
-
-    # temporarily disable non-Linux tests.
-    case $OSTYPE in
-        NetBSD | FreeBSD | Darwin)
-            echo "0" > /tmp/tc2.txt
-            ;;
-    esac
-    cat /tmp/tc2.txt
-}
 
 cleanup
 
