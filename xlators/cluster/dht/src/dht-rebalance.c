@@ -2715,8 +2715,7 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
          * rebalance is complete.
          */
         if (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX
-            || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER
-            || defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+            || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
                 return 0;
         }
 
