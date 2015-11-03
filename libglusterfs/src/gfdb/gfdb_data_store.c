@@ -382,7 +382,8 @@ insert_record (gfdb_conn_node_t *_conn_node,
                 ret = db_operations_t->insert_record_op (gf_db_connection,
                                                         gfdb_db_record);
                 if (ret) {
-                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        gf_msg (GFDB_DATA_STORE, _gfdb_log_level (GF_LOG_ERROR,
+                                gfdb_db_record->ignore_errors), 0,
                                 LG_MSG_INSERT_OR_UPDATE_FAILED, "Insert/Update"
                                 " operation failed");
                 }
