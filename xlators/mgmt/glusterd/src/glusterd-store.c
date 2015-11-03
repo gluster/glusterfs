@@ -2763,10 +2763,18 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         break;
 
                         case GF_CLUSTER_TYPE_TIER:
-                                volinfo->tier_info.cold_dist_leaf_count =
-                                        glusterd_calc_dist_leaf_count (
-                                                volinfo->tier_info.cold_replica_count, 1);
-                                break;
+                        if (volinfo->tier_info.cold_type ==
+                                        GF_CLUSTER_TYPE_DISPERSE)
+                                volinfo->tier_info.cold_dist_leaf_count
+                                        = volinfo->disperse_count;
+                        else
+                                volinfo->tier_info.cold_dist_leaf_count
+                                        = glusterd_calc_dist_leaf_count (
+                                                        volinfo->tier_info.
+                                                        cold_replica_count,
+                                                        1);
+
+                        break;
 
                         default:
                                 GF_ASSERT (0);
