@@ -33,7 +33,8 @@
 #define PROMOTION_QFILE "promotequeryfile"
 #define DEMOTION_QFILE "demotequeryfile"
 
-#define TIER_HASHED_SUBVOL   conf->subvolumes[1]
+#define TIER_HASHED_SUBVOL   conf->subvolumes[0]
+#define TIER_UNHASHED_SUBVOL   conf->subvolumes[1]
 
 #define GET_QFILE_PATH(is_promotion)\
         (is_promotion) ? promotion_qfile : demotion_qfile

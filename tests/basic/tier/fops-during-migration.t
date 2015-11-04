@@ -61,9 +61,11 @@ create_dist_tier_vol $NUM_BRICKS
 # Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
+$CLI volume set $V0 diagnostics.client-log-level DEBUG
+
 TEST mkdir $M0/dir1
 
-# Create a large file (200MB), so that rebalance takes time
+# Create a large file (320MB), so that rebalance takes time
 # The file will be created on the hot tier
 
 dd if=/dev/zero of=$M0/dir1/FILE1 bs=64k count=5120
@@ -83,13 +85,8 @@ echo "File path on cold tier: "$CPATH
 # Test setxattr
 TEST setfattr -n "user.test_xattr" -v "qwerty" $M0/dir1/FILE1
 
-# Test hard link creation
-TEST ln $M0/dir1/FILE1 $M0/dir1/lnk1
-TEST ln $M0/dir1/FILE1 $M0/lnk2
-
 # Change the file contents while it is being migrated
 echo $TEST_STR > $M0/dir1/FILE1
-
 
 # The file contents should have changed even if the file
 # is not done migrating
@@ -102,10 +99,6 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "no" is_sticky_set $CPATH
 # The file contents should have changed
 EXPECT "1" check_file_content $M0/dir1/FILE1 "$TEST_STR"
 
-
-linkcountsrc=$(stat -c %h $M0/dir1/FILE1)
-echo $linkcountsrc
-TEST [[ $linkcountsrc == 3 ]]
 
 TEST getfattr -n "user.test_xattr" $M0/dir1/FILE1
 
