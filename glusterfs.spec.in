@@ -594,6 +594,10 @@ This package provides the translators needed on any GlusterFS client.
 # For whatever reason, install-sh is sometimes missing. When this gets fixed,
 # there is no need to run ./autogen or have a BuildRequires for automake.
 [ -e 'install-sh' -o -e 'install.sh' ] || ./autogen.sh
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+CFLAGS=-DUSE_INSECURE_OPENSSL
+export CFLAGS
+%endif
 %configure \
 ./autogen.sh && %configure \
         %{?_with_cmocka} \
