@@ -2140,6 +2140,12 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+                if (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_FAILED) {
+                        errstr = gf_strdup ("use 'force' option as migration "
+                                            "has failed");
+                        goto out;
+                }
+
                 ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
                                                              dict, volinfo,
                                                              &errstr);
