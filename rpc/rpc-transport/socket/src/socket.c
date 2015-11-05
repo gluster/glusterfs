@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #include "socket.h"
 #include "name.h"
 #include "dict.h"
@@ -3992,8 +3991,12 @@ socket_init (rpc_transport_t *this)
 
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv2);
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv3);
+#ifdef SSL_OP_NO_TICKET
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_TICKET);
+#endif
+#ifdef SSL_OP_NO_COMPRESSION
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_COMPRESSION);
+#endif
 
 		if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
 			gf_log(this->name,GF_LOG_ERROR,
@@ -4002,7 +4005,7 @@ socket_init (rpc_transport_t *this)
 		}
 
 		if (bio != NULL) {
-#ifdef ERR_R_DH_LIB
+#ifdef HAVE_OPENSSL_DH_H
                         DH *dh;
                         unsigned long err;
 
@@ -4020,15 +4023,15 @@ socket_init (rpc_transport_t *this)
                                        "DH ciphers are disabled.",
                                        dh_param, ERR_error_string(err, NULL));
                         }
-#else /* ERR_R_DH_LIB */
+#else /* HAVE_OPENSSL_DH_H */
                         BIO_free(bio);
                         gf_log(this->name, GF_LOG_ERROR,
                                "OpenSSL has no DH support");
-#endif /* ERR_R_DH_LIB */
+#endif /* HAVE_OPENSSL_DH_H */
                 }
 
                 if (ec_curve != NULL) {
-#ifdef ERR_R_ECDH_LIB
+#ifdef HAVE_OPENSSL_ECDH_H
                         EC_KEY *ecdh = NULL;
                         int nid;
                         unsigned long err;
@@ -4049,10 +4052,10 @@ socket_init (rpc_transport_t *this)
 				       "ECDH ciphers are disabled.",
                                        ec_curve, ERR_error_string(err, NULL));
 			}
-#else /* ERR_R_ECDH_LIB */
+#else /* HAVE_OPENSSL_ECDH_H */
                         gf_log(this->name, GF_LOG_ERROR,
                                "OpenSSL has no ECDH support");
-#endif /* ERR_R_ECDH_LIB */
+#endif /* HAVE_OPENSSL_ECDH_H */
                 }
 
 		/* This must be done after DH and ECDH setups */

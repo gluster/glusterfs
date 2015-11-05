@@ -589,6 +589,11 @@ This package provides the translators needed on any GlusterFS client.
 %setup -q -n %{name}-%{version}%{?prereltag}
 
 %build
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+CFLAGS=-DUSE_INSECURE_OPENSSL
+export CFLAGS
+%endif
+
 ./autogen.sh && %configure \
         %{?_with_cmocka} \
         %{?_with_debug} \
