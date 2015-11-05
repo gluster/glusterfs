@@ -3,6 +3,14 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../snapshot.rc
 
+function get_snap_brick_status()
+{
+    local snap=$1;
+
+    $CLI snapshot status $snap | grep "Brick Running" | sed 's/.*: //';
+}
+
+
 cleanup;
 TEST verify_lvm_version;
 TEST glusterd;
@@ -35,6 +43,8 @@ EXPECT '100' snap_config_volume CLI 'snap-max-hard-limit' $V0
 TEST $CLI snapshot restore snap2
 EXPECT '149' snap_info_volume CLI "Snaps Available" $V0;
 EXPECT '150' snap_config_volume CLI 'snap-max-hard-limit' $V0
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Yes" get_snap_brick_status snap3
 
 #Take a clone and verify it inherits snapshot's snap-max-hard-limit
 TEST $CLI snapshot clone clone1 snap3
