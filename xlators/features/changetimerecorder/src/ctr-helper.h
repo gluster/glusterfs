@@ -252,6 +252,13 @@ do {\
  * ****************************************************************************/
 
 /*
+ * If a bitrot fop
+ * */
+#define BITROT_FOP(frame)\
+        (frame->root->pid == GF_CLIENT_PID_BITD)
+
+
+/*
  * If a rebalancer fop
  * */
 #define REBALANCE_FOP(frame)\
@@ -292,6 +299,9 @@ gf_boolean_t is_internal_fop (call_frame_t *frame,
         GF_ASSERT(frame->root);
 
         if (AFR_SELF_HEAL_FOP (frame)) {
+                ret = _gf_true;
+        }
+        if (BITROT_FOP (frame)) {
                 ret = _gf_true;
         }
         if (REBALANCE_FOP (frame) || TIER_REBALANCE_FOP (frame)) {
