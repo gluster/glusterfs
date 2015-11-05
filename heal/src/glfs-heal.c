@@ -19,6 +19,7 @@
 #include "syncop-utils.h"
 #include <string.h>
 #include <time.h>
+#include "glusterfs.h"
 
 #define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 #define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
@@ -756,7 +757,7 @@ main (int argc, char **argv)
                 goto out;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
         if (ret) {
                 printf("Setting the volfile server failed, %s\n", strerror (errno));
                 goto out;
