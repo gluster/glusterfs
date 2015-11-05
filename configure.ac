@@ -388,6 +388,10 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+AC_CHECK_HEADERS([openssl/dh.h])
+
+AC_CHECK_HEADERS([openssl/ecdh.h])
+
 dnl Math library
 AC_CHECK_LIB([m], [pow], [MATH_LIB='-lm'], [MATH_LIB=''])
 AC_SUBST(MATH_LIB)
