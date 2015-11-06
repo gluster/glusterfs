@@ -195,7 +195,6 @@ function is_bad_test ()
     local name=$1
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
               ./tests/bugs/quota/bug-1235182.t \
-              ./tests/basic/mount-nfs-auth.t \
               ./tests/basic/quota-nfs.t \
               ./tests/basic/tier/tier_lookup_heal.t \
               ./tests/basic/tier/bug-1214222-directories_missing_after_attach_tier.t \
