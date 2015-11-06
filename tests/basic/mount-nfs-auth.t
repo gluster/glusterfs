@@ -132,18 +132,9 @@ function stat_nfs () {
 
 # Restarts the NFS server
 function restart_nfs () {
-        PID=$(ps auxww | grep nfs | grep sbin/glusterfs | awk '{print $2}')
-        CMD=$(ps axww | grep nfs | grep sbin/glusterfs |      \
-              awk '{$1=""; $2=""; $3=""; $4=""; print $0}' |  \
-              sed 's/ *([^()]*)$//')
-        kill $PID
-        timeout=$PROCESS_UP_TIMEOUT;
-        while kill -0 $PID 2>/dev/null; do
-                test $timeout -eq 0  && break
-                timout=$(( $timeout - 1 ))
-                sleep 1
-        done
-        $CMD
+	# disabling nfs acces for a volume requires a restart
+	$CLI volume set patchy nfs.disable true
+	$CLI volume reset patchy nfs.disable
 }
 
 setup_cluster
@@ -214,6 +205,7 @@ TEST export_deny_this_host
 TEST netgroup_allow_this_host
 
 # wait for the mount authentication to rebuild
+sleep $[$AUTH_REFRESH_INTERVAL + 1]
 
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "Y" small_write
@@ -252,8 +244,8 @@ TEST export_allow_this_host_ro
 TEST netgroup_deny_this_host
 
 ## Restart the nfs server to avoid spurious failure(BZ1256352)
-$CLI vol stop $V0
-$CLI vol start $V0
+restart_nfs
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT "N" small_write # Writes should not be allowed
@@ -266,11 +258,15 @@ TEST netgroup_deny_this_host
 TEST export_allow_this_host_l1 # Allow this host at L1
 
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_failure $V0 #V0 shouldnt be allowed
-EXPECT "Y" check_mount_success $V0L1 #V0L1 should be
+EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0L1 #V0L1 should be
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Test wildcard hosts
 TEST export_allow_wildcard
+
+# the $MY_MOUNT_TIMEOUT might not be long enough? restart should do
+restart_nfs
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0
 EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" small_write
