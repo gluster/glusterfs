@@ -1837,7 +1837,9 @@ done:
                                     rsp.op_errstr);
         else {
                 if (rsp.op_ret)
-                        if (cmd == GF_DEFRAG_CMD_START_TIER) {
+
+                        if (cmd == GF_DEFRAG_CMD_START_TIER || cmd ==
+                            GF_DEFRAG_CMD_STATUS_TIER) {
                                 cli_err ("Tiering Migration Functionality: %s:"
                                          " failed%s%s", volname,
                                          strlen (msg) ? ": " : "", msg);
@@ -1846,7 +1848,8 @@ done:
                                          volname, strlen (msg) ? ": " : "",
                                          msg);
                 else
-                        if (cmd == GF_DEFRAG_CMD_START_TIER) {
+                        if (cmd == GF_DEFRAG_CMD_START_TIER || cmd ==
+                            GF_DEFRAG_CMD_STATUS_TIER) {
                                 cli_out ("Tiering Migration Functionality: %s:"
                                          " success%s%s", volname,
                                          strlen (msg) ? ": " : "", msg);
