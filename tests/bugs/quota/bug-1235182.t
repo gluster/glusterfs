@@ -44,11 +44,14 @@ for i in {1..50}; do
         #rename to different dir
         TEST_IN_LOOP mkdir $M0/$ii
         TEST_IN_LOOP mv -f $M0/$i/f$ii $M0/$ii/f$ii;
+        stat $M0/$ii/f$ii >/dev/null
 done
 
 echo "Wait for process with pid $PID to complete"
 wait $PID
 echo "Process with pid $PID finished"
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/51/f51
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "100.0MB" quotausage "/"
 
