@@ -207,6 +207,7 @@ function is_bad_test ()
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
               ./tests/bugs/replicate/bug-1221481-allow-fops-on-dir-split-brain.t \
               ./tests/basic/ec/ec-readdir.t \
+              ./tests/bugs/snapshot/bug-1275616.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
