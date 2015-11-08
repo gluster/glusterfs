@@ -2116,6 +2116,22 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "of writes (or reads) to a given file are needed "
                          "before triggering migration."
         },
+        { .key         = "features.ctr-record-metadata-heat",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "ctr-record-metadata-heat",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          /* Purposefully commenting the description so that this option remains
+           * hidden from the users as this is more of a developer option as of
+           * now.
+           * .description = "Its a Change Time Recorder Xlator option to "
+           *             "enable recording write heat on metadata of the file. "
+                         "The default is disabled. "
+                         "Metadata is inode atttributes like atime, mtime,"
+                         " permissions etc and "
+                         "extended attributes of a file ."
+           * */
+        },
         { .key         = "features.ctr_link_consistency",
           .voltype     = "features/changetimerecorder",
           .value       = "off",

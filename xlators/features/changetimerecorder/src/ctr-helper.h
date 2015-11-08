@@ -45,6 +45,7 @@ typedef struct gf_ctr_private {
         gf_boolean_t                    ctr_record_wind;
         gf_boolean_t                    ctr_record_unwind;
         gf_boolean_t                    ctr_record_counter;
+        gf_boolean_t                    ctr_record_metadata_heat;
         gf_boolean_t                    ctr_link_consistency;
         gfdb_db_type_t                  gfdb_db_type;
         gfdb_sync_type_t                gfdb_sync_type;
@@ -78,7 +79,7 @@ typedef struct gf_ctr_local {
         gfdb_db_record_t        gfdb_db_record;
         ia_type_t               ia_inode_type;
         gf_boolean_t            is_internal_fop;
-        gf_client_pid_t          client_pid;
+        gf_client_pid_t         client_pid;
 } gf_ctr_local_t;
 /*
  * Easy access of gfdb_db_record of ctr_local
@@ -171,6 +172,8 @@ typedef struct gf_ctr_inode_context {
         gfdb_fop_type_t         fop_type;
         gfdb_fop_path_t         fop_path;
         gf_boolean_t            is_internal_fop;
+        /* Indicating metadata fops */
+        gf_boolean_t            is_metadata_fop;
 } gf_ctr_inode_context_t;
 
 
@@ -338,6 +341,19 @@ do {\
                 goto label;\
  } while (0)
 
+/*
+ * IS CTR record metadata heat is disabled then goto to label
+ * */
+ #define CTR_RECORD_METADATA_HEAT_IS_DISABLED_THEN_GOTO(this, label)\
+ do {\
+        gf_ctr_private_t *_priv = NULL;\
+        GF_ASSERT (this);\
+        GF_ASSERT (this->private);\
+        _priv = this->private;\
+        if (!_priv->ctr_record_metadata_heat)\
+                goto label;\
+ } while (0)
+
 int
 fill_db_record_for_unwind (xlator_t              *this,
                           gf_ctr_local_t        *ctr_local,
@@ -390,16 +406,41 @@ ctr_insert_wind (call_frame_t                    *frame,
                 ctr_local->is_internal_fop = ctr_inode_cx->is_internal_fop;
 
                 /* Decide whether to record counters or not */
-                CTR_DB_REC(ctr_local).do_record_counters =
-                                                _priv->ctr_record_counter &&
-                                                !(ctr_local->is_internal_fop);
+                CTR_DB_REC(ctr_local).do_record_counters = _gf_false;
+                /* If record counter is enabled */
+                if (_priv->ctr_record_counter) {
+                        /* If not a internal fop */
+                        if (!(ctr_local->is_internal_fop)) {
+                                /* If its a metadata fop AND
+                                 * record metadata heat
+                                 * OR
+                                 * its NOT a metadata fop */
+                                if ((ctr_inode_cx->is_metadata_fop
+                                        && _priv->ctr_record_metadata_heat)
+                                        ||
+                                        (!ctr_inode_cx->is_metadata_fop)) {
+                                        CTR_DB_REC(ctr_local).do_record_counters
+                                                = _gf_true;
+                                }
+                        }
+                }
 
                 /* Decide whether to record times or not
                  * For non internal FOPS record times as usual*/
+                CTR_DB_REC(ctr_local).do_record_times = _gf_false;
                 if (!ctr_local->is_internal_fop) {
-                        CTR_DB_REC(ctr_local).do_record_times =
-                                                (_priv->ctr_record_wind
-                                                || _priv->ctr_record_unwind);
+                        /* If its a metadata fop AND
+                        * record metadata heat
+                        * OR
+                        * its NOT a metadata fop */
+                        if ((ctr_inode_cx->is_metadata_fop &&
+                                _priv->ctr_record_metadata_heat)
+                                ||
+                                (!ctr_inode_cx->is_metadata_fop)) {
+                                CTR_DB_REC(ctr_local).do_record_times =
+                                        (_priv->ctr_record_wind
+                                        || _priv->ctr_record_unwind);
+                        }
                 }
                 /* when its a internal FOPS*/
                 else {

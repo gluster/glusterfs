@@ -807,15 +807,33 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                         gfdb_db_record->file_name,
                                         gfdb_db_record->file_path,
                                         gfdb_db_record->link_consistency,
-                                        gfdb_db_record->ignore_errors);
+                                        _gf_true);
                         if (ret) {
                                 gf_msg (GFDB_STR_SQLITE3,
-                                        _gfdb_log_level (GF_LOG_ERROR,
+                                        _gfdb_log_level (GF_LOG_WARNING,
                                                 gfdb_db_record->ignore_errors),
                                         0,
                                         LG_MSG_INSERT_FAILED, "Failed "
                                         "inserting link in DB");
-                                goto out;
+                                /* Even if link creation is failed we
+                                 * continue with the creation of file record.
+                                 * This covers to cases
+                                 * 1) Lookup heal: If the file record from
+                                 * gf_file_tb is deleted but the link record
+                                 * still exist. Lookup heal will attempt a heal
+                                 * with create_wind set. The link heal will fail
+                                 * as there is already a record and if we dont
+                                 * ignore the error we will not heal the
+                                 * gf_file_tb.
+                                 * 2) Rename file in cold tier: During a rename
+                                 * of a file that is there in cold tier. We get
+                                 * an link record created in hot tier for the
+                                 * linkto file. When the file gets heated and
+                                 * moves to hot tier there will be attempt from
+                                 * ctr lookup heal to create link and file
+                                 * record and If we dont ignore the error we
+                                 * will not heal the gf_file_tb.
+                                 * */
                         }
                         gfdb_db_record->islinkupdate = gfdb_db_record->
                                                         link_consistency;
