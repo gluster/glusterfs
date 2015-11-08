@@ -272,6 +272,11 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         GF_OPTION_INIT ("record-counters", _priv->ctr_record_counter, bool,
                         out);
 
+        /* Extract flag for record metadata heat */
+        GF_OPTION_INIT ("ctr-record-metadata-heat",
+                        _priv->ctr_record_metadata_heat, bool,
+                        out);
+
         /*Extract flag for link consistency*/
         GF_OPTION_INIT ("ctr_link_consistency", _priv->ctr_link_consistency,
                         bool, out);
