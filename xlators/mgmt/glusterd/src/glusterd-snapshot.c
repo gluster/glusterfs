@@ -2385,12 +2385,6 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = glusterd_snapshot_pause_tier (this, snap_vol);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAP_PAUSE_TIER_FAIL,
-                        "Failed to pause tier in clone prevalidate.");
-        }
 out:
 
         if (ret && err_str[0] != '\0') {
@@ -7987,13 +7981,6 @@ glusterd_snapshot_clone_postvalidate (dict_t *dict, int32_t op_ret,
                 goto out;
         }
         snap_vol->snapshot = NULL;
-
-        ret = glusterd_snapshot_resume_tier (this, dict);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAP_RESUME_TIER_FAIL,
-                        "Failed to resume tier in clone postvalidate.");
-        }
 
 out:
         return ret;

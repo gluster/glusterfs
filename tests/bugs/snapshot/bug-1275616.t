@@ -3,14 +3,6 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../snapshot.rc
 
-function get_snap_brick_status()
-{
-    local snap=$1;
-
-    $CLI snapshot status $snap | grep "Brick Running" | sed 's/.*: //';
-}
-
-
 cleanup;
 TEST verify_lvm_version;
 TEST glusterd;
