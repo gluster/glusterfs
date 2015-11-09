@@ -2101,6 +2101,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         char                    *host = NULL;
 
         cmd_args = &ctx->cmd_args;
+        GF_VALIDATE_OR_GOTO (THIS->name, cmd_args->volfile_server, out);
 
         if (ctx->mgmt)
                 return 0;
@@ -2108,11 +2109,14 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (cmd_args->volfile_server_port)
                 port = cmd_args->volfile_server_port;
 
-        host = "localhost";
-        if (cmd_args->volfile_server)
-                host = cmd_args->volfile_server;
+        host = cmd_args->volfile_server;
 
-        ret = rpc_transport_inet_options_build (&options, host, port);
+        if (cmd_args->volfile_server_transport &&
+            !strcmp (cmd_args->volfile_server_transport, "unix")) {
+                ret = rpc_transport_unix_options_build (&options, host, 0);
+        } else {
+                ret = rpc_transport_inet_options_build (&options, host, port);
+        }
         if (ret)
                 goto out;
 

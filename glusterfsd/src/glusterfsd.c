@@ -96,8 +96,8 @@ static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 static struct argp_option gf_options[] = {
         {0, 0, 0, 0, "Basic options:"},
         {"volfile-server", ARGP_VOLFILE_SERVER_KEY, "SERVER", 0,
-         "Server to get the volume file from.  This option overrides "
-         "--volfile option"},
+         "Server to get the volume file from. Unix domain socket path when "
+         "transport type 'unix'. This option overrides --volfile option"},
         {"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0,
          "File to use as VOLUME_FILE"},
         {"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN,
