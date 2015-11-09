@@ -20,12 +20,11 @@ TEST $CLI volume quota $V0 enable;
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
 
-TEST $CLI volume quota $V0 limit-usage / 10MB
+TEST $CLI volume quota $V0 limit-usage / 11MB
 TEST $CLI volume quota $V0 hard-timeout 0
 TEST $CLI volume quota $V0 soft-timeout 0
 
 TEST $QDD $M0/f1 256 40
-TEST ! $QDD $M0/f2 256 40
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10.0MB" quotausage "/"
 
