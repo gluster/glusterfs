@@ -255,7 +255,8 @@ do {\
  * If a bitrot fop
  * */
 #define BITROT_FOP(frame)\
-        (frame->root->pid == GF_CLIENT_PID_BITD)
+        (frame->root->pid == GF_CLIENT_PID_BITD ||\
+        frame->root->pid == GF_CLIENT_PID_SCRUB)
 
 
 /*
