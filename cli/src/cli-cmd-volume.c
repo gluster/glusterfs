@@ -1112,6 +1112,7 @@ gf_cli_create_auxiliary_mount (char *volname)
         char     pidfile_path[PATH_MAX]  = {0,};
         char     logfile[PATH_MAX]       = {0,};
         char     qpid [16]               = {0,};
+        char     *sockpath               = NULL;
 
         GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile_path, volname);
 
@@ -1135,8 +1136,15 @@ gf_cli_create_auxiliary_mount (char *volname)
                   DEFAULT_LOG_FILE_DIRECTORY, volname);
         snprintf(qpid, 15, "%d", GF_CLIENT_PID_QUOTA_MOUNT);
 
+        if (global_state->glusterd_sock) {
+                sockpath = global_state->glusterd_sock;
+        } else {
+                sockpath = DEFAULT_GLUSTERD_SOCKFILE;
+        }
+
         ret = runcmd (SBIN_DIR"/glusterfs",
-                      "-s", "localhost",
+                      "--volfile-server", sockpath,
+                      "--volfile-server-transport", "unix",
                       "--volfile-id", volname,
                       "-l", logfile,
                       "-p", pidfile_path,

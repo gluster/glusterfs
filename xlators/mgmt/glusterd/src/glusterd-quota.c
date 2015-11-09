@@ -229,6 +229,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         char                       mountdir[]        = "/tmp/mntXXXXXX";
         char                       logfile[PATH_MAX] = {0,};
         runner_t                   runner            = {0};
+        char                       *volfileserver    = NULL;
 
         if (mkdtemp (mountdir) == NULL) {
                 gf_msg_debug ("glusterd", 0,
@@ -239,9 +240,13 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         snprintf (logfile, sizeof (logfile),
                   DEFAULT_LOG_FILE_DIRECTORY"/%s-quota-crawl.log", volname);
 
+        if (dict_get_str (THIS->options, "transport.socket.bind-address",
+                          &volfileserver) != 0)
+                volfileserver = "localhost";
+
         runinit (&runner);
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", "localhost",
+                         "-s", volfileserver,
                          "--volfile-id", volname,
 			 "--use-readdirp=no",
                          "--client-pid", QUOTA_CRAWL_PID,
