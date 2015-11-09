@@ -461,6 +461,13 @@ function get-cmd-field-xml()
         $cli $COMMAND --xml | xmllint --format - | grep $PATTERN
 }
 
+function get_snap_brick_status()
+{
+    local snap=$1;
+
+    $CLI snapshot status $snap | grep "Brick Running" | sed 's/.*: //';
+}
+
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2
