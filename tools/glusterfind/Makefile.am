@@ -13,8 +13,8 @@ uninstall-local:
 	rm -f $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py
 
 install-data-local:
-	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/glusterfind/.keys
-	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/
+	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/glusterfind/.keys
+	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/
 	rm -f $(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py
 	ln -s $(libexecdir)/glusterfs/glusterfind/S57glusterfind-delete-post.py \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/hooks/1/delete/post/S57glusterfind-delete-post.py
