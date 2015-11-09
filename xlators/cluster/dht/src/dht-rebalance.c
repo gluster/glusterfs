@@ -9,6 +9,7 @@
 */
 
 
+#include "tier.h"
 #include "dht-common.h"
 #include "xlator.h"
 #include "syscall.h"
@@ -1177,6 +1178,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_boolean_t    clean_src            = _gf_false;
         gf_boolean_t    clean_dst            = _gf_false;
         int             log_level            = GF_LOG_INFO;
+        gf_boolean_t    delete_src_linkto    = _gf_true;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1463,9 +1465,11 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* store size of previous migrated file  */
         if (defrag->tier_conf.is_tier) {
-                if (from == conf->subvolumes[0]) {
+                if (from != TIER_HASHED_SUBVOL) {
                         defrag->tier_conf.st_last_promoted_size = stbuf.ia_size;
                 } else {
+                        /* Don't delete the linkto file on the hashed subvol */
+                        delete_src_linkto = _gf_false;
                         defrag->tier_conf.st_last_demoted_size = stbuf.ia_size;
                 }
         }
@@ -1532,8 +1536,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 rcvd_enoent_from_src = 1;
         }
 
+
         if ((gf_uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0 ) &&
-            (!rcvd_enoent_from_src)) {
+            (!rcvd_enoent_from_src) && delete_src_linkto) {
                 /* take out the source from namespace */
                 ret = syncop_unlink (from, loc, NULL, NULL);
                 if (ret) {
