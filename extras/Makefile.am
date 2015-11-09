@@ -26,10 +26,10 @@ EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 
 install-data-local:
 	if [ -n "$(tmpfilesdir)" ]; then \
-		$(MKDIR_P) $(DESTDIR)$(tmpfilesdir); \
+		$(mkdir_p) $(DESTDIR)$(tmpfilesdir); \
 		$(INSTALL_DATA) run-gluster.tmpfiles \
 			$(DESTDIR)$(tmpfilesdir)/gluster.conf; \
 	fi
-	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
+	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-virt.example \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/virt

@@ -29,4 +29,4 @@ $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	$(MAKE) -C $(top_builddir)/libglusterfs/src/ all
 
 install-data-hook:
-	$(MKDIR_P) $(DESTDIR)$(localstatedir)/run/gluster
+	$(mkdir_p) $(DESTDIR)$(localstatedir)/run/gluster
