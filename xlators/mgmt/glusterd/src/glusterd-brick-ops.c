@@ -1337,7 +1337,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
 
         ret = 0;
         if (GLUSTERD_STATUS_STARTED != volinfo->status)
-                goto out;
+                goto generate_volfiles;
 
         ret = generate_brick_volfiles (volinfo);
         if (ret)
@@ -1413,6 +1413,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                               _glusterd_restart_gsync_session, &param);
         }
         volinfo->caps = caps;
+
+generate_volfiles:
         if (conf->op_version <= GD_OP_VERSION_3_7_5) {
                ret = glusterd_create_volfiles_and_notify_services (volinfo);
         } else {
