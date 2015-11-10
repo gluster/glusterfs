@@ -90,7 +90,7 @@ class Volinfo(object):
             else:
                 via = ' '
             raise GsyncdError('getting volume info of %s%s '
-                              'failed with errorcode %s',
+                              'failed with errorcode %s' %
                               (vol, via, vi.find('opErrno').text))
         self.tree = vi
         self.volume = vol
@@ -117,8 +117,7 @@ class Volinfo(object):
         ids = self.get('id')
         if len(ids) != 1:
             raise GsyncdError("volume info of %s obtained from %s: "
-                              "ambiguous uuid",
-                              self.volume, self.host)
+                              "ambiguous uuid" % (self.volume, self.host))
         return ids[0].text
 
     @property
