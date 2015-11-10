@@ -164,8 +164,8 @@ Ubuntu:
 To setup the build environment on an Ubuntu system, type the following
 command to install the required packages:
 
-        sudo apt-get -y install python-pyxattr libreadline-dev systemtap-sdt-dev
-        tar python-pastedeploy python-simplejson python-sphinx python-webob libssl-dev
+        sudo apt-get -y install python-pyxattr libreadline-dev tar
+        python-pastedeploy python-simplejson python-sphinx python-webob libssl-dev
         pkg-config python-dev python-eventlet python-netifaces libaio-dev libibverbs-dev
         libtool libxml2-dev liblvm2-dev make autoconf automake bison dos2unix flex libfuse-dev
 

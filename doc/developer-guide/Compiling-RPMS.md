@@ -111,7 +111,7 @@ installed.
 		  libattr-devel libibverbs-devel librdmacm-devel libtool libxml2-devel lvm2-devel make \
 		  openssl-devel pkgconfig pyliblzma python-devel python-eventlet python-netifaces \
 		  python-paste-deploy python-simplejson python-sphinx python-webob pyxattr readline-devel \
-		  rpm-build systemtap-sdt-devel tar libcmocka-devel
+		  rpm-build tar libcmocka-devel
 
 ​2. Clone the GlusterFS git repository
 
