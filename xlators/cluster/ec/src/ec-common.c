@@ -154,11 +154,12 @@ void ec_lock_update_good(ec_lock_t *lock, ec_fop_data_t *fop)
         return;
     }
 
-    /* When updating the good mask of the lock, we only take into
-     * consideration those bits corresponding to the bricks where
-     * the fop has been executed. */
-    lock->good_mask &= ~fop->mask | fop->remaining;
-    lock->good_mask |= fop->good;
+    /* When updating the good mask of the lock, we only take into consideration
+     * those bits corresponding to the bricks where the fop has been executed.
+     * Bad bricks are removed from good_mask, but once marked as bad it's never
+     * set to good until the lock is released and reacquired */
+
+    lock->good_mask &= fop->good | fop->remaining;
 }
 
 void __ec_fop_set_error(ec_fop_data_t * fop, int32_t error)
@@ -981,6 +982,7 @@ unlock:
         /* We don't allow the main fop to be executed on bricks that have not
          * succeeded the initial xattrop. */
         parent->mask &= fop->good;
+        ec_lock_update_good (lock, fop);
 
         /*As of now only data healing marks bricks as healing*/
         lock->healing |= fop->healing;
