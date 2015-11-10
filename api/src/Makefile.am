@@ -12,10 +12,13 @@ libgfapi_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(GF_LDADD)
 
-libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
-	-I$(top_srcdir)/libglusterfs/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src \
-	-I$(top_srcdir)/rpc/xdr/src
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+        -I$(top_srcdir)/rpc/rpc-lib/src \
+        -I$(top_srcdir)/rpc/xdr/src \
+        -DDATADIR=\"$(localstatedir)\" \
+        -D__USE_FILE_OFFSET64
+
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) \
 	$(GFAPI_EXTRA_LDFLAGS) $(ACL_LIBS)
@@ -35,6 +38,3 @@ api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(top_builddir)/api/src/libgfapi.la
 
-AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
-
-AM_CFLAGS = -Wall $(GF_CFLAGS)
