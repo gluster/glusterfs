@@ -33,7 +33,7 @@ acl lvm2 rpm
 libaio-dev libibverbs-dev librdmacm-dev libtool libxml2-dev
 libxml2-utils liblvm2-dev make libssl-dev pkg-config libpython-dev
 python-eventlet python-netifaces python-simplejson python-pyxattr
-libreadline-dev systemtap-sdt-dev tar
+libreadline-dev tar
 
 ​4) Install cmockery2 from github (https://github.com/lpabon/cmockery2)
 and compile and make install as in Readme
@@ -70,7 +70,7 @@ Preparation steps for CentOS 7 (only)
 		 librdmacm-devel libtool libxml2-devel lvm2-devel make openssl-devel pkgconfig \
 		 python-devel python-eventlet python-netifaces python-paste-deploy \
 		 python-simplejson python-sphinx python-webob pyxattr readline-devel rpm-build \
-		 systemtap-sdt-devel tar
+		 tar
 
 ​3. Create the mock user
 
@@ -91,7 +91,7 @@ Preparation steps for CentOS 6.3+ (only)
 		  librdmacm-devel libtool libxml2-devel lvm2-devel make openssl-devel pkgconfig \
 		  python-devel python-eventlet python-netifaces python-paste-deploy \
 		  python-simplejson python-sphinx python-webob pyxattr readline-devel rpm-build \
-		  systemtap-sdt-devel tar
+		  tar
 
 ​3. Create the mock user
 
@@ -118,7 +118,7 @@ framework.
 		  librdmacm-devel libtool libxml2-devel lvm2-devel make openssl-devel pkgconfig \
 		  python-devel python-eventlet python-netifaces python-paste-deploy \
 		  python-simplejson python-sphinx python-webob pyxattr readline-devel rpm-build \
-		  systemtap-sdt-devel tar
+		  tar
 
 ​4. Create the mock user
 
@@ -137,7 +137,7 @@ Preparation steps for Fedora 16-19 (only)
 		  librdmacm-devel libtool libxml2-devel lvm2-devel make openssl-devel pkgconfig \
 		  python-devel python-eventlet python-netifaces python-paste-deploy \
 		  python-simplejson python-sphinx python-webob pyxattr readline-devel rpm-build \
-		  systemtap-sdt-devel tar
+		  tar
 
 ​3. Create the mock user
 

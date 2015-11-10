@@ -75,7 +75,6 @@ configure script should give the below configure summary,
 		georeplication       : yes
 		Linux-AIO            : yes
 		Enable Debug         : no
-		systemtap            : no
 		Block Device xlator  : yes
 		glupy                : yes
 		Use syslog           : yes
