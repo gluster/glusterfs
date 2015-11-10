@@ -547,7 +547,8 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
         case GFDB_FOP_UNWIND:
                 ret = gf_sql_insert_unwind (sql_conn, gfdb_db_record);
                 if (ret) {
-                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        gf_msg (GFDB_STR_SQLITE3, _gfdb_log_level (GF_LOG_ERROR,
+                                gfdb_db_record->ignore_errors), 0,
                                 LG_MSG_INSERT_FAILED, "Failed unwind insert");
                         goto out;
                 }
@@ -556,7 +557,8 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
         case GFDB_FOP_WDEL:
                 ret = gf_sql_update_delete_wind (sql_conn, gfdb_db_record);
                 if (ret) {
-                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        gf_msg (GFDB_STR_SQLITE3, _gfdb_log_level (GF_LOG_ERROR,
+                                gfdb_db_record->ignore_errors), 0,
                                 LG_MSG_UPDATE_FAILED, "Failed updating delete "
                                 "during wind");
                         goto out;
@@ -566,7 +568,8 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
         case GFDB_FOP_UNDEL_ALL:
                 ret = gf_sql_delete_unwind (sql_conn, gfdb_db_record);
                 if (ret) {
-                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        gf_msg (GFDB_STR_SQLITE3, _gfdb_log_level (GF_LOG_ERROR,
+                                gfdb_db_record->ignore_errors), 0,
                                 LG_MSG_DELETE_FAILED, "Failed deleting");
                         goto out;
                 }
