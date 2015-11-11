@@ -56,10 +56,10 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
 TEST mkdir $M0/dir1
 
-# Create a large file (200MB), so that rebalance takes time
+# Create a large file (800MB), so that rebalance takes time
 # The file will be created on the hot tier
 
-dd if=/dev/zero of=$M0/dir1/FILE1 bs=64k count=5120
+dd if=/dev/zero of=$M0/dir1/FILE1 bs=256k count=5120
 
 # Get the path of the file on the hot tier
 HPATH=`find $B0/hot/ -name  FILE1`
