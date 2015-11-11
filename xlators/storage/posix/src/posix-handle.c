@@ -198,6 +198,16 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 goto out;
         }
 
+        if (!*parent) {
+                /* There's no real "root" cause for how we end up here,
+                 * so for now let's log this and bail out to prevent
+                 * crashes.
+                 */
+                gf_msg (this->name, GF_LOG_WARNING, P_MSG_INODE_RESOLVE_FAILED,
+                        0, "OOPS: *parent is null (path: %s), bailing!", path);
+                goto out;
+        }
+
         memset (&iabuf, 0, sizeof (iabuf));
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
