@@ -616,6 +616,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && gf_uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
+        memcpy (local->loc.gfid, local->gfid, 16);
 
         /* Check if the gfid is different for file from other node */
         if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
