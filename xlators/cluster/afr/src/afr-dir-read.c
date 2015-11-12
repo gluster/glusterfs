@@ -169,8 +169,15 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
         gf_dirent_t   *entry = NULL;
         gf_dirent_t   *tmp   = NULL;
         xlator_t      *this  = NULL;
+        afr_private_t *priv  = NULL;
+        gf_boolean_t  need_heal = _gf_false;
+        gf_boolean_t  validate_subvol = _gf_false;
 
         this = THIS;
+        priv = this->private;
+
+        need_heal = afr_get_need_heal (this);
+        validate_subvol = need_heal | priv->consistent_metadata;
 
         list_for_each_entry_safe (entry, tmp, &subvol_entries->list, list) {
                 if (__is_root_gfid (fd->inode->gfid) &&
@@ -180,6 +187,9 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
 
 		list_del_init (&entry->list);
 		list_add_tail (&entry->list, &entries->list);
+
+                if (!validate_subvol)
+                        continue;
 
 		if (entry->inode) {
                         ret = afr_validate_read_subvol (entry->inode, this,

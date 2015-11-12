@@ -181,9 +181,8 @@ out:
 	return inode;
 }
 
-
 inode_t*
-afr_shd_index_inode (xlator_t *this, xlator_t *subvol)
+afr_shd_index_inode (xlator_t *this, xlator_t *subvol, char *vgfid)
 {
 	loc_t rootloc = {0, };
 	inode_t *inode = NULL;
@@ -195,18 +194,18 @@ afr_shd_index_inode (xlator_t *this, xlator_t *subvol)
 	gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
-			       GF_XATTROP_INDEX_GFID, NULL, NULL);
+			       vgfid, NULL, NULL);
 	if (ret || !xattr) {
 		errno = -ret;
 		goto out;
 	}
 
-	ret = dict_get_ptr (xattr, GF_XATTROP_INDEX_GFID, &index_gfid);
+	ret = dict_get_ptr (xattr, vgfid, &index_gfid);
 	if (ret)
 		goto out;
 
-        gf_msg_debug (this->name, 0, "index-dir gfid for %s: %s",
-	              subvol->name, uuid_utoa (index_gfid));
+        gf_msg_debug (this->name, 0, "%s dir gfid for %s: %s",
+	              vgfid, subvol->name, uuid_utoa (index_gfid));
 
 	inode = afr_shd_inode_find (this, subvol, index_gfid);
 
@@ -424,7 +423,7 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 }
 
 int
-afr_shd_index_sweep (struct subvol_healer *healer)
+afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
 {
 	loc_t         loc     = {0};
 	afr_private_t *priv   = NULL;
@@ -434,7 +433,7 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 	priv = healer->this->private;
 	subvol = priv->children[healer->subvol];
 
-	loc.inode = afr_shd_index_inode (healer->this, subvol);
+	loc.inode = afr_shd_index_inode (healer->this, subvol, vgfid);
 	if (!loc.inode) {
 	        gf_msg (healer->this->name, GF_LOG_WARNING,
                         0, AFR_MSG_INDEX_DIR_GET_FAILED,
@@ -452,6 +451,29 @@ afr_shd_index_sweep (struct subvol_healer *healer)
                 ret = healer->crawl_event.healed_count;
 
 	return ret;
+}
+
+int
+afr_shd_index_sweep_all (struct subvol_healer *healer)
+{
+        int            ret    = 0;
+        int            count  = 0;
+
+        ret = afr_shd_index_sweep (healer, GF_XATTROP_INDEX_GFID);
+        if (ret < 0)
+                goto out;
+        count = ret;
+
+        ret = afr_shd_index_sweep (healer, GF_XATTROP_DIRTY_GFID);
+        if (ret < 0)
+                goto out;
+        count += ret;
+
+out:
+        if (ret < 0)
+                return ret;
+        else
+                return count;
 }
 
 int
@@ -510,7 +532,7 @@ afr_shd_index_healer (void *data)
 
 			afr_shd_sweep_prepare (healer);
 
-			ret = afr_shd_index_sweep (healer);
+                        ret = afr_shd_index_sweep_all (healer);
 
 			afr_shd_sweep_done (healer);
 			/*
@@ -842,73 +864,6 @@ out:
 }
 
 int
-afr_shd_gather_entry (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
-                      void *data)
-{
-        dict_t        *output = data;
-        xlator_t      *this   = NULL;
-        afr_private_t *priv   = NULL;
-        char          *path   = NULL;
-        int           ret     = 0;
-        int           child   = 0;
-        uuid_t        gfid    = {0};
-
-        this = THIS;
-        priv = this->private;
-
-        gf_msg_debug (this->name, 0, "got entry: %s",
-                      entry->d_name);
-
-        ret = gf_uuid_parse (entry->d_name, gfid);
-        if (ret)
-                return 0;
-
-        for (child = 0; child < priv->child_count; child++)
-                if (priv->children[child] == subvol)
-                        break;
-
-        if (child == priv->child_count)
-                return 0;
-
-        ret = syncop_gfid_to_path (this->itable, subvol, gfid, &path);
-
-        if (ret == -ENOENT || ret == -ESTALE) {
-                afr_shd_index_purge (subvol, parent->inode, entry->d_name);
-        } else if (ret == 0) {
-                ret = afr_shd_dict_add_path (this, output, child, path, NULL);
-        }
-
-        return 0;
-}
-
-int
-afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
-{
-        loc_t          loc    = {0};
-        afr_private_t *priv   = NULL;
-        xlator_t      *subvol = NULL;
-        int           ret     = 0;
-
-        priv = this->private;
-        subvol = priv->children[child];
-
-        loc.inode = afr_shd_index_inode (this, subvol);
-        if (!loc.inode) {
-                gf_msg (this->name, GF_LOG_WARNING,
-                        0, AFR_MSG_INDEX_DIR_GET_FAILED,
-                        "unable to get index-dir on %s", subvol->name);
-                return -errno;
-        }
-
-        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
-                               output, afr_shd_gather_entry);
-        inode_forget (loc.inode, 1);
-        loc_wipe (&loc);
-        return ret;
-}
-
-
-int
 afr_add_shd_event (circular_buffer_t *cb, void *data)
 {
 	dict_t *output = NULL;
@@ -1148,9 +1103,7 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 		}
                 break;
         case GF_SHD_OP_INDEX_SUMMARY:
-		for (i = 0; i < priv->child_count; i++)
-			if (shd->index_healers[i].local)
-				afr_shd_gather_index_entries (this, i, output);
+                /* this case has been handled in glfs-heal.c */
                 break;
         case GF_SHD_OP_HEALED_FILES:
         case GF_SHD_OP_HEAL_FAILED_FILES:
