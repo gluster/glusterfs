@@ -851,6 +851,8 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *local = NULL;
 	int call_child = (long) cookie;
 	int call_count = 0;
+	GF_UNUSED int ret = 0;
+	int8_t need_heal = 1;
 
 	local = frame->local;
 
@@ -863,10 +865,19 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->replies[call_child].xdata = dict_ref (xdata);
 	}
 
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[call_child].need_heal = need_heal;
+        } else {
+                local->replies[call_child].need_heal = need_heal;
+        }
+
 	call_count = afr_frame_return (frame);
 
-	if (call_count == 0)
+	if (call_count == 0) {
+                afr_set_need_heal (this, local);
 		afr_inode_refresh_done (frame, this);
+        }
 
 	return 0;
 }
@@ -898,6 +909,7 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int call_count = 0;
 	int i = 0;
+        int ret = 0;
 	dict_t *xdata = NULL;
 
 	priv = this->private;
@@ -916,6 +928,12 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 		afr_inode_refresh_done (frame, this);
 		return 0;
 	}
+
+        ret = dict_set_str (xdata, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
+        }
 
 	local->call_count = AFR_COUNT (local->child_up, priv->child_count);
 
@@ -1033,6 +1051,12 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
                         -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_PARENT_ENTRYLK);
+        }
+
+        ret = dict_set_str (xattr_req, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
         }
 
         ret = 0;
@@ -1231,6 +1255,7 @@ afr_replies_wipe (struct afr_reply *replies, int count)
                         replies[i].xattr = NULL;
                 }
         }
+	memset (&replies->need_heal, 0, sizeof (replies->need_heal));
 }
 
 void
@@ -1683,6 +1708,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	afr_handle_quota_size (frame, this);
 
 unwind:
+        afr_set_need_heal (this, local);
         if (read_subvol == -1) {
                 if (spb_choice >= 0)
                         read_subvol = spb_choice;
@@ -1818,6 +1844,8 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         afr_private_t *priv       = NULL;
         struct afr_reply *replies = NULL;
         int i= 0, first = -1;
+        int ret = -1;
+        dict_t *dict = NULL;
 
         local = frame->local;
         this  = frame->this;
@@ -1842,13 +1870,26 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         inode_unref (inode);
 
         afr_local_replies_wipe (local, this->private);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+        ret = dict_set_str (dict, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
+        }
+
         inode = afr_selfheal_unlocked_lookup_on (frame, local->loc.parent,
                                                  local->loc.name, local->replies,
-                                                 local->child_up, NULL);
+                                                 local->child_up, dict);
         if (inode)
                 inode_unref (inode);
 out:
         afr_lookup_done (frame, this);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
@@ -2027,6 +2068,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *   local = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
+        GF_UNUSED int   ret             = 0;
+	int8_t need_heal                = 1;
 
 	child_index = (long) cookie;
 
@@ -2043,6 +2086,12 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata && dict_get (xdata, "gfid-changed"))
                 local->cont.lookup.needs_fresh_lookup = _gf_true;
 
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[child_index].need_heal = need_heal;
+        } else {
+                local->replies[child_index].need_heal = need_heal;
+        }
 	if (op_ret != -1) {
 		local->replies[child_index].poststat = *buf;
 		local->replies[child_index].postparent = *postparent;
@@ -2052,6 +2101,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
+                afr_set_need_heal (this, local);
 		afr_lookup_entry_heal (frame, this);
         }
 
@@ -2129,6 +2179,8 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *   local = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
+        GF_UNUSED int ret               = 0;
+	int8_t need_heal                = 1;
 
 	child_index = (long) cookie;
 
@@ -2147,8 +2199,16 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->do_discovery && (op_ret == 0))
                 afr_attempt_local_discovery (this, child_index);
 
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[child_index].need_heal = need_heal;
+        } else {
+                local->replies[child_index].need_heal = need_heal;
+        }
+
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
+               afr_set_need_heal (this, local);
                afr_discover_done (frame, this);
         }
 
@@ -4871,4 +4931,45 @@ afr_get_child_index_from_name (xlator_t *this, char *name)
         index = -1;
 out:
         return index;
+}
+
+void
+afr_priv_need_heal_set (afr_private_t *priv, gf_boolean_t need_heal)
+{
+        LOCK (&priv->lock);
+        {
+                priv->need_heal = need_heal;
+        }
+        UNLOCK (&priv->lock);
+}
+
+void
+afr_set_need_heal (xlator_t *this, afr_local_t *local)
+{
+        int             i         = 0;
+        afr_private_t  *priv      = this->private;
+        gf_boolean_t    need_heal = _gf_false;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->replies[i].valid && local->replies[i].need_heal) {
+                        need_heal = _gf_true;
+                        break;
+                }
+        }
+        afr_priv_need_heal_set (priv, need_heal);
+        return;
+}
+
+gf_boolean_t
+afr_get_need_heal (xlator_t *this)
+{
+        afr_private_t  *priv      = this->private;
+        gf_boolean_t    need_heal = _gf_true;
+
+        LOCK (&priv->lock);
+        {
+                need_heal = priv->need_heal;
+        }
+        UNLOCK (&priv->lock);
+        return need_heal;
 }
