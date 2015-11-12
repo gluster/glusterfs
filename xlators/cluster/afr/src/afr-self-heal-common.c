@@ -678,6 +678,8 @@ afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *local = NULL;
 	int i = -1;
+        GF_UNUSED int ret = -1;
+	int8_t need_heal = 1;
 
 	local = frame->local;
 	i = (long) cookie;
@@ -689,8 +691,13 @@ afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->replies[i].poststat = *buf;
 	if (parbuf)
 		local->replies[i].postparent = *parbuf;
-	if (xdata)
+	if (xdata) {
 		local->replies[i].xdata = dict_ref (xdata);
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[i].need_heal = need_heal;
+        } else {
+                local->replies[i].need_heal = need_heal;
+        }
 
 	syncbarrier_wake (&local->barrier);
 

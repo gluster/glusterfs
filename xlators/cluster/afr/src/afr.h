@@ -127,6 +127,7 @@ typedef struct _afr_private {
 	gf_boolean_t           use_afr_in_pump;
         gf_boolean_t           consistent_metadata;
         uint64_t               spb_choice_timeout;
+        gf_boolean_t           need_heal;
 } afr_private_t;
 
 
@@ -268,6 +269,8 @@ struct afr_reply {
         /* For rchecksum */
 	uint8_t checksum[MD5_DIGEST_LENGTH];
         gf_boolean_t buf_has_zeroes;
+        /* For lookup */
+        int8_t need_heal;
 };
 
 typedef enum {
@@ -1083,4 +1086,10 @@ afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode);
 
 int
 afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque);
+
+gf_boolean_t
+afr_get_need_heal (xlator_t *this);
+
+void
+afr_set_need_heal (xlator_t *this, afr_local_t *local);
 #endif /* __AFR_H__ */
