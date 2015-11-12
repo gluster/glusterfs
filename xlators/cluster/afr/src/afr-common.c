@@ -3874,7 +3874,7 @@ afr_notify (xlator_t *this, int32_t event,
                                         "All subvolumes are down. Going offline "
                                         "until atleast one of them comes back up.");
                         } else {
-                                event = GF_EVENT_CHILD_MODIFIED;
+                                event = GF_EVENT_SOME_CHILD_DOWN;
                         }
 
                         priv->last_event[idx] = event;
