@@ -26,10 +26,16 @@ typedef enum {
         NOTIN
 } index_state_t;
 
+typedef enum {
+        PENDING,
+        DIRTY,
+        XATTROP_TYPE_END
+} index_xattrop_type_t;
+
 typedef struct index_inode_ctx {
         gf_boolean_t processing;
         struct list_head callstubs;
-        index_state_t state;
+        int state[XATTROP_TYPE_END];
 } index_inode_ctx_t;
 
 typedef struct index_fd_ctx {
@@ -39,13 +45,18 @@ typedef struct index_fd_ctx {
 
 typedef struct index_priv {
         char *index_basepath;
+        char *dirty_basepath;
         uuid_t index;
         gf_lock_t lock;
         uuid_t xattrop_vgfid;//virtual gfid of the xattrop index dir
+        uuid_t dirty_vgfid; // virtual gfid of the on-going/dirty index dir
         struct list_head callstubs;
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
-        dict_t  *xattrop64_watchlist;
+        dict_t  *dirty_watchlist;
+        dict_t  *pending_watchlist;
+        dict_t  *complete_watchlist;
+        int64_t  pending_count;
 } index_priv_t;
 
 #define INDEX_STACK_UNWIND(fop, frame, params ...)      \
