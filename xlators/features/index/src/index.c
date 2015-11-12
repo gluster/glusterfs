@@ -13,6 +13,7 @@
 #include "syscall.h"
 
 #define XATTROP_SUBDIR "xattrop"
+#define DIRTY_SUBDIR "dirty"
 
 call_stub_t *
 __index_dequeue (struct list_head *callstubs)
@@ -77,6 +78,7 @@ index_worker (void *data)
 
         return NULL;
 }
+
 int
 __index_inode_ctx_get (inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
 {
@@ -234,17 +236,17 @@ make_file_path (char *base, const char *subdir, const char *filename,
 }
 
 static int
-is_index_file_current (char *filename, uuid_t priv_index)
+is_index_file_current (char *filename, uuid_t priv_index, char *subdir)
 {
         char current_index[GF_UUID_BUF_SIZE + 16] = {0, };
 
         snprintf (current_index, sizeof current_index,
-                  "xattrop-%s", uuid_utoa(priv_index));
+                  "%s-%s", subdir, uuid_utoa(priv_index));
         return (!strcmp(filename, current_index));
 }
 
 static void
-check_delete_stale_index_file (xlator_t *this, char *filename)
+check_delete_stale_index_file (xlator_t *this, char *filename, char *subdir)
 {
         int             ret = 0;
         struct stat     st = {0};
@@ -253,14 +255,103 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
 
         priv = this->private;
 
-        if (is_index_file_current (filename, priv->index))
+        if (is_index_file_current (filename, priv->index, subdir))
                 return;
 
-        make_file_path (priv->index_basepath, XATTROP_SUBDIR,
+        make_file_path (priv->index_basepath, subdir,
                         filename, filepath, sizeof (filepath));
         ret = sys_stat (filepath, &st);
         if (!ret && st.st_nlink == 1)
                 sys_unlink (filepath);
+}
+
+static void
+index_set_link_count (index_priv_t *priv, int64_t count,
+                      index_xattrop_type_t type)
+{
+        switch (type) {
+        case PENDING:
+                LOCK (&priv->lock);
+                {
+                        priv->pending_count = count;
+                }
+                UNLOCK (&priv->lock);
+                break;
+        default:
+                break;
+        }
+}
+
+static void
+index_get_link_count (index_priv_t *priv, int64_t *count,
+                      index_xattrop_type_t type)
+{
+        switch (type) {
+        case PENDING:
+                LOCK (&priv->lock);
+                {
+                        *count = priv->pending_count;
+                }
+                UNLOCK (&priv->lock);
+                break;
+        default:
+                break;
+        }
+}
+
+static void
+index_dec_link_count (index_priv_t *priv, index_xattrop_type_t type)
+{
+        switch (type) {
+        case PENDING:
+                LOCK (&priv->lock);
+                {
+                        priv->pending_count--;
+                        if (priv->pending_count == 0)
+                                priv->pending_count--;
+                }
+                UNLOCK (&priv->lock);
+                break;
+        default:
+                break;
+        }
+}
+
+int
+index_get_type_from_vgfid (index_priv_t *priv, uuid_t vgfid)
+{
+        if (!gf_uuid_compare (priv->xattrop_vgfid, vgfid))
+                return PENDING;
+        if (!gf_uuid_compare (priv->dirty_vgfid, vgfid)) {
+                return DIRTY;
+        }
+        return -1;
+}
+
+char*
+index_get_subdir_from_vgfid (index_priv_t *priv, uuid_t vgfid)
+{
+
+        if (!gf_uuid_compare (priv->xattrop_vgfid, vgfid))
+                return XATTROP_SUBDIR;
+        if (!gf_uuid_compare (priv->dirty_vgfid, vgfid)) {
+                return DIRTY_SUBDIR;
+        }
+        return NULL;
+}
+
+char*
+index_get_subdir_from_type (index_xattrop_type_t type)
+{
+
+        switch (type) {
+        case PENDING:
+                return XATTROP_SUBDIR;
+        case DIRTY:
+                return DIRTY_SUBDIR;
+        default:
+                return NULL;
+        }
 }
 
 static int
@@ -321,7 +412,13 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
 
                 if (!strncmp (entry->d_name, XATTROP_SUBDIR"-",
                               strlen (XATTROP_SUBDIR"-"))) {
-                        check_delete_stale_index_file (this, entry->d_name);
+                        check_delete_stale_index_file (this, entry->d_name,
+                                                       XATTROP_SUBDIR);
+                        continue;
+                } else if (!strncmp (entry->d_name, DIRTY_SUBDIR"-",
+                           strlen (DIRTY_SUBDIR"-"))) {
+                        check_delete_stale_index_file (this, entry->d_name,
+                                                       DIRTY_SUBDIR);
                         continue;
                 }
 
@@ -382,7 +479,8 @@ out:
 }
 
 int
-index_add (xlator_t *this, uuid_t gfid, const char *subdir)
+index_add (xlator_t *this, uuid_t gfid, const char *subdir,
+           index_xattrop_type_t type)
 {
         int32_t           op_errno = 0;
         char              gfid_path[PATH_MAX] = {0};
@@ -451,7 +549,7 @@ out:
 }
 
 int
-index_del (xlator_t *this, uuid_t gfid, const char *subdir)
+index_del (xlator_t *this, uuid_t gfid, const char *subdir, int type)
 {
         int32_t      op_errno __attribute__((unused)) = 0;
         index_priv_t *priv = NULL;
@@ -471,58 +569,135 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir)
                 ret = -errno;
                 goto out;
         }
+        index_dec_link_count (priv, type);
         ret = 0;
 out:
         return ret;
+}
+
+static gf_boolean_t
+_is_xattr_in_watchlist (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        const char *data = tmp;
+
+        if (!strncmp (k, tmp, strlen (k)))
+                return _gf_true;
+
+        return _gf_false;
+}
+
+static gf_boolean_t
+is_xattr_in_watchlist (dict_t *this, char *key, data_t *value, void *matchdata)
+{
+        int    ret = -1;
+
+        //matchdata is a list of xattrs
+        //key is strncmp'ed with each xattr in matchdata.
+        //ret will be 0 if key pattern is not present in the matchdata
+        //else ret will be count number of xattrs the key pattern-matches with.
+        ret = dict_foreach_match (matchdata, _is_xattr_in_watchlist, key,
+                                  dict_null_foreach_fn, NULL);
+
+        if (ret > 0)
+                return _gf_true;
+        return _gf_false;
+}
+
+static int
+index_find_xattr_type (dict_t *d, char *k, data_t *v)
+{
+        int             idx  = -1;
+        index_priv_t   *priv = THIS->private;
+
+        if (is_xattr_in_watchlist (d, k, v,
+                                   priv->dirty_watchlist))
+                idx = DIRTY;
+        else if (is_xattr_in_watchlist (d, k, v,
+                                   priv->pending_watchlist))
+                idx = PENDING;
+
+        return idx;
+}
+
+int
+index_fill_zero_array (dict_t *d, char *k, data_t *v, void *adata)
+{
+        int     idx = -1;
+        int     *zfilled = adata;
+        //zfilled array contains `state` for all types xattrs.
+        //state : whether the gfid file of this file exists in
+        //corresponding xattr directory or not.
+
+        idx = index_find_xattr_type (d, k, v);
+        if (idx == -1)
+                return 0;
+        zfilled[idx] = 0;
+        return 0;
 }
 
 static int
 _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
                            void *tmp)
 {
+        int            *zfilled = tmp;
+        int             idx = -1;
+
+        idx = index_find_xattr_type (d, k, v);
+        if (idx == -1)
+                return 0;
+
+        /* Along with checking that the value of a key is zero filled
+         * the key's corresponding index should be assigned
+         * appropriate value.
+         * zfilled[idx] will be 0(false) if value not zero.
+         *              will be 1(true) if value is zero.
+         */
         if (mem_0filled ((const char*)v->data, v->len)) {
-                /* -1 means, no more iterations, treat as 'break' */
-                return -1;
+                zfilled[idx] = 0;
+                return 0;
         }
+
+        /* If zfilled[idx] was previously 0, it means at least
+         * one xattr of its "kind" is non-zero. Keep its value
+         * the same.
+         */
+        if (zfilled[idx])
+                zfilled[idx] = 1;
         return 0;
 }
 
 void
-_index_action (xlator_t *this, inode_t *inode, gf_boolean_t zero_xattr)
+_index_action (xlator_t *this, inode_t *inode, int *zfilled)
 {
         int               ret  = 0;
+        int               i    = 0;
         index_inode_ctx_t *ctx = NULL;
+        char           *subdir = NULL;
 
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Not able to %s %s -> index",
-                        zero_xattr?"del":"add", uuid_utoa (inode->gfid));
+                gf_log (this->name, GF_LOG_ERROR, "Not able to get"
+                        " inode context for %s.", uuid_utoa (inode->gfid));
                 goto out;
         }
-        if (zero_xattr) {
-                if (ctx->state == NOTIN)
-                        goto out;
-                ret = index_del (this, inode->gfid, XATTROP_SUBDIR);
-                if (!ret)
-                        ctx->state = NOTIN;
-        } else {
-                if (ctx->state == IN)
-                        goto out;
-                ret = index_add (this, inode->gfid, XATTROP_SUBDIR);
-                if (!ret)
-                        ctx->state = IN;
+        for (i = 0; i < XATTROP_TYPE_END; i++) {
+                subdir = index_get_subdir_from_type (i);
+                if (zfilled[i] == 1) {
+                        if (ctx->state[i] == NOTIN)
+                                continue;
+                        ret = index_del (this, inode->gfid, subdir, i);
+                        if (!ret)
+                                ctx->state[i] = NOTIN;
+                } else if (zfilled[i] == 0){
+                        if (ctx->state[i] == IN)
+                                continue;
+                        ret = index_add (this, inode->gfid, subdir, i);
+                        if (!ret)
+                                ctx->state[i] = IN;
+                }
         }
 out:
         return;
-}
-
-static gf_boolean_t
-is_xattr_in_watchlist (dict_t *this, char *key, data_t *value, void *matchdata)
-{
-        if (dict_get (matchdata, key))
-                return _gf_true;
-
-        return _gf_false;
 }
 
 void
@@ -530,13 +705,13 @@ xattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr,
                       dict_match_t match, void *match_data)
 {
         gf_boolean_t      zero_xattr = _gf_true;
-        int               ret = 0;
+        int               ret = 0, i = 0;
+        int               zfilled[XATTROP_TYPE_END] = {0,};
 
+        memset (zfilled, -1, sizeof (zfilled));
         ret = dict_foreach_match (xattr, match, match_data,
-                                  _check_key_is_zero_filled, NULL);
-        if (ret == -1)
-                zero_xattr = _gf_false;
-        _index_action (this, inode, zero_xattr);
+                                  _check_key_is_zero_filled, zfilled);
+        _index_action (this, inode, zfilled);
         return;
 }
 
@@ -551,11 +726,11 @@ index_xattrop_track (xlator_t *this, gf_xattrop_flags_t flags, dict_t *dict)
         if (flags != GF_XATTROP_ADD_ARRAY64)
                 return _gf_false;
 
-        if (!priv->xattrop64_watchlist)
+        if (!priv->pending_watchlist)
                 return _gf_false;
 
         if (dict_foreach_match (dict, is_xattr_in_watchlist,
-                                priv->xattrop64_watchlist, dict_null_foreach_fn,
+                                priv->pending_watchlist, dict_null_foreach_fn,
                                 NULL) > 0)
                 return _gf_true;
 
@@ -569,10 +744,12 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
         index_fd_ctx_t    *fctx = NULL;
         uint64_t          tmpctx = 0;
         char              index_dir[PATH_MAX] = {0};
+        char              *subdir = NULL;
         index_priv_t      *priv = NULL;
 
         priv = this->private;
-        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid)) {
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid) &&
+           (gf_uuid_compare (fd->inode->gfid, priv->dirty_vgfid))) {
                 ret = -EINVAL;
                 goto out;
         }
@@ -589,7 +766,8 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
                 goto out;
         }
 
-        make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
+        subdir = index_get_subdir_from_vgfid (priv, fd->inode->gfid);
+        make_index_dir_path (priv->index_basepath, subdir,
                              index_dir, sizeof (index_dir));
         fctx->dir = sys_opendir (index_dir);
         if (!fctx->dir) {
@@ -701,8 +879,12 @@ index_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *xattr,
                    dict_t *xdata)
 {
-        return xattrop_cbk (frame, cookie, this, op_ret, op_errno, xattr, xdata,
-                            dict_match_everything, NULL);
+        index_priv_t *priv = this->private;
+
+        xattrop_cbk (frame, cookie, this, op_ret, op_errno,
+                     xattr, xdata, is_xattr_in_watchlist,
+                     priv->complete_watchlist);
+        return 0;
 }
 
 int32_t
@@ -713,27 +895,60 @@ index_xattrop64_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         index_priv_t *priv = this->private;
 
         return xattrop_cbk (frame, cookie, this, op_ret, op_errno, xattr, xdata,
-                            is_xattr_in_watchlist, priv->xattrop64_watchlist);
+                            is_xattr_in_watchlist, priv->pending_watchlist);
 }
 
-int
-index_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
+void
+index_xattrop_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                  fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr,
+                  dict_t *xdata)
 {
         fop_xattrop_cbk_t cbk = NULL;
+        int     zfilled[XATTROP_TYPE_END] = {0,};
+        int     ret = -1, i = 0;
+        index_priv_t *priv = this->private;
+
         //In wind phase bring the gfid into index. This way if the brick crashes
         //just after posix performs xattrop before _cbk reaches index xlator
         //we will still have the gfid in index.
-        _index_action (this, frame->local, _gf_false);
+        memset (zfilled, -1, sizeof (zfilled));
+
+        /* Foreach xattr, set corresponding index of zfilled to 1
+         * zfilled[index] = 1 implies the xattr's value is zero filled
+         * and should be added in its corresponding subdir.
+         *
+         * zfilled should be set to 1 only for those index that
+         * exist in xattr variable. This is to distinguish
+         * between different types of volumes.
+         * For e.g., if the check is not made,
+         * zfilled[DIRTY] is set to 1 for EC volumes,
+         * index file will be tried to create in indices/dirty dir
+         * which doesn't exist for an EC volume.
+         */
+        ret = dict_foreach (xattr, index_fill_zero_array, zfilled);
+
+        _index_action (this, frame->local, zfilled);
 
         if (optype == GF_XATTROP_ADD_ARRAY)
                 cbk = index_xattrop_cbk;
         else
                 cbk = index_xattrop64_cbk;
 
-        STACK_WIND (frame, cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr,
-                    xdata);
+        if (loc)
+                STACK_WIND (frame, cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->xattrop,
+                            loc, optype, xattr, xdata);
+        else
+                STACK_WIND (frame, cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fxattrop, fd,
+                            optype, xattr, xdata);
+}
+
+int
+index_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                       gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
+{
+        index_xattrop_do (frame, this, loc, NULL, optype, xattr, xdata);
         return 0;
 }
 
@@ -741,20 +956,7 @@ int
 index_fxattrop_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-        fop_fxattrop_cbk_t cbk = NULL;
-        //In wind phase bring the gfid into index. This way if the brick crashes
-        //just after posix performs xattrop before _cbk reaches index xlator
-        //we will still have the gfid in index.
-        _index_action (this, frame->local, _gf_false);
-
-        if (optype == GF_XATTROP_ADD_ARRAY)
-                cbk = index_xattrop_cbk;
-        else
-                cbk = index_xattrop64_cbk;
-
-        STACK_WIND (frame, cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fxattrop, fd, optype, xattr,
-                    xdata);
+        index_xattrop_do (frame, this, NULL, fd, optype, xattr, xdata);
         return 0;
 }
 
@@ -869,13 +1071,32 @@ index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
 				"gfid set failed");
 			goto done;
 		}
-	} else if (strcmp (name, GF_XATTROP_INDEX_COUNT) == 0) {
+	} else if (strcmp (name, GF_XATTROP_DIRTY_GFID) == 0) {
+		ret = dict_set_static_bin (xattr, (char*)name, priv->dirty_vgfid,
+					   sizeof (priv->dirty_vgfid));
+		if (ret) {
+			ret = -ENOMEM;
+			gf_log (this->name, GF_LOG_ERROR, "dirty index "
+				"gfid set failed");
+			goto done;
+		}
+        } else if (strcmp (name, GF_XATTROP_INDEX_COUNT) == 0) {
 		count = index_entry_count (this, XATTROP_SUBDIR);
 
 		ret = dict_set_uint64 (xattr, (char *)name, count);
 		if (ret) {
 			ret = -ENOMEM;
 			gf_log (this->name, GF_LOG_ERROR, "xattrop index "
+				"count set failed");
+			goto done;
+		}
+        } else if (strcmp (name, GF_XATTROP_DIRTY_COUNT) == 0) {
+		count = index_entry_count (this, DIRTY_SUBDIR);
+
+		ret = dict_set_uint64 (xattr, (char *)name, count);
+		if (ret) {
+			ret = -ENOMEM;
+			gf_log (this->name, GF_LOG_ERROR, "dirty index "
 				"count set failed");
 			goto done;
 		}
@@ -906,19 +1127,21 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         struct iatt     postparent = {0,};
         dict_t          *xattr = NULL;
         gf_boolean_t    is_dir = _gf_false;
+        char            *subdir = NULL;
 
         priv = this->private;
 
         VALIDATE_OR_GOTO (loc, done);
-        if (!gf_uuid_compare (loc->gfid, priv->xattrop_vgfid)) {
-                make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
+        subdir = index_get_subdir_from_vgfid (priv, loc->gfid);
+        if (subdir) {
+                make_index_dir_path (priv->index_basepath, subdir,
                                      path, sizeof (path));
                 is_dir = _gf_true;
-        } else if (!gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid)) {
-                make_file_path (priv->index_basepath, XATTROP_SUBDIR,
+        } else {
+                subdir = index_get_subdir_from_vgfid (priv, loc->pargfid);
+                make_file_path (priv->index_basepath, subdir,
                                 loc->name, path, sizeof (path));
         }
-
         ret = sys_lstat (path, &lstatbuf);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "Stat failed on index dir "
@@ -939,7 +1162,7 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
 
         iatt_from_stat (&stbuf, &lstatbuf);
         if (is_dir)
-                gf_uuid_copy (stbuf.ia_gfid, priv->xattrop_vgfid);
+                gf_uuid_copy (stbuf.ia_gfid, loc->gfid);
         else
                 gf_uuid_generate (stbuf.ia_gfid);
         stbuf.ia_ino = -1;
@@ -1002,14 +1225,18 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         int32_t         op_ret = 0;
         int32_t         op_errno = 0;
         int             ret = 0;
+        int             type = -1;
         struct  iatt    preparent = {0};
         struct  iatt    postparent = {0};
         char            index_dir[PATH_MAX] = {0};
         struct  stat    lstatbuf = {0};
         uuid_t          gfid = {0};
+        char            *subdir = NULL;
 
         priv = this->private;
-        make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
+        type = index_get_type_from_vgfid (priv, loc->pargfid);
+        subdir = index_get_subdir_from_type (type);
+        make_index_dir_path (priv->index_basepath, subdir,
                              index_dir, sizeof (index_dir));
         ret = sys_lstat (index_dir, &lstatbuf);
         if (ret < 0) {
@@ -1019,10 +1246,10 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         }
 
         iatt_from_stat (&preparent, &lstatbuf);
-        gf_uuid_copy (preparent.ia_gfid, priv->xattrop_vgfid);
+        gf_uuid_copy (preparent.ia_gfid, loc->pargfid);
         preparent.ia_ino = -1;
         gf_uuid_parse (loc->name, gfid);
-        ret = index_del (this, gfid, XATTROP_SUBDIR);
+        ret = index_del (this, gfid, subdir, type);
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = -ret;
@@ -1036,7 +1263,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 goto done;
         }
         iatt_from_stat (&postparent, &lstatbuf);
-        gf_uuid_copy (postparent.ia_gfid, priv->xattrop_vgfid);
+        gf_uuid_copy (postparent.ia_gfid, loc->pargfid);
         postparent.ia_ino = -1;
 done:
         INDEX_STACK_UNWIND (unlink, frame, op_ret, op_errno, &preparent,
@@ -1054,7 +1281,9 @@ index_getxattr (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         if (!name || (strcmp (GF_XATTROP_INDEX_GFID, name) &&
-		      strcmp (GF_XATTROP_INDEX_COUNT, name)))
+		      strcmp (GF_XATTROP_INDEX_COUNT, name) &&
+                      strcmp (GF_XATTROP_DIRTY_GFID, name) &&
+                      strcmp (GF_XATTROP_DIRTY_COUNT, name)))
                 goto out;
 
         stub = fop_getxattr_stub (frame, index_getxattr_wrapper, loc, name,
@@ -1071,17 +1300,115 @@ out:
         return 0;
 }
 
+int64_t
+index_fetch_link_count (xlator_t *this, index_xattrop_type_t type)
+{
+	char            index_dir[PATH_MAX] = {0};
+	char            index_path[PATH_MAX] = {0};
+        index_priv_t    *priv    = this->private;
+        char            *subdir  = NULL;
+	DIR             *dirp    = NULL;
+	struct dirent   *entry   = NULL;
+        struct stat     lstatbuf = {0};
+        int             ret      = -1;
+        int64_t         count    = -1;
+        struct dirent   buf;
+
+        subdir = index_get_subdir_from_type (type);
+	make_index_dir_path (priv->index_basepath, subdir,
+			     index_dir, sizeof (index_dir));
+
+	dirp = sys_opendir (index_dir);
+	if (!dirp)
+                goto out;
+
+	while (readdir_r (dirp, &buf, &entry) == 0) {
+		if (!entry) {
+                        if (count == -1)
+                                count = 0;
+                        goto out;
+                } else if (!strcmp (entry->d_name, ".") ||
+		           !strcmp (entry->d_name, "..")) {
+			continue;
+                } else if (!strncmp (entry->d_name, subdir, strlen (subdir))) {
+                        make_file_path (priv->index_basepath, subdir,
+                                        entry->d_name, index_path,
+                                        sizeof (index_path));
+                        ret = sys_lstat (index_path, &lstatbuf);
+                        if (ret < 0) {
+                                count = -2;
+                                continue;
+                        } else {
+                                count = lstatbuf.st_nlink - 1;
+                                if (count == 0)
+                                        continue;
+                                else
+                                        break;
+                        }
+                } else {
+                        count = 1;
+                        goto out;
+                }
+	}
+out:
+        if (dirp)
+                sys_closedir (dirp);
+        return count;
+}
+
+int32_t
+index_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
+{
+        int              ret  = -1;
+        char            *dir  = NULL;
+        index_priv_t    *priv = this->private;
+        int64_t          count    = -1;
+
+        xdata = (xdata) ? dict_ref (xdata) : dict_new ();
+        if (!xdata)
+                goto out;
+
+        index_get_link_count (priv, &count, PENDING);
+        if (count < 0) {
+                count = index_fetch_link_count (this, PENDING);
+                index_set_link_count (priv, count, PENDING);
+        }
+
+        if (count == 0) {
+                ret = dict_set_int8 (xdata, "link-count", 0);
+                if (ret < 0)
+                        goto out;
+        } else {
+                ret = dict_set_int8 (xdata, "link-count", 1);
+                if (ret < 0)
+                       goto out;
+        }
+
+out:
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             xdata, postparent);
+        if (xdata)
+                dict_unref (xdata);
+        return 0;
+}
+
 int32_t
 index_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
 {
         call_stub_t     *stub = NULL;
         index_priv_t    *priv = NULL;
+        char            *flag = NULL;
+        int              ret  = -1;
 
         priv = this->private;
 
         if (gf_uuid_compare (loc->gfid, priv->xattrop_vgfid) &&
-            gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid))
+            gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid) &&
+            gf_uuid_compare (loc->gfid, priv->dirty_vgfid) &&
+            gf_uuid_compare (loc->pargfid, priv->dirty_vgfid))
                 goto normal;
 
         stub = fop_lookup_stub (frame, index_lookup_wrapper, loc, xattr_req);
@@ -1093,8 +1420,14 @@ index_lookup (call_frame_t *frame, xlator_t *this,
         worker_enqueue (this, stub);
         return 0;
 normal:
-        STACK_WIND (frame, default_lookup_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
+        ret = dict_get_str (xattr_req, "link-count", &flag);
+        if (!(ret || strcmp (flag, GF_XATTROP_INDEX_COUNT))) {
+                STACK_WIND (frame, index_lookup_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
+        } else {
+                STACK_WIND (frame, default_lookup_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
+        }
 
         return 0;
 }
@@ -1106,7 +1439,8 @@ index_opendir (call_frame_t *frame, xlator_t *this,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid) &&
+            gf_uuid_compare (fd->inode->gfid, priv->dirty_vgfid))
                 goto normal;
 
         frame->local = NULL;
@@ -1127,7 +1461,8 @@ index_readdir (call_frame_t *frame, xlator_t *this,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid) &&
+            gf_uuid_compare (fd->inode->gfid, priv->dirty_vgfid))
                 goto out;
         stub = fop_readdir_stub (frame, index_readdir_wrapper, fd, size, off,
                                  xdata);
@@ -1151,7 +1486,8 @@ index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid) &&
+            gf_uuid_compare (loc->pargfid, priv->dirty_vgfid))
                 goto out;
 
         stub = fop_unlink_stub (frame, index_unlink_wrapper, loc, xflag, xdata);
@@ -1169,8 +1505,8 @@ out:
 }
 
 int
-index_make_xattrop64_watchlist (xlator_t *this, index_priv_t *priv,
-                                char *watchlist)
+index_make_xattrop_watchlist (xlator_t *this, index_priv_t *priv,
+                              char *watchlist, index_xattrop_type_t type)
 {
         char   *delim         = NULL;
         char   *dup_watchlist = NULL;
@@ -1216,7 +1552,16 @@ index_make_xattrop64_watchlist (xlator_t *this, index_priv_t *priv,
                 key = strtok_r (NULL, delim, &saveptr);
         }
 
-        priv->xattrop64_watchlist = xattrs;
+        switch (type) {
+        case DIRTY:
+                priv->dirty_watchlist = xattrs;
+                break;
+        case PENDING:
+                priv->pending_watchlist = xattrs;
+                break;
+        default:
+                break;
+        }
         xattrs = NULL;
 
         ret = 0;
@@ -1246,6 +1591,7 @@ int
 init (xlator_t *this)
 {
         int ret = -1;
+        int64_t count = -1;
         index_priv_t *priv = NULL;
         pthread_t thread;
         pthread_attr_t  w_attr;
@@ -1253,6 +1599,8 @@ init (xlator_t *this)
         gf_boolean_t    cond_inited  = _gf_false;
         gf_boolean_t    attr_inited  = _gf_false;
         char            *watchlist = NULL;
+        char            *dirtylist = NULL;
+        char            *pendinglist = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1300,12 +1648,32 @@ init (xlator_t *this)
         GF_OPTION_INIT ("index-base", priv->index_basepath, path, out);
 
         GF_OPTION_INIT ("xattrop64-watchlist", watchlist, str, out);
-        ret = index_make_xattrop64_watchlist (this, priv, watchlist);
+        ret = index_make_xattrop_watchlist (this, priv, watchlist,
+                                            PENDING);
         if (ret)
                 goto out;
 
+        GF_OPTION_INIT ("xattrop-dirty-watchlist", dirtylist, str, out);
+        ret = index_make_xattrop_watchlist (this, priv, dirtylist,
+                                            DIRTY);
+        if (ret)
+                goto out;
+
+        GF_OPTION_INIT ("xattrop-pending-watchlist", pendinglist, str, out);
+        ret = index_make_xattrop_watchlist (this, priv, pendinglist,
+                                            PENDING);
+        if (ret)
+                goto out;
+
+        if (priv->dirty_watchlist)
+                priv->complete_watchlist = dict_copy_with_ref (priv->dirty_watchlist,
+                                                      priv->complete_watchlist);
+        if (priv->pending_watchlist)
+                priv->complete_watchlist = dict_copy_with_ref (priv->pending_watchlist,
+                                                      priv->complete_watchlist);
         gf_uuid_generate (priv->index);
         gf_uuid_generate (priv->xattrop_vgfid);
+        gf_uuid_generate (priv->dirty_vgfid);
         INIT_LIST_HEAD (&priv->callstubs);
 
         this->private = priv;
@@ -1313,6 +1681,16 @@ init (xlator_t *this)
         ret = index_dir_create (this, XATTROP_SUBDIR);
         if (ret < 0)
                 goto out;
+
+        if (priv->dirty_watchlist) {
+                ret = index_dir_create (this, DIRTY_SUBDIR);
+                if (ret < 0)
+                        goto out;
+        }
+
+        /*init indices files counts*/
+        count = index_fetch_link_count (this, PENDING);
+        index_set_link_count (priv, count, PENDING);
 
         ret = gf_thread_create (&thread, &w_attr, index_worker, this);
         if (ret) {
@@ -1328,12 +1706,17 @@ out:
                         pthread_cond_destroy (&priv->cond);
                 if (mutex_inited)
                         pthread_mutex_destroy (&priv->mutex);
-                if (priv && priv->xattrop64_watchlist)
-                        dict_unref (priv->xattrop64_watchlist);
+                if (priv && priv->dirty_watchlist)
+                        dict_unref (priv->dirty_watchlist);
+                if (priv && priv->pending_watchlist)
+                        dict_unref (priv->pending_watchlist);
+                if (priv && priv->complete_watchlist)
+                        dict_unref (priv->complete_watchlist);
                 if (priv)
                         GF_FREE (priv);
                 this->private = NULL;
         }
+
         if (attr_inited)
                 pthread_attr_destroy (&w_attr);
         return ret;
@@ -1351,8 +1734,12 @@ fini (xlator_t *this)
         LOCK_DESTROY (&priv->lock);
         pthread_cond_destroy (&priv->cond);
         pthread_mutex_destroy (&priv->mutex);
-        if (priv->xattrop64_watchlist)
-                dict_unref (priv->xattrop64_watchlist);
+        if (priv->dirty_watchlist)
+                dict_unref (priv->dirty_watchlist);
+        if (priv->pending_watchlist)
+                dict_unref (priv->pending_watchlist);
+        if (priv->complete_watchlist)
+                dict_unref (priv->complete_watchlist);
         GF_FREE (priv);
 out:
         return;
@@ -1442,6 +1829,14 @@ struct volume_options options[] = {
           .description = "path where the index files need to be stored",
         },
         { .key  = {"xattrop64-watchlist" },
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Comma separated list of xattrs that are watched",
+        },
+        { .key  = {"xattrop-dirty-watchlist" },
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Comma separated list of xattrs that are watched",
+        },
+        { .key  = {"xattrop-pending-watchlist" },
           .type = GF_OPTION_TYPE_STR,
           .description = "Comma separated list of xattrs that are watched",
         },
