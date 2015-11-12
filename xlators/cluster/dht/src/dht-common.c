@@ -7658,6 +7658,12 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
                 break;
 
+        case GF_EVENT_SOME_CHILD_DOWN:
+                subvol = data;
+                propagate = 1;
+
+                break;
+
         case GF_EVENT_CHILD_DOWN:
                 subvol = data;
 
