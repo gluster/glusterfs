@@ -228,8 +228,6 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         struct iobref  *new_iobref = NULL;
         ssize_t         xdr_size   = 0;
         struct rpc_req  rpcreq     = {0, };
-        uint64_t        ngroups    = 0;
-        uint64_t        gid        = 0;
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -300,14 +298,11 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         /* do not send all groups if they are resolved server-side */
         if (!conf->send_gids) {
-                /* copy some values for restoring later */
-                ngroups = frame->root->ngrps;
-                frame->root->ngrps = 1;
-                if (ngroups <= SMALL_GROUP_COUNT) {
-                        gid = frame->root->groups_small[0];
+                if (frame->root->ngrps <= SMALL_GROUP_COUNT) {
                         frame->root->groups_small[0] = frame->root->gid;
                         frame->root->groups = frame->root->groups_small;
                 }
+                frame->root->ngrps = 1;
         }
 
         /* Send the msg */
@@ -317,13 +312,6 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         if (ret < 0) {
                 gf_msg_debug (this->name, 0, "rpc_clnt_submit failed");
-        }
-
-        if (!conf->send_gids) {
-                /* restore previous values */
-                frame->root->ngrps = ngroups;
-                if (ngroups <= SMALL_GROUP_COUNT)
-                        frame->root->groups_small[0] = gid;
         }
 
         ret = 0;
