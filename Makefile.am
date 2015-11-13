@@ -20,14 +20,12 @@ if USE_GFDB
 pkgconfig_DATA += libgfdb.pc
 endif
 
-CLEANFILES =
+CLEANFILES = glusterfs-api.pc libgfchangelog.pc libgfdb.pc \
+	tests/env.rc contrib/umountd/Makefile{,.in}
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 
 gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;
-	find . -name Makefile \( ! -path "$(top_srcdir)/extras/FreeBSD/*" \
-		! -path "$(top_srcdir)/extras/command-completion/*" \
-		! -path "$(top_srcdir)/extras/test/*" \) -exec rm -f {} \;
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
