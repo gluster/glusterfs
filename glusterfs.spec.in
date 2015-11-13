@@ -1109,9 +1109,9 @@ fi
 %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
 %{_datadir}/glusterfs/scripts/gsync-sync-gfid
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
-%endif
 %{_libexecdir}/glusterfs/gfind_missing_files
 %{_sbindir}/gfind_missing_files
+%endif
 
 %files libs
 %{_libdir}/*.so.*
