@@ -52,6 +52,7 @@ TEST $CLI volume set $V0 cluster.read-freq-threshold 0
 TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
+TEST $CLI volume set $V0 cluster.tier-mode test
 
 #The lookup should heal the database.
 TEST ls file1

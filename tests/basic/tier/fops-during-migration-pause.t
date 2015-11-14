@@ -2,11 +2,11 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
-
+. $(dirname $0)/../../tier.rc
 
 NUM_BRICKS=3
-DEMOTE_FREQ=5
-PROMOTE_FREQ=5
+DEMOTE_FREQ=10
+PROMOTE_FREQ=10
 
 TEST_STR="Testing write and truncate fops on tier migration"
 
@@ -37,6 +37,7 @@ function create_dist_tier_vol () {
         TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
         TEST $CLI volume set $V0 cluster.read-freq-threshold 0
         TEST $CLI volume set $V0 cluster.write-freq-threshold 0
+        TEST $CLI volume set $V0 cluster.tier-mode test
 }
 
 
@@ -58,7 +59,7 @@ TEST mkdir $M0/dir1
 
 # Create a large file (800MB), so that rebalance takes time
 # The file will be created on the hot tier
-
+sleep_until_mid_cycle $DEMOTE_FREQ
 dd if=/dev/zero of=$M0/dir1/FILE1 bs=256k count=5120
 
 # Get the path of the file on the hot tier

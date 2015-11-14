@@ -31,6 +31,7 @@ function create_dist_tier_vol () {
 #We don't want promotes to happen in this test
         TEST $CLI volume set $V0 cluster.read-freq-threshold 10
         TEST $CLI volume set $V0 cluster.write-freq-threshold 10
+        TEST $CLI volume set $V0 cluster.tier-mode test
 }
 
 
