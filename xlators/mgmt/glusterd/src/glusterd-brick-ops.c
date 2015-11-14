@@ -2229,6 +2229,9 @@ glusterd_op_perform_attach_tier (dict_t *dict,
         if (!ret)
                 ret = dict_set_str (volinfo->dict, "features.ctr-enabled", "on");
 
+        if (!ret)
+                ret = dict_set_str (volinfo->dict, "cluster.tier-mode", "cache");
+
         return ret;
 }
 
