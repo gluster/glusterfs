@@ -176,6 +176,12 @@ struct dnscache_entry {
         time_t timestamp;
 };
 
+struct dnscache6 {
+        struct addrinfo *first;
+        struct addrinfo *next;
+};
+
+
 
 struct dnscache *gf_dnscache_init (time_t ttl);
 struct dnscache_entry *gf_dnscache_entry_init ();
