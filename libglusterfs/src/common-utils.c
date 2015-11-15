@@ -55,11 +55,6 @@
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
-struct dnscache6 {
-        struct addrinfo *first;
-        struct addrinfo *next;
-};
-
 void
 md5_wrapper(const unsigned char *data, size_t len, char *md5)
 {
@@ -288,9 +283,6 @@ gf_resolve_ip6 (const char *hostname,
                 memset(&hints, 0, sizeof(hints));
                 hints.ai_family   = family;
                 hints.ai_socktype = SOCK_STREAM;
-#ifndef __NetBSD__
-                hints.ai_flags    = AI_ADDRCONFIG;
-#endif
 
                 ret = gf_asprintf (&port_str, "%d", port);
                 if (-1 == ret) {
@@ -2321,6 +2313,14 @@ valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc)
 
         tmp = gf_strdup (address);
 
+        /* Check for '%' for link local addresses */
+        endptr = strchr(tmp, '%');
+        if (endptr) {
+                *endptr = '\0';
+                length = strlen(tmp);
+                endptr = NULL;
+        }
+
         /* Check for compressed form */
         if (length <= 0 || tmp[length - 1] == ':') {
                 ret = 0;
@@ -3247,9 +3247,18 @@ gf_is_local_addr (char *hostname)
         gf_boolean_t    found = _gf_false;
         char            *ip = NULL;
         xlator_t        *this = NULL;
+        struct          addrinfo hints;
 
         this = THIS;
-        ret = getaddrinfo (hostname, NULL, NULL, &result);
+
+        memset (&hints, 0, sizeof (hints));
+        /*
+         * Removing AI_ADDRCONFIG from default_hints
+         * for being able to use link local ipv6 addresses
+         */
+        hints.ai_family = AF_UNSPEC;
+
+        ret = getaddrinfo (hostname, NULL, &hints, &result);
 
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
@@ -3289,15 +3298,19 @@ gf_is_same_address (char *name1, char *name2)
         struct addrinfo         *q = NULL;
         gf_boolean_t            ret = _gf_false;
         int                     gai_err = 0;
+        struct                  addrinfo hints;
 
-        gai_err = getaddrinfo(name1,NULL,NULL,&addr1);
+        memset (&hints, 0, sizeof (hints));
+        hints.ai_family = AF_UNSPEC;
+
+        gai_err = getaddrinfo(name1, NULL, &hints, &addr1);
         if (gai_err != 0) {
                 gf_msg (name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
                         "error in getaddrinfo: %s\n", gai_strerror(gai_err));
                 goto out;
         }
 
-        gai_err = getaddrinfo(name2,NULL,NULL,&addr2);
+        gai_err = getaddrinfo(name2, NULL, &hints, &addr2);
         if (gai_err != 0) {
                 gf_msg (name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
                         "error in getaddrinfo: %s\n", gai_strerror(gai_err));

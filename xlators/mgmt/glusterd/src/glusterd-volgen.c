@@ -2210,6 +2210,7 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            key[1024] = {0};
         char            *ssl_user = NULL;
         char            *value = NULL;
+        char            *address_family_data = NULL;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -2245,6 +2246,17 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      return -1);
         RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         return -1);
         RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         return -1);
+
+        if (dict_get_str (volinfo->dict, "transport.address-family",
+                &address_family_data) == 0) {
+                ret = xlator_set_option (xl, "transport.address-family",
+                                address_family_data);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                        "failed to set transport.address-family");
+                        return -1;
+                }
+        }
 
         if (username) {
                 memset (key, 0, sizeof (key));
@@ -2293,6 +2305,7 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *password      = NULL;
         char            *ptranst       = NULL;
         char            *value         = NULL;
+        char            *address_family_data = NULL;
 
 
         if (!graph || !volinfo || !set_dict)
@@ -2353,6 +2366,18 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 GF_FREE (ptranst);
                 if (ret)
                         return -1;
+
+                if (dict_get_str (volinfo->dict, "transport.address-family",
+                                        &address_family_data) == 0) {
+                        ret = xlator_set_option (rbxl,
+                                        "transport.address-family",
+                                        address_family_data);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_WARNING,
+                                                "failed to set transport.address-family");
+                                return -1;
+                        }
+                }
 
                 xl = volgen_graph_add_nolink (graph, "cluster/pump", "%s-pump",
                                               volinfo->volname);
@@ -2831,6 +2856,7 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char                    *ssl_str            = NULL;
         gf_boolean_t             ssl_bool           = _gf_false;
         char                    *value              = NULL;
+        char                    *address_family_data = NULL;
 
         GF_ASSERT (graph);
         GF_ASSERT (subvol);
@@ -2859,6 +2885,18 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = xlator_set_option (xl, "transport-type", transt);
         if (ret)
                 goto err;
+
+        if (dict_get_str (volinfo->dict, "transport.address-family",
+                                &address_family_data) == 0) {
+                ret = xlator_set_option (xl,
+                                "transport.address-family",
+                                address_family_data);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set transport.address-family");
+                        goto err;
+                }
+        }
 
         ret = dict_get_uint32 (set_dict, "trusted-client",
                                &client_type);

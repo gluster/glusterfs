@@ -687,12 +687,6 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
                         "failed to set remote-port with %d", port);
                 goto out;
         }
-        ret = dict_set_str (dict, "transport.address-family", "inet");
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING,
-                        "failed to set addr-family with inet");
-                goto out;
-        }
 
         ret = dict_set_str (dict, "transport-type", "socket");
         if (ret) {

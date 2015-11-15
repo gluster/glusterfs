@@ -1889,6 +1889,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         rpc_transport_t  *rpc_trans = NULL;
         int              need_term = 0;
         int              emval = 0;
+        struct dnscache6 *dnscache = NULL;
 
         this = mydata;
         rpc_trans = rpc->conn.trans;
@@ -1901,6 +1902,16 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                 "failed to connect with remote-host: %s (%s)",
                                 ctx->cmd_args.volfile_server,
                                 strerror (errno));
+                        if (!rpc->disabled) {
+                                /*
+                                 * Check if dnscache is exhausted for current server
+                                 * and continue until cache is exhausted
+                                 */
+                                dnscache = rpc_trans->dnscache;
+                                if (dnscache && dnscache->next) {
+                                        break;
+                                }
+                        }
                         server = ctx->cmd_args.curr_server;
                         if (server->list.next == &ctx->cmd_args.volfile_servers) {
                                 need_term = 1;

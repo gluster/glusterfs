@@ -1636,6 +1636,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option     = "!ssl-ec-curve",
           .op_version = GD_OP_VERSION_3_7_4,
         },
+        { .key         = "transport.address-family",
+          .voltype     = "protocol/server",
+          .option      = "!address-family",
+          .op_version  = GD_OP_VERSION_3_7_4,
+          .type        = NO_DOC,
+        },
 
         /* Performance xlators enable/disbable options */
         { .key         = "performance.write-behind",
