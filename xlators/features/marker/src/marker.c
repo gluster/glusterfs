@@ -1012,10 +1012,15 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_QUOTA) {
                 if (!local->skip_txn) {
-                        if (xdata)
+                        if (xdata) {
                                 ret = dict_get_uint32 (xdata,
                                         GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
-
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_TRACE,
+                                                "dict get failed %s ",
+                                                strerror (-ret));
+                                }
+                        }
                         mq_reduce_parent_size_txn (this, &local->loc, NULL,
                                                    nlink);
                 }
