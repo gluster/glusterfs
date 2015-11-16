@@ -73,6 +73,7 @@ class GLogger(Logger):
         logging.setLoggerClass(cls)
         logging.getLogger().handlers = []
         logging.getLogger().setLevel(lprm['level'])
+        logging.Formatter.converter = time.gmtime  # Log in GMT/UTC time
 
         if 'filename' in lprm:
             try:
