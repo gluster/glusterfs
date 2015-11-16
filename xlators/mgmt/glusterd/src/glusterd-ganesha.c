@@ -9,6 +9,7 @@
 */
 
 
+
 #include "common-utils.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
@@ -18,8 +19,9 @@
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
 #include "syscall.h"
-#define MAXBUF 1024
-#define DELIM "=\""
+
+#include <ctype.h>
+
 #define SHARED_STORAGE_MNT "/var/run/gluster/shared_storage/nfs-ganesha"
 
 int start_ganesha (char **op_errstr);
@@ -30,6 +32,93 @@ typedef struct service_command {
         char *service;
         int (*action) (struct service_command *, char *);
 } service_command;
+
+/* parsing_ganesha_ha_conf will allocate the returned string
+ * to be freed (GF_FREE) by the caller
+ * return NULL if error or not found */
+static char*
+parsing_ganesha_ha_conf(const char *key) {
+        char *line, *value = NULL, *pointer, *end_pointer;
+        FILE *fp;
+        struct stat st = {0,};
+
+        fp = fopen (GANESHA_HA_CONF, "r");
+        if (fp == NULL) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "couldn't open the file %s",
+                        GANESHA_HA_CONF);
+                goto end_ret;
+        }
+        if (sys_fstat (fileno (fp), &st)) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "stat on opened file %s failed",
+                        GANESHA_HA_CONF);
+                goto end_close;
+        }
+        line = GF_CALLOC (sizeof (char), st.st_size + 1, gf_common_mt_char);
+        if (line == NULL) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_NO_MEMORY, "alloc for reading file failed");
+                goto end_close;
+        }
+
+        while (fgets (line, st.st_size, fp) != NULL) {
+                /* Read config file until we get matching "^[[:space:]]*key" */
+                pointer = line;
+                if (*pointer == '#') {
+                        continue;
+                }
+                while (isblank(*pointer)) {
+                        pointer++;
+                }
+                if (strncmp (pointer, key, strlen(key))) {
+                        continue;
+                }
+                pointer += strlen (key);
+                /* key found : if we fail to parse, we'll return an error
+                 * rather than trying next one
+                 * - supposition : conf file is bash compatible : no space
+                 *   around the '=' */
+                if (*pointer != '=') {
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_GET_CONFIG_INFO_FAILED,
+                                "Parsing %s failed at key %s",
+                                GANESHA_HA_CONF, key);
+                        goto end_free;
+                }
+                pointer++;  /* jump the '=' */
+
+                if (*pointer == '"' || *pointer == '\'') {
+                        /* dont get the quote */
+                        pointer++;
+                }
+                end_pointer = pointer;
+                /* stop at the next closing quote or  blank/newline */
+                do {
+                        end_pointer++;
+                } while (!(*end_pointer == '\'' || *end_pointer == '"' ||
+                                isspace(*end_pointer) || *end_pointer == '\0'));
+                *end_pointer = '\0';
+
+                /* got it. copy it and return */
+                value = GF_CALLOC (sizeof (char), strlen (pointer)+1,
+                                gf_common_mt_char);
+                if (value == NULL) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_NO_MEMORY, "alloc for value failed");
+                        goto end_free;
+                }
+                strcpy (value, pointer);
+                break;
+        }
+
+end_free:
+        GF_FREE(line);
+end_close:
+        fclose(fp);
+end_ret:
+        return value;
+}
 
 static int
 sc_systemctl_action (struct service_command *sc, char *command)
@@ -308,33 +397,18 @@ gf_boolean_t
 is_ganesha_host (void)
 {
         char    *host_from_file          = NULL;
-        FILE    *fp;
-        char    line[MAXBUF];
         gf_boolean_t    ret              = _gf_false;
-        int     i                        = 1;
         xlator_t        *this            = NULL;
 
         this = THIS;
 
-        fp = fopen (GANESHA_HA_CONF, "r");
-
-        if (fp == NULL) {
+        host_from_file = parsing_ganesha_ha_conf ("HA_VOL_SERVER");
+        if (host_from_file == NULL) {
                 gf_msg (this->name, GF_LOG_INFO, errno,
-                        GD_MSG_FILE_OP_FAILED, "couldn't open the file %s",
+                        GD_MSG_GET_CONFIG_INFO_FAILED,
+                        "couldn't get HA_VOL_SERVER from file %s",
                         GANESHA_HA_CONF);
                 return _gf_false;
-        }
-
-         while (fgets (line, sizeof(line), fp) != NULL) {
-                /* Read GANESHA_HA_CONFIG till we find the HA VOL server */
-                host_from_file = strstr ((char *)line, "HA_VOL_SERVER");
-                if (host_from_file != NULL) {
-                        host_from_file = strstr (host_from_file, DELIM);
-                        host_from_file = host_from_file + strlen(DELIM);
-                        i = strlen(host_from_file);
-                        host_from_file[i - 2] = '\0';
-                        break;
-                }
         }
 
         ret = gf_is_local_addr (host_from_file);
@@ -345,7 +419,7 @@ is_ganesha_host (void)
                         "Hostname is %s", host_from_file);
         }
 
-        fclose (fp);
+        GF_FREE (host_from_file);
         return ret;
 }
 
@@ -354,42 +428,26 @@ gf_boolean_t
 check_host_list (void)
 {
 
-        char    *host_from_file          = NULL;
         glusterd_conf_t     *priv        = NULL;
-        char    *hostname                = NULL;
-        FILE    *fp;
-        char    line[MAXBUF];
+        char    *hostname, *hostlist;
         int     ret                      = _gf_false;
-        int     i                        = 1;
         xlator_t        *this            = NULL;
 
         this = THIS;
         priv =  THIS->private;
         GF_ASSERT (priv);
 
-        fp = fopen (GANESHA_HA_CONF, "r");
-
-        if (fp == NULL) {
+        hostlist = parsing_ganesha_ha_conf ("HA_CLUSTER_NODES");
+        if (hostlist == NULL) {
                 gf_msg (this->name, GF_LOG_INFO, errno,
-                        GD_MSG_FILE_OP_FAILED, "couldn't open the file %s",
+                        GD_MSG_GET_CONFIG_INFO_FAILED,
+                        "couldn't get HA_CLUSTER_NODES from file %s",
                         GANESHA_HA_CONF);
-                return 0;
+                return _gf_false;
         }
 
-       while (fgets (line, sizeof(line), fp) != NULL) {
-        /* Read GANESHA_HA_CONFIG till we find the list of HA_CLUSTER_NODES */
-                hostname = strstr ((char *)line, "HA_CLUSTER_NODES");
-                if (hostname != NULL) {
-                        hostname = strstr (hostname, DELIM);
-                        hostname = hostname + strlen(DELIM);
-                        i = strlen (hostname);
-                        hostname[i - 2] = '\0';
-                        break;
-                }
-        }
-
-        /* Hostname is a comma separated list now */
-        hostname = strtok (hostname, ",");
+        /* Hostlist is a comma separated list now */
+        hostname = strtok (hostlist, ",");
         while (hostname != NULL) {
                 ret = gf_is_local_addr (hostname);
                 if (ret) {
@@ -402,7 +460,7 @@ check_host_list (void)
                 hostname = strtok (NULL, ",");
         }
 
-        fclose (fp);
+        GF_FREE (hostlist);
         return ret;
 
 }
