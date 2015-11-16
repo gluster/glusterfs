@@ -11,6 +11,7 @@
 #include "gfdb_sqlite3.h"
 #include "gfdb_sqlite3_helper.h"
 #include "libglusterfs-messages.h"
+#include "syscall.h"
 
 /******************************************************************************
  *
@@ -430,7 +431,7 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
         strncpy(sql_conn->sqlite3_db_path, temp_str, PATH_MAX-1);
         sql_conn->sqlite3_db_path[PATH_MAX-1] = 0;
 
-        is_dbfile_exist = (stat (sql_conn->sqlite3_db_path, &stbuf) == 0) ?
+        is_dbfile_exist = (sys_stat (sql_conn->sqlite3_db_path, &stbuf) == 0) ?
                                                 _gf_true : _gf_false;
 
         /*Creates DB if not created*/

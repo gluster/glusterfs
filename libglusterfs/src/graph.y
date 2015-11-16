@@ -25,6 +25,7 @@
 #include "xlator.h"
 #include "graph-utils.h"
 #include "logging.h"
+#include "syscall.h"
 #include "libglusterfs-messages.h"
 
 static int new_volume (char *name);
@@ -565,7 +566,7 @@ glusterfs_graph_construct (FILE *fp)
         if (-1 == tmp_fd)
                 goto err;
 
-        ret = unlink (template);
+        ret = sys_unlink (template);
         if (ret < 0) {
                 gf_msg ("parser", GF_LOG_WARNING, 0, LG_MSG_FILE_OP_FAILED,
                         "Unable to delete file: %s", template);
@@ -606,7 +607,7 @@ err:
                 gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_FILE_OP_FAILED,
                         "cannot create temporary file");
                 if (-1 != tmp_fd)
-                        close (tmp_fd);
+                        sys_close (tmp_fd);
         }
 
         glusterfs_graph_destroy (graph);

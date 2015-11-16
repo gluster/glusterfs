@@ -743,7 +743,7 @@ out:
         }
 
         if (query_cbk_args && query_cbk_args->query_fd >= 0) {
-                close (query_cbk_args->query_fd);
+                sys_close (query_cbk_args->query_fd);
                 query_cbk_args->query_fd = -1;
         }
         gfdb_methods.fini_db (conn_node);
@@ -1067,7 +1067,7 @@ tier_migrate_files_using_qfile (demotion_args_t *comp,
                 goto out;
         }
         ret = tier_migrate_using_query_file ((void *)query_cbk_args);
-        close (query_cbk_args->query_fd);
+        sys_close (query_cbk_args->query_fd);
         query_cbk_args->query_fd = -1;
         if (ret) {
                 snprintf (renamed_file, sizeof renamed_file, "%s.err", qfile);

@@ -8,6 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include "xlator.h"
+#include "syscall.h"
 
 /**
  * xlators/debug/io_stats :
@@ -2905,7 +2906,7 @@ _ios_dump_thread (xlator_t *this) {
                 xlator_name = "nfsd";
                 instance_name = this->prev->instance_name;
         }
-        if (mkdir (_IOS_DUMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
+        if (sys_mkdir (_IOS_DUMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
                 if (errno != EEXIST) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create stats-dump directory %s",
@@ -2913,7 +2914,7 @@ _ios_dump_thread (xlator_t *this) {
                         goto out;
                 }
         }
-        if (mkdir (_IOS_SAMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
+        if (sys_mkdir (_IOS_SAMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
                 if (errno != EEXIST) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "could not create stats-sample directory %s",

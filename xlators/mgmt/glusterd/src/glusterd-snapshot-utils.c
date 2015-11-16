@@ -3537,7 +3537,7 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
                         goto out;
         }
 
-        ret = lstat (src_path, &stbuf);
+        ret = sys_lstat (src_path, &stbuf);
         if (ret) {
                 /* *
                 * If export file is not present, volume is not exported
@@ -3736,7 +3736,7 @@ glusterd_restore_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
         if (ret < 0)
                 goto out;
 
-        ret = lstat (src_path, &stbuf);
+        ret = sys_lstat (src_path, &stbuf);
         if (ret) {
                 if (errno == ENOENT) {
                         ret = 0;

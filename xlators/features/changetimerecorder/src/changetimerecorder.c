@@ -13,6 +13,7 @@
 #include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
 #include "ctr-messages.h"
+#include "syscall.h"
 
 /*******************************inode forget***********************************/
 
@@ -1623,7 +1624,7 @@ out:
                 ret = query_cbk_args.count;
 
         if (query_cbk_args.query_fd >= 0) {
-                close (query_cbk_args.query_fd);
+                sys_close (query_cbk_args.query_fd);
                 query_cbk_args.query_fd = -1;
         }
 
