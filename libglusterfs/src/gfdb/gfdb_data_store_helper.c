@@ -1,5 +1,6 @@
-#include "gfdb_data_store_helper.h"
 
+#include "gfdb_data_store_helper.h"
+#include "syscall.h"
 
 /*Create a single link info structure*/
 gfdb_link_info_t*
@@ -542,7 +543,7 @@ gfdb_read_query_record (int fd,
 
 
         /* Read serialized query record length from the file*/
-        ret = read (fd, &buffer_len, sizeof (int32_t));
+        ret = sys_read (fd, &buffer_len, sizeof (int32_t));
         if (ret < 0) {
                 gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
                                 LG_MSG_DB_ERROR, "Failed reading buffer length"
@@ -568,7 +569,7 @@ gfdb_read_query_record (int fd,
         /* Read the serialized query record from file */
         read_len = buffer_len;
         read_buffer = buffer;
-        while ((ret = read (fd, read_buffer, read_len)) < read_len) {
+        while ((ret = sys_read (fd, read_buffer, read_len)) < read_len) {
 
                 /*Any error */
                 if (ret < 0) {
