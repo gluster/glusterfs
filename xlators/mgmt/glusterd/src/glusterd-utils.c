@@ -94,6 +94,79 @@ extern struct volopt_map_entry glusterd_volopt_map[];
 
 static glusterd_lock_t lock;
 
+static int
+_brick_for_each (glusterd_volinfo_t *volinfo, dict_t *mod_dict,
+                         void *data,
+               int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *))
+{
+        int                  ret        = 0;
+        glusterd_brickinfo_t *brickinfo = NULL;
+        xlator_t             *this = THIS;
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                gf_msg_debug (this->name, 0, "Found a brick - %s:%s",
+                              brickinfo->hostname, brickinfo->path);
+                ret = fn (volinfo, brickinfo, mod_dict, data);
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+int
+glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
+               int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *))
+{
+        dict_t             *mod_dict    = NULL;
+        glusterd_volinfo_t *dup_volinfo = NULL;
+        int                ret          = 0;
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                ret = _brick_for_each (volinfo, NULL, data, fn);
+                if (ret)
+                        goto out;
+        } else {
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                        _gf_true,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+
+                mod_dict = dict_new();
+                if (!mod_dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_str (mod_dict, "hot-brick", "on");
+                if (ret)
+                        goto out;
+
+                ret = _brick_for_each (dup_volinfo, mod_dict, data, fn);
+                if (ret)
+                        goto out;
+                GF_FREE (dup_volinfo);
+                dup_volinfo = NULL;
+                ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                        _gf_false,
+                                                        volinfo->volname);
+                if (ret)
+                        goto out;
+                ret = _brick_for_each (dup_volinfo, NULL, data, fn);
+                if (ret)
+                        goto out;
+        }
+out:
+        if (dup_volinfo)
+                glusterd_volinfo_delete (dup_volinfo);
+
+        if (mod_dict)
+                dict_unref (mod_dict);
+        return ret;
+}
 
 int32_t
 glusterd_get_lock_owner (uuid_t *uuid)
@@ -649,6 +722,7 @@ glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
                 return ret;
         }
 
+        gf_uuid_copy ((*dup_volinfo)->volume_id, volinfo->volume_id);
         (*dup_volinfo)->is_snap_volume   = volinfo->is_snap_volume;
         (*dup_volinfo)->status           = volinfo->status;
         memcpy (&(*dup_volinfo)->tier_info, &volinfo->tier_info,

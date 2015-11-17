@@ -37,6 +37,11 @@
 #include "glusterd-svc-helper.h"
 #include "glusterd-snapd-svc-helper.h"
 
+struct gd_validate_reconf_opts {
+        dict_t *options;
+        char   **op_errstr;
+};
+
 extern struct volopt_map_entry glusterd_volopt_map[];
 
 #define RPC_SET_OPT(XL, CLI_OPT, XLATOR_OPT, ERROR_CMD) do {            \
@@ -1678,8 +1683,8 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
         char                 *brickname     = NULL;
         char                 *path          = NULL;
         char                 *volname       = NULL;
-        int                   bricknum      = 0;
         char     index_basepath[PATH_MAX]   = {0};
+        char                 *hotbrick      = NULL;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -1694,18 +1699,12 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
         if (ret)
                 goto out;
 
-        bricknum = 0;
-        cds_list_for_each_entry_safe (brickiter, tmp, &volinfo->bricks,
-                                      brick_list) {
-                if (brickiter == brickinfo)
-                        break;
-                bricknum++;
-        }
-        if (bricknum < volinfo->tier_info.hot_brick_count) {
-                ret = xlator_set_option (xl, "hot-brick", "on");
-        } else {
-                ret = xlator_set_option (xl, "hot-brick", "off");
-        }
+        if (!set_dict || dict_get_str (set_dict, "hot-brick", &hotbrick))
+                hotbrick = "off";
+
+        ret = xlator_set_option (xl, "hot-brick", hotbrick);
+        if (ret)
+                goto out;
 
         brickname = strrchr(path, '/') + 1;
         snprintf (index_basepath, sizeof (index_basepath), "%s.db",
@@ -4897,7 +4896,8 @@ out:
 
 static int
 glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
-                                 glusterd_brickinfo_t *brickinfo)
+                                 glusterd_brickinfo_t *brickinfo,
+                                 dict_t *mod_dict, void *data)
 {
         volgen_graph_t graph = {0,};
         char    filename[PATH_MAX] = {0,};
@@ -4908,7 +4908,7 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
 
         get_brick_filepath (filename, volinfo, brickinfo);
 
-        ret = build_server_graph (&graph, volinfo, NULL, brickinfo);
+        ret = build_server_graph (&graph, volinfo, mod_dict, brickinfo);
         if (!ret)
                 ret = volgen_write_volfile (&graph, filename);
 
@@ -5117,16 +5117,10 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                 }
         }
 
-        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                gf_msg_debug (this->name, 0,
-                        "Found a brick - %s:%s", brickinfo->hostname,
-                        brickinfo->path);
-
-                ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
-                if (ret)
-                        goto out;
-
-        }
+        ret = glusterd_volume_brick_for_each (volinfo, NULL,
+                                              glusterd_generate_brick_volfile);
+        if (ret)
+                goto out;
 
         ret = 0;
 
@@ -5684,7 +5678,7 @@ glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
 {
         int ret = -1;
 
-        ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
+        ret = glusterd_generate_brick_volfile (volinfo, brickinfo, NULL, NULL);
         if (!ret)
                 ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
         if (!ret)
@@ -5893,22 +5887,41 @@ validate_clientopts (glusterd_volinfo_t *volinfo,
 
 int
 validate_brickopts (glusterd_volinfo_t *volinfo,
-                    glusterd_brickinfo_t *brickinfo,
-                    dict_t *val_dict,
-                    char **op_errstr)
+                    glusterd_brickinfo_t *brickinfo, dict_t *mod_dict,
+                    void *reconf)
 {
-        volgen_graph_t graph = {0,};
-        int            ret   = -1;
+        volgen_graph_t                 graph        = {0,};
+        int                            ret          = -1;
+        struct gd_validate_reconf_opts *brickreconf = reconf;
+        dict_t                         *val_dict    = brickreconf->options;
+        char                           **op_errstr  = brickreconf->op_errstr;
+        dict_t                         *full_dict   = NULL;
 
         GF_ASSERT (volinfo);
 
         graph.errstr = op_errstr;
+        full_dict = dict_new();
+        if (!full_dict) {
+                ret = -1;
+                goto out;
+        }
 
-        ret = build_server_graph (&graph, volinfo, val_dict, brickinfo);
+        if (mod_dict)
+                dict_copy (mod_dict, full_dict);
+
+        if (val_dict)
+                dict_copy (val_dict, full_dict);
+
+
+        ret = build_server_graph (&graph, volinfo, full_dict, brickinfo);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph.graph, op_errstr);
 
         volgen_graph_free (&graph);
+
+out:
+        if (full_dict)
+                dict_unref (full_dict);
 
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
@@ -5921,20 +5934,12 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
 {
         glusterd_brickinfo_t *brickinfo = NULL;
         int                   ret = -1;
+        struct gd_validate_reconf_opts brickreconf = {0};
 
-        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                gf_msg_debug ("glusterd", 0,
-                        "Validating %s", brickinfo->hostname);
-
-                ret = validate_brickopts (volinfo, brickinfo, val_dict,
-                                          op_errstr);
-                if (ret)
-                        goto out;
-        }
-
-        ret = 0;
-
-out:
+        brickreconf.options = val_dict;
+        brickreconf.op_errstr = op_errstr;
+        ret = glusterd_volume_brick_for_each (volinfo, &brickreconf,
+                                              validate_brickopts);
         return ret;
 }
 
