@@ -1215,6 +1215,20 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.resync-failed-syncs-after-fsync",
+          .voltype    = "performance/write-behind",
+          .option     = "resync-failed-syncs-after-fsync",
+          .op_version = GD_OP_VERSION_3_7_6,
+          .flags      = OPT_FLAG_CLIENT_OPT,
+          .description = "If sync of \"cached-writes issued before fsync\" "
+                         "(to backend) fails, this option configures whether "
+                         "to retry syncing them after fsync or forget them. "
+                         "If set to on, cached-writes are retried "
+                         "till a \"flush\" fop (or a successful sync) on sync "
+                         "failures. "
+                         "fsync itself is failed irrespective of the value of "
+                         "this option. ",
+        },
         { .key        = "performance.nfs.write-behind-window-size",
           .voltype    = "performance/write-behind",
           .option     = "cache-size",
