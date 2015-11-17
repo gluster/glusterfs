@@ -184,6 +184,9 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop->cbks = cbks;
     fop->data = data;
 
+    fop->uid = fop->frame->root->uid;
+    fop->gid = fop->frame->root->gid;
+
     LOCK_INIT(&fop->lock);
 
     fop->frame->local = fop;

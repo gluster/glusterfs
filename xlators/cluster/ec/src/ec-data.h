@@ -208,6 +208,9 @@ struct _ec_fop_data
     uintptr_t          received; /* Mask of responses */
     uintptr_t          good;
 
+    uid_t              uid;
+    gid_t              gid;
+
     ec_wind_f          wind;
     ec_handler_f       handler;
     ec_resume_f        resume;
