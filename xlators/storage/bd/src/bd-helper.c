@@ -842,7 +842,7 @@ bd_do_manual_zerofill (int fd, off_t offset, off_t len, int o_direct)
                 vector[idx].iov_len  = vect_size;
         }
 
-        if (lseek (fd, offset, SEEK_SET) < 0) {
+        if (sys_lseek (fd, offset, SEEK_SET) < 0) {
                 op_ret = -1;
                 goto err;
         }
