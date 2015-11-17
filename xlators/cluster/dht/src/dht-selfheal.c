@@ -1563,14 +1563,15 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                                    dht_layout_t *layout)
 {
         xlator_t    *this = NULL;
-        uint32_t     chunk = 0;
+        double       chunk = 0;
         int          i = 0;
         uint32_t     start = 0;
         int          bricks_to_use = 0;
         int          err = 0;
         int          start_subvol = 0;
         uint32_t     curr_size;
-        uint32_t     total_size = 0;
+        uint32_t     range_size;
+        uint64_t     total_size = 0;
         int          real_i;
         dht_conf_t   *priv;
         gf_boolean_t weight_by_size;
@@ -1603,9 +1604,9 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 
         if (weight_by_size && total_size) {
                 /* We know total_size is not zero. */
-                chunk = ((unsigned long) 0xffffffff) / total_size;
+                chunk = ((double) 0xffffffff) / ((double) total_size);
                 gf_msg_debug (this->name, 0,
-                              "chunk size = 0xffffffff / %u = 0x%x",
+                              "chunk size = 0xffffffff / %lu = %f",
                               total_size, chunk);
         }
         else {
@@ -1643,17 +1644,18 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 else {
                         curr_size = 1;
                 }
+                range_size = chunk * curr_size;
                 gf_msg_debug (this->name, 0,
                               "assigning range size 0x%x to %s",
-                              chunk * curr_size,
+                              range_size,
                               layout->list[i].xlator->name);
-                DHT_SET_LAYOUT_RANGE(layout, i, start, chunk * curr_size,
+                DHT_SET_LAYOUT_RANGE(layout, i, start, range_size,
                                      loc->path);
                 if (++bricks_used >= bricks_to_use) {
                         layout->list[i].stop = 0xffffffff;
                         goto done;
                 }
-                start += (chunk * curr_size);
+                start += range_size;
         }
 
 done:
