@@ -688,4 +688,8 @@ glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
 int32_t
 glusterd_count_connected_peers (int32_t *count);
 
+int
+glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
+               int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *));
 #endif
