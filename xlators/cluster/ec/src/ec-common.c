@@ -989,8 +989,6 @@ void ec_get_size_version(ec_lock_link_t *link)
     ec_inode_t *ctx;
     ec_fop_data_t *fop;
     dict_t *dict = NULL;
-    uid_t uid;
-    gid_t gid;
     int32_t error = -ENOMEM;
     uint64_t allzero[EC_VERSION_SIZE] = {0, 0};
 
@@ -1011,9 +1009,6 @@ void ec_get_size_version(ec_lock_link_t *link)
     if (!lock->query && (lock->loc.inode->ia_type != IA_IFREG)) {
         return;
     }
-
-    uid = fop->frame->root->uid;
-    gid = fop->frame->root->gid;
 
     memset(&loc, 0, sizeof(loc));
 
@@ -1081,8 +1076,8 @@ void ec_get_size_version(ec_lock_link_t *link)
     error = 0;
 
 out:
-    fop->frame->root->uid = uid;
-    fop->frame->root->gid = gid;
+    fop->frame->root->uid = fop->uid;
+    fop->frame->root->gid = fop->gid;
 
     loc_wipe(&loc);
 
@@ -1566,8 +1561,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     ec_lock_t *lock;
     ec_inode_t *ctx;
     dict_t * dict;
-    uid_t uid;
-    gid_t gid;
     int32_t err = -ENOMEM;
 
     fop = link->fop;
@@ -1620,9 +1613,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
         ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
     }
 
-    uid = fop->frame->root->uid;
-    gid = fop->frame->root->gid;
-
     fop->frame->root->uid = 0;
     fop->frame->root->gid = 0;
 
@@ -1636,8 +1626,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     }
 
-    fop->frame->root->uid = uid;
-    fop->frame->root->gid = gid;
+    fop->frame->root->uid = fop->uid;
+    fop->frame->root->gid = fop->gid;
 
     dict_unref(dict);
 
