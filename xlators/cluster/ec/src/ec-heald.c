@@ -293,7 +293,7 @@ ec_shd_index_sweep (struct subvol_healer *healer)
                 goto out;
         }
 
-        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_AFR_SELF_HEALD,
+        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
                                healer, ec_shd_index_heal);
 out:
         if (loc.inode)
@@ -351,7 +351,7 @@ ec_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
         ec = healer->this->private;
         loc.inode = inode;
         return syncop_ftw (ec->xl_list[healer->subvol], &loc,
-                           GF_CLIENT_PID_AFR_SELF_HEALD, healer,
+                           GF_CLIENT_PID_SELF_HEALD, healer,
                            ec_shd_full_heal);
 }
 

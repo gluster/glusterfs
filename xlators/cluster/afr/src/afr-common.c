@@ -839,7 +839,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 	if (ret && afr_selfheal_enabled (this)) {
 		heal = copy_frame (frame);
 		if (heal)
-			heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
 		ret = synctask_new (this->ctx->env, afr_refresh_selfheal_wrap,
 				    afr_refresh_selfheal_done, heal, frame);
 		if (ret)
@@ -2033,7 +2033,7 @@ afr_lookup_metadata_heal_check (call_frame_t *frame, xlator_t *this)
 
         heal = copy_frame (frame);
         if (heal)
-                heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+                heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
         ret = synctask_new (this->ctx->env, afr_lookup_sh_metadata_wrap,
                             afr_refresh_selfheal_done, heal, frame);
         if(ret)
@@ -2121,7 +2121,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	if (need_heal) {
 		heal = copy_frame (frame);
 		if (heal)
-			heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
 		ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
 				    afr_refresh_selfheal_done, heal, frame);
 		if (ret)
