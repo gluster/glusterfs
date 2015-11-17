@@ -626,7 +626,7 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
  * ignore internal fops for all clients except AFR self-heal daemon
  */
 #define CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO(frame, dict, label) do {    \
-                if ((frame->root->pid != GF_CLIENT_PID_AFR_SELF_HEALD)  \
+                if ((frame->root->pid != GF_CLIENT_PID_SELF_HEALD)      \
                     && dict                                             \
                     && dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY))     \
                         goto label;                                     \

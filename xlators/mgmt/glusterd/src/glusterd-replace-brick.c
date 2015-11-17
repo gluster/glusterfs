@@ -75,7 +75,7 @@ glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
                   DEFAULT_LOG_FILE_DIRECTORY"/%s-replace-brick-mount.log",
                   volinfo->volname);
 
-        ret = gf_asprintf (&pid, "%d", GF_CLIENT_PID_AFR_SELF_HEALD);
+        ret = gf_asprintf (&pid, "%d", GF_CLIENT_PID_SELF_HEALD);
         if (ret < 0)
                 goto out;
 

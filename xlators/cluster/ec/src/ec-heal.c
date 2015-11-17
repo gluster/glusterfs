@@ -1369,7 +1369,7 @@ ec_heal_names (call_frame_t *frame, ec_t *ec, inode_t *inode,
                 if (!participants[i])
                         continue;
                 syncop_dir_scan (ec->xl_list[i], &loc,
-                                GF_CLIENT_PID_AFR_SELF_HEALD, &name_data,
+                                GF_CLIENT_PID_SELF_HEALD, &name_data,
                                 ec_name_heal_handler);
                 for (j = 0; j < ec->nodes; j++)
                         if (name_data.failed_on[j])
@@ -2325,6 +2325,8 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
         /*Do heal as root*/
         frame->root->uid = 0;
         frame->root->gid = 0;
+        /*Mark the fops as internal*/
+        frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
         participants = alloca0(ec->nodes);
         ec_mask_to_char_array (ec->xl_up, participants, ec->nodes);
         if (loc->name && strlen (loc->name)) {

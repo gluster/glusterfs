@@ -1419,7 +1419,7 @@ afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
         ret =  dict_get_str (dict, GF_AFR_REPLACE_BRICK, &replace_brick);
 
         if (!ret) {
-                if (frame->root->pid != GF_CLIENT_PID_AFR_SELF_HEALD) {
+                if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
                         gf_log (this->name, GF_LOG_ERROR, "'%s' is an internal"
                                 " extended attribute : %s.",
                                 GF_AFR_REPLACE_BRICK, strerror (EPERM));
