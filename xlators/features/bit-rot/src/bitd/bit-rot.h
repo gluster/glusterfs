@@ -264,4 +264,8 @@ _br_child_get_scrub_event (struct br_scrubber *fsscrub)
                 ? BR_SCRUB_EVENT_PAUSE : BR_SCRUB_EVENT_SCHEDULE;
 }
 
+int32_t
+br_get_bad_objects_list (xlator_t *this, dict_t **dict);
+
+
 #endif /* __BIT_ROT_H__ */
