@@ -1262,7 +1262,7 @@ afr_frame_create (xlator_t *this)
 	call_frame_t *frame    = NULL;
 	afr_local_t  *local    = NULL;
 	int           op_errno = 0;
-	pid_t         pid      = GF_CLIENT_PID_AFR_SELF_HEALD;
+	pid_t         pid      = GF_CLIENT_PID_SELF_HEALD;
 
 	frame = create_frame (this, this->ctx->pool);
 	if (!frame)

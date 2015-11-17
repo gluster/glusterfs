@@ -278,7 +278,7 @@ do {\
  * If its a AFR SELF HEAL
  * */
  #define AFR_SELF_HEAL_FOP(frame)\
-        (frame->root->pid == GF_CLIENT_PID_AFR_SELF_HEALD)
+        (frame->root->pid == GF_CLIENT_PID_SELF_HEALD)
 
 /*
  * if a rebalancer fop goto

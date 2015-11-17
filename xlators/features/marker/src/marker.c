@@ -991,7 +991,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
         uint32_t            nlink   = -1;
-        int32_t             ret     = 0;
+        GF_UNUSED int32_t   ret     = 0;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE,
