@@ -432,10 +432,12 @@ iov_subset (struct iovec *orig, int orig_count,
 	int    i;
 	off_t  offset = 0;
 	size_t start_offset = 0;
-	size_t end_offset = 0;
+	size_t end_offset = 0, origin_iov_len = 0;
 
 
 	for (i = 0; i < orig_count; i++) {
+                origin_iov_len = orig[i].iov_len;
+
 		if ((offset + orig[i].iov_len < src_offset)
 		    || (offset > dst_offset)) {
 			goto not_subset;
@@ -463,7 +465,7 @@ iov_subset (struct iovec *orig, int orig_count,
 		new_count++;
 
 	not_subset:
-		offset += orig[i].iov_len;
+		offset += origin_iov_len;
 	}
 
 	return new_count;
