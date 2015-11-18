@@ -1,5 +1,6 @@
 [Unit]
 Description=GlusterFS, a clustered file-system server
+Requires=rpcbind.service
 After=network.target rpcbind.service
 Before=network-online.target
 
