@@ -79,6 +79,7 @@ libgfdb.pc
 libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
+libglusterfs/src/defaults.c
 libtool
 run-tests.sh
 tests/env.rc
