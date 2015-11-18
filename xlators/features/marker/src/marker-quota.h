@@ -56,25 +56,6 @@
                 ret = 0;                                \
         } while (0);
 
-#define GET_CONTRI_KEY(_this, var, _gfid, _ret)                           \
-        do {                                                              \
-                marker_conf_t  *_priv = _this->private;                   \
-                if (_gfid != NULL) {                                      \
-                        char _gfid_unparsed[40];                          \
-                        gf_uuid_unparse (_gfid, _gfid_unparsed);          \
-                        _ret = snprintf (var, QUOTA_KEY_MAX,              \
-                                         QUOTA_XATTR_PREFIX               \
-                                         ".%s.%s." CONTRIBUTION ".%d",    \
-                                         "quota", _gfid_unparsed,         \
-                                         _priv->version);                 \
-                } else {                                                  \
-                        _ret = snprintf (var, QUOTA_KEY_MAX,              \
-                                         QUOTA_XATTR_PREFIX               \
-                                         ".%s.." CONTRIBUTION ".%d",      \
-                                         "quota", _priv->version);        \
-                }                                                         \
-        } while (0)
-
 #define GET_QUOTA_KEY(_this, var, key, _ret)                              \
         do {                                                              \
                 marker_conf_t  *_priv = _this->private;                   \
@@ -83,6 +64,25 @@
                                          key, _priv->version);            \
                 else                                                      \
                         _ret = snprintf (var, QUOTA_KEY_MAX, "%s", key);  \
+        } while (0)
+
+#define GET_CONTRI_KEY(_this, var, _gfid, _ret)                           \
+        do {                                                              \
+                char  _tmp_var[QUOTA_KEY_MAX] = {0, };                   \
+                if (_gfid != NULL) {                                      \
+                        char _gfid_unparsed[40];                          \
+                        gf_uuid_unparse (_gfid, _gfid_unparsed);          \
+                        _ret = snprintf (_tmp_var, QUOTA_KEY_MAX,         \
+                                         QUOTA_XATTR_PREFIX               \
+                                         ".%s.%s." CONTRIBUTION,          \
+                                         "quota", _gfid_unparsed);        \
+                } else {                                                  \
+                        _ret = snprintf (_tmp_var, QUOTA_KEY_MAX,         \
+                                         QUOTA_XATTR_PREFIX               \
+                                         ".%s.." CONTRIBUTION,            \
+                                         "quota");                        \
+                }                                                         \
+                GET_QUOTA_KEY (_this, var, _tmp_var, _ret);               \
         } while (0)
 
 #define GET_SIZE_KEY(_this, var, _ret)                                    \
