@@ -3169,7 +3169,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         if (!priv->selinux) {
-                if (strncmp (name, "security.", 9) == 0) {
+                if (strcmp (name, "security.selinux") == 0) {
                         send_fuse_err (this, finh, EOPNOTSUPP);
                         GF_FREE (finh);
                         return;
@@ -3499,7 +3499,7 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         if (!priv->selinux) {
-                if (strncmp (name, "security.", 9) == 0) {
+                if (strcmp (name, "security.selinux") == 0) {
                         op_errno = ENODATA;
                         goto err;
                 }
