@@ -667,9 +667,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char *healed_sinks = NULL;
 	struct afr_reply *locked_replies = NULL;
 	int source = -1;
-	gf_boolean_t compat = _gf_false;
         gf_boolean_t did_sh = _gf_true;
-	unsigned char *compat_lock = NULL;
 
 	priv = this->private;
 
@@ -677,7 +675,6 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	sinks = alloca0 (priv->child_count);
 	healed_sinks = alloca0 (priv->child_count);
 	data_lock = alloca0 (priv->child_count);
-	compat_lock = alloca0 (priv->child_count);
 
 	locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -722,18 +719,6 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		ret = 0;
 
-                if (priv->arbiter_count == 0) {/*TODO: delete this code after
-                                                 3.5.x goes out of support*/
-                        /* Locking from (LLONG_MAX - 2) to (LLONG_MAX - 1) is
-                           for compatibility with older self-heal clients which
-                           do not hold a lock in the @priv->sh_domain domain to
-                           guard against concurrent ongoing self-heals
-                        */
-                        afr_selfheal_inodelk (frame, this, fd->inode,
-                                        this->name, LLONG_MAX - 2, 1,
-                                        compat_lock);
-                        compat = _gf_true;
-                }
 	}
 unlock:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
@@ -753,9 +738,6 @@ unlock:
 					 healed_sinks, AFR_DATA_TRANSACTION,
 					 locked_replies, data_lock);
 out:
-	if (compat)
-		afr_selfheal_uninodelk (frame, this, fd->inode, this->name,
-					LLONG_MAX - 2, 1, compat_lock);
 
         if (did_sh)
                 afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
