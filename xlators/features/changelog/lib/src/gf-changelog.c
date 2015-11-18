@@ -44,7 +44,7 @@
  */
 xlator_t *master = NULL;
 
-static inline
+static
 gf_private_t *gf_changelog_alloc_priv ()
 {
         int ret = 0;

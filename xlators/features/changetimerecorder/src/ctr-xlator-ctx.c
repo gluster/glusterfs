@@ -17,7 +17,7 @@
         (ctr_hard_link->list.next == ctr_hard_link->list.prev)
 
 
-static inline void
+static void
 fini_ctr_hard_link (ctr_hard_link_t **ctr_hard_link) {
 
         GF_ASSERT (ctr_hard_link);
@@ -246,7 +246,7 @@ out:
 
 
 /* Delete all hardlinks */
-static inline int
+static int
 ctr_delete_all_hard_link (xlator_t *this,
                           ctr_xlator_ctx_t *ctr_xlator_ctx)
 {
@@ -277,7 +277,7 @@ ctr_delete_all_hard_link (xlator_t *this,
 
 
 /* Please lock the inode before using this function */
-static inline ctr_xlator_ctx_t *
+static ctr_xlator_ctx_t *
 __get_ctr_xlator_ctx (xlator_t  *this,
                       inode_t   *inode)
 {

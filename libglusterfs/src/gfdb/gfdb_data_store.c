@@ -124,7 +124,7 @@ out:
 
 /*Internal Function:
  * Delete connection node from the list*/
-static inline int
+static int
 delete_conn_node (gfdb_conn_node_t *_conn_node)
 {
         int ret = -1;

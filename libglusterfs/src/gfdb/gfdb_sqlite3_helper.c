@@ -123,7 +123,7 @@ out:
         return ret;
 }
 
-static inline int
+static int
 gf_sql_delete_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
@@ -209,7 +209,7 @@ out:
 
 
 
-static inline int
+static int
 gf_sql_update_link_flags (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
@@ -314,7 +314,7 @@ out:
 }
 
 
-static inline int
+static int
 gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
@@ -406,7 +406,7 @@ out:
 }
 
 
-static inline int
+static int
 gf_sql_update_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
@@ -602,7 +602,7 @@ out:
 
 
 /*Update write/read times for both wind and unwind*/
-static inline int
+static int
 gf_update_time (gf_sql_connection_t    *sql_conn,
                 char                    *gfid,
                 gfdb_time_t             *update_time,

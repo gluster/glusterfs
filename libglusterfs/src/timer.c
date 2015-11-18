@@ -137,7 +137,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
         return 0;
 }
 
-static inline void __delete_entry (gf_timer_t *event) {
+static void __delete_entry (gf_timer_t *event) {
         event->next->prev = event->prev;
         event->prev->next = event->next;
         GF_FREE (event);

@@ -389,7 +389,7 @@ out:
          gf_defrag_handle_hardlink for description of "returning -2")
     -1 : failure
 */
-static inline int
+static int
 __is_file_migratable (xlator_t *this, loc_t *loc,
                       struct iatt *stbuf, dict_t *xattrs, int flags,
                                 gf_defrag_info_t *defrag)
@@ -634,7 +634,7 @@ out:
         return ret;
 }
 
-static inline int
+static int
 __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         struct iatt *stbuf, int flag)
 {
@@ -744,7 +744,7 @@ out:
         return ret;
 }
 
-static inline int
+static int
 __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
                               uint64_t ia_size, int hole_exists)
 {
@@ -861,7 +861,7 @@ __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_
 }
 
 
-static inline int
+static int
 __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                                struct iatt *stbuf, fd_t **src_fd,
                                gf_boolean_t *clean_src)

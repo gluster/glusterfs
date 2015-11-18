@@ -1186,7 +1186,7 @@ out:
 }
 
 
-static inline int
+static int
 __socket_read_simple_msg (rpc_transport_t *this)
 {
         int                           ret            = 0;
@@ -1255,7 +1255,7 @@ out:
 }
 
 
-static inline int
+static int
 __socket_read_simple_request (rpc_transport_t *this)
 {
         return __socket_read_simple_msg (this);
@@ -1272,7 +1272,7 @@ __socket_read_simple_request (rpc_transport_t *this)
 #define rpc_progver_addr(buf) (buf + RPC_MSGTYPE_SIZE + 8)
 #define rpc_procnum_addr(buf) (buf + RPC_MSGTYPE_SIZE + 12)
 
-static inline int
+static int
 __socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vector_sizer)
 {
         socket_private_t *priv                   = NULL;
@@ -1444,7 +1444,7 @@ out:
         return ret;
 }
 
-static inline int
+static int
 __socket_read_request (rpc_transport_t *this)
 {
         socket_private_t *priv               = NULL;
@@ -1525,7 +1525,7 @@ out:
 }
 
 
-static inline int
+static int
 __socket_read_accepted_successful_reply (rpc_transport_t *this)
 {
         socket_private_t *priv              = NULL;
@@ -1652,7 +1652,7 @@ out:
 #define rpc_reply_verflen_addr(fragcurrent) ((char *)fragcurrent - 4)
 #define rpc_reply_accept_status_addr(fragcurrent) ((char *)fragcurrent - 4)
 
-static inline int
+static int
 __socket_read_accepted_reply (rpc_transport_t *this)
 {
         socket_private_t *priv           = NULL;
@@ -1748,7 +1748,7 @@ out:
 }
 
 
-static inline int
+static int
 __socket_read_denied_reply (rpc_transport_t *this)
 {
         return __socket_read_simple_msg (this);
@@ -1758,7 +1758,7 @@ __socket_read_denied_reply (rpc_transport_t *this)
 #define rpc_reply_status_addr(fragcurrent) ((char *)fragcurrent - 4)
 
 
-static inline int
+static int
 __socket_read_vectored_reply (rpc_transport_t *this)
 {
         socket_private_t *priv           = NULL;
@@ -1824,7 +1824,7 @@ out:
 }
 
 
-static inline int
+static int
 __socket_read_simple_reply (rpc_transport_t *this)
 {
         return __socket_read_simple_msg (this);
@@ -1832,7 +1832,7 @@ __socket_read_simple_reply (rpc_transport_t *this)
 
 #define rpc_xid_addr(buf) (buf)
 
-static inline int
+static int
 __socket_read_reply (rpc_transport_t *this)
 {
         socket_private_t   *priv         = NULL;
@@ -1907,7 +1907,7 @@ out:
 
 
 /* returns the number of bytes yet to be read in a fragment */
-static inline int
+static int
 __socket_read_frag (rpc_transport_t *this)
 {
         socket_private_t *priv           = NULL;
@@ -1984,7 +1984,7 @@ out:
 }
 
 
-static inline void
+static void
 __socket_reset_priv (socket_private_t *priv)
 {
         struct gf_sock_incoming   *in    = NULL;

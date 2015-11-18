@@ -43,7 +43,7 @@
 #define PRELOAD_ERRNO_VERF      6449
 #define set_errno()             (errno = PRELOAD_ERRNO_VERF)
 
-inline void
+void
 intercept (char *call, int tabs)
 {
         while (tabs > 0) {

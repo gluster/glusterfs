@@ -104,7 +104,7 @@ out:
 	return ret;
 }
 
-static inline uint64_t
+static uint64_t
 mtime_ns(struct iatt *ia)
 {
         uint64_t ret;

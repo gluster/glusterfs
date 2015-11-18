@@ -370,7 +370,7 @@ out:
 }
 
 
-static inline int32_t
+static int32_t
 glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
                            rpcsvc_program_t *prog)
 {

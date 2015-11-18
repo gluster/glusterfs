@@ -1618,7 +1618,7 @@ afr_read_subvol_decide (inode_t *inode, xlator_t *this,
         return data_subvol;
 }
 
-static inline int
+static int
 afr_first_up_child (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t       *priv  = NULL;
@@ -3194,7 +3194,7 @@ afr_parallel_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 afr_is_conflicting_lock_present (int32_t op_ret, int32_t op_errno)
 {
         if (op_ret == -1 && op_errno == EAGAIN)

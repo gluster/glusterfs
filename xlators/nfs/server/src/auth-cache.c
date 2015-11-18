@@ -184,7 +184,7 @@ out:
  *
  * @return: true when the auth_cache_entry is expired, false otherwise.
  */
-static inline int
+static int
 _auth_cache_expired (struct auth_cache *cache, struct auth_cache_entry *entry)
 {
         return ((time (NULL) - entry->timestamp) > cache->ttl_sec);

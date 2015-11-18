@@ -338,7 +338,7 @@ out:
 	return avail_subvol;
 }
 
-static inline
+static
 int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
                                          dht_layout_t *layout)
 {

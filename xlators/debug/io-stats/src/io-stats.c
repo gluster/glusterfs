@@ -154,7 +154,7 @@ struct ios_local {
 
 struct volume_options options[];
 
-inline static int
+static int
 is_fop_latency_started (call_frame_t *frame)
 {
         GF_ASSERT (frame);
@@ -514,7 +514,7 @@ out:
         return 0;
 }
 
-static inline int
+static int
 ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 

@@ -4935,7 +4935,7 @@ glusterd_calc_dist_leaf_count (int rcount, int scount)
         return (rcount ? rcount : 1) * (scount ? scount : 1);
 }
 
-inline int
+int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
 {
     int rcount = volinfo->replica_count;
@@ -5787,7 +5787,7 @@ out:
         return ret;
 }
 
-inline int
+int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *src, glusterd_brickinfo_t *dst)
 {
@@ -6510,8 +6510,8 @@ out:
         return ret;
 }
 
-static inline int
-glusterd_is_replica_volume (int type)
+static int
+is_replica_volume (int type)
 {
         if (type == GF_CLUSTER_TYPE_REPLICATE ||
             type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
@@ -6523,13 +6523,11 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
 {
         gf_boolean_t    replicates = _gf_false;
         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                replicates = glusterd_is_replica_volume
-                                            (volinfo->tier_info.cold_type) |
-                             glusterd_is_replica_volume
-                                            (volinfo->tier_info.hot_type);
+                replicates = is_replica_volume (volinfo->tier_info.cold_type) |
+                             is_replica_volume (volinfo->tier_info.hot_type);
                 return replicates;
        }
-       return glusterd_is_replica_volume ((volinfo->type));
+       return is_replica_volume ((volinfo->type));
 }
 
 gf_boolean_t
