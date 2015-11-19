@@ -1889,13 +1889,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = 3
         },
         { .key        = "config.memory-accounting",
-          .voltype    = "configuration",
+          .voltype    = "mgmt/glusterd",
           .option     = "!config",
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "config.transport",
-          .voltype     = "configuration",
+          .voltype     = "mgmt/glusterd",
           .option      = "!config",
           .op_version  = 2
         },
