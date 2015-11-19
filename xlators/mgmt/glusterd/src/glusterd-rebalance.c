@@ -743,7 +743,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                         if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                                snprintf (msg, sizeof(msg), "Detach-tier"
+                                snprintf (msg, sizeof(msg), "Detach-tier "
                                           "not started");
                                 ret = -1;
                                 goto out;
