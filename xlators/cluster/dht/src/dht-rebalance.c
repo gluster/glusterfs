@@ -1328,14 +1328,25 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
                                                &dst_fd, xattr);
-        if (ret)
-                goto out;
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed: %s: "
+                        "failed to create dest file on %s",
+                        loc->path, to->name);
+                 goto out;
+        }
 
         clean_dst = _gf_true;
 
         ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
 
         if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed: %s: "
+                        "Disk space check failed on %s",
+                        loc->path, to->name);
                 goto out;
         }
 
@@ -1345,7 +1356,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed: failed to open %s on %s",
+                        "Migrate file failed: %s: failed to open on %s",
                         loc->path, from->name);
                 goto out;
         }
@@ -1360,7 +1371,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                         DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed:failed to lookup %s on %s ",
+                        "Migrate file failed: %s: failed to lookup %s ",
                         loc->path, from->name);
                 ret = -1;
                 goto out;
@@ -2426,6 +2437,9 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                         ret = -1;
                         goto out;
                 }
+
+                gf_uuid_copy (entry_loc.inode->gfid,
+                              df_entry->d_stat.ia_gfid);
 
                 if (gf_uuid_is_null (df_entry->d_stat.ia_gfid)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
