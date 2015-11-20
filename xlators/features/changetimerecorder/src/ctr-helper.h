@@ -167,6 +167,7 @@ typedef struct gf_ctr_link_context {
 typedef struct gf_ctr_inode_context {
         ia_type_t               ia_type;
         uuid_t                  *gfid;
+        uuid_t                  *old_gfid;
         gf_ctr_link_context_t   *new_link_cx;
         gf_ctr_link_context_t   *old_link_cx;
         gfdb_fop_type_t         fop_type;
@@ -230,10 +231,10 @@ do {\
                                 _fop_type,\
                                 _fop_path)\
 do {\
-        GF_ASSERT(ctr_inode_cx);\
-        GF_ASSERT(_gfid);\
-        GF_ASSERT(_fop_type != GFDB_FOP_INVALID_OP);\
-        GF_ASSERT(_fop_path != GFDB_FOP_INVALID);\
+        GF_ASSERT (ctr_inode_cx);\
+        GF_ASSERT (_gfid);\
+        GF_ASSERT (_fop_type != GFDB_FOP_INVALID_OP);\
+        GF_ASSERT (_fop_path != GFDB_FOP_INVALID);\
         memset(ctr_inode_cx, 0, sizeof(*ctr_inode_cx));\
         ctr_inode_cx->ia_type = _ia_type;\
         ctr_inode_cx->gfid = &_gfid;\
@@ -247,12 +248,74 @@ do {\
         ctr_inode_cx->fop_path = _fop_path;\
 } while (0)
 
+
 /******************************************************************************
  *
  *                      Util functions or macros used by
  *                      insert wind and insert unwind
  *
  * ****************************************************************************/
+/* Free ctr frame local */
+static inline void
+ctr_free_frame_local (call_frame_t *frame) {
+        if (frame) {
+                free_ctr_local ((gf_ctr_local_t *) frame->local);
+                frame->local = NULL;
+        }
+}
+
+/* Setting GF_REQUEST_LINK_COUNT_XDATA in dict
+ * that has to be sent to POSIX Xlator to send
+ * link count in unwind path.
+ * return 0 for success with not creation of dict
+ * return 1 for success with creation of dict
+ * return -1 for failure.
+ * */
+static inline int
+set_posix_link_request (xlator_t        *this,
+                        dict_t          **xdata)
+{
+        int ret                         = -1;
+        gf_boolean_t is_created         = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("ctr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, xdata, out);
+
+        /*create xdata if NULL*/
+        if (!*xdata) {
+                *xdata = dict_new();
+                is_created = _gf_true;
+                ret = 1;
+        } else {
+                ret = 0;
+        }
+
+        if (!*xdata) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_XDATA_NULL,
+                        "xdata is NULL :Cannot send "
+                        "GF_REQUEST_LINK_COUNT_XDATA to posix");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (*xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_SET_CTR_RESPONSE_LINK_COUNT_XDATA_FAILED,
+                        "Failed setting GF_REQUEST_LINK_COUNT_XDATA");
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        if (ret == -1) {
+                if (*xdata && is_created) {
+                        dict_unref (*xdata);
+                }
+        }
+        return ret;
+}
+
 
 /*
  * If a bitrot fop
@@ -293,8 +356,8 @@ do {\
  * Internal fop
  *
  * */
-static inline
-gf_boolean_t is_internal_fop (call_frame_t *frame,
+static inline gf_boolean_t
+is_internal_fop (call_frame_t *frame,
                               dict_t       *xdata)
 {
         gf_boolean_t ret = _gf_false;
@@ -327,6 +390,15 @@ do {\
                         goto label; \
 } while (0)
 
+/* if fop has failed exit */
+#define CTR_IF_FOP_FAILED_THEN_GOTO(this, op_ret, op_errno, label)\
+do {\
+        if (op_ret == -1) {\
+                gf_msg_trace (this->name, 0, "Failed fop with %s",\
+                              strerror (op_errno));\
+                goto label;\
+        };\
+} while (0)
 
 /*
  * IS CTR Xlator is disabled then goto to label
@@ -372,6 +444,7 @@ fill_db_record_for_wind (xlator_t                *this,
  * This function creates ctr_local structure into the frame of the fop
  * call.
  * ****************************************************************************/
+
 static inline int
 ctr_insert_wind (call_frame_t                    *frame,
                 xlator_t                        *this,
@@ -538,8 +611,60 @@ ctr_insert_unwind (call_frame_t          *frame,
         }
         ret = 0;
 out:
-        free_ctr_local (ctr_local);
-        frame->local = NULL;
+        return ret;
+}
+
+/******************************************************************************
+ *                          Delete file/flink record/s from db
+ * ****************************************************************************/
+static inline int
+ctr_delete_hard_link_from_db (xlator_t               *this,
+                              uuid_t                 gfid,
+                              uuid_t                 pargfid,
+                              char                   *basename,
+                              gfdb_fop_type_t        fop_type,
+                              gfdb_fop_path_t        fop_path)
+{
+        int                     ret                = -1;
+        gfdb_db_record_t        gfdb_db_record;
+        gf_ctr_private_t        *_priv             = NULL;
+
+        _priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, _priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, (!gf_uuid_is_null (gfid)), out);
+        GF_VALIDATE_OR_GOTO (this->name, (!gf_uuid_is_null (pargfid)), out);
+        GF_VALIDATE_OR_GOTO (this->name, (fop_type == GFDB_FOP_DENTRY_WRITE),
+                             out);
+        GF_VALIDATE_OR_GOTO (this->name,
+                             (fop_path == GFDB_FOP_UNDEL || GFDB_FOP_UNDEL_ALL),
+                             out);
+
+        /* Set gfdb_db_record to 0 */
+        memset (&gfdb_db_record, 0, sizeof(gfdb_db_record));
+
+        /* Copy gfid into db record */
+        gf_uuid_copy (gfdb_db_record.gfid, gfid);
+
+        /* Copy pargid into db record */
+        gf_uuid_copy (gfdb_db_record.pargfid, pargfid);
+
+        /* Copy basename */
+        strncpy (gfdb_db_record.file_name, basename, GF_NAME_MAX - 1);
+
+        gfdb_db_record.gfdb_fop_path = fop_path;
+        gfdb_db_record.gfdb_fop_type = fop_type;
+
+        /*send delete request to db*/
+        ret = insert_record (_priv->_db_conn, &gfdb_db_record);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_INSERT_RECORD_WIND_FAILED,
+                        "Failed to delete record. %s", basename);
+                goto out;
+        }
+
+        ret = 0;
+out:
         return ret;
 }
 
