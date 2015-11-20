@@ -16,8 +16,8 @@
 #include "list.h"
 
 #include "locks.h"
+#include "clear.h"
 #include "common.h"
-
 
 void
 __pl_entrylk_unref (pl_entry_lock_t *lock)
@@ -109,6 +109,97 @@ __conflicting_entrylks (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
                 return 1;
 
         return 0;
+}
+
+/* See comments in inodelk.c for details */
+static inline gf_boolean_t
+__stale_entrylk (xlator_t *this, pl_entry_lock_t *candidate_lock,
+                pl_entry_lock_t *requested_lock, time_t *lock_age_sec)
+{
+        posix_locks_private_t  *priv = NULL;
+        struct timeval curr;
+        gettimeofday (&curr, NULL);
+
+        priv = this->private;
+
+        /* Question: Should we just prune them all given the
+         * chance?  Or just the locks we are attempting to acquire?
+         */
+        if (names_conflict (candidate_lock->basename,
+                        requested_lock->basename)) {
+                *lock_age_sec = curr.tv_sec -
+                        candidate_lock->granted_time.tv_sec;
+                if (*lock_age_sec > priv->revocation_secs)
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+/* See comments in inodelk.c for details */
+static gf_boolean_t
+__entrylk_prune_stale (xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
+                 pl_entry_lock_t *lock)
+{
+        posix_locks_private_t  *priv = NULL;
+        pl_entry_lock_t *tmp = NULL;
+        pl_entry_lock_t *lk = NULL;
+        gf_boolean_t revoke_lock = _gf_false;
+        int bcount = 0;
+        int gcount = 0;
+        int op_errno = 0;
+        clrlk_args args;
+        args.opts = NULL;
+        time_t lk_age_sec = 0;
+        uint32_t max_blocked = 0;
+        char *reason_str = NULL;
+
+        priv = this->private;
+        args.type = CLRLK_ENTRY;
+        if (priv->revocation_clear_all == _gf_true)
+                args.kind = CLRLK_ALL;
+        else
+                args.kind = CLRLK_GRANTED;
+
+
+        if (list_empty (&dom->entrylk_list))
+                goto out;
+
+        pthread_mutex_lock (&pinode->mutex);
+        lock->pinode = pinode;
+        list_for_each_entry_safe (lk, tmp, &dom->entrylk_list, domain_list) {
+                if (__stale_entrylk (this, lk, lock, &lk_age_sec) == _gf_true) {
+                        revoke_lock = _gf_true;
+                        reason_str = "age";
+                        break;
+                }
+        }
+        max_blocked = priv->revocation_max_blocked;
+        if (max_blocked != 0 && revoke_lock == _gf_false) {
+                list_for_each_entry_safe (lk, tmp, &dom->blocked_entrylks,
+                                blocked_locks) {
+                        max_blocked--;
+                        if (max_blocked == 0) {
+                                revoke_lock = _gf_true;
+                                reason_str = "max blocked";
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&pinode->mutex);
+
+out:
+        if (revoke_lock == _gf_true) {
+                clrlk_clear_entrylk (this, pinode, dom, &args, &bcount, &gcount,
+                    &op_errno);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Lock revocation [reason: %s; gfid: %s; domain: %s; "
+                        "age: %ld sec] - Entry lock revoked:  %d granted & %d "
+                        "blocked locks cleared", reason_str,
+                        uuid_utoa (pinode->gfid), dom->domain, lk_age_sec,
+                        gcount, bcount);
+        }
+
+        return revoke_lock;
 }
 
 /**
@@ -546,6 +637,9 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         pl_ctx_t        *ctx              =  NULL;
 	int              nonblock         =  0;
         gf_boolean_t     need_inode_unref =  _gf_false;
+        posix_locks_private_t  *priv = NULL;
+
+        priv = this->private;
 
         if (xdata)
                 dict_ret = dict_get_str (xdata, "connection-id", &conn_id);
@@ -599,6 +693,24 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
          * current stack unwinds.
          */
         pinode->inode = inode_ref (inode);
+        if (priv->revocation_secs != 0) {
+                if (cmd != ENTRYLK_UNLOCK) {
+                        __entrylk_prune_stale (this, pinode, dom, reqlock);
+                } else if (priv->monkey_unlocking == _gf_true) {
+                        if (pl_does_monkey_want_stuck_lock ()) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                    "MONKEY LOCKING (forcing stuck lock)!");
+                                op_ret = 0;
+                                need_inode_unref = _gf_true;
+                                pthread_mutex_lock (&pinode->mutex);
+                                {
+                                        __pl_entrylk_unref (reqlock);
+                                }
+                                pthread_mutex_unlock (&pinode->mutex);
+                                goto out;
+                        }
+                }
+        }
 
         switch (cmd) {
         case ENTRYLK_LOCK_NB:
@@ -678,9 +790,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                         "a bug report at http://bugs.gluster.com", cmd);
                 goto out;
         }
-        if (need_inode_unref)
-                inode_unref (pinode->inode);
-
         /* The following (extra) unref corresponds to the ref that
          * was done at the time the lock was granted.
          */
@@ -688,6 +797,9 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 inode_unref (pinode->inode);
 
 out:
+
+        if (need_inode_unref)
+                inode_unref (pinode->inode);
 
         if (unwind) {
                 entrylk_trace_out (this, frame, volume, fd, loc, basename,
@@ -772,8 +884,6 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
         {
                 list_for_each_entry_safe (l, tmp, &ctx->entrylk_lockers,
 					  client_list) {
-                        list_del_init (&l->client_list);
-
 			pl_entrylk_log_cleanup (l);
 
 			pinode = l->pinode;
@@ -810,6 +920,8 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
                          *      blocked to avoid leaving L1 to starve forever.
                          * iv.  unref the object.
                          */
+                                list_del_init (&l->client_list);
+
                                 if (!list_empty (&l->domain_list)) {
                                         list_del_init (&l->domain_list);
                                         list_add_tail (&l->client_list,

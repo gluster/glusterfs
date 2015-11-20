@@ -234,6 +234,7 @@ blkd:
                                 continue;
 
                         bcount++;
+                        list_del_init (&ilock->client_list);
                         list_del_init (&ilock->blocked_locks);
                         list_add (&ilock->blocked_locks, &released);
                 }
@@ -268,6 +269,7 @@ granted:
                                 continue;
 
                         gcount++;
+                        list_del_init (&ilock->client_list);
                         list_del_init (&ilock->list);
                         list_add (&ilock->list, &released);
                 }
@@ -321,6 +323,7 @@ blkd:
 
                         bcount++;
 
+                        list_del_init (&elock->client_list);
                         list_del_init (&elock->blocked_locks);
                         list_add_tail (&elock->blocked_locks, &released);
                 }
@@ -355,6 +358,7 @@ granted:
                         }
 
                         gcount++;
+                        list_del_init (&elock->client_list);
                         list_del_init (&elock->domain_list);
                         list_add_tail (&elock->domain_list, &removed);
 
