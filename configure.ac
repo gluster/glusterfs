@@ -1139,92 +1139,75 @@ if test "x$LIBAIO" != "x"; then
    BUILD_LIBAIO=yes
 fi
 
-# glupy section
+dnl glupy section
 BUILD_GLUPY=no
 have_python2=no
 have_Python_h=no
 
-AM_PATH_PYTHON()
-if echo $PYTHON_VERSION | grep ^2; then
-  have_python2=yes
-fi
+AC_ARG_ENABLE([glupy], AS_HELP_STRING([--enable-glupy], [build glupy]))
+if test "x$enable_glupy" != "xno"; then enable_glupy=yes; fi
 
-# Save flags before testing python
-saved_CFLAGS=$CFLAGS
-saved_CPPFLAGS=$CPPFLAGS
-saved_LDFLAGS=$LDFLAGS
+if test "x$enable_glupy" = "xyes"; then
+    dnl Check if python exists
+    AM_PATH_PYTHON()
+    dnl Check if version matches that we require
+    if echo $PYTHON_VERSION | grep ^2; then
+        have_python2=yes
+    fi
 
-# Use pkg-config to get runtime search patch missing from ${PYTHON}-config
-# Just do "true" on failure so that configure does not bail out
-PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
-CFLAGS="`${PYTHON}-config --cflags`"
-CPPFLAGS=$CFLAGS
-LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+    dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
+    dnl Just do "true" on failure so that configure does not bail out
+    PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
 
-AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
-AC_ARG_ENABLE([glupy],
-              AS_HELP_STRING([--enable-glupy],
-                             [build glupy]))
-case x$enable_glupy in
-   xyes)
-      if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
-        BUILD_GLUPY=yes
-        PYTHONDEV_CFLAGS="$CFLAGS"
-        PYTHONDEV_CPPFLAGS="$CPPFLAGS"
-        PYTHONDEV_LDFLAGS="$LDFLAGS"
-        AC_SUBST(PYTHONDEV_CFLAGS)
-        AC_SUBST(PYTHONDEV_CPPFLAGS)
-        AC_SUBST(PYTHONDEV_LDFLAGS)
-      else
-        AC_MSG_ERROR([glupy requires python-devel/python-dev package and python2.x])
-      fi
-      ;;
-   xno)
-      ;;
-   *)
-      if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
-        BUILD_GLUPY=yes
-        PYTHONDEV_CFLAGS="$CFLAGS"
-        PYTHONDEV_CPPFLAGS="$CPPFLAGS"
-        PYTHONDEV_LDFLAGS="$LDFLAGS"
-        AC_SUBST(PYTHONDEV_CFLAGS)
-        AC_SUBST(PYTHONDEV_CPPFLAGS)
-        AC_SUBST(PYTHONDEV_LDFLAGS)
-      else
+    PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
+    dnl Edit out the flags that are not required or are conflicting
+    PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
+
+    dnl Find python libs at user configured libdir and also "lib" under prefix
+    PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+
+    BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'`
+    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
+    BUILD_PYTHON_LIB=python$PYTHON_VERSION
+
+    GLUPY_SUBDIR=glupy
+    GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
+    GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
+
+    dnl Now check for python header using the include path obtained above
+    AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
+
+    if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
+        case $host_os in
+            darwin*)
+                BUILD_GLUPY=no
+                ;;
+            *)
+                BUILD_GLUPY=yes
+                ;;
+        esac
+    else
         AC_MSG_WARN([
         ---------------------------------------------------------------------------------
-         cannot build glupy. python 2.x and python-devel/python-dev package are required.
+        cannot build glupy. python 2.x and python-devel/python-dev package are required.
         ---------------------------------------------------------------------------------])
-      fi
-      ;;
-esac
-# Restore flags
-CFLAGS=$saved_CFLAGS
-CPPFLAGS=$saved_CPPFLAGS
-LDFLAGS=$saved_LDFLAGS
+    fi
 
-case $host_os in
-     darwin*)
-        BUILD_GLUPY=no
-        ;;
-esac
+    if test "x$BUILD_GLUPY" = "xyes"; then
 
-if test "x$BUILD_GLUPY" = "xyes"; then
-   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix='$prefix'))"`
-   BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
-   BUILD_PYTHON_LIB=python$PYTHON_VERSION
-   GLUPY_SUBDIR=glupy
-   GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
-   GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
-   echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
-   AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
-   AC_SUBST(BUILD_PYTHON_INC)
-   AC_SUBST(BUILD_PYTHON_LIB)
-   AC_SUBST(GLUPY_SUBDIR)
-   AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
-   AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
+        echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
+
+        AC_SUBST(PYTHONDEV_CPPFLAGS)
+        AC_SUBST(PYTHONDEV_LDFLAGS)
+        AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
+        AC_SUBST(BUILD_PYTHON_INC)
+        AC_SUBST(BUILD_PYTHON_LIB)
+        AC_SUBST(GLUPY_SUBDIR)
+        AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
+        AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
+    fi
 fi
-# end glupy section
+dnl end glupy section
 
 dnl Check for userspace-rcu
 PKG_CHECK_MODULES([URCU], [liburcu-bp], [],
