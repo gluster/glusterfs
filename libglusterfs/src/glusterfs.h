@@ -621,6 +621,7 @@ typedef enum {
         GF_EVENT_PARENT_DOWN,
         GF_EVENT_VOLUME_BARRIER_OP,
         GF_EVENT_UPCALL,
+        GF_EVENT_SCRUB_STATUS,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
