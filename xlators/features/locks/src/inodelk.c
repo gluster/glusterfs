@@ -16,6 +16,7 @@
 #include "list.h"
 
 #include "locks.h"
+#include "clear.h"
 #include "common.h"
 
 void
@@ -128,6 +129,105 @@ inodelk_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
         return (inodelk_overlap (l1, l2) &&
                 inodelk_type_conflict (l1, l2));
+}
+
+/*
+ * Check to see if the candidate lock overlaps/conflicts with the
+ * requested lock.  If so, determine how old the lock is and return
+ * true if it exceeds the configured threshold, false otherwise.
+ */
+static inline gf_boolean_t
+__stale_inodelk (xlator_t *this, pl_inode_lock_t *candidate_lock,
+                pl_inode_lock_t *requested_lock, time_t *lock_age_sec)
+{
+        posix_locks_private_t  *priv = NULL;
+        struct timeval curr;
+
+        priv = this->private;
+        gettimeofday (&curr, NULL);
+        /* Question: Should we just prune them all given the
+         * chance?  Or just the locks we are attempting to acquire?
+         */
+        if (inodelk_conflict (candidate_lock, requested_lock)) {
+                *lock_age_sec = curr.tv_sec -
+                        candidate_lock->granted_time.tv_sec;
+                if (*lock_age_sec > priv->revocation_secs)
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+/* Examine any locks held on this inode and potentially revoke the lock
+ * if the age exceeds revocation_secs.  We will clear _only_ those locks
+ * which are granted, and then grant those locks which are blocked.
+ *
+ * Depending on how this patch works in the wild, we may expand this and
+ * introduce a heuristic which clears blocked locks as well if they
+ * are beyond a threshold.
+ */
+static gf_boolean_t
+__inodelk_prune_stale (xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
+                       pl_inode_lock_t *lock)
+{
+        posix_locks_private_t  *priv = NULL;
+        pl_inode_lock_t *tmp = NULL;
+        pl_inode_lock_t *lk = NULL;
+        gf_boolean_t revoke_lock = _gf_false;
+        int bcount = 0;
+        int gcount = 0;
+        int op_errno = 0;
+        clrlk_args args;
+        args.opts = NULL;
+        time_t lk_age_sec = 0;
+        uint32_t max_blocked = 0;
+        char *reason_str = NULL;
+
+        priv = this->private;
+
+        args.type = CLRLK_INODE;
+        if (priv->revocation_clear_all == _gf_true)
+                args.kind = CLRLK_ALL;
+        else
+                args.kind = CLRLK_GRANTED;
+
+        if (list_empty (&dom->inodelk_list))
+                goto out;
+
+        pthread_mutex_lock (&pinode->mutex);
+        list_for_each_entry_safe (lk, tmp, &dom->inodelk_list, list) {
+                if (__stale_inodelk (this, lk, lock, &lk_age_sec) == _gf_true) {
+                        revoke_lock = _gf_true;
+                        reason_str = "age";
+                        break;
+                }
+        }
+
+        max_blocked = priv->revocation_max_blocked;
+        if (max_blocked != 0 && revoke_lock == _gf_false) {
+                list_for_each_entry_safe (lk, tmp, &dom->blocked_inodelks,
+                                blocked_locks) {
+                        max_blocked--;
+                        if (max_blocked == 0) {
+                                revoke_lock = _gf_true;
+                                reason_str = "max blocked";
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&pinode->mutex);
+
+out:
+        if (revoke_lock == _gf_true) {
+                clrlk_clear_inodelk (this, pinode, dom, &args, &bcount, &gcount,
+                        &op_errno);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Lock revocation [reason: %s; gfid: %s; domain: %s; "
+                        "age: %ld sec] - Inode lock revoked:  %d granted & %d "
+                        "blocked locks cleared",
+                        reason_str, uuid_utoa (pinode->gfid), dom->domain,
+                        lk_age_sec, gcount, bcount);
+        }
+        return revoke_lock;
 }
 
 /* Determine if lock is grantable or not */
@@ -419,8 +519,6 @@ pl_inodelk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
         {
                 list_for_each_entry_safe (l, tmp, &ctx->inodelk_lockers,
 					  client_list) {
-                        list_del_init (&l->client_list);
-
 			pl_inodelk_log_cleanup (l);
 
 			pl_inode = l->pl_inode;
@@ -458,6 +556,8 @@ pl_inodelk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
                          *      forever.
                          * iv.  unref the object.
                          */
+                                list_del_init (&l->client_list);
+
                                 if (!list_empty (&l->list)) {
                                         __delete_inode_lock (l);
                                         list_add_tail (&l->client_list,
@@ -509,6 +609,7 @@ pl_inode_setlk (xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
 		pl_inode_lock_t *lock, int can_block, pl_dom_list_t *dom,
                 inode_t *inode)
 {
+        posix_locks_private_t  *priv = NULL;
         int               ret              = -EINVAL;
         pl_inode_lock_t  *retlock          =  NULL;
         gf_boolean_t      unref            =  _gf_true;
@@ -517,6 +618,8 @@ pl_inode_setlk (xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
 
 	lock->pl_inode = pl_inode;
         fl_type = lock->fl_type;
+
+        priv = this->private;
 
         /* Ideally, AFTER a successful lock (both blocking and non-blocking) or
          * an unsuccessful blocking lock operation, the inode needs to be ref'd.
@@ -536,6 +639,24 @@ pl_inode_setlk (xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
          * current stack unwinds.
          */
         pl_inode->inode = inode_ref (inode);
+
+        if (priv->revocation_secs != 0) {
+                if (lock->fl_type != F_UNLCK) {
+                        __inodelk_prune_stale (this, pl_inode, dom, lock);
+                } else if (priv->monkey_unlocking == _gf_true) {
+                        if (pl_does_monkey_want_stuck_lock ()) {
+                                pthread_mutex_lock (&pl_inode->mutex);
+                                {
+                                        __pl_inodelk_unref (lock);
+                                }
+                                pthread_mutex_unlock (&pl_inode->mutex);
+                                inode_unref (pl_inode->inode);
+                                gf_log (this->name, GF_LOG_WARNING,
+                                    "MONKEY LOCKING (forcing stuck lock)!");
+                                return 0;
+                        }
+                }
+        }
 
 	if (ctx)
 		pthread_mutex_lock (&ctx->lock);
