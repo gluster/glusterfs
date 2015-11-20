@@ -373,9 +373,10 @@ ctr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int ret = -1;
 
-        CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IS_DISABLED_THEN_GOTO (this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
-        ret = ctr_insert_unwind(frame, this,
+        ret = ctr_insert_unwind (frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -385,6 +386,8 @@ ctr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf,
                         postbuf, xdata);
 
@@ -437,6 +440,7 @@ ctr_setattr_cbk (call_frame_t *frame,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
@@ -447,6 +451,8 @@ ctr_setattr_cbk (call_frame_t *frame,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop_stbuf,
                        postop_stbuf, xdata);
 
@@ -498,6 +504,7 @@ ctr_fsetattr_cbk (call_frame_t *frame,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
@@ -508,6 +515,8 @@ ctr_fsetattr_cbk (call_frame_t *frame,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno,
                                 preop_stbuf, postop_stbuf, xdata);
 
@@ -556,7 +565,7 @@ ctr_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
-
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
@@ -567,6 +576,8 @@ ctr_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -613,6 +624,7 @@ ctr_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
         CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
 
@@ -625,6 +637,8 @@ ctr_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -672,7 +686,7 @@ ctr_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
-
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
@@ -684,6 +698,8 @@ ctr_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
                       postbuf, xdata);
 
@@ -730,6 +746,7 @@ ctr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this,
                         GFDB_FOP_INODE_WRITE, GFDB_FOP_UNWIND);
@@ -740,6 +757,8 @@ ctr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
                       postbuf, xdata);
 
@@ -778,7 +797,6 @@ out:
 }
 
 /****************************rename******************************************/
-
 int32_t
 ctr_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *buf,
@@ -786,19 +804,78 @@ ctr_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *prenewparent, struct iatt *postnewparent,
                     dict_t *xdata)
 {
-        int ret = -1;
+        int ret                         = -1;
+        uint32_t remaining_links        = -1;
+        gf_ctr_local_t *ctr_local       = NULL;
+        gfdb_fop_type_t fop_type        = GFDB_FOP_INVALID_OP;
+        gfdb_fop_path_t fop_path        = GFDB_FOP_INVALID;
 
-        CTR_IS_DISABLED_THEN_GOTO(this, out);
+        GF_ASSERT(frame);
+        GF_ASSERT(this);
 
-        ret = ctr_insert_unwind(frame, this,
+        CTR_IS_DISABLED_THEN_GOTO (this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
+
+        ret = ctr_insert_unwind (frame, this,
                         GFDB_FOP_DENTRY_WRITE, GFDB_FOP_UNWIND);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_INSERT_RENAME_UNWIND_FAILED,
                         "Failed to insert rename unwind");
+                goto out;
+        }
+
+        if (!xdata)
+                goto out;
+        /*
+         *
+         * Extracting GF_RESPONSE_LINK_COUNT_XDATA from POSIX Xlator
+         * This is only set when we are overwriting hardlinks.
+         *
+         * */
+        ret = dict_get_uint32 (xdata , GF_RESPONSE_LINK_COUNT_XDATA,
+                                &remaining_links);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_GET_CTR_RESPONSE_LINK_COUNT_XDATA_FAILED,
+                        "Failed to getting GF_RESPONSE_LINK_COUNT_XDATA");
+                remaining_links = -1;
+                goto out;
+        }
+
+        ctr_local = frame->local;
+
+        /* This is not the only link */
+        if (remaining_links > 1) {
+                fop_type = GFDB_FOP_DENTRY_WRITE;
+                fop_path = GFDB_FOP_UNDEL;
+        }
+        /* Last link that was deleted */
+        else if (remaining_links == 1) {
+                fop_type = GFDB_FOP_DENTRY_WRITE;
+                fop_path = GFDB_FOP_UNDEL_ALL;
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_INSERT_RENAME_UNWIND_FAILED,
+                        "Invalid link count from posix");
+                goto out;
+        }
+
+        ret = ctr_delete_hard_link_from_db (this,
+                                    CTR_DB_REC(ctr_local).old_gfid,
+                                    CTR_DB_REC(ctr_local).pargfid,
+                                    CTR_DB_REC(ctr_local).file_name,
+                                    fop_type, fop_path);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_INSERT_UNLINK_UNWIND_FAILED,
+                        "Failed to delete records of %s",
+                        CTR_DB_REC(ctr_local).old_file_name);
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                              preoldparent, postoldparent, prenewparent,
                              postnewparent,
@@ -811,12 +888,14 @@ int32_t
 ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 loc_t *newloc, dict_t *xdata)
 {
-        int ret = -1;
+        int ret                                         = -1;
         gf_ctr_inode_context_t ctr_inode_cx;
-        gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
+        gf_ctr_inode_context_t *_inode_cx               = &ctr_inode_cx;
         gf_ctr_link_context_t new_link_cx, old_link_cx;
-        gf_ctr_link_context_t *_nlink_cx = &new_link_cx;
-        gf_ctr_link_context_t *_olink_cx = &old_link_cx;
+        gf_ctr_link_context_t *_nlink_cx                = &new_link_cx;
+        gf_ctr_link_context_t *_olink_cx                = &old_link_cx;
+        int is_dict_created                             = 0;
+        ctr_xlator_ctx_t *ctr_xlator_ctx                = NULL;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
         CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
@@ -833,6 +912,20 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
                 oldloc->inode->gfid, _nlink_cx, _olink_cx,
                 GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WIND);
+
+
+        /* If the rename is a overwrite of hardlink
+         * rename ("file1", "file2")
+         * file1 is hardlink for gfid say 00000000-0000-0000-0000-00000000000A
+         * file2 is hardlink for gfid say 00000000-0000-0000-0000-00000000000B
+         * so we are saving file2 gfid in old_gfid so that we delete entries
+         * from the db during rename callback if the fop is successful
+         * */
+        if (newloc->inode) {
+                /* This is the GFID from where the newloc hardlink will be
+                 * unlinked */
+                _inode_cx->old_gfid = &newloc->inode->gfid;
+        }
 
         /* Is a metatdata fop */
         _inode_cx->is_metadata_fop = _gf_true;
@@ -851,6 +944,45 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 CTR_MSG_UPDATE_HARDLINK_FAILED, "Failed "
                                 "updating hard link in ctr inode context");
+                        goto out;
+                }
+
+                /* If the newloc has an inode. i.e aquiring hardlink of an
+                 * exisitng file i.e overwritting a file.
+                 * */
+                if (newloc->inode) {
+
+                        /* Getting the ctr inode context variable for
+                         * inode whose hardlink will be aquired during
+                         * the rename
+                         * */
+                        ctr_xlator_ctx = get_ctr_xlator_ctx (this,
+                                                                newloc->inode);
+                        if (!ctr_xlator_ctx) {
+                                /* Since there is no ctr inode context
+                                 * so nothing more to do */
+                                ret = 0;
+                                goto out;
+                        }
+
+                        /* Deleting hardlink from context variable */
+                        ret = ctr_delete_hard_link (this, ctr_xlator_ctx,
+                                                newloc->pargfid, newloc->name);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CTR_MSG_DELETE_HARDLINK_FAILED,
+                                        "Failed to delete hard link");
+                                goto out;
+                        }
+
+                        /* Requesting for number of hardlinks on the newloc
+                         * inode from POSIX.
+                         * */
+                        is_dict_created = set_posix_link_request (this, &xdata);
+                        if (is_dict_created == -1) {
+                                ret = -1;
+                                goto out;
+                        }
                 }
         }
 
@@ -858,6 +990,11 @@ out:
         STACK_WIND (frame, ctr_rename_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->rename,
                     oldloc, newloc, xdata);
+
+        if (is_dict_created == 1) {
+                dict_unref (xdata);
+        }
+
         return 0;
 }
 
@@ -871,6 +1008,7 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t remaining_links                = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         if (!xdata)
                 goto out;
@@ -913,6 +1051,8 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
                              postparent, xdata);
 
@@ -1021,6 +1161,7 @@ ctr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_INODE_WRITE,
                                 GFDB_FOP_UNWIND);
@@ -1031,6 +1172,8 @@ ctr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf,
                       xdata);
 
@@ -1087,6 +1230,8 @@ ctr_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -1132,6 +1277,7 @@ ctr_fsetxattr_cbk (call_frame_t *frame,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_INODE_WRITE,
                                 GFDB_FOP_UNWIND);
@@ -1142,6 +1288,8 @@ ctr_fsetxattr_cbk (call_frame_t *frame,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -1191,6 +1339,7 @@ ctr_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ctr_heal_ret_val_t ret_val = CTR_CTX_ERROR;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         /* Add hard link to the list */
         ret_val = add_hard_link_ctx (frame, this, inode);
@@ -1207,6 +1356,8 @@ ctr_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                 preparent, postparent, xdata);
 
@@ -1275,7 +1426,7 @@ ctr_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
-
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = add_hard_link_ctx (frame, this, inode);
         if (ret) {
@@ -1293,6 +1444,8 @@ ctr_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode,
                              stbuf,
                         preparent, postparent, xdata);
@@ -1372,6 +1525,7 @@ ctr_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         /* Add hard link to the list */
         ret = add_hard_link_ctx (frame, this, inode);
@@ -1388,6 +1542,8 @@ ctr_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, stbuf,
                        preparent, postparent, xdata);
         return 0;
@@ -1455,6 +1611,7 @@ int ctr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_FOP_FAILED_THEN_GOTO (this, op_ret, op_errno, out);
 
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_INODE_READ,
                                 GFDB_FOP_UNWIND);
@@ -1465,6 +1622,8 @@ int ctr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        ctr_free_frame_local (frame);
+
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
                                 stbuf, iobref, xdata);
         return 0;
