@@ -4,7 +4,10 @@ xlator_LTLIBRARIES = glupy.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 glupydir = $(xlatordir)/glupy
 AM_CPPFLAGS = $(PYTHONDEV_CPPFLAGS) $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src -isystem $(BUILD_PYTHON_INC)
-AM_CFLAGS = $(PYTHONDEV_CFLAGS) -Wall -fno-strict-aliasing -DGLUSTER_PYTHON_PATH=\"$(glupydir)\" -DPATH_GLUSTERFS_GLUPY_MODULE=\"${xlatordir}/glupy${shrext_cmds}\" $(GF_CFLAGS)
+AM_CFLAGS = $(PYTHONDEV_CPPFLAGS) -Wall -fno-strict-aliasing \
+            -DGLUSTER_PYTHON_PATH=\"$(glupydir)\" \
+            -DPATH_GLUSTERFS_GLUPY_MODULE=\"${xlatordir}/glupy${shrext_cmds}\" \
+            $(GF_CFLAGS)
 
 # Flags to build glupy.so with
 glupy_la_LDFLAGS = $(PYTHONDEV_LDFLAGS) -module -avoid-version -nostartfiles -export-symbols $(top_srcdir)/xlators/features/glupy/src/glupy.sym
