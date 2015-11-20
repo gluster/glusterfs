@@ -3628,7 +3628,21 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("trace", priv->trace, options, bool, out);
 
+        GF_OPTION_RECONF ("monkey-unlocking", priv->monkey_unlocking, options,
+                          bool, out);
+
+        GF_OPTION_RECONF ("revocation-secs",
+                          priv->revocation_secs, options,
+                          uint32, out);
+
+        GF_OPTION_RECONF ("revocation-clear-all", priv->revocation_clear_all,
+                          options, bool, out);
+
+        GF_OPTION_RECONF ("revocation-max-blocked",
+                          priv->revocation_max_blocked, options,
+                          uint32, out);
         ret = 0;
+
 out:
         return ret;
 }
@@ -3678,6 +3692,18 @@ init (xlator_t *this)
         tmp_str = NULL;
 
         GF_OPTION_INIT ("trace", priv->trace, bool, out);
+
+        GF_OPTION_INIT ("monkey-unlocking", priv->monkey_unlocking,
+                        bool, out);
+
+        GF_OPTION_INIT ("revocation-secs", priv->revocation_secs,
+                        uint32, out);
+
+        GF_OPTION_INIT ("revocation-clear-all", priv->revocation_clear_all,
+                        bool, out);
+
+        GF_OPTION_INIT ("revocation-max-blocked", priv->revocation_max_blocked,
+                        uint32, out);
 
         this->local_pool = mem_pool_new (pl_local_t, 32);
         if (!this->local_pool) {
@@ -3934,6 +3960,36 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "Trace the different lock requests "
                          "to logs."
+        },
+        { .key  = { "monkey-unlocking" },
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "Ignore a random number of unlock requests.  Useful "
+                         "for testing/creating robust lock recovery mechanisms."
+        },
+        { .key = {"revocation-secs"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .max = INT_MAX,
+          .default_value = "0",
+          .description = "Maximum time a lock can be taken out, before"
+                         "being revoked.",
+        },
+        { .key = {"revocation-clear-all"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "If set to true, will revoke BOTH granted and blocked "
+                         "(pending) lock requests if a revocation threshold is "
+                         "hit.",
+        },
+        { .key = {"revocation-max-blocked"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .max = INT_MAX,
+          .default_value = "0",
+          .description = "A number of blocked lock requests after which a lock "
+                         "will be revoked to allow the others to proceed.  Can "
+                         "be used in conjunction w/ revocation-clear-all."
         },
         { .key = {NULL} },
 };

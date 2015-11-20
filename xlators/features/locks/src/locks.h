@@ -190,6 +190,10 @@ typedef struct {
         mlk_mode_t      mandatory_mode; /* holds current mandatory locking mode */
         gf_boolean_t    trace;          /* trace lock requests in and out */
         char           *brickname;
+        gf_boolean_t    monkey_unlocking;
+        uint32_t        revocation_secs;
+        gf_boolean_t    revocation_clear_all;
+        uint32_t        revocation_max_blocked;
 } posix_locks_private_t;
 
 

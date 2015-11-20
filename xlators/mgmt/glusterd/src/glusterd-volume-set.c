@@ -2998,6 +2998,27 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_8_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .option      = "revocation-secs",
+          .key         = "features.locks-revocation-secs",
+          .voltype     = "features/locks",
+          .op_version  = GD_OP_VERSION_3_9_0,
+        },
+        { .option      = "revocation-clear-all",
+          .key         = "features.locks-revocation-clear-all",
+          .voltype     = "features/locks",
+          .op_version  = GD_OP_VERSION_3_9_0,
+        },
+        { .option      = "revocation-max-blocked",
+          .key         = "features.locks-revocation-max-blocked",
+          .voltype     = "features/locks",
+          .op_version  = GD_OP_VERSION_3_9_0,
+        },
+        { .option      = "monkey-unlocking",
+          .key         = "features.locks-monkey-unlocking",
+          .voltype     = "features/locks",
+          .op_version  = GD_OP_VERSION_3_9_0,
+          .type        = NO_DOC,
+        },
         { .key         = NULL
         }
 };
