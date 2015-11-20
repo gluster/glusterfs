@@ -268,13 +268,20 @@ isdentrycreatefop(gfdb_fop_type_t fop_type)
 /*The structure that is used to send insert/update the databases
  * using insert_db api*/
 typedef struct gfdb_db_record {
+        /* GFID */
         uuid_t                          gfid;
+        /* Used during a rename refer ctr_rename() in changetimerecorder
+         * xlator*/
+        uuid_t                          old_gfid;
+        /* Parent GFID */
         uuid_t                          pargfid;
         uuid_t                          old_pargfid;
-        char                            file_name[PATH_MAX];
+        /* File names and paths */
+        char                            file_name[GF_NAME_MAX];
         char                            file_path[PATH_MAX];
-        char                            old_file_name[PATH_MAX];
+        char                            old_file_name[GF_NAME_MAX];
         char                            old_path[PATH_MAX];
+        /* FOP type and FOP path*/
         gfdb_fop_type_t                 gfdb_fop_type;
         gfdb_fop_path_t                 gfdb_fop_path;
         /*Time of change or access*/

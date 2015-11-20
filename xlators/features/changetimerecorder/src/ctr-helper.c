@@ -120,8 +120,15 @@ fill_db_record_for_wind (xlator_t               *this,
                 memset(ctr_wtime, 0, sizeof(*ctr_wtime));
         }
 
-        /*Copy gfid into db record*/
+        /* Copy gfid into db record */
         gf_uuid_copy (CTR_DB_REC(ctr_local).gfid, *(ctr_inode_cx->gfid));
+
+        /* Copy older gfid if any */
+        if (ctr_inode_cx->old_gfid &&
+                (!gf_uuid_is_null (*(ctr_inode_cx->old_gfid)))) {
+                gf_uuid_copy (CTR_DB_REC(ctr_local).old_gfid,
+                                *(ctr_inode_cx->old_gfid));
+        }
 
         /*Hard Links*/
         if (isdentryfop(ctr_inode_cx->fop_type)) {
