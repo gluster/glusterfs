@@ -388,7 +388,8 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
                               inode_t *inode, unsigned char *locked_on,
                               unsigned char *sources, unsigned char *sinks,
                               unsigned char *healed_sinks,
-			      struct afr_reply *replies, int *source_p)
+			      struct afr_reply *replies, int *source_p,
+                              gf_boolean_t *pflag)
 {
 	int ret = -1;
 	int source = -1;
@@ -405,7 +406,8 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
         witness = alloca0 (sizeof (*witness) * priv->child_count);
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_ENTRY_TRANSACTION,
-					   locked_on, sources, sinks, witness);
+					   locked_on, sources, sinks, witness,
+                                           pflag);
 	if (ret)
 		return ret;
 
@@ -475,7 +477,7 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
                                                     locked_on,
                                                     sources, sinks,
                                                     healed_sinks, par_replies,
-                                                    &source);
+                                                    &source, NULL);
                 if (ret < 0)
                         goto unlock;
 
@@ -649,7 +651,8 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		ret = __afr_selfheal_entry_prepare (frame, this, fd->inode,
                                                     data_lock, sources, sinks,
                                                     healed_sinks,
-						    locked_replies, &source);
+						    locked_replies, &source,
+                                                    NULL);
                 if (AFR_COUNT(healed_sinks, priv->child_count) == 0) {
                         did_sh = _gf_false;
                         goto unlock;
