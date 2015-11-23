@@ -3360,14 +3360,11 @@ shard_post_update_size_writev_handler (call_frame_t *frame, xlator_t *this)
         if (local->op_ret < 0) {
                 SHARD_STACK_UNWIND (writev, frame, local->op_ret,
                                     local->op_errno, NULL, NULL, NULL);
-                return 0;
+        } else {
+                SHARD_STACK_UNWIND (writev, frame, local->written_size,
+                                    local->op_errno, &local->prebuf,
+                                    &local->postbuf, local->xattr_rsp);
         }
-
-        local->postbuf.ia_size += (local->delta_size + local->hole_size);
-        local->postbuf.ia_blocks += local->delta_blocks;
-
-        SHARD_STACK_UNWIND (writev, frame, local->written_size, local->op_errno,
-                            &local->prebuf, &local->postbuf, local->xattr_rsp);
         return 0;
 }
 
@@ -3423,16 +3420,20 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret < 0) {
-                local->op_ret = op_ret;
-                local->op_errno = op_errno;
-        } else {
-                local->written_size += op_ret;
-                local->delta_blocks += (postbuf->ia_blocks - prebuf->ia_blocks);
-                local->delta_size += (postbuf->ia_size - prebuf->ia_size);
-                shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
-                                     SHARD_MASK_TIMES);
+        LOCK (&frame->lock);
+        {
+                if (op_ret < 0) {
+                        local->op_ret = op_ret;
+                        local->op_errno = op_errno;
+                } else {
+                        local->written_size += op_ret;
+                        local->delta_blocks += (postbuf->ia_blocks - prebuf->ia_blocks);
+                        local->delta_size += (postbuf->ia_size - prebuf->ia_size);
+                        shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
+                                             SHARD_MASK_TIMES);
+                }
         }
+        UNLOCK (&frame->lock);
 
         if (anon_fd)
                 fd_unref (anon_fd);
