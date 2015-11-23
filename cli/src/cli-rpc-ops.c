@@ -2396,10 +2396,10 @@ gf_cli_detach_tier_status_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
         if (rsp.op_ret == -1) {
                 if (strcmp (rsp.op_errstr, ""))
-                        snprintf (msg, sizeof (msg), "volume detach-tier %s: "
+                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
                                   "failed: %s", cmd_str, rsp.op_errstr);
                 else
-                        snprintf (msg, sizeof (msg), "volume detach-tier %s: "
+                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
                                   "failed", cmd_str);
 
                 if (global_state->mode & GLUSTER_MODE_XML)
