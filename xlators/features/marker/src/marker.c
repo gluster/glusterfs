@@ -2963,19 +2963,11 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         continue;
                 }
 
-                loc.path = gf_strdup (resolvedpath);
-                if (!loc.path) {
-                        gf_log (this->name, GF_LOG_ERROR, "strdup of path "
-                                "failed for the entry %s (path: %s)",
-                                entry->d_name, resolvedpath);
-                        loc_wipe (&loc);
-                        continue;
-                }
+                loc.path = resolvedpath;
+                resolvedpath = NULL;
 
                 mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
                 loc_wipe (&loc);
-                GF_FREE (resolvedpath);
-                resolvedpath = NULL;
 
                 ret = marker_key_set_ver (this, entry->dict);
                 if (ret < 0) {
