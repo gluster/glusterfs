@@ -618,7 +618,7 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
                              inode_t *inode, unsigned char *locked_on,
                              unsigned char *sources, unsigned char *sinks,
                              unsigned char *healed_sinks,
-			     struct afr_reply *replies)
+			     struct afr_reply *replies, gf_boolean_t *pflag)
 {
 	int ret = -1;
 	int source = -1;
@@ -636,7 +636,8 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
         witness = alloca0(priv->child_count * sizeof (*witness));
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_DATA_TRANSACTION,
-					   locked_on, sources, sinks, witness);
+					   locked_on, sources, sinks, witness,
+                                           pflag);
 	if (ret)
 		return ret;
 
@@ -700,7 +701,8 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		ret = __afr_selfheal_data_prepare (frame, this, fd->inode,
                                                    data_lock, sources, sinks,
                                                    healed_sinks,
-						   locked_replies);
+						   locked_replies,
+                                                   NULL);
 		if (ret < 0)
 			goto unlock;
 

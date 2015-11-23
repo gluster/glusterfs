@@ -1255,7 +1255,6 @@ afr_replies_wipe (struct afr_reply *replies, int count)
                         replies[i].xattr = NULL;
                 }
         }
-	memset (&replies->need_heal, 0, sizeof (replies->need_heal));
 }
 
 void
@@ -4390,7 +4389,8 @@ out:
 
 int
 afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
-                                      inode_t *inode, gf_boolean_t *msh)
+                                      inode_t *inode, gf_boolean_t *msh,
+                                      gf_boolean_t *pending)
 {
         int ret = -1;
         unsigned char *locked_on = NULL;
@@ -4421,7 +4421,8 @@ afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
                 ret = __afr_selfheal_metadata_prepare (frame, this, inode,
                                                        locked_on, sources,
                                                        sinks, healed_sinks,
-                                                       locked_replies);
+                                                       locked_replies,
+                                                       pending);
                 *msh = afr_decide_heal_info (priv, sources, ret);
         }
         afr_selfheal_uninodelk (frame, this, inode, this->name,
@@ -4434,7 +4435,8 @@ out:
 
 int
 afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
-                                  inode_t *inode, gf_boolean_t *dsh)
+                                  inode_t *inode, gf_boolean_t *dsh,
+                                  gf_boolean_t *pflag)
 {
         int ret = -1;
         afr_private_t   *priv = NULL;
@@ -4476,7 +4478,8 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                         ret = __afr_selfheal_data_prepare (frame, this, inode,
                                                            data_lock, sources,
                                                            sinks, healed_sinks,
-                                                           locked_replies);
+                                                           locked_replies,
+                                                           pflag);
                         *dsh = afr_decide_heal_info (priv, sources, ret);
                 }
                 afr_selfheal_uninodelk (frame, this, inode, this->name, 0, 0,
@@ -4494,7 +4497,7 @@ out:
 int
 afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                    inode_t *inode,
-                                   gf_boolean_t *esh)
+                                   gf_boolean_t *esh, gf_boolean_t *pflag)
 {
         int ret = -1;
         int source = -1;
@@ -4539,7 +4542,7 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                                             data_lock, sources,
                                                             sinks, healed_sinks,
                                                             locked_replies,
-                                                            &source);
+                                                            &source, pflag);
                         if ((ret == 0) && source < 0)
                                 ret = -EIO;
                         *esh = afr_decide_heal_info (priv, sources, ret);
@@ -4561,7 +4564,8 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
                              inode_t **inode,
                              gf_boolean_t *entry_selfheal,
                              gf_boolean_t *data_selfheal,
-                             gf_boolean_t *metadata_selfheal)
+                             gf_boolean_t *metadata_selfheal,
+                             gf_boolean_t *pending)
 
 {
         int ret             = -1;
@@ -4578,21 +4582,22 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
 
         if (msh) {
                 ret = afr_selfheal_locked_metadata_inspect (frame, this,
-                                                            *inode, &msh);
+                                                            *inode, &msh,
+                                                            pending);
                 if (ret == -EIO)
                         goto out;
         }
 
         if (dsh) {
                 ret = afr_selfheal_locked_data_inspect (frame, this, *inode,
-                                                        &dsh);
+                                                        &dsh, pending);
                 if (ret == -EIO || (ret == -EAGAIN))
                         goto out;
         }
 
         if (esh) {
                 ret = afr_selfheal_locked_entry_inspect (frame, this, *inode,
-                                                         &esh);
+                                                         &esh, pending);
         }
 
 out:
@@ -4614,28 +4619,12 @@ afr_set_heal_info (char *status)
                 goto out;
         }
 
-        if (!strcmp (status, "heal")) {
-                ret = dict_set_str (dict, "heal-info", "heal");
-                if (ret)
-                        gf_msg ("", GF_LOG_WARNING, -ret,
-                                AFR_MSG_DICT_SET_FAILED,
-                                "Failed to set heal-info key to "
-                                "heal");
-        } else if (!strcmp (status, "split-brain")) {
-                ret = dict_set_str (dict, "heal-info", "split-brain");
-                if (ret)
-                        gf_msg ("", GF_LOG_WARNING, -ret,
-                                AFR_MSG_DICT_SET_FAILED,
-                                "Failed to set heal-info key to "
-                                "split-brain");
-        } else if (!strcmp (status, "possibly-healing")) {
-                ret = dict_set_str (dict, "heal-info", "possibly-healing");
-                if (ret)
-                        gf_msg ("", GF_LOG_WARNING, -ret,
-                                AFR_MSG_DICT_SET_FAILED,
-                                "Failed to set heal-info key to "
-                                "possibly-healing");
-        }
+        ret = dict_set_str (dict, "heal-info", status);
+        if (ret)
+                gf_msg ("", GF_LOG_WARNING, -ret,
+                        AFR_MSG_DICT_SET_FAILED,
+                        "Failed to set heal-info key to "
+                        "%s", status);
 out:
         return dict;
 }
@@ -4646,14 +4635,19 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
         gf_boolean_t    data_selfheal     = _gf_false;
         gf_boolean_t    metadata_selfheal = _gf_false;
         gf_boolean_t    entry_selfheal    = _gf_false;
+        gf_boolean_t    pending           = _gf_false;
         dict_t         *dict              = NULL;
         int             ret               = -1;
         int             op_errno          = 0;
+        int             size              = 0;
         inode_t        *inode             = NULL;
+        char           *substr            = NULL;
+        char           *status            = NULL;
 
         ret = afr_selfheal_locked_inspect (frame, this, loc->gfid, &inode,
                                            &entry_selfheal,
-                                           &data_selfheal, &metadata_selfheal);
+                                           &data_selfheal, &metadata_selfheal,
+                                           &pending);
 
         if (ret == -ENOMEM) {
                 op_errno = -ret;
@@ -4661,10 +4655,27 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
+        if (pending) {
+                size = strlen ("-pending") + 1;
+                gf_asprintf (&substr, "-pending");
+                if (!substr)
+                        goto out;
+        }
+
         if (ret == -EIO) {
-                dict = afr_set_heal_info ("split-brain");
+                size += strlen ("split-brain") + 1;
+                ret = gf_asprintf (&status, "split-brain%s",
+                                   substr? substr : "");
+                if (ret < 0)
+                        goto out;
+                dict = afr_set_heal_info (status);
         } else if (ret == -EAGAIN) {
-                dict = afr_set_heal_info ("possibly-healing");
+                size += strlen ("possibly-healing") + 1;
+                ret = gf_asprintf (&status, "possibly-healing%s",
+                                   substr? substr : "");
+                if (ret < 0)
+                        goto out;
+                dict = afr_set_heal_info (status);
         } else if (ret >= 0) {
                 /* value of ret = source index
                  * so ret >= 0 and at least one of the 3 booleans set to
@@ -4674,7 +4685,12 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                     !metadata_selfheal) {
                         dict = afr_set_heal_info ("no-heal");
                 } else {
-                        dict = afr_set_heal_info ("heal");
+                        size += strlen ("heal") + 1;
+                        ret = gf_asprintf (&status, "heal%s",
+                                           substr? substr : "");
+                        if (ret < 0)
+                                goto out;
+                        dict = afr_set_heal_info (status);
                 }
         } else if (ret < 0) {
                 /* Apart from above checked -ve ret values, there are
@@ -4686,7 +4702,12 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                  */
                 if (data_selfheal || entry_selfheal ||
                     metadata_selfheal) {
-                        dict = afr_set_heal_info ("heal");
+                        size += strlen ("heal") + 1;
+                        ret = gf_asprintf (&status, "heal%s",
+                                           substr? substr : "");
+                        if (ret < 0)
+                                goto out;
+                        dict = afr_set_heal_info (status);
                 }
         }
         ret = 0;
@@ -4699,6 +4720,7 @@ out:
                 inode_forget (inode, 1);
                 inode_unref (inode);
         }
+        GF_FREE (substr);
         return ret;
 }
 
@@ -4723,7 +4745,7 @@ _afr_is_split_brain (call_frame_t *frame, xlator_t *this,
 
         ret = afr_selfheal_find_direction (frame, this, replies,
 					   type, priv->child_up, sources,
-                                           sinks, witness);
+                                           sinks, witness, NULL);
         if (ret)
                 return ret;
 
