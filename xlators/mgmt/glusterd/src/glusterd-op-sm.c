@@ -4711,7 +4711,7 @@ out:
         return;
 }
 
-static int
+int
 glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
                          glusterd_commit_hook_type_t type)
 {
