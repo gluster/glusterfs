@@ -25,4 +25,6 @@ int32_t br_scrubber_handle_options (xlator_t *, br_private_t *, dict_t *);
 
 int32_t br_scrubber_init (xlator_t *, br_private_t *);
 
+int32_t br_collect_bad_objects_from_children (xlator_t *this, dict_t *dict);
+
 #endif /* __BIT_ROT_SCRUB_H__ */
