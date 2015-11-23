@@ -528,7 +528,8 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                              struct afr_reply *replies,
                              afr_transaction_type type,
                              unsigned char *locked_on, unsigned char *sources,
-                             unsigned char *sinks, uint64_t *witness)
+                             unsigned char *sinks, uint64_t *witness,
+                             gf_boolean_t *pflag)
 {
         afr_private_t *priv = NULL;
         int i = 0;
@@ -548,14 +549,24 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
 	matrix = ALLOC_MATRIX(priv->child_count, int);
         memset (witness, 0, sizeof (*witness) * priv->child_count);
 
+	/* First construct the pending matrix for further analysis */
+	afr_selfheal_extract_xattr (this, replies, type, dirty, matrix);
+
+        if (pflag) {
+                for (i = 0; i < priv->child_count; i++) {
+                        for (j = 0; j < priv->child_count; j++)
+                                if (matrix[i][j])
+                                        *pflag = _gf_true;
+                        if (*pflag)
+                                break;
+                }
+        }
+
         if (afr_success_count (replies,
                                priv->child_count) < AFR_SH_MIN_PARTICIPANTS) {
                 /* Treat this just like locks not being acquired */
                 return -ENOTCONN;
         }
-
-	/* First construct the pending matrix for further analysis */
-	afr_selfheal_extract_xattr (this, replies, type, dirty, matrix);
 
         /* short list all self-accused */
         for (i = 0; i < priv->child_count; i++) {

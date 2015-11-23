@@ -1330,7 +1330,7 @@ index_fetch_link_count (xlator_t *this, index_xattrop_type_t type)
                 } else if (!strcmp (entry->d_name, ".") ||
 		           !strcmp (entry->d_name, "..")) {
 			continue;
-                } else if (!strncmp (entry->d_name, subdir, strlen (subdir))) {
+                } else {
                         make_file_path (priv->index_basepath, subdir,
                                         entry->d_name, index_path,
                                         sizeof (index_path));
@@ -1345,9 +1345,6 @@ index_fetch_link_count (xlator_t *this, index_xattrop_type_t type)
                                 else
                                         break;
                         }
-                } else {
-                        count = 1;
-                        goto out;
                 }
 	}
 out:
