@@ -5180,23 +5180,6 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                 }
         }
 
-        if ((strcmp (words[3], "scrub") == 0) &&
-            (strcmp (words[4], "status") == 0)) {
-                if (wordcount == 5) {
-                        type = GF_BITROT_CMD_SCRUB_STATUS;
-                        ret =  dict_set_str (dict, "scrub-value",
-                                             (char *) words[4]);
-                        if (ret) {
-                                cli_out ("Failed to set dict for scrub status");
-                                goto out;
-                        }
-                        goto set_type;
-                } else {
-                        ret = -1;
-                        goto out;
-                }
-        }
-
         if (!strcmp (w, "scrub-throttle")) {
                 if (!words[4]) {
                         cli_err ("Missing scrub-throttle value for bitrot "
@@ -5263,7 +5246,11 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                 ret = -1;
                                 goto out;
                         } else {
-                                type = GF_BITROT_OPTION_TYPE_SCRUB;
+                                if (strcmp (words[4], "status") == 0) {
+                                        type = GF_BITROT_CMD_SCRUB_STATUS;
+                                } else {
+                                        type = GF_BITROT_OPTION_TYPE_SCRUB;
+                                }
                                 ret =  dict_set_str (dict, "scrub-value",
                                                     (char *) words[4]);
                                 if (ret) {

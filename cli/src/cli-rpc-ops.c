@@ -10669,6 +10669,7 @@ int
 gf_cli_print_bitrot_scrub_status (dict_t *dict)
 {
         int            i                = 1;
+        int            j                = 0;
         int            ret              = -1;
         int            count            = 0;
         char           key[256]         = {0,};
@@ -10677,6 +10678,7 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         char           *scrub_freq      = NULL;
         char           *state_scrub     = NULL;
         char           *scrub_impact    = NULL;
+        char           *bad_file_str    = NULL;
         char           *scrub_log_file  = NULL;
         char           *bitrot_log_file = NULL;
         uint64_t       scrub_files      = 0;
@@ -10802,6 +10804,17 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
 
                 cli_out ("%s: %"PRIu64 "\n", "Error count", error_count);
 
+                if (error_count)
+                        cli_out ("%s:\n", "Corrupted object's");
+                /* Printing list of bad file's (Corrupted object's)*/
+                for (j = 0; j < error_count; j++) {
+                        memset (key, 0, 256);
+                        snprintf (key, 256, "quarantine-%d-%d", j, i);
+                        ret = dict_get_str (dict, key, &bad_file_str);
+                        if (!ret) {
+                                cli_out ("%s\n", bad_file_str);
+                        }
+                }
         }
         cli_out ("%s\n", "=========================================="
                  "===============");

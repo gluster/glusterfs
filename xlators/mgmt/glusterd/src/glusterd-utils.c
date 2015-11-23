@@ -8245,6 +8245,7 @@ int
 glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
         int                      ret                = -1;
+        int                      j                  = 0;
         uint64_t                 value              = 0;
         int32_t                  count              = 0;
         char                     key[256]           = {0,};
@@ -8261,6 +8262,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         char                    *scrub_freq         = NULL;
         char                    *scrub_state        = NULL;
         char                    *scrub_impact       = NULL;
+        char                    *bad_gfid_str       = NULL;
         xlator_t                *this               = NULL;
         glusterd_conf_t         *priv               = NULL;
         glusterd_volinfo_t      *volinfo            = NULL;
@@ -8378,6 +8380,24 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                         gf_msg_debug (this->name, 0, "Failed to set error "
                                       "count value");
                 }
+
+                /* Storing all the bad files in the dictionary */
+                for (j = 0; j < value; j++) {
+                        memset (key, 0, 256);
+                        snprintf (key, 256, "quarantine-%d-%d", j, src_count);
+                        ret = dict_get_str (rsp_dict, key, &bad_gfid_str);
+                        if (!ret) {
+                                memset (key, 0, 256);
+                                snprintf (key, 256, "quarantine-%d-%d", j,
+                                          src_count+dst_count);
+                                ret = dict_set_dynstr_with_alloc (aggr, key,
+                                                                  bad_gfid_str);
+                                if (ret) {
+                                        gf_msg_debug (this->name, 0, "Failed to"
+                                                      "bad file gfid ");
+                                }
+                        }
+                }
         }
 
         ret = dict_get_str (rsp_dict, "bitrot_log_file", &bitd_log);
@@ -8447,6 +8467,7 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
         char                     buf[1024]          = {0,};
         uint64_t                 error_count        = 0;
         int32_t                  i                  = 0;
+        int32_t                  j                  = 0;
         uint64_t                 scrubbed_files     = 0;
         uint64_t                 unsigned_files     = 0;
         uint64_t                 scrub_duration     = 0;
@@ -8456,6 +8477,7 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
         char                    *scrub_freq         = NULL;
         char                    *scrub_state        = NULL;
         char                    *scrub_impact       = NULL;
+        char                    *bad_gfid_str       = NULL;
         xlator_t                *this               = NULL;
         glusterd_conf_t         *priv               = NULL;
         glusterd_volinfo_t      *volinfo            = NULL;
@@ -8612,7 +8634,7 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        ret = dict_get_uint64 (rsp_dict, "error-count", &value);
+        ret = dict_get_uint64 (rsp_dict, "total-count", &value);
         if (!ret) {
                 memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", i);
@@ -8620,6 +8642,23 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set error "
                                       "count value");
+                }
+
+                /* Storing all the bad files in the dictionary */
+                for (j = 0; j < value; j++) {
+                        memset (key, 0, 256);
+                        snprintf (key, 256, "quarantine-%d", j);
+                        ret = dict_get_str (rsp_dict, key, &bad_gfid_str);
+                        if (!ret) {
+                                memset (key, 0, 256);
+                                snprintf (key, 256, "quarantine-%d-%d", j, i);
+                                ret = dict_set_dynstr_with_alloc (aggr, key,
+                                                                  bad_gfid_str);
+                                if (ret) {
+                                        gf_msg_debug (this->name, 0, "Failed to"
+                                                      "bad file gfid ");
+                                }
+                        }
                 }
         }
 
