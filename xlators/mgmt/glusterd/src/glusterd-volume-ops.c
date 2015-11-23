@@ -28,6 +28,7 @@
 #include "glusterd-svc-helper.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-mgmt.h"
 
 #include <stdint.h>
 #include <sys/socket.h>
@@ -453,11 +454,14 @@ __glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_START_VOLUME;
         char                            errstr[2048] = {0,};
         xlator_t                        *this = NULL;
+        glusterd_conf_t                 *conf = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
 
+        conf = this->private;
+        GF_ASSERT (conf);
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
                 snprintf (errstr, sizeof (errstr), "Failed to decode message "
@@ -497,8 +501,18 @@ __glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         gf_msg_debug (this->name, 0, "Received start vol req"
                       " for volume %s", volname);
 
-        ret = glusterd_op_begin_synctask (req, GD_OP_START_VOLUME, dict);
-
+        if (conf->op_version <= GD_OP_VERSION_3_7_6) {
+                gf_msg_debug (this->name, 0, "The cluster is operating at "
+                          "version less than or equal to %d. Volume start "
+                          "falling back to syncop framework.",
+                          GD_OP_VERSION_3_7_6);
+                ret = glusterd_op_begin_synctask (req, GD_OP_START_VOLUME,
+                                                  dict);
+        } else {
+                ret = glusterd_mgmt_v3_initiate_all_phases (req,
+                                                            GD_OP_START_VOLUME,
+                                                            dict);
+        }
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
 
@@ -2544,14 +2558,25 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
         }
-
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                glusterd_defrag_info_set (volinfo, dict,
-                                          GF_DEFRAG_CMD_START_TIER,
-                                          GF_DEFRAG_CMD_START,
-                                          GD_OP_REBALANCE);
-                glusterd_restart_rebalance_for_volume (volinfo);
+        if (conf->op_version <= GD_OP_VERSION_3_7_6) {
+                /*
+                 * Starting tier daemon on originator node will fail if
+                 * atleast one of the peer host  brick for the volume.
+                 * Because The bricks in the peer haven't started when you
+                 * commit on originator node.
+                 * Please upgrade to version greater than GD_OP_VERSION_3_7_6
+                 */
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        glusterd_defrag_info_set (volinfo, dict,
+                                                  GF_DEFRAG_CMD_START_TIER,
+                                                  GF_DEFRAG_CMD_START,
+                                                  GD_OP_REBALANCE);
+                        glusterd_restart_rebalance_for_volume (volinfo);
+                }
+        } else {
+                /* Starting tier daemon is moved into post validate phase */
         }
+
 
         ret = glusterd_svcs_manager (volinfo);
 

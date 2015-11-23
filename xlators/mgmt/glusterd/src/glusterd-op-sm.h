@@ -22,6 +22,7 @@
 #include "byte-order.h"
 #include "glusterd.h"
 #include "protocol-common.h"
+#include "glusterd-hooks.h"
 
 #define GD_OP_PROTECTED    (0x02)
 #define GD_OP_UNPROTECTED  (0x04)
@@ -166,6 +167,10 @@ typedef enum cli_cmd_type_ {
 typedef struct glusterd_all_volume_options {
         char          *option;
 } glusterd_all_vol_opts;
+
+int
+glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
+                         glusterd_commit_hook_type_t type);
 
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
