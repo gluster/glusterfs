@@ -632,3 +632,10 @@ function quota_hl_exceeded()
 }
 
 
+function scrub_status()
+{
+        local vol=$1;
+        local field=$2;
+
+        $CLI volume bitrot $vol scrub status | grep "^$field: " | sed 's/.*: //';
+}

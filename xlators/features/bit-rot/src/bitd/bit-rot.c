@@ -1547,6 +1547,21 @@ _br_qchild_event (xlator_t *this, br_child_t *child, br_child_handler *call)
 }
 
 int
+br_scrubber_status_get (xlator_t *this, dict_t **dict)
+{
+
+        int               ret    = -1;
+
+        ret = br_get_bad_objects_list (this, dict);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed to collect corrupt "
+                              "files");
+        }
+
+        return ret;
+}
+
+int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int           idx    = -1;
@@ -1623,19 +1638,13 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 break;
 
         case GF_EVENT_SCRUB_STATUS:
-                gf_log (this->name, GF_LOG_INFO, "BitRot scrub status "
-                        "called");
+                gf_msg_debug (this->name, GF_LOG_INFO, "BitRot scrub status "
+                              "called");
                 va_start (ap, data);
                 output = va_arg (ap, dict_t *);
 
-                /* As of now hardcoding last-scrub-time value. At the time of
-                 * Final patch submission this option value along with other
-                 * few option value will be calculate based on real time */
-                ret = dict_set_uint64 (output, "last-scrub-time", 12);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Failed to set last "
-                                "scrub time value");
-                }
+                ret = br_scrubber_status_get (this, &output);
+                gf_msg_debug (this->name, 0, "returning %d", ret);
                 break;
         default:
                 default_notify (this, event, data);
