@@ -934,15 +934,18 @@ fi
 
 dnl check for gcc -Werror=implicit-function-declaration
 saved_CFLAGS=$CFLAGS
+saved_GF_CFLAGS=$GF_CFLAGS
 CFLAGS="-Werror=implicit-function-declaration"
+GF_CFLAGS="-Werror=implicit-function-declaration"
 AC_MSG_CHECKING([whether $CC accepts -Werror=implicit-function-declaration])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_implicit=yes], [cc_werror_implicit=no])
 echo $cc_werror_implicit
 if test "x$cc_werror_implicit" = "xno"; then
     CFLAGS="$saved_CFLAGS"
+    GF_CFLAGS="$saved_GF_CFLAGS"
 else
     CFLAGS="$saved_CFLAGS $CFLAGS"
-    GF_CFLAGS="$GF_CFLAGS $CFLAGS"
+    GF_CFLAGS="$saved_GF_CFLAGS $GF_CFLAGS"
 fi
 
 dnl clang is mostly GCC-compatible, but its version is much lower,
