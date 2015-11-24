@@ -65,6 +65,9 @@ glusterd_unlock (uuid_t owner);
 int32_t
 glusterd_get_uuid (uuid_t *uuid);
 
+char*
+gd_get_shd_key (int type);
+
 int
 glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iovec *payload, int payloadcount,

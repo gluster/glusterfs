@@ -10831,3 +10831,23 @@ glusterd_count_connected_peers (int32_t *count)
 out:
         return ret;
 }
+
+char*
+gd_get_shd_key (int type)
+{
+        char            *key               = NULL;
+
+        switch (type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                key = "cluster.self-heal-daemon";
+                break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                key = "cluster.disperse-self-heal-daemon";
+                break;
+        default:
+                key = NULL;
+                break;
+        }
+        return key;
+}
