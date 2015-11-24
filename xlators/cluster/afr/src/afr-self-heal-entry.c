@@ -16,16 +16,6 @@
 #include "afr-messages.h"
 #include "syncop-utils.h"
 
-/* Max file name length is 255 this filename is of length 256. No file with
- * this name can ever come, entry-lock with this name is going to prevent
- * self-heals from older versions while the granular entry-self-heal is going
- * on in newer version.*/
-#define LONG_FILENAME "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-
 static int
 afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
                            inode_t *inode, int child, struct afr_reply *replies)
@@ -1104,45 +1094,22 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	ret = afr_selfheal_tie_breaker_entrylk (frame, this, inode,
 	                                        priv->sh_domain, NULL,
                                                 locked_on);
-	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_msg_debug (this->name, 0, "%s: Skipping "
-                                      "entry self-heal as only %d sub-volumes could "
-                                      "be locked in %s domain",
-                                      uuid_utoa (fd->inode->gfid), ret,
-                                      priv->sh_domain);
-			/* Either less than two subvols available, or another
-			   selfheal (from another server) is in progress. Skip
-			   for now in any case there isn't anything to do.
-			*/
-			ret = -ENOTCONN;
-			goto unlock;
-		}
+        if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                gf_msg_debug (this->name, 0, "%s: Skipping "
+                              "entry self-heal as only %d sub-volumes could "
+                              "be locked in %s domain",
+                              uuid_utoa (fd->inode->gfid), ret,
+                              priv->sh_domain);
+                /* Either less than two subvols available, or another
+                   selfheal (from another server) is in progress. Skip
+                   for now in any case there isn't anything to do.
+                */
+                ret = -ENOTCONN;
+                goto unlock;
+        }
 
-                if (!granular_locks) {
-                        ret = afr_selfheal_tryentrylk (frame, this, inode,
-                                                      this->name, LONG_FILENAME,
-                                                      long_name_locked);
-                }
-                {
-                        if (!granular_locks && ret < 1) {
-                                gf_msg_debug (this->name, 0, "%s: Skipping"
-                                              " entry self-heal as only %d "
-                                              "sub-volumes could be "
-                                              "locked in special-filename "
-                                              "domain",
-                                              uuid_utoa (fd->inode->gfid),
-                                              ret);
-                                ret = -ENOTCONN;
-                                goto unlock;
-                        }
-                        ret = __afr_selfheal_entry (frame, this, fd, locked_on);
-                }
-                if (!granular_locks)
-                        afr_selfheal_unentrylk (frame, this, inode, this->name,
-                                               LONG_FILENAME, long_name_locked,
-                                               NULL);
-	}
+        ret = __afr_selfheal_entry (frame, this, fd, locked_on);
+
 unlock:
 	afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL,
                                 locked_on, NULL);
