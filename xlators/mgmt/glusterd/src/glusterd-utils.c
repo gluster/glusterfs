@@ -8105,6 +8105,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         dict_t                          *ctx_dict = NULL;
         char                            key[PATH_MAX] = {0,};
         char                            *volname = NULL;
+        glusterd_volinfo_t              *volinfo       = NULL;
+
 
         GF_ASSERT (rsp_dict);
 
@@ -8197,27 +8199,52 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_int32 (rsp_dict, "hot_brick_count", &hot_brick_count);
+        ret = dict_get_str (ctx_dict, "volname", &volname);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_DICT_GET_FAILED,
-                        "Failed to get hot brick count from rsp_dict");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to get volname");
                 goto out;
         }
 
-        ret = dict_set_int32 (ctx_dict, "hot_brick_count", hot_brick_count);
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL,
+                        "Failed to get volinfo for volume: %s",
+                        volname);
+                goto out;
+        }
+
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = dict_get_int32 (rsp_dict, "hot_brick_count",
+                                      &hot_brick_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get hot brick count from rsp_dict");
+                        goto out;
+                }
+
+
+                ret = dict_get_int32 (rsp_dict, "type", &type);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get type from rsp_dict");
+                        goto out;
+                }
+
+
+        }
+
+        ret = dict_set_int32 (ctx_dict, "hot_brick_count",
+                              hot_brick_count);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_SET_FAILED,
                         "Failed to update hot_brick_count");
-                goto out;
-        }
-
-        ret = dict_get_int32 (rsp_dict, "type", &type);
-        if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_DICT_GET_FAILED,
-                        "Failed to get type from rsp_dict");
                 goto out;
         }
 
