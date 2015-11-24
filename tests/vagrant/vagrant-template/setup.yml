@@ -1,0 +1,11 @@
+---
+- hosts: all
+  sudo: true
+  roles:
+    - install-pkgs
+    - prepare-brick
+    - mock-user
+    - selinux
+    - iptables
+    - daemon-services
+

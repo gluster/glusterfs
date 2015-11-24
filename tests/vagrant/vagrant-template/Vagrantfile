@@ -1,0 +1,50 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+    config.vm.define "vagrant-testVM" do |testvm|
+      testvm.vm.box = "fedora/23-cloud-base"
+      testvm.vm.hostname = "vagrant-testVM"
+      #testvm.ssh.insert_key = false
+      testvm.vm.synced_folder ".", "/vagrant", disabled: true
+
+
+      # Define basic config for VM, memory, cpu, storage pool
+      testvm.vm.provider "libvirt" do |lv|
+        lv.storage_pool_name = "default"
+        lv.memory = 1024
+        lv.cpus = 1
+
+
+        # We need a brick partition, lets have a 5G disk for that.
+        # If you need more bricks, just add more letters to the
+        # string below.
+        "b".split("").each do |i|
+          lv.storage :file,
+          #:path           => "",
+          #:allow_existing => "",
+          :device         => "vd#{i}",
+          :size           => "5G",
+          :type           => "qcow2",
+          :bus            => "virtio",
+          :cache          => "default"
+        end
+      end
+
+      # Let's provision
+
+      # Some packages are required for ansible dnf module to work
+      # so install them using shell inline
+      testvm.vm.provision "shell", inline: "sudo dnf install -y python-dnf", run: "always"
+      testvm.vm.provision "shell", inline: "sudo dnf install -y libselinux-python", run: "always"
+      testvm.vm.provision "shell", inline: "sudo dnf install -y libsemanage-python", run: "always"
+
+      # Now onto the main provisioning
+      testvm.vm.provision "ansible", run: "always" do |setup|
+        setup.verbose = "v"
+        setup.playbook = "setup.yml"
+      end
+
+    end
+end
+
