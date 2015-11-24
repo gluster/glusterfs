@@ -725,6 +725,8 @@ glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
         gf_uuid_copy ((*dup_volinfo)->volume_id, volinfo->volume_id);
         (*dup_volinfo)->is_snap_volume   = volinfo->is_snap_volume;
         (*dup_volinfo)->status           = volinfo->status;
+        (*dup_volinfo)->snapshot         = volinfo->snapshot;
+
         memcpy (&(*dup_volinfo)->tier_info, &volinfo->tier_info,
                 sizeof (volinfo->tier_info));
 
