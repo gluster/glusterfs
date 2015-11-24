@@ -1,0 +1,3 @@
+---
+- name: stop and disable kernel nfs
+  service: name=nfs-server state=stopped enabled=no
