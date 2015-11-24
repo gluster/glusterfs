@@ -143,7 +143,6 @@ get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 }
 
 
-#define FUSE_MAX_AUX_GROUPS 32 /* We can get only up to 32 aux groups from /proc */
 void
 frame_fill_groups (call_frame_t *frame)
 {
@@ -159,7 +158,7 @@ frame_fill_groups (call_frame_t *frame)
         char           *saveptr       = NULL;
         char           *endptr        = NULL;
         int             ret           = 0;
-        int             ngroups       = FUSE_MAX_AUX_GROUPS;
+        int             ngroups       = GF_MAX_AUX_GROUPS;
         gid_t           mygroups[GF_MAX_AUX_GROUPS];
 
         if (priv->resolve_gids) {
@@ -174,7 +173,6 @@ frame_fill_groups (call_frame_t *frame)
                         return;
                 }
 
-                ngroups = GF_MAX_AUX_GROUPS;
                 if (getgrouplist (result->pw_name, frame->root->gid, mygroups,
                                   &ngroups) == -1) {
                         gf_log (this->name, GF_LOG_ERROR, "could not map %s to "
@@ -220,7 +218,7 @@ frame_fill_groups (call_frame_t *frame)
                                 if (!endptr || *endptr)
                                         break;
                                 frame->root->groups[idx++] = id;
-                                if (idx == FUSE_MAX_AUX_GROUPS)
+                                if (idx == GF_MAX_AUX_GROUPS)
                                         break;
                         }
 
