@@ -6187,7 +6187,8 @@ out:
 int
 cli_quota_xml_output (cli_local_t *local, char *path, int64_t hl_str,
                       char *sl_final, int64_t sl_num, int64_t used,
-                      int64_t avail, char *sl, char *hl)
+                      int64_t avail, char *sl, char *hl,
+                      gf_boolean_t limit_set)
 {
 #if (HAVE_LIB_XML)
         int     ret             = -1;
@@ -6202,16 +6203,19 @@ cli_quota_xml_output (cli_local_t *local, char *path, int64_t hl_str,
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"hard_limit",
+                                               !limit_set ? "N/A" :
                                                "%"PRIu64, hl_str);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"soft_limit_percent",
+                                               !limit_set ? "N/A" :
                                                "%s", sl_final);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"soft_limit_value",
+                                               !limit_set ? "N/A" :
                                                "%"PRIu64, sl_num);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
@@ -6222,16 +6226,19 @@ cli_quota_xml_output (cli_local_t *local, char *path, int64_t hl_str,
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                                (xmlChar *)"avail_space",
+                                               !limit_set ? "N/A" :
                                                "%"PRIu64, avail);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"sl_exceeded",
+                                               !limit_set ? "N/A" :
                                                "%s", sl);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                                (xmlChar *)"hl_exceeded",
+                                               !limit_set ? "N/A" :
                                                "%s", hl);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
@@ -6250,7 +6257,7 @@ int
 cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
                              int64_t sl_val, quota_limits_t *limits,
                              quota_meta_t *used_space, int64_t avail,
-                             char *sl, char *hl)
+                             char *sl, char *hl, gf_boolean_t limit_set)
 {
 #if (HAVE_LIB_XML)
         int     ret             = -1;
@@ -6265,16 +6272,19 @@ cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"hard_limit",
+                                               !limit_set ? "N/A" :
                                                "%"PRIu64, limits->hl);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"soft_limit_percent",
+                                               !limit_set ? "N/A" :
                                                "%s", sl_str);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"soft_limit_value",
+                                               !limit_set ? "N/A" :
                                                "%"PRIu64, sl_val);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
@@ -6293,18 +6303,21 @@ cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
 
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
-                                              (xmlChar *)"available", "%"PRIu64,
-                                               avail);
+                                              (xmlChar *)"available",
+                                               !limit_set ? "N/A" :
+                                              "%"PRIu64, avail);
 
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                               (xmlChar *)"sl_exceeded",
+                                               !limit_set ? "N/A" :
                                                "%s", sl);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = xmlTextWriterWriteFormatElement (local->writer,
                                                (xmlChar *)"hl_exceeded",
+                                               !limit_set ? "N/A" :
                                                "%s", hl);
         XML_RET_CHECK_AND_GOTO (ret, out);
 

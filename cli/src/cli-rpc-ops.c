@@ -2983,7 +2983,8 @@ static int
 print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
                                char *sl_str, quota_limits_t *limits,
                                quota_meta_t *used_space, gf_boolean_t sl,
-                               gf_boolean_t hl, double sl_num)
+                               gf_boolean_t hl, double sl_num,
+                               gf_boolean_t limit_set)
 {
         int32_t         ret          = -1;
         char           *used_str     = NULL;
@@ -2991,17 +2992,20 @@ print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
         char           *hl_str       = NULL;
         char           *sl_val       = NULL;
 
-        hl_str = gf_uint64_2human_readable (limits->hl);
         used_str = gf_uint64_2human_readable (used_space->size);
-        avail_str = gf_uint64_2human_readable (avail);
 
-        sl_val = gf_uint64_2human_readable (sl_num);
+        if (limit_set) {
+                hl_str = gf_uint64_2human_readable (limits->hl);
+                avail_str = gf_uint64_2human_readable (avail);
+
+                sl_val = gf_uint64_2human_readable (sl_num);
+        }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_quota_xml_output (local, path, limits->hl,
                                             sl_str, sl_num, used_space->size,
                                             avail, sl ? "Yes" : "No",
-                                            hl ? "Yes" : "No");
+                                            hl ? "Yes" : "No", limit_set);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to "
                                 "output in xml format for quota "
@@ -3010,14 +3014,22 @@ print_quota_list_usage_output (cli_local_t *local, char *path, int64_t avail,
                 goto out;
         }
 
-        if (!used_str) {
-                cli_out ("%-40s %7s %7s(%s) %8"PRIu64 "%9"PRIu64" %15s %18s",
-                         path, hl_str, sl_str, sl_val, used_space->size, avail,
-                         sl ? "Yes" : "No", hl ? "Yes" : "No");
+        if (limit_set) {
+                if (!used_str) {
+                        cli_out ("%-40s %7s %7s(%s) %8"PRIu64 "%9"PRIu64""
+                                 "%15s %18s", path, hl_str, sl_str, sl_val,
+                                 used_space->size, avail,
+                                 sl ? "Yes" : "No", hl ? "Yes" : "No");
+                } else {
+                        cli_out ("%-40s %7s %7s(%s) %8s %7s %15s %20s",
+                                 path, hl_str, sl_str, sl_val, used_str,
+                                 avail_str, sl ? "Yes" : "No",
+                                 hl ? "Yes" : "No");
+                }
         } else {
-                cli_out ("%-40s %7s %7s(%s) %8s %7s %15s %20s", path, hl_str,
-                         sl_str, sl_val, used_str, avail_str, sl ? "Yes" : "No",
-                         hl ? "Yes" : "No");
+                        cli_out ("%-36s %10s %10s %14s %9s %15s %18s",
+                                 path, "N/A", "N/A", used_str, "N/A",
+                                 "N/A", "N/A");
         }
 
         ret = 0;
@@ -3034,7 +3046,8 @@ static int
 print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                                char *sl_str, quota_limits_t *limits,
                                quota_meta_t *used_space, gf_boolean_t sl,
-                               gf_boolean_t hl, double sl_num)
+                               gf_boolean_t hl, double sl_num,
+                               gf_boolean_t limit_set)
 {
         int32_t         ret       = -1;
         int64_t         sl_val    = sl_num;
@@ -3043,7 +3056,8 @@ print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                 ret = cli_quota_object_xml_output (local, path, sl_str, sl_val,
                                                    limits, used_space, avail,
                                                    sl ? "Yes" : "No",
-                                                   hl ? "Yes" : "No");
+                                                   hl ? "Yes" : "No",
+                                                   limit_set);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to "
                                 "output in xml format for quota "
@@ -3052,11 +3066,17 @@ print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                 goto out;
         }
 
-        cli_out ("%-40s %9"PRIu64" %9s(%"PRId64") %10"PRIu64" %10"PRIu64
-                 "%11"PRIu64" %15s %20s", path, limits->hl, sl_str, sl_val,
-                 used_space->file_count, used_space->dir_count,
-                 avail, sl ? "Yes" : "No", hl ? "Yes" : "No");
-
+        if (limit_set) {
+                cli_out ("%-40s %9"PRIu64" %9s(%"PRId64") %10"PRIu64""
+                         "%10"PRIu64" %11"PRIu64" %15s %20s",
+                         path, limits->hl, sl_str, sl_val,
+                         used_space->file_count, used_space->dir_count,
+                         avail, sl ? "Yes" : "No", hl ? "Yes" : "No");
+        } else {
+                cli_out ("%-40s %9s %9s %10"PRIu64" %10"PRIu64" %11s %15s %20s",
+                         path, "N/A", "N/A", used_space->file_count,
+                         used_space->dir_count, "N/A", "N/A", "N/A");
+        }
         ret = 0;
 
 out:
@@ -3067,7 +3087,7 @@ out:
 static int
 print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
                          quota_limits_t *limits, quota_meta_t *used_space,
-                         int type)
+                         int type, gf_boolean_t limit_set)
 {
         int64_t         avail            = 0;
         char            percent_str[20]  = {0};
@@ -3081,43 +3101,45 @@ print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
         GF_ASSERT (local);
         GF_ASSERT (path);
 
-        if (limits->sl < 0) {
-                ret = gf_string2percent (default_sl, &sl_num);
-                sl_num = (sl_num * limits->hl) / 100;
-                sl_final = default_sl;
-        } else {
-                sl_num = (limits->sl * limits->hl) / 100;
-                snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
-                          limits->sl);
-                sl_final = percent_str;
-        }
-        if (type == GF_QUOTA_OPTION_TYPE_LIST)
-                used_size = used_space->size;
-        else
-                used_size = used_space->file_count + used_space->dir_count;
-
-        if (limits->hl > used_size) {
-                avail = limits->hl - used_size;
-                hl = _gf_false;
-                if (used_size > sl_num)
-                        sl = _gf_true;
+        if (limit_set) {
+                if (limits->sl < 0) {
+                        ret = gf_string2percent (default_sl, &sl_num);
+                        sl_num = (sl_num * limits->hl) / 100;
+                        sl_final = default_sl;
+                } else {
+                        sl_num = (limits->sl * limits->hl) / 100;
+                        snprintf (percent_str, sizeof (percent_str), "%"PRIu64"%%",
+                                        limits->sl);
+                        sl_final = percent_str;
+                }
+                if (type == GF_QUOTA_OPTION_TYPE_LIST)
+                        used_size = used_space->size;
                 else
-                        sl = _gf_false;
-        } else {
-                avail = 0;
-                hl = sl = _gf_true;
+                        used_size = used_space->file_count + used_space->dir_count;
+
+                if (limits->hl > used_size) {
+                        avail = limits->hl - used_size;
+                        hl = _gf_false;
+                        if (used_size > sl_num)
+                                sl = _gf_true;
+                        else
+                                sl = _gf_false;
+                } else {
+                        avail = 0;
+                        hl = sl = _gf_true;
+                }
         }
 
         if (type == GF_QUOTA_OPTION_TYPE_LIST)
                 ret = print_quota_list_usage_output (local, path, avail,
                                                      sl_final, limits,
                                                      used_space, sl, hl,
-                                                     sl_num);
+                                                     sl_num, limit_set);
         else
                 ret = print_quota_list_object_output (local, path, avail,
                                                       sl_final, limits,
                                                       used_space, sl, hl,
-                                                      sl_num);
+                                                      sl_num, limit_set);
 
         return ret;
 }
@@ -3131,6 +3153,7 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
         quota_limits_t  limits           = {0,};
         quota_meta_t    used_space       = {0,};
         char           *key              = NULL;
+        gf_boolean_t    limit_set        = _gf_true;
 
         GF_ASSERT (local);
         GF_ASSERT (mountdir);
@@ -3154,8 +3177,20 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
 #if defined(ENOATTR) && (ENOATTR != ENODATA)
                 case ENOATTR:
 #endif
-                        cli_err ("%-40s %s", path, "Limit not set");
+                        /* If it's an ENOATTR, quota/inode-quota is
+                         * configured(limit is set atleast for one directory).
+                         * The user is trying to issue 'list/list-objects'
+                         * command for a directory on which quota limit is
+                         * not set and we are showing the used-space in case
+                         * of list-usage and showing (dir_count, file_count)
+                         * in case of list-objects. Other labels are
+                         * shown "N/A".
+                         */
+
+                        limit_set = _gf_false;
+                        goto enoattr;
                         break;
+
                 default:
                         cli_err ("%-40s %s", path, strerror (errno));
                         break;
@@ -3167,6 +3202,7 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
         limits.hl = ntoh64 (limits.hl);
         limits.sl = ntoh64 (limits.sl);
 
+enoattr:
         xattr_size = sys_lgetxattr (mountdir, QUOTA_SIZE_KEY, NULL, 0);
         if (xattr_size < (sizeof (int64_t) * 2) &&
             type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS) {
@@ -3202,7 +3238,7 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
         used_space.dir_count = ntoh64 (used_space.dir_count);
 
         ret = print_quota_list_output (local, path, default_sl, &limits,
-                                       &used_space, type);
+                                       &used_space, type, limit_set);
 out:
         return ret;
 }
@@ -3403,7 +3439,7 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
         }
 
         ret = print_quota_list_output (local, path, default_sl, &limits,
-                                       &used_space, type);
+                                       &used_space, type, _gf_true);
 out:
         return ret;
 }
