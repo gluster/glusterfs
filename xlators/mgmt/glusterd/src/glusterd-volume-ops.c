@@ -689,26 +689,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req,
                                             __glusterd_handle_cli_delete_volume);
 }
-static char*
-gd_get_shd_key (int type)
-{
-        char            *key               = NULL;
-
-        switch (type) {
-        case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                key = "cluster.self-heal-daemon";
-                break;
-        case GF_CLUSTER_TYPE_DISPERSE:
-                key = "cluster.disperse-self-heal-daemon";
-                break;
-        default:
-                key = NULL;
-                break;
-        }
-        return key;
-}
-static int
+int
 glusterd_handle_shd_option_for_tier (glusterd_volinfo_t *volinfo,
                                      char *value, dict_t *dict)
 {

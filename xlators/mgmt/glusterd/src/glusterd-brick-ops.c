@@ -2358,6 +2358,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int                      defrag_cmd    = 0;
         int                      detach_commit = 0;
         void                    *tier_info     = NULL;
+        char                    *cold_shd_key  = NULL;
+        char                    *hot_shd_key   = NULL;
+        int                      delete_key    = 1;
+
         this = THIS;
         GF_ASSERT (this);
 
@@ -2482,6 +2486,35 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_DETACH_COMMIT_FORCE:
                 glusterd_op_perform_detach_tier (volinfo);
                 detach_commit = 1;
+
+                /* Disabling ctr when detaching a tier, since
+                 * currently tier is the only consumer of ctr.
+                 * Revisit this code when this constraint no
+                 * longer exist.
+                 */
+                dict_del (volinfo->dict, "features.ctr-enabled");
+                dict_del (volinfo->dict, "cluster.tier-mode");
+
+                hot_shd_key = gd_get_shd_key (volinfo->tier_info.hot_type);
+                cold_shd_key = gd_get_shd_key (volinfo->tier_info.cold_type);
+                if (hot_shd_key) {
+                        /*
+                         * Since post detach, shd graph will not contain hot
+                         * tier. So we need to clear option set for hot tier.
+                         * For a tiered volume there can be different key
+                         * for both hot and cold. If hot tier is shd compatible
+                         * then we need to remove the configured value when
+                         * detaching a tier, only if the key's are different or
+                         * cold key is NULL. So we will set delete_key first,
+                         * and if cold key is not null and they are equal then
+                         * we will clear the flag. Otherwise we will delete the
+                         * key.
+                         */
+                        if (cold_shd_key)
+                                delete_key = strcmp (hot_shd_key, cold_shd_key);
+                        if (delete_key)
+                                dict_del (volinfo->dict, hot_shd_key);
+               }
                 /* fall through */
 
         case GF_OP_CMD_COMMIT_FORCE:
