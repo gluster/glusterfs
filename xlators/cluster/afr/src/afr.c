@@ -244,6 +244,8 @@ init (xlator_t *this)
         int            read_subvol_index = -1;
         xlator_t      *fav_child   = NULL;
         char          *qtype       = NULL;
+        char          *xattrs_list = NULL;
+        char          *ptr         = NULL;
 
         if (!this->children) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -397,6 +399,7 @@ init (xlator_t *this)
                 goto out;
         }
 
+        GF_OPTION_INIT ("afr-pending-xattr", xattrs_list, str, out);
         priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key),
                                        child_count,
                                        gf_afr_mt_char);
@@ -404,20 +407,25 @@ init (xlator_t *this)
                 ret = -ENOMEM;
                 goto out;
         }
+        ptr = gf_strdup (xattrs_list);
+        if (!ptr) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        for (i = 0, ptr = strtok (ptr, ","); ptr; ptr = strtok (NULL, ",")) {
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
+                                   AFR_XATTR_PREFIX, ptr);
+                if (ret  == -1) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
+                i++;
+        }
 
         trav = this->children;
         i = 0;
         while (i < child_count) {
                 priv->children[i] = trav->xlator;
-
-                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
-                                   AFR_XATTR_PREFIX,
-                                   trav->xlator->name);
-                if (-1 == ret) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
-
                 trav = trav->next;
                 i++;
         }
@@ -453,6 +461,7 @@ init (xlator_t *this)
 
         ret = 0;
 out:
+        GF_FREE (ptr);
         return ret;
 }
 
@@ -775,6 +784,11 @@ struct volume_options options[] = {
 	{ .key = {"afr-dirty-xattr"},
 	  .type = GF_OPTION_TYPE_STR,
 	  .default_value = AFR_DIRTY_DEFAULT,
+	},
+	{ .key = {"afr-pending-xattr"},
+	  .type = GF_OPTION_TYPE_STR,
+          .description = "Comma seperated list of xattrs that are used to  "
+                         "capture information on pending heals."
 	},
 	{ .key = {"metadata-splitbrain-forced-heal"},
 	  .type = GF_OPTION_TYPE_BOOL,
