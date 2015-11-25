@@ -4636,7 +4636,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, const char *name, dict_t *xdata)
 {
         int32_t           op_ret         = -1;
-        int32_t           op_errno       = ENOENT;
+        int32_t           op_errno       = EINVAL;
         struct posix_fd * pfd            = NULL;
         int               _fd            = -1;
         int32_t           list_offset    = 0;
@@ -4658,6 +4658,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
+                op_ret = -1;
                 op_errno = -ret;
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
@@ -4669,15 +4670,21 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         /* Get the total size */
         dict = dict_new ();
         if (!dict) {
+                op_ret = -1;
+                op_errno = ENOMEM;
                 goto out;
         }
 
         if (name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
                 ret = dict_set_uint32 (dict, (char *)name, 1);
-                if (ret < 0)
+                if (ret < 0) {
+                        op_ret = -1;
+                        size = -1;
+                        op_errno = ENOMEM;
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_DICT_SET_FAILED, "Failed to set "
                                 "dictionary value for %s", name);
+                }
                 goto done;
         }
 
@@ -4685,8 +4692,11 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                       strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0) {
                 op_ret = posix_fdget_objectsignature (_fd, dict);
                 if (op_ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                "posix_fdget_objectsignature failed");
                         op_errno = -op_ret;
                         op_ret = -1;
+                        size = -1;
                 }
 
                 goto done;
@@ -4706,6 +4716,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 #endif
                 size = sys_fgetxattr (_fd, key, NULL, 0);
                 if (size == -1) {
+                        op_ret = -1;
                         op_errno = errno;
                         if (errno == ENODATA || errno == ENOATTR) {
                                 gf_msg_debug (this->name, 0, "fgetxattr failed"
@@ -4722,6 +4733,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
+                        op_errno = ENOMEM;
                         goto out;
                 }
                 size = sys_fgetxattr (_fd, key, value, size);
@@ -4734,20 +4746,25 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (value);
                         goto out;
                 }
+
                 value [size] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret < 0) {
+                        op_errno = -op_ret;
+                        op_ret = -1;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 P_MSG_DICT_SET_FAILED, "dict set operation "
                                 "on key %s failed", key);
                         GF_FREE (value);
                         goto out;
                 }
+
                 goto done;
         }
 
         size = sys_flistxattr (_fd, NULL, 0);
         if (size == -1) {
+                op_ret = -1;
                 op_errno = errno;
                 if ((errno == ENOTSUP) || (errno == ENOSYS)) {
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
@@ -4769,7 +4786,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         list = alloca (size + 1);
         if (!list) {
-                op_errno = errno;
+                op_ret = -1;
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -4815,6 +4833,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
                 op_ret = dict_set_dynptr (dict, key, value, size);
                 if (op_ret) {
+                        op_errno = -op_ret;
+                        op_ret = -1;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 P_MSG_DICT_SET_FAILED, "dict set operation "
                                 "failed on key %s", key);
