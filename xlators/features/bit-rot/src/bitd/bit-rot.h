@@ -154,6 +154,26 @@ struct br_scrubber {
 
 typedef struct br_obj_n_workers br_obj_n_workers_t;
 
+typedef struct br_private br_private_t;
+
+typedef void (*br_scrubbed_file_update) (br_private_t *priv);
+
+struct br_scrub_stats {
+        uint32_t       scrubbed_files;       /* Total number of scrubbed file */
+
+        uint32_t       unsigned_files;       /* Total number of unsigned file */
+
+        uint32_t       scrub_duration;            /* Duration of last scrub */
+
+        char           last_scrub_time[1024];    /*last scrub completion time */
+
+        struct         timeval scrub_start_tv;   /* Scrubbing starting time*/
+
+        struct         timeval scrub_end_tv;     /* Scrubbing finishing time */
+
+        pthread_mutex_t  lock;
+};
+
 struct br_private {
         pthread_mutex_t lock;
 
@@ -179,16 +199,17 @@ struct br_private {
                                              and ready to be picked up for
                                              signing and the workers which sign
                                              the objects */
+
         uint32_t expiry_time;              /* objects "wait" time */
 
         br_tbf_t *tbf;                    /* token bucket filter */
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
 
+        struct br_scrub_stats scrub_stat; /* statistics of scrub*/
+
         struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
 };
-
-typedef struct br_private br_private_t;
 
 struct br_object {
         xlator_t *this;

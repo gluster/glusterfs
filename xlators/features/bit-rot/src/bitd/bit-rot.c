@@ -1550,7 +1550,16 @@ int
 br_scrubber_status_get (xlator_t *this, dict_t **dict)
 {
 
-        int               ret    = -1;
+        int                    ret          = -1;
+        char                   key[256]     = {0,};
+        br_private_t          *priv         = NULL;
+        struct br_scrub_stats *scrub_stats  = NULL;
+
+        priv = this->private;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot", priv, out);
+
+        scrub_stats = &priv->scrub_stat;
 
         ret = br_get_bad_objects_list (this, dict);
         if (ret) {
@@ -1558,6 +1567,40 @@ br_scrubber_status_get (xlator_t *this, dict_t **dict)
                               "files");
         }
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "scrubbed-files");
+        ret = dict_set_uint32 (*dict, key, scrub_stats->scrubbed_files);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed to setting scrubbed file "
+                              "entry to the dictionary");
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "unsigned-files");
+        ret = dict_set_uint32 (*dict, key, scrub_stats->unsigned_files);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed to set unsigned file count"
+                              " entry to the dictionary");
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "scrub-duration");
+        ret = dict_set_uint32 (*dict, key, scrub_stats->scrub_duration);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed to set scrub duration"
+                              " entry to the dictionary");
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "last-scrub-time");
+        ret = dict_set_dynstr_with_alloc (*dict, key,
+                                          scrub_stats->last_scrub_time);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed to set "
+                                      "last scrub time value");
+        }
+
+out:
         return ret;
 }
 

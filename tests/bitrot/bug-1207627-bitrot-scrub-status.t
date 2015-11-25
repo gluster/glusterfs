@@ -33,11 +33,4 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'hourly' scrub_status $V0 'Scrub frequency'
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT '/var/log/glusterfs/bitd.log' scrub_status $V0 'Bitrot error log location'
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT '/var/log/glusterfs/scrub.log' scrub_status $V0 'Scrubber error log location'
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT '0' scrub_status $V0 'Number of Scrubbed files'
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT '0' scrub_status $V0 'Number of Unsigned files'
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT '0' scrub_status $V0 'Last completed scrub time'
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT '0' scrub_status $V0 'Duration of last scrub'
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT '0' scrub_status $V0 'Error count'
-
-
 cleanup;
