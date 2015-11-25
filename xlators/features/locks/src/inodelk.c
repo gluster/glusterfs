@@ -645,12 +645,6 @@ pl_inode_setlk (xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
                         __inodelk_prune_stale (this, pl_inode, dom, lock);
                 } else if (priv->monkey_unlocking == _gf_true) {
                         if (pl_does_monkey_want_stuck_lock ()) {
-                                pthread_mutex_lock (&pl_inode->mutex);
-                                {
-                                        __pl_inodelk_unref (lock);
-                                }
-                                pthread_mutex_unlock (&pl_inode->mutex);
-                                inode_unref (pl_inode->inode);
                                 gf_log (this->name, GF_LOG_WARNING,
                                     "MONKEY LOCKING (forcing stuck lock)!");
                                 return 0;

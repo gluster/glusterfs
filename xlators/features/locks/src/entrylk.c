@@ -701,12 +701,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                                 gf_log (this->name, GF_LOG_WARNING,
                                     "MONKEY LOCKING (forcing stuck lock)!");
                                 op_ret = 0;
-                                need_inode_unref = _gf_true;
-                                pthread_mutex_lock (&pinode->mutex);
-                                {
-                                        __pl_entrylk_unref (reqlock);
-                                }
-                                pthread_mutex_unlock (&pinode->mutex);
                                 goto out;
                         }
                 }
@@ -790,6 +784,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                         "a bug report at http://bugs.gluster.com", cmd);
                 goto out;
         }
+
         /* The following (extra) unref corresponds to the ref that
          * was done at the time the lock was granted.
          */
@@ -884,6 +879,8 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
         {
                 list_for_each_entry_safe (l, tmp, &ctx->entrylk_lockers,
 					  client_list) {
+                        list_del_init (&l->client_list);
+
 			pl_entrylk_log_cleanup (l);
 
 			pinode = l->pinode;
