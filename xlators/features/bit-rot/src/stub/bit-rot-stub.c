@@ -2575,6 +2575,44 @@ br_stub_readdirp (call_frame_t *frame, xlator_t *this,
 
 /* lookup() */
 
+/**
+ * This function mainly handles the ENOENT error for the bad objects. Though
+ * br_stub_forget () handles removal of the link for the bad object from the
+ * quarantine directory, its better to handle it in lookup as well, where
+ * a failed lookup on a bad object with ENOENT, will trigger deletion of the
+ * link for the bad object from quarantine directory. So whoever comes first
+ * either forget () or lookup () will take care of removing the link.
+ */
+void
+br_stub_handle_lookup_error (xlator_t *this, inode_t *inode, int32_t op_errno)
+{
+        int32_t     ret = -1;
+        uint64_t   ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx = NULL;
+
+        if (op_errno != ENOENT)
+                goto out;
+
+        if (!inode_is_linked (inode))
+                goto out;
+
+        ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
+        if (ret)
+                goto out;
+
+        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
+
+        LOCK (&inode->lock);
+        {
+                if (__br_stub_is_bad_object (ctx))
+                        (void) br_stub_del (this, inode->gfid);
+        }
+        UNLOCK (&inode->lock);
+
+out:
+        return;
+}
+
 int
 br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
                     xlator_t *this, int op_ret, int op_errno, inode_t *inode,
@@ -2582,8 +2620,11 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
 {
         int32_t ret = 0;
 
-        if (op_ret < 0)
+        if (op_ret < 0) {
+                (void) br_stub_handle_lookup_error (this, inode, op_errno);
                 goto unwind;
+        }
+
         if (!IA_ISREG (stbuf->ia_type))
                 goto unwind;
 
@@ -2737,6 +2778,20 @@ br_stub_forget (xlator_t *this, inode_t *inode)
                 return 0;
 
         ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
+
+        LOCK (&inode->lock);
+        {
+                /**
+                 * Ignoring the return value of br_stub_del ().
+                 * There is not much that can be done if unlinking
+                 * of the entry in the quarantine directory fails.
+                 * The failure is logged.
+                 */
+                if (__br_stub_is_bad_object (ctx))
+                        (void) br_stub_del (this, inode->gfid);
+        }
+        UNLOCK (&inode->lock);
+
         GF_FREE (ctx);
 
         return 0;
