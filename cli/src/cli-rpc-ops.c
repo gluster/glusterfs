@@ -10730,7 +10730,11 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         uint64_t       scrub_files      = 0;
         uint64_t       unsigned_files   = 0;
         uint64_t       scrub_time       = 0;
-        uint64_t       last_scrub       = 0;
+        uint64_t       days             = 0;
+        uint64_t       hour             = 0;
+        uint64_t       minut            = 0;
+        uint64_t       second           = 0;
+        char          *last_scrub       = NULL;
         uint64_t       error_count      = 0;
 
 
@@ -10784,8 +10788,12 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         for (i = 1; i <= count; i++) {
                 /* Reset the variables to prevent carryover of values */
                 node_name       = NULL;
-                last_scrub      = 0;
+                last_scrub      = NULL;
                 scrub_time      = 0;
+                days            = 0;
+                hour            = 0;
+                minut           = 0;
+                second          = 0;
                 error_count     = 0;
                 scrub_files     = 0;
                 unsigned_files  = 0;
@@ -10819,7 +10827,7 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
 
                 memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", i);
-                ret = dict_get_uint64 (dict, key, &last_scrub);
+                ret = dict_get_str (dict, key, &last_scrub);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub"
                                 " time");
@@ -10842,11 +10850,17 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 cli_out ("%s: %"PRIu64 "\n", "Number of Unsigned files",
                           unsigned_files);
 
-                cli_out ("%s: %"PRIu64 "\n", "Last completed scrub time",
-                          scrub_time);
+                cli_out ("%s: %s\n", "Last completed scrub time",
+                          (*last_scrub) ? last_scrub : "Scrubber pending to "
+                           "complete.");
 
-                cli_out ("%s: %"PRIu64 "\n", "Duration of last scrub",
-                          last_scrub);
+                /* Printing last scrub duration time in human readable form*/
+                days       = scrub_time/86400;
+                hour       = (scrub_time%86400)/3600;
+                minut      = (scrub_time%86400%3600)/60;
+                second     = (scrub_time%86400%3600%60);
+                cli_out ("%s: %"PRIu64 ":%"PRIu64 ":%"PRIu64 ":%"PRIu64 "\n",
+                         "Duration of last scrub", days, hour, minut, second);
 
                 cli_out ("%s: %"PRIu64 "\n", "Error count", error_count);
 

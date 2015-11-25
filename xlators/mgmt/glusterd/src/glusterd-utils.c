@@ -8326,7 +8326,8 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         uint64_t                 scrubbed_files     = 0;
         uint64_t                 unsigned_files     = 0;
         uint64_t                 scrub_duration     = 0;
-        uint64_t                 last_scrub_time    = 0;
+        char                    *last_scrub_time    = NULL;
+        char                    *scrub_time         = NULL;
         char                    *volname            = NULL;
         char                    *node_uuid          = NULL;
         char                    *node_uuid_str      = NULL;
@@ -8418,11 +8419,12 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         memset (key, 0, 256);
         snprintf (key, 256, "last-scrub-time-%d", src_count);
-        ret = dict_get_uint64 (rsp_dict, key, &value);
+        ret = dict_get_str (rsp_dict, key, &last_scrub_time);
         if (!ret) {
+                scrub_time = gf_strdup (last_scrub_time);
                 memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", src_count+dst_count);
-                ret = dict_set_uint64 (aggr, key, value);
+                ret = dict_set_dynstr (aggr, key, scrub_time);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "last scrub time value");
@@ -8544,7 +8546,8 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
         uint64_t                 scrubbed_files     = 0;
         uint64_t                 unsigned_files     = 0;
         uint64_t                 scrub_duration     = 0;
-        uint64_t                 last_scrub_time    = 0;
+        char                    *last_scrub_time    = NULL;
+        char                    *scrub_time         = NULL;
         char                    *volname            = NULL;
         char                    *node_str           = NULL;
         char                    *scrub_freq         = NULL;
@@ -8685,11 +8688,13 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        ret = dict_get_uint64 (rsp_dict, "last-scrub-time", &value);
+        ret = dict_get_str (rsp_dict, "last-scrub-time", &last_scrub_time);
         if (!ret) {
                 memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", i);
-                ret = dict_set_uint64 (aggr, key, value);
+
+                scrub_time = gf_strdup (last_scrub_time);
+                ret = dict_set_dynstr (aggr, key, scrub_time);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "last scrub time value");
