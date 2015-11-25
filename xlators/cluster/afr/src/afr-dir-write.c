@@ -456,6 +456,7 @@ afr_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         local->op                = GF_FOP_CREATE;
         local->cont.create.flags = flags;
+        local->fd_ctx->flags     = flags;
         local->cont.create.mode  = mode;
         local->cont.create.fd    = fd_ref (fd);
         local->umask  = umask;
