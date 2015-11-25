@@ -443,6 +443,24 @@ class GMasterCommon(object):
     def mgmt_lock(self):
 
         """Take management volume lock """
+        if gconf.mgmt_lock_fd:
+            try:
+                fcntl.lockf(gconf.mgmt_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if not gconf.active_earlier:
+                    gconf.active_earlier = True
+                    logging.info("Got lock : %s : Becoming ACTIVE"
+                                 % gconf.local_path)
+                return True
+            except:
+                ex = sys.exc_info()[1]
+                if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+                    if not gconf.passive_earlier:
+                        gconf.passive_earlier = True
+                        logging.info("Didn't get lock : %s : Becoming PASSIVE"
+                                     % gconf.local_path)
+                    return False
+                raise
+
         fd = None
         bname = str(self.uuid) + "_" + str(gconf.slave_id) + "_subvol_" \
             + str(gconf.subvol_num) + ".lock"
@@ -468,31 +486,17 @@ class GMasterCommon(object):
                 raise
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            # Close the previously acquired lock so that
-            # fd will not leak. Reset fd to None
-            if gconf.mgmt_lock_fd:
-                os.close(gconf.mgmt_lock_fd)
-                gconf.mgmt_lock_fd = None
-
             # Save latest FD for future use
             gconf.mgmt_lock_fd = fd
         except:
             ex = sys.exc_info()[1]
-            if fd:
-                os.close(fd)
-
-            # When previously Active becomes Passive, Close the
-            # fd of previously acquired lock
-            if gconf.mgmt_lock_fd:
-                os.close(gconf.mgmt_lock_fd)
-                gconf.mgmt_lock_fd = None
-
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
                 # cannot grab, it's taken
                 if not gconf.passive_earlier:
                     gconf.passive_earlier = True
                     logging.info("Didn't get lock : %s : Becoming PASSIVE"
                                  % gconf.local_path)
+                gconf.mgmt_lock_fd = fd
                 return False
             raise
 
