@@ -194,6 +194,35 @@ out:
         return -1;
 }
 
+int
+br_stub_del (xlator_t *this, uuid_t gfid)
+{
+        int32_t      op_errno __attribute__((unused)) = 0;
+        br_stub_private_t *priv = NULL;
+        int          ret = 0;
+        char         gfid_path[PATH_MAX] = {0};
+
+        priv = this->private;
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
+                                       out, op_errno, EINVAL);
+        br_stub_linked_entry (priv, gfid_path, gfid,
+                              sizeof (gfid_path));
+        ret = sys_unlink (gfid_path);
+        if (ret && (errno != ENOENT)) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        BRS_MSG_BAD_OBJ_UNLINK_FAIL,
+                        "%s: failed to delete bad object link from quarantine "
+                        "directory", gfid_path);
+                ret = -errno;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 static int
 br_stub_check_stub_directory (xlator_t *this, char *fullpath)
 {

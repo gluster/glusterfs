@@ -457,5 +457,7 @@ int32_t
 br_stub_readdir_wrapper (call_frame_t *frame, xlator_t *this,
                          fd_t *fd, size_t size, off_t off, dict_t *xdata);
 
+int
+br_stub_del (xlator_t *this, uuid_t gfid);
 
 #endif /* __BIT_ROT_STUB_H__ */
