@@ -362,6 +362,12 @@ glusterd_add_tier_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
 
         memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_arbiter_count", count);
+        ret = dict_set_int32 (dict, key, volinfo->arbiter_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d.cold_disperse_count", count);
         ret = dict_set_int32 (dict, key,
                               volinfo->tier_info.cold_disperse_count);
