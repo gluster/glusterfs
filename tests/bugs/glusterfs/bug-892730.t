@@ -53,6 +53,7 @@ end-volume
 
 volume test-replicate-0
     type cluster/replicate
+    option afr-pending-xattr test-locks-0,test-locks-1
     option background-self-heal-count 0
     subvolumes test-locks-0 test-locks-1
 end-volume

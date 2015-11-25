@@ -3299,6 +3299,80 @@ out:
 }
 
 static int
+set_afr_pending_xattrs_option (volgen_graph_t *graph,
+                              glusterd_volinfo_t *volinfo,
+                              int clusters)
+{
+        xlator_t *xlator            = NULL;
+        xlator_t **afr_xlators_list = NULL;
+        xlator_t  *this             = NULL;
+        glusterd_conf_t *conf       = NULL;
+        glusterd_brickinfo_t *brick = NULL;
+        char *ptr                   = NULL;
+        int i                       = 0;
+        int index                   = -1;
+        int ret                     = 0;
+        char *afr_xattrs_list       = NULL;
+        int list_size               = -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if (conf->op_version < GD_OP_VERSION_3_7_7)
+                return ret;
+
+        /* (brick_id x rep.count) + (rep.count-1 commas) + NULL*/
+        list_size = (1024 * volinfo->replica_count) +
+                    (volinfo->replica_count - 1) + 1;
+        afr_xattrs_list = GF_CALLOC (1, list_size, gf_common_mt_char);
+        if (!afr_xattrs_list)
+                goto out;
+
+        ptr = afr_xattrs_list;
+        afr_xlators_list = GF_CALLOC (clusters, sizeof (xlator_t *),
+                                      gf_common_mt_xlator_t);
+        if (!afr_xlators_list)
+                goto out;
+
+        xlator = first_of (graph);
+
+        for (i = 0, index = clusters - 1; i < clusters; i++) {
+                afr_xlators_list[index--] = xlator;
+                xlator = xlator->next;
+        }
+
+        i = 1;
+        index = 0;
+
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                if (index == clusters)
+                        break;
+                strncat (ptr, brick->brick_id, strlen(brick->brick_id));
+                if (i == volinfo->replica_count) {
+                        ret = xlator_set_option (afr_xlators_list[index++],
+                                                 "afr-pending-xattr",
+                                                 afr_xattrs_list);
+                        if (ret)
+                                return ret;
+                        memset (afr_xattrs_list, 0, list_size);
+                        ptr = afr_xattrs_list;
+                        i = 1;
+                        continue;
+                }
+                ptr[strlen(brick->brick_id)] = ',';
+                ptr += strlen (brick->brick_id) + 1;
+                i++;
+        }
+
+out:
+        GF_FREE (afr_xattrs_list);
+        GF_FREE (afr_xlators_list);
+        return ret;
+}
+
+static int
 volgen_graph_build_afr_clusters (volgen_graph_t *graph,
                                  glusterd_volinfo_t *volinfo)
 {
@@ -3309,7 +3383,7 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
                                                 "%s-replicate-%d"};
         xlator_t        *afr                 = NULL;
         char            option[32]           = {0};
-        int             start_count = 0;
+        int             start_count          = 0;
 
         if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
                 start_count = volinfo->tier_info.cold_brick_count /
@@ -3334,6 +3408,11 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
         if (clusters < 0)
                 goto out;
 
+        ret = set_afr_pending_xattrs_option (graph, volinfo, clusters);
+        if (ret) {
+                clusters = -1;
+                goto out;
+        }
         if (!volinfo->arbiter_count)
                 goto out;
 
@@ -3356,8 +3435,6 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                     glusterd_volinfo_t *volinfo,
                                     gf_boolean_t is_quotad)
 {
-        char                    *replicate_args[]   = {"cluster/replicate",
-                                                       "%s-replicate-%d"};
         char                    *tier_args[]        = {"cluster/tier",
                                                        "%s-tier-%d"};
         char                    *stripe_args[]      = {"cluster/stripe",
@@ -3549,7 +3626,6 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         int                ret                     = -1;
         xlator_t          *root                    = NULL;
         xlator_t          *xl, *hxl, *cxl;
-        glusterd_brickinfo_t    *brick             = NULL;
         char              *rule                    = NULL;
         int                st_brick_count          = 0;
         int                st_replica_count        = 0;
@@ -3559,6 +3635,8 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         int                dist_count              = 0;
         int                start_count             = 0;
         char              *decommissioned_children = NULL;
+        glusterd_volinfo_t *dup_volinfo            = NULL;
+        gf_boolean_t       is_hot_tier             = _gf_false;
 
         st_brick_count     = volinfo->brick_count;
         st_replica_count   = volinfo->replica_count;
@@ -3573,8 +3651,13 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->redundancy_count = volinfo->tier_info.cold_redundancy_count;
         volinfo->type           = volinfo->tier_info.cold_type;
         volinfo->tier_info.cur_tier_hot = 0;
+        ret = glusterd_create_sub_tier_volinfo (volinfo, &dup_volinfo,
+                                                is_hot_tier, volinfo->volname);
+        if (ret)
+                goto out;
 
-        ret = volume_volgen_graph_build_clusters (graph, volinfo, is_quotad);
+        ret = volume_volgen_graph_build_clusters (graph, dup_volinfo,
+                                                  is_quotad);
         if (ret)
                 goto out;
         cxl = first_of(graph);
@@ -3601,12 +3684,17 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
                          volinfo->brick_count,
                          volinfo->replica_count,
                          start_count);
-                if (ret != -1)
-                        volgen_link_bricks_from_list_tail (graph,  volinfo,
+                if (ret != -1) {
+                        ret = set_afr_pending_xattrs_option (graph, volinfo,
+                                                             ret);
+                        if (ret)
+                                goto out;
+                         volgen_link_bricks_from_list_tail (graph,  volinfo,
                                                            "cluster/distribute",
                                                            "%s-hot-dht",
                                                            dist_count,
                                                            dist_count);
+                }
         } else {
                 ret = volgen_link_bricks_from_list_head (graph,  volinfo,
                                                  "cluster/distribute",
@@ -3666,6 +3754,8 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->dist_leaf_count = st_dist_leaf_count;
         volinfo->tier_info.cur_tier_hot = 0;
 
+        if (dup_volinfo)
+                glusterd_volinfo_delete (dup_volinfo);
         GF_FREE (rule);
         return ret;
 }
