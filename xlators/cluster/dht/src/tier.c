@@ -426,20 +426,24 @@ tier_migrate_using_query_file (void *_args)
                         /*
                          * Do not promote/demote if file already is where it
                          * should be. It means another brick moved the file
-                         * so is not an error.
+                         * so is not an error. So we set per_link_status = 1
+                         * so that we ignore counting this.
                          */
                         src_subvol = dht_subvol_get_cached (this, loc.inode);
 
-                        if (src_subvol == NULL)
+                        if (src_subvol == NULL) {
+                                per_link_status = 1;
                                 goto abort;
-
+                        }
                         if (query_cbk_args->is_promotion &&
                              src_subvol == conf->subvolumes[1]) {
+                                per_link_status = 1;
                                 goto abort;
                         }
 
                         if (!query_cbk_args->is_promotion &&
                             src_subvol == conf->subvolumes[0]) {
+                                per_link_status = 1;
                                 goto abort;
                         }
 
@@ -511,14 +515,16 @@ tier_migrate_using_query_file (void *_args)
                                         defrag->tier_conf.blocks_total;
                                 pthread_mutex_unlock (&dm_stat_mutex);
                         }
+                        total_files++;
 abort:
                         GF_FREE ((char *) loc.name);
                         loc.name = NULL;
                         loc_wipe (&loc);
                         loc_wipe (&p_loc);
 
-                        if ((++total_files > defrag->tier_conf.max_migrate_files) ||
-                            (total_migrated_bytes > defrag->tier_conf.max_migrate_bytes)) {
+                        if ((total_files > defrag->tier_conf.max_migrate_files)
+                            || (total_migrated_bytes >
+                                defrag->tier_conf.max_migrate_bytes)) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
                                         "Reached cycle migration limit."
@@ -540,6 +546,11 @@ per_file_out:
                         pthread_mutex_unlock (&dm_stat_mutex);
                 } else if (per_file_status == 1) {/* Ignore */
                         per_file_status = 0;
+                        /* Since this attempt was ignored we
+                         * decreement the lookup count*/
+                        pthread_mutex_lock (&dm_stat_mutex);
+                        defrag->num_files_lookedup--;
+                        pthread_mutex_unlock (&dm_stat_mutex);
                 }
                 total_status = total_status + per_file_status;
                 per_link_status = 0;
