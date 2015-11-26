@@ -21,6 +21,8 @@
 #include <alloca.h>
 #endif
 
+#include "common-utils.h"
+
 #include "posix-handle.h"
 #include "posix.h"
 #include "xlator.h"
@@ -447,7 +449,6 @@ posix_handle_gfid_path (xlator_t *this, uuid_t gfid, const char *basename,
 out:
         return len;
 }
-
 
 int
 posix_handle_init (xlator_t *this)
