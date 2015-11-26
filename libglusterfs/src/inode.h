@@ -93,7 +93,7 @@ struct _inode {
         struct list_head     hash;          /* hash table pointers */
         struct list_head     list;          /* active/lru/purge */
 
-	struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
+        struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
 };
 
 

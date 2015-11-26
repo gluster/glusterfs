@@ -56,6 +56,8 @@
                                                + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
                                                + SLEN("00/")            \
                                                + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
+#define GF_UNLINK_TRUE 0x0000000000000001
+#define GF_UNLINK_FALSE 0x0000000000000000
 
 /**
  * posix_fd - internal structure common to file and directory fd's
@@ -184,14 +186,36 @@ typedef struct {
         int32_t     op_errno;
 } posix_xattr_filler_t;
 
-
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
 
 #define POSIX_PATH_MAX(this) (((struct posix_private *)this->private)->path_max)
 
+#define POSIX_GET_FILE_UNLINK_PATH(base_path, gfid, unlink_path)                           \
+        do {                                                                               \
+                int  path_len = 0;                                                         \
+                char gfid_str[64] = {0};                                                   \
+                uuid_utoa_r (gfid, gfid_str);                                              \
+                path_len = strlen (base_path) + 1 +                                        \
+                          strlen (GF_UNLINK_PATH) + 1 +                                    \
+                          strlen (gfid_str) + 1;                                           \
+                unlink_path = alloca (path_len);                                           \
+                if (!unlink_path) {                                                        \
+                        gf_msg ("posix", GF_LOG_ERROR, ENOMEM,                             \
+                                P_MSG_UNLINK_FAILED,                                       \
+                                "Failed to get unlink_path");                              \
+                        break;                                                             \
+                }                                                                          \
+                sprintf (unlink_path, "%s/%s/%s",                                          \
+                         base_path, GF_UNLINK_PATH, gfid_str);                             \
+         } while (0)
+
+
 /* Helper functions */
+int posix_inode_ctx_get (inode_t *inode, xlator_t *this, uint64_t *ctx);
+int posix_inode_ctx_set (inode_t *inode, xlator_t *this, uint64_t ctx);
+
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
                     dict_t *xattr_req);
 int posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p);

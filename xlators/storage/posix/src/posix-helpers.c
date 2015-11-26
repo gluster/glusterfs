@@ -1604,7 +1604,6 @@ out:
         return ret;
 }
 
-
 static int
 __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
 {
@@ -1612,34 +1611,37 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         struct posix_fd  *pfd = NULL;
         int               ret = -1;
         char             *real_path = NULL;
+        char             *unlink_path = NULL;
         int               _fd = -1;
         DIR              *dir = NULL;
+
+        struct posix_private    *priv      = NULL;
+
+        priv = this->private;
 
         ret = __fd_ctx_get (fd, this, &tmp_pfd);
         if (ret == 0) {
                 pfd = (void *)(long) tmp_pfd;
-                ret = 0;
                 goto out;
         }
-
-        MAKE_HANDLE_PATH (real_path, this, fd->inode->gfid, NULL);
-        if (!real_path) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        P_MSG_HANDLE_PATH_CREATE_FAILED,
-                        "Failed to create handle path (%s)",
-                        uuid_utoa (fd->inode->gfid));
-                ret = -1;
-                goto out;
-        }
-
         if (!fd_is_anonymous(fd)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_READ_FAILED,
                         "Failed to get fd context for a non-anonymous fd, "
                         "file: %s, gfid: %s", real_path,
                         uuid_utoa (fd->inode->gfid));
                 goto out;
         }
 
+        MAKE_HANDLE_PATH (real_path, this, fd->inode->gfid, NULL);
+        if (!real_path) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_READ_FAILED,
+                        "Failed to create handle path (%s)",
+                        uuid_utoa (fd->inode->gfid));
+                ret = -1;
+                goto out;
+        }
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
         if (!pfd) {
                 goto out;
@@ -1663,6 +1665,16 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         if (fd->inode->ia_type == IA_IFREG) {
                 _fd = open (real_path, fd->flags);
                 if (_fd == -1) {
+                        POSIX_GET_FILE_UNLINK_PATH (priv->base_path,
+                                                    fd->inode->gfid,
+                                                    unlink_path);
+                        _fd = open (unlink_path, fd->flags);
+                }
+                if (_fd == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_READ_FAILED,
+                                "Failed to get anonymous "
+                                "real_path: %s _fd = %d", real_path, _fd);
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
@@ -2163,4 +2175,41 @@ posix_fdget_objectsignature (int fd, dict_t *xattr)
         dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
  error_return:
         return -EINVAL;
+}
+
+
+int
+posix_inode_ctx_get (inode_t *inode, xlator_t *this, uint64_t *ctx)
+{
+        int             ret     = -1;
+        uint64_t        ctx_int = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        ret = inode_ctx_get (inode, this, &ctx_int);
+
+        if (ret)
+                return ret;
+
+        if (ctx)
+                *ctx = ctx_int;
+
+out:
+        return ret;
+}
+
+
+int
+posix_inode_ctx_set (inode_t *inode, xlator_t *this, uint64_t ctx)
+{
+        int             ret = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
+
+        ret = inode_ctx_set (inode, this, &ctx);
+out:
+        return ret;
 }

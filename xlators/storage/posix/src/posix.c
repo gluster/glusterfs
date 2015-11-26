@@ -101,10 +101,32 @@ int
 posix_forget (xlator_t *this, inode_t *inode)
 {
         uint64_t tmp_cache = 0;
-        if (!inode_ctx_del (inode, this, &tmp_cache))
-                dict_destroy ((dict_t *)(long)tmp_cache);
+        int ret = 0;
+        char *unlink_path = NULL;
+        struct posix_private    *priv_posix = NULL;
 
-        return 0;
+        priv_posix = (struct posix_private *) this->private;
+
+        ret = inode_ctx_del (inode, this, &tmp_cache);
+        if (ret < 0) {
+                ret = 0;
+                goto out;
+        }
+        if (tmp_cache == GF_UNLINK_TRUE) {
+                POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path,
+                                           inode->gfid, unlink_path);
+                if (!unlink_path) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                P_MSG_UNLINK_FAILED,
+                                "Failed to remove gfid :%s",
+                                uuid_utoa (inode->gfid));
+                        ret = -1;
+                        goto out;
+                }
+                ret = sys_unlink(unlink_path);
+        }
+out:
+        return ret;
 }
 
 /* Regular fops */
@@ -1446,16 +1468,93 @@ out:
         return 0;
 }
 
+int
+posix_add_unlink_to_ctx (inode_t *inode, xlator_t *this, char *unlink_path)
+{
+        uint64_t ctx = GF_UNLINK_FALSE;
+        int ret = 0;
+
+        if (!unlink_path) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        P_MSG_UNLINK_FAILED,
+                        "Creation of unlink entry failed for gfid: %s",
+                        unlink_path);
+                ret = -1;
+                goto out;
+        }
+
+        ctx = GF_UNLINK_TRUE;
+        ret = posix_inode_ctx_set (inode, this, ctx);
+        if (ret < 0) {
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+int32_t
+posix_move_gfid_to_unlink (xlator_t *this, uuid_t gfid, loc_t *loc)
+{
+        char *unlink_path = NULL;
+        char *gfid_path = NULL;
+        struct stat  stbuf = {0, };
+        int ret = 0;
+        struct posix_private    *priv_posix = NULL;
+
+        priv_posix = (struct posix_private *) this->private;
+
+        MAKE_HANDLE_GFID_PATH (gfid_path, this, gfid, NULL);
+
+        POSIX_GET_FILE_UNLINK_PATH (priv_posix->base_path,
+                                    loc->inode->gfid, unlink_path);
+        if (!unlink_path) {
+                ret = -1;
+                goto out;
+        }
+        gf_msg_debug (this->name, 0,
+                      "Moving gfid: %s to unlink_path : %s",
+                      gfid_path, unlink_path);
+        ret = sys_rename (gfid_path, unlink_path);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_UNLINK_FAILED,
+                        "Creation of unlink entry failed for gfid: %s",
+                        unlink_path);
+                goto out;
+        }
+        ret = posix_add_unlink_to_ctx (loc->inode, this, unlink_path);
+        if (ret < 0)
+                goto out;
+
+out:
+        return ret;
+}
+
 int32_t
 posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
-                                    struct iatt *stbuf, int32_t *op_errno)
+                                    struct iatt *stbuf, int32_t *op_errno,
+                                    loc_t *loc)
 {
-        int32_t             ret      =   0;
+        int32_t                 ret    = 0;
+        struct posix_private    *priv  = NULL;
+        int fd_count = 0;
+
+        priv = this->private;
 
         /*  Unlink the gfid_handle_first */
-
         if (stbuf && stbuf->ia_nlink == 1) {
-                ret = posix_handle_unset (this, stbuf->ia_gfid, NULL);
+
+                LOCK (&loc->inode->lock);
+
+                if (loc->inode->fd_count == 0) {
+                        UNLOCK (&loc->inode->lock);
+                        ret = posix_handle_unset (this, stbuf->ia_gfid, NULL);
+                } else {
+                        UNLOCK (&loc->inode->lock);
+                        ret = posix_move_gfid_to_unlink (this, stbuf->ia_gfid,
+                                                         loc);
+                }
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 P_MSG_UNLINK_FAILED, "unlink of gfid handle "
@@ -1469,7 +1568,6 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
         if (ret == -1) {
                 if (op_errno)
                         *op_errno = errno;
-
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_UNLINK_FAILED,
                         "unlink of %s failed", real_path);
                 goto err;
@@ -1623,7 +1721,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
-                                                      &op_errno);
+                                                      &op_errno, loc);
         if (op_ret == -1) {
                 goto out;
         }
@@ -6176,6 +6274,77 @@ out:
 	return ret;
 }
 
+int32_t
+posix_create_unlink_dir (xlator_t *this) {
+
+        char  *unlink_path = NULL;
+        char  *landfill_path = NULL;
+        struct posix_private *priv = NULL;
+        struct stat           stbuf;
+        int ret = -1;
+        uuid_t                gfid = {0};
+        char                  gfid_str[64] = {0};
+
+        priv = this->private;
+
+        unlink_path = alloca (strlen (priv->base_path) + 1 +
+                              strlen (GF_UNLINK_PATH) + 1);
+        sprintf (unlink_path, "%s/%s", priv->base_path,
+                 GF_UNLINK_PATH);
+
+        gf_uuid_generate (gfid);
+        uuid_utoa_r (gfid, gfid_str);
+
+        landfill_path = alloca (strlen (priv->base_path) + 1 +
+                                strlen (GF_LANDFILL_PATH) + 1 +
+                                strlen (gfid_str) + 1);
+        sprintf (landfill_path, "%s/%s/%s", priv->base_path,
+                 GF_LANDFILL_PATH, gfid_str);
+
+        ret = sys_stat (unlink_path, &stbuf);
+        switch (ret) {
+        case -1:
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_HANDLE_CREATE,
+                                "Checking for %s failed",
+                                unlink_path);
+                        return -1;
+                }
+                break;
+        case 0:
+                if (!S_ISDIR (stbuf.st_mode)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                P_MSG_HANDLE_CREATE,
+                                "Not a directory: %s",
+                                unlink_path);
+                        return -1;
+                }
+                ret = sys_rename (unlink_path, landfill_path);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_HANDLE_CREATE,
+                                "Can not delete directory %s ",
+                                unlink_path);
+                        return -1;
+                }
+                break;
+        default:
+                break;
+        }
+        ret = sys_mkdir (unlink_path, 0600);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_HANDLE_CREATE,
+                        "Creating directory %s failed",
+                        unlink_path);
+                return -1;
+        }
+
+        return 0;
+}
+
+
 
 /**
  * init -
@@ -6586,6 +6755,15 @@ init (xlator_t *this)
                 ret = -1;
                 goto out;
 	}
+
+        op_ret = posix_create_unlink_dir (this);
+        if (op_ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_HANDLE_CREATE,
+                        "Creation of unlink directory failed");
+                ret = -1;
+                goto out;
+        }
 
 	_private->aio_init_done = _gf_false;
 	_private->aio_capable = _gf_false;

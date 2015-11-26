@@ -359,6 +359,8 @@ union gf_sock_union {
 };
 
 #define GF_HIDDEN_PATH ".glusterfs"
+#define GF_UNLINK_PATH GF_HIDDEN_PATH"/unlink"
+#define GF_LANDFILL_PATH GF_HIDDEN_PATH"/landfill"
 
 #define IOV_MIN(n) min(IOV_MAX,n)
 
