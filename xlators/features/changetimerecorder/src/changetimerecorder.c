@@ -330,7 +330,7 @@ ctr_lookup (call_frame_t *frame, xlator_t *this,
         GF_ASSERT(frame->root);
 
         /* Dont handle nameless lookups*/
-        if (!loc->parent)
+        if (!loc->parent || !loc->name)
                 goto out;
 
         /*fill ctr link context*/
