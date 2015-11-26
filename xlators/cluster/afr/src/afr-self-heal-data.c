@@ -467,6 +467,10 @@ afr_does_size_mismatch (xlator_t *this, unsigned char *sources,
                 if (!sources[i])
                         continue;
 
+                if (AFR_IS_ARBITER_BRICK (priv, i) &&
+                    (replies[i].poststat.ia_size == 0))
+                        continue;
+
                 if (!min)
                         min = &replies[i].poststat;
 
