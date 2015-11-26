@@ -786,8 +786,9 @@ __server_getspec (rpcsvc_request_t *req)
          * server, self-heal daemon etc., so that they are not inadvertently
          * blocked by a auth.{allow,reject} setting. The trusted volfile is not
          * meant for external users.
+         * For unix domain socket, address will be empty.
          */
-        if (strlen (addrstr) && gf_is_local_addr (addrstr)) {
+        if (strlen (addrstr) == 0 || gf_is_local_addr (addrstr)) {
 
                 ret = build_volfile_path (volume, filename,
                                           sizeof (filename),
