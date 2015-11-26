@@ -3844,6 +3844,7 @@ shard_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct iatt *postbuf, dict_t *xdata)
 {
         /* To-Do: Wind fsync on all shards of the file */
+        postbuf->ia_ctime = 0;
         SHARD_STACK_UNWIND (fsync, frame, op_ret, op_errno, prebuf, postbuf,
                             xdata);
         return 0;
