@@ -154,7 +154,12 @@ init (xlator_t *this)
         pthread_cond_init (&priv->cond, NULL);
         INIT_LIST_HEAD (&priv->squeue);
 
-        ret = gf_thread_create (&priv->signth, NULL, br_stub_signth, priv);
+        /* Thread creations need 'this' to be passed so that THIS can be
+         * assigned inside the thread. So setting this->private here.
+         */
+        this->private = priv;
+
+        ret = gf_thread_create (&priv->signth, NULL, br_stub_signth, this);
         if (ret != 0)
                 goto cleanup_lock;
 
@@ -164,8 +169,6 @@ init (xlator_t *this)
                         "failed to launch the thread for storing bad gfids");
                 goto cleanup_lock;
         }
-
-        this->private = priv;
 
         gf_msg_debug (this->name, 0, "bit-rot stub loaded");
 
@@ -178,6 +181,7 @@ init (xlator_t *this)
         mem_pool_destroy (priv->local_pool);
  free_priv:
         GF_FREE (priv);
+        this->private = NULL;
  error_return:
         return -1;
 }
@@ -758,9 +762,11 @@ br_stub_perform_objsign (call_frame_t *frame, xlator_t *this,
 void *
 br_stub_signth (void *arg)
 {
-        br_stub_private_t *priv = arg;
+        xlator_t *this = arg;
+        br_stub_private_t *priv = this->private;
         struct br_stub_signentry *sigstub = NULL;
 
+        THIS = this;
         while (1) {
                 pthread_mutex_lock (&priv->lock);
                 {
