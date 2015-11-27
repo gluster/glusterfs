@@ -11,7 +11,6 @@
 
 /*
   TODO:
-  - merge locks in glfs_posix_lock for lock self-healing
   - set proper pid/lk_owner to call frames (currently buried in syncop)
   - fix logging.c/h to store logfp and loglevel in glusterfs_ctx_t and
     reach it via THIS.
