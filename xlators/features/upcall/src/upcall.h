@@ -72,6 +72,7 @@ struct _upcall_inode_ctx_t {
         pthread_mutex_t client_list_lock; /* mutex for clients list
                                              of this upcall entry */
         int destroy;
+        uuid_t   gfid; /* gfid of the entry */
 };
 typedef struct _upcall_inode_ctx_t upcall_inode_ctx_t;
 
@@ -89,14 +90,11 @@ typedef struct upcall_local upcall_local_t;
 void upcall_local_wipe (xlator_t *this, upcall_local_t *local);
 upcall_local_t *upcall_local_init (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
-upcall_client_t *add_upcall_client (call_frame_t *frame, uuid_t gfid,
-                                    client_t *client,
+upcall_client_t *add_upcall_client (call_frame_t *frame, client_t *client,
                                     upcall_inode_ctx_t *up_inode_ctx);
-upcall_client_t *__add_upcall_client (call_frame_t *frame, uuid_t gfid,
-                                      client_t *client,
+upcall_client_t *__add_upcall_client (call_frame_t *frame, client_t *client,
                                       upcall_inode_ctx_t *up_inode_ctx);
-upcall_client_t *__get_upcall_client (call_frame_t *frame, uuid_t gfid,
-                                      client_t *client,
+upcall_client_t *__get_upcall_client (call_frame_t *frame, client_t *client,
                                       upcall_inode_ctx_t *up_inode_ctx);
 int __upcall_cleanup_client_entry (upcall_client_t *up_client);
 int upcall_cleanup_expired_clients (xlator_t *this,

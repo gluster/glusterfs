@@ -161,7 +161,7 @@ up_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         flags = UP_UPDATE_CLIENT;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 NULL, NULL, NULL);
+                                 stbuf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (readv, frame, op_ret, op_errno, vector,
@@ -747,7 +747,7 @@ up_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         flags = UP_UPDATE_CLIENT;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 NULL, NULL, NULL);
+                                 stbuf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf,
@@ -804,7 +804,7 @@ up_stat_cbk (call_frame_t *frame, void *cookie,
         }
         flags = UP_UPDATE_CLIENT;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 NULL, NULL, NULL);
+                                 buf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (stat, frame, op_ret, op_errno, buf,
@@ -970,7 +970,7 @@ up_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         flags = UP_UPDATE_CLIENT;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 NULL, NULL, NULL);
+                                 stbuf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, stbuf,
