@@ -5647,10 +5647,7 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                         status_detail = dict_get_str_boolean (dict,
                                                               "status-detail",
                                                               _gf_false);
-                        if (status_detail)
-                                ret = gf_cli_gsync_status_output (dict, status_detail);
-                        else
-                                ret = gf_cli_gsync_status_output (dict, status_detail);
+                        ret = gf_cli_gsync_status_output (dict, status_detail);
                 break;
 
                 case GF_GSYNC_OPTION_TYPE_DELETE:
