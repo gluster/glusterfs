@@ -1288,6 +1288,10 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         memcpy (loc.gfid, handle, GFAPI_HANDLE_LENGTH);
 
+        /* make sure the gfid received is valid */
+        GF_VALIDATE_OR_GOTO ("glfs_h_create_from_handle",
+                             !(gf_uuid_is_null (loc.gfid)), out);
+
         newinode = inode_find (subvol->itable, loc.gfid);
         if (newinode) {
                 if (!stat) /* No need of lookup */
