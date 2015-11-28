@@ -42,7 +42,7 @@ def brickfind_crawl(brick, args):
             path = path.strip()
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix,
-                         encode=(not args.no_encode))
+                         encode=(not args.no_encode), tag=args.tag)
 
         ignore_dirs = [os.path.join(brick, dirname)
                        for dirname in
@@ -64,6 +64,9 @@ def _get_args():
     parser.add_argument("brick", help="Brick Name")
     parser.add_argument("outfile", help="Output File")
     parser.add_argument("start", help="Start Time", type=float)
+    parser.add_argument("tag", help="Tag to prefix file name with")
+    parser.add_argument("--only-query", help="Only query, No session update",
+                        action="store_true")
     parser.add_argument("--debug", help="Debug", action="store_true")
     parser.add_argument("--no-encode",
                         help="Do not encode path in outfile",
@@ -92,6 +95,7 @@ if __name__ == "__main__":
 
     time_to_update = int(time.time())
     brickfind_crawl(args.brick, args)
-    with open(status_file_pre, "w", buffering=0) as f:
-        f.write(str(time_to_update))
+    if not args.only_query:
+        with open(status_file_pre, "w", buffering=0) as f:
+            f.write(str(time_to_update))
     sys.exit(0)
