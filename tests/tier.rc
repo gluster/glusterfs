@@ -109,6 +109,7 @@ function sleep_first_cycle {
 function sleep_until_mid_cycle {
     startTime=$(date +%s)
     mod=$(( ( $startTime % $1 ) + 1 ))
+    mod=$(( $1 - $mod ))
     mod=$(( $mod + $1 / 2 ))
     sleep $mod
 }

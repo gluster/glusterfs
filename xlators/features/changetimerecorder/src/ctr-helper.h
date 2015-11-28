@@ -50,8 +50,8 @@ typedef struct gf_ctr_private {
         gfdb_db_type_t                  gfdb_db_type;
         gfdb_sync_type_t                gfdb_sync_type;
         gfdb_conn_node_t                *_db_conn;
-        uint64_t                        ctr_hardlink_heal_expire_period;
-        uint64_t                        ctr_inode_heal_expire_period;
+        uint64_t                        ctr_lookupheal_link_timeout;
+        uint64_t                        ctr_lookupheal_inode_timeout;
 } gf_ctr_private_t;
 
 
@@ -685,7 +685,7 @@ __is_inode_expired (ctr_xlator_ctx_t *ctr_xlator_ctx,
         time_diff = current_time->tv_sec -
                         ctr_xlator_ctx->inode_heal_period;
 
-        ret = (time_diff >= _priv->ctr_inode_heal_expire_period) ?
+        ret = (time_diff >= _priv->ctr_lookupheal_inode_timeout) ?
                         _gf_true : _gf_false;
         return ret;
 }
@@ -705,7 +705,7 @@ __is_hardlink_expired (ctr_hard_link_t *ctr_hard_link,
         time_diff = current_time->tv_sec -
                         ctr_hard_link->hardlink_heal_period;
 
-        ret = ret || (time_diff >= _priv->ctr_hardlink_heal_expire_period) ?
+        ret = ret || (time_diff >= _priv->ctr_lookupheal_link_timeout) ?
                         _gf_true : _gf_false;
 
         return ret;

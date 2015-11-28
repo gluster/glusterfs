@@ -1982,12 +1982,12 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("ctr_link_consistency", priv->ctr_link_consistency,
                         options, bool, out);
 
-        GF_OPTION_RECONF ("ctr_inode_heal_expire_period",
-                                priv->ctr_inode_heal_expire_period,
+        GF_OPTION_RECONF ("ctr_lookupheal_inode_timeout",
+                                priv->ctr_lookupheal_inode_timeout,
                                 options, uint64, out);
 
-        GF_OPTION_RECONF ("ctr_hardlink_heal_expire_period",
-                                priv->ctr_hardlink_heal_expire_period,
+        GF_OPTION_RECONF ("ctr_lookupheal_link_timeout",
+                                priv->ctr_lookupheal_link_timeout,
                                 options, uint64, out);
 
         GF_OPTION_RECONF ("record-exit", priv->ctr_record_unwind, options,
@@ -2041,9 +2041,9 @@ init (xlator_t *this)
         priv->gfdb_sync_type           = GFDB_DB_SYNC;
         priv->enabled                  = _gf_true;
         priv->_db_conn                 = NULL;
-        priv->ctr_hardlink_heal_expire_period =
+        priv->ctr_lookupheal_link_timeout =
                                 CTR_DEFAULT_HARDLINK_EXP_PERIOD;
-        priv->ctr_inode_heal_expire_period =
+        priv->ctr_lookupheal_inode_timeout =
                                 CTR_DEFAULT_INODE_EXP_PERIOD;
 
         /*Extract ctr xlator options*/
@@ -2219,11 +2219,11 @@ struct volume_options options[] = {
           .value = {"on", "off"},
           .default_value = "off"
         },
-        { .key  = {"ctr_hardlink_heal_expire_period"},
+        { .key  = {"ctr_lookupheal_link_timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "300"
         },
-        { .key  = {"ctr_inode_heal_expire_period"},
+        { .key  = {"ctr_lookupheal_inode_timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "300"
         },
