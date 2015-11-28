@@ -75,7 +75,7 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
                 callback_func(full_path, filter_result)
 
 
-def output_write(f, path, prefix=".", encode=False):
+def output_write(f, path, prefix=".", encode=False, tag=""):
     if path == "":
         return
 
@@ -85,7 +85,10 @@ def output_write(f, path, prefix=".", encode=False):
     if encode:
         path = urllib.quote_plus(path)
 
-    f.write("%s\n" % path)
+    # set the field separator
+    FS = "" if tag == "" else " "
+
+    f.write("%s%s%s\n" % (tag.strip(), FS, path))
 
 
 def human_time(ts):

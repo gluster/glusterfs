@@ -109,8 +109,12 @@ def run_cmd_nodes(task, args, **kwargs):
 
             # If Full backup is requested or start time is zero, use brickfind
             change_detector = conf.get_change_detector("changelog")
+            tag = None
             if args.full:
                 change_detector = conf.get_change_detector("brickfind")
+                tag = args.tag_for_full_find.strip()
+                if tag == "":
+                    tag = '""' if not is_host_local(host_uuid) else ""
 
             node_outfiles.append(node_outfile)
 
@@ -119,9 +123,9 @@ def run_cmd_nodes(task, args, **kwargs):
                    args.volume,
                    brick,
                    node_outfile,
-                   str(kwargs.get("start")),
-                   "--output-prefix",
-                   args.output_prefix] + \
+                   str(kwargs.get("start"))] + \
+                ([tag] if tag is not None else []) + \
+                ["--output-prefix", args.output_prefix] + \
                 (["--debug"] if args.debug else []) + \
                 (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"] if args.only_namespace_changes
@@ -131,7 +135,14 @@ def run_cmd_nodes(task, args, **kwargs):
             opts["copy_outfile"] = True
         elif task == "query":
             # If Full backup is requested or start time is zero, use brickfind
+            tag = None
             change_detector = conf.get_change_detector("changelog")
+            if args.full:
+                change_detector = conf.get_change_detector("brickfind")
+                tag = args.tag_for_full_find.strip()
+                if tag == "":
+                    tag = '""' if not is_host_local(host_uuid) else ""
+
             node_outfiles.append(node_outfile)
 
             cmd = [change_detector,
@@ -140,6 +151,7 @@ def run_cmd_nodes(task, args, **kwargs):
                    brick,
                    node_outfile,
                    str(kwargs.get("start"))] + \
+                ([tag] if tag is not None else []) + \
                 ["--only-query"] + \
                 ["--output-prefix", args.output_prefix] + \
                 (["--debug"] if args.debug else []) + \
@@ -296,23 +308,35 @@ def _get_args():
     parser_pre.add_argument("-N", "--only-namespace-changes",
                             help="List only namespace changes",
                             action="store_true")
+    parser_pre.add_argument("--tag-for-full-find",
+                            help="Tag prefix for file names emitted during"
+                            " a full find operation; default: \"NEW\"",
+                            default="NEW")
 
     # query <VOLUME> <OUTFILE> --since-time <SINCE_TIME>
     #       [--output-prefix <OUTPUT_PREFIX>] [--full]
-    parser_pre = subparsers.add_parser('query')
-    parser_pre.add_argument("volume", help="Volume Name")
-    parser_pre.add_argument("outfile", help="Output File",
-                            action=StoreAbsPath)
-    parser_pre.add_argument("--since-time", help="UNIX epoch time since which "
-                            "listing is required", type=int)
-    parser_pre.add_argument("--debug", help="Debug", action="store_true")
-    parser_pre.add_argument("--disable-partial", help="Disable Partial find, "
-                            "Fail when one node fails", action="store_true")
-    parser_pre.add_argument("--output-prefix", help="File prefix in output",
-                            default=".")
-    parser_pre.add_argument("-N", "--only-namespace-changes",
-                            help="List only namespace changes",
-                            action="store_true")
+    parser_query = subparsers.add_parser('query')
+    parser_query.add_argument("volume", help="Volume Name")
+    parser_query.add_argument("outfile", help="Output File",
+                              action=StoreAbsPath)
+    parser_query.add_argument("--since-time", help="UNIX epoch time since "
+                              "which listing is required", type=int)
+    parser_query.add_argument("--no-encode",
+                              help="Do not encode path in output file",
+                              action="store_true")
+    parser_query.add_argument("--full", help="Full find", action="store_true")
+    parser_query.add_argument("--debug", help="Debug", action="store_true")
+    parser_query.add_argument("--disable-partial", help="Disable Partial find,"
+                              " Fail when one node fails", action="store_true")
+    parser_query.add_argument("--output-prefix", help="File prefix in output",
+                              default=".")
+    parser_query.add_argument("-N", "--only-namespace-changes",
+                              help="List only namespace changes",
+                              action="store_true")
+    parser_query.add_argument("--tag-for-full-find",
+                              help="Tag prefix for file names emitted during"
+                              " a full find operation; default: \"NEW\"",
+                              default="NEW")
 
     # post <SESSION> <VOLUME>
     parser_post = subparsers.add_parser('post')
@@ -491,31 +515,46 @@ def mode_query(session_dir, args):
     # Enable volume options for changelog capture
     enable_volume_options(args)
 
+    # Test options
+    if not args.since_time and not args.full:
+        fail("Please specify either --since-time or --full", logger=logger)
+
+    if args.since_time and args.full:
+        fail("Please specify either --since-time or --full, but not both",
+             logger=logger)
+
     # Start query command processing
     if args.since_time:
         start = args.since_time
-        logger.debug("Query is called - Session: %s, Volume: %s, "
-                     "Start time: %s"
-                     % ("default", args.volume, start))
+    else:
+        start = 0  # --full option is handled separately
 
-        run_cmd_nodes("query", args, start=start)
+    logger.debug("Query is called - Session: %s, Volume: %s, "
+                 "Start time: %s"
+                 % ("default", args.volume, start))
 
-        # Merger
+    run_cmd_nodes("query", args, start=start)
+
+    # Merger
+    if args.full:
+        cmd = ["sort", "-u"] + node_outfiles + ["-o", args.outfile]
+        execute(cmd,
+                exit_msg="Failed to merge output files "
+                "collected from nodes", logger=logger)
+    else:
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
         outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
         write_output(args, outfilemerger)
 
-        try:
-            os.remove(args.outfile + ".db")
-        except (IOError, OSError):
-            pass
+    try:
+        os.remove(args.outfile + ".db")
+    except (IOError, OSError):
+        pass
 
-        run_cmd_nodes("cleanup", args)
+    run_cmd_nodes("cleanup", args)
 
-        sys.stdout.write("Generated output file %s\n" % args.outfile)
-    else:
-        fail("Please specify --since-time option")
+    sys.stdout.write("Generated output file %s\n" % args.outfile)
 
 
 def mode_pre(session_dir, args):
