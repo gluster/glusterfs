@@ -1579,6 +1579,66 @@ err:
         return -1;
 }
 
+static
+int32_t posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
+{
+        int ret             = -1;
+        struct iatt *stbuf  = NULL;
+        int32_t len         = sizeof(struct iatt);
+
+        if (!dict || !in_stbuf)
+                return ret;
+
+        stbuf = GF_CALLOC (1, len, gf_common_mt_char);
+        if (!stbuf)
+                return ret;
+
+        memcpy (stbuf, in_stbuf, len);
+
+        ret = dict_set_bin (dict, DHT_IATT_IN_XDATA_KEY, stbuf, len);
+        if (ret)
+                GF_FREE (stbuf);
+
+        return ret;
+}
+
+gf_boolean_t
+posix_skip_non_linkto_unlink (dict_t *xdata, loc_t *loc, char *key,
+                              const char *linkto_xattr, struct iatt *stbuf,
+                              const char *real_path)
+{
+        gf_boolean_t     skip_unlink            = _gf_false;
+        gf_boolean_t     is_dht_linkto_file     = _gf_false;
+        int              unlink_if_linkto       = 0;
+        ssize_t          xattr_size             = -1;
+        int              op_ret                 = -1;
+
+        op_ret = dict_get_int32 (xdata, key,
+                                 &unlink_if_linkto);
+
+        if (!op_ret && unlink_if_linkto) {
+
+                is_dht_linkto_file =  IS_DHT_LINKFILE_MODE (stbuf);
+                if (!is_dht_linkto_file)
+                        return _gf_true;
+
+                LOCK (&loc->inode->lock);
+
+                xattr_size = sys_lgetxattr (real_path, linkto_xattr, NULL, 0);
+
+                if (xattr_size <= 0)
+                        skip_unlink = _gf_true;
+
+                UNLOCK (&loc->inode->lock);
+
+                gf_msg ("posix", GF_LOG_INFO, 0, P_MSG_XATTR_STATUS,
+                        "linkto_xattr status: %"PRIu32" for %s", skip_unlink,
+                        real_path);
+        }
+        return skip_unlink;
+
+}
+
 int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int xflag, dict_t *xdata)
@@ -1589,6 +1649,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         char                   *par_path          = NULL;
         int32_t                fd                 = -1;
         struct iatt            stbuf              = {0,};
+        struct iatt            postbuf            = {0,};
         struct posix_private  *priv               = NULL;
         struct iatt            preparent          = {0,};
         struct iatt            postparent         = {0,};
@@ -1597,6 +1658,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t                unlink_if_linkto   = 0;
         int32_t                check_open_fd      = 0;
         int32_t                skip_unlink        = 0;
+        int32_t                fdstat_requested   = 0;
         int32_t                ctr_link_req       = 0;
         ssize_t                xattr_size         = -1;
         int32_t                is_dht_linkto_file = 0;
@@ -1650,40 +1712,30 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
         }
-
-
-        op_ret = dict_get_int32 (xdata, DHT_SKIP_NON_LINKTO_UNLINK,
-                                 &unlink_if_linkto);
-
-        if (!op_ret && unlink_if_linkto) {
-
-                LOCK (&loc->inode->lock);
-
-                xattr_size = sys_lgetxattr (real_path, LINKTO, NULL, 0);
-
-                if (xattr_size <= 0) {
-                        skip_unlink = 1;
-                } else {
-                       is_dht_linkto_file =  IS_DHT_LINKFILE_MODE (&stbuf);
-                       if (!is_dht_linkto_file)
-                               skip_unlink = 1;
-                }
-
-                UNLOCK (&loc->inode->lock);
-
-                gf_msg (this->name, GF_LOG_INFO, 0, P_MSG_XATTR_STATUS,
-                        "linkto_xattr status: %"PRIu32" for %s", skip_unlink,
-                        real_path);
-
-                if (skip_unlink) {
-                        op_ret = -1;
-                        op_errno = EBUSY;
-                        goto out;
-                }
+        /*
+         * If either of the function return true, skip_unlink.
+         * If first first function itself return true,
+         * we don't need to call second function, skip unlink.
+         */
+        skip_unlink = posix_skip_non_linkto_unlink (xdata, loc,
+                                                    DHT_SKIP_NON_LINKTO_UNLINK,
+                                                    DHT_LINKTO, &stbuf,
+                                                    real_path);
+        skip_unlink = skip_unlink || posix_skip_non_linkto_unlink (xdata, loc,
+                                                    TIER_SKIP_NON_LINKTO_UNLINK,
+                                                    TIER_LINKTO, &stbuf,
+                                                    real_path);
+        if (skip_unlink) {
+                op_ret = -1;
+                op_errno = EBUSY;
+                goto out;
         }
 
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                fdstat_requested = 1;
+        }
 
-        if (priv->background_unlink) {
+        if (priv->background_unlink || fdstat_requested) {
                 if (IA_ISREG (loc->inode->ia_type)) {
                         fd = open (real_path, O_RDONLY);
                         if (fd == -1) {
@@ -1726,6 +1778,24 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        unwind_dict = dict_new ();
+        if (!unwind_dict) {
+                op_errno = -ENOMEM;
+                op_ret = -1;
+                goto out;
+        }
+        if (fdstat_requested) {
+                op_ret = posix_fdstat (this, fd, &postbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_FSTAT_FAILED, "post operation "
+                                "fstat failed on fd=%d", fd);
+                        goto out;
+                }
+                op_ret = posix_set_iatt_in_dict (unwind_dict, &postbuf);
+        }
+
         op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
         if (op_ret == -1) {
                 op_errno = errno;
@@ -1735,7 +1805,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        unwind_dict = posix_dict_set_nlink (xdata, NULL, stbuf.ia_nlink);
+        unwind_dict = posix_dict_set_nlink (xdata, unwind_dict, stbuf.ia_nlink);
         op_ret = 0;
 out:
         SET_TO_OLD_FS_ID ();
@@ -3333,31 +3403,6 @@ map_xattr_flags(int flags)
         return darwinflags;
 }
 #endif
-
-static
-int32_t posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
-{
-        int ret             = -1;
-        struct iatt *stbuf  = NULL;
-        int32_t len         = sizeof(struct iatt);
-
-        if (!dict || !in_stbuf)
-                return ret;
-
-        stbuf = GF_CALLOC (1, len, gf_common_mt_char);
-        if (!stbuf)
-                return ret;
-
-        memcpy (stbuf, in_stbuf, len);
-
-        ret = dict_set_bin (dict, DHT_IATT_IN_XDATA_KEY, stbuf, len);
-        if (ret)
-                GF_FREE (stbuf);
-
-        return ret;
-}
-
-
 
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
