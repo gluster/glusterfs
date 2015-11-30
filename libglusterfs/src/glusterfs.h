@@ -235,6 +235,7 @@
 #define DHT_COMMITHASH_STR "commithash"
 
 #define DHT_SKIP_NON_LINKTO_UNLINK  "unlink-only-if-dht-linkto-file"
+#define TIER_SKIP_NON_LINKTO_UNLINK  "unlink-only-if-tier-linkto-file"
 #define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
 

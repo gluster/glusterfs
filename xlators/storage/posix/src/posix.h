@@ -50,7 +50,11 @@
 
 #define ACL_BUFFER_MAX 4096 /* size of character buffer */
 
-#define LINKTO "trusted.glusterfs.dht.linkto"
+#define DHT_LINKTO "trusted.glusterfs.dht.linkto"
+/*
+ * TIER_MODE need to be changed when we stack tiers
+ */
+#define TIER_LINKTO "trusted.tier.tier-dht.linkto"
 
 #define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
                                                + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
