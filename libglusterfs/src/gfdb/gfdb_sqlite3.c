@@ -709,12 +709,12 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
 
         ret = gf_asprintf (&query_str, "%s AND"
                 /*First condition: For writes*/
-                "((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
+                "( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") >= ? )"
                 " OR "
                 /*Second condition: For reads*/
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") >= ?)", base_query_str);
+                GF_COL_TB_RWMSEC ") >= ?) )", base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -805,12 +805,12 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
 
         ret = gf_asprintf (&query_str, "%s AND "
                 /*First condition: For writes*/
-                "((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
+                "( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") <= ? )"
                 " AND "
                 /*Second condition: For reads*/
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") <= ?)", base_query_str);
+                GF_COL_TB_RWMSEC ") <= ?) )", base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -910,14 +910,14 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
         }
         ret = gf_asprintf (&query_str, "%s AND "
                 /*First condition: For Writes*/
-                "( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
+                "( ( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") >= ? )"
                 " AND "" (" GF_COL_TB_WFC " >= ? ) )"
                 " OR "
                 /*Second condition: For Reads */
                 "( ((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") >= ?)"
-                " AND "" (" GF_COL_TB_RFC " >= ? ) )", base_query_str);
+                " AND "" (" GF_COL_TB_RFC " >= ? ) ) )", base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -1055,7 +1055,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                  * OR
                  * File that have write wind time greater than for_time,
                  * but write_frequency less than freq_write_cnt*/
-                "( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
+                "( ( ((" GF_COL_TB_WSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_WMSEC ") < ? )"
                 " OR "
                 "( (" GF_COL_TB_WFC " < ? ) AND"
@@ -1072,7 +1072,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 " OR "
                 "( (" GF_COL_TB_RFC " < ? ) AND"
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") >= ? ) ) )", base_query_str);
+                GF_COL_TB_RWMSEC ") >= ? ) ) ) )", base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
