@@ -1167,9 +1167,19 @@ dht_lookup_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
 int
 dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict) {
 
-        int ret = 0;
+        int                      ret = 0;
+        xlator_t                *this           = NULL;
+        char                    *linktoskip_key = NULL;
 
-        ret = dict_set_int32 (dict, DHT_SKIP_NON_LINKTO_UNLINK, 1);
+        this    = THIS;
+        GF_VALIDATE_OR_GOTO ("dht", this, err);
+
+        if (dht_is_tier_xlator (this))
+                linktoskip_key = TIER_SKIP_NON_LINKTO_UNLINK;
+        else
+                linktoskip_key = DHT_SKIP_NON_LINKTO_UNLINK;
+
+        ret = dict_set_int32 (dict, linktoskip_key, 1);
 
         if (ret)
                 goto err;
@@ -2431,60 +2441,13 @@ err:
         return 0;
 }
 
-
-int
-dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int op_ret, int op_errno, struct iatt *preparent,
-                struct iatt *postparent, dict_t *xdata)
-{
-        dht_local_t  *local = NULL;
-        call_frame_t *prev  = NULL;
-
-        local = frame->local;
-        prev  = cookie;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == -1) {
-                        local->op_ret   = -1;
-                        local->op_errno = op_errno;
-                        gf_msg_debug (this->name, op_errno,
-                                      "Unlink: subvolume %s returned -1",
-                                       prev->this->name);
-                        goto unlock;
-                }
-
-                local->op_ret = 0;
-
-                local->postparent = *postparent;
-                local->preparent = *preparent;
-
-                if (local->loc.parent) {
-                        dht_inode_ctx_time_update (local->loc.parent, this,
-                                                   &local->preparent, 0);
-                        dht_inode_ctx_time_update (local->loc.parent, this,
-                                                   &local->postparent, 1);
-                }
-        }
-unlock:
-        UNLOCK (&frame->lock);
-
-        DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
-                          &local->preparent, &local->postparent, NULL);
-
-        return 0;
-}
-
-
 int
 dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, struct iatt *preparent,
                          struct iatt *postparent, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
-
-        xlator_t *cached_subvol = NULL;
+        dht_local_t     *local          = NULL;
+        call_frame_t    *prev           = NULL;
 
         local = frame->local;
         prev  = cookie;
@@ -2506,27 +2469,75 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
         UNLOCK (&frame->lock);
 
-        if (local->op_ret == -1)
-                goto err;
 
-        cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
-        if (!cached_subvol) {
-                gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s",
-                              local->loc.path);
-                local->op_errno = EINVAL;
-                goto err;
-        }
-
-        STACK_WIND (frame, dht_unlink_cbk,
-                    cached_subvol, cached_subvol->fops->unlink,
-                    &local->loc, local->flags, NULL);
+        DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
+                          &local->preparent, &local->postparent, xdata);
 
         return 0;
+}
 
-err:
-        DHT_STACK_UNWIND (unlink, frame, -1, local->op_errno,
-                          NULL, NULL, NULL);
+int
+dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int op_ret, int op_errno, struct iatt *preparent,
+                struct iatt *postparent, dict_t *xdata)
+{
+        dht_local_t     *local          = NULL;
+        call_frame_t    *prev           = NULL;
+        xlator_t        *hashed_subvol  = NULL;
+
+        local = frame->local;
+        prev  = cookie;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        if (op_errno != ENOENT) {
+                                local->op_ret   = -1;
+                                local->op_errno = op_errno;
+                        } else {
+                                local->op_ret = 0;
+                        }
+                        gf_msg_debug (this->name, op_errno,
+                                      "Unlink: subvolume %s returned -1",
+                                       prev->this->name);
+                        goto unlock;
+                }
+
+                local->op_ret = 0;
+
+                local->postparent = *postparent;
+                local->preparent = *preparent;
+
+                if (local->loc.parent) {
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->preparent, 0);
+                        dht_inode_ctx_time_update (local->loc.parent, this,
+                                                   &local->postparent, 1);
+                }
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        if (!local->op_ret) {
+                hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
+                if (hashed_subvol &&
+                hashed_subvol != local->cached_subvol) {
+                        /*
+                         * If hashed and cached are different, then we need
+                         * to unlink linkfile from hashed subvol if data
+                         * file is deleted successfully
+                         */
+                        STACK_WIND (frame, dht_unlink_linkfile_cbk,
+                                    hashed_subvol,
+                                    hashed_subvol->fops->unlink, &local->loc,
+                                    local->flags, xdata);
+                        return 0;
+                }
+        }
+
+        DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
+                          &local->preparent, &local->postparent, xdata);
+
         return 0;
 }
 
@@ -5625,7 +5636,6 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
             dict_t *xdata)
 {
         xlator_t    *cached_subvol = NULL;
-        xlator_t    *hashed_subvol = NULL;
         int          op_errno = -1;
         dht_local_t *local = NULL;
 
@@ -5640,15 +5650,6 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 goto err;
         }
 
-        hashed_subvol = dht_subvol_get_hashed (this, loc);
-        /* Dont fail unlink if hashed_subvol is NULL which can be the result
-         * of layout anomaly */
-        if (!hashed_subvol) {
-                gf_msg_debug (this->name, 0,
-                              "no subvolume in layout for path=%s",
-                              loc->path);
-        }
-
         cached_subvol = local->cached_subvol;
         if (!cached_subvol) {
                 gf_msg_debug (this->name, 0,
@@ -5658,15 +5659,9 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         }
 
         local->flags = xflag;
-        if (hashed_subvol && hashed_subvol != cached_subvol) {
-                STACK_WIND (frame, dht_unlink_linkfile_cbk,
-                            hashed_subvol, hashed_subvol->fops->unlink, loc,
-                            xflag, xdata);
-        } else {
-                STACK_WIND (frame, dht_unlink_cbk,
-                            cached_subvol, cached_subvol->fops->unlink, loc,
-                            xflag, xdata);
-        }
+        STACK_WIND (frame, dht_unlink_cbk,
+                    cached_subvol, cached_subvol->fops->unlink, loc,
+                    xflag, xdata);
 
         return 0;
 err:

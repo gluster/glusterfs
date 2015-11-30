@@ -10,6 +10,11 @@
 
 #ifndef _TIER_COMMON_H_
 #define _TIER_COMMON_H_
+/* Function definitions */
+
+int32_t
+tier_unlink (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, int xflag, dict_t *xdata);
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
