@@ -40,7 +40,6 @@ TEST glusterd
 #Create and start a tiered volume
 create_dist_vol $NUM_BRICKS
 
-$CLI volume set $V0 diagnostics.client-log-level DEBUG
 # Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
@@ -48,7 +47,8 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 mkdir $M0/$TEST_DIR
 cd $M0/${TEST_DIR}
 
-touch file{1..2}
+date > file1
+touch file2
 
 # attach tier
 create_dist_tier_vol $NUM_BRICKS
@@ -56,19 +56,22 @@ create_dist_tier_vol $NUM_BRICKS
 sleep_until_mid_cycle $PROMOTE_FREQ
 
 # check if promotion on single hit, should fail
-echo "hi" >> file2
+date >> file2
+cat file1
 drop_cache $M0
 sleep $PROMOTE_FREQ
 EXPECT "0" check_counters 0 0
 
 # check if promotion on double hit, should suceed
 sleep_until_mid_cycle $PROMOTE_FREQ
-echo "hi" >> file2
+date >> file2
 drop_cache $M0
-echo "hi" >> file2
+cat file1
+date >> file2
 drop_cache $M0
+cat file1
 
-EXPECT_WITHIN $PROMOTE_FREQ "0" check_counters 1 0
+EXPECT_WITHIN $PROMOTE_FREQ "0" check_counters 2 0
 
 TEST ! $CLI volume set $V0 features.record-counters off
 
