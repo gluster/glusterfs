@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2015 DataLab, s.l. <http://www.datalab.es>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -11,7 +11,15 @@
 #ifndef __EC_METHOD_H__
 #define __EC_METHOD_H__
 
-#include "ec-gf.h"
+#include "xlator.h"
+
+#include "ec-types.h"
+#include "ec-galois.h"
+
+#define EC_GF_BITS 8
+#define EC_GF_MOD 0x11D
+
+#define EC_GF_SIZE (1 << EC_GF_BITS)
 
 /* Determines the maximum size of the matrix used to encode/decode data */
 #define EC_METHOD_MAX_FRAGMENTS 16
@@ -21,12 +29,18 @@
 #define EC_METHOD_WORD_SIZE 64
 
 #define EC_METHOD_CHUNK_SIZE (EC_METHOD_WORD_SIZE * EC_GF_BITS)
-#define EC_METHOD_WIDTH (EC_METHOD_WORD_SIZE / EC_GF_WORD_SIZE)
 
-void ec_method_initialize(void);
-size_t ec_method_encode(size_t size, uint32_t columns, uint32_t row,
-                        uint8_t * in, uint8_t * out);
-size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
-                        uint8_t ** in, uint8_t * out);
+gf_boolean_t ec_method_init(xlator_t *xl, ec_matrix_list_t *list,
+                            uint32_t columns, uint32_t rows, uint32_t max,
+                            const char *gen);
+void ec_method_fini(ec_matrix_list_t *list);
+gf_boolean_t ec_method_update(xlator_t *xl, ec_matrix_list_t *list,
+                              const char *gen);
+
+void ec_method_encode(ec_matrix_list_t *list, size_t size, void *in,
+                      void **out);
+gf_boolean_t ec_method_decode(ec_matrix_list_t *list, size_t size,
+                              uintptr_t mask, uint32_t *rows, void **in,
+                              void *out);
 
 #endif /* __EC_METHOD_H__ */

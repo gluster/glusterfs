@@ -11,12 +11,13 @@
 #include "xlator.h"
 #include "defaults.h"
 
+#include "ec.h"
+#include "ec-messages.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
-#include "ec-messages.h"
 
 int
 ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,

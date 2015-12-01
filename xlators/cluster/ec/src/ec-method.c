@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2015 DataLab, s.l. <http://www.datalab.es>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -11,149 +11,432 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ec-gf.h"
+#include "ec-types.h"
+#include "ec-mem-types.h"
+#include "ec-galois.h"
+#include "ec-code.h"
 #include "ec-method.h"
 
-static uint32_t GfPow[EC_GF_SIZE << 1];
-static uint32_t GfLog[EC_GF_SIZE << 1];
+static void
+ec_method_matrix_normal(ec_gf_t *gf, uint32_t *matrix, uint32_t columns,
+                        uint32_t *values, uint32_t count)
+{
+    uint32_t i, j, v, tmp;
 
-void ec_method_initialize(void)
+    columns--;
+    for (i = 0; i < count; i++) {
+        v = *values++;
+        *matrix++ = tmp = ec_gf_exp(gf, v, columns);
+        for (j = 0; j < columns; j++) {
+            *matrix++ = tmp = ec_gf_div(gf, tmp, v);
+        }
+    }
+}
+
+static void
+ec_method_matrix_inverse(ec_gf_t *gf, uint32_t *matrix, uint32_t *values,
+                         uint32_t count)
+{
+    uint32_t a[count];
+    uint32_t i, j, p, last, tmp;
+
+    last = count - 1;
+    for (i = 0; i < last; i++) {
+        a[i] = 1;
+    }
+    a[i] = values[0];
+    for (i = last; i > 0; i--) {
+        for (j = i - 1; j < last; j++) {
+            a[j] = a[j + 1] ^ ec_gf_mul(gf, values[i], a[j]);
+        }
+        a[j] = ec_gf_mul(gf, values[i], a[j]);
+    }
+    for (i = 0; i < count; i++) {
+        p = a[0];
+        matrix += count;
+        *matrix = tmp = p ^ values[i];
+        for (j = 1; j < last; j++) {
+            matrix += count;
+            *matrix = tmp = a[j] ^ ec_gf_mul(gf, values[i], tmp);
+            p = tmp ^ ec_gf_mul(gf, values[i], p);
+        }
+        for (j = 0; j < last; j++) {
+            *matrix = ec_gf_div(gf, *matrix, p);
+            matrix -= count;
+        }
+        *matrix = ec_gf_div(gf, 1, p);
+        matrix++;
+    }
+}
+
+static gf_boolean_t
+ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
+                      uintptr_t mask, uint32_t *rows, gf_boolean_t inverse)
 {
     uint32_t i;
 
-    GfPow[0] = 1;
-    GfLog[0] = EC_GF_SIZE;
-    for (i = 1; i < EC_GF_SIZE; i++)
-    {
-        GfPow[i] = GfPow[i - 1] << 1;
-        if (GfPow[i] >= EC_GF_SIZE)
-        {
-            GfPow[i] ^= EC_GF_MOD;
+    matrix->refs = 1;
+    matrix->mask = mask;
+    matrix->code = list->code;
+    matrix->columns = list->columns;
+    INIT_LIST_HEAD(&matrix->lru);
+
+    if (inverse) {
+        matrix->rows = list->columns;
+        ec_method_matrix_inverse(matrix->code->gf, matrix->values, rows,
+                                 matrix->rows);
+        for (i = 0; i < matrix->rows; i++) {
+            matrix->row_data[i].values = matrix->values + i * matrix->columns;
+            matrix->row_data[i].func.interleaved =
+                ec_code_build_interleaved(matrix->code,
+                                          EC_METHOD_WORD_SIZE,
+                                          matrix->row_data[i].values,
+                                          matrix->columns);
+            if (matrix->row_data[i].func.interleaved == NULL) {
+                return _gf_false;
+            }
         }
-        GfPow[i + EC_GF_SIZE - 1] = GfPow[i];
-        GfLog[GfPow[i] + EC_GF_SIZE - 1] = GfLog[GfPow[i]] = i;
-    }
-}
-
-static uint32_t ec_method_mul(uint32_t a, uint32_t b)
-{
-    if (a && b)
-    {
-        return GfPow[GfLog[a] + GfLog[b]];
-    }
-    return 0;
-}
-
-static uint32_t ec_method_div(uint32_t a, uint32_t b)
-{
-    if (b)
-    {
-        if (a)
-        {
-            return GfPow[EC_GF_SIZE - 1 + GfLog[a] - GfLog[b]];
-        }
-        return 0;
-    }
-    return EC_GF_SIZE;
-}
-
-size_t ec_method_encode(size_t size, uint32_t columns, uint32_t row,
-                        uint8_t * in, uint8_t * out)
-{
-    uint32_t i, j;
-
-    size /= EC_METHOD_CHUNK_SIZE * columns;
-    row++;
-    for (j = 0; j < size; j++)
-    {
-        ec_gf_muladd[0](out, in, EC_METHOD_WIDTH);
-        in += EC_METHOD_CHUNK_SIZE;
-        for (i = 1; i < columns; i++)
-        {
-            ec_gf_muladd[row](out, in, EC_METHOD_WIDTH);
-            in += EC_METHOD_CHUNK_SIZE;
-        }
-        out += EC_METHOD_CHUNK_SIZE;
-    }
-
-    return size * EC_METHOD_CHUNK_SIZE;
-}
-
-size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
-                        uint8_t ** in, uint8_t * out)
-{
-    uint32_t i, j, k, off, last, value;
-    uint32_t f;
-    uint8_t inv[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS + 1];
-    uint8_t mtx[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS];
-    uint8_t dummy[EC_METHOD_CHUNK_SIZE];
-
-    size /= EC_METHOD_CHUNK_SIZE;
-
-    memset(inv, 0, sizeof(inv));
-    memset(mtx, 0, sizeof(mtx));
-    memset(dummy, 0, sizeof(dummy));
-    for (i = 0; i < columns; i++)
-    {
-        inv[i][i] = 1;
-        inv[i][columns] = 1;
-    }
-    for (i = 0; i < columns; i++)
-    {
-        mtx[i][columns - 1] = 1;
-        for (j = columns - 1; j > 0; j--)
-        {
-            mtx[i][j - 1] = ec_method_mul(mtx[i][j], rows[i] + 1);
-        }
-    }
-
-    for (i = 0; i < columns; i++)
-    {
-        f = mtx[i][i];
-        for (j = 0; j < columns; j++)
-        {
-            mtx[i][j] = ec_method_div(mtx[i][j], f);
-            inv[i][j] = ec_method_div(inv[i][j], f);
-        }
-        for (j = 0; j < columns; j++)
-        {
-            if (i != j)
-            {
-                f = mtx[j][i];
-                for (k = 0; k < columns; k++)
-                {
-                    mtx[j][k] ^= ec_method_mul(mtx[i][k], f);
-                    inv[j][k] ^= ec_method_mul(inv[i][k], f);
-                }
+    } else {
+        matrix->rows = list->rows;
+        ec_method_matrix_normal(matrix->code->gf, matrix->values,
+                                matrix->columns, rows, matrix->rows);
+        for (i = 0; i < matrix->rows; i++) {
+            matrix->row_data[i].values = matrix->values + i * matrix->columns;
+            matrix->row_data[i].func.linear =
+                ec_code_build_linear(matrix->code, EC_METHOD_WORD_SIZE,
+                                     matrix->row_data[i].values,
+                                     matrix->columns);
+            if (matrix->row_data[i].func.linear == NULL) {
+                return _gf_false;
             }
         }
     }
-    off = 0;
-    for (f = 0; f < size; f++)
-    {
-        for (i = 0; i < columns; i++)
-        {
-            last = 0;
-            j = 0;
-            do
-            {
-                while (inv[i][j] == 0)
-                {
-                    j++;
-                }
-                if (j < columns)
-                {
-                    value = ec_method_div(last, inv[i][j]);
-                    last = inv[i][j];
-                    ec_gf_muladd[value](out, in[j] + off, EC_METHOD_WIDTH);
-                    j++;
-                }
-            } while (j < columns);
-            ec_gf_muladd[last](out, dummy, EC_METHOD_WIDTH);
-            out += EC_METHOD_CHUNK_SIZE;
+
+    return _gf_true;
+}
+
+static void
+ec_method_matrix_release(ec_matrix_t *matrix)
+{
+    uint32_t i;
+
+    for (i = 0; i < matrix->rows; i++) {
+        if (matrix->row_data[i].func.linear != NULL) {
+            ec_code_release(matrix->code, &matrix->row_data[i].func);
+            matrix->row_data[i].func.linear = NULL;
         }
-        off += EC_METHOD_CHUNK_SIZE;
+    }
+}
+
+static void
+ec_method_matrix_destroy(ec_matrix_list_t *list, ec_matrix_t *matrix)
+{
+    list_del_init(&matrix->lru);
+
+    ec_method_matrix_release(matrix);
+
+    mem_put(matrix);
+
+    list->count--;
+}
+
+static void
+ec_method_matrix_unref(ec_matrix_list_t *list, ec_matrix_t *matrix)
+{
+    if (--matrix->refs == 0) {
+        list_add_tail(&matrix->lru, &list->lru);
+        if (list->count > list->max) {
+            matrix = list_first_entry(&list->lru, ec_matrix_t, lru);
+            ec_method_matrix_destroy(list, matrix);
+        }
+    }
+}
+
+static ec_matrix_t *
+ec_method_matrix_lookup(ec_matrix_list_t *list, uintptr_t mask, uint32_t *pos)
+{
+    ec_matrix_t *matrix;
+    uint32_t i, j, k;
+
+    i = 0;
+    j = list->count;
+    while (i < j) {
+        k = (i + j) >> 1;
+        matrix = list->objects[k];
+        if (matrix->mask == mask) {
+            *pos = k;
+            return matrix;
+        }
+        if (matrix->mask < mask) {
+            i = k + 1;
+        } else {
+            j = k;
+        }
+    }
+    *pos = i;
+
+    return NULL;
+}
+
+static void
+ec_method_matrix_remove(ec_matrix_list_t *list, uintptr_t mask)
+{
+    uint32_t pos;
+
+    if (ec_method_matrix_lookup(list, mask, &pos) != NULL) {
+        list->count--;
+        if (pos < list->count) {
+            memmove(list->objects + pos, list->objects + pos + 1,
+                    sizeof(ec_matrix_t *) * (list->count - pos));
+        }
+    }
+}
+
+static void
+ec_method_matrix_insert(ec_matrix_list_t *list, ec_matrix_t *matrix)
+{
+    uint32_t pos;
+
+    GF_ASSERT(ec_method_matrix_lookup(list, matrix->mask, &pos) == NULL);
+
+    if (pos < list->count) {
+        memmove(list->objects + pos + 1, list->objects + pos,
+                sizeof(ec_matrix_t *) * (list->count - pos));
+    }
+    list->objects[pos] = matrix;
+    list->count++;
+}
+
+static ec_matrix_t *
+ec_method_matrix_get(ec_matrix_list_t *list, uintptr_t mask, uint32_t *rows)
+{
+    ec_matrix_t *matrix;
+    uint32_t pos;
+
+    LOCK(&list->lock);
+
+    matrix = ec_method_matrix_lookup(list, mask, &pos);
+    if (matrix != NULL) {
+        list_del_init(&matrix->lru);
+        matrix->refs++;
+
+        goto out;
     }
 
-    return size * EC_METHOD_CHUNK_SIZE * columns;
+    if ((list->count >= list->max) && !list_empty(&list->lru)) {
+        matrix = list_first_entry(&list->lru, ec_matrix_t, lru);
+        list_del_init(&matrix->lru);
+
+        ec_method_matrix_remove(list, matrix->mask);
+
+        ec_method_matrix_release(matrix);
+    } else {
+        matrix = mem_get0(list->pool);
+        if (matrix == NULL) {
+            goto out;
+        }
+        matrix->values = (uint32_t *)((uintptr_t)matrix + sizeof(ec_matrix_t) +
+                                      sizeof(ec_matrix_row_t) * list->columns);
+    }
+
+    if (!ec_method_matrix_init(list, matrix, mask, rows, _gf_true)) {
+        ec_method_matrix_unref(list, matrix);
+
+        matrix = NULL;
+
+        goto out;
+    }
+
+    if (list->count < list->max) {
+        ec_method_matrix_insert(list, matrix);
+    } else {
+        matrix->mask = 0;
+    }
+
+out:
+    UNLOCK(&list->lock);
+
+    return matrix;
+}
+
+static void
+ec_method_matrix_put(ec_matrix_list_t *list, ec_matrix_t *matrix)
+{
+    LOCK(&list->lock);
+
+    ec_method_matrix_unref(list, matrix);
+
+    UNLOCK(&list->lock);
+}
+
+static gf_boolean_t
+ec_method_setup(xlator_t *xl, ec_matrix_list_t *list, const char *gen)
+{
+    ec_matrix_t *matrix;
+    uint32_t values[list->rows];
+    uint32_t i;
+
+    matrix = GF_MALLOC(sizeof(ec_matrix_t) +
+                       sizeof(ec_matrix_row_t) * list->rows +
+                       sizeof(uint32_t) * list->columns * list->rows,
+                       ec_mt_ec_matrix_t);
+    if (matrix == NULL) {
+        goto failed;
+    }
+    memset(matrix, 0, sizeof(ec_matrix_t));
+    matrix->values = (uint32_t *)((uintptr_t)matrix + sizeof(ec_matrix_t) +
+                                  sizeof(ec_matrix_row_t) * list->rows);
+
+    list->code = ec_code_create(list->gf, ec_code_detect(xl, gen));
+    if (list->code == NULL) {
+        goto failed_matrix;
+    }
+    list->width = list->code->width;
+
+    for (i = 0; i < list->rows; i++) {
+        values[i] = i + 1;
+    }
+    if (!ec_method_matrix_init(list, matrix, 0, values, _gf_false)) {
+        goto failed_code;
+    }
+
+    list->encode = matrix;
+
+    return _gf_true;
+
+failed_code:
+    ec_code_destroy(list->code);
+failed_matrix:
+    GF_FREE(matrix);
+failed:
+    return _gf_false;
+}
+
+gf_boolean_t
+ec_method_init(xlator_t *xl, ec_matrix_list_t *list, uint32_t columns,
+               uint32_t rows, uint32_t max, const char *gen)
+{
+    list->columns = columns;
+    list->rows = rows;
+    list->max = max;
+    list->stripe = EC_METHOD_CHUNK_SIZE * list->columns;
+    INIT_LIST_HEAD(&list->lru);
+
+    list->pool = mem_pool_new_fn(sizeof(ec_matrix_t) +
+                                 sizeof(ec_matrix_row_t) * columns +
+                                 sizeof(uint32_t) * columns * columns,
+                                 128, "ec_matrix_t");
+    if (list->pool == NULL) {
+        goto failed;
+    }
+
+    list->objects = GF_MALLOC(sizeof(ec_matrix_t *) * max, ec_mt_ec_matrix_t);
+    if (list->objects == NULL) {
+        goto failed_pool;
+    }
+
+    list->gf = ec_gf_prepare(EC_GF_BITS, EC_GF_MOD);
+    if (list->gf == NULL) {
+        goto failed_objects;
+    }
+
+    if (!ec_method_setup(xl, list, gen)) {
+        goto failed_gf;
+    }
+
+    LOCK_INIT(&list->lock);
+
+    return _gf_true;
+
+failed_gf:
+    ec_gf_destroy(list->gf);
+failed_objects:
+    GF_FREE(list->objects);
+failed_pool:
+    mem_pool_destroy(list->pool);
+failed:
+    list->pool = NULL;
+    list->objects = NULL;
+    list->gf = NULL;
+    return _gf_false;
+}
+
+void
+ec_method_fini(ec_matrix_list_t *list)
+{
+    ec_matrix_t *matrix;
+
+    if (list->encode == NULL) {
+        return;
+    }
+
+    while (!list_empty(&list->lru)) {
+        matrix = list_first_entry(&list->lru, ec_matrix_t, lru);
+        ec_method_matrix_destroy(list, matrix);
+    }
+
+    GF_ASSERT(list->count == 0);
+
+    if (list->pool)/*Init was successful*/
+            LOCK_DESTROY(&list->lock);
+
+    ec_method_matrix_release(list->encode);
+    GF_FREE(list->encode);
+
+    ec_code_destroy(list->code);
+    ec_gf_destroy(list->gf);
+    GF_FREE(list->objects);
+    mem_pool_destroy(list->pool);
+}
+
+gf_boolean_t
+ec_method_update(xlator_t *xl, ec_matrix_list_t *list, const char *gen)
+{
+    /* TODO: Allow changing code generator */
+
+    return _gf_true;
+}
+
+void
+ec_method_encode(ec_matrix_list_t *list, size_t size, void *in, void **out)
+{
+    ec_matrix_t *matrix;
+    size_t pos;
+    uint32_t i;
+
+    matrix = list->encode;
+    for (pos = 0; pos < size; pos += list->stripe) {
+        for (i = 0; i < matrix->rows; i++) {
+            matrix->row_data[i].func.linear(out[i], in, pos,
+                                            matrix->row_data[i].values,
+                                            list->columns);
+            out[i] += EC_METHOD_CHUNK_SIZE;
+        }
+    }
+}
+
+gf_boolean_t
+ec_method_decode(ec_matrix_list_t *list, size_t size, uintptr_t mask,
+                 uint32_t *rows, void **in, void *out)
+{
+    ec_matrix_t *matrix;
+    size_t pos;
+    uint32_t i;
+
+    matrix = ec_method_matrix_get(list, mask, rows);
+    if (matrix == NULL) {
+        return _gf_false;
+    }
+    for (pos = 0; pos < size; pos += EC_METHOD_CHUNK_SIZE) {
+        for (i = 0; i < matrix->rows; i++) {
+            matrix->row_data[i].func.interleaved(out, in, pos,
+                                                 matrix->row_data[i].values,
+                                                 list->columns);
+            out += EC_METHOD_CHUNK_SIZE;
+        }
+    }
+
+    ec_method_matrix_put(list, matrix);
+
+    return _gf_true;
 }

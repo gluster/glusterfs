@@ -11,12 +11,13 @@
 #include "xlator.h"
 #include "defaults.h"
 
+#include "ec.h"
+#include "ec-messages.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
-#include "ec-messages.h"
 
 /* FOP: access */
 
@@ -1140,12 +1141,12 @@ out:
 
 int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
-    ec_cbk_data_t * ans = NULL;
-    struct iobref * iobref = NULL;
-    struct iobuf * iobuf = NULL;
-    uint8_t * buff = NULL, * ptr;
+    struct iovec vector[1];
+    ec_cbk_data_t *ans = NULL;
+    struct iobref *iobref = NULL;
+    void *ptr;
     size_t fsize = 0, size = 0, max = 0;
-    int32_t i = 0, err = -ENOMEM;
+    int32_t pos, err = -ENOMEM;
 
     if (cbk->op_ret < 0) {
         err = -cbk->op_errno;
@@ -1157,47 +1158,38 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     GF_ASSERT(ec_get_inode_size(fop, fop->fd->inode, &cbk->iatt[0].ia_size));
 
     if (cbk->op_ret > 0) {
-        struct iovec vector[1];
-        uint8_t * blocks[cbk->count];
+        void *blocks[cbk->count];
         uint32_t values[cbk->count];
 
         fsize = cbk->op_ret;
         size = fsize * ec->fragments;
-        buff = GF_MALLOC(size, gf_common_mt_char);
-        if (buff == NULL) {
-            goto out;
-        }
-        ptr = buff;
-        for (i = 0, ans = cbk; ans != NULL; i++, ans = ans->next) {
-            values[i] = ans->idx;
-            blocks[i] = ptr;
-            ptr += ec_iov_copy_to(ptr, ans->vector, ans->int32, 0, fsize);
+        for (ans = cbk; ans != NULL; ans = ans->next) {
+            pos = gf_bits_count(cbk->mask & ((1 << ans->idx) - 1));
+            values[pos] = ans->idx + 1;
+            blocks[pos] = ans->vector[0].iov_base;
+            if ((ans->int32 != 1) ||
+                !EC_ALIGN_CHECK(blocks[pos], EC_METHOD_WORD_SIZE)) {
+                if (iobref == NULL) {
+                    err = ec_buffer_alloc(ec->xl, size, &iobref, &ptr);
+                    if (err != 0) {
+                        goto out;
+                    }
+                }
+                ec_iov_copy_to(ptr, ans->vector, ans->int32, 0, fsize);
+                blocks[pos] = ptr;
+                ptr += fsize;
+            }
         }
 
-        iobref = iobref_new();
-        if (iobref == NULL) {
-            goto out;
-        }
-        iobuf = iobuf_get2(fop->xl->ctx->iobuf_pool, size);
-        if (iobuf == NULL) {
-            goto out;
-        }
-        err = iobref_add(iobref, iobuf);
+        err = ec_buffer_alloc(ec->xl, size, &iobref, &ptr);
         if (err != 0) {
             goto out;
         }
 
-        vector[0].iov_base = iobuf->ptr;
-        vector[0].iov_len = ec_method_decode(fsize, ec->fragments, values,
-                                             blocks, iobuf->ptr);
+        ec_method_decode(&ec->matrix, fsize, cbk->mask, values, blocks, ptr);
 
-        iobuf_unref(iobuf);
-
-        GF_FREE(buff);
-        buff = NULL;
-
-        vector[0].iov_base += fop->head;
-        vector[0].iov_len -= fop->head;
+        vector[0].iov_base = ptr + fop->head;
+        vector[0].iov_len = size - fop->head;
 
         max = fop->offset * ec->fragments + size;
         if (max > cbk->iatt[0].ia_size) {
@@ -1229,13 +1221,9 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     return 0;
 
 out:
-    if (iobuf != NULL) {
-        iobuf_unref(iobuf);
-    }
     if (iobref != NULL) {
         iobref_unref(iobref);
     }
-    GF_FREE(buff);
 
     return err;
 }

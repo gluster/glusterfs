@@ -13,32 +13,7 @@
 
 #include "xlator.h"
 
-struct _ec;
-typedef struct _ec ec_t;
-
-struct subvol_healer {
-        xlator_t        *this;
-        int              subvol;
-        gf_boolean_t     local;
-        gf_boolean_t     running;
-        gf_boolean_t     rerun;
-        pthread_mutex_t  mutex;
-        pthread_cond_t   cond;
-        pthread_t        thread;
-};
-
-struct _ec_self_heald;
-typedef struct _ec_self_heald ec_self_heald_t;
-
-struct _ec_self_heald {
-        gf_boolean_t            iamshd;
-        gf_boolean_t            enabled;
-        int                     timeout;
-        uint32_t                max_threads;
-        uint32_t                wait_qlength;
-        struct subvol_healer   *index_healers;
-        struct subvol_healer   *full_healers;
-};
+#include "ec-types.h"
 
 int
 ec_xl_op (xlator_t *this, dict_t *input, dict_t *output);
@@ -46,4 +21,5 @@ ec_xl_op (xlator_t *this, dict_t *input, dict_t *output);
 int
 ec_selfheal_daemon_init (xlator_t *this);
 void ec_selfheal_childup (ec_t *ec, int child);
+
 #endif /* __EC_HEALD_H__ */

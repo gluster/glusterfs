@@ -13,7 +13,7 @@
 #include "libxlator.h"
 #include "byte-order.h"
 
-#include "ec-data.h"
+#include "ec-types.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
