@@ -718,7 +718,6 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			goto unlock;
 
 		ret = 0;
-
 	}
 unlock:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
@@ -754,7 +753,6 @@ skip_undo_pending:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
 				data_lock);
 out:
-
         if (did_sh)
                 afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
                                   sources, healed_sinks);
