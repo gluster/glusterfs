@@ -784,6 +784,15 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -894,6 +903,14 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
         if (!ret) {
                 glusterd_friend_sm ();
@@ -997,6 +1014,14 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -1095,6 +1120,14 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -1228,6 +1261,13 @@ out:
 
         rcu_read_unlock ();
 
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
 
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
@@ -1404,6 +1444,14 @@ unlock:
         rcu_read_unlock ();
 
 out:
+
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -2188,6 +2236,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
 
         gd1_mgmt_brick_op_req           *req = NULL;
         int                             ret = 0;
+        int                             ret1 = 0;
         glusterd_conf_t                 *priv = NULL;
         call_frame_t                    *dummy_frame = NULL;
         char                            *op_errstr = NULL;
@@ -2311,6 +2360,17 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
         opinfo.brick_pending_count = pending_bricks;
 
 out:
+
+        if (ret)
+                opinfo.op_ret = ret;
+
+        ret1 = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret1)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT,
                                              txn_id, data);

@@ -3412,6 +3412,12 @@ glusterd_op_sm_locking_failed (uuid_t *txn_id)
         opinfo.op_ret = -1;
         opinfo.op_errstr = gf_strdup ("locking failed for one of the peer.");
 
+        ret = glusterd_set_txn_opinfo (txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
         /* Inject a reject event such that unlocking gets triggered right away*/
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, txn_id, NULL);
 
@@ -3508,6 +3514,15 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
@@ -3615,6 +3630,14 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
@@ -3629,6 +3652,15 @@ glusterd_op_ac_ack_drain (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
+
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACK,
@@ -3803,6 +3835,14 @@ glusterd_op_ac_rcvd_lock_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         if (opinfo.pending_count > 0)
                 goto out;
@@ -4119,6 +4159,7 @@ static int
 glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
+	int                     ret1 = 0;
         rpc_clnt_procedure_t    *proc = NULL;
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
@@ -4221,6 +4262,17 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         opinfo.pending_count = pending_count;
 out:
+        if (ret)
+                opinfo.op_ret = ret;
+
+        ret1 = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret1)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
@@ -4768,6 +4820,7 @@ static int
 glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret           = 0;
+        int                     ret1          = 0;
         rpc_clnt_procedure_t    *proc         = NULL;
         glusterd_conf_t         *priv         = NULL;
         xlator_t                *this         = NULL;
@@ -4855,6 +4908,17 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 out:
         if (dict)
                 dict_unref (dict);
+
+        if (ret)
+                opinfo.op_ret = ret;
+
+        ret1 = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret1)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT,
                                              &event->txn_id, NULL);
@@ -4888,6 +4952,16 @@ glusterd_op_ac_rcvd_stage_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
 
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
+
         if (opinfo.pending_count > 0)
                 goto out;
 
@@ -4910,6 +4984,16 @@ glusterd_op_ac_stage_op_failed (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
 
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
+
         if (opinfo.pending_count > 0)
                 goto out;
 
@@ -4931,6 +5015,16 @@ glusterd_op_ac_commit_op_failed (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
+
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
 
         if (opinfo.pending_count > 0)
                 goto out;
@@ -4977,6 +5071,15 @@ glusterd_op_ac_brick_op_failed (glusterd_op_sm_event_t *event, void *ctx)
         else
                 free_errstr = _gf_true;
 
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
+
         if (opinfo.brick_pending_count > 0)
                 goto out;
 
@@ -5009,6 +5112,14 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         if (opinfo.pending_count > 0)
                 goto out;
@@ -5054,6 +5165,14 @@ glusterd_op_ac_rcvd_unlock_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.pending_count > 0)
                 opinfo.pending_count--;
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         if (opinfo.pending_count > 0)
                 goto out;
@@ -5408,6 +5527,14 @@ glusterd_op_ac_send_commit_failed (glusterd_op_sm_event_t *event, void *ctx)
                 GF_FREE (opinfo.op_errstr);
                 opinfo.op_errstr = NULL;
         }
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
         return ret;
@@ -7043,6 +7170,15 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         if (opinfo.brick_pending_count > 0)
                 opinfo.brick_pending_count--;
+
+
+        ret = glusterd_set_txn_opinfo (&event->txn_id, &opinfo);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_SET_FAIL,
+                                "Unable to set "
+                                "transaction's opinfo");
+
 
         glusterd_handle_node_rsp (req_ctx->dict, pending_entry, op, ev_ctx->rsp_dict,
                                   op_ctx, &op_errstr, type);
