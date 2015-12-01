@@ -87,8 +87,10 @@ gf_log_logrotate (int signum)
 
         ctx = THIS->ctx;
 
-        if (ctx)
+        if (ctx) {
                 ctx->log.logrotate = 1;
+                ctx->log.cmd_history_logrotate = 1;
+        }
 }
 
 void
@@ -2379,6 +2381,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
         char          *msg  = NULL;
         size_t         len  = 0;
         int            ret  = 0;
+        int            fd   = -1;
         glusterfs_ctx_t *ctx = NULL;
 
         ctx = THIS->ctx;
@@ -2427,6 +2430,36 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
         strcpy (msg, str1);
         strcpy (msg + len, str2);
 
+        /* close and reopen cmdlogfile fd for in case of log rotate*/
+        if (ctx->log.cmd_history_logrotate) {
+                ctx->log.cmd_history_logrotate = 0;
+
+                if (ctx->log.cmdlogfile) {
+                        fclose (ctx->log.cmdlogfile);
+                        ctx->log.cmdlogfile = NULL;
+                }
+
+                fd = open (ctx->log.cmd_log_filename,
+                           O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+                if (fd < 0) {
+                        gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED, "failed to open "
+                                "logfile \"%s\" \n", ctx->log.cmd_log_filename);
+                        ret = -1;
+                        goto out;
+                }
+
+                ctx->log.cmdlogfile = fdopen (fd, "a");
+                if (!ctx->log.cmdlogfile) {
+                        gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED,
+                                "failed to open logfile \"%s\""
+                                " \n", ctx->log.cmd_log_filename);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         fprintf (ctx->log.cmdlogfile, "%s\n", msg);
         fflush (ctx->log.cmdlogfile);
 
@@ -2437,5 +2470,5 @@ out:
 
         FREE (str2);
 
-        return (0);
+        return ret;
 }
