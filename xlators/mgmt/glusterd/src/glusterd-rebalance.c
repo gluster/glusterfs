@@ -923,6 +923,15 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER &&
+                    cmd == GF_OP_CMD_STOP_DETACH_TIER) {
+                        glusterd_defrag_info_set (volinfo, dict,
+                                  GF_DEFRAG_CMD_START_TIER,
+                                  GF_DEFRAG_CMD_START,
+                                  GD_OP_REBALANCE);
+                        glusterd_restart_rebalance_for_volume (volinfo);
+                }
+
                 ret = 0;
                 break;
 
