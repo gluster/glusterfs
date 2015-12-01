@@ -307,7 +307,7 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -472,7 +472,7 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -648,7 +648,7 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -853,7 +853,7 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -1018,7 +1018,7 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -1163,7 +1163,7 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -1329,7 +1329,7 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "
@@ -1475,7 +1475,7 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL, "Failed to reference a "

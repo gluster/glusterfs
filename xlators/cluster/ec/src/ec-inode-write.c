@@ -231,7 +231,7 @@ ec_removexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -317,7 +317,7 @@ ec_fremovexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -512,7 +512,7 @@ void ec_setattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->iatt = *stbuf;
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -593,7 +593,7 @@ void ec_fsetattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->iatt = *stbuf;
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -666,7 +666,7 @@ ec_setxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (dict != NULL) {
-        fop->dict = dict_ref(dict);
+        fop->dict = dict_copy_with_ref(dict, NULL);
         if (fop->dict == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -677,7 +677,7 @@ ec_setxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -795,7 +795,7 @@ ec_fsetxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (dict != NULL) {
-        fop->dict = dict_ref(dict);
+        fop->dict = dict_copy_with_ref(dict, NULL);
         if (fop->dict == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -806,7 +806,7 @@ ec_fsetxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -1092,7 +1092,7 @@ void ec_truncate(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -1170,7 +1170,7 @@ void ec_ftruncate(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
@@ -1656,7 +1656,7 @@ void ec_writev(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
+        fop->xdata = dict_copy_with_ref(xdata, NULL);
         if (fop->xdata == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, 0,
                     EC_MSG_DICT_REF_FAIL,
