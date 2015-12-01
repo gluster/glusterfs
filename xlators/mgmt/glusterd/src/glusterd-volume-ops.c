@@ -2548,10 +2548,12 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                  * Please upgrade to version greater than GD_OP_VERSION_3_7_6
                  */
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                        glusterd_defrag_info_set (volinfo, dict,
-                                                  GF_DEFRAG_CMD_START_TIER,
-                                                  GF_DEFRAG_CMD_START,
-                                                  GD_OP_REBALANCE);
+                        if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                                glusterd_defrag_info_set (volinfo, dict,
+                                          GF_DEFRAG_CMD_START_TIER,
+                                          GF_DEFRAG_CMD_START,
+                                          GD_OP_REBALANCE);
+                        }
                         glusterd_restart_rebalance_for_volume (volinfo);
                 }
         } else {
