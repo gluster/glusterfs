@@ -6869,10 +6869,11 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
 int
 glusterd_friend_remove_cleanup_vols (uuid_t uuid)
 {
-        int                     ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
-        glusterd_volinfo_t      *tmp_volinfo = NULL;
+        int                     ret           = -1;
+        glusterd_conf_t         *priv         = NULL;
+        glusterd_svc_t          *svc          = NULL;
+        glusterd_volinfo_t      *volinfo      = NULL;
+        glusterd_volinfo_t      *tmp_volinfo  = NULL;
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -6891,6 +6892,28 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
                                 goto out;
                         }
                 }
+
+                if (!glusterd_friend_contains_vol_bricks (volinfo,
+                                                          MY_UUID)) {
+                        /*Stop snapd daemon service if snapd daemon is running*/
+                        if (!volinfo->is_snap_volume) {
+                                svc = &(volinfo->snapd.svc);
+                                ret = svc->stop (svc, SIGTERM);
+                                if (ret) {
+                                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SVC_STOP_FAIL, "Failed "
+                                                "to stop snapd daemon service");
+                                }
+                        }
+                }
+        }
+
+        /* Reconfigure all daemon services upon peer detach */
+        ret = glusterd_svcs_reconfigure ();
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SVC_STOP_FAIL,
+                        "Failed to reconfigure all daemon services.");
         }
         ret = 0;
 out:

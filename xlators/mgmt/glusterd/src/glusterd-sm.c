@@ -609,17 +609,6 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
 
         cds_list_for_each_entry_safe (volinfo, tmp_volinfo, &priv->volumes,
                                       vol_list) {
-                /* Stop snapd daemon service if snapd daemon is running*/
-                if (!volinfo->is_snap_volume) {
-                        svc = &(volinfo->snapd.svc);
-                        ret = svc->stop (svc, SIGTERM);
-                        if (ret) {
-                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_SVC_STOP_FAIL, "Failed to "
-                                        "stop snapd daemon service.");
-                        }
-                }
-
                 /* The peer detach checks make sure that, at this point in the
                  * detach process, there are only volumes contained completely
                  * within or completely outside the detached peer.
@@ -631,6 +620,17 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                         gf_msg (THIS->name, GF_LOG_INFO, 0,
                                 GD_MSG_STALE_VOL_DELETE_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
+
+                        /*Stop snapd daemon service if snapd daemon is running*/
+                        if (!volinfo->is_snap_volume) {
+                                svc = &(volinfo->snapd.svc);
+                                ret = svc->stop (svc, SIGTERM);
+                                if (ret) {
+                                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SVC_STOP_FAIL, "Failed "
+                                                "to stop snapd daemon service");
+                                }
+                        }
 
                         ret = glusterd_cleanup_snaps_for_volume (volinfo);
                         if (ret) {
@@ -649,12 +649,12 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                 }
         }
 
-        /* Stop all daemon services of Detaching node once  peer detached */
-        ret = glusterd_svcs_stop ();
+        /*Reconfigure all daemon services upon peer detach*/
+        ret = glusterd_svcs_reconfigure ();
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_SVC_STOP_FAIL,
-                        "Failed to stop all daemon services.");
+                        "Failed to reconfigure all daemon services.");
         }
 }
 
