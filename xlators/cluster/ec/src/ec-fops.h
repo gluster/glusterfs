@@ -13,7 +13,7 @@
 
 #include "xlator.h"
 
-#include "ec-data.h"
+#include "ec-types.h"
 #include "ec-common.h"
 
 void ec_access(call_frame_t * frame, xlator_t * this, uintptr_t target,

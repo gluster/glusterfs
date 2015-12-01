@@ -45,7 +45,7 @@
  */
 
 #define GLFS_EC_COMP_BASE       GLFS_MSGID_COMP_EC
-#define GLFS_NUM_MESSAGES       66
+#define GLFS_NUM_MESSAGES       73
 #define GLFS_MSGID_END          (GLFS_EC_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_EC_COMP_BASE, "Invalid: Start of messages"
@@ -519,6 +519,55 @@
  * @recommendedaction
  */
 #define EC_MSG_CONFIG_XATTR_INVALID         (GLFS_EC_COMP_BASE + 66)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_EXTENSION                    (GLFS_EC_COMP_BASE + 67)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_EXTENSION_NONE               (GLFS_EC_COMP_BASE + 68)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_EXTENSION_UNKNOWN            (GLFS_EC_COMP_BASE + 69)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_EXTENSION_UNSUPPORTED        (GLFS_EC_COMP_BASE + 70)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_EXTENSION_FAILED             (GLFS_EC_COMP_BASE + 71)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_NO_GF                        (GLFS_EC_COMP_BASE + 72)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_MATRIX_FAILED                (GLFS_EC_COMP_BASE + 73)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

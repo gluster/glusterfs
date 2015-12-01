@@ -12,7 +12,7 @@
 #include "hashfn.h"
 
 #include "ec-mem-types.h"
-#include "ec-data.h"
+#include "ec-types.h"
 #include "ec-helpers.h"
 #include "ec-combine.h"
 #include "ec-common.h"
