@@ -95,6 +95,7 @@ typedef enum {
 typedef struct gf_log_handle_ {
         pthread_mutex_t   logfile_mutex;
         uint8_t           logrotate;
+        uint8_t           cmd_history_logrotate;
         gf_loglevel_t     loglevel;
         int               gf_log_syslog;
         gf_loglevel_t     sys_log_level;
