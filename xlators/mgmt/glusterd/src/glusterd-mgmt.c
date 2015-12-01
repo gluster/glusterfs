@@ -400,10 +400,12 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                         }
 
                         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                                glusterd_defrag_info_set (volinfo, dict,
+                                if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                                        glusterd_defrag_info_set (volinfo, dict,
                                                   GF_DEFRAG_CMD_START_TIER,
                                                   GF_DEFRAG_CMD_START,
                                                   GD_OP_REBALANCE);
+                                }
                                 glusterd_restart_rebalance_for_volume (volinfo);
                         }
                         break;
