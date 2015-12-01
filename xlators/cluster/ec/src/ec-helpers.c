@@ -12,10 +12,12 @@
 
 #include "byte-order.h"
 
+#include "ec.h"
 #include "ec-mem-types.h"
-#include "ec-fops.h"
-#include "ec-helpers.h"
 #include "ec-messages.h"
+#include "ec-fops.h"
+#include "ec-method.h"
+#include "ec-helpers.h"
 
 static const char * ec_fop_list[] =
 {
@@ -135,6 +137,53 @@ size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
     }
 
     return total;
+}
+
+int32_t ec_buffer_alloc(xlator_t *xl, size_t size, struct iobref **piobref,
+                        void **ptr)
+{
+    struct iobref *iobref = NULL;
+    struct iobuf *iobuf = NULL;
+    int32_t ret = -ENOMEM;
+
+    iobuf = iobuf_get_page_aligned (xl->ctx->iobuf_pool, size,
+                                    EC_METHOD_WORD_SIZE);
+    if (iobuf == NULL) {
+        goto out;
+    }
+
+    iobref = *piobref;
+    if (iobref == NULL) {
+        iobref = iobref_new();
+        if (iobref == NULL) {
+            goto out;
+        }
+    }
+
+    ret = iobref_add(iobref, iobuf);
+    if (ret != 0) {
+        if (iobref != *piobref) {
+            iobref_unref(iobref);
+        }
+        iobref = NULL;
+
+        goto out;
+    }
+
+    GF_ASSERT(EC_ALIGN_CHECK(iobuf->ptr, EC_METHOD_WORD_SIZE));
+
+    *ptr = iobuf->ptr;
+
+out:
+    if (iobuf != NULL) {
+        iobuf_unref(iobuf);
+    }
+
+    if (iobref != NULL) {
+        *piobref = iobref;
+    }
+
+    return ret;
 }
 
 int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],

@@ -11,7 +11,10 @@
 #ifndef __EC_HELPERS_H__
 #define __EC_HELPERS_H__
 
-#include "ec-data.h"
+#include "ec-types.h"
+
+#define EC_ALIGN_CHECK(_ptr, _align) \
+    ((((uintptr_t)(_ptr)) & ((_align) - 1)) == 0)
 
 const char * ec_bin(char * str, size_t size, uint64_t value, int32_t digits);
 const char * ec_fop_name(int32_t id);
@@ -19,7 +22,8 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...);
 int32_t ec_bits_consume(uint64_t * n);
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
                       off_t offset, size_t size);
-
+int32_t ec_buffer_alloc(xlator_t *xl, size_t size, struct iobref **piobref,
+                        void **ptr);
 int32_t ec_dict_set_array(dict_t *dict, char *key,
                           uint64_t *value, int32_t size);
 int32_t ec_dict_del_array(dict_t *dict, char *key,

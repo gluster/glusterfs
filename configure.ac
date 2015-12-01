@@ -1346,6 +1346,93 @@ fi
 AM_CONDITIONAL([ENABLE_EXPERIMENTAL], [test x$BUILD_EXPERIMENTAL = xyes])
 #end experimental section
 
+# EC dynamic code generation section
+
+EC_DYNAMIC_SUPPORT="none"
+EC_DYNAMIC_ARCH="none"
+
+AC_ARG_ENABLE([ec-dynamic],
+              AC_HELP_STRING([--disable-ec-dynamic],
+                             [Disable all dynamic code generation extensions for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-intel],
+              AC_HELP_STRING([--disable-ec-dynamic-intel],
+                             [Disable all INTEL dynamic code generation extensions for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-arm],
+              AC_HELP_STRING([--disable-ec-dynamic-arm],
+                             [Disable all ARM dynamic code generation extensions for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-x64],
+              AC_HELP_STRING([--disable-ec-dynamic-x64],
+                             [Disable dynamic INTEL x64 code generation for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-sse],
+              AC_HELP_STRING([--disable-ec-dynamic-sse],
+                             [Disable dynamic INTEL SSE code generation for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-avx],
+              AC_HELP_STRING([--disable-ec-dynamic-avx],
+                             [Disable dynamic INTEL AVX code generation for EC module]))
+
+AC_ARG_ENABLE([ec-dynamic-neon],
+              AC_HELP_STRING([--disable-ec-dynamic-neon],
+                             [Disable dynamic ARM NEON code generation for EC module]))
+
+if test "x$enable_ec_dynamic" != "xno"; then
+  case $host in
+    x86_64*)
+      if test "x$enable_ec_dynamic_intel" != "xno"; then
+        if test "x$enable_ec_dynamic_x64" != "xno"; then
+          EC_DYNAMIC_SUPPORT="$EC_DYNAMIC_SUPPORT x64"
+          AC_DEFINE(USE_EC_DYNAMIC_X64, 1, [Defined if using dynamic INTEL x64 code])
+        fi
+        if test "x$enable_ec_dynamic_sse" != "xno"; then
+          EC_DYNAMIC_SUPPORT="$EC_DYNAMIC_SUPPORT sse"
+          AC_DEFINE(USE_EC_DYNAMIC_SSE, 1, [Defined if using dynamic INTEL SSE code])
+        fi
+        if test "x$enable_ec_dynamic_avx" != "xno"; then
+          EC_DYNAMIC_SUPPORT="$EC_DYNAMIC_SUPPORT avx"
+          AC_DEFINE(USE_EC_DYNAMIC_AVX, 1, [Defined if using dynamic INTEL AVX code])
+        fi
+
+        if test "x$EC_DYNAMIC_SUPPORT" != "xnone"; then
+          EC_DYNAMIC_ARCH="intel"
+        fi
+      fi
+      ;;
+    arm*)
+      if test "x$enable_ec_dynamic_arm" != "xno"; then
+        if test "x$enable_ec_dynamic_neon" != "xno"; then
+          EC_DYNAMIC_SUPPORT="$EC_DYNAMIC_SUPPORT neon"
+          AC_DEFINE(USE_EC_DYNAMIC_NEON, 1, [Defined if using dynamic ARM NEON code])
+        fi
+
+        if test "x$EC_DYNAMIC_SUPPORT" != "xnone"; then
+          EC_DYNAMIC_ARCH="arm"
+        fi
+      fi
+      ;;
+  esac
+
+  EC_DYNAMIC_SUPPORT="${EC_DYNAMIC_SUPPORT#none }"
+fi
+
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_INTEL], [test "x$EC_DYNAMIC_ARCH" = "xintel"])
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_ARM], [test "x$EC_DYNAMIC_ARCH" = "xarm"])
+
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_X64], [test "x${EC_DYNAMIC_SUPPORT##*x64*}" = "x"])
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_SSE], [test "x${EC_DYNAMIC_SUPPORT##*sse*}" = "x"])
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_AVX], [test "x${EC_DYNAMIC_SUPPORT##*avx*}" = "x"])
+AM_CONDITIONAL([ENABLE_EC_DYNAMIC_NEON], [test "x${EC_DYNAMIC_SUPPORT##*neon*}" = "x"])
+
+AC_SUBST(USE_EC_DYNAMIC_X64)
+AC_SUBST(USE_EC_DYNAMIC_SSE)
+AC_SUBST(USE_EC_DYNAMIC_AVX)
+AC_SUBST(USE_EC_DYNAMIC_NEON)
+
+# end EC dynamic code generation section
+
 dnl libglusterfs.so uses math functions
 GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
@@ -1442,4 +1529,5 @@ echo "Data Classification  : $BUILD_GFDB"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "Events               : $BUILD_EVENTS"
+echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo

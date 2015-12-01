@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2012-2014 DataLab, s.l. <http://www.datalab.es>
+  Copyright (c) 2012-2015 DataLab, s.l. <http://www.datalab.es>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -12,13 +12,15 @@
 #include "statedump.h"
 #include "compat-errno.h"
 
+#include "ec.h"
+#include "ec-messages.h"
 #include "ec-mem-types.h"
+#include "ec-types.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-fops.h"
 #include "ec-method.h"
-#include "ec.h"
-#include "ec-messages.h"
+#include "ec-code.h"
 #include "ec-heald.h"
 #include "events.h"
 
@@ -27,6 +29,7 @@ static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
         [EC_GFID_HASH] = "gfid-hash",
         [EC_READ_POLICY_MAX] = NULL
 };
+
 #define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
 /* The maximum number of nodes is derived from the maximum allowed fragments
  * using the rule that redundancy cannot be equal or greater than the number
@@ -207,6 +210,9 @@ void __ec_destroy_private(xlator_t * this)
 
         if (ec->leaf_to_subvolid)
                 dict_unref (ec->leaf_to_subvolid);
+
+        ec_method_fini(&ec->matrix);
+
         GF_FREE(ec);
     }
 }
@@ -255,8 +261,12 @@ reconfigure (xlator_t *this, dict_t *options)
 {
         ec_t     *ec              = this->private;
         char     *read_policy     = NULL;
+        char     *extensions      = NULL;
         uint32_t heal_wait_qlen   = 0;
         uint32_t background_heals = 0;
+        int32_t  ret              = -1;
+
+        GF_OPTION_RECONF ("cpu-extensions", extensions, options, str, failed);
 
         GF_OPTION_RECONF ("self-heal-daemon", ec->shd.enabled, options, bool,
                           failed);
@@ -272,17 +282,24 @@ reconfigure (xlator_t *this, dict_t *options)
                           int32, failed);
         ec_configure_background_heal_opts (ec, background_heals,
                                            heal_wait_qlen);
-        GF_OPTION_RECONF ("read-policy", read_policy, options, str, failed);
-        if (ec_assign_read_policy (ec, read_policy))
-                goto failed;
         GF_OPTION_RECONF ("shd-max-threads", ec->shd.max_threads,
                           options, uint32, failed);
         GF_OPTION_RECONF ("shd-wait-qlength", ec->shd.wait_qlength,
                           options, uint32, failed);
 
-        return 0;
+        GF_OPTION_RECONF ("read-policy", read_policy, options, str, failed);
+
+        ret = 0;
+        if (ec_assign_read_policy (ec, read_policy)) {
+                ret = -1;
+        }
+
+        if (!ec_method_update(this, &ec->matrix, extensions)) {
+                ret = -1;
+        }
+
 failed:
-        return -1;
+        return ret;
 }
 
 glusterfs_event_t
@@ -554,6 +571,7 @@ init (xlator_t *this)
 {
     ec_t *ec          = NULL;
     char *read_policy = NULL;
+    char *extensions  = NULL;
 
     if (this->parents == NULL)
     {
@@ -608,7 +626,16 @@ init (xlator_t *this)
         goto failed;
     }
 
-    ec_method_initialize();
+    GF_OPTION_INIT("cpu-extensions", extensions, str, failed);
+
+    if (!ec_method_init(this, &ec->matrix, ec->fragments, ec->nodes,
+                        ec->nodes * 2, extensions)) {
+        gf_msg (this->name, GF_LOG_ERROR, 0, EC_MSG_MATRIX_FAILED,
+                "Failed to initialize matrix management");
+
+        goto failed;
+    }
+
     GF_OPTION_INIT ("self-heal-daemon", ec->shd.enabled, bool, failed);
     GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
     GF_OPTION_INIT ("eager-lock", ec->eager_lock, bool, failed);
@@ -1401,6 +1428,14 @@ struct volume_options options[] =
       .default_value = "1024",
       .description = "This option can be used to control number of heals"
                      " that can wait in SHD per subvolume"
+    },
+    {
+        .key = { "cpu-extensions" },
+        .type = GF_OPTION_TYPE_STR,
+        .value = { "none", "auto", "x64", "sse", "avx" },
+        .default_value = "auto",
+        .description = "force the cpu extensions to be used to accelerate the "
+                       "galois field computations."
     },
     { }
 };
