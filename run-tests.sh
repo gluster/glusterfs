@@ -199,13 +199,14 @@ function is_bad_test ()
               ./tests/basic/tier/tier_lookup_heal.t \
               ./tests/basic/tier/bug-1214222-directories_missing_after_attach_tier.t \
               ./tests/basic/tier/fops-during-migration.t \
-	      ./tests/basic/tier/record-metadata-heat.t \
+              ./tests/basic/tier/record-metadata-heat.t \
               ./tests/bugs/snapshot/bug-1109889.t \
               ./tests/bugs/distribute/bug-1066798.t \
               ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
               ./tests/geo-rep/georep-basic-dr-rsync.t \
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
               ./tests/bugs/replicate/bug-1221481-allow-fops-on-dir-split-brain.t \
+              ./tests/bugs/fuse/bug-924726.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
