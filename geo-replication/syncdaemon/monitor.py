@@ -99,9 +99,9 @@ class Volinfo(object):
     def get(self, elem):
         return self.tree.findall('.//' + elem)
 
-    def is_cold(self, brickpath):
+    def is_hot(self, brickpath):
         logging.debug('brickpath: ' + repr(brickpath))
-        return brickpath in self.cold_bricks
+        return brickpath in self.hot_bricks
 
     @property
     @memoize
@@ -132,8 +132,8 @@ class Volinfo(object):
 
     @property
     @memoize
-    def cold_bricks(self):
-        return [b.text for b in self.get('coldBricks/brick')]
+    def hot_bricks(self):
+        return [b.text for b in self.get('hotBricks/brick')]
 
 class Monitor(object):
 
@@ -268,7 +268,7 @@ class Monitor(object):
                                                  ','.join([str(rw), str(ww),
                                                            str(ra), str(wa)]),
                                                  '--subvol-num', str(w[2])] +
-                         (['--is-coldtier'] if w[3] else []) +
+                         (['--is-hottier'] if w[3] else []) +
                          ['--resource-remote', remote_host])
 
             cpids.add(cpid)
@@ -419,7 +419,7 @@ def distribute(*resources):
 
     workerspex = [(brick['dir'], slaves[idx % len(slaves)],
                   get_subvol_num(idx, mvol.replica_count, mvol.disperse_count),
-                  mvol.is_cold(":".join([brick['host'], brick['dir']])))
+                  mvol.is_hot(":".join([brick['host'], brick['dir']])))
                   for idx, brick in enumerate(mvol.bricks)
                   if is_host_local(brick['host'])]
     logging.info('worker specs: ' + repr(workerspex))

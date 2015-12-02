@@ -828,10 +828,11 @@ class GMasterChangelogMixin(GMasterCommon):
             et = e[self.IDX_START:self.IDX_END]   # entry type
             ec = e[self.IDX_END:].split(' ')      # rest of the bits
 
-            # skip ENTRY operation if cold tier brick
-            if self.name == 'live_changelog':
-                if boolify(gconf.is_coldtier) and et == self.TYPE_ENTRY:
-                    logging.debug('skip ENTRY op: %s if cold tier brick'
+            # skip ENTRY operation if hot tier brick
+            if self.name == 'live_changelog' or \
+                self.name == 'history_changelog':
+                if boolify(gconf.is_hottier) and et == self.TYPE_ENTRY:
+                    logging.debug('skip ENTRY op: %s if hot tier brick'
                                   % (ec[self.POS_TYPE]))
                     continue
 

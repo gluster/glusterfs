@@ -358,7 +358,7 @@ def main_i():
                   action='callback', callback=store_local_curry('canon'))
     op.add_option('--canonicalize-escape-url', dest='url_print',
                   action='callback', callback=store_local_curry('canon_esc'))
-    op.add_option('--is-coldtier', default=False, action='store_true')
+    op.add_option('--is-hottier', default=False, action='store_true')
 
     tunables = [norm(o.get_opt_string()[2:])
                 for o in op.option_list
