@@ -3001,6 +3001,13 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 out:
         if (is_last_call (this_call_cnt)) {
+
+                /* If we have a valid xattr received from any one of the
+                 * subvolume, let's return it */
+                if (local->xattr) {
+                        local->op_ret = 0;
+                }
+
                 DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
                                   local->xattr, NULL);
         }
