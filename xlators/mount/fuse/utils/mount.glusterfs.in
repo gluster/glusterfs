@@ -467,6 +467,11 @@ with_options()
                 [ $value = "false" ] ; then
                 no_root_squash=1;
             fi ;;
+        "context"|"fscontext"|"defcontext"|"rootcontext")
+            # standard SElinux mount options to pass to the kernel
+            [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
+            fuse_mountopts="${fuse_mountopts}$key=\"$value\""
+            ;;
         *)
             warn "Invalid option: $key"
             exit 1
