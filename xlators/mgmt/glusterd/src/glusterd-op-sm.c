@@ -6514,18 +6514,6 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                         goto out;
         }
 
-        pending_node = GF_CALLOC (1, sizeof (*pending_node),
-                                  gf_gld_mt_pending_node_t);
-        if (!pending_node) {
-                ret = -1;
-                goto out;
-        } else {
-                pending_node->node = &(priv->shd_svc);
-                pending_node->type = GD_NODE_SHD;
-                cds_list_add_tail (&pending_node->list, selected);
-                pending_node = NULL;
-        }
-
         if (!hxlator_count)
                 goto out;
         if (hxlator_count == -1) {
@@ -6539,7 +6527,17 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         ret = dict_set_int32 (dict, "count", hxlator_count);
         if (ret)
                 goto out;
-
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        } else {
+                pending_node->node = &(priv->shd_svc);
+                pending_node->type = GD_NODE_SHD;
+                cds_list_add_tail (&pending_node->list, selected);
+                pending_node = NULL;
+        }
 
 out:
         gf_msg_debug (THIS->name, 0, "Returning ret %d", ret);
