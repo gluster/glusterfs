@@ -4542,6 +4542,25 @@ glusterd_all_volumes_with_quota_stopped ()
         return _gf_true;
 }
 
+gf_boolean_t
+glusterd_have_volumes ()
+{
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+        gf_boolean_t    volumes_exist = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", (this != NULL), out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (priv != NULL), out);
+
+
+        volumes_exist = !cds_list_empty (&priv->volumes);
+out:
+        return volumes_exist;
+}
+
 int
 glusterd_volume_count_get (void)
 {
