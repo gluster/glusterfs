@@ -26,8 +26,8 @@ function create_dist_tier_vol () {
         TEST $CLI volume attach-tier $V0 $H0:$B0/hot/${V0}{0..$1}
         TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
         TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
-        TEST $CLI volume set $V0 cluster.read-freq-threshold 50
-        TEST $CLI volume set $V0 cluster.write-freq-threshold 50
+        TEST $CLI volume set $V0 cluster.read-freq-threshold 0
+        TEST $CLI volume set $V0 cluster.write-freq-threshold 0
         TEST $CLI volume set $V0 cluster.tier-mode test
 }
 

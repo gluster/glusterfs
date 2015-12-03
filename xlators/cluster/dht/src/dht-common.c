@@ -3704,8 +3704,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         conf   = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, err);
 
-        methods = conf->methods;
-        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
+        methods = &(conf->methods);
 
         /* Rebalance daemon is allowed to set internal keys */
         if (!conf->defrag)
@@ -4591,8 +4590,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         conf  = this->private;
         GF_VALIDATE_OR_GOTO(this->name, conf, unwind);
 
-        methods = conf->methods;
-        GF_VALIDATE_OR_GOTO(this->name, conf->methods, done);
+        methods = &(conf->methods);
 
         if (op_ret < 0)
                 goto done;
@@ -4812,8 +4810,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, done);
 
-        methods = conf->methods;
-        GF_VALIDATE_OR_GOTO (this->name, conf->methods, done);
+        methods = &(conf->methods);
 
         if (op_ret < 0)
                 goto done;
@@ -5279,9 +5276,7 @@ dht_mknod_do (call_frame_t *frame)
 
         GF_VALIDATE_OR_GOTO (this->name, conf, err);
 
-        methods = conf->methods;
-
-        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
+        methods = &(conf->methods);
 
         /* We don't need parent_loc anymore */
         loc_wipe (&local->loc);
@@ -6229,9 +6224,7 @@ dht_create_do (call_frame_t *frame)
 
         GF_VALIDATE_OR_GOTO (this->name, conf, err);
 
-        methods = conf->methods;
-
-        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
+        methods = &(conf->methods);
 
         /* We don't need parent_loc anymore */
         loc_wipe (&local->loc);
@@ -7663,8 +7656,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        methods = conf->methods;
-        GF_VALIDATE_OR_GOTO (this->name, methods, out);
+        methods = &(conf->methods);
 
         /* had all subvolumes reported status once till now? */
         had_heard_from_all = 1;

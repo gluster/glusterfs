@@ -564,6 +564,32 @@ out:
         return ret;
 }
 
+
+
+int
+dht_init_methods (xlator_t *this)
+{
+        int ret                  = -1;
+        dht_conf_t      *conf    = NULL;
+        dht_methods_t   *methods = NULL;
+
+        GF_VALIDATE_OR_GOTO ("dht", this, err);
+
+        conf = this->private;
+        methods = &(conf->methods);
+
+        methods->migration_get_dst_subvol = dht_migration_get_dst_subvol;
+        methods->migration_needed = dht_migration_needed;
+        methods->migration_other  = NULL;
+        methods->layout_search    = dht_layout_search;
+
+        ret = 0;
+err:
+        return ret;
+}
+
+
+
 int
 dht_init (xlator_t *this)
 {
@@ -803,7 +829,8 @@ dht_init (xlator_t *this)
         if (dht_set_subvol_range(this))
                 goto err;
 
-        conf->methods = &dht_methods;
+        if (dht_init_methods (this))
+                goto err;
 
         return 0;
 

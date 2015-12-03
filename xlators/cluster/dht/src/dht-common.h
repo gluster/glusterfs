@@ -482,7 +482,7 @@ struct dht_conf {
         gf_boolean_t    randomize_by_gfid;
         char           *dthrottle;
 
-        dht_methods_t  *methods;
+        dht_methods_t   methods;
 
         struct mem_pool *lock_pool;
 

@@ -3361,15 +3361,8 @@ gf_defrag_start_crawl (void *data)
         }
 
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
-                methods = conf->methods;
-                if (!methods) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_LOG_TIER_ERROR,
-                                "Methods invalid for translator.");
-                        defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                        ret = -1;
-                        goto out;
-                }
+                methods = &(conf->methods);
+
                 methods->migration_other(this, defrag);
                 if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
 

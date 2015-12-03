@@ -582,8 +582,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        methods = conf->methods;
-        GF_VALIDATE_OR_GOTO (this->name, conf->methods, out);
+        methods = &(conf->methods);
 
         if (__is_root_gfid (loc->gfid)) {
                 subvol = dht_first_up_subvol (this);
