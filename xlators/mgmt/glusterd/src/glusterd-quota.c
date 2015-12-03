@@ -1504,12 +1504,12 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
 
         if (GF_QUOTA_OPTION_TYPE_ENABLE == type)
-                volinfo->quota_version++;
+                volinfo->quota_xattr_version++;
         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
                 if (GF_QUOTA_OPTION_TYPE_ENABLE == type)
-                        volinfo->quota_version--;
+                        volinfo->quota_xattr_version--;
                 goto out;
         }
 
@@ -1520,7 +1520,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                   "volfiles");
                 if (GF_QUOTA_OPTION_TYPE_ENABLE == type) {
                         /* rollback volinfo */
-                        volinfo->quota_version--;
+                        volinfo->quota_xattr_version--;
                         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
                 }
