@@ -1086,7 +1086,7 @@ int
 afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 {
 	afr_private_t *priv = NULL;
-    call_frame_t *heal_frame = NULL;
+        call_frame_t *heal_frame = NULL;
 	afr_local_t *local = NULL;
         gf_boolean_t start_heal = _gf_false;
         afr_local_t *heal_local = NULL;
@@ -1108,7 +1108,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 	err = afr_inode_refresh_err (frame, this);
 
         if ((ret && afr_selfheal_enabled (this)) ||
-            (!priv->shd.iamshd && (priv->did_discovery == _gf_false) &&
+            (priv->shd.iamshd &&
              AFR_IS_ROOT_GFID (local->refreshinode->gfid))) {
                 heal_frame = copy_frame (frame);
                 if (!heal_frame)
