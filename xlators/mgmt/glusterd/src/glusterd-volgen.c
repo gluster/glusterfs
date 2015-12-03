@@ -1898,7 +1898,7 @@ brick_graph_add_marker (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->quota_version);
+        snprintf (buf, sizeof (buf), "%d", volinfo->quota_xattr_version);
         ret = xlator_set_option (xl, "quota-version", buf);
         if (ret)
                 goto out;
