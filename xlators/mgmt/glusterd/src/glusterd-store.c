@@ -1019,7 +1019,7 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->quota_version);
+        snprintf (buf, sizeof (buf), "%d", volinfo->quota_xattr_version);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
                                    buf);
         if (ret)
@@ -2687,7 +2687,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         volinfo->tier_info.cold_type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
                             strlen (GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION))) {
-                        volinfo->quota_version = atoi (value);
+                        volinfo->quota_xattr_version = atoi (value);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {
