@@ -626,6 +626,9 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
 gf_boolean_t
 glusterd_have_peers ();
 
+gf_boolean_t
+glusterd_have_volumes ();
+
 void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len);

@@ -987,7 +987,7 @@ out:
 /* Validate if glusterd can serve the management handshake request
  *
  * Requests are allowed if,
- *  - glusterd has no peers, or
+ *  - glusterd has no peers & no volumes, or
  *  - the request came from a known peer
  * A known peer is identified using the following steps
  *  - the dict is checked for a peer uuid, which if present is matched with the
@@ -1007,7 +1007,7 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
         this = THIS;
         GF_ASSERT (this);
 
-        if (!glusterd_have_peers ())
+        if (!glusterd_have_peers () && !glusterd_have_volumes ())
                 return _gf_true;
 
         ret = dict_get_str (dict, GD_PEER_ID_KEY, &uuid_str);

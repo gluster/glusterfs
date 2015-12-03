@@ -3826,8 +3826,9 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
         } else {
                 switch (op_errno) {
                         case GF_PROBE_ANOTHER_CLUSTER:
-                                snprintf (errstr, len, "%s is already part of "
-                                          "another cluster", hostname);
+                                snprintf (errstr, len, "%s is either already "
+                                          "part of another cluster or having "
+                                          "volumes configured", hostname);
                                 break;
 
                         case GF_PROBE_VOLUME_CONFLICT:
