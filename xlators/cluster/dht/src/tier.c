@@ -1571,12 +1571,6 @@ tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
         return subvol;
 }
 
-dht_methods_t tier_methods = {
-        .migration_get_dst_subvol = tier_migration_get_dst,
-        .migration_other = tier_start,
-        .migration_needed = tier_migration_needed,
-        .layout_search   = tier_search,
-};
 
 static int
 tier_load_externals (xlator_t *this)
@@ -1630,6 +1624,32 @@ int tier_validate_mode (char *mode)
         return ret;
 }
 
+
+int
+tier_init_methods (xlator_t *this)
+{
+        int ret                  = -1;
+        dht_conf_t      *conf    = NULL;
+        dht_methods_t   *methods = NULL;
+
+        GF_VALIDATE_OR_GOTO ("tier", this, err);
+
+        conf = this->private;
+
+        methods = &(conf->methods);
+
+        methods->migration_get_dst_subvol = tier_migration_get_dst;
+        methods->migration_other   = tier_start;
+        methods->migration_needed  = tier_migration_needed;
+        methods->layout_search     = tier_search;
+
+        ret = 0;
+err:
+        return ret;
+}
+
+
+
 int
 tier_init (xlator_t *this)
 {
@@ -1645,13 +1665,19 @@ tier_init (xlator_t *this)
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_LOG_TIER_ERROR,
-                       "dht_init failed");
+                       "tier_init failed");
                 goto out;
         }
 
         conf = this->private;
 
-        conf->methods = &tier_methods;
+        ret = tier_init_methods (this);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_LOG_TIER_ERROR,
+                       "tier_init_methods failed");
+                goto out;
+        }
 
         if (conf->subvolume_cnt != 2) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
