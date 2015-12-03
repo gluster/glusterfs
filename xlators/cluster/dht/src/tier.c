@@ -522,6 +522,12 @@ abort:
                         loc_wipe (&loc);
                         loc_wipe (&p_loc);
 
+
+                        if (xdata_response) {
+                                dict_unref (xdata_response);
+                                xdata_response = NULL;
+                        }
+
                         if ((total_files > defrag->tier_conf.max_migrate_files)
                             || (total_migrated_bytes >
                                 defrag->tier_conf.max_migrate_bytes)) {
