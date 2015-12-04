@@ -3377,5 +3377,6 @@ struct volume_options options[] = {
         {.key = {"inode-quota"} },
         {.key = {"xtime"}},
         {.key = {"gsync-force-xtime"}},
+        {.key = {"quota-version"} },
         {.key = {NULL}}
 };
