@@ -10842,6 +10842,7 @@ glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
                 case GF_DEFRAG_CMD_START_DETACH_TIER:
                 case GF_DEFRAG_CMD_STOP_DETACH_TIER:
                 case GF_DEFRAG_CMD_STATUS:
+                case GF_DEFRAG_CMD_DETACH_STATUS:
                         ret = 0;
                         break;
                 default:

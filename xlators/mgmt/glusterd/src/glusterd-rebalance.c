@@ -523,7 +523,8 @@ __glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         if ((cmd == GF_DEFRAG_CMD_STATUS) ||
             (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
             (cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER) ||
-              (cmd == GF_DEFRAG_CMD_STOP)) {
+            (cmd == GF_DEFRAG_CMD_STOP) ||
+            (cmd == GF_DEFRAG_CMD_DETACH_STATUS)) {
                 ret = glusterd_op_begin (req, GD_OP_DEFRAG_BRICK_VOLUME,
                                          dict, msg, sizeof (msg));
         } else
@@ -700,7 +701,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         case GF_DEFRAG_CMD_STATUS_TIER:
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
-        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+
                 ret = dict_get_str (dict, "cmd-str", &cmd_str);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -715,6 +716,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+
                 if (strstr(cmd_str, "remove-brick") != NULL) {
                         if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
                                 snprintf (msg, sizeof(msg), "remove-brick not "
@@ -735,29 +737,32 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                 }
-                if  (strstr(cmd_str, "tier") != NULL) {
+                if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
                         if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
                                 snprintf (msg, sizeof(msg), "volume %s is not "
                                           "a tier volume.", volinfo->volname);
-                                ret = -1;
-                                goto out;
-                        }
-                }
-                if (strstr(cmd_str, "detach-tier") != NULL) {
-                        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                                snprintf (msg, sizeof(msg), "volume %s is not "
-                                          "a tier volume.", volinfo->volname);
-                                ret = -1;
-                                goto out;
-                        }
-                        if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                                snprintf (msg, sizeof(msg), "Detach-tier "
-                                          "not started");
                                 ret = -1;
                                 goto out;
                         }
                 }
 
+                break;
+
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+        case GF_DEFRAG_CMD_DETACH_STATUS:
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                        snprintf (msg, sizeof(msg), "volume %s is not "
+                                  "a tier volume.", volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                        snprintf (msg, sizeof(msg), "Detach-tier "
+                                  "not started");
+                        ret = -1;
+                        goto out;
+                }
                 break;
         default:
                 break;
@@ -924,11 +929,11 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER &&
-                    cmd == GF_OP_CMD_STOP_DETACH_TIER) {
+                                cmd == GF_OP_CMD_STOP_DETACH_TIER) {
                         glusterd_defrag_info_set (volinfo, dict,
-                                  GF_DEFRAG_CMD_START_TIER,
-                                  GF_DEFRAG_CMD_START,
-                                  GD_OP_REBALANCE);
+                                        GF_DEFRAG_CMD_START_TIER,
+                                        GF_DEFRAG_CMD_START,
+                                        GD_OP_REBALANCE);
                         glusterd_restart_rebalance_for_volume (volinfo);
                 }
 
