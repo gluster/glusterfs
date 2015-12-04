@@ -4539,7 +4539,7 @@ gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
         } else {
                 /* Need rebalance status to be sent :-) */
                 if (command == GF_OP_CMD_STATUS)
-                        cmd |= GF_DEFRAG_CMD_STATUS;
+                        cmd |= GF_DEFRAG_CMD_DETACH_STATUS;
                 else
                         cmd |= GF_DEFRAG_CMD_STOP_DETACH_TIER;
 
