@@ -3842,7 +3842,8 @@ notify_kernel_loop (void *data)
         xlator_t               *this = NULL;
         fuse_private_t         *priv = NULL;
         struct fuse_out_header *fouh = NULL;
-        int                     rv   = 0;
+        ssize_t                 rv   = 0;
+        ssize_t                 len  = 0;
         fuse_invalidate_node_t *node = NULL;
 
         this = data;
@@ -3868,17 +3869,19 @@ notify_kernel_loop (void *data)
 
                 fouh = (struct fuse_out_header *)node->inval_buf;
 
+                len = fouh->len;
                 rv = sys_write (priv->fd, node->inval_buf, fouh->len);
 
-                GF_FREE (node);
 
-                if (rv != fouh->len && !(rv == -1 && errno == ENOENT))
+                if (rv != len && !(rv == -1 && errno == ENOENT))
                         break;
+                GF_FREE (node);
         }
 
         gf_log ("glusterfs-fuse", GF_LOG_INFO,
                 "kernel notifier loop terminated");
 
+        GF_FREE (node);
         return NULL;
 }
 #endif
