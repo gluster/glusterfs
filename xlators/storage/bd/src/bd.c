@@ -485,7 +485,7 @@ bd_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto out;
         }
         _fd = bd_fd->fd;
-        op_ret = pread (_fd, iobuf->ptr, size, offset);
+        op_ret = sys_pread (_fd, iobuf->ptr, size, offset);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1787,7 +1787,7 @@ __bd_pwritev (int fd, struct iovec *vector, int count, off_t offset,
         if (!vector)
                 return -EFAULT;
 
-        retval = pwritev (fd, vector, count, offset);
+        retval = sys_pwritev (fd, vector, count, offset);
         if (retval == -1) {
                 int64_t off = offset;
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -1810,8 +1810,8 @@ __bd_pwritev (int fd, struct iovec *vector, int count, off_t offset,
                         vector[index].iov_len = bd_size - internal_offset;
                         no_space = 1;
                 }
-                retval = pwritev (fd, vector[index].iov_base,
-                                vector[index].iov_len, internal_offset);
+                retval = sys_pwritev (fd, vector[index].iov_base,
+                                      vector[index].iov_len, internal_offset);
                 if (retval == -1) {
                         gf_log (THIS->name, GF_LOG_WARNING,
                                 "base %p, length %ld, offset %ld, message %s",
@@ -2174,7 +2174,7 @@ bd_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         LOCK (&fd->lock);
         {
-                ret = pread (_fd, buf, len, offset);
+                ret = sys_pread (_fd, buf, len, offset);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "pread of %d bytes returned %d (%s)",

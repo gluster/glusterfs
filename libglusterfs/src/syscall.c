@@ -15,6 +15,7 @@
 #include <utime.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 int
 sys_lstat (const char *path, struct stat *buf)
@@ -265,6 +266,34 @@ ssize_t
 sys_write (int fd, const void *buf, size_t count)
 {
         return write (fd, buf, count);
+}
+
+
+ssize_t
+sys_preadv (int fd, const struct iovec *iov, int iovcnt, off_t offset)
+{
+        return preadv (fd, iov, iovcnt, offset);
+}
+
+
+ssize_t
+sys_pwritev (int fd, const struct iovec *iov, int iovcnt, off_t offset)
+{
+        return pwritev (fd, iov, iovcnt, offset);
+}
+
+
+ssize_t
+sys_pread (int fd, void *buf, size_t count, off_t offset)
+{
+        return pread (fd, buf, count, offset);
+}
+
+
+ssize_t
+sys_pwrite (int fd, const void *buf, size_t count, off_t offset)
+{
+        return pwrite (fd, buf, count, offset);
 }
 
 

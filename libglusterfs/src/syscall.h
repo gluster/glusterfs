@@ -192,6 +192,19 @@ sys_access (const char *pathname, int mode);
 int
 sys_ftruncate (int fd, off_t length);
 
-int sys_fallocate(int fd, int mode, off_t offset, off_t len);
+int
+sys_fallocate(int fd, int mode, off_t offset, off_t len);
+
+ssize_t
+sys_preadv (int fd, const struct iovec *iov, int iovcnt, off_t offset);
+
+ssize_t
+sys_pwritev (int fd, const struct iovec *iov, int iovcnt, off_t offset);
+
+ssize_t
+sys_pread(int fd, void *buf, size_t count, off_t offset);
+
+ssize_t
+sys_pwrite(int fd, const void *buf, size_t count, off_t offset);
 
 #endif /* __SYSCALL_H__ */
