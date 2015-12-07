@@ -31,29 +31,9 @@
 /*
  * Check if any of the upcall options are enabled:
  *     - cache_invalidation
- *     - XXX: lease_lk
  */
 gf_boolean_t
 is_upcall_enabled(xlator_t *this) {
-        upcall_private_t *priv      = NULL;
-        gf_boolean_t     is_enabled = _gf_false;
-
-        if (this->private) {
-                priv = (upcall_private_t *)this->private;
-
-                if (priv->cache_invalidation_enabled) {
-                        is_enabled = _gf_true;
-                }
-        }
-
-        return is_enabled;
-}
-
-/*
- * Check if any of cache_invalidation is enabled
- */
-gf_boolean_t
-is_cache_invalidation_enabled(xlator_t *this) {
         upcall_private_t *priv      = NULL;
         gf_boolean_t     is_enabled = _gf_false;
 
@@ -476,7 +456,7 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
         upcall_inode_ctx_t *up_inode_ctx = NULL;
         gf_boolean_t     found           = _gf_false;
 
-        if (!is_cache_invalidation_enabled(this))
+        if (!is_upcall_enabled(this))
                 return;
 
         /* server-side generated fops like quota/marker will not have any

@@ -111,7 +111,7 @@ void *upcall_reaper_thread (void *data);
 int upcall_reaper_thread_init (xlator_t *this);
 
 /* Xlator options */
-gf_boolean_t is_upcall_enabled(xlator_t *this);
+gf_boolean_t is_upcall_enabled (xlator_t *this);
 
 /* Cache invalidation specific */
 void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this,
