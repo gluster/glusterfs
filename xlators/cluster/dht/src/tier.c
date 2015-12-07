@@ -837,6 +837,7 @@ tier_process_ctr_query (tier_brick_list_t *local_brick, void *args)
                 gf_msg (this->name, GF_LOG_ERROR, 0, LG_MSG_SET_PARAM_FAILED,
                         "Failed setting %s to params dictionary",
                         GFDB_IPC_CTR_GET_QUERY_PARAMS);
+                GF_FREE (ipc_ctr_params);
                 goto out;
         }
 
@@ -882,10 +883,7 @@ out:
         if (ctr_ipc_out_dict) {
                 dict_unref(ctr_ipc_out_dict);
                 ctr_ipc_out_dict = NULL;
-                ipc_ctr_params = NULL;
         }
-
-        GF_FREE (ipc_ctr_params);
 
         return ret;
 }
