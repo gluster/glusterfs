@@ -1353,16 +1353,14 @@ out:
         return count;
 }
 
-int32_t
-index_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
+dict_t*
+index_fill_link_count (xlator_t *this, dict_t *xdata)
 {
-        int              ret  = -1;
-        char            *dir  = NULL;
-        index_priv_t    *priv = this->private;
-        int64_t          count    = -1;
+        int             ret       = -1;
+        index_priv_t    *priv     = NULL;
+        int64_t         count     = -1;
 
+        priv = this->private;
         xdata = (xdata) ? dict_ref (xdata) : dict_new ();
         if (!xdata)
                 goto out;
@@ -1376,14 +1374,26 @@ index_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (count == 0) {
                 ret = dict_set_int8 (xdata, "link-count", 0);
                 if (ret < 0)
-                        goto out;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set link-count");
         } else {
                 ret = dict_set_int8 (xdata, "link-count", 1);
                 if (ret < 0)
-                       goto out;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set link-count");
         }
 
 out:
+        return xdata;
+}
+
+int32_t
+index_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
+{
+
+        xdata = index_fill_link_count (this, xdata);
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
                              xdata, postparent);
         if (xdata)
@@ -1418,12 +1428,42 @@ index_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 normal:
         ret = dict_get_str (xattr_req, "link-count", &flag);
-        if (!(ret || strcmp (flag, GF_XATTROP_INDEX_COUNT))) {
+        if ((ret == 0) && (strcmp (flag, GF_XATTROP_INDEX_COUNT) == 0)) {
                 STACK_WIND (frame, index_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
         } else {
                 STACK_WIND (frame, default_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
+        }
+
+        return 0;
+}
+
+int32_t
+index_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                 dict_t *xdata)
+{
+        xdata = index_fill_link_count (this, xdata);
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf, xdata);
+        if (xdata)
+                dict_unref (xdata);
+        return 0;
+}
+
+int32_t
+index_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        int  ret   = -1;
+        char *flag = NULL;
+
+        ret = dict_get_str (xdata, "link-count", &flag);
+        if ((ret == 0) && (strcmp (flag, GF_XATTROP_INDEX_COUNT) == 0)) {
+                STACK_WIND (frame, index_fstat_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fstat, fd, xdata);
+        } else {
+                STACK_WIND (frame, default_fstat_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fstat, fd, xdata);
         }
 
         return 0;
@@ -1809,7 +1849,8 @@ struct xlator_fops fops = {
         .lookup      = index_lookup,
         .opendir     = index_opendir,
         .readdir     = index_readdir,
-        .unlink      = index_unlink
+        .unlink      = index_unlink,
+        .fstat       = index_fstat,
 };
 
 struct xlator_dumpops dumpops;

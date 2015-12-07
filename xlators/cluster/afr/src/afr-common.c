@@ -837,29 +837,27 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
-
-int
+void
 afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			      int op_ret, int op_errno, inode_t *inode,
-			      struct iatt *buf, dict_t *xdata, struct iatt *par)
+                              int op_ret, int op_errno, struct iatt *buf,
+                              dict_t *xdata, struct iatt *par)
 {
-	afr_local_t *local = NULL;
-	int call_child = (long) cookie;
-	int call_count = 0;
-	GF_UNUSED int ret = 0;
-	int8_t need_heal = 1;
+        afr_local_t *local = NULL;
+        int call_child = (long) cookie;
+        int8_t need_heal = 1;
+        int call_count = 0;
+        GF_UNUSED int ret = 0;
 
-	local = frame->local;
-
-	local->replies[call_child].valid = 1;
-	local->replies[call_child].op_ret = op_ret;
-	local->replies[call_child].op_errno = op_errno;
+        local = frame->local;
+        local->replies[call_child].valid = 1;
+        local->replies[call_child].op_ret = op_ret;
+        local->replies[call_child].op_errno = op_errno;
 	if (op_ret != -1) {
 		local->replies[call_child].poststat = *buf;
-		local->replies[call_child].postparent = *par;
+		if (par)
+                        local->replies[call_child].postparent = *par;
 		local->replies[call_child].xdata = dict_ref (xdata);
 	}
-
         if (xdata) {
                 ret = dict_get_int8 (xdata, "link-count", &need_heal);
                 local->replies[call_child].need_heal = need_heal;
@@ -867,20 +865,30 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->replies[call_child].need_heal = need_heal;
         }
 
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
                 afr_set_need_heal (this, local);
 		afr_inode_refresh_done (frame, this);
         }
 
+}
+
+int
+afr_inode_refresh_subvol_with_lookup_cbk (call_frame_t *frame, void *cookie,
+                                          xlator_t *this, int op_ret,
+                                          int op_errno, inode_t *inode,
+                                          struct iatt *buf, dict_t *xdata,
+                                          struct iatt *par)
+{
+        afr_inode_refresh_subvol_cbk (frame, cookie, this, op_ret, op_errno,
+                                      buf, xdata, par);
 	return 0;
 }
 
 
 int
-afr_inode_refresh_subvol (call_frame_t *frame, xlator_t *this, int i,
-			  inode_t *inode, dict_t *xdata)
+afr_inode_refresh_subvol_with_lookup (call_frame_t *frame, xlator_t *this,
+                                      int i, inode_t *inode, dict_t *xdata)
 {
 	loc_t loc = {0, };
 	afr_private_t *priv = NULL;
@@ -890,12 +898,38 @@ afr_inode_refresh_subvol (call_frame_t *frame, xlator_t *this, int i,
 	loc.inode = inode;
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_cbk,
+	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_with_lookup_cbk,
 			   (void *) (long) i, priv->children[i],
 			   priv->children[i]->fops->lookup, &loc, xdata);
 	return 0;
 }
 
+int
+afr_inode_refresh_subvol_with_fstat_cbk (call_frame_t *frame,
+                                         void *cookie, xlator_t *this,
+                                         int32_t op_ret, int32_t op_errno,
+                                         struct iatt *buf, dict_t *xdata)
+{
+        afr_inode_refresh_subvol_cbk (frame, cookie, this, op_ret, op_errno,
+                                      buf, xdata, NULL);
+        return 0;
+}
+
+int
+afr_inode_refresh_subvol_with_fstat (call_frame_t *frame, xlator_t *this, int i,
+			             dict_t *xdata)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+
+        priv = this->private;
+        local = frame->local;
+
+        STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_with_fstat_cbk,
+                           (void *) (long) i, priv->children[i],
+                           priv->children[i]->fops->fstat, local->fd, xdata);
+        return 0;
+}
 
 int
 afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
@@ -906,11 +940,22 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	int i = 0;
         int ret = 0;
 	dict_t *xdata = NULL;
+        afr_fd_ctx_t  *fd_ctx = NULL;
+        unsigned char *wind_subvols = NULL;
 
 	priv = this->private;
 	local = frame->local;
+        wind_subvols = alloca0 (priv->child_count);
 
         afr_local_replies_wipe (local, priv);
+
+        if (local->fd) {
+                fd_ctx = afr_fd_ctx_get (local->fd, this);
+                if (!fd_ctx) {
+                        afr_inode_refresh_done (frame, this);
+                        return 0;
+                }
+        }
 
 	xdata = dict_new ();
 	if (!xdata) {
@@ -930,15 +975,35 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
                               "Unable to set link-count in dict ");
         }
 
-	local->call_count = AFR_COUNT (local->child_up, priv->child_count);
+        if (local->fd) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (local->child_up[i] &&
+                            fd_ctx->opened_on[i] == AFR_FD_OPENED)
+                                wind_subvols[i] = 1;
+                }
+        } else {
+                memcpy (wind_subvols, local->child_up,
+                        sizeof (*local->child_up) * priv->child_count);
+        }
+
+	local->call_count = AFR_COUNT (wind_subvols, priv->child_count);
 
 	call_count = local->call_count;
+        if (!call_count) {
+                dict_unref (xdata);
+                afr_inode_refresh_done (frame, this);
+                return 0;
+        }
 	for (i = 0; i < priv->child_count; i++) {
-		if (!local->child_up[i])
+		if (!wind_subvols[i])
 			continue;
 
-		afr_inode_refresh_subvol (frame, this, i, local->refreshinode,
-					  xdata);
+                if (local->fd)
+                        afr_inode_refresh_subvol_with_fstat (frame, this, i,
+                                                             xdata);
+                else
+                        afr_inode_refresh_subvol_with_lookup (frame, this, i,
+                                                    local->refreshinode, xdata);
 
 		if (!--call_count)
 			break;
