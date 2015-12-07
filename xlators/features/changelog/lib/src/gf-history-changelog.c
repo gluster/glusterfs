@@ -335,7 +335,7 @@ gf_history_get_timestamp (int fd, int index, int len,
                 return -1;
         }
 
-        n_read = pread (fd, path_buf, len, offset);
+        n_read = sys_pread (fd, path_buf, len, offset);
         if (n_read < 0 ) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -524,7 +524,7 @@ gf_changelog_consume_wrap (void* data)
 
         ccd->retval = -1;
 
-        nread = pread (ccd->fd, ccd->changelog, PATH_MAX, ccd->offset);
+        nread = sys_pread (ccd->fd, ccd->changelog, PATH_MAX, ccd->offset);
         if (nread < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_READ_ERROR,

@@ -5,11 +5,13 @@ fallocate64\nfchmod\nfchown\nfdatasync\nfgetxattr\nflistxattr\n\
 fremovexattr\nfsetxattr\nfsync\nftruncate64\n__fxstat64\n\
 __fxstatat64\nlchown\nlgetxattr\nlinkat\nllistxattr\nlremovexattr\n\
 lseek64\nlsetxattr\n__lxstat64\nmkdir\nmkdirat\nopenat64\nopendir\n\
-read\nreaddir64\nreadlink\nreadv\nrename\nrmdir\nstatvfs64\nsymlink\n\
-truncate64\nunlink\nutimeswrite\nwritev\n__xmknod\n__xstat64'
+pread64\npwrite64\npreadv64\npwritev64\nread\nreaddir64\nreadlink\n\
+readv\nrename\nrmdir\n statvfs64\nsymlink\n\truncate64\nunlink\n\
+utimeswrite\nwritev\n\__xmknod\n__xstat64'
 
-syscalls32=$'creat\n\fallocate\n\ftruncate\n\__fxstat\n\__fxstatat\n\
-lseek\n\__lxstat\n\openat\n\readdir\n\statvfs\n\truncate\n\stat'
+syscalls32=$'creat\nfallocate\nftruncate\n__fxstat\n__fxstatat\n\
+lseek\n__lxstat\nopenat\nreaddir\nstatvfs\ntruncate\nstat\n\
+preadv\npwritev\npread\npwrite'
 
 exclude_files=$'/libglusterfs/src/.libs/libglusterfs_la-syscall.o\n\
 /libglusterfs/src/.libs/libglusterfs_la-gen_uuid.o\n\
@@ -44,6 +46,10 @@ function main()
                 "fallocate64") sym="fallocate";;
                 "ftruncate64") sym="ftruncate";;
                 "lseek64") sym="lseek";;
+                "preadv64") sym="preadv";;
+                "pwritev64") sym="pwritev";;
+                "pread64") sym="pread";;
+                "pwrite64") sym="pwrite";;
                 "openat64") sym="openat";;
                 "readdir64") sym="readdir";;
                 "truncate64") sym="truncate";;

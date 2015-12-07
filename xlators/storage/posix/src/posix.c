@@ -2823,7 +2823,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         }
 
         _fd = pfd->fd;
-        op_ret = pread (_fd, iobuf->ptr, size, offset);
+        op_ret = sys_pread (_fd, iobuf->ptr, size, offset);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READ_FAILED,
@@ -2889,7 +2889,7 @@ __posix_pwritev (int fd, struct iovec *vector, int count, off_t offset)
 
         internal_off = offset;
         for (idx = 0; idx < count; idx++) {
-                retval = pwrite (fd, vector[idx].iov_base, vector[idx].iov_len,
+                retval = sys_pwrite (fd, vector[idx].iov_base, vector[idx].iov_len,
                                  internal_off);
                 if (retval == -1) {
                         op_ret = -errno;
@@ -2935,7 +2935,7 @@ __posix_writev (int fd, struct iovec *vector, int count, off_t startoff,
                 memcpy (buf, vector[idx].iov_base, vector[idx].iov_len);
 
                 /* not sure whether writev works on O_DIRECT'd fd */
-                retval = pwrite (fd, buf, vector[idx].iov_len, internal_off);
+                retval = sys_pwrite (fd, buf, vector[idx].iov_len, internal_off);
                 if (retval == -1) {
                         op_ret = -errno;
                         goto err;
@@ -6105,7 +6105,7 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 if (priv->aio_capable && priv->aio_init_done)
                         __posix_fd_set_odirect (fd, pfd, 0, offset, len);
 
-                bytes_read = pread (_fd, buf, len, offset);
+                bytes_read = sys_pread (_fd, buf, len, offset);
                 if (bytes_read < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_PREAD_FAILED,

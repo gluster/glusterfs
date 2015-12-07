@@ -229,7 +229,7 @@ br_stub_check_stub_directory (xlator_t *this, char *fullpath)
         int ret = 0;
         struct stat st = {0,};
 
-        ret = stat (fullpath, &st);
+        ret = sys_stat (fullpath, &st);
         if (!ret && !S_ISDIR (st.st_mode))
                 goto error_return;
         if (ret) {
@@ -262,7 +262,7 @@ br_stub_check_stub_file (xlator_t *this, char *path)
         int fd = -1;
         struct stat st = {0,};
 
-        ret = stat (path, &st);
+        ret = sys_stat (path, &st);
         if (!ret && !S_ISREG (st.st_mode))
                 goto error_return;
         if (ret) {
