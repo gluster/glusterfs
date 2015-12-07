@@ -880,18 +880,23 @@ cli_cmd_ganesha_parse (struct cli_state *state,
                 goto out;
         }
 
-        question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
-                   " disabled across the trusted pool. Do you "
-                   "still want to continue?\n";
-
         if (strcmp (value, "enable") == 0) {
-                answer = cli_cmd_get_confirmation (state, question);
-                if (GF_ANSWER_NO == answer) {
-                        gf_log ("cli", GF_LOG_ERROR, "Global operation "
-                                "cancelled, exiting");
-                        ret = -1;
-                        goto out;
-                }
+                question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
+                           " disabled across the trusted pool. Do you "
+                           "still want to continue?\n";
+
+        } else if (strcmp (value, "disable") == 0) {
+                question = "Disabling NFS-Ganesha will tear down entire "
+                           "ganesha cluster across the trusted pool. Do you "
+                           "still want to continue?\n";
+        }
+
+        answer = cli_cmd_get_confirmation (state, question);
+        if (GF_ANSWER_NO == answer) {
+                gf_log ("cli", GF_LOG_ERROR, "Global operation "
+                        "cancelled, exiting");
+                ret = -1;
+                goto out;
         }
         cli_out ("This will take a few minutes to complete. Please wait ..");
 
