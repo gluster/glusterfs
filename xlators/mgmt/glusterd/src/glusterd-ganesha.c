@@ -258,8 +258,7 @@ int
 glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
 {
         int                             ret                     = -1;
-        int                             value                   = -1;
-        gf_boolean_t                    option                  = _gf_false;
+        char                            *value                  = NULL;
         char                            *str                    = NULL;
         glusterd_conf_t                 *priv                   = NULL;
         xlator_t                        *this                   = NULL;
@@ -270,8 +269,8 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         priv = this->private;
         GF_ASSERT (priv);
 
-        value = dict_get_str_boolean (dict, "value", _gf_false);
-        if (value == -1) {
+        ret = dict_get_str (dict, "value", &value);
+        if (value == NULL) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_GET_FAILED,
                         "value not present.");
@@ -280,22 +279,13 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         /* This dict_get will fail if the user had never set the key before */
         /*Ignoring the ret value and proceeding */
         ret = dict_get_str (priv->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL, &str);
-        if (ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        GD_MSG_DICT_GET_FAILED, "Global dict not present.");
-                ret = 0;
-                goto out;
+        /* Check if the feature is already enabled/disable, fail in that case */
+        if (str ? strcmp (value, str) == 0 : strcmp (value, "disable") == 0) {
+                gf_asprintf (op_errstr, "nfs-ganesha is already %sd.", value);
+                 ret = -1;
+                 goto out;
         }
-        /* Validity of the value is already checked */
-        ret = gf_string2boolean (str, &option);
-        /* Check if the feature is already enabled, fail in that case */
-        if (value == option) {
-                gf_asprintf (op_errstr, "nfs-ganesha is already %sd.", str);
-                ret = -1;
-                goto out;
-        }
-
-        if (value) {
+        if (strcmp (value, "enable") == 0) {
                 ret =  start_ganesha (op_errstr);
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_ERROR, 0,
