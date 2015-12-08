@@ -609,11 +609,11 @@ index_find_xattr_type (dict_t *d, char *k, data_t *v)
         int             idx  = -1;
         index_priv_t   *priv = THIS->private;
 
-        if (is_xattr_in_watchlist (d, k, v,
-                                   priv->dirty_watchlist))
+        if (priv->dirty_watchlist && is_xattr_in_watchlist (d, k, v,
+                                            priv->dirty_watchlist))
                 idx = DIRTY;
-        else if (is_xattr_in_watchlist (d, k, v,
-                                   priv->pending_watchlist))
+        else if (priv->pending_watchlist && is_xattr_in_watchlist (d, k, v,
+                                                  priv->pending_watchlist))
                 idx = PENDING;
 
         return idx;
