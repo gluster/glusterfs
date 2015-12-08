@@ -573,8 +573,9 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        shard_inode_ctx_set (inode, this, &local->postbuf, 0,
-                             SHARD_INODE_WRITE_MASK);
+        if (local->fop == GF_FOP_FTRUNCATE || local->fop == GF_FOP_TRUNCATE)
+                shard_inode_ctx_set (inode, this, &local->postbuf, 0,
+                                     SHARD_INODE_WRITE_MASK);
 
 err:
         local->post_update_size_handler (frame, this);
@@ -3389,6 +3390,7 @@ __shard_get_delta_size_from_inode_ctx (shard_local_t *local, inode_t *inode,
         } else {
                 local->delta_size = 0;
         }
+        local->postbuf = ctx->stat;
 
         return 0;
 }
