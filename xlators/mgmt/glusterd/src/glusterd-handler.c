@@ -4954,6 +4954,7 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
                         break;
                 }
+                rpc_clnt_set_connected (&rpc->conn);
                 gf_msg_debug (this->name, 0, "Connected to %s:%s",
                         brickinfo->hostname, brickinfo->path);
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
@@ -4962,6 +4963,7 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
 
         case RPC_CLNT_DISCONNECT:
+                rpc_clnt_unset_connected (&rpc->conn);
                 if (glusterd_is_brick_started (brickinfo))
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 GD_MSG_BRICK_DISCONNECTED,
