@@ -119,6 +119,8 @@
         if (ret < 0) {          \
                 errno = -ret;   \
                 ret = -1;       \
+        } else {                \
+                errno = 0;      \
         }                       \
         } while (0)
 
