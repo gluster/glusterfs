@@ -6036,6 +6036,27 @@ err:
         return 0;
 }
 
+gf_boolean_t
+dht_is_hot_tier_decommissioned (xlator_t *this)
+{
+        dht_conf_t              *conf        = NULL;
+        xlator_t                *hot_tier    = NULL;
+        int                      i           = 0;
+
+        conf = this->private;
+        hot_tier = conf->subvolumes[1];
+
+        if (conf->decommission_subvols_cnt) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->decommissioned_bricks[i] &&
+                                conf->decommissioned_bricks[i] == hot_tier)
+                                return _gf_true;
+                }
+        }
+
+        return _gf_false;
+}
+
 int
 dht_create_tier_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
                                       xlator_t *subvol, loc_t *loc, int32_t flags,
@@ -6056,9 +6077,12 @@ dht_create_tier_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
         if (conf->subvolumes[0] != cold_subvol) {
                 hot_subvol = conf->subvolumes[0];
         }
-
-        /* if hot tier full, write to cold */
-        if (dht_is_subvol_filled (this, hot_subvol)) {
+        /*
+         * if hot tier full, write to cold.
+         * Also if hot tier is full, create in cold
+         */
+        if (dht_is_subvol_filled (this, hot_subvol) ||
+            dht_is_hot_tier_decommissioned (this)) {
                 gf_msg_debug (this->name, 0,
                               "creating %s on %s", loc->path,
                               cold_subvol->name);
