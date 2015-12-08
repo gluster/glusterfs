@@ -18,7 +18,7 @@ kill -15 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 TEST ! $CLI volume remove-brick $V0 $H0:$B0/${V0}1 start
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" brick_up_status $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 
 #remove-brick start should succeed as the brick is up
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 start
