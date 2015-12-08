@@ -23,8 +23,7 @@ function brick_up_status {
         local vol=$1
         local host=$2
         local brick=$3
-        brick_pid=$(get_brick_pid $vol $host $brick)
-        gluster volume status | grep $brick_pid | awk '{print $4}'
+        $CLI volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
 }
 
 function volume_option()
