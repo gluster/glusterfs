@@ -1316,25 +1316,27 @@ clear_bricklist (struct list_head *brick_list)
 int
 tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 {
-        struct list_head bricklist_hot = { 0 };
-        struct list_head bricklist_cold = { 0 };
-        dht_conf_t   *conf     = NULL;
-        gfdb_time_t  current_time;
-        int freq_promote = 0;
-        int freq_demote = 0;
-        promotion_args_t promotion_args = { 0 };
-        demotion_args_t demotion_args = { 0 };
-        int ret_promotion = 0;
-        int ret_demotion = 0;
-        int ret = 0;
+        struct list_head bricklist_hot          = { 0 };
+        struct list_head bricklist_cold         = { 0 };
+        gf_boolean_t is_hot_list_empty          = _gf_false;
+        gf_boolean_t is_cold_list_empty         = _gf_false;
+        dht_conf_t *conf                        = NULL;
+        gfdb_time_t  current_time               = { 0 };
+        int freq_promote                        = 0;
+        int freq_demote                         = 0;
+        promotion_args_t promotion_args         = { 0 };
+        demotion_args_t demotion_args           = { 0 };
+        int ret_promotion                       = 0;
+        int ret_demotion                        = 0;
+        int ret                                 = 0;
         pthread_t promote_thread;
         pthread_t demote_thread;
-        gf_boolean_t  is_promotion_triggered = _gf_false;
-        gf_boolean_t  is_demotion_triggered  = _gf_false;
-        xlator_t                *any         = NULL;
-        xlator_t                *xlator      = NULL;
-        gf_tier_conf_t    *tier_conf   = NULL;
-        loc_t      root_loc = { 0 };
+        gf_boolean_t  is_promotion_triggered    = _gf_false;
+        gf_boolean_t  is_demotion_triggered     = _gf_false;
+        xlator_t *any                           = NULL;
+        xlator_t *xlator                        = NULL;
+        gf_tier_conf_t *tier_conf               = NULL;
+        loc_t root_loc                          = { 0 };
 
         conf   = this->private;
 
@@ -1343,6 +1345,9 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
         tier_get_bricklist (conf->subvolumes[0], &bricklist_cold);
         tier_get_bricklist (conf->subvolumes[1], &bricklist_hot);
+
+        is_hot_list_empty = list_empty(&bricklist_hot);
+        is_cold_list_empty = list_empty(&bricklist_cold);
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d"
@@ -1417,14 +1422,14 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
                 freq_demote = tier_get_freq_demote (tier_conf);
 
-                is_demotion_triggered = tier_check_demote (current_time,
-                                                           freq_demote);
+                is_demotion_triggered = (is_hot_list_empty) ? _gf_false :
+                        tier_check_demote (current_time, freq_demote);
 
                 freq_promote = tier_get_freq_promote(tier_conf);
 
-                is_promotion_triggered = tier_check_promote (tier_conf,
-                                                             current_time,
-                                                             freq_promote);
+                is_promotion_triggered = (is_cold_list_empty) ? _gf_false :
+                        tier_check_promote (tier_conf, current_time,
+                                            freq_promote);
 
                 /* If no promotion and no demotion is
                  * scheduled/triggered skip an iteration */
@@ -1442,6 +1447,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                 ret_promotion = -1;
                 ret_demotion = -1;
 
+                /* Spawn demotion thread if demotion is triggered */
                 if (is_demotion_triggered) {
                         demotion_args.this = this;
                         demotion_args.brick_list = &bricklist_hot;
@@ -1458,6 +1464,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         }
                 }
 
+                /* Spawn promotion thread if promotion is triggered */
                 if (is_promotion_triggered) {
                         promotion_args.this = this;
                         promotion_args.brick_list = &bricklist_cold;
