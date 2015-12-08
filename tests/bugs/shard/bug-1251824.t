@@ -7,9 +7,8 @@ cleanup;
 
 TEST glusterd
 TEST pidof glusterd
-TEST $CLI volume create $V0 $H0:$B0/${V0}{0,1}
+TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3}
 TEST $CLI volume set $V0 features.shard on
-TEST $CLI volume set $V0 performance.strict-write-ordering on
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
@@ -41,6 +40,10 @@ EXPECT "root" echo `find $B0/${V0}0 -name .shard | xargs stat -c %U`
 EXPECT "root" echo `find $B0/${V0}0 -name .shard | xargs stat -c %G`
 EXPECT "root" echo `find $B0/${V0}1 -name .shard | xargs stat -c %U`
 EXPECT "root" echo `find $B0/${V0}1 -name .shard | xargs stat -c %G`
+EXPECT "root" echo `find $B0/${V0}2 -name .shard | xargs stat -c %U`
+EXPECT "root" echo `find $B0/${V0}2 -name .shard | xargs stat -c %G`
+EXPECT "root" echo `find $B0/${V0}3 -name .shard | xargs stat -c %U`
+EXPECT "root" echo `find $B0/${V0}3 -name .shard | xargs stat -c %G`
 
 # Write 6M of data on bar as root.
 TEST dd if=/dev/zero of=$M0/bar bs=1M count=6

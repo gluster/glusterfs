@@ -6,7 +6,7 @@ cleanup
 
 TEST glusterd
 TEST pidof glusterd
-TEST $CLI volume create $V0 $H0:$B0/${V0}{0,1}
+TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3}
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
@@ -24,7 +24,6 @@ md5sum_file_plain=$(md5sum $M0/dir/file_plain | awk '{print $1}')
 
 # Now enable sharding on the volume.
 TEST $CLI volume set $V0 features.shard on
-TEST $CLI volume set $V0 performance.strict-write-ordering on
 
 # Create a sharded file called "file_sharded"
 TEST touch $M0/dir/file_sharded
