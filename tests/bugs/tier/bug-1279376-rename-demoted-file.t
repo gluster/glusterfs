@@ -6,7 +6,7 @@
 
 
 NUM_BRICKS=2
-DEMOTE_FREQ=5
+DEMOTE_FREQ=15
 DEMOTE_TIMEOUT=10
 PROMOTE_FREQ=500
 
@@ -32,6 +32,7 @@ function create_dist_tier_vol () {
         TEST $CLI volume set $V0 cluster.tier-mode test
 
 #We do not want any files to be promoted during this test
+        TEST $CLI volume set $V0 features.record-counters on
         TEST $CLI volume set $V0 cluster.read-freq-threshold 50
         TEST $CLI volume set $V0 cluster.write-freq-threshold 50
 }
@@ -54,7 +55,7 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
 # The file will be created on the hot tier
 
-touch "$M0/$SRC_FILE"
+TEST touch "$M0/$SRC_FILE"
 
 # Get the path of the file on the hot tier
 HPATH=`find $B0/hot/ -name  "$SRC_FILE"`
@@ -64,13 +65,16 @@ echo "File path on hot tier: "$HPATH
 EXPECT "yes" exists_and_regular_file $HPATH
 
 # Wait for the tier process to demote the file
-sleep $DEMOTE_TIMEOUT
+sleep $DEMOTE_FREQ
 
 # Get the path of the file on the cold tier
 CPATH=`find $B0/cold/ -name  "$SRC_FILE"`
 echo "File path on cold tier: "$CPATH
 
-EXPECT "yes" exists_and_regular_file $CPATH
+EXPECT_WITHIN $DEMOTE_TIMEOUT "yes" exists_and_regular_file $CPATH
+
+#We don't want $DST_FILE to get demoted
+TEST $CLI volume set $V0 cluster.tier-demote-frequency $PROMOTE_FREQ
 
 #This will be created on the hot tier
 
