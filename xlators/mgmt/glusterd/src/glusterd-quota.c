@@ -92,6 +92,15 @@ glusterd_is_quota_supported (int32_t type, char **op_errstr)
              type == GF_QUOTA_OPTION_TYPE_REMOVE))
                 goto out;
 
+        /* Quota xattr version implemented in 3.7.6
+         * quota-version is incremented when quota is enabled
+         * so don't allow enabling quota in heterogeneous
+         * cluster during upgrade
+         */
+        if (conf->op_version < GD_OP_VERSION_3_7_6 &&
+            type == GF_QUOTA_OPTION_TYPE_ENABLE)
+                goto out;
+
         supported = _gf_true;
 
 out:
