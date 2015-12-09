@@ -1019,11 +1019,15 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->quota_xattr_version);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
-                                   buf);
-        if (ret)
-                goto out;
+        if (conf->op_version >= GD_OP_VERSION_3_7_6) {
+                snprintf (buf, sizeof (buf), "%d",
+                          volinfo->quota_xattr_version);
+                ret = gf_store_save_value (fd,
+                                           GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
+                                           buf);
+                if (ret)
+                        goto out;
+        }
 
         ret = glusterd_volume_write_tier_details (fd, volinfo);
 
