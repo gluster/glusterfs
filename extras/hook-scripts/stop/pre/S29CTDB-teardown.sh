@@ -1,6 +1,5 @@
 #! /bin/bash
 #non-portable - RHS-2.0 only
-SMB_CONF=/etc/samba/smb.conf
 
 CTDB_MNT=/gluster/lock
 PROGNAME="ctdb"
@@ -12,16 +11,6 @@ VOL=
 # to prevent the script from running for volumes it was not intended.
 # User needs to set META to the volume that serves CTDB lockfile.
 META="all"
-
-function sighup_samba () {
-        pid=`cat /var/run/smbd.pid`
-        if [ "$pid" != "" ]
-        then
-                kill -HUP $pid;
-        else
-                /etc/init.d/smb start
-        fi
-}
 
 function parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
@@ -46,17 +35,6 @@ function parse_args () {
 }
 
 
-function remove_ctdb_options () {
-        IFS=$'\n'
-        GLUSTER_CTDB_CONFIG=$'# ctdb config for glusterfs\n\tclustering = yes\n\tidmap backend = tdb2\n'
-
-        for line in $GLUSTER_CTDB_CONFIG
-        do
-                sed -i /"$line"/d $SMB_CONF
-        done
-        unset IFS
-}
-
 function remove_fstab_entry () {
         mntpt=$1
         fstab="/etc/fstab"
@@ -80,6 +58,4 @@ then
         umount "$CTDB_MNT"
         chkconfig ctdb off
         remove_fstab_entry $CTDB_MNT
-        remove_ctdb_options
-        sighup_samba
 fi
