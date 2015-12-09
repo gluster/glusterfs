@@ -4282,7 +4282,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         _fd = pfd->fd;
 
         /* Get the total size */
-        dict = get_new_dict ();
+        dict = dict_new ();
         if (!dict) {
                 goto out;
         }
@@ -4447,7 +4447,6 @@ done:
         if (dict) {
                 dict_del (dict, GFID_XATTR_KEY);
                 dict_del (dict, GF_XATTR_VOL_ID_KEY);
-                dict_ref (dict);
         }
 
 out:
