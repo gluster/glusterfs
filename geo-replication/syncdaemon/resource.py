@@ -717,8 +717,14 @@ class Server(object):
                 st = lstat(entry)
                 if isinstance(st, int):
                     if e['stat'] and not stat.S_ISDIR(e['stat']['mode']):
-                        (pg, bname) = entry2pb(en)
-                        blob = entry_pack_reg_stat(gfid, bname, e['stat'])
+                        if stat.S_ISLNK(e['stat']['mode']) and \
+                           e['link'] is not None:
+                            (pg, bname) = entry2pb(en)
+                            blob = entry_pack_symlink(gfid, bname,
+                                                      e['link'], e['stat'])
+                        else:
+                            (pg, bname) = entry2pb(en)
+                            blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
                     cmd_ret = errno_wrap(os.rename,
                                          [entry, en],
