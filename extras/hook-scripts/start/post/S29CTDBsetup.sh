@@ -6,7 +6,6 @@
 #   restarts smb service.
 # - P.S: There are other 'tasks' that need to be done outside this script
 #   to get CTDB based failover up and running.
-SMB_CONF=/etc/samba/smb.conf
 
 CTDB_MNT=/gluster/lock
 PING_TIMEOUT_SECS=10
@@ -45,16 +44,6 @@ function parse_args () {
         done
 }
 
-function add_glusterfs_ctdb_options () {
-        PAT="Share Definitions"
-        GLUSTER_CTDB_CONFIG="# ctdb config for glusterfs\n\tclustering = yes\n\tidmap backend = tdb2\n"
-        exists=`grep "clustering = yes" "$SMB_CONF"`
-        if [ "$exists" == "" ]
-        then
-            sed -i /"$PAT"/i\ "$GLUSTER_CTDB_CONFIG" "$SMB_CONF"
-        fi
-}
-
 function add_fstab_entry () {
         volname=$1
         mntpt=$2
@@ -71,9 +60,6 @@ function add_fstab_entry () {
 parse_args $@
 if [ "$META" = "$VOL" ]
 then
-        # expects ctdb service to manage smb
-        service smb stop
-        add_glusterfs_ctdb_options
         mkdir -p $CTDB_MNT
         sleep 5
         # Make sure ping-timeout is not default for CTDB volume
