@@ -55,6 +55,10 @@ glfsh_print_heal_op_status (int ret, uint64_t num_entries,
                             gf_xl_afr_op_t heal_op)
 {
 
+        if (ret == -ENOTCONN && num_entries == 0) {
+                printf ("Status: %s\n", strerror (-ret));
+                return;
+        }
         if (ret < 0) {
                 printf ("Failed to process entries completely. "
                          "Number of entries so far: %"PRIu64"\n", num_entries);
@@ -442,12 +446,10 @@ glfsh_print_pending_heals_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc
         ret = glfsh_get_index_dir_loc (rootloc, xl, &dirloc, &op_errno,
                                        vgfid);
         if (ret < 0) {
-                if (op_errno == ESTALE || op_errno == ENOENT) {
+                if (op_errno == ESTALE || op_errno == ENOENT)
                         ret = 0;
-                } else {
-                        printf ("Status: %s\n", strerror (op_errno));
+                else
                         ret = -op_errno;
-                }
                 goto out;
         }
 
@@ -466,7 +468,8 @@ out:
 
 void
 glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
-                           xlator_t *xl, gf_xl_afr_op_t heal_op)
+                           xlator_t *xl, gf_xl_afr_op_t heal_op, gf_boolean_t
+                           is_parent_replicate)
 {
         int ret = 0;
         uint64_t count = 0, total = 0;
@@ -493,7 +496,7 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (ret == -ENOTCONN)
                 goto out;
 
-        if (!strcmp (xl->type, "cluster/replicate")) {
+        if (is_parent_replicate) {
                 ret = glfsh_print_pending_heals_type (fs, top_subvol,
                                                       rootloc, xl,
                                                       heal_op, xattr_req,
@@ -587,7 +590,10 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                 THIS = heal_xl;
                                 glfsh_print_pending_heals (fs, top_subvol,
                                                            rootloc, xl,
-                                                           heal_op);
+                                                           heal_op,
+                                                           !strcmp
+                                                           (heal_xl->type,
+                                                           "cluster/replicate"));
                                 THIS = old_THIS;
                                 printf ("\n");
                         }
@@ -705,8 +711,13 @@ glfsh_heal_from_brick_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 
         ret = glfsh_get_index_dir_loc (rootloc, client, &dirloc,
                                        &op_errno, vgfid);
-        if (ret < 0)
+        if (ret < 0) {
+                if (op_errno == ESTALE || op_errno == ENOENT)
+                        ret = 0;
+                else
+                        ret = -op_errno;
                 goto out;
+        }
 
         ret = syncop_dirfd (client, &dirloc, &fd,
                             GF_CLIENT_PID_GLFS_HEAL);
@@ -759,6 +770,9 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                   &count);
                 total += count;
                 count = 0;
+                if (ret == -ENOTCONN)
+                        goto out;
+
                 ret = glfsh_heal_from_brick_type (fs, top_subvol, rootloc,
                                                   hostname, brickpath,
                                                   client, xattr_req,
