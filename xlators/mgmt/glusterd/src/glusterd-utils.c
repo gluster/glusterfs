@@ -627,7 +627,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->brick_count = volinfo->brick_count;
         new_volinfo->tier_info = volinfo->tier_info;
         new_volinfo->quota_conf_version = volinfo->quota_conf_version;
-        new_volinfo->quota_version = volinfo->quota_version;
+        new_volinfo->quota_xattr_version = volinfo->quota_xattr_version;
         new_volinfo->snap_max_hard_limit = volinfo->snap_max_hard_limit;
 
         dict_copy (volinfo->dict, new_volinfo->dict);
