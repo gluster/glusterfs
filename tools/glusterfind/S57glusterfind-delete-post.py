@@ -40,7 +40,12 @@ def main():
 
     # Check all session directories, if any directory found for
     # the deleted volume, cleanup all the session directories
-    for session in os.listdir(glusterfind_dir):
+    try:
+        ls_glusterfind_dir = os.listdir(glusterfind_dir)
+    except OSError:
+        ls_glusterfind_dir = []
+
+    for session in ls_glusterfind_dir:
         # Possible session directory
         volume_session_path = os.path.join(glusterfind_dir,
                                            session,
