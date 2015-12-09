@@ -537,6 +537,7 @@ out:
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
+
         if (ctx)
                 glusterd_destroy_probe_ctx (ctx);
         free (rsp.hostname);//malloced by xdr
@@ -1672,6 +1673,9 @@ glusterd_rpc_friend_update (call_frame_t *frame, xlator_t *this,
 out:
         GF_FREE (req.friends.friends_val);
 
+        if (ret && dummy_frame)
+                STACK_DESTROY (dummy_frame->root);
+
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
@@ -1707,6 +1711,9 @@ glusterd_cluster_lock (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        if (ret && dummy_frame)
+                STACK_DESTROY (dummy_frame->root);
         return ret;
 }
 
@@ -1893,6 +1900,10 @@ glusterd_cluster_unlock (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
         gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d", ret);
+
+        if (ret && dummy_frame)
+                STACK_DESTROY (dummy_frame->root);
+
         return ret;
 }
 

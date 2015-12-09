@@ -331,6 +331,9 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
 out:
         rcu_read_unlock ();
 
+        if (ret && frame)
+                STACK_DESTROY (frame->root);
+
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
@@ -412,6 +415,9 @@ out:
                 dict_unref (dict);
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
+        if (ret && frame)
+                STACK_DESTROY (frame->root);
+
         return ret;
 }
 
@@ -489,6 +495,9 @@ out:
         rcu_read_unlock ();
 
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
+
+        if (ret && frame)
+                STACK_DESTROY (frame->root);
 
         return ret;
 }
