@@ -884,10 +884,16 @@ class GMasterChangelogMixin(GMasterCommon):
                     if isinstance(st, int):
                         st = {}
 
+                    rl = None
+                    if st and stat.S_ISLNK(st.st_mode):
+                        rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
+                        if isinstance(rl, int):
+                            rl = None
+
                     entry_update()
                     e1 = unescape(os.path.join(pfx, ec[self.POS_ENTRY1 - 1]))
                     entries.append(edct(ty, gfid=gfid, entry=e1, entry1=en,
-                                        stat=st))
+                                        stat=st, link=rl))
                 else:
                     # stat() to get mode and other information
                     go = os.path.join(pfx, gfid)
