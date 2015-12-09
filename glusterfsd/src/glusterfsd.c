@@ -2196,14 +2196,12 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
 
         ret = glusterfs_graph_prepare (graph, ctx);
         if (ret) {
-                glusterfs_graph_destroy (graph);
                 goto out;
         }
 
         ret = glusterfs_graph_activate (graph, ctx);
 
         if (ret) {
-                glusterfs_graph_destroy (graph);
                 goto out;
         }
 
@@ -2215,6 +2213,7 @@ out:
                 fclose (fp);
 
         if (ret && !ctx->active) {
+                glusterfs_graph_destroy (graph);
                 /* there is some error in setting up the first graph itself */
                 cleanup_and_exit (0);
         }

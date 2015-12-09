@@ -215,6 +215,8 @@ out:
         iobref_unref (iobref);
         iobuf_unref (iobuf);
 
+        if (ret && frame)
+                STACK_DESTROY (frame->root);
         return ret;
 }
 
@@ -411,6 +413,7 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_lock_req);
 out:
+        GF_FREE (req.dict.dict_val);
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
@@ -510,6 +513,7 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_unlock_req);
 out:
+        GF_FREE (req.dict.dict_val);
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }

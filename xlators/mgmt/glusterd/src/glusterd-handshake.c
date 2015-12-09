@@ -2201,5 +2201,8 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
 unlock:
         rcu_read_unlock ();
 out:
+        if (ret && frame)
+                STACK_DESTROY (frame->root);
+
         return ret;
 }

@@ -4001,7 +4001,6 @@ glusterd_store_retrieve_peers (xlator_t *this)
         struct dirent            *entry              = NULL;
         char                      path[PATH_MAX]     = {0,};
         glusterd_peerinfo_t      *peerinfo           = NULL;
-        char                     *hostname           = NULL;
         gf_store_handle_t        *shandle            = NULL;
         char                      filepath[PATH_MAX] = {0,};
         gf_store_iter_t          *iter               = NULL;
@@ -4084,7 +4083,6 @@ glusterd_store_retrieve_peers (xlator_t *this)
                                                       &op_errno);
                 }
                 if (op_errno != GD_STORE_EOF) {
-                        GF_FREE(hostname);
                         goto out;
                 }
 
