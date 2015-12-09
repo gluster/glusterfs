@@ -210,7 +210,6 @@ function is_bad_test ()
               ./tests/basic/afr/split-brain-healing.t \
               ./tests/basic/afr/sparse-file-self-heal.t \
               ./tests/basic/afr/replace-brick-self-heal.t \
-              ./tests/bugs/tier/bug-1279376-rename-demoted-file.t \
               ./tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t \
               ./tests/basic/afr/arbiter-statfs.t \
               ./tests/features/weighted-rebalance.t \
