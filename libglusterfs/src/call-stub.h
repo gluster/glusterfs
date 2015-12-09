@@ -760,4 +760,11 @@ fop_seek_cbk_stub (call_frame_t *frame, fop_seek_cbk_t fn,
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);
 void call_unwind_error (call_stub_t *stub, int op_ret, int op_errno);
+
+/*
+ * Sometimes we might want to call just this, perhaps repeatedly, without
+ * having (or being able) to destroy and recreate it.
+ */
+void call_resume_wind (call_stub_t *stub);
+
 #endif
