@@ -1017,7 +1017,7 @@ posix_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
-        ret = lseek (pfd->fd, offset, whence);
+        ret = sys_lseek (pfd->fd, offset, whence);
         if (ret == -1) {
                 err = errno;
                 gf_msg (this->name, GF_LOG_ERROR, err, P_MSG_SEEK_FAILED,
