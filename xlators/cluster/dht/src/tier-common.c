@@ -17,6 +17,267 @@
 #include "tier.h"
 
 int
+tier_create_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
+                                     xlator_t *this, int op_ret, int op_errno,
+                                     struct iatt *preparent,
+                                     struct iatt *postparent, dict_t *xdata)
+{
+
+        dht_local_t     *local = NULL;
+
+        local = frame->local;
+
+        if (local->params) {
+                dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
+        }
+
+        DHT_STACK_UNWIND (create, frame, -1, local->op_errno,
+                          NULL, NULL, NULL, NULL, NULL, NULL);
+
+        return 0;
+}
+
+int
+tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int op_ret, int op_errno,
+                 fd_t *fd, inode_t *inode, struct iatt *stbuf,
+                 struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+{
+        call_frame_t *prev           = NULL;
+        int           ret            = -1;
+        dht_local_t  *local          = NULL;
+        xlator_t     *hashed_subvol  = NULL;
+        dht_conf_t   *conf           = NULL;
+
+        local = frame->local;
+        conf  = this->private;
+
+        hashed_subvol = TIER_HASHED_SUBVOL;
+
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (op_ret == -1) {
+                if (local->linked == _gf_true) {
+                        local->op_errno = op_errno;
+                        local->op_ret = op_ret;
+                        ret = dht_fill_dict_to_avoid_unlink_of_migrating_file
+                              (local->params);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "Failed to set dictionary value to "
+                                        "unlink of migrating file");
+                                goto out;
+                        }
+
+                        STACK_WIND (frame,
+                                    tier_create_unlink_stale_linkto_cbk,
+                                    hashed_subvol,
+                                    hashed_subvol->fops->unlink,
+                                    &local->loc, 0, local->params);
+                        return 0;
+                }
+                goto out;
+        }
+
+        prev = cookie;
+
+        if (local->loc.parent) {
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           preparent, 0);
+
+                dht_inode_ctx_time_update (local->loc.parent, this,
+                                           postparent, 1);
+        }
+
+        ret = dht_layout_preset (this, prev->this, inode);
+        if (ret != 0) {
+                gf_msg_debug (this->name, 0,
+                              "could not set preset layout for subvol %s",
+                              prev->this->name);
+                op_ret   = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        local->op_errno = op_errno;
+
+        if (local->linked == _gf_true) {
+                local->stbuf = *stbuf;
+                dht_linkfile_attr_heal (frame, this);
+        }
+out:
+        if (local->params) {
+                dict_del (local->params, TIER_LINKFILE_GFID);
+        }
+
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
+
+        DHT_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode,
+                          stbuf, preparent, postparent, xdata);
+
+        return 0;
+}
+
+int
+tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
+                                xlator_t *this,
+                                int32_t op_ret, int32_t op_errno,
+                                inode_t *inode, struct iatt *stbuf,
+                                struct iatt *preparent, struct iatt *postparent,
+                                dict_t *xdata)
+{
+        dht_local_t     *local             = NULL;
+        xlator_t        *cached_subvol     = NULL;
+        dht_conf_t      *conf              = NULL;
+        int              ret               = -1;
+
+        local = frame->local;
+        if (!local) {
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        if (op_ret == -1) {
+                local->op_errno = op_errno;
+                goto err;
+        }
+
+        conf = this->private;
+        if (!conf) {
+                local->op_errno = EINVAL;
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        cached_subvol = TIER_UNHASHED_SUBVOL;
+
+        if (local->params) {
+                dict_del (local->params, conf->link_xattr_name);
+                dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
+                ret = dict_set_static_bin (local->params, TIER_LINKFILE_GFID,
+                                           stbuf->ia_gfid, 16);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value"
+                                " : key = %s", TIER_LINKFILE_GFID);
+                }
+
+        }
+
+        STACK_WIND (frame, tier_create_cbk,
+                    cached_subvol, cached_subvol->fops->create,
+                    &local->loc, local->flags, local->mode,
+                    local->umask, local->fd, local->params);
+
+        return 0;
+err:
+        DHT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL, NULL, NULL);
+        return 0;
+}
+
+gf_boolean_t
+tier_is_hot_tier_decommissioned (xlator_t *this)
+{
+        dht_conf_t              *conf        = NULL;
+        xlator_t                *hot_tier    = NULL;
+        int                      i           = 0;
+
+        conf = this->private;
+        hot_tier = conf->subvolumes[1];
+
+        if (conf->decommission_subvols_cnt) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->decommissioned_bricks[i] &&
+                                conf->decommissioned_bricks[i] == hot_tier)
+                                return _gf_true;
+                }
+        }
+
+        return _gf_false;
+}
+
+int
+tier_create (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, int32_t flags, mode_t mode,
+            mode_t umask, fd_t *fd, dict_t *params)
+{
+        int                     op_errno            = -1;
+        dht_local_t             *local              = NULL;
+        dht_conf_t              *conf               = NULL;
+        xlator_t                *hot_subvol         = NULL;
+        xlator_t                *cold_subvol        = NULL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        conf = this->private;
+
+        dht_get_du_info (frame, this, loc);
+
+        local = dht_local_init (frame, loc, fd, GF_FOP_CREATE);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+
+        cold_subvol = TIER_HASHED_SUBVOL;
+        hot_subvol = TIER_UNHASHED_SUBVOL;
+
+        if (conf->subvolumes[0] != cold_subvol) {
+                hot_subvol = conf->subvolumes[0];
+        }
+        /*
+         * if hot tier full, write to cold.
+         * Also if hot tier is full, create in cold
+         */
+        if (dht_is_subvol_filled (this, hot_subvol) ||
+            tier_is_hot_tier_decommissioned (this)) {
+                gf_msg_debug (this->name, 0,
+                              "creating %s on %s", loc->path,
+                              cold_subvol->name);
+
+                STACK_WIND (frame, tier_create_cbk,
+                            cold_subvol, cold_subvol->fops->create,
+                            loc, flags, mode, umask, fd, params);
+        } else {
+                local->params = dict_ref (params);
+                local->flags = flags;
+                local->mode = mode;
+                local->umask = umask;
+                local->cached_subvol = hot_subvol;
+                local->hashed_subvol = cold_subvol;
+
+                gf_msg_debug (this->name, 0,
+                              "creating %s on %s (link at %s)", loc->path,
+                              hot_subvol->name, cold_subvol->name);
+
+                dht_linkfile_create (frame, tier_create_linkfile_create_cbk,
+                                     this, hot_subvol, cold_subvol, loc);
+
+                goto out;
+        }
+out:
+        return 0;
+
+err:
+
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL, NULL, NULL);
+
+        return 0;
+}
+
+int
 tier_unlink_nonhashed_linkfile_cbk (call_frame_t *frame, void *cookie,
                                     xlator_t *this, int op_ret, int op_errno,
                                     struct iatt *preparent,

@@ -1664,6 +1664,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         ssize_t                xattr_size         = -1;
         int32_t                is_dht_linkto_file = 0;
         dict_t                *unwind_dict        = NULL;
+        void                  *uuid               = NULL;
+        char                   uuid_str[GF_UUID_BUF_SIZE] = {0};
+        char                   gfid_str[GF_UUID_BUF_SIZE] = {0};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1689,6 +1692,20 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         }
 
         priv = this->private;
+
+        op_ret = dict_get_ptr (xdata, TIER_LINKFILE_GFID, &uuid);
+
+        if (!op_ret && gf_uuid_compare (uuid, stbuf.ia_gfid)) {
+                op_errno = ENOENT;
+                op_ret = -1;
+                gf_uuid_unparse (uuid, uuid_str);
+                gf_uuid_unparse (stbuf.ia_gfid, gfid_str);
+                gf_msg_debug (this->name, op_errno, "Mismatch in gfid for path "
+                              "%s. Aborting the unlink. loc->gfid = %s, "
+                              "stbuf->ia_gfid = %s", real_path,
+                              uuid_str, gfid_str);
+                goto out;
+        }
 
         op_ret = dict_get_int32 (xdata, DHT_SKIP_OPEN_FD_UNLINK,
                                  &check_open_fd);

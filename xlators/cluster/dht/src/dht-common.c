@@ -6038,82 +6038,6 @@ err:
         return 0;
 }
 
-gf_boolean_t
-dht_is_hot_tier_decommissioned (xlator_t *this)
-{
-        dht_conf_t              *conf        = NULL;
-        xlator_t                *hot_tier    = NULL;
-        int                      i           = 0;
-
-        conf = this->private;
-        hot_tier = conf->subvolumes[1];
-
-        if (conf->decommission_subvols_cnt) {
-                for (i = 0; i < conf->subvolume_cnt; i++) {
-                        if (conf->decommissioned_bricks[i] &&
-                                conf->decommissioned_bricks[i] == hot_tier)
-                                return _gf_true;
-                }
-        }
-
-        return _gf_false;
-}
-
-int
-dht_create_tier_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
-                                      xlator_t *subvol, loc_t *loc, int32_t flags,
-                                      mode_t mode, mode_t umask, fd_t *fd,
-                                      dict_t *params)
-{
-        xlator_t                *hot_subvol  = NULL;
-        xlator_t                *cold_subvol = NULL;
-        dht_conf_t              *conf        = NULL;
-        dht_local_t             *local       = NULL;
-
-        local = frame->local;
-
-        conf = this->private;
-
-        cold_subvol = subvol;
-        hot_subvol = conf->subvolumes[1];
-        if (conf->subvolumes[0] != cold_subvol) {
-                hot_subvol = conf->subvolumes[0];
-        }
-        /*
-         * if hot tier full, write to cold.
-         * Also if hot tier is full, create in cold
-         */
-        if (dht_is_subvol_filled (this, hot_subvol) ||
-            dht_is_hot_tier_decommissioned (this)) {
-                gf_msg_debug (this->name, 0,
-                              "creating %s on %s", loc->path,
-                              cold_subvol->name);
-
-                STACK_WIND (frame, dht_create_cbk,
-                            cold_subvol, cold_subvol->fops->create,
-                            loc, flags, mode, umask, fd, params);
-        } else {
-                local->params = dict_ref (params);
-                local->flags = flags;
-                local->mode = mode;
-                local->umask = umask;
-                local->cached_subvol = hot_subvol;
-                local->hashed_subvol = cold_subvol;
-
-                gf_msg_debug (this->name, 0,
-                              "creating %s on %s (link at %s)", loc->path,
-                              hot_subvol->name, cold_subvol->name);
-
-                dht_linkfile_create (frame, dht_create_linkfile_create_cbk,
-                                     this, hot_subvol, cold_subvol, loc);
-
-                goto out;
-        }
-out:
-        return 0;
-}
-
-
 int
 dht_create_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
                                  xlator_t *subvol, loc_t *loc, int32_t flags,
@@ -6124,11 +6048,6 @@ dht_create_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
         xlator_t        *avail_subvol   = NULL;
 
         local = frame->local;
-
-        if (strcmp (this->type, "cluster/tier") == 0)
-                return dht_create_tier_wind_to_avail_subvol(frame, this, subvol,
-                                                            loc, flags, mode,
-                                                            umask, fd, params);
 
         if (!dht_is_subvol_filled (this, subvol)) {
                 gf_msg_debug (this->name, 0,
