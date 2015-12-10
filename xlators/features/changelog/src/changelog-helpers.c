@@ -476,10 +476,6 @@ changelog_rollover_changelog (xlator_t *this,
 
         if (!ret && (cl_empty_flag == 0)) {
                         notify = 1;
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_RENAME_ERROR,
-                        "error renaming %s -> %s",
-                        ofile, nfile);
         }
 
         if (!ret) {
