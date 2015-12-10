@@ -2020,7 +2020,7 @@ class_methods_t class_methods = {
 struct xlator_fops fops = {
 
         .lookup      = dht_lookup,
-        .create      = dht_create,
+        .create      = tier_create,
         .mknod       = dht_mknod,
 
         .open        = dht_open,
