@@ -5,6 +5,7 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup;
+EXIT_EARLY=1
 TEST glusterd
 
 #Create brick partitions
@@ -12,11 +13,14 @@ TEST truncate -s 1G $B0/brick1
 TEST truncate -s 1G $B0/brick2
 #Arbiter brick is of a lesser size.
 TEST truncate -s 90M $B0/brick3
-TEST LO1=`SETUP_LOOP $B0/brick1`
+LO1=`SETUP_LOOP $B0/brick1`
+TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO1
-TEST LO2=`SETUP_LOOP $B0/brick2`
+LO2=`SETUP_LOOP $B0/brick2`
+TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO2
-TEST LO3=`SETUP_LOOP $B0/brick3`
+LO3=`SETUP_LOOP $B0/brick3`
+TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO3
 TEST mkdir -p $B0/${V0}1 $B0/${V0}2 $B0/${V0}3
 TEST MOUNT_LOOP $LO1 $B0/${V0}1

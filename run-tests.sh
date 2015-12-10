@@ -211,7 +211,6 @@ function is_bad_test ()
               ./tests/basic/afr/sparse-file-self-heal.t \
               ./tests/basic/afr/replace-brick-self-heal.t \
               ./tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t \
-              ./tests/basic/afr/arbiter-statfs.t \
               ./tests/features/weighted-rebalance.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
