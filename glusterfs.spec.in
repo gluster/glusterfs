@@ -1140,6 +1140,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/nsrc.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/nsr.so
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
 %endif
