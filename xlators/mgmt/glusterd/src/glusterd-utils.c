@@ -8186,6 +8186,10 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                                 if (ret)
                                         goto out;
                         }
+                } else {
+                        /* Ignore the error as still the aggregation applies in
+                         * case its a task sub command */
+                        ret = 0;
                 }
         }
 
