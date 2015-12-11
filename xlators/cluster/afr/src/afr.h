@@ -98,6 +98,7 @@ typedef struct _afr_private {
 
         unsigned char *child_up;
         int64_t *child_latency;
+        gf_boolean_t pgfid_self_heal;
         unsigned char *local;
 
         char **pending_key;

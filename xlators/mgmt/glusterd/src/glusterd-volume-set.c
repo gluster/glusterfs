@@ -1313,6 +1313,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_12,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "cluster.pgfid-self-heal",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .description = "Use PGFID attribute if available to remediate "
+                         "failed heals."
+        },
 
         /* stripe xlator options */
         { .key         = "cluster.stripe-block-size",

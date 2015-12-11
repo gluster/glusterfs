@@ -1310,7 +1310,6 @@ afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
                         }
                 }
         }
-
         if (ret < 0) {
                 status = "Failed";
                 loglevel = GF_LOG_DEBUG;
@@ -2193,6 +2192,9 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
         char *ancestry_path = "Unknown";
         char *pgfid_str = NULL;
         char *gfid_str = NULL;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
  
 heal_gfid:
  	frame = afr_frame_create (this);
@@ -2205,8 +2207,9 @@ heal_gfid:
 
         ret = afr_selfheal_do (frame, this, gfid);
 
-        if (tried_parent == _gf_false && ret &&
-                        !gf_uuid_is_null (local->heal_pgfid)) {
+        if (priv->pgfid_self_heal == _gf_true &&
+            tried_parent == _gf_false && (ret != 0 || ret != 2) &&
+            !gf_uuid_is_null (local->heal_pgfid)) {
                 tried_parent = _gf_true;
                 pgfid_str = alloca (strlen (UUID0_STR) + 1);
                 gfid_str = alloca (strlen (UUID0_STR) + 1);

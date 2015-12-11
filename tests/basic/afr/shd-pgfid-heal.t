@@ -17,6 +17,7 @@ TEST $CLI volume set $V0 nfs.disable on
 TEST $CLI volume set $V0 cluster.quorum-type none
 #EST $CLI volume set $V0 cluster.favorite-child-by-majority on
 #EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
+TEST $CLI volume set $V0 cluster.pgfid-self-heal on
 TEST $CLI volume set $V0 cluster.favorite-child-policy majority
 TEST $CLI volume set $V0 storage.build-pgfid on
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
@@ -31,12 +32,14 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 \
 cd $M0
 mkdir -p a/b/c
 dd if=/dev/urandom of=a/b/c/testfile bs=128k count=5 2>/dev/null
-MD5=$(md5sum a/b/c/testfile | cut -d\  -f1)
 
 # Kill the SHD while we setup the test
 pkill -f gluster/glustershd
 # Kill the brick as well such that 
 TEST kill_brick $V0 $H0 $B0/${V0}1
+
+echo stuff >> $M0/a/b/c/testfile
+MD5=$(md5sum a/b/c/testfile | cut -d\  -f1)
 
 # Grab the GFID of the file and parent dir
 GFID_PARENT_B_RAW=$(getfattr -n trusted.gfid -e hex $B0/${V0}1/a/b 2>/dev/null | grep trusted.gfid | cut -d= -f2)
@@ -66,9 +69,6 @@ rmdir $B0/${V0}1/a/b/c
 rm -f $GFID_PARENT_C_LINK_B1
 rmdir $B0/${V0}1/a/b
 rm -f $GFID_PARENT_B_LINK_B1
-
-# Now manually queue up the parent directory for healing
-touch $B0/${V0}3/.glusterfs/indices/xattrop/$GFID_FORMATTED
 
 # Kick off the SHD and wait 30 seconds for healing to take place
 TEST gluster vol start patchy force
