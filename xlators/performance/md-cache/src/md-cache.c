@@ -16,6 +16,8 @@
 #include "md-cache-mem-types.h"
 #include "compat-errno.h"
 #include "glusterfs-acl.h"
+#include "defaults.h"
+#include "upcall-utils.h"
 #include <assert.h>
 #include <sys/time.h>
 #include "md-cache-messages.h"
@@ -34,6 +36,9 @@ struct mdc_conf {
 	gf_boolean_t force_readdirp;
         gf_boolean_t cache_swift_metadata;
         gf_boolean_t cache_samba_metadata;
+        gf_boolean_t mdc_invalidation;
+        time_t last_child_down;
+        gf_lock_t lock;
 };
 
 
@@ -312,20 +317,58 @@ unlock:
 }
 
 
+/* Cache is valid if:
+ * - It is not cached before any brick was down. Brick down case is handled by
+ *   invalidating all the cache when any brick went down.
+ * - The cache time is not expired
+ */
+static gf_boolean_t
+__is_cache_valid (xlator_t *this, time_t mdc_time)
+{
+        time_t           now             = 0;
+        gf_boolean_t     ret             = _gf_true;
+        struct mdc_conf *conf            = NULL;
+        int              timeout         = 0;
+        time_t           last_child_down = 0;
+
+        conf = this->private;
+
+        /* conf->lock here is not taken deliberately, so that the multi
+         * threaded IO doesn't contend on a global lock. While updating
+         * the variable, the lock is taken, so that atleast the writes are
+         * intact. The read of last_child_down may return junk, but that
+         * is for a very short period of time.
+         */
+        last_child_down = conf->last_child_down;
+        timeout = conf->timeout;
+
+        time (&now);
+
+        if ((mdc_time == 0) ||
+            ((last_child_down != 0) && (mdc_time < last_child_down))) {
+                ret = _gf_false;
+                goto out;
+        }
+
+        if (now >= (mdc_time + timeout)) {
+                ret = _gf_false;
+        }
+
+out:
+        return ret;
+}
+
+
 static gf_boolean_t
 is_md_cache_iatt_valid (xlator_t *this, struct md_cache *mdc)
 {
-	struct mdc_conf *conf = NULL;
-	time_t           now = 0;
         gf_boolean_t     ret = _gf_true;
-	conf = this->private;
-
-	time (&now);
 
         LOCK (&mdc->lock);
         {
-                if (now >= (mdc->ia_time + conf->timeout))
-                        ret = _gf_false;
+                ret = __is_cache_valid (this, mdc->ia_time);
+                if (ret == _gf_false)
+                        mdc->ia_time = 0;
         }
         UNLOCK (&mdc->lock);
 
@@ -336,18 +379,13 @@ is_md_cache_iatt_valid (xlator_t *this, struct md_cache *mdc)
 static gf_boolean_t
 is_md_cache_xatt_valid (xlator_t *this, struct md_cache *mdc)
 {
-	struct mdc_conf *conf = NULL;
-	time_t           now = 0;
         gf_boolean_t     ret = _gf_true;
-
-	conf = this->private;
-
-	time (&now);
 
         LOCK (&mdc->lock);
         {
-                if (now >= (mdc->xa_time + conf->timeout))
-                        ret = _gf_false;
+                ret = __is_cache_valid (this, mdc->xa_time);
+                if (ret == _gf_false)
+                        mdc->xa_time = 0;
         }
         UNLOCK (&mdc->lock);
 
@@ -397,17 +435,46 @@ int
 mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
 			    struct iatt *iatt)
 {
-        int              ret = -1;
+        int              ret = 0;
         struct md_cache *mdc = NULL;
 
         mdc = mdc_inode_prep (this, inode);
-        if (!mdc)
+        if (!mdc) {
+                ret = -1;
                 goto out;
+        }
 
         LOCK (&mdc->lock);
         {
                 if (!iatt || !iatt->ia_ctime) {
                         mdc->ia_time = 0;
+                        goto unlock;
+                }
+
+                /* There could be a race in invalidation, where the
+                 * invalidations in order A, B reaches md-cache in the order
+                 * B, A. Hence, make sure the invalidation A is discarded if
+                 * it comes after B. ctime of a file is always in ascending
+                 * order unlike atime and mtime(which can be changed by user
+                 * to any date), also ctime gets updates when atime/mtime
+                 * changes, hence check for ctime only.
+                 */
+                if (mdc->md_ctime > iatt->ia_ctime) {
+                        gf_msg_callingfn (this->name, GF_LOG_DEBUG, EINVAL,
+                                          MD_CACHE_MSG_DISCARD_UPDATE,
+                                          "discarding the iatt validate "
+                                          "request");
+                        ret = -1;
+                        goto unlock;
+
+                }
+                if ((mdc->md_ctime == iatt->ia_ctime) &&
+                    (mdc->md_ctime_nsec > iatt->ia_ctime_nsec)) {
+                        gf_msg_callingfn (this->name, GF_LOG_DEBUG, EINVAL,
+                                          MD_CACHE_MSG_DISCARD_UPDATE,
+                                          "discarding the iatt validate "
+                                          "request(ctime_nsec)");
+                        ret = -1;
                         goto unlock;
                 }
 
@@ -434,7 +501,7 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
         }
 unlock:
         UNLOCK (&mdc->lock);
-        ret = 0;
+
 out:
         return ret;
 }
@@ -2284,15 +2351,81 @@ mdc_key_load_set (struct mdc_key *keys, char *pattern, gf_boolean_t val)
 	return 0;
 }
 
+struct set {
+       inode_t *inode;
+       xlator_t *this;
+};
+
+static int
+mdc_inval_xatt (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        struct set *tmp1 = NULL;
+        int         ret  = 0;
+
+        tmp1 = (struct set *)tmp;
+        ret = mdc_inode_xatt_unset (tmp1->this, tmp1->inode, k);
+        return ret;
+}
+
+static int
+mdc_invalidate (xlator_t *this, void *data)
+{
+        struct gf_upcall                    *up_data    = NULL;
+        struct gf_upcall_cache_invalidation *up_ci      = NULL;
+        inode_t                             *inode      = NULL;
+        int                                  ret        = 0;
+        struct set                           tmp        = {0, };
+        inode_table_t                       *itable     = NULL;
+
+        up_data = (struct gf_upcall *)data;
+
+        if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
+                goto out;
+
+        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
+
+        itable = ((xlator_t *)this->graph->top)->itable;
+        inode = inode_find (itable, up_data->gfid);
+        if (!inode) {
+                ret = -1;
+                goto out;
+        }
+
+        if (up_ci->flags & IATT_UPDATE_FLAGS) {
+                ret = mdc_inode_iatt_set_validate (this, inode, NULL,
+                                                   &up_ci->stat);
+                /* one of the scenarios where ret < 0 is when this invalidate
+                 * is older than the current stat, in that case do not
+                 * update the xattrs as well
+                 */
+                if (ret < 0)
+                        goto out;
+        }
+        if (up_ci->flags & UP_XATTR) {
+                ret = mdc_inode_xatt_update (this, inode, up_ci->dict);
+        } else if (up_ci->flags & UP_XATTR_RM) {
+                tmp.inode = inode;
+                tmp.this = this;
+                ret = dict_foreach (up_ci->dict, mdc_inval_xatt, &tmp);
+        }
+
+out:
+        if (inode)
+                inode_unref (inode);
+
+        return ret;
+}
+
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
+        int    timeout = 0;
 
 	conf = this->private;
 
-	GF_OPTION_RECONF ("md-cache-timeout", conf->timeout, options, int32, out);
+	GF_OPTION_RECONF ("md-cache-timeout", timeout, options, int32, out);
 
 	GF_OPTION_RECONF ("cache-selinux", conf->cache_selinux, options, bool, out);
 	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
@@ -2314,7 +2447,19 @@ reconfigure (xlator_t *this, dict_t *options)
                           conf->cache_samba_metadata);
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
+        GF_OPTION_RECONF("cache-invalidation", conf->mdc_invalidation, options,
+                         bool, out);
 
+        /* If timeout is greater than 60s (default before the patch that added
+         * cache invalidation support was added) then, cache invalidation
+         * feature for md-cache needs to be enabled, if not set timeout to the
+         * previous max which is 60s
+         */
+        if ((timeout > 60) && (!conf->mdc_invalidation)) {
+                        conf->timeout = 60;
+                        goto out;
+        }
+        conf->timeout = timeout;
 out:
 	return 0;
 }
@@ -2332,6 +2477,7 @@ int
 init (xlator_t *this)
 {
 	struct mdc_conf *conf = NULL;
+        int    timeout = 0;
 
 	conf = GF_CALLOC (sizeof (*conf), 1, gf_mdc_mt_mdc_conf_t);
 	if (!conf) {
@@ -2340,7 +2486,7 @@ init (xlator_t *this)
 		return -1;
 	}
 
-        GF_OPTION_INIT ("md-cache-timeout", conf->timeout, int32, out);
+        GF_OPTION_INIT ("md-cache-timeout", timeout, int32, out);
 
 	GF_OPTION_INIT ("cache-selinux", conf->cache_selinux, bool, out);
 	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
@@ -2362,10 +2508,72 @@ init (xlator_t *this)
                           conf->cache_samba_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
+        GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
+
+        LOCK_INIT (&conf->lock);
+        time (&conf->last_child_down);
+
+        /* If timeout is greater than 60s (default before the patch that added
+         * cache invalidation support was added) then, cache invalidation
+         * feature for md-cache needs to be enabled, if not set timeout to the
+         * previous max which is 60s
+         */
+        if ((timeout > 60) && (!conf->mdc_invalidation)) {
+                        conf->timeout = 60;
+                        goto out;
+        }
+        conf->timeout = timeout;
+
 out:
 	this->private = conf;
 
         return 0;
+}
+
+
+void
+mdc_update_child_down_time (xlator_t *this, time_t *now)
+{
+        struct mdc_conf *conf = NULL;
+
+        conf = this->private;
+
+        LOCK (&conf->lock);
+        {
+                conf->last_child_down = *now;
+        }
+        UNLOCK (&conf->lock);
+}
+
+
+int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        int ret = 0;
+        struct mdc_conf *conf = NULL;
+        time_t           now = 0;
+
+        conf = this->private;
+        switch (event) {
+        case GF_EVENT_CHILD_DOWN:
+        case GF_EVENT_SOME_CHILD_DOWN:
+        case GF_EVENT_CHILD_MODIFIED:
+                time (&now);
+                mdc_update_child_down_time (this, &now);
+                ret = default_notify (this, event, data);
+                break;
+        case GF_EVENT_UPCALL:
+                if (conf->mdc_invalidation)
+                        ret = mdc_invalidate (this, data);
+                        if (default_notify (this, event, data) != 0)
+                                ret = -1;
+                break;
+        default:
+                ret = default_notify (this, event, data);
+                break;
+        }
+
+        return ret;
 }
 
 
@@ -2437,7 +2645,7 @@ struct volume_options options[] = {
         { .key = {"md-cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
-          .max = 60,
+          .max = 600,
           .default_value = "1",
           .description = "Time period after which cache has to be refreshed",
         },
@@ -2447,5 +2655,11 @@ struct volume_options options[] = {
 	  .description = "Convert all readdir requests to readdirplus to "
 			 "collect stat info on each entry.",
 	},
+        { .key = {"cache-invalidation"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "When \"on\", invalidates/updates the metadata cache "
+                         "on receiving of the cache-invalidation notifications",
+        },
     { .key = {NULL} },
 };

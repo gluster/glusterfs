@@ -1967,6 +1967,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "features.cache-invalidation",
+          .voltype    = "performance/md-cache",
+          .option     = "cache-invalidation",
+          .op_version = GD_OP_VERSION_3_9_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
 	/* Feature translators */
         { .key         = "features.uss",
