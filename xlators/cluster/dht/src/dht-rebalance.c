@@ -1580,9 +1580,9 @@ out:
 
         /* reset the destination back to 0 */
         if (clean_dst) {
-                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                lk_ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
+                if (lk_ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, -lk_ret,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed: "
                                 "%s: failed to reset target size back to 0",
