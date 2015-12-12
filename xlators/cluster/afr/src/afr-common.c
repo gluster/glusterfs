@@ -637,6 +637,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
+                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE))
+                        continue;
 		if (data_accused[i])
 			continue;
 		if (replies[i].poststat.ia_size > maxsize)
@@ -697,6 +699,12 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			metadata_readable[i] = 0;
 			continue;
 		}
+
+                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE)) {
+			data_readable[i] = 0;
+			metadata_readable[i] = 0;
+			continue;
+                }
 
 		afr_accused_fill (this, replies[i].xdata, data_accused,
 				  (replies[i].poststat.ia_type == IA_IFDIR) ?
@@ -856,7 +864,8 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->replies[call_child].poststat = *buf;
 		if (par)
                         local->replies[call_child].postparent = *par;
-		local->replies[call_child].xdata = dict_ref (xdata);
+                if (xdata)
+		        local->replies[call_child].xdata = dict_ref (xdata);
 	}
         if (xdata) {
                 ret = dict_get_int8 (xdata, "link-count", &need_heal);

@@ -2765,6 +2765,62 @@ br_stub_lookup (call_frame_t *frame,
 
 /** {{{ */
 
+/* fstat() */
+int br_stub_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                       dict_t *xdata)
+{
+
+        int              ret    = 0;
+        br_stub_local_t *local  = NULL;
+        inode_t         *inode  = NULL;
+
+        local = frame->local;
+        frame->local = NULL;
+        inode = local->u.context.inode;
+
+        ret = br_stub_mark_xdata_bad_object (this, inode, xdata);
+        if (ret) {
+                op_ret = -1;
+                op_errno = EIO;
+        }
+
+        br_stub_cleanup_local(local);
+        br_stub_dealloc_local(local);
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf, xdata);
+        return 0;
+}
+
+int
+br_stub_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        br_stub_local_t *local    = NULL;
+        int32_t          op_ret   = -1;
+        int32_t          op_errno = EINVAL;
+
+        local = br_stub_alloc_local (this);
+        if (!local) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        br_stub_fill_local (local, NULL, fd, fd->inode, fd->inode->gfid,
+                            BR_STUB_NO_VERSIONING, 0);
+        frame->local = local;
+
+        STACK_WIND (frame, br_stub_fstat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
+        return 0;
+unwind:
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, NULL, NULL);
+        return 0;
+}
+
+/** }}} */
+
+/** {{{ */
+
 /* forget() */
 
 int
@@ -3039,6 +3095,7 @@ unblock:
 
 struct xlator_fops fops = {
         .lookup    = br_stub_lookup,
+        .fstat     = br_stub_fstat,
         .open      = br_stub_open,
         .create    = br_stub_create,
         .readdirp  = br_stub_readdirp,
