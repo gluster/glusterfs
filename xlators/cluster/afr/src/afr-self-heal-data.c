@@ -372,7 +372,7 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	afr_private_t *priv = NULL;
 	off_t off = 0;
-	size_t block = 128 * 1024;
+	size_t block = 0;
 	int type = AFR_SELFHEAL_DATA_FULL;
 	int ret = -1;
 	call_frame_t *iter_frame = NULL;
@@ -383,6 +383,8 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 arbiter_sink_status = healed_sinks[ARBITER_BRICK_INDEX];
                 healed_sinks[ARBITER_BRICK_INDEX] = 0;
         }
+
+        block = 128 * 1024 * priv->data_self_heal_window_size;
 
         type = afr_data_self_heal_type_get (priv, healed_sinks, source,
                                             replies);
