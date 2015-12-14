@@ -777,7 +777,21 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
 
         nfs3_fh_build_child_fh (dirfh, &entry->d_stat, &newfh);
         nfs3_map_deviceid_to_statdev (&entry->d_stat, devid);
-        ent->name_attributes = nfs3_stat_to_post_op_attr (&entry->d_stat);
+        /* *
+         * In tier volume, the readdirp send only to cold subvol
+         * which will populate in the 'T' file entries in the result.
+         * For such files an explicit stat call is required, by setting
+         * following argument client will perform the same.
+         *
+         * The inode value for 'T' files and directory is NULL, so just
+         * skip the check if it is directory.
+         */
+        if (!(IA_ISDIR(entry->d_stat.ia_type)) && (entry->inode == NULL))
+                ent->name_attributes.attributes_follow = FALSE;
+        else
+                ent->name_attributes =
+                        nfs3_stat_to_post_op_attr (&entry->d_stat);
+
         ent->name_handle = nfs3_fh_to_post_op_fh3 (&newfh);
 err:
         return ent;
