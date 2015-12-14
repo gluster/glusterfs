@@ -626,7 +626,7 @@ up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* invalidate parent's entry too */
         flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 stbuf, postparent, NULL);
+                                 postparent, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
@@ -687,7 +687,7 @@ up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* However invalidate parent's entry */
         flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 stbuf, postparent, NULL);
+                                 postparent, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (create, frame, op_ret, op_errno, fd,
@@ -1030,7 +1030,7 @@ up_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* invalidate parent's entry too */
         flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 buf, postparent, NULL);
+                                 postparent, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, buf,
@@ -1090,7 +1090,7 @@ up_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* invalidate parent's entry too */
         flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
-                                 buf, postparent, NULL);
+                                 postparent, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (symlink, frame, op_ret, op_errno, inode, buf,
