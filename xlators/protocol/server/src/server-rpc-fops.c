@@ -1772,8 +1772,12 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.statpre, statpre);
-        gf_stat_from_iatt (&rsp.statpost, statpost);
+        if (statpre) {
+                gf_stat_from_iatt (&rsp.statpre, statpre);
+        }
+        if (statpost) {
+                gf_stat_from_iatt (&rsp.statpost, statpost);
+        }
 
 out:
         rsp.op_ret    = op_ret;
