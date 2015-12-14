@@ -29,12 +29,15 @@
 : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 
-if [ -n "$OCF_DEBUG_LIBRARY" ]; then
-    . $OCF_DEBUG_LIBRARY
+if [ -n "${OCF_DEBUG_LIBRARY}" ]; then
+    . ${OCF_DEBUG_LIBRARY}
 else
     : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
+
+OCF_RESKEY_ha_vol_mnt_default="/var/run/gluster/shared_storage"
+: ${OCF_RESKEY_ha_vol_mnt=${OCF_RESKEY_ha_vol_mnt_default}}
 
 ganesha_meta_data() {
         cat <<END
@@ -59,16 +62,16 @@ resource agent for nfs-ganesha.
 </parameters>
 
 <actions>
-<action name="start"   timeout="40s" />
-<action name="stop"    timeout="40s" />
-<action name="status" depth="0"  timeout="20s" interval="1m" />
-<action name="monitor" depth="0"  timeout="10s" interval="1m" />
+<action name="start"   timeout="5s" />
+<action name="stop"    timeout="5s" />
+<action name="status" depth="0"  timeout="5s" interval="0" />
+<action name="monitor" depth="0"  timeout="5s" interval="0" />
 <action name="meta-data"  timeout="20s" />
 </actions>
 </resource-agent>
 END
 
-return $OCF_SUCCESS
+return ${OCF_SUCCESS}
 }
 
 ganesha_nfsd_usage() {
@@ -78,10 +81,10 @@ ganesha_nfsd_usage() {
 # Make sure meta-data and usage always succeed
 case $__OCF_ACTION in
 	meta-data)	ganesha_meta_data
-			exit $OCF_SUCCESS
+			exit ${OCF_SUCCESS}
 			;;
 	usage|help)	ganesha_usage
-			exit $OCF_SUCCESS
+			exit ${OCF_SUCCESS}
 			;;
 	*)
 			;;
@@ -89,58 +92,60 @@ esac
 
 ganesha_nfsd_start()
 {
-	return $OCF_SUCCESS
+	local long_host=$(hostname)
+
+	if [[ -d /var/lib/nfs ]]; then
+		mv /var/lib/nfs /var/lib/nfs.backup
+		if [ $? -ne 0 ]; then
+			ocf_log notice "mv /var/lib/nfs /var/lib/nfs.backup failed"
+		fi
+		ln -s ${OCF_RESKEY_ha_vol_mnt}/nfs-ganesha/${long_host}/nfs /var/lib/nfs
+		if [ $? -ne 0 ]; then
+			ocf_log notice "ln -s ${OCF_RESKEY_ha_vol_mnt}/nfs-ganesha/${long_host}/nfs /var/lib/nfs failed"
+		fi
+	fi
+
+	return ${OCF_SUCCESS}
 }
 
 ganesha_nfsd_stop()
 {
-	local short_host=$(hostname -s)
-	local long_host=""
 
-	if [ "X${OCF_RESOURCE_INSTANCE:0:9}X" = "Xnfs_startX" ]; then
-
-		# if this is any nfs_start, go ahead. worst case we
-		# find the link already exists and do nothing
-		long_host=$(hostname)
-
-		if [ -d /var/lib/nfs ]; then
-			mv /var/lib/nfs /var/lib/nfs.backup
-			ln -s $OCF_RESKEY_ha_vol_mnt/nfs-ganesha/${long_host}/nfs /var/lib/nfs
-			if [ $? -ne 0 ]; then
-				logger "warning: ln -s $OCF_RESKEY_ha_vol_mnt/nfs-ganesha/${long_host}/nfs /var/lib/nfs failed"
-			fi
-
+	if [ -L /var/lib/nfs -a -d /var/lib/nfs.backup ]; then
+		rm -f /var/lib/nfs
+		if [ $? -ne 0 ]; then
+			ocf_log notice "rm -f /var/lib/nfs failed"
 		fi
-	else
-
-		# if this is a clone resource or is specific to this node
-		# remove the symlink and restore /var/lib/nfs
-
-		if [ "X${OCF_RESOURCE_INSTANCE}X" = "Xnfs_stopX" ] ||
-		   [ "X${OCF_RESOURCE_INSTANCE}X" = "Xnfs_stop-${short_host}X" ]; then
-			if [ -L /var/lib/nfs -a -d /var/lib/nfs.backup ]; then
-				rm -f /var/lib/nfs
-				mv /var/lib/nfs.backup /var/lib/nfs
-			fi
+		mv /var/lib/nfs.backup /var/lib/nfs
+		if [ $? -ne 0 ]; then
+			ocf_log notice "mv /var/lib/nfs.backup /var/lib/nfs failed"
 		fi
 	fi
 
-	return $OCF_SUCCESS
+	return ${OCF_SUCCESS}
 }
 
 ganesha_nfsd_monitor()
 {
-	return $OCF_SUCCESS
+	# pacemaker checks to see if RA is already running before starting it.
+	# if we return success, then it's presumed it's already running and
+	# doesn't need to be started, i.e. invoke the start action.
+	# return something other than success to make pacemaker invoke the
+	# start action
+	if [[ -L /var/lib/nfs ]]; then
+		return ${OCF_SUCCESS}
+	fi
+	return ${OCF_NOT_RUNNING}
 }
 
 ganesha_nfsd_validate()
 {
-	return $OCF_SUCCESS
+	return ${OCF_SUCCESS}
 }
 
 ganesha_nfsd_validate
 
-# logger "ganesha_nfsd ${OCF_RESOURCE_INSTANCE} $__OCF_ACTION"
+# ocf_log notice "ganesha_nfsd ${OCF_RESOURCE_INSTANCE} $__OCF_ACTION"
 
 # Translate each action into the appropriate function call
 case $__OCF_ACTION in
@@ -151,13 +156,13 @@ stop)           ganesha_nfsd_stop
 status|monitor) ganesha_nfsd_monitor
 		;;
 *)              ganesha_nfsd_usage
-                exit $OCF_ERR_UNIMPLEMENTED
+                exit ${OCF_ERR_UNIMPLEMENTED}
                 ;;
 esac
 
 rc=$?
 
 # The resource agent may optionally log a debug message
-ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION returned $rc"
+ocf_log debug "${OCF_RESOURCE_INSTANCE} ${__OCF_ACTION} returned $rc"
 exit $rc
 
