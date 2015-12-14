@@ -43,7 +43,7 @@
 #define UP_RENAME_FLAGS         (UP_RENAME)
 
 /* to invalidate parent directory entries for fops -rename, unlink,
- * rmdir, mkdir, create */
+ * rmdir, link */
 #define UP_PARENT_DENTRY_FLAGS  (UP_PARENT_TIMES)
 
 /* for fop - unlink, link, rmdir, mkdir */
