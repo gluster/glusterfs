@@ -36,6 +36,9 @@ else
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
+OCF_RESKEY_grace_active_default="grace-active"
+: ${OCF_RESKEY_grace_active=${OCF_RESKEY_grace_active_default}}
+
 ganesha_meta_data() {
         cat <<END
 <?xml version="1.0"?>
@@ -51,19 +54,25 @@ resource agent for nfs-ganesha.
 <shortdesc lang="en">Manages the user-space nfs-ganesha NFS server</shortdesc>
 
 <parameters>
+<parameter name="grace_active">
+<longdesc lang="en">NFS-Ganesha grace active attribute</longdesc>
+<shortdesc lang="en">NFS-Ganesha grace active attribute</shortdesc>
+<content type="string" default="grace-active" />
+</parameter>
 </parameters>
 
 <actions>
 <action name="start"   timeout="40s" />
 <action name="stop"    timeout="40s" />
-<action name="status" depth="0"  timeout="20s" interval="5s" />
-<action name="monitor" depth="0"  timeout="20s" interval="5s" />
+<action name="status"  timeout="20s" interval="60s" />
+<action name="monitor" depth="0" timeout="10s" interval="5s" />
+<action name="notify"  timeout="10s" />
 <action name="meta-data"  timeout="20s" />
 </actions>
 </resource-agent>
 END
 
-return $OCF_SUCCESS
+return ${OCF_SUCCESS}
 }
 
 ganesha_grace_usage() {
@@ -73,10 +82,10 @@ ganesha_grace_usage() {
 # Make sure meta-data and usage always succeed
 case $__OCF_ACTION in
 	meta-data)	ganesha_meta_data
-			exit $OCF_SUCCESS
+			exit ${OCF_SUCCESS}
 			;;
 	usage|help)	ganesha_usage
-			exit $OCF_SUCCESS
+			exit ${OCF_SUCCESS}
 			;;
 	*)
 			;;
@@ -84,80 +93,88 @@ esac
 
 ganesha_grace_start()
 {
-	local result=""
-	local resourcename=""
-	local deadserver=""
-	local tmpIFS=${IFS}
-	local pid_file="/var/run/ganesha.nfsd.pid"
+        rc=${OCF_ERR_GENERIC}
+	ocf_log debug "ganesha_grace_start()"
+	attr=$(attrd_updater -Q -n ${OCF_RESKEY_grace_active})
 
-	# RHEL6 /etc/init.d/nfs-ganesha adds "-p /var/run/ganesha.nfsd.pid"
-	# RHEL7 systemd does not. Would be nicer if all distros used the
-	# same pid file.
-	if [ -e /usr/lib/systemd/system/nfs-ganesha.service ]; then
-		pid_file="/var/run/ganesha.pid"
+	# Three possibilities:
+	# 1. There is no attribute at all and attr_updater returns
+	#    a zero length string. This happens when
+	#    ganesha_mon::monitor hasn't run at least once to set
+	#    the attribute. The assumption here is that the system
+	#    is coming up. We pretend, for now, that the node is
+	#    healthy, to allow the system to continue coming up.
+	#    It will cure itself in a few seconds
+	# 2. There is an attribute, and it has the value "1"; this
+	#    node is healthy.
+	# 3. There is an attribute, but it has no value or the value
+	#    "0"; this node is not healthy.
+
+	# case 1
+	if [[ -z "${attr}" ]]; then
+		return ${OCF_SUCCESS}
 	fi
 
-	# logger "ganesha_grace_start()"
-	# we're here because somewhere in the cluster one or more
-	# of the ganesha.nfsds have died, triggering a floating IP
-	# address to move. Resource constraint location rules ensure
-	# that this is invoked before the floating IP is moved.
-	if [ -e ${pid_file} -a \
-	     -d /proc/$(cat ${pid_file} ) ]; then
-		# my ganesha.nfsd is still running
-		# find out which one died?
-
-		pcs status | grep dead_ip-1 | sort > /tmp/.pcs_status
-
-		result=$(diff /var/run/ganesha/pcs_status /tmp/.pcs_status | grep '^>')
-		if [[ ${result} ]]; then
-			# logger "ganesha_grace_start(), ${result}"
-			IFS=$'\n'
-			for line in ${result}; do
-				resourcename=$(echo ${line} | cut -f 1 | cut -d ' ' -f 3)
-				deadserver=${resourcename%"-dead_ip-1"}
-
-				if [[ ${deadserver} ]]; then
-					# logger "ganesha_grace_start(), ${line}"
-					# logger "ganesha_grace_start(), dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${deadserver}"
-					dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${deadserver}
-					if [ $? -ne 0 ]; then
-						logger "warning: dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${deadserver} failed"
-					fi
-				fi
-			done
-			IFS=${tmpIFS}
-		fi
-
+	# case 2
+	if [[ "${attr}" = *"value=\"1\"" ]]; then
+		return ${OCF_SUCCESS}
 	fi
-	return $OCF_SUCCESS
+
+	# case 3
+	return ${OCF_NOT_RUNNING}
 }
 
 ganesha_grace_stop()
 {
 
-	# logger "ganesha_grace_stop()"
-	return $OCF_SUCCESS
+	ocf_log debug "ganesha_grace_stop()"
+	return ${OCF_SUCCESS}
+}
+
+ganesha_grace_notify()
+{
+	mode="${OCF_RESKEY_CRM_meta_notify_type}-${OCF_RESKEY_CRM_meta_notify_operation}"
+	case "$mode" in
+	post-stop)
+		ocf_log debug "stop_uname:${OCF_RESKEY_CRM_meta_notify_stop_uname}"
+		dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname}
+		if [ $? -ne 0 ]; then
+			ocf_log info "dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname} failed"
+		fi
+		;;
+	esac
+
+	return ${OCF_SUCCESS}
 }
 
 ganesha_grace_monitor()
 {
-	# logger "ganesha_grace_monitor()"
-	if [ ! -d /var/run/ganesha ]; then
-		mkdir -p /var/run/ganesha
+        rc=${OCF_ERR_GENERIC}
+	ocf_log debug "monitor"
+
+	attr=$(attrd_updater -Q -n ${OCF_RESKEY_grace_active})
+
+	# if there is no attribute (yet), maybe it's because
+	# this RA started before ganesha_mon (nfs-mon) has had
+	# chance to create it. In which case we'll pretend
+	# everything is okay this time around
+	if [[ -z "${attr}" ]]; then
+		return ${OCF_SUCCESS}
 	fi
-	pcs status | grep dead_ip-1 | sort > /var/run/ganesha/pcs_status
-	return $OCF_SUCCESS
+
+	if [[ "${attr}" = *"value=\"1\"" ]]; then
+		rc=${OCF_SUCCESS}
+	fi
+
+	return ${rc}
 }
 
 ganesha_grace_validate()
 {
-	return $OCF_SUCCESS
+	return ${OCF_SUCCESS}
 }
 
 ganesha_grace_validate
-
-# logger "ganesha_grace ${OCF_RESOURCE_INSTANCE} $__OCF_ACTION"
 
 # Translate each action into the appropriate function call
 case $__OCF_ACTION in
@@ -167,14 +184,16 @@ stop)           ganesha_grace_stop
 		;;
 status|monitor) ganesha_grace_monitor
 		;;
+notify)         ganesha_grace_notify
+		;;
 *)              ganesha_grace_usage
-                exit $OCF_ERR_UNIMPLEMENTED
+                exit ${OCF_ERR_UNIMPLEMENTED}
                 ;;
 esac
 
 rc=$?
 
 # The resource agent may optionally log a debug message
-ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION returned $rc"
+ocf_log debug "${OCF_RESOURCE_INSTANCE} ${__OCF_ACTION} returned $rc"
 exit $rc
 
