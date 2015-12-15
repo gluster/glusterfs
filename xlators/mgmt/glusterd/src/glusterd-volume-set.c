@@ -176,6 +176,7 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
         if (ret) {
                 snprintf (errstr, sizeof (errstr), "%s is not a compatible "
                           "value. %s expects an integer value.", value, key);
+                ret = -1;
                 goto out;
         }
 
@@ -183,6 +184,7 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
                 snprintf (errstr, sizeof (errstr), "%s is not a "
                           "compatible value. %s expects a positive"
                           "integer value.", value, key);
+                ret = -1;
                 goto out;
         }
 
