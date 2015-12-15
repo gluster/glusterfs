@@ -416,9 +416,13 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         source_is_empty = afr_selfheal_name_source_empty_check (this, replies,
                                                                 sources,
                                                                 source);
-	if (source_is_empty)
-		return __afr_selfheal_name_expunge (this, parent, pargfid,
+	if (source_is_empty) {
+		ret = __afr_selfheal_name_expunge (this, parent, pargfid,
 						    bname, inode, replies);
+                if (ret == -EIO)
+                        ret = -1;
+                return ret;
+        }
 
         ret = afr_selfheal_name_type_mismatch_check (this, replies, source,
                                                      sources, pargfid, bname);
@@ -452,9 +456,13 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
                         return -1;
         }
 
-	return __afr_selfheal_name_impunge (frame, this, parent, pargfid,
-                                            bname, inode,
-                                            replies, gfid_idx);
+	ret = __afr_selfheal_name_impunge (frame, this, parent, pargfid,
+                                           bname, inode,
+                                           replies, gfid_idx);
+        if (ret == -EIO)
+                ret = -1;
+
+        return ret;
 }
 
 
