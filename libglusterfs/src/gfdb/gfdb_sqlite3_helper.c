@@ -319,7 +319,6 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
                    char                 *basename,
-                   char                 *basepath,
                    gf_boolean_t         link_consistency,
                    gf_boolean_t         ignore_errors)
 {
@@ -329,16 +328,15 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
 
         sprintf (insert_str, "INSERT INTO "
                            GF_FILE_LINK_TABLE
-                           " (GF_ID, GF_PID, FNAME, FPATH,"
+                           " (GF_ID, GF_PID, FNAME,"
                            " W_DEL_FLAG, LINK_UPDATE) "
-                           " VALUES (?, ?, ?, ?, 0, %d);",
+                           " VALUES (?, ?, ?, 0, %d);",
                            link_consistency);
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, gfid, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, pargfid, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, basename, out);
-        GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, basepath, out);
 
         /*Prepare statement*/
         ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, insert_str, -1,
@@ -387,26 +385,14 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                 goto out;
         }
 
-        /*Bind basepath*/
-        ret = sqlite3_bind_text (insert_stmt, 4, basepath, -1, NULL);
-        if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED,
-                        "Failed binding basepath %s : "
-                        "%s", basepath,
-                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
-                ret = -1;
-                goto out;
-        }
-
         /*Execute the prepare statement*/
         if (sqlite3_step (insert_stmt) != SQLITE_DONE) {
                 gf_msg (GFDB_STR_SQLITE3,
                         _gfdb_log_level (GF_LOG_ERROR, ignore_errors),
                         0, LG_MSG_EXEC_FAILED,
                         "Failed executing the prepared "
-                        "stmt %s %s %s %s %s : %s",
-                        gfid, pargfid, basename, basepath, insert_str,
+                        "stmt %s %s %s %s : %s",
+                        gfid, pargfid, basename, insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -425,7 +411,6 @@ gf_sql_update_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
                    char                 *basename,
-                   char                 *basepath,
                    char                 *old_pargfid,
                    char                 *old_basename,
                    gf_boolean_t         link_consistency,
@@ -437,16 +422,15 @@ gf_sql_update_link (gf_sql_connection_t  *sql_conn,
 
         sprintf (insert_str, "INSERT INTO "
                             GF_FILE_LINK_TABLE
-                            " (GF_ID, GF_PID, FNAME, FPATH,"
+                            " (GF_ID, GF_PID, FNAME,"
                             " W_DEL_FLAG, LINK_UPDATE) "
-                            " VALUES (? , ?, ?, ?, 0, %d);",
+                            " VALUES (? , ?, ?, 0, %d);",
                             link_consistency);
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, gfid, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, pargfid, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, basename, out);
-        GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, basepath, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, old_pargfid, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, old_basename, out);
 
@@ -508,17 +492,6 @@ gf_sql_update_link (gf_sql_connection_t  *sql_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_BINDING_FAILED, "Failed binding basename %s : "
                         "%s", basename,
-                        sqlite3_errmsg (sql_conn->sqlite3_db_conn));
-                ret = -1;
-                goto out;
-        }
-
-        /*Bind new basepath*/
-        ret = sqlite3_bind_text (insert_stmt, 4, basepath, -1, NULL);
-        if (ret != SQLITE_OK) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_BINDING_FAILED, "Failed binding basename %s : "
-                        "%s", basepath,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -805,7 +778,6 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                         ret = gf_sql_insert_link(sql_conn,
                                         gfid_str, pargfid_str,
                                         gfdb_db_record->file_name,
-                                        gfdb_db_record->file_path,
                                         gfdb_db_record->link_consistency,
                                         _gf_true);
                         if (ret) {
@@ -869,7 +841,6 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                 ret = gf_sql_update_link (sql_conn, gfid_str,
                                                 pargfid_str,
                                                 gfdb_db_record->file_name,
-                                                gfdb_db_record->file_path,
                                                 old_pargfid_str,
                                                 gfdb_db_record->old_file_name,
                                                 gfdb_db_record->
@@ -891,7 +862,6 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                 ret = gf_sql_insert_link (sql_conn,
                                                 gfid_str, pargfid_str,
                                                 gfdb_db_record->file_name,
-                                                gfdb_db_record->file_path,
                                                 gfdb_db_record->
                                                         link_consistency,
                                                 gfdb_db_record->ignore_errors);

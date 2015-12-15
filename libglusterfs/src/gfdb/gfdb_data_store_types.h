@@ -52,7 +52,6 @@ typedef enum gf_db_operation {
 #define GF_COL_GF_ID                    "GF_ID"
 #define GF_COL_GF_PID                   "GF_PID"
 #define GF_COL_FILE_NAME                "FNAME"
-#define GF_COL_FPATH                    "FPATH"
 #define GF_COL_WSEC                     "W_SEC"
 #define GF_COL_WMSEC                    "W_MSEC"
 #define GF_COL_UWSEC                    "UW_SEC"
@@ -276,11 +275,9 @@ typedef struct gfdb_db_record {
         /* Parent GFID */
         uuid_t                          pargfid;
         uuid_t                          old_pargfid;
-        /* File names and paths */
-        char                            file_name[GF_NAME_MAX];
-        char                            file_path[PATH_MAX];
-        char                            old_file_name[GF_NAME_MAX];
-        char                            old_path[PATH_MAX];
+        /* File names */
+        char                            file_name[GF_NAME_MAX + 1];
+        char                            old_file_name[GF_NAME_MAX + 1];
         /* FOP type and FOP path*/
         gfdb_fop_type_t                 gfdb_fop_type;
         gfdb_fop_path_t                 gfdb_fop_path;
@@ -489,9 +486,14 @@ typedef int (*gfdb_clear_files_heat_t)(void *db_conn);
 typedef int (*gfdb_get_db_version_t)(void *db_conn,
                                         char **version);
 
-typedef int (*gfdb_get_db_setting_t)(void *db_conn,
+typedef int (*gfdb_get_db_params_t)(void *db_conn,
                                 char *param_key,
                                 char **param_value);
+
+typedef int (*gfdb_set_db_params_t)(void *db_conn,
+                                char *param_key,
+                                char *param_value);
+
 
 
 /*Data structure holding all the above plugin function pointers*/
@@ -509,7 +511,8 @@ typedef struct gfdb_db_operations {
                                         find_recently_changed_files_freq_op;
         gfdb_clear_files_heat_t clear_files_heat_op;
         gfdb_get_db_version_t           get_db_version;
-        gfdb_get_db_setting_t           get_db_setting;
+        gfdb_get_db_params_t           get_db_params;
+        gfdb_set_db_params_t           set_db_params;
 } gfdb_db_operations_t;
 
 /*******************************************************************************

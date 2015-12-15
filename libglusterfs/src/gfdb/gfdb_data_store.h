@@ -278,7 +278,7 @@ char *(*get_db_path_key_t)();
 /*Libgfdb API Function: Clear the heat for all the files
  *
  * Arguments:
- *  _conn_node              : GFDB Connection node
+ *      _conn_node              : GFDB Connection node
  *
  * Returns : if successful return 0 or
  *          -ve value in case of failure
@@ -292,10 +292,10 @@ typedef int (*clear_files_heat_t) (gfdb_conn_node_t *_conn_node);
 
 /* Libgfdb API Function: Function to extract version of the db
  *  Arguments:
- * gfdb_conn_node_t *_conn_node        : GFDB Connection node
- * char **version  : the version is extracted as a string and will be stored in
- *                   this variable. The freeing of the memory should be done by
- *                   the caller.
+ *      gfdb_conn_node_t *_conn_node        : GFDB Connection node
+ *      char **version  : the version is extracted as a string
+ *                   and will be stored in this variable.
+ *                   The freeing of the memory should be done by the caller.
  * Return:
  *      On success return the length of the version string that is
  *      extracted.
@@ -308,26 +308,45 @@ typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node,
                                         char **version);
 
 
-/* Libgfdb API Function: Function to extract setting from the db
+/* Libgfdb API Function: Function to extract param from the db
  *  Arguments:
- * gfdb_conn_node_t *_conn_node        : GFDB Connection node
- * char *param_key     : setting to be extracted
- * char **param_value  : the value of the setting that is
+ *      gfdb_conn_node_t *_conn_node        : GFDB Connection node
+ *      char *param_key     : param to be extracted
+ *      char **param_value  : the value of the param that is
  *                       extracted. This function will allocate memory
  *                       to pragma_value. The caller should free the memory.
  * Return:
- *      On success return the lenght of the pragma/setting value that is
+ *      On success return the lenght of the param value that is
  *      extracted.
  *      On failure return -1
  * */
 int
-get_db_setting (gfdb_conn_node_t *_conn_node,
+get_db_params (gfdb_conn_node_t *_conn_node,
                 char *param_key,
                 char **param_value);
 
-typedef int (*get_db_setting_t)(gfdb_conn_node_t *db_conn,
+typedef int (*get_db_params_t)(gfdb_conn_node_t *db_conn,
                                      char *param_key,
                                      char **param_value);
+
+
+/* Libgfdb API Function: Function to set db params
+ * Arguments:
+ *      gfdb_conn_node_t *_conn_node        : GFDB Connection node
+ *      char *param_key     : param to be set
+ * char *param_value  : param value
+ * Return:
+ *      On success return 0
+ *      On failure return -1
+ * */
+int
+set_db_params (gfdb_conn_node_t *_conn_node,
+                char *param_key,
+                char *param_value);
+
+typedef int (*set_db_params_t)(gfdb_conn_node_t *db_conn,
+                                     char *param_key,
+                                     char *param_value);
 
 
 
@@ -340,7 +359,8 @@ typedef struct gfdb_methods_s {
         find_recently_changed_files_freq_t find_recently_changed_files_freq;
         clear_files_heat_t clear_files_heat;
         get_db_version_t get_db_version;
-        get_db_setting_t get_db_setting;
+        get_db_params_t get_db_params;
+        set_db_params_t set_db_params;
         /* Do not expose dbpath directly. Expose it via an */
         /* access function: get_db_path_key(). */
         char *dbpath;

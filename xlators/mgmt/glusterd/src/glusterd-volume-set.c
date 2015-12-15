@@ -77,15 +77,15 @@ validate_tier_counters (glusterd_volinfo_t      *volinfo,
         current_rt = get_tier_freq_threshold (volinfo,
                                                 "cluster.read-freq-threshold");
         if (current_rt == -1) {
-                snprintf (errstr, sizeof (errstr), " Failed to retrive value of"
-                        "cluster.read-freq-threshold");
+                snprintf (errstr, sizeof (errstr), " Failed to retrieve value"
+                        " of cluster.read-freq-threshold");
                 goto out;
         }
         current_wt = get_tier_freq_threshold (volinfo,
                                                 "cluster.write-freq-threshold");
         if (current_wt == -1) {
-                snprintf (errstr, sizeof (errstr), " Failed to retrive value of"
-                        "cluster.write-freq-threshold");
+                snprintf (errstr, sizeof (errstr), " Failed to retrieve value "
+                          "of cluster.write-freq-threshold");
                 goto out;
         }
         /* If record-counters is set to off */
@@ -132,6 +132,69 @@ out:
         return ret;
 
 }
+
+
+/*
+ * Validation function for ctr sql params
+ *      features.ctr-sql-db-cachesize           (Range: 1000 to 262144 pages)
+ *      features.ctr-sql-db-wal-autocheckpoint  (Range: 1000 to 262144 pages)
+ * */
+static int
+validate_ctr_sql_params (glusterd_volinfo_t      *volinfo,
+                        dict_t                  *dict,
+                        char                    *key,
+                        char                    *value,
+                        char                    **op_errstr)
+{
+        int ret                         = -1;
+        xlator_t        *this           = NULL;
+        char            errstr[2048]    = "";
+        int             origin_val      = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+
+        ret = gf_string2int (value, &origin_val);
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "%s is not a compatible "
+                          "value. %s expects an integer value.", value, key);
+                ret = -1;
+                goto out;
+        }
+
+        if (origin_val < 0) {
+                snprintf (errstr, sizeof (errstr), "%s is not a "
+                          "compatible value. %s expects a positive"
+                          "integer value.", value, key);
+                ret = -1;
+                goto out;
+        }
+
+        if (strstr (key, "sql-db-cachesize") ||
+                strstr (key, "sql-db-wal-autocheckpoint")) {
+                if ((origin_val < 1000) || (origin_val > 262144)) {
+                        snprintf (errstr, sizeof (errstr), "%s is not a "
+                                  "compatible value. %s "
+                                  "expects a value between : "
+                                  "1000 to 262144.",
+                                  value, key);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+
+        ret = 0;
+out:
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+        }
+        return ret;
+}
+
 
 /* Validation for tiering frequency thresholds
  * If any of the frequency thresholds are set to a non-zero value,
@@ -2443,6 +2506,34 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "Once the expiry period"
                          "hits an attempt to heal the database per "
                          "inode is done"
+        },
+        { .key         = "features.ctr-sql-db-cachesize",
+          .voltype     = "features/changetimerecorder",
+          .value       = "1000",
+          .option      = "sql-db-cachesize",
+          .validate_fn = validate_ctr_sql_params,
+          .op_version  = GD_OP_VERSION_3_7_7,
+          .description = "Defines the cache size of the sqlite database of "
+                         "changetimerecorder xlator."
+                         "The input to this option is in pages."
+                         "Each page is 4096 bytes. Default value is 1000 "
+                         "pages i.e ~ 4 MB. "
+                         "The max value is 262144 pages i.e 1 GB and "
+                         "the min value is 1000 pages i.e ~ 4 MB. "
+        },
+        { .key         = "features.ctr-sql-db-wal-autocheckpoint",
+          .voltype     = "features/changetimerecorder",
+          .value       = "1000",
+          .option      = "sql-db-wal-autocheckpoint",
+          .validate_fn = validate_ctr_sql_params,
+          .op_version  = GD_OP_VERSION_3_7_7,
+          .description = "Defines the autocheckpoint of the sqlite database of "
+                         " changetimerecorder. "
+                         "The input to this option is in pages. "
+                         "Each page is 4096 bytes. Default value is 1000 "
+                         "pages i.e ~ 4 MB."
+                         "The max value is 262144 pages i.e 1 GB and "
+                         "the min value is 1000 pages i.e ~4 MB."
         },
 #endif /* USE_GFDB */
         { .key         = "locks.trace",

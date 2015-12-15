@@ -107,7 +107,6 @@ ctr_lookup_wind(call_frame_t                    *frame,
                         goto out;
                 };
                 ctr_local = frame->local;
-                ctr_local->client_pid = frame->root->pid;
                 /*Definately no internal fops will reach here*/
                 ctr_local->is_internal_fop = _gf_false;
                 /*Dont record counters*/
@@ -129,8 +128,6 @@ ctr_lookup_wind(call_frame_t                    *frame,
                         *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
                 strcpy (CTR_DB_REC(ctr_local).file_name,
                         NEW_LINK_CX(ctr_inode_cx)->basename);
-                strcpy (CTR_DB_REC(ctr_local).file_path,
-                        NEW_LINK_CX(ctr_inode_cx)->basepath);
 
                 /* Since we are in lookup we can ignore errors while
                  * Inserting in the DB, because there may be many
@@ -334,8 +331,7 @@ ctr_lookup (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->parent->gfid, loc->name,
-                        loc->path, out);
+        FILL_CTR_LINK_CX(_link_cx, loc->parent->gfid, loc->name, out);
 
          /* Fill ctr inode context*/
          /* IA_IFREG : We assume its a file in the wind
@@ -902,12 +898,10 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
         /*Fill old link context*/
-        FILL_CTR_LINK_CX(_olink_cx, oldloc->pargfid, oldloc->name,
-                        oldloc->path, out);
+        FILL_CTR_LINK_CX(_olink_cx, oldloc->pargfid, oldloc->name, out);
 
         /*Fill new link context*/
-        FILL_CTR_LINK_CX(_nlink_cx, newloc->pargfid, newloc->name,
-                        newloc->path, out);
+        FILL_CTR_LINK_CX(_nlink_cx, newloc->pargfid, newloc->name, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
@@ -1077,7 +1071,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
         /*Fill link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path, out);
+        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -1394,7 +1388,7 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, loc->path, out);
+        FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT (_inode_cx, loc->inode->ia_type,
@@ -1485,7 +1479,7 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path, out);
+        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -1567,8 +1561,7 @@ ctr_link (call_frame_t *frame, xlator_t *this,
         GF_ASSERT(frame->root);
 
         /*fill ctr link context*/
-        FILL_CTR_LINK_CX(_link_cx, newloc->pargfid, newloc->name,
-                        newloc->path, out);
+        FILL_CTR_LINK_CX(_link_cx, newloc->pargfid, newloc->name, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
@@ -1881,7 +1874,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
                         goto out;
                 }
 
-                ret = get_db_setting (priv->_db_conn, db_param_key, &db_param);
+                ret = get_db_params (priv->_db_conn, db_param_key, &db_param);
                 if (ret == -1 || !db_param) {
                         goto out;
                 }
@@ -1955,7 +1948,6 @@ out:
 
 
 /******************************************************************************/
-
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -1966,7 +1958,7 @@ reconfigure (xlator_t *this, dict_t *options)
         priv = this->private;
         if (dict_get_str(options, "changetimerecorder.frequency",
                          &temp_str)) {
-                gf_msg(this->name, GF_LOG_INFO, 0, CTR_MSG_SET, "set!");
+                gf_msg(this->name, GF_LOG_INFO, 0, CTR_MSG_SET, "set");
         }
 
         GF_OPTION_RECONF ("ctr-enabled", priv->enabled, options,
@@ -1995,6 +1987,41 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("record-entry", priv->ctr_record_wind, options,
                           bool, out);
+
+
+
+
+        /* If database is sqlite */
+        if (priv->gfdb_db_type == GFDB_SQLITE3) {
+
+                /* AUTOCHECKPOINT */
+                if (dict_get_str (options, GFDB_SQL_PARAM_WAL_AUTOCHECK,
+                                &temp_str) == 0) {
+                        ret = set_db_params (priv->_db_conn,
+                                        "wal_autocheckpoint", temp_str);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CTR_MSG_SET_VALUE_TO_SQL_PARAM_FAILED,
+                                        "Failed  to set %s",
+                                        GFDB_SQL_PARAM_WAL_AUTOCHECK);
+                        }
+                }
+
+                /* CACHE_SIZE */
+                if (dict_get_str (options, GFDB_SQL_PARAM_CACHE_SIZE, &temp_str)
+                                == 0) {
+                        ret = set_db_params (priv->_db_conn, "cache_size",
+                                        temp_str);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CTR_MSG_SET_VALUE_TO_SQL_PARAM_FAILED,
+                                        "Failed  to set %s",
+                                        GFDB_SQL_PARAM_CACHE_SIZE);
+                        }
+                }
+        }
+
+        ret = 0;
 
 out:
 
