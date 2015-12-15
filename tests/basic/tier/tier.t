@@ -110,6 +110,9 @@ TEST $CLI volume set $V0 cluster.tier-max-mb 1000
 TEST $CLI volume set $V0 cluster.tier-max-files 1000
 TEST ! $CLI volume set $V0 cluster.tier-max-files -3
 TEST ! $CLI volume set $V0 cluster.watermark-low 90
+TEST ! $CLI volume set $V0 cluster.read-freq-threshold -12
+TEST ! $CLI volume set $V0 cluster.write-freq-threshold -12
+
 
 # stop the volume and restart it. The rebalance daemon should restart.
 cd /tmp
@@ -127,6 +130,7 @@ TEST ! $CLI volume set $V0 cluster.tier-promote-frequency -1
 
 #Tier options expect non-negative value
 TEST ! $CLI volume set $V0 cluster.read-freq-threshold qwerty
+
 
 TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
 TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
