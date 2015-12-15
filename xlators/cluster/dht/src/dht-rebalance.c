@@ -545,6 +545,8 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
 
 
         fd_bind (fd);
+        if (dst_fd)
+                *dst_fd = fd;
         /*Reason of doing lookup after create again:
          *In the create, there is some time-gap between opening fd at the
          *server (posix_layer) and binding it in server (incrementing fd count),
@@ -603,9 +605,6 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "chown failed for %s on %s (%s)",
                         loc->path, to->name, strerror (-ret));
-
-        if (dst_fd)
-                *dst_fd = fd;
 
         /* success */
         ret = 0;
@@ -881,6 +880,9 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
         }
 
         fd_bind (fd);
+        if (src_fd)
+                *src_fd = fd;
+
         ret = -1;
         dict = dict_new ();
         if (!dict)
@@ -925,9 +927,6 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                 ret = -1;
                 goto out;
         }
-
-        if (src_fd)
-                *src_fd = fd;
 
         /* success */
         ret = 0;
