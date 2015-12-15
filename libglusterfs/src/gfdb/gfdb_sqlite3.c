@@ -254,7 +254,9 @@ gf_sqlite3_fill_db_operations(gfdb_db_operations_t  *gfdb_db_ops)
 
         gfdb_db_ops->get_db_version = gf_sqlite3_version;
 
-        gfdb_db_ops->get_db_setting = gf_sqlite3_pragma;
+        gfdb_db_ops->get_db_params = gf_sqlite3_pragma;
+
+        gfdb_db_ops->set_db_params = gf_sqlite3_set_pragma;
 }
 
 
@@ -300,7 +302,7 @@ apply_sql_params_db(gf_sql_connection_t *sql_conn, dict_t *param_dict)
 {
         int ret = -1;
         char *temp_str = NULL;
-        char sqlite3_config_str[PATH_MAX] = "";
+        char sqlite3_config_str[GF_NAME_MAX] = "";
 
         GF_ASSERT(sql_conn);
         GF_ASSERT(param_dict);
@@ -525,15 +527,6 @@ int gf_sqlite3_insert(void *db_conn, gfdb_db_record_t *gfdb_db_record)
         CHECK_SQL_CONN(sql_conn, out);
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, gfdb_db_record, out);
 
-
-        /*This is for debugging bug. Will be removed with a bug fix*/
-        if ((GFDB_FOP_WIND == gfdb_db_record->gfdb_fop_path) &&
-            (strncmp (gfdb_db_record->file_path, "<gfid", 5) == 0)) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_SKIP_PATH,
-                        "Skip path <gfid fop=%d",
-                        gfdb_db_record->gfdb_fop_type);
-                goto out;
-        }
 
         switch (gfdb_db_record->gfdb_fop_path) {
         case GFDB_FOP_WIND:
@@ -1267,7 +1260,7 @@ out:
 
 
 
-/* Function to extract PRAGMA or setting from sqlite db
+/* Function to extract PRAGMA from sqlite db
  * Input:
  * void *db_conn        : Sqlite connection
  * char *pragma_key     : PRAGMA or setting to be extracted
@@ -1319,13 +1312,55 @@ gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value)
         ret = gf_asprintf (pragma_value, "%s", sqlite3_column_text (pre_stmt, 0));
         if (ret <= 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
-                        "Failed to get version");
+                        "Failed to get %s from db", pragma_key);
         }
 
+        ret = 0;
 out:
         GF_FREE (sqlstring);
 
         sqlite3_finalize (pre_stmt);
+
+        return ret;
+}
+
+/* Function to set PRAGMA to sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char *pragma_key     : PRAGMA to be set
+ * char *pragma_value   : the value of the PRAGMA
+ * Return:
+ *      On success return 0
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value)
+{
+        int ret = -1;
+        gf_sql_connection_t *sql_conn = db_conn;
+        char sqlstring[GF_NAME_MAX] = "";
+        char *db_pragma_value = NULL;
+
+        CHECK_SQL_CONN (sql_conn, out);
+        GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, pragma_key, out);
+        GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, pragma_value, out);
+
+        GF_SQLITE3_SET_PRAGMA(sqlstring, pragma_key, "%s",
+                              pragma_value, ret, out);
+
+        ret = gf_sqlite3_pragma (db_conn, pragma_key, &db_pragma_value);
+        if (ret < 0) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
+                        "Failed to get %s pragma", pragma_key);
+        } else {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_INFO, 0, 0,
+                        "Value set on DB %s : %s", pragma_key, db_pragma_value);
+        }
+        GF_FREE (db_pragma_value);
+
+        ret = 0;
+
+out:
 
         return ret;
 }

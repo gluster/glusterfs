@@ -47,7 +47,6 @@ do {\
                 "(GF_ID TEXT NOT NULL, "\
                 "GF_PID TEXT NOT NULL, "\
                 "FNAME TEXT NOT NULL, "\
-                "FPATH TEXT NOT NULL, "\
                 "W_DEL_FLAG INTEGER NOT NULL DEFAULT 0, "\
                 "LINK_UPDATE INTEGER NOT NULL DEFAULT 0, "\
                 "PRIMARY KEY ( GF_ID, GF_PID, FNAME) "\
@@ -142,7 +141,8 @@ do {\
 #define GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, param_key, format, value,\
                         ret, error)\
 do {\
-        sprintf(sqlite3_config_str, "PRAGMA " param_key " = " format , value);\
+        sprintf (sqlite3_config_str, "PRAGMA %s = " format ,  param_key,\
+                value);\
         ret = sqlite3_exec (sql_conn->sqlite3_db_conn, sqlite3_config_str,\
                 NULL, NULL, NULL);\
         if (ret != SQLITE_OK) {\
@@ -169,7 +169,7 @@ do {\
 #define GF_SQL_DEFAULT_CACHE_SIZE               "1000"
 #define GF_SQL_DEFAULT_WAL_AUTOCHECKPOINT       "1000"
 #define GF_SQL_DEFAULT_JOURNAL_MODE             GF_SQL_JM_WAL
-#define GF_SQL_DEFAULT_SYNC                     GF_SQL_SYNC_NORMAL
+#define GF_SQL_DEFAULT_SYNC                     GF_SQL_SYNC_OFF
 #define GF_SQL_DEFAULT_AUTO_VACUUM              GF_SQL_AV_NONE
 
 
@@ -306,6 +306,20 @@ int gf_sqlite3_version (void *db_conn, char **version);
  *      On failure return -1
  * */
 int gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value);
+
+/* Function to set PRAGMA to sqlite db
+ * Input:
+ * void *db_conn        : Sqlite connection
+ * char *pragma_key     : PRAGMA to be set
+ * char *pragma_value   : the value of the PRAGMA
+ * Return:
+ *      On success return 0
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value);
+
+
 
 void gf_sqlite3_fill_db_operations (gfdb_db_operations_t  *gfdb_db_ops);
 

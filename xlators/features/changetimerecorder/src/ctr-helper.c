@@ -138,8 +138,6 @@ fill_db_record_for_wind (xlator_t               *this,
                                 *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
                         strcpy (CTR_DB_REC(ctr_local).file_name,
                                 NEW_LINK_CX(ctr_inode_cx)->basename);
-                        strcpy (CTR_DB_REC(ctr_local).file_path,
-                                NEW_LINK_CX(ctr_inode_cx)->basepath);
                 }
                 /*rename fop*/
                 if (OLD_LINK_CX(ctr_inode_cx)) {
@@ -147,8 +145,6 @@ fill_db_record_for_wind (xlator_t               *this,
                                 *((OLD_LINK_CX(ctr_inode_cx))->pargfid));
                         strcpy (CTR_DB_REC(ctr_local).old_file_name,
                                 OLD_LINK_CX(ctr_inode_cx)->basename);
-                        strcpy (CTR_DB_REC(ctr_local).old_path,
-                                OLD_LINK_CX(ctr_inode_cx)->basepath);
                 }
         }
 

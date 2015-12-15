@@ -97,8 +97,8 @@ do {\
                 0, sizeof(gfdb_time_t));\
         gf_uuid_clear (ctr_local->gfdb_db_record.gfid);\
         gf_uuid_clear (ctr_local->gfdb_db_record.pargfid);\
-        memset(ctr_local->gfdb_db_record.file_name, 0, PATH_MAX);\
-        memset(ctr_local->gfdb_db_record.old_file_name, 0, PATH_MAX);\
+        memset(ctr_local->gfdb_db_record.file_name, 0, GF_NAME_MAX + 1);\
+        memset(ctr_local->gfdb_db_record.old_file_name, 0, GF_NAME_MAX + 1);\
         ctr_local->gfdb_db_record.gfdb_fop_type = GFDB_FOP_INVALID_OP;\
         ctr_local->ia_inode_type = IA_INVAL;\
 } while (0)
@@ -159,8 +159,6 @@ free_ctr_local (gf_ctr_local_t *ctr_local)
 typedef struct gf_ctr_link_context {
         uuid_t                  *pargfid;
         const char              *basename;
-        /*basepath is redundent. Will go off*/
-        const char              *basepath;
 } gf_ctr_link_context_t;
 
  /*Context Carrier Structure for inodes*/
@@ -187,21 +185,18 @@ do {\
                 if (ctr_link_cx->pargfid)\
                         GF_ASSERT (*(ctr_link_cx->pargfid));\
                 GF_ASSERT (ctr_link_cx->basename);\
-                GF_ASSERT (ctr_link_cx->basepath);\
         };\
 } while (0)
 
 /*Clear and fill the ctr_link_context with values*/
-#define FILL_CTR_LINK_CX(ctr_link_cx, _pargfid, _basename, _basepath, label)\
+#define FILL_CTR_LINK_CX(ctr_link_cx, _pargfid, _basename, label)\
 do {\
         GF_VALIDATE_OR_GOTO ("ctr", ctr_link_cx, label);\
         GF_VALIDATE_OR_GOTO ("ctr", _pargfid, label);\
         GF_VALIDATE_OR_GOTO ("ctr", _basename, label);\
-        GF_VALIDATE_OR_GOTO ("ctr", _basepath, label);\
         memset (ctr_link_cx, 0, sizeof (*ctr_link_cx));\
         ctr_link_cx->pargfid = &_pargfid;\
         ctr_link_cx->basename = _basename;\
-        ctr_link_cx->basepath = _basepath;\
 } while (0)
 
 #define NEW_LINK_CX(ctr_inode_cx)\
