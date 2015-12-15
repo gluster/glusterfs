@@ -62,6 +62,8 @@ import string
 # proper inode_link call(s).
 
 ops = {}
+xlator_cbks = {}
+xlator_dumpops = {}
 
 ops['fgetxattr'] = (
 	('fop-arg', 'fd',			'fd_t *'),
@@ -530,6 +532,116 @@ ops['getspec'] = (
 	('fop-arg',	'key',			'const char *'),
 	('fop-arg',	'flags',		'int32_t'),
 	('cbk-arg',	'spec_data',	'char *'),
+)
+
+#####################################################################
+xlator_cbks['forget'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'inode',       'inode_t *'),
+	('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['release'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'fd',          'fd_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['releasedir'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'fd',          'fd_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['invalidate'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'inode',       'inode_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['client_destroy'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'client',      'client_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['client_disconnect'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'client',      'client_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_cbks['ictxmerge'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'fd',          'fd_t *'),
+        ('fn-arg',      'inode',       'inode_t *'),
+        ('fn-arg',      'linked_inode', 'inode_t *'),
+        ('ret-val',     'void',        ''),
+)
+
+#####################################################################
+xlator_dumpops['priv'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['inode'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['fd'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['inodectx'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'ino',         'inode_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['fdctx'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'fd',          'fd_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['priv_to_dict'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'dict',        'dict_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['inode_to_dict'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'dict',        'dict_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['fd_to_dict'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'dict',        'dict_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['inodectx_to_dict'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'ino',         'inode_t *'),
+        ('fn-arg',      'dict',        'dict_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['fdctx_to_dict'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('fn-arg',      'fd',          'fd_t *'),
+        ('fn-arg',      'dict',        'dict_t *'),
+        ('ret-val',     'int32_t',     '0'),
+)
+
+xlator_dumpops['history'] = (
+        ('fn-arg',      'this',        'xlator_t *'),
+        ('ret-val',     'int32_t',     '0'),
 )
 
 def get_error_arg (type_str):
