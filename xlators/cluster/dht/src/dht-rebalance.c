@@ -531,18 +531,33 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         }
 
         /* Create the destination with LINKFILE mode, and linkto xattr,
-           if the linkfile already exists, it will just open the file */
-        ret = syncop_create (to, loc, O_RDWR, DHT_LINKFILE_MODE, fd,
-                             &new_stbuf, dict, NULL);
-        if (ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "failed to create %s on %s (%s)",
-                        loc->path, to->name, strerror (-ret));
-                ret = -1;
-                goto out;
-        }
+           if the linkfile already exists, just open the file */
+        if (!ret) {
+                /*
+                 * File already present, just open the file.
+                 */
+                ret = syncop_open (to, loc, O_RDWR, fd, NULL, NULL);
+                 if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "failed to open %s on %s",
+                                loc->path, to->name);
+                        ret = -1;
+                        goto out;
+                 }
+        } else {
+                ret = syncop_create (to, loc, O_RDWR, DHT_LINKFILE_MODE, fd,
+                                     &new_stbuf, dict, NULL);
+                 if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "failed to create %s on %s",
+                                loc->path, to->name);
+                        ret = -1;
+                        goto out;
+                }
 
+        }
 
         fd_bind (fd);
         if (dst_fd)
