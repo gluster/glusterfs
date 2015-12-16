@@ -573,7 +573,6 @@ main ()
 		shift 2;
                 ;;
             n)
-		shift 1;
                 ;;
             V)
                 ${cmd_line} -V;
