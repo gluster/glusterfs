@@ -8124,3 +8124,17 @@ int32_t dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
         return 0;
 }
 
+gf_boolean_t
+dht_is_tier_xlator (xlator_t *this)
+{
+
+        if (strcmp (this->type, "cluster/tier") == 0)
+                return _gf_true;
+        return _gf_false;
+}
+
+int32_t
+dht_release (xlator_t *this, fd_t *fd)
+{
+        return dht_fd_ctx_destroy (this, fd);
+}
