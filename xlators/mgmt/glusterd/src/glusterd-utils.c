@@ -5667,7 +5667,7 @@ glusterd_is_tier_daemon_running (glusterd_volinfo_t *volinfo)
                 return _gf_false;
 
         if (volinfo->rebal.defrag &&
-             volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER) {
+            volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER) {
                 return _gf_true;
         }
 
@@ -7050,12 +7050,12 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         case GF_DEFRAG_STATUS_STARTED:
                 GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
                 if (gf_is_service_running (pidfile, &pid)) {
-                        glusterd_rebalance_rpc_create (volinfo, _gf_true);
+                        ret = glusterd_rebalance_rpc_create (volinfo, _gf_true);
                         break;
                 }
         case GF_DEFRAG_STATUS_NOT_STARTED:
-                glusterd_handle_defrag_start (volinfo, op_errstr, len, cmd,
-                                              cbk, volinfo->rebal.op);
+                ret = glusterd_handle_defrag_start (volinfo, op_errstr, len,
+                                cmd, cbk, volinfo->rebal.op);
                 break;
         default:
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -7122,14 +7122,14 @@ out:
 }
 
 
-void
+int
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
 {
-
+        int             ret = -1;
         char          op_errstr[PATH_MAX];
 
         if (!volinfo->rebal.defrag_cmd)
-                return;
+                return -1;
         if (!gd_should_i_start_rebalance (volinfo)) {
 
                 /* Store the rebalance-id and rebalance command even if
@@ -7143,10 +7143,11 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER)
                         glusterd_store_perform_node_state_store (volinfo);
 
-                return;
+                return 0;
         }
-        glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
+        ret = glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
                                 volinfo->rebal.defrag_cmd, NULL);
+        return ret;
 }
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf)

@@ -2997,8 +2997,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                  * CTR DB Lookup Heal triggered on existing
                                  * data.
                                  * */
-                                if (defrag->cmd ==
-                                        GF_DEFRAG_CMD_START_TIER) {
+                                if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
                                         gf_fix_layout_tier_attach_lookup
                                                 (this, loc, entry);
                                 }

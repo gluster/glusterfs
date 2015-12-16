@@ -1775,7 +1775,6 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                  * case since unlock failures can be highlighted
                                  * event though rebalance command was successful
                                  */
-
                                  if (cmd == GF_DEFRAG_CMD_START_TIER) {
                                          snprintf (msg, sizeof (msg),
                                                   "Attach tier is successful "

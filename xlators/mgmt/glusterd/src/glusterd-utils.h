@@ -369,7 +369,7 @@ glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
                                    glusterd_volinfo_t **dup_volinfo,
                                    gf_boolean_t is_hot_tier,
                                    const char *new_name);
-void
+int
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo);
 
 void
