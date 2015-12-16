@@ -528,7 +528,7 @@ abort:
                                 xdata_response = NULL;
                         }
 
-                        if ((total_files > defrag->tier_conf.max_migrate_files)
+                        if ((total_files >= defrag->tier_conf.max_migrate_files)
                             || (total_migrated_bytes >
                                 defrag->tier_conf.max_migrate_bytes)) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,

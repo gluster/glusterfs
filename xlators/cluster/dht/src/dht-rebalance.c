@@ -3628,7 +3628,6 @@ gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag)
                     (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED)) {
                         goto out;
                 }
-
                 usleep (usec_sleep);
         }
 
