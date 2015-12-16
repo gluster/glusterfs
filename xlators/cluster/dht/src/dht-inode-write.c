@@ -89,8 +89,10 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_writev2 (this, subvol2, frame, 0);
-                        return 0;
+                        if (dht_fd_open_on_dst (this, local->fd, subvol2)) {
+                                dht_writev2 (this, subvol2, frame, 0);
+                                return 0;
+                        }
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
@@ -207,12 +209,12 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
-        int           ret = -1;
-        xlator_t    *src_subvol = NULL;
-        xlator_t    *dst_subvol = NULL;
-        inode_t      *inode = NULL;
+        dht_local_t  *local      = NULL;
+        call_frame_t *prev       = NULL;
+        int           ret        = -1;
+        xlator_t     *src_subvol = NULL;
+        xlator_t     *dst_subvol = NULL;
+        inode_t      *inode      = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -262,14 +264,18 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
 
                 dht_inode_ctx_get_mig_info (this, inode, &src_subvol,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               src_subvol, dst_subvol)) {
-                        dht_truncate2 (this, dst_subvol, frame, 0);
-                        return 0;
+                        if ((!local->fd) || ((local->fd) &&
+                            dht_fd_open_on_dst (this, local->fd, dst_subvol))) {
+                                dht_truncate2 (this, dst_subvol, frame, 0);
+                                return 0;
+                        }
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
@@ -475,8 +481,10 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               src_subvol, dst_subvol)) {
-                        dht_fallocate2 (this, dst_subvol, frame, 0);
-                        return 0;
+                        if (dht_fd_open_on_dst (this, local->fd, dst_subvol)) {
+                                dht_fallocate2 (this, dst_subvol, frame, 0);
+                                return 0;
+                        }
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
@@ -638,8 +646,10 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                             &dst_subvol);
                 if (!dht_mig_info_is_invalid(local->cached_subvol,
                                              src_subvol, dst_subvol)) {
-                        dht_discard2 (this, dst_subvol, frame, 0);
-                        return 0;
+                        if (dht_fd_open_on_dst (this, local->fd, dst_subvol)) {
+                                dht_discard2 (this, dst_subvol, frame, 0);
+                                return 0;
+                        }
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
@@ -796,8 +806,10 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                                   &subvol1, &subvol2);
                 if (!dht_mig_info_is_invalid (local->cached_subvol,
                                               subvol1, subvol2)) {
-                        dht_zerofill2 (this, subvol2, frame, 0);
-                        return 0;
+                        if (dht_fd_open_on_dst (this, local->fd, subvol2)) {
+                                dht_zerofill2 (this, subvol2, frame, 0);
+                                return 0;
+                        }
                 }
 
                 ret = dht_rebalance_in_progress_check (this, frame);

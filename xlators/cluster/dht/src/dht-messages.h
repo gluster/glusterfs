@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           111
+#define GLFS_DHT_NUM_MESSAGES           112
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1033,6 +1033,14 @@
  */
 
 #define DHT_MSG_DEFRAG_PROCESS_DIR_FAILED    (GLFS_DHT_BASE + 111)
+
+/*
+ * @messageid 109112
+ * @diagnosis
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_FD_CTX_SET_FAILED         (GLFS_DHT_BASE + 112)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */

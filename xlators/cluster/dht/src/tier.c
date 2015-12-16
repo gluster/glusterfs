@@ -2071,6 +2071,7 @@ struct xlator_fops fops = {
 
 
 struct xlator_cbks cbks = {
+        .release    = dht_release,
         .forget     = dht_forget
 };
 

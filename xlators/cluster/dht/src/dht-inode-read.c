@@ -142,7 +142,8 @@ int
 dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, struct iatt *stbuf, dict_t *xdata)
 {
-        xlator_t     *subvol = 0;
+        xlator_t     *subvol1 = 0;
+        xlator_t     *subvol2 = 0;
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
@@ -172,21 +173,31 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase2 is true */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
+
+                local->rebalance.target_op_fn = dht_attr2;
+                dht_set_local_rebalance (this, local, NULL, NULL,
+                                         stbuf, xdata);
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
-                ret = dht_inode_ctx_get_mig_info (this, inode, NULL, &subvol);
-                if (!subvol) {
+
+                dht_inode_ctx_get_mig_info (this, inode, &subvol1, &subvol2);
+                if (dht_mig_info_is_invalid (local->cached_subvol,
+                                             subvol1, subvol2)){
                         /* Phase 2 of migration */
-                        local->rebalance.target_op_fn = dht_attr2;
-                        dht_set_local_rebalance (this, local, NULL, NULL,
-                                                 stbuf, xdata);
                         ret = dht_rebalance_complete_check (this, frame);
                         if (!ret)
                                 return 0;
                 } else {
-                        /* value is already set in fd_ctx, that means no need
-                           to check for whether its complete or not. */
-                        dht_attr2 (this, subvol, frame, 0);
-                        return 0;
+                        /* it is a non-fd op or it is an fd based Fop and
+                           opened on the dst.*/
+                       if (local->fd &&
+                           !dht_fd_open_on_dst (this, local->fd, subvol2)) {
+                                ret = dht_rebalance_complete_check (this, frame);
+                                if (!ret)
+                                        return 0;
+                        } else {
+                                dht_attr2 (this, subvol2, frame, 0);
+                                return 0;
+                        }
                 }
         }
 
@@ -431,17 +442,19 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
+
+                local->op_ret = op_ret;
+                local->rebalance.target_op_fn = dht_readv2;
+                dht_set_local_rebalance (this, local, NULL, NULL,
+                                         stbuf, xdata);
                 /* File would be migrated to other node */
                 ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
                                                   &src_subvol,
                                                   &dst_subvol);
 
                 if (dht_mig_info_is_invalid (local->cached_subvol,
-                                             src_subvol, dst_subvol)) {
-                        local->op_ret = op_ret;
-                        local->rebalance.target_op_fn = dht_readv2;
-                        dht_set_local_rebalance (this, local, NULL, NULL,
-                                                 stbuf, xdata);
+                                             src_subvol, dst_subvol)
+                        || !dht_fd_open_on_dst(this, local->fd, dst_subvol)) {
 
                         ret = dht_rebalance_complete_check (this, frame);
                         if (!ret)
@@ -691,7 +704,7 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* If context is set, then send flush() it to the destination */
         dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
-        if (subvol) {
+        if (subvol && dht_fd_open_on_dst (this, local->fd, subvol)) {
                 dht_flush2 (this, subvol, frame, 0);
                 return 0;
         }
@@ -805,32 +818,35 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         local->op_ret = op_ret;
         inode = local->fd->inode;
 
-        dht_inode_ctx_get_mig_info (this, inode, &src_subvol, &dst_subvol);
+        local->rebalance.target_op_fn = dht_fsync2;
+        dht_set_local_rebalance (this, local, NULL, prebuf,
+                                 postbuf, xdata);
 
-        if (dht_mig_info_is_invalid (local->cached_subvol,
-                                              src_subvol, dst_subvol)) {
+        /* Check if the rebalance phase1 is true */
+        if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
 
-                local->rebalance.target_op_fn = dht_fsync2;
-                dht_set_local_rebalance (this, local, NULL, prebuf,
-                                         postbuf, xdata);
+                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
+                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
 
-                /* Check if the rebalance phase1 is true */
-                if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
-                        dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                        dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_inode_ctx_get_mig_info (this, inode, &src_subvol, &dst_subvol);
+
+                if (dht_mig_info_is_invalid (local->cached_subvol, src_subvol,
+                                     dst_subvol) ||
+                      !dht_fd_open_on_dst (this, local->fd, dst_subvol)) {
 
                         ret = dht_rebalance_in_progress_check (this, frame);
+                        if (!ret)
+                                return 0;
+                } else {
+                        dht_fsync2 (this, dst_subvol, frame, 0);
+                        return 0;
                 }
+        }
 
-                /* Check if the rebalance phase2 is true */
-                if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
-                        ret = dht_rebalance_complete_check (this, frame);
-                }
+        if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
+                ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
                         return 0;
-        } else {
-                dht_fsync2 (this, dst_subvol, frame, 0);
-                return 0;
         }
 
 out:
