@@ -2341,22 +2341,22 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "cluster.tier-max-mb",
           .voltype     = "cluster/tier",
           .option      = "tier-max-mb",
-          .value       = "1000",
+          .value       = "10000",
           .op_version  = GD_OP_VERSION_3_7_6,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .validate_fn = validate_tier,
           .description = "The maximum number of MB that may be migrated"
-          " in any direction in a given cycle."
+          " in any direction in a given cycle by a single node."
         },
         { .key         = "cluster.tier-max-files",
           .voltype     = "cluster/tier",
           .option      = "tier-max-files",
-          .value       = "5000",
+          .value       = "50000",
           .op_version  = GD_OP_VERSION_3_7_6,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .validate_fn = validate_tier,
           .description = "The maximum number of files that may be migrated"
-          " in any direction in a given cycle."
+          " in any direction in a given cycle by a single node."
         },
         { .key         = "features.ctr-enabled",
           .voltype     = "features/changetimerecorder",
