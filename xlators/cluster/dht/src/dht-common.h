@@ -16,6 +16,7 @@
 #include "libxlator.h"
 #include "syncop.h"
 #include "refcount.h"
+#include "timer.h"
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -356,6 +357,9 @@ typedef struct gf_tier_conf {
         uint64_t                     st_last_demoted_size;
         int                          request_pause;
         gf_boolean_t                 paused;
+        struct synctask             *pause_synctask;
+        gf_timer_t                  *pause_timer;
+        pthread_mutex_t              pause_mutex;
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {
@@ -986,6 +990,9 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
 
 int
 gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag);
+
+void
+gf_defrag_wake_pause_tier (gf_tier_conf_t *defrag, gf_boolean_t pause);
 
 int
 gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag);

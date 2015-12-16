@@ -3619,31 +3619,88 @@ out:
         return 0;
 }
 
+void
+gf_defrag_wake_pause_tier (gf_tier_conf_t *tier_conf, gf_boolean_t pause)
+{
+        int woke = 0;
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        if (tier_conf->pause_synctask) {
+                tier_conf->paused = pause;
+                synctask_wake (tier_conf->pause_synctask);
+                tier_conf->pause_synctask = 0;
+                woke = 1;
+        }
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+        tier_conf->request_pause = 0;
+
+        gf_msg ("tier", GF_LOG_DEBUG, 0,
+                DHT_MSG_TIER_PAUSED,
+                "woken %d paused %d", woke, tier_conf->paused);
+}
+
+void
+gf_defrag_pause_tier_timeout (void *data)
+{
+        xlator_t         *this                  = NULL;
+        dht_conf_t       *conf                  = NULL;
+        gf_defrag_info_t *defrag                = NULL;
+
+        this   = (xlator_t *) data;
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+
+        conf   = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        defrag = conf->defrag;
+        GF_VALIDATE_OR_GOTO (this->name, defrag, out);
+
+        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                DHT_MSG_TIER_PAUSED,
+                "Request pause timer timeout");
+
+        gf_defrag_wake_pause_tier (&defrag->tier_conf, _gf_false);
+
+out:
+        return;
+}
+
 int
 gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag)
 {
-        int          poll           = 0;
-        int          ret            = 0;
-        int          usec_sleep     = 100000;  /* 1/10th of a sec */
-        int          poll_max       = 15;      /* 15 times = wait at most 3/2 sec */
+        int             ret         = 0;
+        struct timespec delta       = {0,};
+        int             delay       = 2;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED)
                 goto out;
 
         /*
-         * Set flag requesting to pause tiering. Wait a finite time for
+         * Set flag requesting to pause tiering. Wait 'delay' seconds for
          * tiering to actually stop as indicated by the "paused" boolean,
          * before returning success or failure.
          */
         defrag->tier_conf.request_pause = 1;
 
-        for (poll = 0; poll < poll_max; poll++) {
-                if ((defrag->tier_conf.paused == _gf_true) ||
-                    (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED)) {
-                        goto out;
-                }
-                usleep (usec_sleep);
-        }
+        if (defrag->tier_conf.paused == _gf_true)
+                goto out;
+
+        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                DHT_MSG_TIER_PAUSED,
+                "Request pause tier");
+
+        defrag->tier_conf.pause_synctask = synctask_get ();
+        delta.tv_sec  = delay;
+        delta.tv_nsec = 0;
+        defrag->tier_conf.pause_timer =
+                gf_timer_call_after (this->ctx, delta,
+                                     gf_defrag_pause_tier_timeout,
+                                     this);
+
+        synctask_yield (defrag->tier_conf.pause_synctask);
+
+        if (defrag->tier_conf.paused == _gf_true)
+                goto out;
 
         ret = -1;
 
@@ -3661,7 +3718,7 @@ gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag)
 {
         gf_msg (this->name, GF_LOG_DEBUG, 0,
                 DHT_MSG_TIER_RESUME,
-                "Resume tiering");
+                "Pause end. Resume tiering");
 
         defrag->tier_conf.request_pause = 0;
         defrag->tier_conf.paused = _gf_false;

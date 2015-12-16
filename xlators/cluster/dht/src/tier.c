@@ -1374,10 +1374,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                if (defrag->tier_conf.request_pause)
-                        defrag->tier_conf.paused = _gf_true;
-                else
-                        defrag->tier_conf.paused = _gf_false;
+                if (tier_conf->request_pause)
+                        gf_defrag_wake_pause_tier (tier_conf, _gf_true);
 
                 sleep(1);
 
@@ -1808,6 +1806,8 @@ tier_init (xlator_t *this)
 
         defrag->tier_conf.request_pause = 0;
 
+        pthread_mutex_init (&defrag->tier_conf.pause_mutex, 0);
+
         ret = dict_get_str (this->options,
                               "tier-pause", &paused);
 
@@ -1876,6 +1876,40 @@ out:
 
 
 int
+tier_cli_pause_done (int op_ret, call_frame_t *sync_frame, void *data)
+{
+        gf_msg ("tier", GF_LOG_INFO, 0,
+                DHT_MSG_TIER_PAUSED,
+                "Migrate file paused with op_ret %d", op_ret);
+
+        return op_ret;
+}
+
+int
+tier_cli_pause (void *data)
+{
+        gf_defrag_info_t        *defrag         = NULL;
+        xlator_t                *this           = NULL;
+        dht_conf_t              *conf           = NULL;
+        int                      ret            = -1;
+
+        this = data;
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, exit);
+
+        defrag = conf->defrag;
+        GF_VALIDATE_OR_GOTO (this->name, defrag, exit);
+
+        gf_defrag_pause_tier (this, defrag);
+
+        ret = 0;
+exit:
+        return ret;
+}
+
+
+int
 tier_reconfigure (xlator_t *this, dict_t *options)
 {
         dht_conf_t       *conf           = NULL;
@@ -1884,6 +1918,7 @@ tier_reconfigure (xlator_t *this, dict_t *options)
         int               migrate_mb     = 0;
         gf_boolean_t      req_pause      = _gf_false;
         int               ret            = 0;
+        call_frame_t            *frame  = NULL;
 
         conf = this->private;
 
@@ -1932,7 +1967,16 @@ tier_reconfigure (xlator_t *this, dict_t *options)
                                   bool, out);
 
                 if (req_pause == _gf_true) {
-                        ret = gf_defrag_pause_tier (this, defrag);
+
+                        frame = create_frame (this, this->ctx->pool);
+                        if (!frame)
+                                goto out;
+
+                        frame->root->pid = GF_CLIENT_PID_DEFRAG;
+
+                        ret = synctask_new (this->ctx->env, tier_cli_pause,
+                                            tier_cli_pause_done, frame, this);
+
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR,
