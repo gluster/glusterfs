@@ -74,6 +74,7 @@ struct gf_upcall_cache_invalidation {
         struct iatt stat;
         struct iatt p_stat; /* parent dir stat */
         struct iatt oldp_stat; /* oldparent dir stat */
+        dict_t *dict; /* For xattrs */
 };
 
 struct gf_upcall_recall_lease {

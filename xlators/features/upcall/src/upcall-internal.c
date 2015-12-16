@@ -435,6 +435,16 @@ upcall_reaper_thread_init (xlator_t *this)
         return ret;
 }
 
+int
+up_filter_virtual_xattr (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        if (is_virtual_xattr (k) == _gf_true) {
+                dict_del (d, k);
+        }
+
+        return 0;
+}
+
 /*
  * Given a client, first fetch upcall_entry_t from the inode_ctx client list.
  * Later traverse through the client list of that upcall entry. If this client
@@ -448,7 +458,8 @@ upcall_reaper_thread_init (xlator_t *this)
 void
 upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                          inode_t *inode, uint32_t flags, struct iatt *stbuf,
-                         struct iatt *p_stbuf, struct iatt *oldp_stbuf)
+                         struct iatt *p_stbuf, struct iatt *oldp_stbuf,
+                         dict_t *xattr)
 {
         upcall_client_t *up_client       = NULL;
         upcall_client_t *up_client_entry = NULL;
@@ -524,11 +535,12 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                          *  Also if the file is frequently accessed, set
                          *  expire_time_attr to 0.
                          */
-                        upcall_client_cache_invalidate(this,
+                        upcall_client_cache_invalidate (this,
                                                        up_inode_ctx->gfid,
                                                        up_client_entry,
                                                        flags, stbuf,
-                                                       p_stbuf, oldp_stbuf);
+                                                       p_stbuf, oldp_stbuf,
+                                                       xattr);
                 }
 
                 if (!found) {
@@ -551,7 +563,7 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                                 upcall_client_t *up_client_entry,
                                 uint32_t flags, struct iatt *stbuf,
                                 struct iatt *p_stbuf,
-                                struct iatt *oldp_stbuf)
+                                struct iatt *oldp_stbuf, dict_t *xattr)
 {
         struct gf_upcall                    up_req  = {0,};
         struct gf_upcall_cache_invalidation ca_req  = {0,};
@@ -577,6 +589,7 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                         ca_req.p_stat = *p_stbuf;
                 if (oldp_stbuf)
                         ca_req.oldp_stat = *oldp_stbuf;
+                ca_req.dict = xattr;
 
                 up_req.data = &ca_req;
                 up_req.event_type = GF_UPCALL_CACHE_INVALIDATION;
@@ -641,7 +654,7 @@ upcall_cache_forget (xlator_t *this, inode_t *inode, upcall_inode_ctx_t *up_inod
                                                        up_inode_ctx->gfid,
                                                        up_client_entry,
                                                        flags, NULL,
-                                                       NULL, NULL);
+                                                       NULL, NULL, NULL);
                 }
 
         }

@@ -1200,8 +1200,10 @@ server_process_event_upcall (xlator_t *this, void *data)
 
         switch (upcall_data->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
-                gf_proto_cache_invalidation_from_upcall (&gf_c_req,
-                                                         upcall_data);
+                ret = gf_proto_cache_invalidation_from_upcall (this, &gf_c_req,
+                                                               upcall_data);
+                if (ret < 0)
+                        goto out;
 
                 up_req = &gf_c_req;
                 cbk_procnum = GF_CBK_CACHE_INVALIDATION;
@@ -1243,6 +1245,9 @@ server_process_event_upcall (xlator_t *this, void *data)
         pthread_mutex_unlock (&conf->mutex);
         ret = 0;
 out:
+        if ((gf_c_req.xdata).xdata_val)
+                GF_FREE ((gf_c_req.xdata).xdata_val);
+
         return ret;
 }
 

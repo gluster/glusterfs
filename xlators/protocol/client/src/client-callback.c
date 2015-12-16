@@ -103,10 +103,13 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         }
 
         upcall_data.data = &ca_data;
-        gf_proto_cache_invalidation_to_upcall (&ca_req, &upcall_data);
+        ret = gf_proto_cache_invalidation_to_upcall (THIS, &ca_req,
+                                                     &upcall_data);
+        if (ret < 0)
+                goto out;
 
-        gf_msg_trace (THIS->name, 0, "Upcall gfid = %s, ret = %d",
-                      ca_req.gfid, ret);
+        gf_msg_trace (THIS->name, 0, "Cache invalidation cbk recieved for gfid:"
+                      " %s, ret = %d", ca_req.gfid, ret);
 
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 
@@ -116,6 +119,9 @@ out:
 
         if (ca_req.xdata.xdata_val)
                 free (ca_req.xdata.xdata_val);
+
+        if (ca_data.dict)
+                dict_unref (ca_data.dict);
 
         return 0;
 }

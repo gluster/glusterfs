@@ -84,11 +84,13 @@ struct upcall_local {
         upcall_inode_ctx_t *upcall_inode_ctx;
         inode_t   *inode;
         loc_t     rename_oldloc;
+        dict_t    *xattr;
 };
 typedef struct upcall_local upcall_local_t;
 
 void upcall_local_wipe (xlator_t *this, upcall_local_t *local);
-upcall_local_t *upcall_local_init (call_frame_t *frame, xlator_t *this, inode_t *inode);
+upcall_local_t *upcall_local_init (call_frame_t *frame, xlator_t *this,
+                                   inode_t *inode, dict_t *xattr);
 
 upcall_client_t *add_upcall_client (call_frame_t *frame, client_t *client,
                                     upcall_inode_ctx_t *up_inode_ctx);
@@ -118,11 +120,13 @@ void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this,
                               client_t *client, inode_t *inode,
                               uint32_t flags, struct iatt *stbuf,
                               struct iatt *p_stbuf,
-                              struct iatt *oldp_stbuf);
+                              struct iatt *oldp_stbuf, dict_t *xattr);
 void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      upcall_client_t *up_client_entry,
                                      uint32_t flags, struct iatt *stbuf,
                                      struct iatt *p_stbuf,
-                                     struct iatt *oldp_stbuf);
+                                     struct iatt *oldp_stbuf, dict_t *xattr);
+
+int up_filter_virtual_xattr (dict_t *d, char *k, data_t *v, void *tmp);
 
 #endif /* __UPCALL_H__ */

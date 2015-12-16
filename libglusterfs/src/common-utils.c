@@ -36,6 +36,7 @@
 #endif
 #include <libgen.h>
 
+#include "glusterfs-acl.h"
 #include "compat-errno.h"
 #include "logging.h"
 #include "common-utils.h"
@@ -4448,4 +4449,37 @@ gf_zero_fill_stat (struct iatt *buf)
 {
         buf->ia_nlink = 0;
         buf->ia_ctime = 0;
+}
+
+/* This function checks if the input key is a virtual or on disk xattr.
+ * Its not simple to identify a virtual xattr as there is no common
+ * format used to identify virtual xattrs. One way is to list each of the
+ * xattrs in different categories and compare the input against every xattr
+ * in the list, this is very inefficient as there are 100s of xattrs.
+ *
+ * Currently the only consumer of this function is upcall and md-cache,
+ * hence tailoring this function to their needs; in their case its allowed
+ * to consider disk xattrs as virtual xattrs, but not vice versa, i.e.
+ * virtual xattrs should not be considered as on disk xattr. Hence, being
+ * conservative, we consider anything that starts from user.*, security.*,
+ * system.* as on disk xattrs. trusted.* and glusterfs.* cannot be considered
+ * as virtual xattrs as there are some on disk xattrs which start from
+ * glusterfs.* and trusted.*
+ *
+ * Hence, this function could return an on disk xattr as virtual xattr but
+ * never a virtual xattr as on disk xattr.
+ */
+gf_boolean_t
+is_virtual_xattr (const char *k)
+{
+        gf_boolean_t ret = _gf_true;
+
+        if ((strncmp (k, "user.", strlen ("user.")) == 0) ||
+            (strncmp (k, "security.", strlen ("security.")) == 0) ||
+            (strncmp (k, "system.", strlen ("system.")) == 0) ||
+            (GF_POSIX_ACL_REQUEST (k))) {
+                ret = _gf_false;
+        }
+
+        return ret;
 }
