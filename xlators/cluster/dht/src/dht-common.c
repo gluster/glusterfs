@@ -4547,7 +4547,8 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         }
 
         if ((conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_TIER) ||
-            (conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) ||
+            (conf->defrag && conf->defrag->cmd ==
+             GF_DEFRAG_CMD_START_DETACH_TIER) ||
             (!(conf->local_subvols_cnt) || !conf->defrag)) {
                 local->call_cnt = conf->subvolume_cnt;
 

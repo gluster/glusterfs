@@ -1696,9 +1696,9 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
 {
         dict_t  *dict    = NULL;
         char    *volname = NULL;
-        char    *word    = NULL;
         int      ret     = -1;
         int32_t  command = GF_OP_CMD_NONE;
+        int32_t  is_force    = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1708,7 +1708,7 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
-        if (wordcount != 4) {
+        if (!(wordcount == 4 || wordcount == 5)) {
                 gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
                 ret = -1;
                 goto out;
@@ -1730,11 +1730,28 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
                 goto out;
 
         volname = (char *)words[2];
-
-        word = (char *)words[3];
-        if (!strcmp(word, "status"))
-                command = GF_DEFRAG_CMD_STATUS_TIER;
-        else {
+        if (wordcount == 4) {
+                if (!strcmp(words[3], "status"))
+                        command = GF_DEFRAG_CMD_STATUS_TIER;
+                else if (!strcmp(words[3], "start"))
+                        command = GF_DEFRAG_CMD_START_TIER;
+                else {
+                        ret = -1;
+                        goto out;
+                }
+        } else if (wordcount == 5) {
+                if ((!strcmp (words[3], "start")) &&
+                    (!strcmp (words[4], "force"))) {
+                        command = GF_DEFRAG_CMD_START_TIER;
+                        is_force = 1;
+                        ret = dict_set_int32 (dict, "force", is_force);
+                        if (ret)
+                                goto out;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
                 ret = -1;
                 goto out;
         }
@@ -3656,7 +3673,7 @@ cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                     strcmp (words[3], "status"))
                             goto out;
         } else if ((strcmp (words[3], "tier") == 0) &&
-               (strcmp (words[4], "start") == 0)) {
+                   (strcmp (words[4], "start") == 0)) {
                 volname = (char *) words[2];
                 cmd = GF_DEFRAG_CMD_START_TIER;
                 goto done;

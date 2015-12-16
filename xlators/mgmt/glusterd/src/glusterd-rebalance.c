@@ -265,7 +265,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                                    priv);
                 snprintf (logfile, PATH_MAX, "%s/%s-%s-%s.log",
                           DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname,
-                          (cmd == GF_DEFRAG_CMD_START_TIER ? "tier":"rebalance"),
+                          (cmd == GF_DEFRAG_CMD_START_TIER ?
+                           "tier":"rebalance"),
                           uuid_utoa(MY_UUID));
 
         } else {
@@ -600,6 +601,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         char                    *task_id_str = NULL;
         dict_t                  *op_ctx      = NULL;
         xlator_t                *this        = 0;
+        int32_t                 is_force     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -624,16 +626,20 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         }
         switch (cmd) {
         case GF_DEFRAG_CMD_START_TIER:
+                ret = dict_get_int32 (dict, "force", &is_force);
+                if (ret)
+                        is_force = 0;
+
                 if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
                         gf_asprintf (op_errstr, "volume %s is not a tier "
                                      "volume.", volinfo->volname);
                         ret = -1;
                         goto out;
                 }
-                if (glusterd_is_tier_daemon_running (volinfo)) {
+                if ((!is_force) && glusterd_is_tier_daemon_running (volinfo)) {
                         ret = gf_asprintf (op_errstr, "A Tier daemon is "
-                                           "already running on volume %s",
-                                           volname);
+                                        "already running on volume %s",
+                                        volname);
                         ret = -1;
                         goto out;
                 }
@@ -792,6 +798,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         dict_t                  *ctx = NULL;
         xlator_t                *this = NULL;
         uint32_t                commit_hash;
+        int32_t                 is_force    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -855,39 +862,79 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
         case GF_DEFRAG_CMD_START_TIER:
-                /* Reset defrag status to 'NOT STARTED' whenever a
-                 * remove-brick/rebalance command is issued to remove
-                 * stale information from previous run.
-                 */
-                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
 
-                ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
-                if (ret) {
-                        gf_msg_debug (this->name, 0, "Missing rebalance "
-                                "id");
-                        ret = 0;
-                } else {
-                        gf_uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
-                        volinfo->rebal.op = GD_OP_REBALANCE;
-                }
-                if (!gd_should_i_start_rebalance (volinfo)) {
-                        /* Store the rebalance-id and rebalance command even if
-                         * the peer isn't starting a rebalance process. On peers
-                         * where a rebalance process is started,
-                         * glusterd_handle_defrag_start performs the storing.
-                         *
-                         * Storing this is needed for having 'volume status'
-                         * work correctly.
+
+                ret = dict_get_int32 (dict, "force", &is_force);
+                if (ret)
+                        is_force = 0;
+                if (!is_force) {
+                        /* Reset defrag status to 'NOT STARTED' whenever a
+                         * remove-brick/rebalance command is issued to remove
+                         * stale information from previous run.
                          */
-                        glusterd_store_perform_node_state_store (volinfo);
+                        volinfo->rebal.defrag_status =
+                               GF_DEFRAG_STATUS_NOT_STARTED;
+
+                        ret = dict_get_str (dict, GF_REBALANCE_TID_KEY,
+                                            &task_id_str);
+                        if (ret) {
+                                gf_msg_debug (this->name, 0, "Missing rebalance"
+                                              " id");
+                                ret = 0;
+                        } else {
+                                gf_uuid_parse (task_id_str,
+                                               volinfo->rebal.rebalance_id);
+                                volinfo->rebal.op = GD_OP_REBALANCE;
+                        }
+                        if (!gd_should_i_start_rebalance (volinfo)) {
+                                /* Store the rebalance-id and rebalance command
+                                 * even if the peer isn't starting a rebalance
+                                 * process. On peers where a rebalance process
+                                 * is started, glusterd_handle_defrag_start
+                                 * performs the storing.
+                                 * Storing this is needed for having
+                                 * 'volume status' work correctly.
+                                 */
+                                glusterd_store_perform_node_state_store
+                                        (volinfo);
+                                break;
+                        }
+                        if (dict_get_uint32 (dict, "commit-hash", &commit_hash)
+                                             == 0) {
+                                volinfo->rebal.commit_hash = commit_hash;
+                        }
+                        ret = glusterd_handle_defrag_start (volinfo, msg,
+                                        sizeof (msg),
+                                        cmd, NULL, GD_OP_REBALANCE);
+                        break;
+                } else {
+                        /* Reset defrag status to 'STARTED' so that the
+                         * pid is checked and restarted accordingly.
+                         * If the pid is not running it executes the
+                         * "NOT_STARTED" case and restarts the process
+                         */
+                        volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_STARTED;
+                        volinfo->rebal.defrag_cmd = cmd;
+                        volinfo->rebal.op = GD_OP_REBALANCE;
+
+                        ret = dict_get_str (dict, GF_REBALANCE_TID_KEY,
+                                            &task_id_str);
+                        if (ret) {
+                                gf_msg_debug (this->name, 0, "Missing rebalance"
+                                              " id");
+                                ret = 0;
+                        } else {
+                                gf_uuid_parse (task_id_str,
+                                               volinfo->rebal.rebalance_id);
+                                volinfo->rebal.op = GD_OP_REBALANCE;
+                        }
+                        if (dict_get_uint32 (dict, "commit-hash", &commit_hash)
+                                             == 0) {
+                                volinfo->rebal.commit_hash = commit_hash;
+                        }
+                        ret = glusterd_restart_rebalance_for_volume (volinfo);
                         break;
                 }
-                if (dict_get_uint32 (dict, "commit-hash", &commit_hash) == 0) {
-                        volinfo->rebal.commit_hash = commit_hash;
-                }
-                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
-                                                    cmd, NULL, GD_OP_REBALANCE);
-                break;
         case GF_DEFRAG_CMD_STOP:
         case GF_DEFRAG_CMD_STOP_DETACH_TIER:
                 /* Clear task-id only on explicitly stopping rebalance.

@@ -2659,6 +2659,7 @@ struct cli_cmd volume_cmds[] = {
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
         { "volume tier <VOLNAME> status\n"
+        "volume tier <VOLNAME> start [force]"
         "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>...\n"
         "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
         cli_cmd_volume_tier_cbk,

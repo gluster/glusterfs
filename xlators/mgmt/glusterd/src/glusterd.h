@@ -627,11 +627,11 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 STACK_DESTROY (frame->root);                            \
         } while (0)
 
-#define GLUSTERD_GET_DEFRAG_PROCESS(path, volinfo) do {                     \
-                if (volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER)  \
-                        snprintf (path, NAME_MAX, "tier"); \
-                else                                                        \
-                        snprintf (path, NAME_MAX, "rebalance"); \
+#define GLUSTERD_GET_DEFRAG_PROCESS(path, volinfo) do {                 \
+                if (volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER) \
+                        snprintf (path, NAME_MAX, "tier");              \
+                else                                                    \
+                        snprintf (path, NAME_MAX, "rebalance");         \
         } while (0)
 
 #define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv) do {               \
