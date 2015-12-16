@@ -826,4 +826,7 @@ gf_is_zero_filled_stat (struct iatt *buf);
 void
 gf_zero_fill_stat (struct iatt *buf);
 
+gf_boolean_t
+is_virtual_xattr (const char *k);
+
 #endif /* _COMMON_UTILS_H */
