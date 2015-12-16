@@ -547,6 +547,13 @@ typedef struct dht_migrate_info {
 } dht_migrate_info_t;
 
 
+
+typedef struct dht_fd_ctx {
+        uint64_t opened_on_dst;
+        GF_REF_DECL;
+} dht_fd_ctx_t;
+
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)
@@ -1131,11 +1138,20 @@ int
 dht_build_parent_loc (xlator_t *this, loc_t *parent, loc_t *child,
                                                  int32_t *op_errno);
 
-int32_t dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
-                                 struct iatt *stbuf,
-                                 struct iatt *prebuf,
-                                 struct iatt *postbuf, dict_t *xdata);
+int32_t
+dht_set_local_rebalance (xlator_t *this, dht_local_t *local,
+                         struct iatt *stbuf,
+                         struct iatt *prebuf,
+                         struct iatt *postbuf, dict_t *xdata);
 void
 dht_build_root_loc (inode_t *inode, loc_t *loc);
 
+gf_boolean_t
+dht_fd_open_on_dst (xlator_t *this, fd_t *fd, xlator_t *dst);
+
+int32_t
+dht_fd_ctx_destroy (xlator_t *this, fd_t *fd);
+
+int32_t
+dht_release (xlator_t *this, fd_t *fd);
 #endif/* _DHT_H */

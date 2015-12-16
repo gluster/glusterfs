@@ -8050,3 +8050,9 @@ dht_is_tier_xlator (xlator_t *this)
                 return _gf_true;
         return _gf_false;
 }
+
+int32_t
+dht_release (xlator_t *this, fd_t *fd)
+{
+        return dht_fd_ctx_destroy (this, fd);
+}

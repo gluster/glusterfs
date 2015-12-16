@@ -77,7 +77,7 @@ struct xlator_dumpops dumpops = {
 
 
 struct xlator_cbks cbks = {
-//      .release    = dht_release,
+        .release    = dht_release,
 //      .releasedir = dht_releasedir,
         .forget     = dht_forget
 };
