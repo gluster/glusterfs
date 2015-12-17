@@ -1293,9 +1293,9 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
         local->ctx = ctx;
 
         if (list_empty (&ctx->contribution_head)) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                        "contribution node list is empty which "
-                        "is an error");
+                gf_log_callingfn (this->name, GF_LOG_TRACE,
+                                  "contribution node list is empty which "
+                                  "is an error");
                 ret = -1;
                 goto out;
         }
