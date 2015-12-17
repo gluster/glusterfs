@@ -32,14 +32,26 @@ from gsyncdstatus import GeorepStatus, set_monitor_status
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
 
-def get_subvol_num(brick_idx, replica_count, disperse_count):
+def get_subvol_num(brick_idx, vol, hot):
+    tier = vol.is_tier()
+    disperse_count = vol.disperse_count(tier, hot)
+    replica_count = vol.replica_count(tier, hot)
+
+    if (tier and not hot):
+        brick_idx = brick_idx - vol.get_hot_bricks_count(tier)
+
     subvol_size = disperse_count if disperse_count > 0 else replica_count
     cnt = int((brick_idx + 1) / subvol_size)
     rem = (brick_idx + 1) % subvol_size
     if rem > 0:
-        return cnt + 1
+        cnt = cnt + 1
+
+    if (tier and hot):
+        return "hot_" + str(cnt)
+    elif (tier and not hot):
+        return "cold_" + str(cnt)
     else:
-        return cnt
+        return str(cnt)
 
 
 def get_slave_bricks_status(host, vol):
@@ -99,6 +111,9 @@ class Volinfo(object):
     def get(self, elem):
         return self.tree.findall('.//' + elem)
 
+    def is_tier(self):
+        return (self.get('typeStr')[0].text == 'Tier')
+
     def is_hot(self, brickpath):
         logging.debug('brickpath: ' + repr(brickpath))
         return brickpath in self.hot_bricks
@@ -120,20 +135,32 @@ class Volinfo(object):
                               "ambiguous uuid" % (self.volume, self.host))
         return ids[0].text
 
-    @property
-    @memoize
-    def replica_count(self):
-        return int(self.get('replicaCount')[0].text)
+    def replica_count(self, tier, hot):
+        if (tier and hot):
+            return int(self.get('hotBricks/hotreplicaCount')[0].text)
+        elif (tier and not hot):
+            return int(self.get('coldBricks/coldreplicaCount')[0].text)
+        else:
+            return int(self.get('replicaCount')[0].text)
 
-    @property
-    @memoize
-    def disperse_count(self):
-        return int(self.get('disperseCount')[0].text)
+    def disperse_count(self, tier, hot):
+        if (tier and hot):
+            return int(self.get('hotBricks/hotdisperseCount')[0].text)
+        elif (tier and not hot):
+            return int(self.get('coldBricks/colddisperseCount')[0].text)
+        else:
+            return int(self.get('disperseCount')[0].text)
 
     @property
     @memoize
     def hot_bricks(self):
         return [b.text for b in self.get('hotBricks/brick')]
+
+    def get_hot_bricks_count(self, tier):
+        if (tier):
+            return int(self.get('hotBricks/hotbrickCount')[0].text)
+        else:
+            return 0
 
 class Monitor(object):
 
@@ -417,11 +444,14 @@ def distribute(*resources):
             else:
                 slaves = slavevols
 
-    workerspex = [(brick['dir'], slaves[idx % len(slaves)],
-                  get_subvol_num(idx, mvol.replica_count, mvol.disperse_count),
-                  mvol.is_hot(":".join([brick['host'], brick['dir']])))
-                  for idx, brick in enumerate(mvol.bricks)
-                  if is_host_local(brick['host'])]
+    workerspex = []
+    for idx, brick in enumerate(mvol.bricks):
+        if is_host_local(brick['host']):
+            is_hot = mvol.is_hot(":".join([brick['host'], brick['dir']]))
+            workerspex.append((brick['dir'],
+                               slaves[idx % len(slaves)],
+                               get_subvol_num(idx, mvol, is_hot),
+                               is_hot))
     logging.info('worker specs: ' + repr(workerspex))
     return workerspex, suuid, slave_vol, slave_host, master
 
