@@ -903,12 +903,18 @@ posix_handle_unset (xlator_t *this, uuid_t gfid, const char *basename)
 
 
 int
-posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
-                                  char *real_path)
+posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
+                                  inode_table_t *itable)
 {
-        int ret = -1;
-        struct stat stbuf = {0,};
-        char *newpath = NULL;
+        int                    ret         = -1;
+        char                  *newpath     = NULL;
+        char                  *unlink_path = NULL;
+        uint64_t               ctx_int     = 0;
+        inode_t               *inode       = NULL;
+        struct stat            stbuf       = {0,};
+        struct posix_private  *priv        = NULL;
+
+        priv = this->private;
 
         MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
         if (!newpath) {
@@ -921,6 +927,41 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
         ret = sys_lstat (newpath, &stbuf);
         if (!ret) {
                 ret = sys_link (newpath, real_path);
+        } else {
+                inode = inode_find (itable, gfid);
+                if (!inode)
+                        return -1;
+
+                LOCK (&inode->lock);
+                {
+                        ret = __inode_ctx_get0 (inode, this, &ctx_int);
+                        if (ret)
+                                goto unlock;
+
+                        if (ctx_int != GF_UNLINK_TRUE)
+                                goto unlock;
+
+                        POSIX_GET_FILE_UNLINK_PATH (priv->base_path, gfid,
+                                                    unlink_path);
+                        ret = sys_link (unlink_path, real_path);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        P_MSG_HANDLE_CREATE, "Failed to link "
+                                        "%s with %s", real_path, unlink_path);
+                                goto unlock;
+                        }
+                        ret = sys_rename (unlink_path, newpath);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        P_MSG_HANDLE_CREATE, "Failed to link "
+                                        "%s with %s", real_path, unlink_path);
+                                goto unlock;
+                        }
+                        ctx_int = GF_UNLINK_FALSE;
+                        ret = __inode_ctx_set0 (inode, this, &ctx_int);
+                }
+unlock:
+                UNLOCK (&inode->lock);
         }
 
         return ret;
