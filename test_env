@@ -4,6 +4,7 @@ DESIRED_TESTS="\
   tests/basic/*.t\
   tests/basic/afr/*.t\
   tests/basic/distribute/*.t\
+  tests/bugs/fb*.t\
   tests/features/brick-min-free-space.t\
 "
 
