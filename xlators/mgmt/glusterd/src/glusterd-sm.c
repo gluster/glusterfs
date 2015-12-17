@@ -594,6 +594,100 @@ out:
         return ret;
 }
 
+/* ac_update_friend only sends friend update to the friend that caused this
+ * event to happen
+ */
+static int
+glusterd_ac_update_friend (glusterd_friend_sm_event_t *event, void *ctx)
+{
+        int                           ret               = 0;
+        glusterd_peerinfo_t          *cur_peerinfo      = NULL;
+        glusterd_peerinfo_t          *peerinfo          = NULL;
+        rpc_clnt_procedure_t         *proc              = NULL;
+        xlator_t                     *this              = NULL;
+        glusterd_friend_update_ctx_t  ev_ctx            = {{0}};
+        glusterd_conf_t              *priv              = NULL;
+        dict_t                       *friends           = NULL;
+        char                          key[100]          = {0,};
+        int32_t                       count             = 0;
+
+        GF_ASSERT (event);
+
+        this = THIS;
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        rcu_read_lock ();
+
+        cur_peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
+        if (!cur_peerinfo) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
+                        event->peername, uuid_utoa (event->peerid));
+                ret = -1;
+                goto out;
+        }
+
+        /* Bail out early if peer is not connected.
+         * We cannot send requests to the peer until we have established our
+         * client connection to it.
+         */
+        if (!cur_peerinfo->connected || !cur_peerinfo->peer) {
+                ret = 0;
+                goto out;
+        }
+
+        ev_ctx.op = GD_FRIEND_UPDATE_ADD;
+
+        friends = dict_new ();
+        if (!friends)
+                goto out;
+
+        snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32 (friends, key, ev_ctx.op);
+        if (ret)
+                goto out;
+
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
+                        continue;
+
+                count++;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "friend%d", count);
+                ret = gd_add_friend_to_dict (peerinfo, friends, key);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_int32 (friends, "count", count);
+        if (ret)
+                goto out;
+
+        ret = dict_set_static_ptr (friends, "peerinfo", cur_peerinfo);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "failed to set peerinfo");
+                goto out;
+        }
+
+        proc = &cur_peerinfo->peer->proctable[GLUSTERD_FRIEND_UPDATE];
+        if (proc->fn)
+                ret = proc->fn (NULL, this, friends);
+
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
+
+out:
+        rcu_read_unlock ();
+
+        if (friends)
+                dict_unref (friends);
+
+        return ret;
+}
+
 /* Clean up stale volumes on the peer being detached. The volumes which have
  * bricks on other peers are stale with respect to the detached peer.
  */
@@ -1039,8 +1133,8 @@ glusterd_sm_t  glusterd_state_befriended [] = {
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_PROBE,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_update_friend}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_update_friend}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
