@@ -306,7 +306,7 @@ def main_i():
     op.add_option('--feedback-fd', dest='feedback_fd', type=int,
                   help=SUPPRESS_HELP, action='callback', callback=store_local)
     op.add_option('--rpc-fd', dest='rpc_fd', type=str, help=SUPPRESS_HELP)
-    op.add_option('--subvol-num', dest='subvol_num', type=int,
+    op.add_option('--subvol-num', dest='subvol_num', type=str,
                   help=SUPPRESS_HELP)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,
                   action='callback', callback=store_local_curry(True))
