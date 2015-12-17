@@ -1181,7 +1181,8 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                         goto real_op;
                 }
                 op_ret = posix_create_link_if_gfid_exists (this, uuid_req,
-                                                           real_path);
+                                                           real_path,
+                                                           loc->inode->table);
                 if (!op_ret) {
                         linked = _gf_true;
                         goto post_op;

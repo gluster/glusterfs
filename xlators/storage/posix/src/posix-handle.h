@@ -281,7 +281,7 @@ int posix_handle_mkdir_hashes (xlator_t *this, const char *newpath);
 int posix_handle_init (xlator_t *this);
 
 int posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
-                                      char *real_path);
+                                      char *real_path, inode_table_t *itable);
 
 int
 posix_handle_trash_init (xlator_t *this);
