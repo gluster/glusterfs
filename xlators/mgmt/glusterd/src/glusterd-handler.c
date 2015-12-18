@@ -2274,6 +2274,9 @@ __glusterd_handle_fsm_log (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("xlator", (this != NULL), out);
+
         ret = xdr_to_generic (req->msg[0], &cli_req,
                               (xdrproc_t)xdr_gf1_cli_fsm_log_req);
         if (ret < 0) {
@@ -2293,7 +2296,6 @@ __glusterd_handle_fsm_log (rpcsvc_request_t *req)
         }
 
         if (strcmp ("", cli_req.name) == 0) {
-                this = THIS;
                 conf = this->private;
                 ret = glusterd_sm_tr_log_add_to_dict (dict, &conf->op_sm_log);
         } else {
@@ -2917,6 +2919,9 @@ __glusterd_handle_probe_query (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("xlator", (this != NULL), out);
+
         ret = xdr_to_generic (req->msg[0], &probe_req,
                               (xdrproc_t)xdr_gd1_mgmt_probe_req);
         if (ret < 0) {
@@ -2927,8 +2932,6 @@ __glusterd_handle_probe_query (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-
-        this = THIS;
 
         conf = this->private;
         if (probe_req.port)

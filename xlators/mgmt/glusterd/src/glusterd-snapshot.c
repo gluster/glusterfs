@@ -6178,9 +6178,9 @@ glusterd_do_snap_cleanup (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         int32_t                  ret                   = -1;
         char                     *name                 = NULL;
+        char                     *volname              = NULL;
         xlator_t                 *this                 = NULL;
         glusterd_conf_t          *conf                 = NULL;
-        glusterd_volinfo_t       *volinfo              = NULL;
         glusterd_snap_t          *snap                 = NULL;
 
         this = THIS;
@@ -6194,11 +6194,19 @@ glusterd_do_snap_cleanup (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get"
+                        " volume name");
+                goto out;
+        }
+
         ret = dict_get_str (dict, "snapname", &name);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "getting the snap "
-                        "name failed (volume: %s)", volinfo->volname);
+                        "name failed (volume: %s)", volname);
                 goto out;
         }
 

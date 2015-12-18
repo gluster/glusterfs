@@ -960,11 +960,9 @@ dht_rename_linkto_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t        *src_cached = NULL;
         dict_t          *xattr = NULL;
 
-        DHT_MARK_FOP_INTERNAL (xattr);
-
         local = frame->local;
+        DHT_MARK_FOP_INTERNAL (xattr);
         prev = cookie;
-
         src_cached = local->src_cached;
 
         if (op_ret == -1) {
