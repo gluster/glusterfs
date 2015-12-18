@@ -26,7 +26,7 @@ endif
 fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 	$(CONTRIBDIR)/fuse-lib/misc.c $(mount_source)
 
-fuse_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+fuse_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 fuse_la_LIBADD = $(GF_LDADD) @GF_FUSE_LDADD@
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \

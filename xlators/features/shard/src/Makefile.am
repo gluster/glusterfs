@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = shard.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-shard_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+shard_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 shard_la_SOURCES = shard.c
 

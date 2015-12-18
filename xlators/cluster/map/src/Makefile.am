@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = map.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/cluster
 
-map_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+map_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 
 map_la_SOURCES = map.c map-helper.c

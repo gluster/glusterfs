@@ -1278,7 +1278,7 @@ AM_CONDITIONAL([ENABLE_EXPERIMENTAL], [test x$BUILD_EXPERIMENTAL = xyes])
 dnl libglusterfs.so uses math functions
 GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
-GF_XLATOR_DEFAULT_LDFLAGS='-module -avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym'
+GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym'
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)

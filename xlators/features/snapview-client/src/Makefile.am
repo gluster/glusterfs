@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = snapview-client.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-snapview_client_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+snapview_client_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 snapview_client_la_SOURCES = snapview-client.c
 snapview_client_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 noinst_HEADERS = ganesha.h ganesha-mem-types.h
 
-ganesha_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+ganesha_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 ganesha_la_SOURCES = ganesha.c
 

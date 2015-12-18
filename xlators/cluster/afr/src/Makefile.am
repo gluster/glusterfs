@@ -10,11 +10,11 @@ AFR_SELFHEAL_SOURCES = afr-self-heal-common.c afr-self-heal-data.c \
 	afr-self-heal-entry.c afr-self-heal-metadata.c afr-self-heald.c \
 	afr-self-heal-name.c
 
-afr_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+afr_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 afr_la_SOURCES = $(afr_common_source) $(AFR_SELFHEAL_SOURCES) afr.c
 afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-pump_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+pump_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 pump_la_SOURCES =  $(afr_common_source) $(AFR_SELFHEAL_SOURCES) pump.c
 pump_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 

@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = gfid-access.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-gfid_access_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+gfid_access_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 gfid_access_la_SOURCES = gfid-access.c
 gfid_access_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

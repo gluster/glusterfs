@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = upcall.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-upcall_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+upcall_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 upcall_la_SOURCES = upcall.c upcall-internal.c
 

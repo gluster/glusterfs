@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = locks.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-locks_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+locks_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 locks_la_SOURCES = common.c posix.c entrylk.c inodelk.c reservelk.c \
 		   clear.c

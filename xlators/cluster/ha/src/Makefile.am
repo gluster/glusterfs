@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = ha.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/cluster
 
-ha_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+ha_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 
 ha_la_SOURCES = ha-helpers.c ha.c

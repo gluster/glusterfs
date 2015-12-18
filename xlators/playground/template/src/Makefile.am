@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = template.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/testing/features
 
-template_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+template_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 template_la_SOURCES = template.c
 template_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
