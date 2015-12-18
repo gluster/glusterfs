@@ -496,8 +496,10 @@ _cli_err (const char *fmt, ...)
         va_start (ap, fmt);
 
 #ifdef HAVE_READLINE
-        if (state->rl_enabled && !state->rl_processing)
-                return cli_rl_err(state, fmt, ap);
+        if (state->rl_enabled && !state->rl_processing) {
+                va_end (ap);
+                return cli_rl_err (state, fmt, ap);
+        }
 #endif
 
         ret = vfprintf (stderr, fmt, ap);
@@ -520,8 +522,10 @@ _cli_out (const char *fmt, ...)
         va_start (ap, fmt);
 
 #ifdef HAVE_READLINE
-        if (state->rl_enabled && !state->rl_processing)
-                return cli_rl_out(state, fmt, ap);
+        if (state->rl_enabled && !state->rl_processing) {
+                va_end (ap);
+                return cli_rl_out (state, fmt, ap);
+        }
 #endif
 
         ret = vprintf (fmt, ap);

@@ -1685,6 +1685,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                               "called");
                 va_start (ap, data);
                 output = va_arg (ap, dict_t *);
+                va_end (ap);
 
                 ret = br_scrubber_status_get (this, &output);
                 gf_msg_debug (this->name, 0, "returning %d", ret);

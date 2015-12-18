@@ -651,7 +651,8 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
         } while (0)
 
 int
-ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this, FILE* logfp)
+ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this,
+                     FILE *logfp)
 {
         struct ios_stat_list *entry = NULL;
 
@@ -668,7 +669,7 @@ ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this, FILE* logf
 
 int
 ios_dump_throughput_stats (struct ios_stat_head *list_head, xlator_t *this,
-                            FILE* logfp, ios_stats_type_t type)
+                           FILE *logfp, ios_stats_thru_t type)
 {
         struct ios_stat_list *entry = NULL;
         struct timeval        time  = {0, };
@@ -1138,7 +1139,7 @@ out:
 
 int
 io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
-                               struct timeval *now, int interval, FILE* logfp)
+                               struct timeval *now, int interval, FILE *logfp)
 {
         int                   i = 0;
         int                   per_line = 0;
@@ -1280,13 +1281,15 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_READ];
-                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_TYPE_READ);
+                ios_dump_throughput_stats(list_head, this, logfp,
+                                          IOS_STATS_THRU_READ);
 
                 ios_log (this, logfp, "\n======Write Throughput File Stats======");
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_WRITE];
-                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_TYPE_WRITE);
+                ios_dump_throughput_stats (list_head, this, logfp,
+                                           IOS_STATS_THRU_WRITE);
         }
         return 0;
 }
