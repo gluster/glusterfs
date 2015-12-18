@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = stripe.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
-stripe_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+stripe_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 
 stripe_la_SOURCES = stripe.c stripe-helpers.c \

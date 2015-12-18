@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = meta.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator
 
-meta_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+meta_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 meta_la_SOURCES = meta.c meta-helpers.c meta-defaults.c \
 	root-dir.c \

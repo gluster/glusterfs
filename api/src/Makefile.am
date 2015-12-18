@@ -32,7 +32,7 @@ $(install_xlatorLTLIBRARIES): install-libLTLIBRARIES
 
 api_la_SOURCES = glfs-master.c
 api_la_DEPENDENCIES = libgfapi.la
-api_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+api_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 api_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \

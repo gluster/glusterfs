@@ -2,7 +2,7 @@
 xlator_LTLIBRARIES = trace.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/debug
 
-trace_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+trace_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 trace_la_SOURCES = trace.c
 trace_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

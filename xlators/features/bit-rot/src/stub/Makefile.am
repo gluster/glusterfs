@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = bitrot-stub.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-bitrot_stub_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+bitrot_stub_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 bitrot_stub_la_SOURCES = bit-rot-stub-helpers.c bit-rot-stub.c
 bitrot_stub_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la

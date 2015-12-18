@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = arbiter.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-arbiter_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
+arbiter_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 arbiter_la_SOURCES = arbiter.c
 arbiter_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
