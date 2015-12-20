@@ -120,7 +120,7 @@ bd_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         int           ret    = -1;
         bd_attr_t    *bdatt  = NULL;
         uint64_t      size   = 0;
-        char         *type   = BD_TYPE_NONE;
+        char         *type   = NULL;
 
         /* only regular files are part of BD object */
         if (op_ret < 0 || buf->ia_type != IA_IFREG)

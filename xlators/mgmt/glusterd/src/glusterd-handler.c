@@ -856,7 +856,7 @@ __glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         int32_t                         ret         = -1;
         gd1_mgmt_cluster_lock_req       lock_req    = {{0},};
         glusterd_op_lock_ctx_t         *ctx         = NULL;
-        glusterd_op_t                   op          = GD_OP_EVENT_LOCK;
+        glusterd_op_sm_event_type_t     op          = GD_OP_EVENT_LOCK;
         glusterd_op_info_t              txn_op_info = {{0},};
         glusterd_conf_t                *priv        = NULL;
         uuid_t                         *txn_id      = NULL;
@@ -947,9 +947,9 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
                                             __glusterd_handle_cluster_lock);
 }
 
-int
+static int
 glusterd_req_ctx_create (rpcsvc_request_t *rpc_req,
-                         glusterd_op_t op, uuid_t uuid,
+                         int op, uuid_t uuid,
                          char *buf_val, size_t buf_len,
                          gf_gld_mem_types_t mem_type,
                          glusterd_req_ctx_t **req_ctx_out)

@@ -2834,8 +2834,8 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int32_t  list_cnt       = -1;
         int      index          = 0;
         int      perf           = 0;
-        int32_t  blk_size      = 0;
-        uint32_t  count         = 0;
+        int32_t  blk_size       = 0;
+        int      count          = 0;
         gf_boolean_t nfs        = _gf_false;
         char    *delimiter      = NULL;
         char    *opwords[]      = { "open", "read", "write", "opendir",

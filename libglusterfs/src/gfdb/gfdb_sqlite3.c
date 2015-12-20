@@ -106,7 +106,7 @@ gf_sql_auto_vacuum_t
 gf_sql_str2av_t (const char *av_str)
 {
         if (!av_str) {
-                return gf_sql_sync_invalid;
+                return gf_sql_av_invalid;
         } else if (strcmp (av_str, GF_SQL_AV_NONE) == 0) {
                 return gf_sql_av_none;
         } else if (strcmp (av_str, GF_SQL_AV_FULL) == 0) {
@@ -114,7 +114,7 @@ gf_sql_str2av_t (const char *av_str)
         } else if (strcmp (av_str, GF_SQL_AV_INCR) == 0) {
                 return gf_sql_av_incr;
         }
-        return gf_sql_sync_invalid;
+        return gf_sql_av_invalid;
 }
 
 const char *

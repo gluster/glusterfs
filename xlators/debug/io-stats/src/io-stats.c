@@ -1017,7 +1017,7 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
         epoch_time = (sample->timestamp).tv_sec +
           ((sample->timestamp).tv_usec / 1000000.0);
 
-        if (!sample->identifier || (strlen (sample->identifier) == 0)) {
+        if (strlen (sample->identifier) == 0) {
                 hostname = "Unknown";
                 port = "Unknown";
         } else {

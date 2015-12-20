@@ -1806,7 +1806,7 @@ __socket_read_vectored_reply (rpc_transport_t *this)
                     || ((ret == 0) && (remaining_size == 0)
                         && (RPC_LASTFRAG (in->fraghdr)))) {
                         frag->call_body.reply.status_state
-                                = SP_STATE_ACCEPTED_REPLY_INIT;
+                                = SP_STATE_VECTORED_REPLY_STATUS_INIT;
                         in->payload_vector.iov_len
                                 = (unsigned long)frag->fragcurrent
                                 - (unsigned long)in->payload_vector.iov_base;
@@ -1942,7 +1942,7 @@ __socket_read_frag (rpc_transport_t *this)
                         ret = __socket_read_request (this);
                 } else if (in->msg_type == REPLY) {
                         ret = __socket_read_reply (this);
-                } else if (in->msg_type == GF_UNIVERSAL_ANSWER) {
+                } else if (in->msg_type == (msg_type_t) GF_UNIVERSAL_ANSWER) {
                         gf_log ("rpc", GF_LOG_ERROR,
                                 "older version of protocol/process trying to "
                                 "connect from %s. use newer version on that node",
@@ -1960,7 +1960,8 @@ __socket_read_frag (rpc_transport_t *this)
                 if ((ret == -1)
                     || ((ret == 0) && (remaining_size == 0)
                         && (RPC_LASTFRAG (in->fraghdr)))) {
-                        frag->state = SP_STATE_NADA;
+                     /* frag->state = SP_STATE_NADA; */
+                        frag->state = SP_STATE_RPCFRAG_INIT;
                 }
 
                 break;
@@ -2291,7 +2292,7 @@ socket_connect_finish (rpc_transport_t *this)
                                         "getsockname on (%d) failed (%s)",
                                         priv->sock, strerror (errno));
                                 __socket_disconnect (this);
-                                event = GF_EVENT_POLLERR;
+                                event = RPC_TRANSPORT_DISCONNECT;
                                 goto unlock;
                         }
 

@@ -1581,11 +1581,12 @@ err:
 }
 
 int
-gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
+gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t umax)
 {
         double        value      = 0.0;
-        uint64_t      int_value  = 0;
+        int64_t       int_value  = 0;
         uint64_t      unit       = 0;
+        int64_t       max        = 0;
         char         *tail       = NULL;
         int           old_errno  = 0;
         const char   *s          = NULL;
@@ -1597,6 +1598,8 @@ gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
                 errno = EINVAL;
                 return -1;
         }
+
+        max = umax & 0x7fffffffffffffffLL;
 
         for (s = str; *s != '\0'; s++) {
                 if (isspace (*s))
@@ -2114,7 +2117,7 @@ get_nth_word (const char *str, int n)
         if (!end)
                 goto out;
 
-        word_len = abs (end - start);
+        word_len = labs (end - start);
 
         word = GF_CALLOC (1, word_len + 1, gf_common_mt_strdup);
         if (!word)

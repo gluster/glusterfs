@@ -1720,7 +1720,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         int                         op_ret           = -1;
         dict_t                      *req_dict        = NULL;
         glusterd_conf_t             *conf            = NULL;
-        glusterd_op_t               op               = 0;
+        glusterd_op_t               op               = GD_OP_NONE;
         int32_t                     tmp_op           = 0;
         char                        *op_errstr       = NULL;
         char                        *tmp             = NULL;

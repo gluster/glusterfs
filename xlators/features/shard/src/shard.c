@@ -1475,7 +1475,7 @@ shard_truncate_do (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
-        if ((local->num_blocks == 1)) {
+        if (local->num_blocks == 1) {
                 /* This means that there are no shards to be unlinked.
                  * The fop boils down to truncating the last shard, updating
                  * the size and unwinding.

@@ -441,7 +441,7 @@ struct dht_conf {
         int           *last_event;
         dht_layout_t **file_layouts;
         dht_layout_t **dir_layouts;
-        gf_boolean_t   search_unhashed;
+        unsigned int   search_unhashed;
         gf_boolean_t   lookup_optimize;
         int            gen;
         dht_du_t      *du_stats;

@@ -9,7 +9,7 @@
 */
 
 #ifndef _PC_MESSAGES_H__
-#define _PC_MESSAGES_H_
+#define _PC_MESSAGES_H__
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -621,4 +621,4 @@
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
-#endif /* !_PC_MESSAGES_H_ */
+#endif /* !_PC_MESSAGES_H__ */

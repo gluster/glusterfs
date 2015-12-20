@@ -363,9 +363,10 @@ cli_opt_parse (char *opt, struct cli_state *state)
 
         oarg = strtail (opt, "log-level=");
         if (oarg) {
-                state->log_level = glusterd_check_log_level(oarg);
-                if (state->log_level == -1)
+                int log_level = glusterd_check_log_level(oarg);
+                if (log_level == -1)
                         return -1;
+                state->log_level = (gf_loglevel_t) log_level;
                 return 0;
         }
 
