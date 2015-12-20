@@ -59,7 +59,7 @@ locks_overlap (posix_lock_t *l1, posix_lock_t *l2);
 int
 same_owner (posix_lock_t *l1, posix_lock_t *l2);
 
-void __delete_lock (pl_inode_t *, posix_lock_t *);
+void __delete_lock (posix_lock_t *);
 
 void __destroy_lock (posix_lock_t *);
 
