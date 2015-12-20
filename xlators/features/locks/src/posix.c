@@ -594,7 +594,7 @@ delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
                                        list_move_tail (&l->list, &blocked_list);
                                        continue;
                                }
-                               __delete_lock (pl_inode, l);
+                               __delete_lock (l);
                                __destroy_lock (l);
                        }
                }
@@ -639,7 +639,7 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
                                 l->user_flock.l_len,
                                 l->blocked == 1 ? "Blocked" : "Active");
 
-                        __delete_lock (pl_inode, l);
+                        __delete_lock (l);
                         __destroy_lock (l);
                 }
         }
@@ -2022,7 +2022,7 @@ pl_forget (xlator_t *this,
                         list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list,
                                                   list) {
 
-                                __delete_lock (pl_inode, ext_l);
+                                __delete_lock (ext_l);
                                 if (ext_l->blocked) {
                                         list_add_tail (&ext_l->list, &posixlks_released);
                                         continue;

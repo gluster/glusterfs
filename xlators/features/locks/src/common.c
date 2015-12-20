@@ -483,7 +483,7 @@ out:
 
 /* Delete a lock from the inode's lock list */
 void
-__delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
+__delete_lock (posix_lock_t *lock)
 {
         list_del_init (&lock->list);
 }
@@ -562,7 +562,7 @@ __delete_unlck_locks (pl_inode_t *pl_inode)
 
         list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
                 if (l->fl_type == F_UNLCK) {
-                        __delete_lock (pl_inode, l);
+                        __delete_lock (l);
                         __destroy_lock (l);
                 }
         }
@@ -800,7 +800,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 sum->client_pid = lock->client_pid;
                                 sum->owner      = lock->owner;
 
-                                __delete_lock (pl_inode, conf);
+                                __delete_lock (conf);
                                 __destroy_lock (conf);
 
                                 __destroy_lock (lock);
@@ -820,10 +820,10 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 v = subtract_locks (sum, lock);
 
-                                __delete_lock (pl_inode, conf);
+                                __delete_lock (conf);
                                 __destroy_lock (conf);
 
-                                __delete_lock (pl_inode, lock);
+                                __delete_lock (lock);
                                 __destroy_lock (lock);
 
                                 __destroy_lock (sum);
