@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef __BIT_ROT__SCRUB_H__
+#ifndef __BIT_ROT_SCRUB_H__
 #define __BIT_ROT_SCRUB_H__
 
 #include "xlator.h"

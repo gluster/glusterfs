@@ -1401,7 +1401,7 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
 
         case AFR_ENTRY_TRANSACTION:
                 int_lock->lk_basename = local->transaction.basename;
-                if (&local->transaction.parent_loc)
+                if (local->transaction.parent_loc.path)
                         int_lock->lk_loc = &local->transaction.parent_loc;
                 else
                         GF_ASSERT (local->fd);

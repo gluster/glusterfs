@@ -240,7 +240,7 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         int                             ret                     = -1;
         char                            *volname                = NULL;
         int                             exists                  = 0;
-        gf_boolean_t                    value                   = _gf_false;
+        int                             value                   = -1;
         gf_boolean_t                    option                  = _gf_false;
         char                            *str                    = NULL;
         int                             dict_count              = 0;

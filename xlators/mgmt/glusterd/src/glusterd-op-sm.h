@@ -91,7 +91,8 @@ struct glusterd_op_info_ {
         int32_t                         pending_count;
         int32_t                         brick_pending_count;
         int32_t                         op_count;
-        glusterd_op_t                   op;
+        /* op is an enum, glusterd_op_t or glusterd_op_sm_state_info_t */
+        int                             op;
         struct cds_list_head            op_peers;
         void                            *op_ctx;
         rpcsvc_request_t                *req;

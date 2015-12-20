@@ -3516,7 +3516,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         char         *acl_xattr               = NULL;
         struct iatt   stbuf                   = {0};
         int32_t       ret                     = 0;
-        size_t        acl_size                = 0;
+        ssize_t       acl_size                = 0;
         dict_t       *xattr                   = NULL;
         posix_xattr_filler_t filler = {0,};
 

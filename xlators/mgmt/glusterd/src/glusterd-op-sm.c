@@ -145,7 +145,7 @@ glusterd_txn_opinfo_dict_fini ()
 
 void
 glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
-                          glusterd_op_sm_state_info_t *state, glusterd_op_t *op,
+                          glusterd_op_sm_state_info_t *state, int *op,
                           dict_t *op_ctx, rpcsvc_request_t *req)
 {
         glusterd_conf_t *conf = NULL;

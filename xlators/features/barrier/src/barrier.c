@@ -473,7 +473,7 @@ notify (xlator_t *this, int event, void *data, ...)
         dict_t          *dict                   = NULL;
         gf_boolean_t     past                   = _gf_false;
         int              ret                    = -1;
-        gf_boolean_t     barrier_enabled        = _gf_false;
+        int              barrier_enabled        = _gf_false;
         struct list_head queue                  = {0,};
 
         priv = this->private;

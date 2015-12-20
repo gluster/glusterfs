@@ -1196,7 +1196,7 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
                 max_limit = opt_hard_max;
         }
 
-        if ((value < 0) || (value > max_limit)) {
+        if (value > max_limit) {
                 ret = -1;
                 snprintf (err_str, PATH_MAX, "Invalid snap-max-hard-limit "
                           "%"PRIu64 ". Expected range 1 - %"PRIu64,
@@ -1289,7 +1289,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr,
 
         if (soft_limit) {
                 max_limit = GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT;
-                if ((soft_limit < 0) || (soft_limit > max_limit)) {
+                if (soft_limit > max_limit) {
                         ret = -1;
                         snprintf (err_str, PATH_MAX, "Invalid "
                                  "snap-max-soft-limit ""%"

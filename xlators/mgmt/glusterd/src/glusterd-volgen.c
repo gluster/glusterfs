@@ -3906,7 +3906,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *tmp           = NULL;
         gf_boolean_t     var           = _gf_false;
         gf_boolean_t     ob            = _gf_false;
-        gf_boolean_t     uss_enabled   = _gf_false;
+        int              uss_enabled   = -1;
         xlator_t        *this          = THIS;
 
         GF_ASSERT (this);

@@ -1010,9 +1010,9 @@ bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         }
 
-        memcpy (&prebuf, &bdatt->iatt, sizeof (prebuf));
+        memcpy (prebuf, &bdatt->iatt, sizeof (struct iatt));
         bd_update_amtime (&bdatt->iatt, GF_SET_ATTR_MTIME);
-        memcpy (&postbuf, &bdatt->iatt, sizeof (postbuf));
+        memcpy (postbuf, &bdatt->iatt, sizeof (struct iatt));
 
 out:
 

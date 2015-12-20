@@ -442,7 +442,9 @@ dht_distribution_type (xlator_t *this, dht_layout_t *layout)
                 }
 
                 range = layout->list[i].stop - layout->list[i].start;
-                diff = abs (range - start_range);
+                diff = (range >= start_range)
+                        ? range - start_range
+                        : start_range - range;
 
                 if ((range != 0) && (diff > layout->cnt)) {
                         type = GF_DHT_WEIGHTED_DISTRIBUTION;
