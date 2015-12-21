@@ -1,7 +1,3 @@
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <lvm2app.h>
 #ifdef HAVE_LIBAIO
 #include <libaio.h>
@@ -12,6 +8,7 @@
 #include "bd-mem-types.h"
 #include "run.h"
 #include "lvm-defaults.h"
+#include "syscall.h"
 
 int
 bd_inode_ctx_set (inode_t *inode, xlator_t *this, bd_attr_t *ctx)
@@ -138,7 +135,7 @@ check:
                 goto out;
         }
 
-        op_ret = uuid_parse (tmp_data->data, dict_uuid);
+        op_ret = gf_uuid_parse (tmp_data->data, dict_uuid);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "wrong volume-id (%s) set in volume file",
@@ -171,7 +168,7 @@ check:
                 goto out;
         }
 
-        op_ret = uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
+        op_ret = gf_uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
                              vg_uuid);
         if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -179,7 +176,7 @@ check:
                         op_ret = -1;
                         goto out;
         }
-        if (uuid_compare (dict_uuid, vg_uuid)) {
+        if (gf_uuid_compare (dict_uuid, vg_uuid)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "mismatching volume-id (%s) received. "
                         "already is a part of volume %s ",
@@ -272,7 +269,8 @@ __bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
 out:
         GF_FREE (devpath);
         if (ret) {
-                close (_fd);
+                if (_fd >= 0)
+                        sys_close (_fd);
                 GF_FREE (bdfd);
         }
         return ret;
@@ -341,7 +339,7 @@ bd_validate_bd_xattr (xlator_t *this, char *bd, char **type,
         }
 
         /* Destination file does not exist */
-        if (stat (path, &stbuf)) {
+        if (sys_stat (path, &stbuf)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "lstat failed for path %s", path);
                 return -1;
@@ -403,7 +401,7 @@ create_thin_lv (char *vg, char *pool, char *lv, uint64_t extent)
                 ret = ENOMEM;
                 goto out;
         }
-        if (lstat (path, &stat) < 0)
+        if (sys_lstat (path, &stat) < 0)
                 ret = EAGAIN;
         else
                 ret = 0;
@@ -568,7 +566,7 @@ out:
         return ret;
 }
 
-inline void
+void
 bd_update_amtime(struct iatt *iatt, int flag)
 {
         struct timespec ts = {0, };
@@ -615,7 +613,7 @@ bd_snapshot_create (bd_local_t *local, bd_priv_t *priv)
         runner_start (&runner);
         runner_end (&runner);
 
-        if (lstat (path, &stat) < 0)
+        if (sys_lstat (path, &stat) < 0)
                 ret = EIO;
 
         GF_FREE (path);
@@ -675,7 +673,7 @@ bd_clone (bd_local_t *local, bd_priv_t *priv)
         }
 
         while (1) {
-                bytes = readv (fd1, vec, IOV_NR);
+                bytes = sys_readv (fd1, vec, IOV_NR);
                 if (bytes < 0) {
                         ret = errno;
                         gf_log (THIS->name, GF_LOG_WARNING, "read failed: %s",
@@ -684,7 +682,7 @@ bd_clone (bd_local_t *local, bd_priv_t *priv)
                 }
                 if (!bytes)
                         break;
-                bytes = writev (fd2, vec, IOV_NR);
+                bytes = sys_writev (fd2, vec, IOV_NR);
                 if (bytes < 0) {
                         ret = errno;
                         gf_log (THIS->name, GF_LOG_WARNING,
@@ -700,9 +698,9 @@ out:
         GF_FREE (vec);
 
         if (fd1 != -1)
-                close (fd1);
+                sys_close (fd1);
         if (fd2 != -1)
-                close (fd2);
+                sys_close (fd2);
 
         GF_FREE (spath);
         GF_FREE (dpath);
@@ -732,7 +730,7 @@ bd_merge (bd_priv_t *priv, uuid_t gfid)
         runner_start (&runner);
         runner_end (&runner);
 
-        if (!lstat (path, &stat))
+        if (!sys_lstat (path, &stat))
                 ret = EIO;
 
         GF_FREE (path);
@@ -844,24 +842,24 @@ bd_do_manual_zerofill (int fd, off_t offset, off_t len, int o_direct)
                 vector[idx].iov_len  = vect_size;
         }
 
-        if (lseek (fd, offset, SEEK_SET) < 0) {
+        if (sys_lseek (fd, offset, SEEK_SET) < 0) {
                 op_ret = -1;
                 goto err;
         }
 
         for (idx = 0; idx < num_loop; idx++) {
-                op_ret = writev (fd, vector, num_vect);
+                op_ret = sys_writev (fd, vector, num_vect);
                 if (op_ret < 0)
                         goto err;
         }
         if (extra) {
-                op_ret = writev (fd, vector, extra);
+                op_ret = sys_writev (fd, vector, extra);
                 if (op_ret < 0)
                         goto err;
         }
         if (remain) {
                 vector[0].iov_len = remain;
-                op_ret = writev (fd, vector , 1);
+                op_ret = sys_writev (fd, vector , 1);
                 if (op_ret < 0)
                         goto err;
         }
@@ -905,7 +903,7 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
         uuid_utoa_r (bdatt->iatt.ia_gfid, uuid);
         sprintf (lvname, "/dev/%s/%s", vg, uuid);
 
-        readlink (lvname, dmname, sizeof (dmname));
+        sys_readlink (lvname, dmname, sizeof (dmname) - 1);
 
         p = strrchr (dmname, '/');
         if (p)
@@ -921,8 +919,8 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
                 goto skip;
         }
 
-        read (sysfd, buff, sizeof (buff));
-        close (sysfd);
+        sys_read (sysfd, buff, sizeof (buff));
+        sys_close (sysfd);
 
         max_bytes = atoll (buff);
 
@@ -1003,7 +1001,7 @@ bd_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
         if (bd_fd->flag & (O_SYNC|O_DSYNC)) {
-                ret = fsync (bd_fd->fd);
+                ret = sys_fsync (bd_fd->fd);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsync() in writev on fd %d failed: %s",

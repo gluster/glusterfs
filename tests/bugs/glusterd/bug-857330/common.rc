@@ -47,9 +47,11 @@ function get-task-id-xml()
 
 function get-task-status()
 {
-        $CLI $COMMAND | grep -o $PATTERN
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
-                return 1
+        pattern=$1
+        val=1
+        test=$(gluster $COMMAND | grep -o $pattern 2>&1)
+        if [ $? -eq 0 ]; then
+                 val=0
         fi
-        return 0
+        echo $val
 }

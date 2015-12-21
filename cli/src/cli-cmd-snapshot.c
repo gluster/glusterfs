@@ -13,13 +13,9 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
+#include "cli-mem-types.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
@@ -82,9 +78,14 @@ struct cli_cmd snapshot_cmds[] = {
           cli_cmd_snapshot_help_cbk,
           "display help for snapshot commands"
         },
-        { "snapshot create <snapname> <volname(s)> [description <description>] [force]",
+        { "snapshot create <snapname> <volname> [no-timestamp] "
+                "[description <description>] [force]",
           cli_cmd_snapshot_cbk,
           "Snapshot Create."
+        },
+        { "snapshot clone <clonename> <snapname>",
+          cli_cmd_snapshot_cbk,
+          "Snapshot Clone."
         },
         { "snapshot restore <snapname>",
           cli_cmd_snapshot_cbk,
@@ -130,12 +131,19 @@ cli_cmd_snapshot_help_cbk (struct cli_state *state,
                            const char **words,
                            int wordcount)
 {
-        struct cli_cmd        *cmd = NULL;
+        struct cli_cmd        *cmd      = NULL;
+        struct cli_cmd        *snap_cmd = NULL;
+        int                   count     = 0;
 
-        for (cmd = snapshot_cmds; cmd->pattern; cmd++)
-                if (_gf_false == cmd->disable)
-                        cli_out ("%s - %s", cmd->pattern, cmd->desc);
+        cmd = GF_CALLOC (1, sizeof (snapshot_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, snapshot_cmds, sizeof (snapshot_cmds));
+        count = (sizeof (snapshot_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
 
+        for (snap_cmd = cmd; snap_cmd->pattern; snap_cmd++)
+                if (_gf_false == snap_cmd->disable)
+                        cli_out ("%s - %s", snap_cmd->pattern, snap_cmd->desc);
+        GF_FREE (cmd);
         return 0;
 }
 

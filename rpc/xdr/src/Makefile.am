@@ -1,5 +1,6 @@
 XDRSOURCES = glusterfs3-xdr.c cli1-xdr.c nlm4-xdr.c nsm-xdr.c \
-	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c mount3udp.c
+	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c \
+	mount3udp.c changelog-xdr.c
 XDRHEADERS = $(XDRSOURCES:.c=.h)
 XDRGENFILES = $(XDRSOURCES:.c=.x)
 
@@ -14,13 +15,19 @@ libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
 
-libgfxdr_la_SOURCES =  $(XDRSOURCES) xdr-generic.c xdr-nfs3.c msg-nfs3.c
+libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
+nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
 
-noinst_HEADERS = $(XDRHEADERS) xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h
+libgfxdr_la_HEADERS = xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h \
+	$(XDRHEADERS)
 
-CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
+libgfxdr_ladir = $(includedir)/glusterfs/rpc
+
+BUILT_SOURCES = $(XDRSOURCES) $(XDRHEADERS)
 
 EXTRA_DIST = $(XDRGENFILES)
+
+CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 
 xdrsrc=$(top_srcdir)/rpc/xdr/src
 glusterfs3-xdr.c: glusterfs3-xdr.x glusterfs3-xdr.h
@@ -75,4 +82,10 @@ mount3udp.c: mount3udp.x mount3udp.h
 	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 mount3udp.h: mount3udp.x
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
+
+changelog-xdr.c: changelog-xdr.x changelog-xdr.h
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
+
+changelog-xdr.h: changelog-xdr.x
 	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`

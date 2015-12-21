@@ -16,14 +16,16 @@
 const char * ec_bin(char * str, size_t size, uint64_t value, int32_t digits);
 const char * ec_fop_name(int32_t id);
 void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...);
-uint64_t ec_itransform(ec_t * ec, int32_t idx, uint64_t offset);
-uint64_t ec_deitransform(ec_t * ec, int32_t * idx, uint64_t offset);
 int32_t ec_bits_count(uint64_t n);
 int32_t ec_bits_index(uint64_t n);
 int32_t ec_bits_consume(uint64_t * n);
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
                       off_t offset, size_t size);
 
+int32_t ec_dict_set_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
+int32_t ec_dict_del_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value);
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value);
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
@@ -57,4 +59,11 @@ ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data);
 
 void
 ec_filter_internal_xattrs (dict_t *xattr);
+
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop);
+/*
+gf_boolean_t
+ec_is_metadata_fop (glusterfs_fop_t fop);
+*/
 #endif /* __EC_HELPERS_H__ */

@@ -11,16 +11,11 @@
 #ifndef _NFS_FH_H_
 #define _NFS_FH_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "xdr-nfs3.h"
 #include "iatt.h"
 #include <sys/types.h>
-#include "uuid.h"
+#include "compat-uuid.h"
 
 /* BIG FAT WARNING: The file handle code is tightly coupled to NFSv3 file
  * handles for now. This will change if and when we need v4. */
@@ -29,7 +24,7 @@
 #define GF_NFSFH_IDENT2         'G'
 #define GF_NFSFH_IDENT3         'L'
 #define GF_NFSFH_IDENT_SIZE     (sizeof(char) * 4)
-#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (2*sizeof (uuid_t)))
+#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (3*sizeof (uuid_t)))
 
 #define nfs3_fh_exportid_to_index(exprtid)      ((uint16_t)exprtid[15])
 /* ATTENTION: Change in size of the structure below should be reflected in the
@@ -56,6 +51,7 @@ struct nfs3_fh {
 
         /* File/dir gfid. */
         uuid_t                  gfid;
+        uuid_t                  mountid;
         /* This structure must be exactly NFS3_FHSIZE (64) bytes long.
            Having the structure shorter results in buffer overflows
            during XDR decoding.
@@ -95,9 +91,10 @@ nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
                          struct nfs3_fh *newfh);
 
 extern struct nfs3_fh
-nfs3_fh_build_uuid_root_fh (uuid_t volumeid);
+nfs3_fh_build_uuid_root_fh (uuid_t volumeid, uuid_t mountid);
 
 extern int
-nfs3_build_fh (inode_t *inode, uuid_t exportid, struct nfs3_fh *newfh);
+nfs3_build_fh (inode_t *inode, uuid_t exportid,
+               struct nfs3_fh *newfh);
 
 #endif

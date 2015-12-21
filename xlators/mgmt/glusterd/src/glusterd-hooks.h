@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_HOOKS_H_
 #define _GLUSTERD_HOOKS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <fnmatch.h>
 
 #define GLUSTERD_GET_HOOKS_DIR(path, version, priv) \
@@ -33,7 +28,7 @@ typedef enum glusterd_commit_hook_type {
 } glusterd_commit_hook_type_t;
 
 typedef struct hooks_private {
-        struct list_head        list;
+        struct cds_list_head    list;
         int                     waitcount; //debug purposes
         pthread_mutex_t         mutex;
         pthread_cond_t          cond;
@@ -41,7 +36,7 @@ typedef struct hooks_private {
 } glusterd_hooks_private_t;
 
 typedef struct hooks_stub {
-        struct list_head        all_hooks;
+        struct cds_list_head    all_hooks;
         char                    *scriptdir;
         glusterd_op_t           op;
         dict_t                  *op_ctx;
@@ -56,7 +51,7 @@ is_key_glusterd_hooks_friendly (char *key)
 
         /* This is very specific to hooks friendly behavior */
         if (fnmatch (GD_HOOKS_SPECIFIC_KEY, key, FNM_NOESCAPE) == 0) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "user namespace key %s", key);
+                gf_msg_debug (THIS->name, 0, "user namespace key %s", key);
                 is_friendly = _gf_true;
         }
 

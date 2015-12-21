@@ -98,7 +98,6 @@ GFAPI_3.4.2 {
 		glfs_setfsuid;
 		glfs_setfsgid;
 		glfs_setfsgroups;
-		glfs_h_lookupat;
 		glfs_h_creat;
 		glfs_h_mkdir;
 		glfs_h_mknod;
@@ -145,10 +144,26 @@ GFAPI_3.6.0 {
 		glfs_h_access;
 } GFAPI_3.5.1;
 
+GFAPI_3.7.0 {
+	global:
+		glfs_ipc;
+		glfs_h_poll_upcall;
+		glfs_h_acl_set;
+		glfs_h_acl_get;
+		glfs_h_statfs;
+		glfs_h_anonymous_read;
+		glfs_h_anonymous_write;
+} GFAPI_3.6.0;
+
 GFAPI_PRIVATE_3.7.0 {
 	global:
 		glfs_free_from_ctx;
 		glfs_new_from_ctx;
-                glfs_resolve;
-} GFAPI_3.6.0;
+		glfs_resolve;
+		glfs_process_upcall_event;
+} GFAPI_3.7.0;
 
+GFAPI_3.7.4 {
+	global:
+		glfs_h_lookupat;
+} GFAPI_PRIVATE_3.7.0;

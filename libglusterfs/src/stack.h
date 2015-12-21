@@ -16,11 +16,6 @@
 #ifndef _STACK_H
 #define _STACK_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 struct _call_stack_t;
 typedef struct _call_stack_t call_stack_t;
 struct _call_frame_t;
@@ -37,6 +32,7 @@ typedef struct call_pool call_pool_t;
 #include "globals.h"
 #include "lkowner.h"
 #include "client_t.h"
+#include "libglusterfs-messages.h"
 
 #define NFS_PID 1
 #define LOW_PRIO_PROC_PID -1
@@ -64,8 +60,7 @@ struct call_pool {
 struct _call_frame_t {
         call_stack_t *root;        /* stack root */
         call_frame_t *parent;      /* previous BP */
-        call_frame_t *next;
-        call_frame_t *prev;        /* maintenance list */
+        struct list_head frames;
         void         *local;       /* local variables */
         xlator_t     *this;        /* implicit object */
         ret_fn_t      ret;         /* op_return address */
@@ -101,6 +96,7 @@ struct _call_stack_t {
         uid_t                         uid;
         gid_t                         gid;
         pid_t                         pid;
+        char                          identifier[UNIX_PATH_MAX];
         uint16_t                      ngrps;
         uint32_t                      groups_small[SMALL_GROUP_COUNT];
 	uint32_t                     *groups_large;
@@ -108,7 +104,8 @@ struct _call_stack_t {
         gf_lkowner_t                  lk_owner;
         glusterfs_ctx_t              *ctx;
 
-        call_frame_t                  frames;
+        struct list_head              myframes; /* List of call_frame_t that go
+                                                   to make the call stack */
 
         int32_t                       op;
         int8_t                        type;
@@ -138,10 +135,8 @@ static inline void
 FRAME_DESTROY (call_frame_t *frame)
 {
         void *local = NULL;
-        if (frame->next)
-                frame->next->prev = frame->prev;
-        if (frame->prev)
-                frame->prev->next = frame->next;
+
+        list_del_init (&frame->frames);
         if (frame->local) {
                 local = frame->local;
                 frame->local = NULL;
@@ -160,6 +155,8 @@ static inline void
 STACK_DESTROY (call_stack_t *stack)
 {
         void *local = NULL;
+        call_frame_t *frame = NULL;
+        call_frame_t *tmp = NULL;
 
         LOCK (&stack->pool->lock);
         {
@@ -168,16 +165,10 @@ STACK_DESTROY (call_stack_t *stack)
         }
         UNLOCK (&stack->pool->lock);
 
-        if (stack->frames.local) {
-                local = stack->frames.local;
-                stack->frames.local = NULL;
-        }
-
-        LOCK_DESTROY (&stack->frames.lock);
         LOCK_DESTROY (&stack->stack_lock);
 
-        while (stack->frames.next) {
-                FRAME_DESTROY (stack->frames.next);
+        list_for_each_entry_safe (frame, tmp, &stack->myframes, frames) {
+                FRAME_DESTROY (frame);
         }
 
 	GF_FREE (stack->groups_large);
@@ -192,14 +183,28 @@ static inline void
 STACK_RESET (call_stack_t *stack)
 {
         void *local = NULL;
+        call_frame_t *frame = NULL;
+        call_frame_t *tmp = NULL;
+        call_frame_t *last = NULL;
+        struct list_head toreset = {0};
 
-        if (stack->frames.local) {
-                local = stack->frames.local;
-                stack->frames.local = NULL;
+        INIT_LIST_HEAD (&toreset);
+
+        /* We acquire call_pool->lock only to remove the frames from this stack
+         * to preserve atomicity. This synchronizes across concurrent requests
+         * like statedump, STACK_DESTROY etc. */
+
+        LOCK (&stack->pool->lock);
+        {
+                last = list_last_entry (&stack->myframes, call_frame_t, frames);
+                list_del_init (&last->frames);
+                list_splice_init (&stack->myframes, &toreset);
+                list_add (&last->frames, &stack->myframes);
         }
+        UNLOCK (&stack->pool->lock);
 
-        while (stack->frames.next) {
-                FRAME_DESTROY (stack->frames.next);
+        list_for_each_entry_safe (frame, tmp, &toreset, frames) {
+                FRAME_DESTROY (frame);
         }
 
         if (local)
@@ -233,7 +238,6 @@ STACK_RESET (call_stack_t *stack)
                                                                         \
                 _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
                 if (!_new) {                                            \
-                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
@@ -249,11 +253,7 @@ STACK_RESET (call_stack_t *stack)
                 LOCK_INIT (&_new->lock);                                \
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
-                        _new->next = frame->root->frames.next;          \
-                        _new->prev = &frame->root->frames;              \
-                        if (frame->root->frames.next)                   \
-                                frame->root->frames.next->prev = _new;  \
-                        frame->root->frames.next = _new;                \
+                        list_add (&_new->frames, &frame->root->myframes);\
                         frame->ref_count++;                             \
                 }                                                       \
                 UNLOCK(&frame->root->stack_lock);                       \
@@ -288,7 +288,6 @@ STACK_RESET (call_stack_t *stack)
                                                                         \
                 _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
                 if (!_new) {                                            \
-                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
@@ -303,12 +302,8 @@ STACK_RESET (call_stack_t *stack)
                 LOCK_INIT (&_new->lock);                                \
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
+                        list_add (&_new->frames, &frame->root->myframes);\
                         frame->ref_count++;                             \
-                        _new->next = frame->root->frames.next;          \
-                        _new->prev = &frame->root->frames;              \
-                        if (frame->root->frames.next)                   \
-                                frame->root->frames.next->prev = _new;  \
-                        frame->root->frames.next = _new;                \
                 }                                                       \
                 UNLOCK(&frame->root->stack_lock);                       \
                 fn##_cbk = rfn;                                         \
@@ -328,7 +323,8 @@ STACK_RESET (call_stack_t *stack)
                 call_frame_t *_parent = NULL;                           \
                 xlator_t     *old_THIS = NULL;                          \
                 if (!frame) {                                           \
-                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
+                                LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
                 }                                                       \
                 fn = frame->ret;                                        \
@@ -357,7 +353,8 @@ STACK_RESET (call_stack_t *stack)
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
                 if (!frame) {                                           \
-                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
+                                LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
                 }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
@@ -396,11 +393,27 @@ call_stack_alloc_groups (call_stack_t *stack, int ngrps)
 	return 0;
 }
 
+static inline
+int call_frames_count (call_stack_t *call_stack)
+{
+        call_frame_t *pos;
+        int32_t count = 0;
+
+        if (!call_stack)
+                return count;
+
+        list_for_each_entry (pos, &call_stack->myframes, frames)
+                count++;
+
+        return count;
+}
+
 static inline call_frame_t *
 copy_frame (call_frame_t *frame)
 {
         call_stack_t *newstack = NULL;
         call_stack_t *oldstack = NULL;
+        call_frame_t *newframe = NULL;
 
         if (!frame) {
                 return NULL;
@@ -410,6 +423,19 @@ copy_frame (call_frame_t *frame)
         if (newstack == NULL) {
                 return NULL;
         }
+
+        INIT_LIST_HEAD (&newstack->myframes);
+
+        newframe = mem_get0 (frame->root->pool->frame_mem_pool);
+        if (!newframe) {
+                mem_put (newstack);
+                return NULL;
+        }
+
+        newframe->this = frame->this;
+        newframe->root = newstack;
+        INIT_LIST_HEAD (&newframe->frames);
+        list_add (&newframe->frames, &newstack->myframes);
 
         oldstack = frame->root;
 
@@ -426,22 +452,20 @@ copy_frame (call_frame_t *frame)
         memcpy (newstack->groups, oldstack->groups,
                 sizeof (gid_t) * oldstack->ngrps);
         newstack->unique = oldstack->unique;
-
-        newstack->frames.this = frame->this;
-        newstack->frames.root = newstack;
         newstack->pool = oldstack->pool;
         newstack->lk_owner = oldstack->lk_owner;
         newstack->ctx = oldstack->ctx;
 
         if (newstack->ctx->measure_latency) {
                 if (gettimeofday (&newstack->tv, NULL) == -1)
-                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
-                                " (%s)", strerror (errno));
-                memcpy (&newstack->frames.begin, &newstack->tv,
+                        gf_msg ("stack", GF_LOG_ERROR, errno,
+                                LG_MSG_GETTIMEOFDAY_FAILED,
+                                "gettimeofday () failed.");
+                memcpy (&newframe->begin, &newstack->tv,
                         sizeof (newstack->tv));
         }
 
-        LOCK_INIT (&newstack->frames.lock);
+        LOCK_INIT (&newframe->lock);
         LOCK_INIT (&newstack->stack_lock);
 
         LOCK (&oldstack->pool->lock);
@@ -451,7 +475,7 @@ copy_frame (call_frame_t *frame)
         }
         UNLOCK (&oldstack->pool->lock);
 
-        return &newstack->frames;
+        return newframe;
 }
 
 void gf_proc_dump_pending_frames(call_pool_t *call_pool);

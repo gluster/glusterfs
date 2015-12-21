@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_STORE_H_
 #define _GLUSTERD_STORE_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat.h"
 #include "glusterfs.h"
 
@@ -64,7 +59,7 @@ int32_t
 gf_store_unlink_tmppath (gf_store_handle_t *shandle);
 
 int
-gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
+gf_store_read_and_tokenize (FILE *file, char *str, int size, char **iter_key,
                             char **iter_val, gf_store_op_errno_t *store_errno);
 
 int32_t
@@ -74,7 +69,7 @@ int32_t
 gf_store_save_value (int fd, char *key, char *value);
 
 int32_t
-gf_store_handle_new (char *path, gf_store_handle_t **handle);
+gf_store_handle_new (const char *path, gf_store_handle_t **handle);
 
 int
 gf_store_handle_retrieve (char *path, gf_store_handle_t **handle);

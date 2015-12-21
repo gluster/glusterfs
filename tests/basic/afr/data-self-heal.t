@@ -3,17 +3,22 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../afr.rc
 cleanup;
 
-function create_file_with_gfids {
-        local b1_path=$1
-        local b2_path=$2
-        local filename=$3
-        local gfid=$(get_random_gfid)
-        touch $b1_path/$filename
-        setfattr -n trusted.gfid -v $gfid $b1_path/$filename
-        touch $b2_path/$filename
-        setfattr -n trusted.gfid -v $gfid $b2_path/$filename
+function create_xattrop_entry {
+        local xattrop_dir0=$(afr_get_index_path $B0/brick0)
+        local xattrop_dir1=$(afr_get_index_path $B0/brick1)
+        local base_entry_b0=`ls $xattrop_dir0`
+        local base_entry_b1=`ls $xattrop_dir1`
+        local gfid_str
+
+        for file in "$@"
+        do
+                gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/brick0/$file))
+                ln $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_str
+                ln $xattrop_dir1/$base_entry_b1 $xattrop_dir1/$gfid_str
+        done
 }
 
 function is_heal_done {
@@ -61,38 +66,45 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick{0,1}
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
+TEST $CLI volume set $V0 performance.write-behind off
+TEST $CLI volume set $V0 performance.read-ahead off
+TEST $CLI volume set $V0 performance.io-cache off
+TEST $CLI volume set $V0 performance.stat-prefetch off
+TEST $CLI volume set $V0 performance.quick-read off
+TEST $CLI volume set $V0 performance.open-behind off
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 pending-changelog
+TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0 --entry-timeout=0 --attribute-timeout=0;
+cd $M0
+TEST touch pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt split-brain.txt split-brain-all-dirty.txt split-brain-with-dirty.txt
+
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000010000000000000000 $B0/brick0/pending-changelog
 TEST "echo abc > $B0/brick1/pending-changelog"
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 biggest-file-source.txt
 TEST "echo abc > $B0/brick0/biggest-file-source.txt"
 TEST "echo abcd > $B0/brick1/biggest-file-source.txt"
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 biggest-file-more-prio-than-changelog.txt
 TEST "echo abc > $B0/brick0/biggest-file-more-prio-than-changelog.txt"
 TEST "echo abcd > $B0/brick1/biggest-file-more-prio-than-changelog.txt"
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick0/biggest-file-more-prio-than-changelog.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 same-size-more-prio-to-changelog.txt
 TEST "echo abc > $B0/brick0/same-size-more-prio-to-changelog.txt"
 TEST "echo def > $B0/brick1/same-size-more-prio-to-changelog.txt"
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick0/same-size-more-prio-to-changelog.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 size-and-witness-same.txt
 TEST "echo abc > $B0/brick0/size-and-witness-same.txt"
 TEST "echo def > $B0/brick1/size-and-witness-same.txt"
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick0/size-and-witness-same.txt
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick1/size-and-witness-same.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 split-brain.txt
 TEST "echo abc > $B0/brick0/split-brain.txt"
 TEST "echo def > $B0/brick1/split-brain.txt"
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick0/split-brain.txt
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/split-brain.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 split-brain-all-dirty.txt
 TEST "echo abc > $B0/brick0/split-brain-all-dirty.txt"
 TEST "echo def > $B0/brick1/split-brain-all-dirty.txt"
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick0/split-brain-all-dirty.txt
@@ -100,21 +112,18 @@ TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/bric
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick0/split-brain-all-dirty.txt
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick1/split-brain-all-dirty.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 split-brain-with-dirty.txt
 TEST "echo abc > $B0/brick0/split-brain-with-dirty.txt"
 TEST "echo def > $B0/brick1/split-brain-with-dirty.txt"
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick0/split-brain-with-dirty.txt
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/split-brain-with-dirty.txt
 TEST setfattr -n trusted.afr.dirty -v 0x000000200000000000000000 $B0/brick1/split-brain-with-dirty.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 self-accusing-vs-source.txt
 TEST "echo def > $B0/brick1/self-accusing-vs-source.txt"
 TEST "echo abc > $B0/brick0/self-accusing-vs-source.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/self-accusing-vs-source.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick1/self-accusing-vs-source.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick0/self-accusing-vs-source.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 self-accusing-both.txt
 TEST "echo abc > $B0/brick0/self-accusing-both.txt"
 TEST "echo def > $B0/brick1/self-accusing-both.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick0/self-accusing-both.txt
@@ -122,12 +131,10 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/bric
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/self-accusing-both.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick1/self-accusing-both.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 self-accusing-vs-innocent.txt
 TEST "echo abc > $B0/brick0/self-accusing-vs-innocent.txt"
 TEST "echo def > $B0/brick1/self-accusing-vs-innocent.txt"
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick1/self-accusing-vs-innocent.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 self-accusing-bigger-exists.txt
 TEST "echo abc > $B0/brick0/self-accusing-bigger-exists.txt"
 TEST "echo def > $B0/brick1/self-accusing-bigger-exists.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick0/self-accusing-bigger-exists.txt
@@ -135,7 +142,6 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000300000000000000000 $B0/bric
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/self-accusing-bigger-exists.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick1/self-accusing-bigger-exists.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 size-more-prio-than-self-accused.txt
 TEST "echo abc > $B0/brick0/size-more-prio-than-self-accused.txt"
 TEST "echo defg > $B0/brick1/size-more-prio-than-self-accused.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick0/size-more-prio-than-self-accused.txt
@@ -143,22 +149,22 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000300000000000000000 $B0/bric
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick1/size-more-prio-than-self-accused.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000200000000000000000 $B0/brick1/size-more-prio-than-self-accused.txt
 
-TEST create_file_with_gfids $B0/brick0 $B0/brick1 v1-dirty.txt
 TEST "echo abc > $B0/brick0/v1-dirty.txt"
 TEST "echo def > $B0/brick1/v1-dirty.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick0/v1-dirty.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000100000000000000000 $B0/brick1/v1-dirty.txt
 
-TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0 --entry-timeout=0 --attribute-timeout=0;
-cd $M0
-TEST stat pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt
+#Create base entry in indices/xattrop
+echo "Data" > $M0/FILE
+rm -f $M0/FILE
+EXPECT "1" count_index_entries $B0/brick0
+EXPECT "1" count_index_entries $B0/brick1
 cd -
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
-TEST $CLI volume heal $V0 full
+#Create gfid hard links for all files before triggering index heals.
+create_xattrop_entry pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt
+
+TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "~" print_pending_heals pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt
 EXPECT "N" is_heal_done $B0/brick0 $B0/brick1 split-brain.txt
 EXPECT "N" is_heal_done $B0/brick0 $B0/brick1 split-brain-all-dirty.txt

@@ -13,11 +13,6 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -33,6 +28,7 @@ extern struct cli_cmd cli_log_cmds[];
 extern struct cli_cmd cli_system_cmds[];
 extern struct cli_cmd cli_bd_cmds[];
 extern struct cli_cmd snapshot_cmds[];
+extern struct cli_cmd global_cmds[];
 struct cli_cmd cli_misc_cmds[];
 
 int
@@ -48,7 +44,7 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
 {
         struct cli_cmd        *cmd[] = {volume_cmds, cli_probe_cmds,
                                        cli_misc_cmds, snapshot_cmds,
-                                       NULL};
+                                       global_cmds, NULL};
         struct cli_cmd        *cmd_ind = NULL;
         int                   i = 0;
 

@@ -1,5 +1,19 @@
 #!/bin/bash
 
+function create_brick_xattrop_entry {
+        local xattrop_dir=$(afr_get_index_path $1)
+        local base_entry=`ls $xattrop_dir`
+        local gfid_str
+        local params=`echo "$@" | cut -d' ' -f2-`
+        echo $params
+
+        for file in $params
+        do
+                gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $1/$file))
+                ln $xattrop_dir/$base_entry $xattrop_dir/$gfid_str
+        done
+}
+
 function diff_dirs {
         diff <(ls $1 | sort) <(ls $2 | sort)
 }
@@ -73,11 +87,10 @@ function is_file_heal_done {
 
 function count_sh_entries()
 {
-    val1=0
-    for g in $(ls $1/.glusterfs/indices/xattrop)
-    do
-        val1=$(( val1 + 1 ))
-    done
+    ls $1/.glusterfs/indices/xattrop | grep -v "xattrop-" | wc -l
+}
 
-    echo $val1;
+function count_index_entries()
+{
+    ls $1/.glusterfs/indices/xattrop | wc -l
 }

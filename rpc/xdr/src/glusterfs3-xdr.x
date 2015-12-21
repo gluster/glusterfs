@@ -43,6 +43,22 @@ struct gf_iatt {
         unsigned int       ia_ctime_nsec;
 };
 
+
+struct gfs3_cbk_cache_invalidation_req {
+        string         gfid<>;
+        unsigned int   event_type; /* Upcall event type */
+        unsigned int   flags;  /* or mask of events incase of inotify */
+        unsigned int   expire_time_attr; /* the amount of time which client
+                                          * can cache this entry */
+        struct gf_iatt stat;  /* Updated/current stat of the file/dir */
+        struct gf_iatt parent_stat;  /* Updated stat of the parent dir
+                                      * needed in case of create, mkdir,
+                                      * unlink, rmdir, rename fops */
+        struct gf_iatt oldparent_stat;  /* Updated stat of the oldparent dir
+                                           needed in case of rename fop */
+        opaque   xdata<>; /* Extra data */
+};
+
 struct gfs3_stat_req {
         opaque gfid[16];
         opaque   xdata<>; /* Extra data */
@@ -629,6 +645,18 @@ struct gfs3_fstat_req {
         opaque   strong_checksum<>;
         opaque   xdata<>; /* Extra data */
 }  ;
+
+
+struct gfs3_ipc_req {
+	int     op;
+	opaque  xdata<>;
+};
+
+struct gfs3_ipc_rsp {
+	int     op_ret;
+	int     op_errno;
+	opaque  xdata<>;
+};
 
 
  struct gf_setvolume_req {

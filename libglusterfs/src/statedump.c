@@ -15,6 +15,7 @@
 #include "statedump.h"
 #include "stack.h"
 #include "common-utils.h"
+#include "syscall.h"
 
 
 #ifdef HAVE_MALLOC_H
@@ -60,7 +61,9 @@ gf_proc_dump_open (char *tmpname)
 {
         int  dump_fd = -1;
 
+        mode_t mask = umask(S_IRWXG | S_IRWXO);
         dump_fd = mkstemp (tmpname);
+        umask(mask);
         if (dump_fd < 0)
                 return -1;
 
@@ -71,7 +74,7 @@ gf_proc_dump_open (char *tmpname)
 static void
 gf_proc_dump_close (void)
 {
-        close (gf_dump_fd);
+        sys_close (gf_dump_fd);
         gf_dump_fd = -1;
 }
 
@@ -129,7 +132,7 @@ gf_proc_dump_add_section_fd (char *key, va_list ap)
                    GF_DUMP_MAX_BUF_LEN - strlen (buf), key, ap);
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
-        return write (gf_dump_fd, buf, strlen (buf));
+        return sys_write (gf_dump_fd, buf, strlen (buf));
 }
 
 
@@ -182,7 +185,7 @@ gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
-        return write (gf_dump_fd, buf, strlen (buf));
+        return sys_write (gf_dump_fd, buf, strlen (buf));
 }
 
 
@@ -225,29 +228,29 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct.rec)
+        if (!xl->mem_acct)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
-        gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
+        gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
-        for (i = 0; i < xl->mem_acct.num_types; i++) {
-                if (!(memcmp (&xl->mem_acct.rec[i], &rec,
+        for (i = 0; i < xl->mem_acct->num_types; i++) {
+                if (!(memcmp (&xl->mem_acct->rec[i], &rec,
                               sizeof (struct mem_acct))))
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %s memusage",
                                           xl->type, xl->name,
-                                          xl->mem_acct.rec[i].typestr);
-                gf_proc_dump_write ("size", "%u", xl->mem_acct.rec[i].size);
+                                          xl->mem_acct->rec[i].typestr);
+                gf_proc_dump_write ("size", "%u", xl->mem_acct->rec[i].size);
                 gf_proc_dump_write ("num_allocs", "%u",
-                                    xl->mem_acct.rec[i].num_allocs);
+                                    xl->mem_acct->rec[i].num_allocs);
                 gf_proc_dump_write ("max_size", "%u",
-                                    xl->mem_acct.rec[i].max_size);
+                                    xl->mem_acct->rec[i].max_size);
                 gf_proc_dump_write ("max_num_allocs", "%u",
-                                    xl->mem_acct.rec[i].max_num_allocs);
+                                    xl->mem_acct->rec[i].max_num_allocs);
                 gf_proc_dump_write ("total_allocs", "%u",
-                                    xl->mem_acct.rec[i].total_allocs);
+                                    xl->mem_acct->rec[i].total_allocs);
         }
 
         return;
@@ -261,29 +264,29 @@ gf_proc_dump_xlator_mem_info_only_in_use (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct.rec)
+        if (!xl->mem_acct->rec)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
-        gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
+        gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
-        for (i = 0; i < xl->mem_acct.num_types; i++) {
-                if (!xl->mem_acct.rec[i].size)
+        for (i = 0; i < xl->mem_acct->num_types; i++) {
+                if (!xl->mem_acct->rec[i].size)
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %d", xl->type,
                                           xl->name,i);
 
                 gf_proc_dump_write ("size", "%u",
-                                    xl->mem_acct.rec[i].size);
+                                    xl->mem_acct->rec[i].size);
                 gf_proc_dump_write ("max_size", "%u",
-                                    xl->mem_acct.rec[i].max_size);
+                                    xl->mem_acct->rec[i].max_size);
                 gf_proc_dump_write ("num_allocs", "%u",
-                                    xl->mem_acct.rec[i].num_allocs);
+                                    xl->mem_acct->rec[i].num_allocs);
                 gf_proc_dump_write ("max_num_allocs", "%u",
-                                    xl->mem_acct.rec[i].max_num_allocs);
+                                    xl->mem_acct->rec[i].max_num_allocs);
                 gf_proc_dump_write ("total_allocs", "%u",
-                                    xl->mem_acct.rec[i].total_allocs);
+                                    xl->mem_acct->rec[i].total_allocs);
         }
 
         return;
@@ -666,7 +669,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 //None of dump options match the key, return back
                 snprintf (buf, sizeof (buf), "[Warning]:None of the options "
                           "matched key : %s\n", key);
-                ret = write (gf_dump_fd, buf, strlen (buf));
+                ret = sys_write (gf_dump_fd, buf, strlen (buf));
 
                 if (ret >= 0)
                         ret = -1;
@@ -808,7 +811,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
                   timestr);
 
         //swallow the errors of write for start and end marker
-        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
         memset (sign_string, 0, sizeof (sign_string));
         memset (timestr, 0, sizeof (timestr));
@@ -855,12 +858,12 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 
         snprintf (sign_string, sizeof (sign_string), "\nDUMP-END-TIME: %s",
                   timestr);
-        ret = write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
 out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
-        rename (tmp_dump_name, path);
+        sys_rename (tmp_dump_name, path);
         GF_FREE (dump_options.dump_path);
         dump_options.dump_path = NULL;
         gf_proc_dump_unlock ();

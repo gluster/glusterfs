@@ -2,7 +2,7 @@ if ENABLE_BD_XLATOR
 xlator_LTLIBRARIES = bd.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
 
-bd_la_LDFLAGS = -module -avoid-version
+bd_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 LIBBD = -llvm2app -lrt
 bd_la_SOURCES = bd.c bd-helper.c bd-aio.c
 bd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(LIBBD) $(LIBAIO)

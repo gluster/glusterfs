@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "glusterfs.h"
 #include "xlator.h"
@@ -44,7 +39,7 @@ dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 }
 
 
-static inline
+static
 gf_boolean_t
 dht_munge_name (const char *original, char *modified, size_t len, regex_t *re)
 {
@@ -76,13 +71,6 @@ dht_hash_compute (xlator_t *this, int type, const char *name, uint32_t *hash_p)
         dht_conf_t      *priv                   = this->private;
         size_t           len                    = 0;
         gf_boolean_t     munged                 = _gf_false;
-
-        /*
-         * It wouldn't be safe to use alloca in an inline function that doesn't
-         * actually get inlined, and it wouldn't be efficient to do a real
-         * allocation, so we use alloca here (if needed) and pass that to the
-         * inline.
-         */
 
         if (priv->extra_regex_valid) {
                 len = strlen(name) + 1;

@@ -16,15 +16,18 @@
 #include "glfs-internal.h"
 #include "protocol-common.h"
 #include "syncop.h"
+#include "syncop-utils.h"
 #include <string.h>
 #include <time.h>
+#include "glusterfs.h"
 
 #define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 #define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
                   "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "\
                   "split-brain-info]\n"
 
-typedef void    (*print_status) (dict_t *, char *, uuid_t, uint64_t *);
+typedef void    (*print_status) (dict_t *, char *, uuid_t, uint64_t *,
+                 gf_boolean_t flag);
 
 int glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol,
                                 loc_t *rootloc, char *file, dict_t *xattr_req);
@@ -47,9 +50,34 @@ out:
 }
 
 
+void
+glfsh_print_heal_op_status (int ret, uint64_t num_entries,
+                            gf_xl_afr_op_t heal_op)
+{
+
+        if (ret == -ENOTCONN && num_entries == 0) {
+                printf ("Status: %s\n", strerror (-ret));
+                return;
+        }
+        if (ret < 0) {
+                printf ("Failed to process entries completely. "
+                         "Number of entries so far: %"PRIu64"\n", num_entries);
+        } else {
+                if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
+                        printf ("Number of entries: %"PRIu64"\n", num_entries);
+                else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES)
+                        printf ("Number of entries in split-brain: %"PRIu64"\n"
+                                , num_entries);
+                else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK)
+                        printf ("Number of healed entries: %"PRIu64"\n",
+                                num_entries);
+        }
+        return;
+}
+
 int
 glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
-                         int32_t *op_errno)
+                         int32_t *op_errno, char *vgfid)
 {
         void      *index_gfid = NULL;
         int       ret = 0;
@@ -57,24 +85,22 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         struct iatt   iattr = {0};
         struct iatt   parent = {0};
 
-        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTROP_INDEX_GFID,
-                               NULL);
+        ret = syncop_getxattr (xl, rootloc, &xattr, vgfid, NULL, NULL);
         if (ret < 0) {
                 *op_errno = -ret;
                 goto out;
         }
 
-        ret = dict_get_ptr (xattr, GF_XATTROP_INDEX_GFID, &index_gfid);
+        ret = dict_get_ptr (xattr, vgfid, &index_gfid);
         if (ret < 0) {
                 *op_errno = EINVAL;
                 goto out;
         }
 
-        uuid_copy (dirloc->gfid, index_gfid);
+        gf_uuid_copy (dirloc->gfid, index_gfid);
         dirloc->path = "";
         dirloc->inode = inode_new (rootloc->inode->table);
-        ret = syncop_lookup (xl, dirloc, NULL,
-                             &iattr, NULL, &parent);
+        ret = syncop_lookup (xl, dirloc, &iattr, &parent, NULL, NULL);
         dirloc->path = NULL;
         if (ret < 0) {
                 *op_errno = -ret;
@@ -93,8 +119,18 @@ out:
 }
 
 static xlator_t*
-_get_afr_ancestor (xlator_t *xl)
+_get_ancestor (xlator_t *xl, gf_xl_afr_op_t heal_op)
 {
+        static char *replica_xl[] = {"cluster/replicate", NULL};
+        static char *heal_xls[] = {"cluster/replicate", "cluster/disperse",
+                                         NULL};
+        char **ancestors = NULL;
+
+        if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
+                ancestors = heal_xls;
+        else
+                ancestors = replica_xl;
+
         if (!xl || !xl->parents)
                 return NULL;
 
@@ -102,7 +138,7 @@ _get_afr_ancestor (xlator_t *xl)
                 xl = xl->parents->xlator;
                 if (!xl)
                         break;
-                if (strcmp (xl->type, "cluster/replicate") == 0)
+                if (gf_get_index_by_elem (ancestors, xl->type) != -1)
                         return xl;
         }
 
@@ -118,98 +154,113 @@ glfsh_index_purge (xlator_t *subvol, inode_t *inode, char *name)
         loc.parent = inode_ref (inode);
         loc.name = name;
 
-        ret = syncop_unlink (subvol, &loc);
+        ret = syncop_unlink (subvol, &loc, NULL, NULL);
 
         loc_wipe (&loc);
-        return ret;
-}
-
-int
-glfsh_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p)
-{
-        int      ret   = 0;
-        char    *path  = NULL;
-        loc_t    loc   = {0,};
-        dict_t  *xattr = NULL;
-
-        uuid_copy (loc.gfid, gfid);
-        loc.inode = inode_new (this->itable);
-
-        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
-        if (ret)
-                goto out;
-
-        ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
-        if (ret || !path) {
-                ret = -EINVAL;
-                goto out;
-        }
-
-        *path_p = gf_strdup (path);
-        if (!*path_p) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-        loc_wipe (&loc);
-
         return ret;
 }
 
 void
 glfsh_print_spb_status (dict_t *dict, char *path, uuid_t gfid,
-                        uint64_t *num_entries)
+                        uint64_t *num_entries, gf_boolean_t flag)
 {
-       char *value  = NULL;
-       int   ret    = 0;
+        int   ret    = 0;
+        gf_boolean_t    pending         = _gf_false;
+        gf_boolean_t    split_b         = _gf_false;
+        char            *value          = NULL;
 
-       ret = dict_get_str (dict, "heal-info", &value);
-       if (ret)
-               return;
+        ret = dict_get_str (dict, "heal-info", &value);
+        if (ret)
+                return;
 
-       if (!strcmp (value, "split-brain")) {
-                (*num_entries)++;
-                printf ("%s\n",
+        if (!strcmp (value, "split-brain")) {
+                split_b = _gf_true;
+        } else if (!strcmp (value, "split-brain-pending")) {
+                split_b = _gf_true;
+                pending = _gf_true;
+        }
+        /* Consider the entry only iff :
+         * 1) The dir being processed is not indices/dirty, indicated by
+         *    flag == _gf_false
+         * 2) The dir being processed is indices/dirty but the entry also
+         *    exists in indices/xattrop dir and has already been processed.
+         */
+        if (split_b) {
+                if (!flag || (flag && !pending)) {
+                        (*num_entries)++;
+                        printf ("%s\n",
                         path ? path : uuid_utoa (gfid));
-       }
-       return;
+                }
+        }
+        return;
 }
 
 void
 glfsh_print_heal_status (dict_t *dict, char *path, uuid_t gfid,
-                         uint64_t *num_entries)
+                         uint64_t *num_entries, gf_boolean_t ignore_dirty)
 {
-       char *value  = NULL;
-       int   ret    = 0;
-       char *status = NULL;
+        int             ret             = 0;
+        gf_boolean_t    pending         = _gf_false;
+        char            *status         = NULL;
+        char            *value          = NULL;
 
-       ret = dict_get_str (dict, "heal-info", &value);
-       if (ret || (!strcmp (value, "no-heal")))
-               return;
+        ret = dict_get_str (dict, "heal-info", &value);
+        if (ret || (!strcmp (value, "no-heal")))
+                return;
 
-       (*num_entries)++;
-       if (!strcmp (value, "heal")) {
-               ret = gf_asprintf (&status, " ");
-       } else if (!strcmp (value, "possibly-healing")) {
-               ret = gf_asprintf (&status, " - Possibly undergoing heal\n");
-       } else if (!strcmp (value, "split-brain")) {
-               ret = gf_asprintf (&status, " - Is in split-brain\n");
-       }
-       if (ret == -1)
-               status = NULL;
+        if (!strcmp (value, "heal")) {
+                ret = gf_asprintf (&status, " ");
+                if (ret < 0)
+                        goto out;
+        } else if (!strcmp (value, "possibly-healing")) {
+                ret = gf_asprintf (&status,
+                                   " - Possibly undergoing heal\n");
+                if (ret < 0)
+                        goto out;
+        } else if (!strcmp (value, "split-brain")) {
+                ret = gf_asprintf (&status, " - Is in split-brain\n");
+                if (ret < 0)
+                        goto out;
+        } else if (!strcmp (value, "heal-pending")) {
+                pending = _gf_true;
+                ret = gf_asprintf (&status, " ");
+                if (ret < 0)
+                        goto out;
+        } else if (!strcmp (value, "split-brain-pending")) {
+                pending = _gf_true;
+                ret = gf_asprintf (&status, " - Is in split-brain\n");
+                if (ret < 0)
+                        goto out;
+        } else if (!strcmp (value, "possibly-healing-pending")) {
+                pending = _gf_true;
+                ret = gf_asprintf (&status,
+                                   " - Possibly undergoing heal\n");
+                if (ret < 0)
+                        goto out;
+        }
+out:
+        /* If ignore_dirty is set, it means indices/dirty directory is
+         * being processed. Ignore the entry if it also exists in
+         * indices/xattrop.
+         * Boolean pending is set to true if the entry also exists in
+         * indices/xattrop directory.
+         */
+        if (ignore_dirty) {
+                if (pending) {
+                        GF_FREE (status);
+                        status = NULL;
+                        return;
+                }
+        }
+        if (ret == -1)
+                status = NULL;
 
-       printf ("%s%s\n",
-               path ? path : uuid_utoa (gfid),
-               status);
+        (*num_entries)++;
+        printf ("%s%s\n",
+                path ? path : uuid_utoa (gfid), status ? status : "");
 
-       if (status)
-               GF_FREE (status);
-       return;
+        GF_FREE (status);
+        return;
 }
 
 static int
@@ -242,7 +293,8 @@ glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 static int
 glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                        uint64_t *offset, uint64_t *num_entries,
-                       print_status glfsh_print_status)
+                       print_status glfsh_print_status,
+                       gf_boolean_t ignore_dirty)
 {
         gf_dirent_t      *entry = NULL;
         gf_dirent_t      *tmp = NULL;
@@ -264,18 +316,18 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                         dict_unref (dict);
                         dict = NULL;
                 }
-                uuid_clear (gfid);
+                gf_uuid_clear (gfid);
                 GF_FREE (path);
                 path = NULL;
 
-                uuid_parse (entry->d_name, gfid);
-                uuid_copy (loc.gfid, gfid);
-                ret = syncop_getxattr (this, &loc, &dict, GF_AFR_HEAL_INFO,
+                gf_uuid_parse (entry->d_name, gfid);
+                gf_uuid_copy (loc.gfid, gfid);
+                ret = syncop_getxattr (this, &loc, &dict, GF_HEAL_INFO, NULL,
                                        NULL);
                 if (ret)
                         continue;
 
-                ret = glfsh_gfid_to_path (this, xl, gfid, &path);
+                ret = syncop_gfid_to_path (this->itable, xl, gfid, &path);
 
                 if (ret == -ENOENT || ret == -ESTALE) {
                         glfsh_index_purge (xl, fd->inode, entry->d_name);
@@ -284,7 +336,7 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                 }
                 if (dict)
                         glfsh_print_status (dict, path, gfid,
-                                            num_entries);
+                                            num_entries, ignore_dirty);
         }
         ret = 0;
         GF_FREE (path);
@@ -298,13 +350,13 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
 static int
 glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                        xlator_t *readdir_xl, fd_t *fd, loc_t *loc,
-                       dict_t *xattr_req)
+                       dict_t *xattr_req, uint64_t *num_entries,
+                       gf_boolean_t ignore)
 {
         uint64_t        offset = 0;
         gf_dirent_t     entries;
         int             ret = 0;
         gf_boolean_t    free_entries = _gf_false;
-        uint64_t        num_entries = 0;
         int             heal_op = -1;
 
         INIT_LIST_HEAD (&entries.list);
@@ -313,7 +365,8 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 return ret;
 
         while (1) {
-                ret = syncop_readdir (readdir_xl, fd, 131072, offset, &entries);
+                ret = syncop_readdir (readdir_xl, fd, 131072, offset, &entries,
+                                      NULL, NULL);
                 if (ret <= 0)
                         break;
                 ret = 0;
@@ -322,24 +375,26 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 if (list_empty (&entries.list))
                         goto out;
 
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY) {
+                if (heal_op == GF_SHD_OP_INDEX_SUMMARY) {
                         ret = glfsh_process_entries (readdir_xl, fd,
                                                      &entries, &offset,
-                                                     &num_entries,
-                                                     glfsh_print_heal_status);
+                                                     num_entries,
+                                                     glfsh_print_heal_status,
+                                                     ignore);
                         if (ret < 0)
                                 goto out;
-                } else if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES) {
+                } else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES) {
                         ret = glfsh_process_entries (readdir_xl, fd,
                                                      &entries, &offset,
-                                                     &num_entries,
-                                                     glfsh_print_spb_status);
+                                                     num_entries,
+                                                     glfsh_print_spb_status,
+                                                     ignore);
                         if (ret < 0)
                                 goto out;
-                } else if (heal_op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK) {
+                } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
                         ret = glfsh_heal_entries (fs, top_subvol, rootloc,
                                                   &entries, &offset,
-                                                  &num_entries, xattr_req);
+                                                  num_entries, xattr_req);
                 }
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
@@ -348,52 +403,10 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 out:
         if (free_entries)
                 gf_dirent_free (&entries);
-        if (ret < 0) {
-                printf ("Failed to complete gathering info. "
-                         "Number of entries so far: %"PRIu64"\n", num_entries);
-        } else {
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY)
-                        printf ("Number of entries: %"PRIu64"\n", num_entries);
-                else if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES)
-                        printf ("Number of entries in split-brain: %"PRIu64"\n"
-                                , num_entries);
-                else if (heal_op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK)
-                        printf ("Number of healed entries: %"PRIu64"\n",
-                                num_entries);
-        }
         return ret;
 }
 
 static int
-glfsh_print_brick (xlator_t *xl, loc_t *rootloc)
-{
-        int     ret = 0;
-        dict_t  *xattr = NULL;
-        char    *pathinfo = NULL;
-        char    *brick_start = NULL;
-        char    *brick_end = NULL;
-
-        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY,
-                               NULL);
-        if (ret < 0)
-                goto out;
-
-        ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &pathinfo);
-        if (ret < 0)
-                goto out;
-
-        brick_start = strchr (pathinfo, ':') + 1;
-        brick_end = pathinfo + strlen (pathinfo) - 1;
-        *brick_end = 0;
-        printf ("Brick %s\n", brick_start);
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-        return ret;
-}
-
-void
 glfsh_print_brick_from_xl (xlator_t *xl)
 {
         char    *remote_host = NULL;
@@ -412,16 +425,55 @@ out:
                 printf ("Brick - Not able to get brick information\n");
         else
                 printf ("Brick %s:%s\n", remote_host, remote_subvol);
+        return ret;
 }
 
-void
-glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
-                           xlator_t *xl, gf_xl_afr_op_t heal_op)
+int
+glfsh_print_pending_heals_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
+                                xlator_t *xl, gf_xl_afr_op_t heal_op,
+                                dict_t *xattr_req, char *vgfid,
+                                uint64_t *num_entries)
 {
         int ret = 0;
         loc_t   dirloc = {0};
         fd_t    *fd = NULL;
         int32_t op_errno = 0;
+        gf_boolean_t ignore = _gf_false;
+
+        if (!strcmp(vgfid, GF_XATTROP_DIRTY_GFID))
+                ignore = _gf_true;
+
+        ret = glfsh_get_index_dir_loc (rootloc, xl, &dirloc, &op_errno,
+                                       vgfid);
+        if (ret < 0) {
+                if (op_errno == ESTALE || op_errno == ENOENT)
+                        ret = 0;
+                else
+                        ret = -op_errno;
+                goto out;
+        }
+
+        ret = syncop_dirfd (xl, &dirloc, &fd, GF_CLIENT_PID_GLFS_HEAL);
+        if (ret)
+                goto out;
+
+        ret = glfsh_crawl_directory (fs, top_subvol, rootloc, xl, fd, &dirloc,
+                                     xattr_req, num_entries, ignore);
+        if (fd)
+                fd_unref (fd);
+out:
+        loc_wipe (&dirloc);
+        return ret;
+}
+
+void
+glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
+                           xlator_t *xl, gf_xl_afr_op_t heal_op, gf_boolean_t
+                           is_parent_replicate)
+{
+        int ret = 0;
+        uint64_t count = 0, total = 0;
+
         dict_t *xattr_req = NULL;
 
         xattr_req = dict_new();
@@ -431,48 +483,38 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         ret = dict_set_int32 (xattr_req, "heal-op", heal_op);
         if (ret)
                 goto out;
-        ret = glfsh_print_brick (xl, rootloc);
-        if (ret < 0) {
-                glfsh_print_brick_from_xl (xl);
-                printf ("Status: %s\n", strerror (-ret));
-                goto out;
-        }
 
-        ret = glfsh_get_index_dir_loc (rootloc, xl, &dirloc, &op_errno);
-        if (ret < 0) {
-                if (op_errno == ESTALE || op_errno == ENOENT)
-                        printf ("Number of entries: 0\n");
-                else
-                        printf ("Status: %s\n", strerror (op_errno));
-                goto out;
-        }
-
-        ret = syncop_dirfd (xl, &dirloc, &fd, GF_CLIENT_PID_GLFS_HEAL);
-        if (ret)
+        ret = glfsh_print_brick_from_xl (xl);
+        if (ret < 0)
                 goto out;
 
-        ret = glfsh_crawl_directory (fs, top_subvol, rootloc, xl, fd, &dirloc,
-                                     xattr_req);
-        if (fd)
-                fd_unref (fd);
-        if (xattr_req)
-                dict_unref (xattr_req);
-        if (ret < 0) {
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY)
-                        printf ("Failed to find entries with pending"
-                                " self-heal\n");
-                if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES)
-                        printf ("Failed to find entries in split-brain\n");
+        ret = glfsh_print_pending_heals_type (fs, top_subvol, rootloc, xl,
+                                              heal_op, xattr_req,
+                                              GF_XATTROP_INDEX_GFID, &count);
+        total += count;
+        count = 0;
+        if (ret == -ENOTCONN)
+                goto out;
+
+        if (is_parent_replicate) {
+                ret = glfsh_print_pending_heals_type (fs, top_subvol,
+                                                      rootloc, xl,
+                                                      heal_op, xattr_req,
+                                                      GF_XATTROP_DIRTY_GFID,
+                                                      &count);
+                total += count;
         }
 out:
-        loc_wipe (&dirloc);
+        if (xattr_req)
+                dict_unref (xattr_req);
+        glfsh_print_heal_op_status (ret, total, heal_op);
         return;
 }
 
 static int
-glfsh_validate_replicate_volume (xlator_t *xl)
+glfsh_validate_volume (xlator_t *xl, gf_xl_afr_op_t heal_op)
 {
-        xlator_t        *afr_xl = NULL;
+        xlator_t        *heal_xl = NULL;
         int             ret = -1;
 
         while (xl->next)
@@ -480,8 +522,8 @@ glfsh_validate_replicate_volume (xlator_t *xl)
 
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
-                        afr_xl = _get_afr_ancestor (xl);
-                        if (afr_xl) {
+                        heal_xl = _get_ancestor (xl, heal_op);
+                        if (heal_xl) {
                                 ret = 0;
                                 break;
                         }
@@ -534,7 +576,7 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                         gf_xl_afr_op_t heal_op)
 {
         xlator_t  *xl       = NULL;
-        xlator_t  *afr_xl   = NULL;
+        xlator_t  *heal_xl   = NULL;
         xlator_t  *old_THIS = NULL;
 
         xl = top_subvol;
@@ -542,21 +584,46 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 xl = xl->next;
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
-                        afr_xl = _get_afr_ancestor (xl);
-                        if (afr_xl)
+                        heal_xl = _get_ancestor (xl, heal_op);
+                        if (heal_xl) {
                                 old_THIS = THIS;
-                                THIS = afr_xl;
+                                THIS = heal_xl;
                                 glfsh_print_pending_heals (fs, top_subvol,
                                                            rootloc, xl,
-                                                           heal_op);
+                                                           heal_op,
+                                                           !strcmp
+                                                           (heal_xl->type,
+                                                           "cluster/replicate"));
                                 THIS = old_THIS;
                                 printf ("\n");
+                        }
                 }
 
                 xl = xl->prev;
         }
 
         return 0;
+}
+
+int
+_validate_directory (dict_t *xattr_req, char *file)
+{
+        int heal_op = -1;
+        int ret = 0;
+
+        ret = dict_get_int32 (xattr_req, "heal-op", &heal_op);
+        if (ret)
+                return ret;
+
+        if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) {
+                printf ("'bigger-file' not a valid option for directories.\n");
+                ret = -1;
+        } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
+                printf ("'source-brick' option used on a directory (%s). "
+                        "Performing conservative merge.\n", file);
+        }
+
+        return ret;
 }
 
 int
@@ -578,10 +645,10 @@ glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 filename = gf_strdup(file);
                 path = strtok (filename, ":");
                 path = strtok (NULL, ";");
-                uuid_parse (path, loc.gfid);
+                gf_uuid_parse (path, loc.gfid);
                 loc.path = gf_strdup (uuid_utoa (loc.gfid));
                 loc.inode = inode_new (rootloc->inode->table);
-                ret = syncop_lookup (xl, &loc, xattr_req, 0, &xattr_rsp, 0);
+                ret = syncop_lookup (xl, &loc, &iatt, 0, xattr_req, &xattr_rsp);
                 if (ret) {
                         op_errno = -ret;
                         printf ("Lookup failed on %s:%s.\n", file,
@@ -605,8 +672,13 @@ retry:
                 }
         }
 
+        if (iatt.ia_type == IA_IFDIR) {
+                ret = _validate_directory (xattr_req, file);
+                if (ret)
+                        goto out;
+        }
         ret = syncop_getxattr (xl, &loc, &xattr_rsp, GF_AFR_HEAL_SBRAIN,
-                               xattr_req);
+                               xattr_req, NULL);
         if (ret) {
                 op_errno = -ret;
                 printf ("Healing %s failed:%s.\n", file, strerror(op_errno));
@@ -627,21 +699,54 @@ out:
 }
 
 int
+glfsh_heal_from_brick_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
+                            char *hostname, char *brickpath, xlator_t *client,
+                            dict_t *xattr_req, char *vgfid,
+                            uint64_t *num_entries)
+{
+        fd_t     *fd        = NULL;
+        loc_t     dirloc    = {0};
+        int32_t   op_errno  = 0;
+        int       ret       = -1;
+
+        ret = glfsh_get_index_dir_loc (rootloc, client, &dirloc,
+                                       &op_errno, vgfid);
+        if (ret < 0) {
+                if (op_errno == ESTALE || op_errno == ENOENT)
+                        ret = 0;
+                else
+                        ret = -op_errno;
+                goto out;
+        }
+
+        ret = syncop_dirfd (client, &dirloc, &fd,
+                            GF_CLIENT_PID_GLFS_HEAL);
+        if (ret)
+                goto out;
+        ret = glfsh_crawl_directory (fs, top_subvol, rootloc, client,
+                                     fd, &dirloc, xattr_req, num_entries,
+                                     _gf_false);
+        if (fd)
+                fd_unref (fd);
+out:
+        loc_wipe (&dirloc);
+        return ret;
+}
+
+int
 glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                       char *hostname, char *brickpath, char *file)
 {
         int       ret       = -1;
+        uint64_t   count     = 0, total = 0;
         dict_t   *xattr_req = NULL;
         xlator_t *client    = NULL;
-        fd_t     *fd        = NULL;
-        loc_t     dirloc    = {0};
-        int32_t   op_errno  = 0;
 
         xattr_req = dict_new();
         if (!xattr_req)
                 goto out;
         ret = dict_set_int32 (xattr_req, "heal-op",
-                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
         if (ret)
                 goto out;
         client = _brick_path_to_client_xlator (top_subvol, hostname, brickpath);
@@ -656,23 +761,34 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 goto out;
         if (file)
                 ret = glfsh_heal_splitbrain_file (fs, top_subvol, rootloc, file,
-                                                 xattr_req);
+                                                  xattr_req);
         else {
-                ret = glfsh_get_index_dir_loc (rootloc, client, &dirloc,
-                                               &op_errno);
-                ret = syncop_dirfd (client, &dirloc, &fd,
-                                    GF_CLIENT_PID_GLFS_HEAL);
-                if (ret)
+                ret = glfsh_heal_from_brick_type (fs, top_subvol, rootloc,
+                                                  hostname, brickpath,
+                                                  client, xattr_req,
+                                                  GF_XATTROP_INDEX_GFID,
+                                                  &count);
+                total += count;
+                count = 0;
+                if (ret == -ENOTCONN)
                         goto out;
-                ret = glfsh_crawl_directory (fs, top_subvol, rootloc, client,
-                                             fd, &dirloc, xattr_req);
-                if (fd)
-                        fd_unref (fd);
+
+                ret = glfsh_heal_from_brick_type (fs, top_subvol, rootloc,
+                                                  hostname, brickpath,
+                                                  client, xattr_req,
+                                                  GF_XATTROP_DIRTY_GFID,
+                                                  &count);
+                total += count;
+                if (ret < 0)
+                        goto out;
         }
 out:
         if (xattr_req)
                 dict_unref (xattr_req);
-        loc_wipe (&dirloc);
+        if (!file)
+                glfsh_print_heal_op_status (ret, total,
+                                            GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
+
         return ret;
 }
 
@@ -688,7 +804,7 @@ glfsh_heal_from_bigger_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (!xattr_req)
                 goto out;
         ret = dict_set_int32 (xattr_req, "heal-op",
-                              GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
+                              GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
         if (ret)
                 goto out;
         ret = glfsh_heal_splitbrain_file (fs, top_subvol, rootloc, file,
@@ -697,6 +813,21 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
         return ret;
+}
+
+static void
+cleanup (glfs_t *fs)
+{
+        if (!fs)
+                return;
+#if 0
+        /* glfs fini path is still racy and crashing the program. Since
+         * this program any way has to die, we are not gonna call fini
+         * in the released versions. i.e. final builds. For all
+         * internal testing lets enable this so that glfs_fini code
+         * path becomes stable. */
+        glfs_fini (fs);
+#endif
 }
 
 int
@@ -721,11 +852,11 @@ main (int argc, char **argv)
         volname = argv[1];
         switch (argc) {
         case 2:
-                heal_op = GF_AFR_OP_INDEX_SUMMARY;
+                heal_op = GF_SHD_OP_INDEX_SUMMARY;
                 break;
         case 3:
                 if (!strcmp (argv[2], "split-brain-info")) {
-                        heal_op = GF_AFR_OP_SPLIT_BRAIN_FILES;
+                        heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
                 } else {
                         printf (USAGE_STR, argv[0]);
                         ret = -1;
@@ -734,10 +865,10 @@ main (int argc, char **argv)
                 break;
         case 4:
                 if (!strcmp (argv[2], "bigger-file")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
                         file = argv[3];
                 } else if (!strcmp (argv[2], "source-brick")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
                         hostname = strtok (argv[3], ":");
                         path = strtok (NULL, ":");
                 } else {
@@ -748,7 +879,7 @@ main (int argc, char **argv)
                 break;
         case 5:
                 if (!strcmp (argv[2], "source-brick")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
                         hostname = strtok (argv[3], ":");
                         path = strtok (NULL, ":");
                         file = argv[4];
@@ -771,13 +902,16 @@ main (int argc, char **argv)
                 goto out;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
+        if (ret) {
+                printf("Setting the volfile server failed, %s\n", strerror (errno));
+                goto out;
+        }
         snprintf (logfilepath, sizeof (logfilepath),
                   DEFAULT_HEAL_LOG_FILE_DIRECTORY"/glfsheal-%s.log", volname);
         ret = glfs_set_logging(fs, logfilepath, GF_LOG_INFO);
         if (ret < 0) {
-                ret = -1;
-                printf ("Not able to initialize volume '%s'\n", volname);
+                printf ("Failed to set the log file path, %s\n", strerror (errno));
                 goto out;
         }
 
@@ -795,7 +929,6 @@ main (int argc, char **argv)
         }
 
         sleep (2);
-        __glfs_entry_fs (fs);
         top_subvol = glfs_active_subvol (fs);
         if (!top_subvol) {
                 ret = -1;
@@ -810,25 +943,27 @@ main (int argc, char **argv)
                 goto out;
         }
 
-        ret = glfsh_validate_replicate_volume (top_subvol);
+        ret = glfsh_validate_volume (top_subvol, heal_op);
         if (ret < 0) {
-                printf ("Volume %s is not of type replicate\n", volname);
+                printf ("Volume %s is not of type %s\n", volname,
+                        (heal_op == GF_SHD_OP_INDEX_SUMMARY) ?
+                        "replicate/disperse":"replicate");
                 goto out;
         }
         rootloc.inode = inode_ref (top_subvol->itable->root);
         glfs_loc_touchup (&rootloc);
 
         switch (heal_op) {
-        case GF_AFR_OP_INDEX_SUMMARY:
-        case GF_AFR_OP_SPLIT_BRAIN_FILES:
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
                 ret = glfsh_gather_heal_info (fs, top_subvol, &rootloc,
                                               heal_op);
                 break;
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 ret = glfsh_heal_from_bigger_file (fs, top_subvol,
                                                    &rootloc, file);
                         break;
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = glfsh_heal_from_brick (fs, top_subvol, &rootloc,
                                              hostname, path, file);
                 break;
@@ -839,15 +974,14 @@ main (int argc, char **argv)
 
         loc_wipe (&rootloc);
         glfs_subvol_done (fs, top_subvol);
-        glfs_fini (fs);
+        cleanup (fs);
 
         return ret;
 out:
         if (fs && top_subvol)
                 glfs_subvol_done (fs, top_subvol);
         loc_wipe (&rootloc);
-        if (fs)
-                glfs_fini (fs);
+        cleanup (fs);
 
         return ret;
 }

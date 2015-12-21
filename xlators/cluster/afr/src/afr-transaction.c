@@ -15,6 +15,8 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
+#include "afr-self-heal.h"
+#include "afr-messages.h"
 
 #include <signal.h>
 
@@ -28,6 +30,13 @@ int
 afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 		  afr_changelog_resume_t changelog_resume);
 
+static int32_t
+afr_quorum_errno (afr_private_t *priv)
+{
+        if (priv->quorum_reads)
+                return ENOTCONN;
+        return EROFS;
+}
 
 int
 __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
@@ -35,12 +44,16 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
         int call_count = -1;
+        unsigned char *failed_subvols = NULL;
         int i = 0;
 
         local = frame->local;
         priv = this->private;
 
-        call_count = AFR_COUNT (local->transaction.pre_op, priv->child_count);
+        failed_subvols = local->transaction.failed_subvols;
+
+        call_count = priv->child_count - AFR_COUNT (failed_subvols,
+                                                    priv->child_count);
 
         if (call_count == 0) {
                 local->transaction.resume (frame, this);
@@ -50,7 +63,7 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
         local->call_count = call_count;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->transaction.pre_op[i]) {
+                if (local->transaction.pre_op[i] && !failed_subvols[i]) {
 			local->transaction.wind (frame, this, i);
 
                         if (!--call_count)
@@ -132,14 +145,130 @@ __mark_all_success (call_frame_t *frame, xlator_t *this)
 	}
 }
 
+void
+afr_compute_pre_op_sources (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        afr_transaction_type type = -1;
+        dict_t *xdata = NULL;
+        int **matrix = NULL;
+        int idx = -1;
+        int i = 0;
+        int j = 0;
+
+        priv = this->private;
+        local = frame->local;
+        type = local->transaction.type;
+        idx = afr_index_for_transaction_type (type);
+        matrix = ALLOC_MATRIX (priv->child_count, int);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->transaction.pre_op_xdata[i])
+                        continue;
+                xdata = local->transaction.pre_op_xdata[i];
+                afr_selfheal_fill_matrix (this, matrix, i, idx, xdata);
+        }
+
+        memset (local->transaction.pre_op_sources, 1, priv->child_count);
+
+        /*If lock or pre-op failed on a brick, it is not a source. */
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.failed_subvols[i])
+                        local->transaction.pre_op_sources[i] = 0;
+        }
+
+        /* If brick is blamed by others, it is not a source. */
+        for (i = 0; i < priv->child_count; i++)
+                for (j = 0; j < priv->child_count; j++)
+                        if (matrix[i][j] != 0)
+                                local->transaction.pre_op_sources[j] = 0;
+
+        /*We don't need the xattrs any more. */
+        for (i = 0; i < priv->child_count; i++)
+                if (local->transaction.pre_op_xdata[i]) {
+                        dict_unref (local->transaction.pre_op_xdata[i]);
+                        local->transaction.pre_op_xdata[i] = NULL;
+                }
+}
+
+void
+afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        gf_boolean_t fop_failed = _gf_false;
+        unsigned char *pre_op_sources = NULL;
+        int i = 0;
+
+        local = frame->local;
+        priv  = this->private;
+        pre_op_sources = local->transaction.pre_op_sources;
+
+        if (priv->arbiter_count != 1 || local->op_ret < 0)
+                return;
+
+        /* If the fop failed on the brick, it is not a source. */
+        for (i = 0; i < priv->child_count; i++)
+                if (local->transaction.failed_subvols[i])
+                        pre_op_sources[i] = 0;
+
+        switch (AFR_COUNT (pre_op_sources, priv->child_count)) {
+        case 1:
+                if (pre_op_sources[ARBITER_BRICK_INDEX])
+                        fop_failed = _gf_true;
+                break;
+        case 0:
+                fop_failed = _gf_true;
+                break;
+        }
+
+        if (fop_failed) {
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+        }
+
+        return;
+}
+
+void
+afr_txn_arbitrate_fop (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int pre_op_sources_count = 0;
+
+        priv = this->private;
+        local = frame->local;
+
+        afr_compute_pre_op_sources (frame, this);
+        pre_op_sources_count = AFR_COUNT (local->transaction.pre_op_sources,
+                                          priv->child_count);
+
+        /* If arbiter is the only source, do not proceed. */
+        if (pre_op_sources_count < 2 &&
+            local->transaction.pre_op_sources[ARBITER_BRICK_INDEX]) {
+                local->internal_lock.lock_cbk = local->transaction.done;
+                local->op_ret = -1;
+                local->op_errno =  ENOTCONN;
+                afr_restore_lk_owner (frame);
+                afr_unlock (frame, this);
+        } else {
+                local->transaction.fop (frame, this);
+        }
+
+        return;
+}
 
 int
 afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local = NULL;
+        afr_private_t   *priv = NULL;
         fd_t            *fd   = NULL;
 
         local = frame->local;
+        priv = this->private;
         fd    = local->fd;
 
         /*  Perform fops with the lk-owner from top xlator.
@@ -165,11 +294,14 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
         */
         if (fd)
                 afr_delayed_changelog_wake_up (this, fd);
-        local->transaction.fop (frame, this);
+        if (priv->arbiter_count == 1) {
+                afr_txn_arbitrate_fop (frame, this);
+        } else {
+                local->transaction.fop (frame, this);
+        }
 
 	return 0;
 }
-
 
 static int
 __changelog_enabled (afr_private_t *priv, afr_transaction_type type)
@@ -371,7 +503,8 @@ afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (local->transaction.failed_subvols[i])
+                if (local->transaction.pre_op[i] &&
+                    local->transaction.failed_subvols[i])
                         return _gf_false;
         }
 
@@ -541,7 +674,7 @@ afr_handle_quorum (call_frame_t *frame)
                 return;
 
         if (local->fd) {
-                uuid_copy (gfid, local->fd->inode->gfid);
+                gf_uuid_copy (gfid, local->fd->inode->gfid);
                 file = uuid_utoa (gfid);
         } else {
                 loc_path (&local->loc, local->loc.name);
@@ -558,7 +691,7 @@ afr_handle_quorum (call_frame_t *frame)
         }
 
         local->op_ret = -1;
-        local->op_errno = EROFS;
+        local->op_errno = afr_quorum_errno (priv);
 }
 
 int
@@ -584,9 +717,6 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 	else
 		need_undirty = _gf_true;
 
-        //If the fop fails on all the subvols then pending markers are placed
-        //for every subvol on all subvolumes. Which is nothing but split-brain.
-        //Avoid this by not doing post-op in case of failures.
         if (local->op_ret < 0) {
                 afr_changelog_post_op_done (frame, this);
                 goto out;
@@ -605,20 +735,6 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	if (need_undirty)
-		local->dirty[idx] = hton32(-1);
-	else
-		local->dirty[idx] = hton32(0);
-
-	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
-				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
-	if (ret) {
-		local->op_ret = -1;
-		local->op_errno = ENOMEM;
-		afr_changelog_post_op_done (frame, this);
-		goto out;
-	}
-
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->transaction.failed_subvols[i])
 			local->pending[i][idx] = hton32(1);
@@ -626,6 +742,20 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 
 	ret = afr_set_pending_dict (priv, xattr, local->pending);
 	if (ret < 0) {
+		local->op_ret = -1;
+		local->op_errno = ENOMEM;
+		afr_changelog_post_op_done (frame, this);
+		goto out;
+	}
+
+        if (need_undirty)
+		local->dirty[idx] = hton32(-1);
+	else
+		local->dirty[idx] = hton32(0);
+
+	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
+				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
+	if (ret) {
 		local->op_ret = -1;
 		local->op_errno = ENOMEM;
 		afr_changelog_post_op_done (frame, this);
@@ -839,12 +969,24 @@ afr_changelog_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		   int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
         int call_count = -1;
+        int child_index = -1;
 
         local = frame->local;
+        priv = this->private;
+        child_index = (long) cookie;
 
-	if (op_ret == -1)
-		afr_transaction_fop_failed (frame, this, (long) cookie);
+	if (op_ret == -1) {
+                local->op_errno = op_errno;
+		afr_transaction_fop_failed (frame, this, child_index);
+        }
+
+        if (priv->arbiter_count == 1 && !op_ret) {
+                if (xattr)
+                        local->transaction.pre_op_xdata[child_index] =
+                                                               dict_ref (xattr);
+        }
 
 	call_count = afr_frame_return (frame);
 
@@ -957,7 +1099,6 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
         afr_local_t *local = NULL;
         afr_internal_lock_t *int_lock = NULL;
         unsigned char       *locked_nodes = NULL;
-	unsigned char       *pending_subvols = NULL;
 	int idx = -1;
 	gf_boolean_t pre_nop = _gf_true;
 	dict_t *xdata_req = NULL;
@@ -968,15 +1109,13 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
         locked_nodes = afr_locked_nodes_get (local->transaction.type, int_lock);
 
-	pending_subvols = alloca0 (priv->child_count);
-
 	for (i = 0; i < priv->child_count; i++) {
 		if (locked_nodes[i]) {
 			local->transaction.pre_op[i] = 1;
 			call_count++;
 		} else {
-			pending_subvols[i] = 1;
-		}
+                        local->transaction.failed_subvols[i] = 1;
+                }
 	}
 
         /* This condition should not be met with present code, as
@@ -992,7 +1131,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
          * quorum number of nodes.
          */
         if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
-                op_errno = EROFS;
+                op_errno = afr_quorum_errno (priv);
                 goto err;
         }
 
@@ -1002,38 +1141,26 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		goto err;
 	}
 
-	pre_nop = _gf_true;
-
 	if (afr_changelog_pre_op_inherit (frame, this))
 		goto next;
 
-	if (call_count < priv->child_count) {
-		/* For subvols we are not performing operation on,
-		   mark them as pending up-front along with the FOP
-		   so that we can safely defer unmarking dirty until
-		   later.
-		*/
-		for (i = 0; i < priv->child_count; i++) {
-			if (pending_subvols[i])
-				local->pending[i][idx] = hton32(1);
-		}
-		ret = afr_set_pending_dict (priv, xdata_req,
-					    local->pending);
-		if (ret < 0) {
-			op_errno = ENOMEM;
-			goto err;
-		}
-		pre_nop = _gf_false;
+        if (call_count < priv->child_count)
+                pre_nop = _gf_false;
+
+        /* Set an all-zero pending changelog so that in the cbk, we can get the
+         * current on-disk values. In a replica 3 volume with arbiter enabled,
+         * these values are needed to arrive at a go/ no-go of the fop phase to
+         * avoid ending up in split-brain.*/
+
+        ret = afr_set_pending_dict (priv, xdata_req, local->pending);
+	if (ret < 0) {
+		op_errno = ENOMEM;
+		goto err;
 	}
 
-	if (call_count > 1 &&
-	    (local->transaction.type == AFR_DATA_TRANSACTION ||
+	if ((local->transaction.type == AFR_DATA_TRANSACTION ||
 	     !local->optimistic_change_log)) {
 
-		/* If we are performing change on only one subvol, no
-		   need to mark dirty, because we are setting the pending
-		   counts already anyways
-		*/
 		local->dirty[idx] = hton32(1);
 
 		ret = dict_set_static_bin (xdata_req, AFR_DIRTY, local->dirty,
@@ -1092,13 +1219,14 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO,
+                        0, AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking inodelks failed.");
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking inodelks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Blocking inodelks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1117,14 +1245,14 @@ afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 
         /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks failed. Proceeding to blocking");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking inodelks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_inodelk_cbk;
                 afr_blocking_lock (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking inodelks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1142,13 +1270,14 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                             "Blocking entrylks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1167,14 +1296,15 @@ afr_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 
         /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks failed. Proceeding to blocking");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking entrylks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_entrylk_cbk;
                 afr_blocking_lock (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking entrylks done. Proceeding to FOP");
+
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1192,13 +1322,16 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
+
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Blocking entrylks done. Proceeding to FOP");
+
                 afr_internal_lock_finish (frame, this);
         }
         return 0;
@@ -1349,7 +1482,8 @@ afr_are_multiple_fds_opened (fd_t *fd, xlator_t *this)
                 /* If false is returned, it may keep on taking eager-lock
                  * which may lead to starvation, so return true to avoid that.
                  */
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid fd");
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, EBADF,
+                                  AFR_MSG_INVALID_ARG, "Invalid fd");
                 return _gf_true;
         }
         /* Lets say mount1 has eager-lock(full-lock) and after the eager-lock
@@ -1469,7 +1603,8 @@ afr_changelog_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Failure of fsync() is as good as failure of previous
                    write(). So treat it like one.
 		*/
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        op_errno, AFR_MSG_FSYNC_FAILED,
                         "fsync(%s) failed on subvolume %s. Transaction was %s",
                         uuid_utoa (local->fd->inode->gfid),
                         priv->children[child_index]->name,
@@ -1839,6 +1974,13 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         if (ret < 0)
             goto out;
 
+        ret = afr_inode_get_readable (frame, local->inode, this, 0, 0, type);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,
+                        "Failing %s on gfid %s: split-brain observed.",
+                        gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
+                goto out;
+        }
         afr_transaction_eager_lock_init (local, this);
 
         if (local->fd && local->transaction.eager_lock_on)

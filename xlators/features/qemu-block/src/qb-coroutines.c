@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -56,20 +51,20 @@ qb_format_and_resume (void *opaque)
 	/*
 	 * See if the caller specified a backing image.
 	 */
-	if (!uuid_is_null(qb_inode->backing_gfid) || qb_inode->backing_fname) {
+	if (!gf_uuid_is_null(qb_inode->backing_gfid) || qb_inode->backing_fname) {
 		loc_t loc = {0,};
 		char gfid_str[64];
 		struct iatt buf;
 
-		if (!uuid_is_null(qb_inode->backing_gfid)) {
+		if (!gf_uuid_is_null(qb_inode->backing_gfid)) {
 			loc.inode = inode_find(qb_conf->root_inode->table,
 					qb_inode->backing_gfid);
 			if (!loc.inode) {
 				loc.inode = inode_new(qb_conf->root_inode->table);
-				uuid_copy(loc.inode->gfid,
+				gf_uuid_copy(loc.inode->gfid,
 					qb_inode->backing_gfid);
 			}
-			uuid_copy(loc.gfid, loc.inode->gfid);
+			gf_uuid_copy(loc.gfid, loc.inode->gfid);
 		} else if (qb_inode->backing_fname) {
 			loc.inode = inode_new(qb_conf->root_inode->table);
 			loc.name = qb_inode->backing_fname;
@@ -81,8 +76,8 @@ qb_format_and_resume (void *opaque)
 		 * Lookup the backing image. Verify existence and/or get the
 		 * gfid if we don't already have it.
 		 */
-		ret = syncop_lookup(FIRST_CHILD(frame->this), &loc, NULL, &buf,
-				    NULL, NULL);
+		ret = syncop_lookup(FIRST_CHILD(frame->this), &loc, &buf, NULL,
+                                    NULL, NULL);
 		GF_FREE(qb_inode->backing_fname);
 		if (ret) {
 			loc_wipe(&loc);
@@ -90,7 +85,7 @@ qb_format_and_resume (void *opaque)
 			goto err;
 		}
 
-		uuid_copy(qb_inode->backing_gfid, buf.ia_gfid);
+		gf_uuid_copy(qb_inode->backing_gfid, buf.ia_gfid);
 		loc_wipe(&loc);
 
 		/*
@@ -100,7 +95,7 @@ qb_format_and_resume (void *opaque)
 		 * the block subsystem needs to operate on the backing image on
 		 * behalf of the clone.
 		 */
-		uuid_unparse(qb_inode->backing_gfid, gfid_str);
+		gf_uuid_unparse(qb_inode->backing_gfid, gfid_str);
 		snprintf(base_filename, sizeof(base_filename),
 			 "gluster://gfid:%s", gfid_str);
 		use_base = 1;
@@ -148,7 +143,7 @@ qb_format_and_resume (void *opaque)
 		return 0;
 	}
 
-	ret = syncop_fsetxattr (FIRST_CHILD(THIS), fd, xattr, 0);
+	ret = syncop_fsetxattr (FIRST_CHILD(THIS), fd, xattr, 0, NULL, NULL);
 	if (ret) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"failed to setxattr for %s",
@@ -437,7 +432,7 @@ qb_update_size_xattr (xlator_t *this, fd_t *fd, const char *fmt, off_t offset)
 		return;
 	}
 
-	syncop_fsetxattr (FIRST_CHILD(this), fd, xattr, 0);
+	syncop_fsetxattr (FIRST_CHILD(this), fd, xattr, 0, NULL, NULL);
 	dict_unref (xattr);
 }
 
@@ -476,7 +471,7 @@ qb_co_truncate (void *opaque)
 	}
 
 	ret = syncop_fstat (FIRST_CHILD(this), local->fd,
-                            &stub->args_cbk.prestat);
+                            &stub->args_cbk.prestat, NULL, NULL);
         if (ret < 0)
                 goto out;
 	stub->args_cbk.prestat.ia_size = qb_inode->size;
@@ -490,7 +485,7 @@ qb_co_truncate (void *opaque)
 	qb_inode->size = offset;
 
 	ret = syncop_fstat (FIRST_CHILD(this), local->fd,
-                            &stub->args_cbk.poststat);
+                            &stub->args_cbk.poststat, NULL, NULL);
         if (ret < 0)
                 goto out;
 	stub->args_cbk.poststat.ia_size = qb_inode->size;

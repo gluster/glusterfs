@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -21,7 +16,7 @@
 #include "ioc-mem-types.h"
 #include <assert.h>
 #include <sys/time.h>
-
+#include "io-cache-messages.h"
 char
 ioc_empty (struct ioc_cache *cache)
 {
@@ -108,10 +103,10 @@ __ioc_page_destroy (ioc_page_t *page)
                                 sizeof (page->offset));
                 list_del (&page->page_lru);
 
-                gf_log (page->inode->table->xl->name, GF_LOG_TRACE,
-                        "destroying page = %p, offset = %"PRId64" "
-                        "&& inode = %p",
-                        page, page->offset, page->inode);
+                gf_msg_trace (page->inode->table->xl->name, 0,
+                              "destroying page = %p, offset = %"PRId64" "
+                              "&& inode = %p",
+                              page, page->offset, page->inode);
 
                 if (page->vector){
                         iobref_unref (page->iobref);
@@ -174,10 +169,11 @@ __ioc_inode_prune (ioc_inode_t *curr, uint64_t *size_pruned,
                 if (ret != -1)
                         table->cache_used -= ret;
 
-                gf_log (table->xl->name, GF_LOG_TRACE,
-                        "index = %d && table->cache_used = %"PRIu64" && table->"
-                        "cache_size = %"PRIu64, index, table->cache_used,
-                        table->cache_size);
+                gf_msg_trace (table->xl->name, 0,
+                              "index = %d && "
+                              "table->cache_used = %"PRIu64" && table->"
+                              "cache_size = %"PRIu64, index, table->cache_used,
+                              table->cache_size);
 
                 if ((*size_pruned) >= size_to_prune)
                         break;
@@ -284,8 +280,8 @@ __ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 
         page = newpage;
 
-        gf_log ("io-cache", GF_LOG_TRACE,
-                "returning new page %p", page);
+        gf_msg_trace ("io-cache", 0,
+                      "returning new page %p", page);
 
 out:
         return page;
@@ -315,7 +311,8 @@ __ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
         if (page == NULL) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING,
+                        0, IO_CACHE_MSG_NO_MEMORY,
                         "asked to wait on a NULL page");
                 goto out;
         }
@@ -327,10 +324,10 @@ __ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
                 goto out;
         }
 
-        gf_log (frame->this->name, GF_LOG_TRACE,
-                "frame(%p) waiting on page = %p, offset=%"PRId64", "
-                "size=%"GF_PRI_SIZET"",
-                frame, page, offset, size);
+        gf_msg_trace (frame->this->name, 0,
+                      "frame(%p) waiting on page = %p, offset=%"PRId64", "
+                      "size=%"GF_PRI_SIZET"",
+                      frame, page, offset, size);
 
         waitq->data = frame;
         waitq->next = page->waitq;
@@ -444,9 +441,9 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret == -1 || !(zero_filled ||
                                       ioc_cache_still_valid(ioc_inode,
                                                             stbuf))) {
-                        gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,
-                                "cache for inode(%p) is invalid. flushing "
-                                "all pages", ioc_inode);
+                        gf_msg_trace (ioc_inode->table->xl->name, 0,
+                                      "cache for inode(%p) is invalid. flushing "
+                                      "all pages", ioc_inode);
                         destroy_size = __ioc_inode_flush (ioc_inode);
                 }
 
@@ -464,13 +461,14 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 waitq = __ioc_page_error (page, op_ret,
                                                           op_errno);
                 } else {
-                        gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,
-                                "op_ret = %d", op_ret);
+                        gf_msg_trace (ioc_inode->table->xl->name, 0,
+                                      "op_ret = %d", op_ret);
                         page = __ioc_page_get (ioc_inode, offset);
                         if (!page) {
                                 /* page was flushed */
                                 /* some serious bug ? */
-                                gf_log (frame->this->name, GF_LOG_WARNING,
+                                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                                        IO_CACHE_MSG_WASTED_COPY,
                                         "wasted copy: %"PRId64"[+%"PRId64"] "
                                         "ioc_inode=%p", offset,
                                         table->page_size, ioc_inode);
@@ -500,8 +498,9 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 } else {
                                         /* TODO: we have got a response to
                                          * our request and no data */
-                                        gf_log (frame->this->name,
+                                        gf_msg (frame->this->name,
                                                 GF_LOG_CRITICAL,
+                                                ENOMEM, IO_CACHE_MSG_NO_MEMORY,
                                                 "frame>root>rsp_refs is null");
                                 } /* if(frame->root->rsp_refs) */
 
@@ -553,8 +552,8 @@ unlock:
                 ioc_prune (ioc_inode->table);
         }
 
-        gf_log (frame->this->name, GF_LOG_TRACE, "fault frame %p returned",
-                frame);
+        gf_msg_trace (frame->this->name, 0, "fault frame %p returned",
+                      frame);
         pthread_mutex_destroy (&local->local_lock);
 
         fd_unref (local->fd);
@@ -588,7 +587,8 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
         if (frame == NULL) {
                 op_ret = -1;
                 op_errno = EINVAL;
-                gf_log ("io-cache", GF_LOG_WARNING,
+                gf_msg ("io-cache", GF_LOG_WARNING,
+                        EINVAL, IO_CACHE_MSG_ENFORCEMENT_FAILED,
                         "page fault on a NULL frame");
                 goto err;
         }
@@ -622,9 +622,9 @@ ioc_page_fault (ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
         fault_local->pending_size = table->page_size;
         fault_local->inode = ioc_inode;
 
-        gf_log (frame->this->name, GF_LOG_TRACE,
-                "stack winding page fault for offset = %"PRId64" with "
-                "frame %p", offset, fault_frame);
+        gf_msg_trace (frame->this->name, 0,
+                      "stack winding page fault for offset = %"PRId64" with "
+                      "frame %p", offset, fault_frame);
 
         STACK_WIND (fault_frame, ioc_fault_cbk, FIRST_CHILD(fault_frame->this),
                     FIRST_CHILD(fault_frame->this)->fops->readv, fd,
@@ -667,7 +667,8 @@ __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
         GF_VALIDATE_OR_GOTO (frame->this->name, local, out);
 
         if (page == NULL) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_ENFORCEMENT_FAILED,
                         "NULL page has been provided to serve read request");
                 local->op_ret = -1;
                 local->op_errno = EINVAL;
@@ -676,10 +677,10 @@ __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 
         ioc_inode = page->inode;
 
-        gf_log (frame->this->name, GF_LOG_TRACE,
-                "frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" "
-                "&& page->size = %"GF_PRI_SIZET" && wait_count = %d",
-                frame, offset, size, page->size, local->wait_count);
+        gf_msg_trace (frame->this->name, 0,
+                      "frame (%p) offset = %"PRId64" && size = %"GF_PRI_SIZET" "
+                      "&& page->size = %"GF_PRI_SIZET" && wait_count = %d",
+                      frame, offset, size, page->size, local->wait_count);
 
         /* immediately move this page to the end of the page_lru list */
         list_move_tail (&page->page_lru, &ioc_inode->cache.page_lru);
@@ -713,10 +714,10 @@ __ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
                         copy_size = src_offset = 0;
                 }
 
-                gf_log (page->inode->table->xl->name, GF_LOG_TRACE,
-                        "copy_size = %"GF_PRI_SIZET" && src_offset = "
-                        "%"PRId64" && dst_offset = %"PRId64"",
-                        copy_size, src_offset, dst_offset);
+                gf_msg_trace (page->inode->table->xl->name, 0,
+                              "copy_size = %"GF_PRI_SIZET" && src_offset = "
+                              "%"PRId64" && dst_offset = %"PRId64"",
+                              copy_size, src_offset, dst_offset);
 
                 {
                         new = GF_CALLOC (1, sizeof (*new),
@@ -814,8 +815,8 @@ ioc_frame_unwind (call_frame_t *frame)
 
         local = frame->local;
         if (local == NULL) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
-                        "local is NULL");
+                gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
+                        IO_CACHE_MSG_NO_MEMORY, "local is NULL");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -835,10 +836,10 @@ ioc_frame_unwind (call_frame_t *frame)
         }
 
         if (list_empty (&local->fill_list)) {
-                gf_log (frame->this->name, GF_LOG_TRACE,
-                        "frame(%p) has 0 entries in local->fill_list "
-                        "(offset = %"PRId64" && size = %"GF_PRI_SIZET")",
-                        frame, local->offset, local->size);
+                gf_msg_trace (frame->this->name, 0,
+                              "frame(%p) has 0 entries in local->fill_list "
+                              "(offset = %"PRId64" && size = %"GF_PRI_SIZET")",
+                              frame, local->offset, local->size);
         }
 
         list_for_each_entry (fill, &local->fill_list, list) {
@@ -876,8 +877,8 @@ ioc_frame_unwind (call_frame_t *frame)
         }
 
 unwind:
-        gf_log (frame->this->name, GF_LOG_TRACE,
-                "frame(%p) unwinding with op_ret=%d", frame, op_ret);
+        gf_msg_trace (frame->this->name, 0,
+                      "frame(%p) unwinding with op_ret=%d", frame, op_ret);
 
         //  ioc_local_unlock (local);
 
@@ -951,8 +952,8 @@ __ioc_page_wakeup (ioc_page_t *page, int32_t op_errno)
 
         page->ready = 1;
 
-        gf_log (page->inode->table->xl->name, GF_LOG_TRACE,
-                "page is %p && waitq = %p", page, waitq);
+        gf_msg_trace (page->inode->table->xl->name, 0,
+                      "page is %p && waitq = %p", page, waitq);
 
         for (trav = waitq; trav; trav = trav->next) {
                 frame = trav->data;
@@ -994,8 +995,8 @@ __ioc_page_error (ioc_page_t *page, int32_t op_ret, int32_t op_errno)
         waitq = page->waitq;
         page->waitq = NULL;
 
-        gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
-                "page error for page = %p & waitq = %p", page, waitq);
+        gf_msg_debug (page->inode->table->xl->name, 0,
+                      "page error for page = %p & waitq = %p", page, waitq);
 
         for (trav = waitq; trav; trav = trav->next) {
 

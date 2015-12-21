@@ -28,16 +28,21 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count);
 
 int
-glusterd_compare_snap_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_time (struct cds_list_head *, struct cds_list_head *);
 
 int
-glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_vol_time (struct cds_list_head *, struct cds_list_head *);
 
 int32_t
 glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                                glusterd_volinfo_t *new_volinfo,
                                glusterd_volinfo_t *snap_volinfo,
                                int32_t volcount);
+int32_t
+glusterd_snapobject_delete (glusterd_snap_t *snap);
+
+int32_t
+glusterd_cleanup_snaps_for_volume (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo);
@@ -74,8 +79,8 @@ int32_t
 glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
 
 int32_t
-glusterd_compare_friend_snapshots (dict_t *peer_data,
-                                   glusterd_peerinfo_t *peerinfo);
+glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
+                                   uuid_t peerid);
 
 int32_t
 glusterd_store_create_snap_dir (glusterd_snap_t *snap);
@@ -94,9 +99,17 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
 int32_t
 glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 
+int
+glusterd_restore_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
+                                   glusterd_snap_t *snap);
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
-                           glusterd_volinfo_t *dest_vol);
+                           glusterd_volinfo_t *dest_vol,
+                           gf_boolean_t *conf_present);
+
+int
+glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
+                                glusterd_volinfo_t *dest_vol);
 
 int
 glusterd_snap_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
@@ -119,13 +132,7 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr,
-                            struct list_head *peers_list);
-
-int32_t
-glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr,
-                                       struct list_head *peers_list);
+                            char **op_errstr, uint32_t *op_errno);
 
 int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
@@ -137,53 +144,12 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
                                    char *volname,
                                    glusterd_snap_t *snap);
 
-int
-glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_snapd_disconnect (glusterd_volinfo_t *volinfo);
-
 void
 glusterd_get_snapd_dir (glusterd_volinfo_t *volinfo,
                         char *path, int path_len);
 
-void
-glusterd_get_snapd_rundir (glusterd_volinfo_t *volinfo,
-                           char *path, int path_len);
-
-void
-glusterd_get_snapd_volfile (glusterd_volinfo_t *volinfo,
-                            char *path, int path_len);
-
-void
-glusterd_get_snapd_pidfile (glusterd_volinfo_t *volinfo,
-                            char *path, int path_len);
-
-void
-glusterd_set_snapd_socket_filepath (glusterd_volinfo_t *volinfo,
-                                    char *path, int path_len);
-
-gf_boolean_t
-glusterd_is_snapd_running (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_snapd_stop (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait);
-
 int
 glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo);
-
-gf_boolean_t
-glusterd_is_snapd_online (glusterd_volinfo_t *volinfo);
-
-void
-glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
-                                  gf_boolean_t status);
-
-int
-glusterd_restart_snapds (glusterd_conf_t *priv);
 
 int32_t
 glusterd_check_and_set_config_limit (glusterd_conf_t *priv);

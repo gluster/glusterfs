@@ -3,7 +3,14 @@
         GF_DEFRAG_CMD_STOP,
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
-        GF_DEFRAG_CMD_START_FORCE /* used by remove-brick data migration */
+        GF_DEFRAG_CMD_START_FORCE, /* used by remove-brick data migration */
+        GF_DEFRAG_CMD_START_TIER,
+        GF_DEFRAG_CMD_STATUS_TIER,
+        GF_DEFRAG_CMD_START_DETACH_TIER,
+        GF_DEFRAG_CMD_STOP_DETACH_TIER,
+        GF_DEFRAG_CMD_PAUSE_TIER,
+        GF_DEFRAG_CMD_RESUME_TIER,
+        GF_DEFRAG_CMD_DETACH_STATUS
 };
 
  enum gf_defrag_status_t {
@@ -24,17 +31,21 @@
         GF_CLUSTER_TYPE_STRIPE,
         GF_CLUSTER_TYPE_REPLICATE,
         GF_CLUSTER_TYPE_STRIPE_REPLICATE,
-        GF_CLUSTER_TYPE_DISPERSE
+        GF_CLUSTER_TYPE_DISPERSE,
+        GF_CLUSTER_TYPE_TIER,
+        GF_CLUSTER_TYPE_MAX
 };
 
- enum gf1_cli_replace_op {
-        GF_REPLACE_OP_NONE = 0,
-        GF_REPLACE_OP_START,
-        GF_REPLACE_OP_COMMIT,
-        GF_REPLACE_OP_PAUSE,
-        GF_REPLACE_OP_ABORT,
-        GF_REPLACE_OP_STATUS,
-        GF_REPLACE_OP_COMMIT_FORCE
+enum gf_bitrot_type {
+        GF_BITROT_OPTION_TYPE_NONE = 0,
+        GF_BITROT_OPTION_TYPE_ENABLE,
+        GF_BITROT_OPTION_TYPE_DISABLE,
+        GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE,
+        GF_BITROT_OPTION_TYPE_SCRUB_FREQ,
+        GF_BITROT_OPTION_TYPE_SCRUB,
+        GF_BITROT_OPTION_TYPE_EXPIRY_TIME,
+        GF_BITROT_CMD_SCRUB_STATUS,
+        GF_BITROT_OPTION_TYPE_MAX
 };
 
  enum gf1_op_commands {
@@ -43,7 +54,11 @@
         GF_OP_CMD_COMMIT,
         GF_OP_CMD_STOP,
         GF_OP_CMD_STATUS,
-        GF_OP_CMD_COMMIT_FORCE
+        GF_OP_CMD_COMMIT_FORCE,
+        GF_OP_CMD_DETACH_START,
+        GF_OP_CMD_DETACH_COMMIT,
+        GF_OP_CMD_DETACH_COMMIT_FORCE,
+        GF_OP_CMD_STOP_DETACH_TIER
 };
 
 enum gf_quota_type {
@@ -57,7 +72,13 @@ enum gf_quota_type {
         GF_QUOTA_OPTION_TYPE_ALERT_TIME,
         GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT,
         GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT,
-        GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT
+        GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT,
+        GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_LIST_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_MAX
 };
 
 enum gf1_cli_friends_list {
@@ -122,22 +143,24 @@ enum gf1_cli_top_op {
 /* The unconventional hex numbers help us perform
    bit-wise operations which reduces complexity */
 enum gf_cli_status_type {
-        GF_CLI_STATUS_NONE         = 0x0000,
-        GF_CLI_STATUS_MEM          = 0x0001,    /*00000000000001*/
-        GF_CLI_STATUS_CLIENTS      = 0x0002,    /*00000000000010*/
-        GF_CLI_STATUS_INODE        = 0x0004,    /*00000000000100*/
-        GF_CLI_STATUS_FD           = 0x0008,    /*00000000001000*/
-        GF_CLI_STATUS_CALLPOOL     = 0x0010,    /*00000000010000*/
-        GF_CLI_STATUS_DETAIL       = 0x0020,    /*00000000100000*/
-        GF_CLI_STATUS_TASKS        = 0x0040,    /*0000001000000*/
-        GF_CLI_STATUS_MASK         = 0x00FF,    /*00000011111111 Used to get the op*/
-        GF_CLI_STATUS_VOL          = 0x0100,    /*00000100000000*/
-        GF_CLI_STATUS_ALL          = 0x0200,    /*00001000000000*/
-        GF_CLI_STATUS_BRICK        = 0x0400,    /*00010000000000*/
-        GF_CLI_STATUS_NFS          = 0x0800,    /*00100000000000*/
-        GF_CLI_STATUS_SHD          = 0x1000,    /*01000000000000*/
-        GF_CLI_STATUS_QUOTAD       = 0x2000,     /*10000000000000*/
-        GF_CLI_STATUS_SNAPD        = 0x4000     /*100000000000000*/
+        GF_CLI_STATUS_NONE         = 0x000000,
+        GF_CLI_STATUS_MEM          = 0x000001,    /*000000000000001*/
+        GF_CLI_STATUS_CLIENTS      = 0x000002,    /*000000000000010*/
+        GF_CLI_STATUS_INODE        = 0x000004,    /*000000000000100*/
+        GF_CLI_STATUS_FD           = 0x000008,    /*000000000001000*/
+        GF_CLI_STATUS_CALLPOOL     = 0x000010,    /*000000000010000*/
+        GF_CLI_STATUS_DETAIL       = 0x000020,    /*000000000100000*/
+        GF_CLI_STATUS_TASKS        = 0x000040,    /*00000001000000*/
+        GF_CLI_STATUS_MASK         = 0x0000FF,    /*000000011111111 Used to get the op*/
+        GF_CLI_STATUS_VOL          = 0x000100,    /*00000000100000000*/
+        GF_CLI_STATUS_ALL          = 0x000200,    /*00000001000000000*/
+        GF_CLI_STATUS_BRICK        = 0x000400,    /*00000010000000000*/
+        GF_CLI_STATUS_NFS          = 0x000800,    /*00000100000000000*/
+        GF_CLI_STATUS_SHD          = 0x001000,    /*00001000000000000*/
+        GF_CLI_STATUS_QUOTAD       = 0x002000,    /*00010000000000000*/
+        GF_CLI_STATUS_SNAPD        = 0x004000,    /*00100000000000000*/
+        GF_CLI_STATUS_BITD         = 0x008000,    /*01000000000000000*/
+        GF_CLI_STATUS_SCRUB        = 0x010000     /*10000000000000000*/
 };
 
 /* Identifiers for snapshot clis */
@@ -151,6 +174,7 @@ enum gf1_cli_snapshot {
         GF_SNAP_OPTION_TYPE_LIST,
         GF_SNAP_OPTION_TYPE_STATUS,
         GF_SNAP_OPTION_TYPE_CONFIG,
+        GF_SNAP_OPTION_TYPE_CLONE,
         GF_SNAP_OPTION_TYPE_INFO
 };
 
@@ -169,13 +193,15 @@ enum gf1_cli_snapshot_config {
 enum  gf1_cli_snapshot_status {
         GF_SNAP_STATUS_TYPE_ALL = 0,
         GF_SNAP_STATUS_TYPE_SNAP,
-        GF_SNAP_STATUS_TYPE_VOL
+        GF_SNAP_STATUS_TYPE_VOL,
+        GF_SNAP_STATUS_TYPE_ITER
 };
 
 enum gf1_cli_snapshot_delete {
         GF_SNAP_DELETE_TYPE_ALL  = 0,
         GF_SNAP_DELETE_TYPE_SNAP = 1,
-        GF_SNAP_DELETE_TYPE_VOL  = 2
+        GF_SNAP_DELETE_TYPE_VOL  = 2,
+        GF_SNAP_DELETE_TYPE_ITER = 3
 };
 
 struct gf_cli_req {

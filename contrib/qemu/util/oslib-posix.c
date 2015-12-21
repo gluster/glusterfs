@@ -191,6 +191,13 @@ int qemu_pipe(int pipefd[2])
     return ret;
 }
 
+#ifndef UTIME_OMIT
+#define UTIME_OMIT        ((1l << 30) - 2l)
+#endif
+#ifndef UTIME_NOW
+#define UTIME_NOW      ((1l << 30) - 1l)
+#endif
+
 int qemu_utimens(const char *path, const struct timespec *times)
 {
     struct timeval tv[2], tv_now;

@@ -11,6 +11,10 @@
 #ifndef __SYSCALL_H__
 #define __SYSCALL_H__
 
+#include <dirent.h>
+#include <sys/uio.h>
+#include <sys/statvfs.h>
+
 /* GF follows the Linux XATTR definition, which differs in Darwin. */
 #define GF_XATTR_CREATE  0x1 /* set value, fail if attr already exists */
 #define GF_XATTR_REPLACE 0x2 /* set value, fail if attr does not exist */

@@ -16,7 +16,14 @@ function brick_count()
 
 function online_brick_count ()
 {
-    pidof glusterfsd | wc -w
+    pgrep glusterfsd | wc -l
+}
+
+function brick_up_status {
+        local vol=$1
+        local host=$2
+        local brick=$3
+        $CLI volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
 }
 
 function volume_option()
@@ -87,7 +94,7 @@ function cleanup_mount_statedump {
 function snap_client_connected_status {
          local vol=$1
          local fpath=$(generate_mount_statedump $vol)
-         up=$(grep -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
+         up=$(grep -a -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
          rm -f $fpath
          echo "$up"
 }
@@ -98,7 +105,7 @@ function _afr_child_up_status {
         local brick_id=$2
         local gen_state_dump=$3
         local fpath=$($gen_state_dump $vol)
-        up=$(grep -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        up=$(grep -a -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
         rm -f $fpath
         echo "$up"
 }
@@ -121,7 +128,7 @@ function ec_get_info {
         local vol=$1
         local dist_id=$2
         local key=$3
-        local fpath=$(generate_mount_statedump $vol)
+        local fpath=$4
         local value=$(sed -n "/^\[cluster\/disperse\.$vol-disperse-$dist_id\]/,/^\[/{s/^$key=\(.*\)/\1/p;}" $fpath | head -1)
         rm -f $fpath
         echo "$value"
@@ -131,14 +138,28 @@ function ec_child_up_status {
         local vol=$1
         local dist_id=$2
         local brick_id=$(($3 + 1))
-        local mask=$(ec_get_info $vol $dist_id "childs_up_mask")
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_mount_statedump $vol))
         echo "${mask: -$brick_id:1}"
 }
 
 function ec_child_up_count {
         local vol=$1
         local dist_id=$2
-        ec_get_info $vol $dist_id "childs_up"
+        ec_get_info $vol $dist_id "childs_up" $(generate_mount_statedump $vol)
+}
+
+function ec_child_up_status_shd {
+        local vol=$1
+        local dist_id=$2
+        local brick_id=$(($3 + 1))
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_shd_statedump $vol))
+        echo "${mask: -$brick_id:1}"
+}
+
+function ec_child_up_count_shd {
+        local vol=$1
+        local dist_id=$2
+        ec_get_info $vol $dist_id "childs_up" $(generate_shd_statedump $vol)
 }
 
 function get_shd_process_pid {
@@ -175,15 +196,15 @@ function afr_child_up_status_in_nfs {
 }
 
 function nfs_up_status {
-        gluster volume status | grep "NFS Server" | awk '{print $6}'
+        gluster volume status | grep "NFS Server" | awk '{print $7}'
 }
 
 function glustershd_up_status {
-        gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
+        gluster volume status | grep "Self-heal Daemon" | awk '{print $7}'
 }
 
 function quotad_up_status {
-        gluster volume status | grep "Quota Daemon" | awk '{print $6}'
+        gluster volume status | grep "Quota Daemon" | awk '{print $7}'
 }
 
 function get_brick_pid {
@@ -209,10 +230,14 @@ function check_option_help_presence {
 function afr_get_changelog_xattr {
         local file=$1
         local xkey=$2
-        getfattr -n $xkey -e hex $file 2>/dev/null | grep "$xkey" | cut -f2 -d'='
+        local xval=$(getfattr -n $xkey -e hex $file 2>/dev/null | grep "$xkey" | cut -f2 -d'=')
+        if [ -z $xval ]; then
+                xval="0x000000000000000000000000"
+        fi
+        echo $xval
 }
 
-function afr_get_pending_heal_count {
+function get_pending_heal_count {
         local vol=$1
         gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
 }
@@ -240,6 +265,12 @@ function gf_get_gfid_xattr {
 function gf_gfid_xattr_to_str {
         xval=$1
         echo "${xval:2:8}-${xval:10:4}-${xval:14:4}-${xval:18:4}-${xval:22:12}"
+}
+
+function get_text_xattr {
+        local key=$1
+        local path=$2
+        getfattr -d -m. -e text $path 2>/dev/null | grep -a $key | cut -f2 -d'='
 }
 
 function gf_check_file_opened_in_brick {
@@ -396,13 +427,17 @@ function delete_volumes() {
 }
 
 function volume_exists() {
-        local volname=$1
-        $CLI volume info $volname 2>&1 | grep -q 'does not exist'
-        if [ $? -eq 0 ]; then
-                return 1
-        else
-                return 0
-        fi
+        $CLI volume info $1 > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		echo "Y"
+	else
+		echo "N"
+	fi
+}
+
+function killall_gluster() {
+        pkill gluster
+        sleep 1
 }
 
 function afr_get_index_count {
@@ -421,7 +456,7 @@ function path_exists {
 }
 
 function force_umount {
-        umount -f $*
+        ${UMOUNT_F} $*
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
 
@@ -456,4 +491,150 @@ function volgen_volume_option {
         local xl_feature="$4"
         local xl_option="$5"
         sed -e "/./{H;\$!d;}" -e "x;/volume $xl_vol/!d;/type $xl_type\/$xl_feature/!d;/option $xl_option/!d" $volfile | grep " $xl_option " | awk '{print $3}'
+}
+
+function mount_get_option_value {
+        local m=$1
+        local subvol=$2
+        local key=$3
+
+        grep -w "$3" $m/.meta/graphs/active/$subvol/private | awk '{print $3}'
+}
+
+function get_volume_mark {
+        getfattr -n trusted.glusterfs.volume-mark -ehex $1 | sed -n 's/^trusted.glusterfs.volume-mark=0x//p' | cut -b5-36 | sed 's/\([a-f0-9]\{8\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)/\1-\2-\3-\4-/'
+}
+
+# setup geo-rep in a single a node.
+
+function setup_georep {
+
+    $CLI volume create $GMV0 replica 2  $H0:$B0/${GMV0}{1,2,3,4};
+
+    $CLI volume start $GMV0
+
+    $CLI volume create $GSV0 replica 2  $H0:$B0/${GSV0}{1,2,3,4};
+
+    $CLI volume start $GSV0
+
+    $CLI system:: execute gsec_create
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 create push-pem
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 start
+
+    sleep 80 # after start geo-rep takes a minute to get stable
+
+}
+
+
+# stop and delete geo-rep session
+
+function cleanup_georep {
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 stop
+
+    $CLI volume geo-rep $GMV0 $H0::$GSV0 delete
+}
+
+function num_graphs
+{
+    local mountpoint=$1
+    echo `ls $mountpoint/.meta/graphs/ | grep -v active | wc -l`
+}
+
+function get_aux()
+{
+##Check if a auxiliary mount is there
+df -h 2>&1 | grep "/var/run/gluster/$V0" -
+
+if [ $? -eq 0 ]
+then
+        echo "0"
+else
+        echo "1"
+fi
+}
+
+function get_bitd_count {
+        ps auxww | grep glusterfs | grep bitd.pid | grep -v grep | wc -l
+}
+
+function get_scrubd_count {
+        ps auxww | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
+}
+
+function get_quotad_count {
+        ps auxww | grep glusterfs | grep quotad.pid | grep -v grep | wc -l
+}
+
+function get_nfs_count {
+        ps auxww | grep glusterfs | grep nfs.pid | grep -v grep | wc -l
+}
+
+function get_snapd_count {
+        ps auxww | grep glusterfs | grep snapd.pid | grep -v grep | wc -l
+}
+
+function drop_cache() {
+	case $OSTYPE in
+	Linux)
+		echo 3 > /proc/sys/vm/drop_caches
+		;;
+	*)
+		# fail but flush caches
+		( cd $1 && umount $1 2>/dev/null )
+		;;
+	esac
+}
+
+function quota_list_field () {
+        local QUOTA_PATH=$1
+        local FIELD=$2
+        local awk_arg="{print \$$FIELD}"
+
+        $CLI volume quota $V0 list $QUOTA_PATH | grep $QUOTA_PATH | awk "$awk_arg"
+}
+
+function quota_object_list_field () {
+        local QUOTA_PATH=$1
+        local FIELD=$2
+        local awk_arg="{print \$$FIELD}"
+
+        $CLI volume quota $V0 list-objects $QUOTA_PATH | grep $QUOTA_PATH | awk "$awk_arg"
+}
+
+function quotausage()
+{
+        quota_list_field $1 4
+}
+
+function quota_hard_limit()
+{
+        quota_list_field $1 2
+}
+
+function quota_soft_limit()
+{
+        quota_list_field $1 3
+}
+
+function quota_sl_exceeded()
+{
+        quota_list_field $1 6
+}
+
+function quota_hl_exceeded()
+{
+        quota_list_field $1 7
+
+}
+
+
+function scrub_status()
+{
+        local vol=$1;
+        local field=$2;
+
+        $CLI volume bitrot $vol scrub status | grep "^$field: " | sed 's/.*: //';
 }

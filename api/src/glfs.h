@@ -42,6 +42,13 @@
 #include <dirent.h>
 #include <sys/statvfs.h>
 
+#if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
+#include <sys/acl.h>
+#else
+typedef void *acl_t;
+typedef int acl_type_t;
+#endif
+
 /* Portability non glibc c++ build systems */
 #ifndef __THROW
 # if defined __cplusplus
@@ -157,12 +164,14 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile) __THROW
               management daemon. Specifying NULL will result in the usage
               of the default (tcp) transport type. Permitted values
               are those what you specify as transport-type in a volume
-              specification file (e.g "tcp", "rdma" etc.)
+              specification file (e.g "tcp", "rdma", "unix" etc.)
 
   @host:      String specifying the address where to find the management daemon.
+              Socket path, while using Unix domain socket as transport type.
               This would either be
-              - FQDN (e.g: "storage01.company.com") or
-              - ASCII (e.g: "192.168.22.1")
+              - FQDN (e.g : "storage01.company.com") or
+              - ASCII (e.g : "192.168.22.1") or
+              - Socket path (e.g : "/var/run/glusterd.socket")
 
   NOTE: This API is special, multiple calls to this function with different
         volfile servers, port or transport-type would create a list of volfile
@@ -759,6 +768,14 @@ int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW
 
 glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_dup, 3.4.0);
+
+/*
+ * No xdata support for now.  Nobody needs this call at all yet except for the
+ * test script, and that doesn't need xdata.  Adding dict_t support and a new
+ * header-file requirement doesn't seem worth it until the need is greater.
+ */
+int glfs_ipc (glfs_fd_t *fd, int cmd) __THROW
+        GFAPI_PUBLIC(glfs_ipc, 3.7.0);
 
 __END_DECLS
 

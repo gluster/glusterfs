@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = barrier.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-barrier_la_LDFLAGS = -module -avoid-version
+barrier_la_LDFLAGS = $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 barrier_la_SOURCES = barrier.c
 

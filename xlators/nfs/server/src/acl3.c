@@ -8,11 +8,6 @@
  * cases as published by the Free Software Foundation.
  */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "defaults.h"
 #include "rpcsvc.h"
 #include "dict.h"
@@ -30,6 +25,7 @@
 #include "acl3.h"
 #include "byte-order.h"
 #include "compat-errno.h"
+#include "nfs-messages.h"
 
 static int
 acl3_nfs_acl_to_xattr (aclentry *ace, void *xattrbuf,
@@ -49,14 +45,16 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
 extern int
 nfs3_fh_validate (struct nfs3_fh *fh);
 
-extern fattr3
-nfs3_stat_to_fattr3 (struct iatt *buf);
+extern void
+nfs3_stat_to_fattr3 (struct iatt *buf, fattr3 *fa);
 
 #define acl3_validate_nfs3_state(request, state, status, label, retval) \
         do      {                                                       \
                 state = rpcsvc_request_program_private (request);       \
                 if (!state) {                                           \
-                        gf_log (GF_ACL, GF_LOG_ERROR, "NFSv3 state "    \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, errno,            \
+                                NFS_MSG_STATE_MISSING,                  \
+                                "NFSv3 state "                          \
                                 "missing from RPC request");            \
                         rpcsvc_request_seterr (req, SYSTEM_ERR);        \
                         status = NFS3ERR_SERVERFAULT;                   \
@@ -67,7 +65,9 @@ nfs3_stat_to_fattr3 (struct iatt *buf);
 #define acl3_validate_gluster_fh(handle, status, errlabel)              \
         do {                                                            \
                 if (!nfs3_fh_validate (handle)) {                       \
-                        gf_log (GF_ACL, GF_LOG_ERROR, "Bad Handle");    \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL,           \
+                                NFS_MSG_BAD_HANDLE,                     \
+                                "Bad Handle");                          \
                         status = NFS3ERR_BADHANDLE;                     \
                         goto errlabel;                                  \
                 }                                                       \
@@ -83,22 +83,24 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                 rpc_transport_t *trans = NULL;                          \
                 volume = nfs3_fh_to_xlator ((nfs3state), handle);      \
                 if (!volume) {                                          \
-                        uuid_unparse (handle->exportid, exportid);       \
-                        uuid_unparse (handle->gfid, gfid);               \
+                        gf_uuid_unparse (handle->exportid, exportid);   \
+                        gf_uuid_unparse (handle->gfid, gfid);           \
                         trans = rpcsvc_request_transport (req);         \
-                        gf_log (GF_ACL, GF_LOG_ERROR, "Failed to map "  \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, 0,                \
+                                NFS_MSG_FH_TO_VOL_FAIL, "Failed to map "  \
                                 "FH to vol: client=%s, exportid=%s, gfid=%s",\
                                 trans->peerinfo.identifier, exportid,   \
                                 gfid);                                  \
-                        gf_log (GF_ACL, GF_LOG_ERROR,                   \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, ESTALE,           \
+                                NFS_MSG_VOLUME_ERROR,                   \
                                 "Stale nfs client %s must be trying to "\
                                 "connect to a deleted volume, please "  \
                                 "unmount it.", trans->peerinfo.identifier);\
                         status = NFS3ERR_STALE;                         \
                         goto label;                                     \
                 } else {                                                \
-                        gf_log (GF_ACL, GF_LOG_TRACE, "FH to Volume: %s"\
-                                ,volume->name);                         \
+                        gf_msg_trace (GF_ACL, 0, "FH to Volume: %s",    \
+                                      volume->name);                    \
                         rpcsvc_request_set_private (req, volume);       \
                 }                                                       \
         } while (0);                                                    \
@@ -106,8 +108,9 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 #define acl3_volume_started_check(nfs3state, vlm, rtval, erlbl)         \
         do {                                                            \
               if ((!nfs_subvolume_started (nfs_state (nfs3state->nfsx), vlm))){\
-                      gf_log (GF_ACL, GF_LOG_ERROR, "Volume is disabled: %s",\
-                              vlm->name);                               \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, 0, NFS_MSG_VOL_DISABLE, \
+                                "Volume is disabled: %s",                 \
+                                vlm->name);                               \
                       rtval = RPCSVC_ACTOR_IGNORE;                      \
                       goto erlbl;                                       \
               }                                                         \
@@ -122,13 +125,14 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                         trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
-                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
+                        gf_uuid_unparse (cst->resolvefh.gfid, gfid);    \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",    \
                                   trans->peerinfo.identifier,           \
                                   xlatorp ? xlatorp->name : "ERR",      \
                                   gfid);                                \
-                        gf_log (GF_ACL, GF_LOG_ERROR, "Unable to resolve FH"\
-                                ": %s", buf);                           \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, cst->resolve_errno, \
+                                NFS_MSG_RESOLVE_FH_FAIL, "Unable to resolve "\
+                                "FH: %s", buf);                           \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
@@ -136,9 +140,10 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 
 #define acl3_handle_call_state_init(nfs3state, calls, rq, v, opstat, errlabel)\
         do {                                                            \
-                calls = nfs3_call_state_init ((nfs3state), (rq), v); \
+                calls = nfs3_call_state_init ((nfs3state), (rq), v);    \
                 if (!calls) {                                           \
-                        gf_log (GF_ACL, GF_LOG_ERROR, "Failed to "      \
+                        gf_msg (GF_ACL, GF_LOG_ERROR, 0,                \
+                                NFS_MSG_INIT_CALL_STAT_FAIL, "Failed to " \
                                 "init call state");                     \
                         opstat = NFS3ERR_SERVERFAULT;                   \
                         rpcsvc_request_seterr (req, SYSTEM_ERR);        \
@@ -162,7 +167,8 @@ acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
 
         nfs3 = (struct nfs3_state *)rpcsvc_request_program_private (req);
         if (!nfs3) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "mount state not found");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "mount state not found");
                 goto ret;
         }
 
@@ -171,7 +177,8 @@ acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
          */
         iob = iobuf_get (nfs3->iobpool);
         if (!iob) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg (GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -181,27 +188,31 @@ acl3svc_submit_reply (rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
          */
         msglen = sfunc (outmsg, arg);
         if (msglen < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to encode message");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_ENCODE_MSG_FAIL,
+                        "Failed to encode message");
                 goto ret;
         }
         outmsg.iov_len = msglen;
 
         iobref = iobref_new ();
         if (iobref == NULL) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to get iobref");
+                gf_msg (GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobref");
                 goto ret;
         }
 
         ret = iobref_add (iobref, iob);
         if (ret) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
         if (ret == -1) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Reply submission failed");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_REP_SUBMIT_FAIL,
+                        "Reply submission failed");
                 goto ret;
         }
 
@@ -222,7 +233,8 @@ acl3svc_null (rpcsvc_request_t *req)
         struct iovec    dummyvec = {0, };
 
         if (!req) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Got NULL request!");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Got NULL request!");
                 return 0;
         }
         rpcsvc_submit_generic (req, &dummyvec, 1,  NULL, 0, NULL);
@@ -262,14 +274,18 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                      defacl = 1; /* DEFAULT ACL */
 
         if (!frame->local) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
-                       " frame->local NULL");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, frame->local NULL");
                 return -EINVAL;
         }
         cs = frame->local;
         getaclreply = &cs->args.getaclreply;
         if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
+                goto err;
+        } else if (!dict) {
+                /* no ACL has been set */
+                stat = NFS3_OK;
                 goto err;
         }
 
@@ -283,7 +299,8 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                     data->len,
                                                     !defacl);
                 if (aclcount < 0) {
-                        gf_log (GF_ACL, GF_LOG_ERROR,
+                        gf_msg (GF_ACL, GF_LOG_ERROR, aclcount,
+                                NFS_MSG_GET_USER_ACL_FAIL,
                                 "Failed to get USER ACL");
                         stat = nfs3_errno_to_nfsstat3 (-aclcount);
                         goto err;
@@ -327,8 +344,8 @@ acl3_default_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                      ret = -1;
 
         if (!frame->local) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
-                       " frame->local NULL");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, frame->local NULL");
                 return -EINVAL;
         }
         cs = frame->local;
@@ -336,8 +353,11 @@ acl3_default_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
+        } else if (!dict) {
+                /* no ACL has been set */
+                stat = NFS3_OK;
+                goto err;
         }
-
 
         getaclreply->daclentry.daclentry_val = cs->daclentry;
 
@@ -349,7 +369,8 @@ acl3_default_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                     data->len,
                                                     defacl);
                 if (aclcount < 0) {
-                        gf_log (GF_ACL, GF_LOG_ERROR,
+                        gf_msg (GF_ACL, GF_LOG_ERROR, aclcount,
+                                NFS_MSG_GET_DEF_ACL_FAIL,
                                 "Failed to get DEFAULT ACL");
                         stat = nfs3_errno_to_nfsstat3 (-aclcount);
                         goto err;
@@ -392,8 +413,8 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t                        deviceid = 0;
 
         if (!frame->local) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
-                       " frame->local NULL");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument, frame->local NULL");
                 return EINVAL;
         }
 
@@ -409,7 +430,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply->attr_follows = TRUE;
         deviceid = nfs3_request_xlator_deviceid (cs->req);
         nfs3_map_deviceid_to_statdev (buf, deviceid);
-        getaclreply->attr = nfs3_stat_to_fattr3 (buf);
+        nfs3_stat_to_fattr3 (buf, &(getaclreply->attr));
 
         nfs_request_user_init (&nfu, cs->req);
         if (buf->ia_type == IA_IFDIR) {
@@ -456,7 +477,8 @@ acl3_getacl_resume (void *carg)
         stat = -ret;
 acl3err:
         if (ret < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "unable to open_and_resume");
+                gf_msg (GF_ACL, GF_LOG_ERROR, stat, NFS_MSG_OPEN_FAIL,
+                        "unable to open_and_resume");
                 cs->args.getaclreply.status = nfs3_errno_to_nfsstat3 (stat);
                 acl3_getacl_reply (cs->req, &cs->args.getaclreply);
                 nfs3_call_state_wipe (cs);
@@ -488,7 +510,8 @@ acl3svc_getacl (rpcsvc_request_t *req)
         memset (&getaclreply, 0, sizeof (getaclreply));
         getaclargs.fh.n_bytes = (char *)&fh;
         if (xdr_to_getaclargs(req->msg[0], &getaclargs) <= 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -514,7 +537,8 @@ acl3svc_getacl (rpcsvc_request_t *req)
 
 acl3err:
         if (ret < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_ACL, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 getaclreply.status = stat;
                 acl3_getacl_reply (req, &getaclreply);
                 nfs3_call_state_wipe (cs);
@@ -575,7 +599,8 @@ acl3_setacl_resume (void *carg)
 acl3err:
         if (ret < 0) {
                 stat = -ret;
-                gf_log (GF_ACL, GF_LOG_ERROR, "unable to open_and_resume");
+                gf_msg (GF_ACL, GF_LOG_ERROR, stat, NFS_MSG_OPEN_FAIL,
+                        "unable to open_and_resume");
                 cs->args.setaclreply.status = nfs3_errno_to_nfsstat3 (stat);
                 acl3_setacl_reply (cs->req, &cs->args.setaclreply);
                 nfs3_call_state_wipe (cs);
@@ -625,7 +650,8 @@ acl3svc_setacl (rpcsvc_request_t *req)
         setaclargs.aclentry.aclentry_val = aclentry;
         setaclargs.daclentry.daclentry_val = daclentry;
         if (xdr_to_setaclargs(req->msg[0], &setaclargs) <= 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -653,7 +679,9 @@ acl3svc_setacl (rpcsvc_request_t *req)
                                           cs->aclcount,
                                           !defacl);
         if (aclerrno < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to set USER ACL");
+                gf_msg (GF_ACL, GF_LOG_ERROR, -aclerrno,
+                        NFS_MSG_SET_USER_ACL_FAIL,
+                        "Failed to set USER ACL");
                 stat = nfs3_errno_to_nfsstat3 (-aclerrno);
                 goto acl3err;
         }
@@ -664,7 +692,9 @@ acl3svc_setacl (rpcsvc_request_t *req)
                                           cs->daclcount,
                                           defacl);
         if (aclerrno < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Failed to set DEFAULT ACL");
+                gf_msg (GF_ACL, GF_LOG_ERROR, -aclerrno,
+                        NFS_MSG_SET_DEF_ACL_FAIL,
+                        "Failed to set DEFAULT ACL");
                 stat = nfs3_errno_to_nfsstat3 (-aclerrno);
                 goto acl3err;
         }
@@ -674,7 +704,8 @@ acl3svc_setacl (rpcsvc_request_t *req)
 
 acl3err:
         if (ret < 0) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_ACL, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 setaclreply.status = stat;
                 acl3_setacl_reply (req, &setaclreply);
                 nfs3_call_state_wipe (cs);
@@ -729,7 +760,8 @@ acl3svc_init(xlator_t *nfsx)
 
         ns = nfs->nfs3state;
         if (!ns) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "ACL3 init failed");
+                gf_msg (GF_ACL, GF_LOG_ERROR, EINVAL, NFS_MSG_ACL_INIT_FAIL,
+                        "ACL3 init failed");
                 goto err;
         }
         acl3prog.private = ns;
@@ -746,32 +778,41 @@ acl3svc_init(xlator_t *nfsx)
                 goto err;
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         if (nfs->allow_insecure) {
                 ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_ACL, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_ACL, GF_LOG_ERROR, errno,
+                                 NFS_MSG_DICT_SET_FAILED,
+                                 "dict_set_str error");
                         goto err;
                 }
                 ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_ACL, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_ACL, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED,
+                                "dict_set_str error");
                         goto err;
                 }
         }
 
         ret = dict_set_str (options, "transport.address-family", "inet");
         if (ret == -1) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno,
+                        NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         ret = rpcsvc_create_listeners (nfs->rpcsvc, options, "ACL");
         if (ret == -1) {
-                gf_log (GF_ACL, GF_LOG_ERROR, "Unable to create listeners");
+                gf_msg (GF_ACL, GF_LOG_ERROR, errno,
+                        NFS_MSG_LISTENERS_CREATE_FAIL,
+                        "Unable to create listeners");
                 dict_unref (options);
                 goto err;
         }

@@ -4,6 +4,7 @@
 #as expected.
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../afr.rc
 
 cleanup;
 
@@ -71,9 +72,16 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume set $V0 self-heal-daemon off
+TEST $CLI volume set $V0 performance.write-behind off
+TEST $CLI volume set $V0 performance.read-ahead off
+TEST $CLI volume set $V0 performance.readdir-ahead off
+TEST $CLI volume set $V0 performance.open-behind off
+TEST $CLI volume set $V0 performance.stat-prefetch off
+TEST $CLI volume set $V0 performance.io-cache off
+TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume start $V0
 
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0 --use-readdirp=no
 cd $M0
 #_me_ is dir on which missing entry self-heal happens, _heal is where dir self-heal happens
 #spb is split-brain, fool is all fool
@@ -250,11 +258,52 @@ EXPECT "$r" get_file_type $B0/${V0}1/source_creations_me/dir1
 TEST [ -d source_creations_me/dir1 ]
 
 #Trigger heal and check _heal dirs are healed properly
-TEST $CLI volume set $V0 self-heal-daemon on
+#Trigger change in event generation number. That way inodes would get refreshed during lookup
+TEST kill_brick $V0 $H0 $B0/${V0}1
+$CLI volume start $V0 force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+
+TEST stat spb_heal
+TEST stat spb_me_heal
+TEST stat fool_heal
+TEST stat fool_me
+TEST stat v1_fool_heal
+TEST stat v1_fool_me
+TEST stat source_deletions_heal
+TEST stat source_deletions_me
+TEST stat source_creations_heal
+TEST stat source_creations_me
+TEST stat v1_dirty_heal
+TEST stat v1_dirty_me
+TEST $CLI volume stop $V0
+TEST rm -rf $B0/${V0}{0,1}/.glusterfs/indices/xattrop/*
+
+$CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+
+#Create base entry in indices/xattrop
+echo "Data" > $M0/FILE
+rm -f $M0/FILE
+EXPECT "1" count_index_entries $B0/${V0}0
+EXPECT "1" count_index_entries $B0/${V0}1
+
+TEST $CLI volume stop $V0;
+
+#Create entries for fool_heal and fool_me to ensure they are fully healed and dirty xattrs erased, before triggering index heal
+create_brick_xattrop_entry $B0/${V0}0 fool_heal fool_me source_creations_heal/dir1
+
+$CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+
+$CLI volume set $V0 self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
-TEST $CLI volume heal $V0 full
+
+TEST $CLI volume heal $V0;
 EXPECT_WITHIN $HEAL_TIMEOUT "~" print_pending_heals spb_heal spb_me_heal fool_heal fool_me v1_fool_heal v1_fool_me source_deletions_heal source_deletions_me source_creations_heal source_creations_me v1_dirty_heal v1_dirty_me
 
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 spb_heal

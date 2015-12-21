@@ -47,5 +47,7 @@ EXPECT "80%" quota_list
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 TEST   rm -rf $MOUNTDIR
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 
 cleanup;

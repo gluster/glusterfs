@@ -12,9 +12,14 @@ function write_to_file {
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1
+# Increasing the json stats dump time interval, so that it doesn't mess with the test.
+TEST $CLI volume set $V0 diagnostics.stats-dump-interval 3600
 TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+
+# Clear the profile info uptill now.
+TEST $CLI volume profile $V0 info clear
 
 # Verify 'volume profile info' prints both cumulative and incremental stats
 write_to_file &

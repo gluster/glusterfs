@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -15,12 +15,34 @@
 #ifndef _DEFAULTS_H
 #define _DEFAULTS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
+
+typedef struct {
+        int op_ret;
+        int op_errno;
+        inode_t *inode;
+        struct iatt stat;
+        struct iatt prestat;
+        struct iatt poststat;
+        struct iatt preparent;   /* @preoldparent in rename_cbk */
+        struct iatt postparent;  /* @postoldparent in rename_cbk */
+        struct iatt preparent2;  /* @prenewparent in rename_cbk */
+        struct iatt postparent2; /* @postnewparent in rename_cbk */
+        const char *buf;
+        struct iovec *vector;
+        int count;
+        struct iobref *iobref;
+        fd_t *fd;
+        struct statvfs statvfs;
+        dict_t *xattr;
+        struct gf_flock lock;
+        uint32_t weak_checksum;
+        uint8_t *strong_checksum;
+        dict_t *xdata;
+        gf_dirent_t entries;
+        int valid; /* If the response is valid or not. For call-stub it is
+                      always valid irrespective of this */
+} default_args_cbk_t;
 
 int32_t default_notify (xlator_t *this,
                         int32_t event,
@@ -263,6 +285,9 @@ int32_t default_zerofill(call_frame_t *frame,
                         off_t offset,
                         off_t len, dict_t *xdata);
 
+int32_t default_ipc (call_frame_t *frame, xlator_t *this, int32_t op,
+                     dict_t *xdata);
+
 
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
@@ -491,6 +516,9 @@ int32_t default_zerofill_resume(call_frame_t *frame,
                                fd_t *fd,
                                off_t offset,
                                off_t len, dict_t *xdata);
+
+int32_t default_ipc_resume (call_frame_t *frame, xlator_t *this,
+                            int32_t op, dict_t *xdata);
 
 
 /* _cbk_resume */
@@ -985,6 +1013,9 @@ int32_t default_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, struct iatt *pre,
                             struct iatt *post, dict_t *xdata);
 
+int32_t default_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
 int32_t
 default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, char *spec_data);
@@ -1128,5 +1159,4 @@ default_getspec_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);
-
 #endif /* _DEFAULTS_H */

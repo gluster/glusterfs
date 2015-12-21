@@ -21,5 +21,12 @@ class GConf(object):
     log_exit = False
     permanent_handles = []
     log_metadata = {}
+    """One variable is sufficient to track the
+       switching of worker to ACTIVE. Two variables
+       are intentionally used to track worker going
+       to PASSIVE as well mainly for debugging"""
+    active_earlier = False
+    passive_earlier = False
+    mgmt_lock_fd = None
 
 gconf = GConf()

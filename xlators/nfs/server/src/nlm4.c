@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "defaults.h"
 #include "rpcsvc.h"
 #include "dict.h"
@@ -20,6 +15,7 @@
 #include "nfs.h"
 #include "mem-pool.h"
 #include "logging.h"
+#include "syscall.h"
 #include "nfs-fops.h"
 #include "inode.h"
 #include "mount3.h"
@@ -34,11 +30,18 @@
 #include "rpc-clnt.h"
 #include "nsm-xdr.h"
 #include "run.h"
+#include "nfs-messages.h"
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
 #include <rpc/rpc.h>
 #include <rpc/xdr.h>
 #include <statedump.h>
+
+#ifdef __NetBSD__
+#define KILLALL_CMD "pkill"
+#else
+#define KILLALL_CMD "killall"
+#endif
 
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
@@ -59,7 +62,8 @@ int nlm_grace_period = 50;
         do      {                                                       \
                 state = rpcsvc_request_program_private (request);       \
                 if (!state) {                                           \
-                        gf_log (GF_NLM, GF_LOG_ERROR, "NFSv3 state "    \
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,            \
+                                NFS_MSG_STATE_MISSING, "NFSv3 state "   \
                                 "missing from RPC request");            \
                         rpcsvc_request_seterr (req, SYSTEM_ERR);        \
                         status = nlm4_failed;                           \
@@ -74,7 +78,8 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
         do {                                                            \
                 calls = nlm4_call_state_init ((nfs3state), (rq));       \
                 if (!calls) {                                           \
-                        gf_log (GF_NLM, GF_LOG_ERROR, "Failed to "      \
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,            \
+                                NFS_MSG_INIT_CALL_STAT_FAIL, "Failed to "\
                                 "init call state");                     \
                         opstat = nlm4_failed;                           \
                         rpcsvc_request_seterr (req, SYSTEM_ERR);        \
@@ -99,22 +104,24 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                 rpc_transport_t *trans = NULL;                          \
                 volume = nfs3_fh_to_xlator ((nfs3state), &handle);      \
                 if (!volume) {                                          \
-                        uuid_unparse (handle.exportid, exportid);       \
-                        uuid_unparse (handle.gfid, gfid);               \
+                        gf_uuid_unparse (handle.exportid, exportid);       \
+                        gf_uuid_unparse (handle.gfid, gfid);               \
                         trans = rpcsvc_request_transport (req);         \
-                        gf_log (GF_NLM, GF_LOG_ERROR, "Failed to map "  \
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,             \
+                                NFS_MSG_FH_TO_VOL_FAIL, "Failed to map "  \
                                 "FH to vol: client=%s, exportid=%s, gfid=%s",\
                                 trans->peerinfo.identifier, exportid,   \
                                 gfid);                                  \
-                        gf_log (GF_NLM, GF_LOG_ERROR,                   \
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,            \
+                                NFS_MSG_VOLUME_ERROR,                   \
                                 "Stale nfs client %s must be trying to "\
                                 "connect to a deleted volume, please "  \
                                 "unmount it.", trans->peerinfo.identifier);\
                         status = nlm4_stale_fh;                         \
                         goto label;                                     \
                 } else {                                                \
-                        gf_log (GF_NLM, GF_LOG_TRACE, "FH to Volume: %s"\
-                                ,volume->name);                         \
+                        gf_msg_trace (GF_NLM, 0, "FH to Volume: %s"     \
+                                      , volume->name);                  \
                         rpcsvc_request_set_private (req, volume);       \
                 }                                                       \
         } while (0);                                                    \
@@ -122,8 +129,9 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 #define nlm4_volume_started_check(nfs3state, vlm, rtval, erlbl)         \
         do {                                                            \
               if ((!nfs_subvolume_started (nfs_state (nfs3state->nfsx), vlm))){\
-                      gf_log (GF_NLM, GF_LOG_ERROR, "Volume is disabled: %s",\
-                              vlm->name);                               \
+                        gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_VOL_DISABLE, \
+                                "Volume is disabled: %s",               \
+                                vlm->name);                             \
                       rtval = RPCSVC_ACTOR_IGNORE;                      \
                       goto erlbl;                                       \
               }                                                         \
@@ -138,12 +146,13 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
                         trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
-                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
-                        snprintf (buf, sizeof (buf), "(%s) %s : %s",             \
+                        gf_uuid_unparse (cst->resolvefh.gfid, gfid);    \
+                        snprintf (buf, sizeof (buf), "(%s) %s : %s",    \
                                   trans->peerinfo.identifier,           \
                                   xlatorp ? xlatorp->name : "ERR",      \
                                   gfid);                                \
-                        gf_log (GF_NLM, GF_LOG_ERROR, "Unable to resolve FH"\
+                        gf_msg (GF_NLM, GF_LOG_ERROR, 0,                \
+                                NFS_MSG_RESOLVE_FH_FAIL, "Unable to resolve FH"\
                                 ": %s", buf);                           \
                         nfstat = nlm4_errno_to_nlm4stat (cst->resolve_errno);\
                         goto erlabl;                                    \
@@ -219,7 +228,8 @@ int
 nlm_is_oh_same_lkowner (gf_lkowner_t *a, nlm4_netobj *b)
 {
         if (!a || !b) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "invalid args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "invalid args");
                 return -1;
         }
 
@@ -294,8 +304,8 @@ nlm_monitor (char *caller_name)
         UNLOCK (&nlm_client_list_lk);
 
         if (monitor == -1)
-                gf_log (GF_NLM, GF_LOG_ERROR, "%s was not found in "
-                        "the nlmclnt list", caller_name);
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CALLER_NOT_FOUND,
+                        "%s was not found in the nlmclnt list", caller_name);
 
         return monitor;
 }
@@ -406,7 +416,8 @@ nlm_add_nlmclnt (char *caller_name)
                 nlmclnt = GF_CALLOC (1, sizeof(*nlmclnt),
                                      gf_nfs_mt_nlm4_nlmclnt);
                 if (nlmclnt == NULL) {
-                        gf_log (GF_NLM, GF_LOG_DEBUG, "malloc error");
+                        gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "malloc error");
                         goto ret;
                 }
 
@@ -438,7 +449,8 @@ nlm4svc_submit_reply (rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
 
         nfs3 = (struct nfs3_state *)rpcsvc_request_program_private (req);
         if (!nfs3) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "mount state not found");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "mount state not found");
                 goto ret;
         }
 
@@ -447,7 +459,8 @@ nlm4svc_submit_reply (rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
          */
         iob = iobuf_get (nfs3->iobpool);
         if (!iob) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -457,27 +470,31 @@ nlm4svc_submit_reply (rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
          */
         msglen = sfunc (outmsg, arg);
         if (msglen < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to encode message");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ENCODE_MSG_FAIL,
+                        "Failed to encode message");
                 goto ret;
         }
         outmsg.iov_len = msglen;
 
         iobref = iobref_new ();
         if (iobref == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to get iobref");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobref");
                 goto ret;
         }
 
         ret = iobref_add (iobref, iob);
         if (ret) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Reply submission failed");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_REP_SUBMIT_FAIL,
+                        "Reply submission failed");
                 goto ret;
         }
 
@@ -533,8 +550,8 @@ nsm_monitor(void *arg)
         clnt = clnt_create("localhost", SM_PROG, SM_VERS, "tcp");
         if(!clnt)
         {
-                gf_log (GF_NLM, GF_LOG_ERROR, "%s",
-                        clnt_spcreateerror ("Clnt_create()"));
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CLNT_CREATE_ERROR,
+                        "%s", clnt_spcreateerror ("Clnt_create()"));
                 goto out;
         }
 
@@ -543,14 +560,14 @@ nsm_monitor(void *arg)
                         (xdrproc_t) xdr_sm_stat_res, (caddr_t) & res, tout);
         if(ret != RPC_SUCCESS)
         {
-                gf_log (GF_NLM, GF_LOG_ERROR, "clnt_call(): %s",
-                        clnt_sperrno(ret));
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CLNT_CALL_ERROR,
+                        "clnt_call(): %s", clnt_sperrno(ret));
                 goto out;
         }
         if(res.res_stat != STAT_SUCC)
         {
-                gf_log (GF_NLM, GF_LOG_ERROR, "clnt_call(): %s",
-                        clnt_sperrno(ret));
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CLNT_CALL_ERROR,
+                        "clnt_call(): %s", clnt_sperrno(ret));
                 goto out;
         }
 
@@ -607,7 +624,9 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
 
         nlmclnt = nlm_get_uniq (cs->args.nlm4_lockargs.alock.caller_name);
         if (nlmclnt == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "nlm_get_uniq() returned NULL");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOLCK,
+                        NFS_MSG_NO_MEMORY, "nlm_get_uniq() "
+                        "returned NULL");
                 ret = -ENOLCK;
                 goto err;
         }
@@ -623,7 +642,8 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
 
         fd = fd_create_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
         if (fd == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "fd_create_uint64() returned NULL");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOLCK, NFS_MSG_NO_MEMORY,
+                        "fd_create_uint64() returned NULL");
                 ret = -ENOLCK;
                 goto err;
         }
@@ -632,7 +652,8 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
 
         frame = create_frame (cs->nfsx, cs->nfsx->ctx->pool);
         if (!frame) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to create frame");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "unable to create frame");
                 ret = -ENOMEM;
                 goto err;
         }
@@ -671,7 +692,8 @@ nlm4svc_null (rpcsvc_request_t *req)
         struct iovec    dummyvec = {0, };
 
         if (!req) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Got NULL request!");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Got NULL request!");
                 return 0;
         }
         rpcsvc_submit_generic (req, &dummyvec, 1,  NULL, 0, NULL);
@@ -809,7 +831,8 @@ nlm4_test_resume (void *carg)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to open_and_resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_OPEN_FAIL,
+                        "unable to open_and_resume");
                 stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_test_reply (cs, stat, NULL);
                 nfs3_call_state_wipe (cs);
@@ -840,7 +863,8 @@ nlm4svc_test (rpcsvc_request_t *req)
         nlm4_prep_nlm4_testargs (&cs->args.nlm4_testargs, &fh, &cs->lkowner,
                                  cs->cookiebytes);
         if (xdr_to_nlm4_testargs(req->msg[0], &cs->args.nlm4_testargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -849,7 +873,8 @@ nlm4svc_test (rpcsvc_request_t *req)
         nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
+                gf_msg (GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_NLM_GRACE_PERIOD,
+                        "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_test_reply (cs, stat, NULL);
                 nfs3_call_state_wipe (cs);
@@ -864,7 +889,8 @@ nlm4svc_test (rpcsvc_request_t *req)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 nlm4_test_reply (cs, stat, NULL);
                 nfs3_call_state_wipe (cs);
                 return 0;
@@ -903,7 +929,9 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
         case RPC_CLNT_CONNECT:
                 ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
                 if (ret == -1) {
-                        gf_log (GF_NLM, GF_LOG_ERROR, "Failed to set rpc clnt");
+                        gf_msg (GF_NLM, GF_LOG_ERROR, 0,
+                                NFS_MSG_RPC_CLNT_ERROR, "Failed to set "
+                                "rpc clnt");
                         goto err;
                 }
                 rpc_clnt_unref (rpc_clnt);
@@ -948,8 +976,9 @@ nlm4_establish_callback (void *csarg)
         switch (sock_union.sa.sa_family) {
         case AF_INET6:
         /* can not come here as NLM listens on IPv4 */
-                gf_log (GF_NLM, GF_LOG_ERROR, "NLM is not supported on IPv6 in"
-                        " this release");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EAFNOSUPPORT,
+                        NFS_MSG_UNSUPPORTED_VERSION,
+                        "NLM is not supported on IPv6 in this release");
                 goto err;
 /*
                 inet_ntop (AF_INET6,
@@ -974,7 +1003,7 @@ nlm4_establish_callback (void *csarg)
                              NLM_V4, IPPROTO_TCP);
 
         if (port == 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR,
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_GET_PORT_ERROR,
                         "Unable to get NLM port of the client."
                         " Is the firewall running on client?"
                         " OR Are RPC services running (rpcinfo -p)?");
@@ -984,13 +1013,15 @@ nlm4_establish_callback (void *csarg)
         options = dict_new();
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         ret = dict_set_dynstr (options, "remote-host", gf_strdup (peerip));
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
@@ -1001,7 +1032,8 @@ nlm4_establish_callback (void *csarg)
         ret = dict_set_dynstr (options, "remote-port",
                                portstr);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_dynstr error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_dynstr error");
                 goto err;
         }
 
@@ -1013,20 +1045,23 @@ nlm4_establish_callback (void *csarg)
 
         ret = dict_set_str (options, "auth-null", "on");
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_dynstr error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_dynstr error");
                 goto err;
         }
 
         /* TODO: is 32 frames in transit enough ? */
-        rpc_clnt = rpc_clnt_new (options, cs->nfsx->ctx, "NLM-client", 32);
+        rpc_clnt = rpc_clnt_new (options, cs->nfsx, "NLM-client", 32);
         if (rpc_clnt == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "rpc_clnt NULL");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "rpc_clnt NULL");
                 goto err;
         }
 
         ret = rpc_clnt_register_notify (rpc_clnt, nlm_rpcclnt_notify, cs);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR,"rpc_clnt_register_connect error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_RPC_CLNT_ERROR,
+                        "rpc_clnt_register_connect error");
                 goto err;
         }
 
@@ -1084,7 +1119,8 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
 
         iobuf = iobuf_get (cs->nfs3state->iobpool);
         if (!iobuf) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -1096,13 +1132,15 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
 
         iobref = iobref_new ();
         if (iobref == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to get iobref");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobref");
                 goto ret;
         }
 
         ret = iobref_add (iobref, iobuf);
         if (ret) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
@@ -1112,7 +1150,8 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
                                NULL, 0, NULL);
 
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "rpc_clnt_submit error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_RPC_CLNT_ERROR,
+                        "rpc_clnt_submit error");
                 goto ret;
         }
 ret:
@@ -1223,7 +1262,8 @@ nlm_dec_transit_count (fd_t *fd, char *caller_name)
         }
 
         if (!nlmclnt_found) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "nlmclnt not found");
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_NLMCLNT_NOT_FOUND,
+                        "nlmclnt not found");
                 nlmclnt = NULL;
                 goto ret;
         }
@@ -1264,7 +1304,8 @@ nlm_search_and_add (fd_t *fd, char *caller_name)
         }
 
         if (!nlmclnt_found) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "nlmclnt not found");
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_NLMCLNT_NOT_FOUND,
+                        "nlmclnt not found");
                 nlmclnt = NULL;
                 goto ret;
         }
@@ -1367,7 +1408,8 @@ nlm4_lock_fd_resume (void *carg)
 nlm4err:
         if (ret < 0) {
                 stat = nlm4_errno_to_nlm4stat (-ret);
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to call lk()");
+                gf_msg (GF_NLM, GF_LOG_ERROR, stat, NFS_MSG_LOCK_FAIL,
+                        "unable to call lk()");
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
                 nfs3_call_state_wipe (cs);
@@ -1393,7 +1435,8 @@ nlm4_lock_resume (void *carg)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to open and resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_OPEN_FAIL,
+                        "unable to open and resume");
                 stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
@@ -1425,7 +1468,8 @@ nlm4svc_lock_common (rpcsvc_request_t *req, int mon)
         nlm4_prep_nlm4_lockargs (&cs->args.nlm4_lockargs, &cs->lockfh,
                                  &cs->lkowner, cs->cookiebytes);
         if (xdr_to_nlm4_lockargs(req->msg[0], &cs->args.nlm4_lockargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -1436,7 +1480,8 @@ nlm4svc_lock_common (rpcsvc_request_t *req, int mon)
         nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period && !cs->args.nlm4_lockargs.reclaim) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
+                gf_msg (GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_NLM_GRACE_PERIOD,
+                        "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_generic_reply (req, cs->args.nlm4_unlockargs.cookie, stat);
                 nfs3_call_state_wipe (cs);
@@ -1454,7 +1499,8 @@ nlm4svc_lock_common (rpcsvc_request_t *req, int mon)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
                 nfs3_call_state_wipe (cs);
@@ -1542,19 +1588,22 @@ nlm4_cancel_resume (void *carg)
 
         nlmclnt = nlm_get_uniq (cs->args.nlm4_cancargs.alock.caller_name);
         if (nlmclnt == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "nlm_get_uniq() returned NULL");
+                gf_msg (GF_NLM, GF_LOG_ERROR, ENOLCK, NFS_MSG_NO_MEMORY,
+                        "nlm_get_uniq() returned NULL");
                 goto nlm4err;
         }
         cs->fd = fd_lookup_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
         if (cs->fd == NULL) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "fd_lookup_uint64 retrned NULL");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_FD_LOOKUP_NULL,
+                        "fd_lookup_uint64 retrned NULL");
                 goto nlm4err;
         }
         ret = nlm4_cancel_fd_resume (cs);
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "unable to unlock_fd_resume()");
+                gf_msg (GF_NLM, GF_LOG_WARNING, -ret, NFS_MSG_LOCK_FAIL,
+                        "unable to unlock_fd_resume()");
                 stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
                                     stat);
@@ -1587,7 +1636,8 @@ nlm4svc_cancel (rpcsvc_request_t *req)
         nlm4_prep_nlm4_cancargs (&cs->args.nlm4_cancargs, &fh, &cs->lkowner,
                                  cs->cookiebytes);
         if (xdr_to_nlm4_cancelargs(req->msg[0], &cs->args.nlm4_cancargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -1596,7 +1646,8 @@ nlm4svc_cancel (rpcsvc_request_t *req)
         nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
+                gf_msg (GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_NLM_GRACE_PERIOD,
+                        "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_generic_reply (req, cs->args.nlm4_unlockargs.cookie, stat);
                 nfs3_call_state_wipe (cs);
@@ -1611,7 +1662,8 @@ nlm4svc_cancel (rpcsvc_request_t *req)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
                                     stat);
                 nfs3_call_state_wipe (cs);
@@ -1688,21 +1740,23 @@ nlm4_unlock_resume (void *carg)
         nlmclnt = nlm_get_uniq (cs->args.nlm4_unlockargs.alock.caller_name);
         if (nlmclnt == NULL) {
                 stat = nlm4_granted;
-                gf_log (GF_NLM, GF_LOG_WARNING, "nlm_get_uniq() returned NULL");
+                gf_msg (GF_NLM, GF_LOG_WARNING, ENOLCK, NFS_MSG_NO_MEMORY,
+                        "nlm_get_uniq() returned NULL");
                 goto nlm4err;
         }
         cs->fd = fd_lookup_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
         if (cs->fd == NULL) {
                 stat = nlm4_granted;
-                gf_log (GF_NLM, GF_LOG_WARNING, "fd_lookup_uint64() returned "
-                        "NULL");
+                gf_msg (GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_FD_LOOKUP_NULL,
+                        "fd_lookup_uint64() returned NULL");
                 goto nlm4err;
         }
         ret = nlm4_unlock_fd_resume (cs);
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "unable to unlock_fd_resume");
+                gf_msg (GF_NLM, GF_LOG_WARNING, -ret, NFS_MSG_LOCK_FAIL,
+                        "unable to unlock_fd_resume");
                 stat = nlm4_errno_to_nlm4stat (-ret);
                 nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie,
                                     stat);
@@ -1736,7 +1790,8 @@ nlm4svc_unlock (rpcsvc_request_t *req)
                                    cs->cookiebytes);
         if (xdr_to_nlm4_unlockargs(req->msg[0], &cs->args.nlm4_unlockargs) <= 0)
         {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -1745,7 +1800,8 @@ nlm4svc_unlock (rpcsvc_request_t *req)
         nlm4_map_fh_to_volume (cs->nfs3state, fh, req, vol, stat, nlm4err);
 
         if (nlm_grace_period) {
-                gf_log (GF_NLM, GF_LOG_WARNING, "NLM in grace period");
+                gf_msg (GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_NLM_GRACE_PERIOD,
+                        "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_generic_reply (req, cs->args.nlm4_unlockargs.cookie, stat);
                 nfs3_call_state_wipe (cs);
@@ -1762,7 +1818,8 @@ nlm4svc_unlock (rpcsvc_request_t *req)
 
 nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to resolve and resume");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_ERROR,
+                        "unable to resolve and resume");
                 nlm4_generic_reply (req, cs->args.nlm4_unlockargs.cookie, stat);
                 nfs3_call_state_wipe (cs);
                 return 0;
@@ -1828,7 +1885,8 @@ nlm4_add_share_to_inode (nlm_share_t *share)
                 ictx = GF_CALLOC (1, sizeof (struct nfs_inode_ctx),
                                   gf_nfs_mt_inode_ctx);
                 if (!ictx ) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
                                 "could not allocate nfs inode ctx");
                         ret = -1;
                         goto out;
@@ -1840,7 +1898,8 @@ nlm4_add_share_to_inode (nlm_share_t *share)
 
                 ret = inode_ctx_put (inode, this, (uint64_t)ictx);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                NFS_MSG_SHARE_LIST_STORE_FAIL,
                                 "could not store share list");
                         goto out;
                 }
@@ -1916,7 +1975,8 @@ nlm4_create_share_reservation (nfs3_call_state_t *cs)
 
         inode = inode_ref (cs->resolvedloc.inode);
         if (!inode) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "inode not found");
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_INODE_NOT_FOUND,
+                        "inode not found");
                 goto out;
         }
 
@@ -1924,7 +1984,8 @@ nlm4_create_share_reservation (nfs3_call_state_t *cs)
         if (!client) {
                 /* DO NOT add client. the client is supposed
                    to be here, since nlm4svc_share adds it */
-                gf_log (GF_NLM, GF_LOG_ERROR, "client not found");
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CLIENT_NOT_FOUND,
+                        "client not found");
                 goto out;
         }
 
@@ -2012,7 +2073,8 @@ nlm4svc_share (rpcsvc_request_t *req)
 
         if (xdr_to_nlm4_shareargs (req->msg[0],
                                    &cs->args.nlm4_shareargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding SHARE args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding SHARE args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -2023,7 +2085,7 @@ nlm4svc_share (rpcsvc_request_t *req)
                                vol, stat, nlm4err);
 
         if (nlm_grace_period && !cs->args.nlm4_shareargs.reclaim) {
-                gf_log (GF_NLM, GF_LOG_DEBUG, "NLM in grace period");
+                gf_msg_debug (GF_NLM, 0, "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_share_reply (cs, stat);
                 nfs3_call_state_wipe (cs);
@@ -2040,7 +2102,8 @@ nlm4svc_share (rpcsvc_request_t *req)
 
  nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "SHARE call failed");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_SHARE_CALL_FAIL,
+                        "SHARE call failed");
                 nlm4_share_reply (cs, stat);
                 nfs3_call_state_wipe (cs);
                 return 0;
@@ -2077,14 +2140,14 @@ nlm4_remove_share_reservation (nfs3_call_state_t *cs)
 
         client = __nlm_get_uniq (caller);
         if (!client) {
-                gf_log (GF_NLM, GF_LOG_ERROR,
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_CLIENT_NOT_FOUND,
                         "client not found: %s", caller);
                 goto out;
         }
 
         inode = cs->resolvedloc.inode;
         if (!inode) {
-                gf_log (GF_NLM, GF_LOG_ERROR,
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_INODE_NOT_FOUND,
                         "inode not found: client: %s", caller);
                 goto out;
         }
@@ -2092,7 +2155,8 @@ nlm4_remove_share_reservation (nfs3_call_state_t *cs)
         this = THIS;
         ret = inode_ctx_get (inode, this, &ctx);
         if (ret) {
-                gf_log (GF_NLM, GF_LOG_ERROR,
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0,
+                        NFS_MSG_INODE_SHARES_NOT_FOUND,
                         "no shares found for inode:"
                         "gfid: %s; client: %s",
                         inode->gfid, caller);
@@ -2177,7 +2241,8 @@ nlm4svc_unshare (rpcsvc_request_t *req)
 
         if (xdr_to_nlm4_shareargs (req->msg[0],
                                    &cs->args.nlm4_shareargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding UNSHARE args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding UNSHARE args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
@@ -2188,7 +2253,7 @@ nlm4svc_unshare (rpcsvc_request_t *req)
                                vol, stat, nlm4err);
 
         if (nlm_grace_period && !cs->args.nlm4_shareargs.reclaim) {
-                gf_log (GF_NLM, GF_LOG_DEBUG, "NLM in grace period");
+                gf_msg_debug (GF_NLM, 0, "NLM in grace period");
                 stat = nlm4_denied_grace_period;
                 nlm4_share_reply (cs, stat);
                 nfs3_call_state_wipe (cs);
@@ -2204,7 +2269,8 @@ nlm4svc_unshare (rpcsvc_request_t *req)
 
  nlm4err:
         if (ret < 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "UNSHARE call failed");
+                gf_msg (GF_NLM, GF_LOG_ERROR, -ret, NFS_MSG_UNSHARE_CALL_FAIL,
+                        "UNSHARE call failed");
                 nlm4_share_reply (cs, stat);
                 ret = 0;
                 return 0;
@@ -2228,8 +2294,7 @@ nlm4_free_all_shares (char *caller_name)
 
         client = __nlm_get_uniq (caller_name);
         if (!client) {
-                gf_log (GF_NLM, GF_LOG_DEBUG,
-                        "client not found: %s", caller_name);
+                gf_msg_debug (GF_NLM, 0, "client not found: %s", caller_name);
                 goto out;
         }
 
@@ -2263,7 +2328,8 @@ nlm4svc_free_all (rpcsvc_request_t *req)
 
         if (xdr_to_nlm4_freeallargs (req->msg[0],
                                      &cs->args.nlm4_freeallargs) <= 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Error decoding FREE_ALL args");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Error decoding FREE_ALL args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto err;
         }
@@ -2279,8 +2345,7 @@ nlm4svc_free_all (rpcsvc_request_t *req)
  err:
         nfs3_call_state_wipe (cs);
         if (ret)
-                gf_log (GF_NLM, GF_LOG_DEBUG,
-                        "error in free all; stat: %d", stat);
+                gf_msg_debug (GF_NLM, 0, "error in free all; stat: %d", stat);
         return ret;
 
 }
@@ -2288,9 +2353,8 @@ nlm4svc_free_all (rpcsvc_request_t *req)
 void
 nlm4svc_sm_notify (struct nlm_sm_status *status)
 {
-        gf_log (GF_NLM, GF_LOG_INFO, "sm_notify: %s, state: %d",
-                status->mon_name,
-                status->state);
+        gf_msg (GF_NLM, GF_LOG_INFO, 0, NFS_MSG_SM_NOTIFY, "sm_notify: "
+                "%s, state: %d", status->mon_name, status->state);
         nlm_cleanup_fds (status->mon_name);
 }
 
@@ -2372,7 +2436,8 @@ nlm4svc_init(xlator_t *nfsx)
 
         ns = nfs->nfs3state;
         if (!ns) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "NLM4 init failed");
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_NLM_INIT_FAIL,
+                        "NLM4 init failed");
                 goto err;
         }
         nlm4prog.private = ns;
@@ -2389,32 +2454,38 @@ nlm4svc_init(xlator_t *nfsx)
                 goto err;
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno,
+                        NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                 goto err;
         }
 
         if (nfs->allow_insecure) {
                 ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                         goto err;
                 }
                 ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NLM, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                         goto err;
                 }
         }
 
         ret = dict_set_str (options, "transport.address-family", "inet");
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         ret = rpcsvc_create_listeners (nfs->rpcsvc, options, "NLM");
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Unable to create listeners");
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno,
+                        NFS_MSG_LISTENERS_CREATE_FAIL,
+                        "Unable to create listeners");
                 dict_unref (options);
                 goto err;
         }
@@ -2435,9 +2506,10 @@ nlm4svc_init(xlator_t *nfsx)
            instead. This is still a theory but we need to thoroughly test it
            out. Until then NLM support is non-existent on OSX.
         */
-        ret = unlink (GF_SM_NOTIFY_PIDFILE);
+        ret = sys_unlink (GF_SM_NOTIFY_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s: %d",
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
+                        "unable to unlink %s: %d",
                         GF_SM_NOTIFY_PIDFILE, errno);
                 goto err;
         }
@@ -2453,32 +2525,35 @@ nlm4svc_init(xlator_t *nfsx)
         if (pidfile) {
                 ret = fscanf (pidfile, "%d", &pid);
                 if (ret <= 0) {
-                        gf_log (GF_NLM, GF_LOG_WARNING, "unable to get pid of "
+                        gf_msg (GF_NLM, GF_LOG_WARNING, errno,
+                                NFS_MSG_GET_PID_FAIL, "unable to get pid of "
                                 "rpc.statd from %s ", GF_RPC_STATD_PIDFILE);
-                        ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+                        ret = runcmd (KILLALL_CMD, "-9", "rpc.statd", NULL);
                 } else
                         kill (pid, SIGKILL);
 
                 fclose (pidfile);
         } else {
-                gf_log (GF_NLM, GF_LOG_WARNING, "opening %s of "
-                        "rpc.statd failed (%s)", pid_file, strerror (errno));
+                gf_msg (GF_NLM, GF_LOG_WARNING, errno, NFS_MSG_OPEN_FAIL,
+                        "opening %s of rpc.statd failed (%s)",
+                        pid_file, strerror (errno));
                 /* if ret == -1, do nothing - case either statd was not
                  * running or was running in valgrind mode
                  */
-                ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+                ret = runcmd (KILLALL_CMD, "-9", "rpc.statd", NULL);
         }
 
-        ret = unlink (GF_RPC_STATD_PIDFILE);
+        ret = sys_unlink (GF_RPC_STATD_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s", pid_file);
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
+                        "unable to unlink %s", pid_file);
                 goto err;
         }
 
         ret = runcmd (nfs->rpc_statd, NULL);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start %s",
-                        nfs->rpc_statd);
+                gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_START_ERROR,
+                        "unable to start %s", nfs->rpc_statd);
                 goto err;
         }
 

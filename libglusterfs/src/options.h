@@ -11,16 +11,12 @@
 #ifndef _OPTIONS_H
 #define _OPTIONS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
 
 #include "xlator.h"
+#include "libglusterfs-messages.h"
 /* Add possible new type of option you may need */
 typedef enum {
         GF_OPTION_TYPE_ANY = 0,
@@ -133,7 +129,8 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
                                                                         \
         opt = xlator_volume_option_get (this, key);                     \
         if (!opt) {                                                     \
-                gf_log (this->name, GF_LOG_WARNING,                     \
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,             \
+                        LG_MSG_INVALID_ENTRY,                           \
                         "unknown option: %s", key);                     \
                 ret = -1;                                               \
                 return ret;                                             \
@@ -146,27 +143,26 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
         if (set_value)                                                  \
                 value = set_value;                                      \
         if (!value) {                                                   \
-                gf_log (this->name, GF_LOG_TRACE, "option %s not set",  \
+                gf_msg_trace (this->name, 0, "option %s not set",       \
                         key);                                           \
                 *val_p = (type_t)0;                                     \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
-                gf_log (this->name, GF_LOG_TRACE,                       \
-                        "option %s using default value %s",             \
-                        key, value);                                    \
+                gf_msg_trace (this->name, 0, "option %s using default"  \
+                              " value %s", key, value);                 \
         } else {                                                        \
-                gf_log (this->name, GF_LOG_DEBUG,                       \
-                        "option %s using set value %s",                 \
-                        key, value);                                    \
+                gf_msg_debug (this->name, 0, "option %s using set"      \
+                              " value %s", key, value);                 \
         }                                                               \
         old_THIS = THIS;                                                \
         THIS = this;                                                    \
         ret = conv (value, val_p);                                      \
         THIS = old_THIS;                                                \
         if (ret) {							\
-                gf_log (this->name, GF_LOG_INFO,                        \
-                        "option %s convertion failed value %s",         \
+                gf_msg (this->name, GF_LOG_INFO, 0,                     \
+                        LG_MSG_CONVERSION_FAILED,                       \
+                        "option %s conversion failed value %s",         \
                         key, value);                                    \
                 return ret;                                             \
 	}                                                               \
@@ -219,7 +215,8 @@ xlator_option_reconf_##type (xlator_t *this, dict_t *options, char *key, \
                                                                         \
         opt = xlator_volume_option_get (this, key);                     \
         if (!opt) {                                                     \
-                gf_log (this->name, GF_LOG_WARNING,                     \
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,             \
+                        LG_MSG_INVALID_ENTRY,                           \
                         "unknown option: %s", key);                     \
                 ret = -1;                                               \
                 return ret;                                             \
@@ -232,17 +229,16 @@ xlator_option_reconf_##type (xlator_t *this, dict_t *options, char *key, \
         if (set_value)                                                  \
                 value = set_value;                                      \
         if (!value) {                                                   \
-                gf_log (this->name, GF_LOG_TRACE, "option %s not set",  \
-                        key);                                           \
+                gf_msg_trace (this->name, 0, "option %s not set", key); \
                 *val_p = (type_t)0;                                     \
                 return 0;                                               \
         }                                                               \
         if (value == def_value) {                                       \
-                gf_log (this->name, GF_LOG_TRACE,                       \
+                gf_msg_trace (this->name, 0,                            \
                         "option %s using default value %s",             \
                         key, value);                                    \
         } else {                                                        \
-                gf_log (this->name, GF_LOG_DEBUG,                       \
+                gf_msg_debug (this->name, 0,                            \
                         "option %s using set value %s",                 \
                         key, value);                                    \
         }                                                               \

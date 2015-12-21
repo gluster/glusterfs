@@ -2,6 +2,8 @@
 
 #This file checks if self-heal of files with holes is working properly or not
 #bigger is 2M, big is 1M, small is anything less
+#Also tests if non-sparse files with zeroes in it are healed correctly w.r.t
+#disk usage.
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
@@ -43,13 +45,21 @@ big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
 TEST truncate -s 1G $M0/FILE
 
+#Create a non-sparse file containing zeroes.
+TEST dd if=/dev/zero of=$M0/zeroedfile bs=1024 count=1024
+
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
+
+#If the file system of bricks is XFS and speculative preallocation is on,
+#dropping cahce should be done to free speculatively pre-allocated blocks
+#by XFS.
+drop_cache $M0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -74,6 +84,13 @@ EXPECT "1" has_holes $B0/${V0}0/big2bigger
 #Check that self-heal has not written 0s to sink and made it non-sparse.
 USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
 TEST [ $USED_KB -lt 1000000 ]
+
+#Check that the non-sparse file consumes the same disk space in both bricks post
+#self-heal
+USED_KB1=`du -s $B0/${V0}0/zeroedfile|cut -f1`
+USED_KB2=`du -s $B0/${V0}1/zeroedfile|cut -f1`
+TEST [ $USED_KB1 -eq $USED_KB2 ]
+
 TEST rm -f $M0/*
 
 #check the same tests with diff self-heal
@@ -108,13 +125,21 @@ big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
 TEST truncate -s 1G $M0/FILE
 
+#Create a non-sparse file containing zeroes.
+TEST dd if=/dev/zero of=$M0/zeroedfile bs=1024 count=1024
+
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
+
+#If the file system of bricks is XFS and speculative preallocation is on,
+#dropping cahce should be done to free speculatively pre-allocated blocks
+#by XFS.
+drop_cache $M0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -134,5 +159,11 @@ EXPECT "0" has_holes $B0/${V0}0/small
 #Check that self-heal has not written 0s to sink and made it non-sparse.
 USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
 TEST [ $USED_KB -lt 1000000 ]
+
+#Check that the non-sparse file consumes the same disk space in both bricks post
+#self-heal.
+USED_KB1=`du -s $B0/${V0}0/zeroedfile|cut -f1`
+USED_KB2=`du -s $B0/${V0}1/zeroedfile|cut -f1`
+TEST [ $USED_KB1 -eq $USED_KB2 ]
 
 cleanup

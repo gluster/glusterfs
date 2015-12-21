@@ -15,11 +15,6 @@
 #include <fnmatch.h>
 #include <stdint.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "logging.h"
 #include "rpc-transport.h"
 #include "glusterfs.h"
@@ -33,6 +28,31 @@
 #define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
 #endif
 
+int32_t
+rpc_transport_count (const char *transport_type)
+{
+        char     *transport_dup   = NULL;
+        char     *saveptr         = NULL;
+        char     *ptr             = NULL;
+        int       count           = 0;
+
+        if (transport_type == NULL)
+                return -1;
+
+        transport_dup = gf_strdup (transport_type);
+        if (transport_dup == NULL) {
+                return -1;
+        }
+
+        ptr = strtok_r (transport_dup, ",", &saveptr);
+        while (ptr != NULL) {
+                count++;
+                ptr = strtok_r (NULL, ",", &saveptr);
+        }
+
+        GF_FREE (transport_dup);
+        return count;
+}
 
 int
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
@@ -242,7 +262,8 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
                 else
                         trans->bind_insecure = 0;
         } else {
-                trans->bind_insecure = 0;
+                /* By default allow bind insecure */
+                trans->bind_insecure = 1;
         }
 
 	ret = dict_get_str (options, "transport-type", &type);
@@ -329,7 +350,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
 	ret = trans->init (trans);
 	if (ret != 0) {
-		gf_log ("rpc-transport", GF_LOG_ERROR,
+		gf_log ("rpc-transport", GF_LOG_WARNING,
 			"'%s' initialization failed", type);
 		goto fail;
 	}
@@ -437,6 +458,8 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
+        if (this->clnt_options)
+                dict_unref (this->clnt_options);
         if (this->options)
                 dict_unref (this->options);
 	if (this->fini)
@@ -525,7 +548,7 @@ out:
 
 
 
-inline int
+int
 rpc_transport_register_notify (rpc_transport_t *trans,
                                rpc_transport_notify_t notify, void *mydata)
 {
@@ -547,7 +570,7 @@ out:
 //why call it if you dont set it.
 int
 rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
-                                     int32_t time)
+                                     int32_t time, int32_t timeout)
 {
         int                     ret = -1;
 
@@ -561,6 +584,11 @@ rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
 
         ret = dict_set_int32 (options,
                 "transport.socket.keepalive-time", time);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options,
+                "transport.tcp-user-timeout", timeout);
         if (ret)
                 goto out;
 out:

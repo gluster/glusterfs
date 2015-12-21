@@ -11,10 +11,6 @@
 #ifndef __CRYPT_H__
 #define __CRYPT_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -253,7 +249,7 @@ typedef struct {
 	 */
 	gf_dirent_t *de; /* directory entry */
 	char *de_path; /* pathname of directory entry */
-	uint32_t de_prefix_len; /* lenght of the parent's pathname */
+	uint32_t de_prefix_len; /* length of the parent's pathname */
 	gf_dirent_t *entries;
 
 	uint32_t update_disk_file_size:1;

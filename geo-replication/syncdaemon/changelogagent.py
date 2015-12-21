@@ -34,6 +34,9 @@ class Changelog(object):
     def version(self):
         return CHANGELOG_AGENT_SERVER_VERSION
 
+    def init(self):
+        return Changes.cl_init()
+
     def register(self, cl_brick, cl_dir, cl_log, cl_level, retries=0):
         return Changes.cl_register(cl_brick, cl_dir, cl_log, cl_level, retries)
 
@@ -63,8 +66,6 @@ class Changelog(object):
 class ChangelogAgent(object):
     def __init__(self, obj, fd_tup):
         (inf, ouf, rw, ww) = fd_tup.split(',')
-        os.close(int(rw))
-        os.close(int(ww))
         repce = RepceServer(obj, int(inf), int(ouf), 1)
         t = syncdutils.Thread(target=lambda: (repce.service_loop(),
                                               syncdutils.finalize()))

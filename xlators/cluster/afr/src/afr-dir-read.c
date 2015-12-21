@@ -17,11 +17,6 @@
 #include <signal.h>
 #include <string.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "dict.h"
 #include "xlator.h"
@@ -149,7 +144,16 @@ afr_validate_read_subvol (inode_t *inode, xlator_t *this, int par_read_subvol)
          * either afr_data_subvol_get() or afr_metadata_subvol_get() would
          * yield the same result. Hence, choosing afr_data_subvol_get() below.
          */
-        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0);
+
+        if (!priv->consistent_metadata)
+                return 0;
+
+        /* For an inode fetched through readdirp which is yet to be linked,
+         * inode ctx would not be initialised (yet). So this function returns
+         * -1 above due to gen being 0, which is why it is OK to pass NULL for
+         *  read_subvol_args here.
+         */
+        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0, NULL);
         if (entry_read_subvol != par_read_subvol)
                 return -1;
 
@@ -165,8 +169,15 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
         gf_dirent_t   *entry = NULL;
         gf_dirent_t   *tmp   = NULL;
         xlator_t      *this  = NULL;
+        afr_private_t *priv  = NULL;
+        gf_boolean_t  need_heal = _gf_false;
+        gf_boolean_t  validate_subvol = _gf_false;
 
         this = THIS;
+        priv = this->private;
+
+        need_heal = afr_get_need_heal (this);
+        validate_subvol = need_heal | priv->consistent_metadata;
 
         list_for_each_entry_safe (entry, tmp, &subvol_entries->list, list) {
                 if (__is_root_gfid (fd->inode->gfid) &&
@@ -176,6 +187,9 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
 
 		list_del_init (&entry->list);
 		list_add_tail (&entry->list, &entries->list);
+
+                if (!validate_subvol)
+                        continue;
 
 		if (entry->inode) {
                         ret = afr_validate_read_subvol (entry->inode, this,

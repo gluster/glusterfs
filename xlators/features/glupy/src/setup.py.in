@@ -1,6 +1,6 @@
 from distutils.core import setup
 
-DESC = """GlusterFS is a clustered file-system capable of scaling to
+DESC = """GlusterFS is a distributed file-system capable of scaling to
 several petabytes. It aggregates various storage bricks over Infiniband
 RDMA or TCP/IP interconnect into one large parallel network file system.
 GlusterFS is one of the most sophisticated file systems in terms of

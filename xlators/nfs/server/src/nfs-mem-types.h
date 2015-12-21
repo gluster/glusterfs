@@ -34,6 +34,7 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_list_head,
         gf_nfs_mt_mnt3_resolve,
         gf_nfs_mt_mnt3_export,
+        gf_nfs_mt_mnt3_auth_params,
         gf_nfs_mt_int,
         gf_nfs_mt_mountres3,
         gf_nfs_mt_mountstat3,
@@ -47,6 +48,8 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_inode_ctx,
         gf_nfs_mt_auth_spec,
         gf_nfs_mt_arr,
+        gf_nfs_mt_auth_cache,
+        gf_nfs_mt_auth_cache_entry,
         gf_nfs_mt_end
 };
 #endif

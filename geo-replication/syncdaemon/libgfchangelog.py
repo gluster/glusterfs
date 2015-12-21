@@ -9,13 +9,13 @@
 #
 
 import os
-from ctypes import CDLL, create_string_buffer, get_errno, byref, c_ulong
+from ctypes import CDLL, RTLD_GLOBAL, create_string_buffer, get_errno, byref, c_ulong
 from ctypes.util import find_library
 from syncdutils import ChangelogException
 
 
 class Changes(object):
-    libgfc = CDLL(find_library("gfchangelog"), use_errno=True)
+    libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL, use_errno=True)
 
     @classmethod
     def geterrno(cls):
@@ -29,6 +29,12 @@ class Changes(object):
     @classmethod
     def _get_api(cls, call):
         return getattr(cls.libgfc, call)
+
+    @classmethod
+    def cl_init(cls):
+        ret = cls._get_api('gf_changelog_init')(None)
+        if ret == -1:
+            cls.raise_changelog_err()
 
     @classmethod
     def cl_register(cls, brick, path, log_file, log_level, retries=0):

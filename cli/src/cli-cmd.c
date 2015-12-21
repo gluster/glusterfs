@@ -13,11 +13,6 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -234,6 +229,9 @@ cli_cmds_register (struct cli_state *state)
         ret = cli_cmd_snapshot_register (state);
         if (ret)
                 goto out;
+        ret = cli_cmd_global_register (state);
+        if (ret)
+                goto out;
 out:
         return ret;
 }
@@ -371,7 +369,8 @@ cli_cmd_submit (struct rpc_clnt* rpc, void *req, call_frame_t *frame,
         unsigned        timeout = 0;
 
         if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
-            (GLUSTER_CLI_HEAL_VOLUME == procnum))
+            (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
+            (GLUSTER_CLI_GANESHA == procnum))
                 timeout = CLI_TEN_MINUTES_TIMEOUT;
         else
                 timeout = CLI_DEFAULT_CMD_TIMEOUT;
@@ -390,4 +389,29 @@ cli_cmd_submit (struct rpc_clnt* rpc, void *req, call_frame_t *frame,
 
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+int
+cli_cmd_pattern_cmp (void *a, void *b)
+{
+        struct cli_cmd *ia = NULL;
+        struct cli_cmd *ib = NULL;
+        int            ret = 0;
+
+        ia = a;
+        ib = b;
+        if (strcmp (ia->pattern, ib->pattern) > 0)
+                ret = 1;
+        else if (strcmp (ia->pattern, ib->pattern) < 0)
+                ret = -1;
+        else
+                ret = 0;
+        return ret;
+}
+
+void
+cli_cmd_sort (struct cli_cmd *cmd, int count)
+{
+        gf_array_insertionsort (cmd, 1, count - 2, sizeof(struct cli_cmd),
+                                cli_cmd_pattern_cmp);
 }

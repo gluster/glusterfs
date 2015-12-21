@@ -8,17 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <time.h>
 #include <grp.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
 
 #include <libgen.h>
-#include "uuid.h"
+#include "compat-uuid.h"
 
 #include "glusterd.h"
 #include "rpcsvc.h"
@@ -28,6 +24,7 @@
 #include "defaults.h"
 #include "list.h"
 #include "dict.h"
+#include "options.h"
 #include "compat.h"
 #include "compat-errno.h"
 #include "syscall.h"
@@ -38,7 +35,16 @@
 #include "glusterd-hooks.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-nfs-svc.h"
+#include "glusterd-bitd-svc.h"
+#include "glusterd-scrub-svc.h"
+#include "glusterd-quotad-svc.h"
+#include "glusterd-snapd-svc.h"
+#include "glusterd-messages.h"
 #include "common-utils.h"
+#include "glusterd-geo-rep.h"
 #include "run.h"
 #include "rpc-clnt-ping.h"
 
@@ -58,7 +64,7 @@ extern struct rpcsvc_program gd_svc_cli_trusted_progs;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
-extern char snap_mount_folder[PATH_MAX];
+extern char snap_mount_dir[PATH_MAX];
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
@@ -95,6 +101,8 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
         [GD_OP_STOP_VOLUME]             = "Stop",
         [GD_OP_DEFRAG_VOLUME]           = "Rebalance",
         [GD_OP_ADD_BRICK]               = "Add brick",
+        [GD_OP_DETACH_TIER]             = "Detach tier",
+        [GD_OP_TIER_MIGRATE]            = "Tier migration",
         [GD_OP_REMOVE_BRICK]            = "Remove brick",
         [GD_OP_REPLACE_BRICK]           = "Replace brick",
         [GD_OP_SET_VOLUME]              = "Set",
@@ -142,7 +150,8 @@ glusterd_uuid_init ()
 
         ret = glusterd_retrieve_uuid ();
         if (ret == 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_RETRIEVED_UUID,
                         "retrieved UUID: %s", uuid_utoa (priv->uuid));
                 return 0;
         }
@@ -150,7 +159,8 @@ glusterd_uuid_init ()
         ret = glusterd_uuid_generate_save ();
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_UUID_GEN_STORE_FAIL,
                           "Unable to generate and save new UUID");
                 return ret;
         }
@@ -170,15 +180,17 @@ glusterd_uuid_generate_save ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        uuid_generate (priv->uuid);
+        gf_uuid_generate (priv->uuid);
 
-        gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_GENERATED_UUID, "generated UUID: %s",
                 uuid_utoa (priv->uuid));
 
         ret = glusterd_store_global_info (this);
 
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UUID_STORE_FAIL,
                         "Unable to store the generated uuid %s",
                         uuid_utoa (priv->uuid));
 
@@ -210,7 +222,8 @@ glusterd_options_init (xlator_t *this)
 
         ret = glusterd_store_options (this, priv->opts);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to store version");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VERS_STORE_FAIL, "Unable to store version");
                 return ret;
         }
 out:
@@ -289,7 +302,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_gld_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Memory accounting init"
                         " failed");
                 return ret;
         }
@@ -306,7 +320,8 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         glusterd_conf_t     *priv = NULL;
 
         if (!xl || !data) {
-                gf_log ("glusterd", GF_LOG_WARNING,
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_NO_INIT,
                         "Calling rpc_notify without initializing");
                 goto out;
         }
@@ -327,6 +342,14 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
+                /* A DISCONNECT event could come without an ACCEPT event
+                 * happening for this transport. This happens when the server is
+                 * expecting encrypted connections by the client tries to
+                 * connect unecnrypted
+                 */
+                if (list_empty (&xprt->list))
+                        break;
+
                 pthread_mutex_lock (&priv->xprt_lock);
                 list_del (&xprt->list);
                 pthread_mutex_unlock (&priv->xprt_lock);
@@ -343,7 +366,7 @@ out:
 }
 
 
-static inline int32_t
+static int32_t
 glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
                            rpcsvc_program_t *prog)
 {
@@ -351,7 +374,7 @@ glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
 
         ret = rpcsvc_program_register (svc, prog);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "cannot register program (name: %s, prognum:%d, "
                         "progver:%d)", prog->progname, prog->prognum,
                         prog->progver);
@@ -380,7 +403,7 @@ glusterd_rpcsvc_options_build (dict_t *options)
                         goto out;
         }
 
-        gf_log ("", GF_LOG_DEBUG, "listen-backlog value: %d", backlog);
+        gf_msg_debug ("glusterd", 0, "listen-backlog value: %d", backlog);
 
 out:
         return ret;
@@ -401,12 +424,14 @@ glusterd_check_gsync_present (int *valid_state)
         ret = runner_start (&runner);
         if (ret == -1) {
                 if (errno == ENOENT) {
-                        gf_log ("glusterd", GF_LOG_INFO, GEOREP
+                        gf_msg ("glusterd", GF_LOG_INFO, errno,
+                                GD_MSG_MODULE_NOT_INSTALLED, GEOREP
                                  " module not installed in the system");
                         *valid_state = 0;
                 }
                 else {
-                        gf_log ("glusterd", GF_LOG_ERROR, GEOREP
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_MODULE_NOT_WORKING, GEOREP
                                   " module not working as desired");
                         *valid_state = -1;
                 }
@@ -417,14 +442,16 @@ glusterd_check_gsync_present (int *valid_state)
         if (ptr) {
                 if (!strstr (buff, "gsyncd")) {
                         ret = -1;
-                        gf_log ("glusterd", GF_LOG_ERROR, GEOREP" module not "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_MODULE_NOT_WORKING, GEOREP" module not "
                                  "working as desired");
                         *valid_state = -1;
                         goto out;
                 }
         } else {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_ERROR, GEOREP" module not "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_MODULE_NOT_WORKING, GEOREP" module not "
                          "working as desired");
                 *valid_state = -1;
                 goto out;
@@ -435,7 +462,7 @@ glusterd_check_gsync_present (int *valid_state)
 
         runner_end (&runner);
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -446,20 +473,21 @@ group_write_allow (char *path, gid_t gid)
         struct stat st = {0,};
         int ret        = 0;
 
-        ret = stat (path, &st);
+        ret = sys_stat (path, &st);
         if (ret == -1)
                 goto out;
         GF_ASSERT (S_ISDIR (st.st_mode));
 
-        ret = chown (path, -1, gid);
+        ret = sys_chown (path, -1, gid);
         if (ret == -1)
                 goto out;
 
-        ret = chmod (path, (st.st_mode & ~S_IFMT) | S_IWGRP|S_IXGRP|S_ISVTX);
+        ret = sys_chmod (path, (st.st_mode & ~S_IFMT) | S_IWGRP|S_IXGRP|S_ISVTX);
 
  out:
         if (ret == -1)
-                gf_log ("", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
+                        GD_MSG_WRITE_ACCESS_GRANT_FAIL,
                         "failed to set up write access to %s for group %d (%s)",
                         path, gid, strerror (errno));
         return ret;
@@ -477,7 +505,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 
         if (strlen (conf->workdir)+2 > PATH_MAX-strlen(GEOREP)) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIRPATH_TOO_LONG,
                         "directory path %s/"GEOREP" is longer than PATH_MAX",
                         conf->workdir);
                 goto out;
@@ -486,7 +515,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
         ret = mkdir_p (georepdir, 0777, _gf_true);
         if (-1 == ret) {
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create "GEOREP" directory %s",
                         georepdir);
                 goto out;
@@ -494,14 +524,16 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
 
         if (strlen (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP) >= PATH_MAX) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIRPATH_TOO_LONG,
                         "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"
                         GEOREP" is longer than PATH_MAX");
                 goto out;
         }
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP, 0777, _gf_true);
         if (-1 == ret) {
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create "GEOREP" log directory");
                 goto out;
         }
@@ -509,7 +541,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         /* Slave log file directory */
         if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIRPATH_TOO_LONG,
                         "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"
                         GEOREP"-slaves"" is longer than PATH_MAX");
                 goto out;
@@ -517,7 +550,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves", 0777,
                       _gf_true);
         if (-1 == ret) {
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create "GEOREP" slave log directory");
                 goto out;
         }
@@ -525,7 +559,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         /* MountBroker log file directory */
         if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr") >= PATH_MAX) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIRPATH_TOO_LONG,
                         "directory path "DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP
                         "-slaves/mbr"" is longer than PATH_MAX");
                 goto out;
@@ -533,7 +568,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         ret = mkdir_p (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr", 0777,
                       _gf_true);
         if (-1 == ret) {
-                gf_log ("glusterd", GF_LOG_CRITICAL,
+                gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create "GEOREP" mountbroker slave log directory");
                 goto out;
         }
@@ -544,7 +580,8 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         else {
                 gr = getgrnam (greplg_s);
                 if (!gr) {
-                        gf_log ("glusterd", GF_LOG_CRITICAL,
+                        gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                                GD_MSG_LOGGROUP_INVALID,
                                 "group "GEOREP"-log-group %s does not exist", greplg_s);
                         ret = -1;
                         goto out;
@@ -561,7 +598,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
  out:
-        gf_log("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -632,7 +669,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -756,7 +793,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -810,10 +847,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         ret = open (mountbroker_root, O_RDONLY);
         if (ret != -1) {
                 dfd = ret;
-                ret = fstat (dfd, &st);
+                ret = sys_fstat (dfd, &st);
         }
         if (ret == -1 || !S_ISDIR (st.st_mode)) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
                         "cannot access mountbroker-root directory %s",
                         mountbroker_root);
                 ret = -1;
@@ -821,14 +859,16 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         }
         if (st.st_uid != 0 ||
             (st.st_mode & (S_IWGRP|S_IWOTH))) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DIR_PERM_LIBERAL,
                         "permissions on mountbroker-root directory %s are "
                         "too liberal", mountbroker_root);
                 ret = -1;
                 goto out;
         }
         if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
-                gf_log ("", GF_LOG_WARNING,
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_DIR_PERM_STRICT,
                         "permissions on mountbroker-root directory %s are "
                         "probably too strict", mountbroker_root);
         }
@@ -839,10 +879,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 ret = sys_openat (dfd, "..", O_RDONLY);
                 if (ret != -1) {
                         dfd2 = ret;
-                        ret = fstat (dfd2, &st2);
+                        ret = sys_fstat (dfd2, &st2);
                 }
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_DIR_OP_FAILED,
                                 "error while checking mountbroker-root ancestors "
                                 "%d (%s)", errno, strerror (errno));
                         goto out;
@@ -854,19 +895,21 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 if (st2.st_uid != 0 ||
                     ((st2.st_mode & (S_IWGRP|S_IWOTH)) &&
                      !(st2.st_mode & S_ISVTX))) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DIR_PERM_LIBERAL,
                                 "permissions on ancestors of mountbroker-root "
                                 "directory are too liberal");
                         ret = -1;
                         goto out;
                 }
                 if (!(st.st_mode & (S_IXGRP|S_IXOTH))) {
-                        gf_log ("", GF_LOG_WARNING,
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_DIR_PERM_STRICT,
                                 "permissions on ancestors of mountbroker-root "
                                 "directory are probably too strict");
                 }
 
-                close (dfd);
+                sys_close (dfd);
                 dfd = dfd2;
                 st = st2;
         }
@@ -877,7 +920,8 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         if (ret != -1)
                 ret = sys_fstatat (dfd0, MB_HIVE, &st, AT_SYMLINK_NOFOLLOW);
         if (ret == -1 || st.st_mode != (S_IFDIR|0711)) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "failed to set up mountbroker-root directory %s",
                         mountbroker_root);
                 ret = -1;
@@ -888,11 +932,11 @@ check_prepare_mountbroker_root (char *mountbroker_root)
 
  out:
         if (dfd0 != -1)
-                close (dfd0);
+                sys_close (dfd0);
         if (dfd != -1)
-                close (dfd);
+                sys_close (dfd);
         if (dfd2 != -1)
-                close (dfd2);
+                sys_close (dfd2);
 
         return ret;
 }
@@ -963,12 +1007,13 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         } else if (parse_mount_pattern_desc (mspec, pdesc) != 0)
                 goto err;
 
-        list_add_tail (&mspec->speclist, &priv->mount_specs);
+        cds_list_add_tail (&mspec->speclist, &priv->mount_specs);
 
         return 0;
  err:
 
-        gf_log ("", GF_LOG_ERROR,
+        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                GD_MSG_MOUNT_SPEC_INSTALL_FAIL,
                 "adding %smount spec failed: label: %s desc: %s",
                 georep ? GEOREP" " : "", label, pdesc);
 
@@ -1033,14 +1078,14 @@ glusterd_init_uds_listener (xlator_t *this)
         ret = rpcsvc_register_notify (rpc, glusterd_uds_rpcsvc_notify,
                                       this);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Failed to register notify function");
                 goto out;
         }
 
         ret = rpcsvc_create_listeners (rpc, options, this->name);
         if (ret != 1) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to create listener");
+                gf_msg_debug (this->name, 0, "Failed to create listener");
                 goto out;
         }
         ret = 0;
@@ -1062,7 +1107,9 @@ out:
                 dict_unref (options);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to start glusterd "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_SOCK_LISTENER_START_FAIL,
+                        "Failed to start glusterd "
                         "unix domain socket listener.");
                 if (rpc) {
                         GF_FREE (rpc);
@@ -1102,70 +1149,122 @@ glusterd_stop_uds_listener (xlator_t *this)
         } else {
                 strncpy (sockfile, sock_data->data, UNIX_PATH_MAX);
         }
-        unlink (sockfile);
+        sys_unlink (sockfile);
 
-        GF_FREE (conf->uds_rpc);
-        conf->uds_rpc = NULL;
+        return;
+}
+
+
+void
+glusterd_stop_listener (xlator_t *this)
+{
+        glusterd_conf_t         *conf = NULL;
+        rpcsvc_listener_t       *listener = NULL;
+        rpcsvc_listener_t       *next = NULL;
+        int                      i = 0;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        gf_msg_debug (this->name, 0,
+                "%s function called ", __func__);
+
+        for (i = 0; i < gd_inet_programs_count; i++) {
+              rpcsvc_program_unregister (conf->rpc, gd_inet_programs[i]);
+        }
+
+        list_for_each_entry_safe (listener, next, &conf->rpc->listeners, list) {
+                rpcsvc_listener_destroy (listener);
+        }
+
+        (void) rpcsvc_unregister_notify (conf->rpc,
+                                         glusterd_rpcsvc_notify,
+                                         this);
+
+out:
 
         return;
 }
 
 static int
-glusterd_init_snap_folder (xlator_t *this)
+glusterd_find_correct_var_run_dir (xlator_t *this, char *var_run_dir)
 {
         int             ret = -1;
         struct stat     buf = {0,};
 
-        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, var_run_dir, out);
 
-        /* Snapshot volumes are mounted under /var/run/gluster/snaps folder.
-         * But /var/run is normally a symbolic link to /run folder, which
+        /* /var/run is normally a symbolic link to /run dir, which
          * creates problems as the entry point in the mtab for the mount point
          * and glusterd maintained entry point will be different. Therefore
-         * identify the correct run folder and use it for snap volume mounting.
+         * identify the correct run dir and use it
          */
-        ret = lstat (GLUSTERD_VAR_RUN_DIR, &buf);
+        ret = sys_lstat (GLUSTERD_VAR_RUN_DIR, &buf);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
                         "stat fails on %s, exiting. (errno = %d)",
                         GLUSTERD_VAR_RUN_DIR, errno);
                 goto out;
         }
 
-        /* If /var/run is symlink then use /run folder */
+        /* If /var/run is symlink then use /run dir */
         if (S_ISLNK (buf.st_mode)) {
-                strcpy (snap_mount_folder, GLUSTERD_RUN_DIR);
+                strcpy (var_run_dir, GLUSTERD_RUN_DIR);
         } else {
-                strcpy (snap_mount_folder, GLUSTERD_VAR_RUN_DIR);
+                strcpy (var_run_dir, GLUSTERD_VAR_RUN_DIR);
         }
 
-        strcat (snap_mount_folder, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        ret = 0;
+out:
+        return ret;
+}
 
-        ret = stat (snap_mount_folder, &buf);
+static int
+glusterd_init_var_run_dirs (xlator_t *this, char *var_run_dir,
+                            char *dir_to_be_created)
+{
+        int             ret                = -1;
+        struct stat     buf                = {0,};
+        char            abs_path[PATH_MAX] = {0, };
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, var_run_dir, out);
+        GF_VALIDATE_OR_GOTO (this->name, dir_to_be_created, out);
+
+        snprintf (abs_path, sizeof(abs_path), "%s%s",
+                  var_run_dir, dir_to_be_created);
+
+        ret = sys_stat (abs_path, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
                         "stat fails on %s, exiting. (errno = %d)",
-                        snap_mount_folder, errno);
+                        abs_path, errno);
                 ret = -1;
                 goto out;
         }
 
         if ((!ret) && (!S_ISDIR(buf.st_mode))) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, ENOENT,
+                        GD_MSG_DIR_NOT_FOUND,
                         "Provided snap path %s is not a directory,"
-                        "exiting", snap_mount_folder);
+                        "exiting", abs_path);
                 ret = -1;
                 goto out;
         }
 
         if ((-1 == ret) && (ENOENT == errno)) {
-                /* Create missing folders */
-                ret = mkdir_p (snap_mount_folder, 0777, _gf_true);
+                /* Create missing dirs */
+                ret = mkdir_p (abs_path, 0777, _gf_true);
 
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_CREATE_DIR_FAILED,
                                 "Unable to create directory %s"
-                                " ,errno = %d", snap_mount_folder, errno);
+                                " ,errno = %d", abs_path, errno);
                         goto out;
                 }
         }
@@ -1174,7 +1273,34 @@ out:
         return ret;
 }
 
+static void
+glusterd_svcs_build ()
+{
+        xlator_t           *this    = NULL;
+        glusterd_conf_t    *priv    = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        priv->shd_svc.build = glusterd_shdsvc_build;
+        priv->shd_svc.build (&(priv->shd_svc));
+
+        priv->nfs_svc.build = glusterd_nfssvc_build;
+        priv->nfs_svc.build (&(priv->nfs_svc));
+
+        priv->quotad_svc.build = glusterd_quotadsvc_build;
+        priv->quotad_svc.build (&(priv->quotad_svc));
+
+        priv->bitd_svc.build = glusterd_bitdsvc_build;
+        priv->bitd_svc.build (&(priv->bitd_svc));
+
+        priv->scrub_svc.build = glusterd_scrubsvc_build;
+        priv->scrub_svc.build (&(priv->scrub_svc));
+
+}
 /*
  * init - called during glusterd initialization
  *
@@ -1184,20 +1310,23 @@ out:
 int
 init (xlator_t *this)
 {
-        int32_t            ret               = -1;
-        rpcsvc_t          *rpc               = NULL;
-        rpcsvc_t          *uds_rpc           = NULL;
-        glusterd_conf_t   *conf              = NULL;
-        data_t            *dir_data          = NULL;
-        struct stat        buf               = {0,};
-        char               storedir [PATH_MAX] = {0,};
-        char               workdir [PATH_MAX] = {0,};
-        char               hooks_dir [PATH_MAX] = {0,};
-        char               cmd_log_filename [PATH_MAX] = {0,};
-        int                first_time        = 0;
-        char              *mountbroker_root  = NULL;
-        int                i                 = 0;
-        char              *valgrind_str      = NULL;
+        int32_t            ret                        = -1;
+        rpcsvc_t          *rpc                        = NULL;
+        rpcsvc_t          *uds_rpc                    = NULL;
+        glusterd_conf_t   *conf                       = NULL;
+        data_t            *dir_data                   = NULL;
+        struct stat        buf                        = {0,};
+        char               storedir[PATH_MAX]         = {0,};
+        char               workdir[PATH_MAX]          = {0,};
+        char               cmd_log_filename[PATH_MAX] = {0,};
+        int                first_time                 = 0;
+        char              *mountbroker_root           = NULL;
+        int                i                          = 0;
+        int                total_transport            = 0;
+        char              *valgrind_str               = NULL;
+        char              *transport_type             = NULL;
+        char               var_run_dir[PATH_MAX]      = {0,};
+        int32_t            workers                    = 0;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1206,11 +1335,13 @@ init (xlator_t *this)
                 lim.rlim_max = 65536;
 
                 if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_SETXATTR_FAIL,
                                 "Failed to set 'ulimit -n "
-                                " 65536': %s", strerror(errno));
+                                " 65536'");
                 } else {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_FILE_DESC_LIMIT_SET,
                                 "Maximum allowed open file descriptors "
                                 "set to 65536");
                 }
@@ -1226,16 +1357,18 @@ init (xlator_t *this)
                 strncpy (workdir, dir_data->data, PATH_MAX);
         }
 
-        ret = stat (workdir, &buf);
+        ret = sys_stat (workdir, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
                         "stat fails on %s, exiting. (errno = %d)",
                         workdir, errno);
                 exit (1);
         }
 
         if ((!ret) && (!S_ISDIR(buf.st_mode))) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, ENOENT,
+                        GD_MSG_DIR_NOT_FOUND,
                         "Provided working area %s is not a directory,"
                         "exiting", workdir);
                 exit (1);
@@ -1246,7 +1379,8 @@ init (xlator_t *this)
                 ret = mkdir_p (workdir, 0777, _gf_true);
 
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_CREATE_DIR_FAILED,
                                 "Unable to create directory %s"
                                 " ,errno = %d", workdir, errno);
                         exit (1);
@@ -1256,14 +1390,36 @@ init (xlator_t *this)
         }
 
         setenv ("GLUSTERD_WORKDIR", workdir, 1);
-        gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CURR_WORK_DIR_INFO, "Using %s as working directory",
                 workdir);
 
-        ret = glusterd_init_snap_folder (this);
-
+        ret = glusterd_find_correct_var_run_dir (this, var_run_dir);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_VAR_RUN_DIR_FIND_FAIL, "Unable to find "
+                        "the correct var run dir");
+                exit (1);
+        }
+
+        ret = glusterd_init_var_run_dirs (this, var_run_dir,
+                                      GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
                         "snap backend folder");
+                exit (1);
+        }
+
+        snprintf (snap_mount_dir, sizeof(snap_mount_dir), "%s%s",
+                  var_run_dir, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+
+        ret = mkdir_p (GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777,
+                       _gf_true);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIR_OP_FAILED, "Unable to create "
+                        "shared storage brick");
                 exit (1);
         }
 
@@ -1272,17 +1428,19 @@ init (xlator_t *this)
         ret = gf_cmd_log_init (cmd_log_filename);
 
         if (ret == -1) {
-                gf_log ("this->name", GF_LOG_CRITICAL,
+                gf_msg ("this->name", GF_LOG_CRITICAL, errno,
+                        GD_MSG_FILE_OP_FAILED,
                         "Unable to create cmd log file %s", cmd_log_filename);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/vols", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create volume directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
@@ -1290,10 +1448,11 @@ init (xlator_t *this)
 
         snprintf (storedir, PATH_MAX, "%s/snaps", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create snaps directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
@@ -1301,55 +1460,81 @@ init (xlator_t *this)
 
         snprintf (storedir, PATH_MAX, "%s/peers", workdir);
 
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
 
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create peers directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/bricks", DEFAULT_LOG_FILE_DIRECTORY);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create logs directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/nfs", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create nfs directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/glustershd", workdir);
-        ret = mkdir (storedir, 0777);
+        snprintf (storedir, PATH_MAX, "%s/bitd", workdir);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
+                        "Unable to create bitrot directory %s",
+                        storedir);
+                exit (1);
+        }
+
+        snprintf (storedir, PATH_MAX, "%s/scrub", workdir);
+        ret = sys_mkdir (storedir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
+                        "Unable to create scrub directory %s",
+                        storedir);
+                exit (1);
+        }
+
+        snprintf (storedir, PATH_MAX, "%s/glustershd", workdir);
+        ret = sys_mkdir (storedir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create glustershd directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/quotad", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create quotad directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }
 
         snprintf (storedir, PATH_MAX, "%s/groups", workdir);
-        ret = mkdir (storedir, 0777);
+        ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
                         "Unable to create glustershd directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
@@ -1360,30 +1545,30 @@ init (xlator_t *this)
                 goto out;
         rpc = rpcsvc_init (this, this->ctx, this->options, 64);
         if (rpc == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_INIT_FAIL,
                         "failed to init rpc");
                 goto out;
         }
 
         ret = rpcsvc_register_notify (rpc, glusterd_rpcsvc_notify, this);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPCSVC_REG_NOTIFY_RETURNED,
                         "rpcsvc_register_notify returned %d", ret);
                 goto out;
         }
 
+        /* Enable encryption for the TCP listener is management encryption is
+         * enabled
+         */
         if (this->ctx->secure_mgmt) {
-                /*
-                 * The socket code will turn on SSL based on the same check,
-                 * but that will by default turn on own-thread as well and
-                 * we're not multi-threaded enough to handle that.  Thus, we
-                 * override the value here.
-                 */
                 ret = dict_set_str (this->options,
-                                    "transport.socket.own-thread", "off");
+                                    "transport.socket.ssl-enabled", "on");
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to clear own-thread");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set ssl-enabled in dict");
                         goto out;
                 }
                 /*
@@ -1402,12 +1587,36 @@ init (xlator_t *this)
          * only one (at most a pair - rdma and socket) listener for
          * glusterd1_mop_prog, gluster_pmap_prog and gluster_handshake_prog.
          */
+
+        ret = dict_get_str (this->options, "transport-type", &transport_type);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get transport type");
+                ret = -1;
+                goto out;
+        }
+
+        total_transport = rpc_transport_count (transport_type);
+        if (total_transport <= 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_TRANSPORT_COUNT_GET_FAIL,
+                        "failed to get total number of available tranpsorts");
+                ret = -1;
+                goto out;
+        }
+
         ret = rpcsvc_create_listeners (rpc, this->options, this->name);
         if (ret < 1) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_LISTENER_CREATE_FAIL,
                         "creation of listener failed");
                 ret = -1;
                 goto out;
+        } else if (ret < total_transport) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_LISTENER_CREATE_FAIL,
+                        "creation of %d listeners failed, continuing with "
+                        "succeeded transport", (total_transport - ret));
         }
 
         for (i = 0; i < gd_inet_programs_count; i++) {
@@ -1438,19 +1647,10 @@ init (xlator_t *this)
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-        conf->shd = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->shd, out);
-        conf->nfs = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->nfs, out);
-        conf->quotad = GF_CALLOC (1, sizeof (nodesrv_t),
-                               gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->quotad, out);
-
-        INIT_LIST_HEAD (&conf->peers);
-        INIT_LIST_HEAD (&conf->xaction_peers);
-        INIT_LIST_HEAD (&conf->volumes);
-        INIT_LIST_HEAD (&conf->snapshots);
-        INIT_LIST_HEAD (&conf->missed_snaps_list);
+        CDS_INIT_LIST_HEAD (&conf->peers);
+        CDS_INIT_LIST_HEAD (&conf->volumes);
+        CDS_INIT_LIST_HEAD (&conf->snapshots);
+        CDS_INIT_LIST_HEAD (&conf->missed_snaps_list);
 
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
@@ -1458,7 +1658,7 @@ init (xlator_t *this)
         conf->gfs_mgmt = &gd_brick_prog;
         strncpy (conf->workdir, workdir, PATH_MAX);
 
-        synclock_init (&conf->big_lock);
+        synclock_init (&conf->big_lock, SYNC_LOCK_RECURSIVE);
         pthread_mutex_init (&conf->xprt_lock, NULL);
         INIT_LIST_HEAD (&conf->xprt_list);
 
@@ -1474,40 +1674,50 @@ init (xlator_t *this)
 
          conf->base_port = GF_IANA_PRIV_PORTS_START;
          if (dict_get_uint32(this->options, "base-port", &conf->base_port) == 0) {
-                 gf_log (this->name, GF_LOG_INFO,
-                         "base-port override: %d", conf->base_port);
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "base-port override: %d", conf->base_port);
          }
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
         conf->valgrind = _gf_false;
         ret = dict_get_str (this->options, "run-with-valgrind", &valgrind_str);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "cannot get run-with-valgrind value");
         }
         if (valgrind_str) {
                 if (gf_string2boolean (valgrind_str, &(conf->valgrind))) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                                GD_MSG_INVALID_ENTRY,
                                 "run-with-valgrind value not a boolean string");
                 }
         }
 
+        /* Store ping-timeout in conf */
+        ret = dict_get_int32 (this->options, "ping-timeout",
+                              &conf->ping_timeout);
+        /* Not failing here since ping-timeout can be optional as well */
+
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
-        (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
+        glusterd_svcs_build ();
 
-        GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
-        if (stat (hooks_dir, &buf)) {
-                ret = glusterd_hooks_create_hooks_directory (conf->workdir);
-                if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
-                                "Unable to create hooks directory ");
-                        exit (1);
-                }
+        /* Make install copies few of the hook-scripts by creating hooks
+         * directory. Hence purposefully not doing the check for the presence of
+         * hooks directory. Doing so avoids creation of complete hooks directory
+         * tree.
+         */
+        ret = glusterd_hooks_create_hooks_directory (conf->workdir);
+        if (-1 == ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_DIR_OP_FAILED,
+                        "Unable to create hooks directory ");
+                exit (1);
         }
 
-        INIT_LIST_HEAD (&conf->mount_specs);
+        CDS_INIT_LIST_HEAD (&conf->mount_specs);
 
         ret = dict_foreach (this->options, _install_mount_spec, NULL);
         if (ret)
@@ -1525,6 +1735,23 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        /* Restoring op-version needs to be done before initializing the
+         * services as glusterd_svc_init_common () invokes
+         * glusterd_conn_build_socket_filepath () which uses MY_UUID macro.
+         * MY_UUID generates a new uuid if its not been generated and writes it
+         * in the info file, Since the op-version is not read yet
+         * the default value i.e. 0 will be written for op-version and restore
+         * will fail. This is why restoring op-version needs to happen before
+         * service initialization
+         * */
+        ret = glusterd_restore_op_version (this);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_VERS_RESTORE_FAIL,
+                        "Failed to restore op_version");
+                goto out;
+        }
+
         ret = glusterd_restore ();
         if (ret < 0)
                 goto out;
@@ -1533,7 +1760,7 @@ init (xlator_t *this)
          * spawn process/bricks that may need (re)starting since last
          * time (this) glusterd was up.*/
 
-        if (list_empty (&conf->peers)) {
+        if (cds_list_empty (&conf->peers)) {
                 glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
         }
         ret = glusterd_options_init (this);
@@ -1547,6 +1774,15 @@ init (xlator_t *this)
         ret = glusterd_hooks_spawn_worker (this);
         if (ret)
                 goto out;
+
+        GF_OPTION_INIT ("event-threads", workers, int32, out);
+        if (workers > 0 && workers != conf->workers) {
+                conf->workers = workers;
+                ret = event_reconfigure_threads (this->ctx->event_pool,
+                                                 workers);
+                if (ret)
+                        goto out;
+        }
 
         ret = 0;
 out:
@@ -1580,8 +1816,19 @@ fini (xlator_t *this)
 
         conf = this->private;
 
-        glusterd_stop_uds_listener (this);
+        glusterd_stop_uds_listener (this); /*stop unix socket rpc*/
+        glusterd_stop_listener (this);     /*stop tcp/ip socket rpc*/
 
+#if 0
+       /* Running threads might be using these resourses, we have to cancel/stop
+        * running threads before deallocating the memeory, but we don't have
+        * control over the running threads to do pthread_cancel().
+        * So memeory freeing handover to kernel.
+        */
+        /*TODO: cancel/stop the running threads*/
+
+        GF_FREE (conf->uds_rpc);
+        GF_FREE (conf->rpc);
         FREE (conf->pmap);
         if (conf->handle)
                 gf_store_handle_destroy (conf->handle);
@@ -1591,6 +1838,7 @@ fini (xlator_t *this)
         GF_FREE (conf);
 
         this->private = NULL;
+#endif
 out:
         return;
 }
@@ -1713,6 +1961,16 @@ struct volume_options options[] = {
           .min  = 0,
           .max  = 300,
           .default_value = TOSTRING(RPC_DEFAULT_PING_TIMEOUT),
+        },
+        { .key   = {"event-threads"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 32,
+          .default_value = "2",
+          .description = "Specifies the number of event threads to execute "
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads."
         },
         { .key   = {NULL} },
 };

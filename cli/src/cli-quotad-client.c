@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "cli-quotad-client.h"
 
@@ -127,11 +122,11 @@ cli_quotad_clnt_init (xlator_t *this, dict_t *options)
                 goto out;
 
         ret = dict_set_str (options, "transport.socket.connect-path",
-                            "/tmp/quotad.socket");
+                            "/var/run/gluster/quotad.socket");
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!rpc)
                 goto out;
 

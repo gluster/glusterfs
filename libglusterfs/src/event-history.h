@@ -11,11 +11,6 @@
 #ifndef _EH_H
 #define _EH_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "mem-types.h"
 #include "circ-buff.h"
 

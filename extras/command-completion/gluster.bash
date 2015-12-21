@@ -480,7 +480,7 @@ _gluster_handle_list ()
 _gluster_completion ()
 {
         FINAL_LIST=`echo $GLUSTER_COMMAND_TREE |                              \
-                egrep -ao --color=never "([A-Za-z0-9_-.]+)|[[:space:]]+|." |  \
+                egrep -ao --color=never "([A-Za-z0-9_.-]+)|[[:space:]]+|." |  \
                         egrep -v --color=never "^[[:space:]]*$" |             \
                                 _gluster_parse`
 

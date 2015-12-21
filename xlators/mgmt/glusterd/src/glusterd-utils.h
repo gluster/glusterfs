@@ -10,13 +10,8 @@
 #ifndef _GLUSTERD_UTILS_H
 #define _GLUSTERD_UTILS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <pthread.h>
-#include "uuid.h"
+#include "compat-uuid.h"
 
 #include "glusterfs.h"
 #include "xlator.h"
@@ -36,14 +31,6 @@
         sprintf (brickinfo->brick_id, "%s-client-%d",\
                  volinfo->volname, brickid);\
 } while (0)
-
-#define glusterd_quorum_count(peerinfo, inquorum_count, active_count, _exit)\
-                if (peerinfo->quorum_contrib == QUORUM_WAITING)\
-                        goto _exit;\
-                if (_is_contributing_to_quorum (peerinfo->quorum_contrib))\
-                        inquorum_count = inquorum_count + 1;\
-                if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))\
-                        *active_count = *active_count + 1;\
 
 struct glusterd_lock_ {
         uuid_t  owner;
@@ -77,6 +64,9 @@ glusterd_unlock (uuid_t owner);
 
 int32_t
 glusterd_get_uuid (uuid_t *uuid);
+
+char*
+gd_get_shd_key (int type);
 
 int
 glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
@@ -138,10 +128,6 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
 int
 glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
 
-int
-glusterd_validate_quorum (xlator_t *this, glusterd_op_t op, dict_t *dict,
-                          char **op_errstr);
-
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
@@ -187,63 +173,13 @@ glusterd_compute_cksum (glusterd_volinfo_t  *volinfo,
                         gf_boolean_t is_quota_conf);
 
 void
-glusterd_get_nodesvc_volfile (char *server, char *workdir,
-                                    char *volfile, size_t len);
-
-gf_boolean_t
-glusterd_is_nodesvc_running ();
-
-gf_boolean_t
-glusterd_is_nodesvc_running ();
-
-void
-glusterd_get_nodesvc_dir (char *server, char *workdir,
-                          char *path, size_t len);
-int32_t
-glusterd_nfs_server_start ();
-
-int32_t
-glusterd_nfs_server_stop ();
-
-int32_t
-glusterd_shd_start ();
-
-int32_t
-glusterd_shd_stop ();
-
-int32_t
-glusterd_quotad_start ();
-
-int32_t
-glusterd_quotad_start_wait ();
-
-int32_t
-glusterd_quotad_stop ();
-
-void
 glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len);
-
-int32_t
-glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
-                                      char *socketpath, int len);
 
 struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node);
 
-struct rpc_clnt*
-glusterd_nodesvc_get_rpc (char *server);
-
-int32_t
-glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc);
-
-int32_t
-glusterd_nodesvc_connect (char *server, char *socketpath);
-
 void
-glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status);
-
-gf_boolean_t
-glusterd_is_nodesvc_online (char *server);
+glusterd_pending_node_put_rpc (glusterd_pending_node_t *pending_node);
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
@@ -253,29 +189,6 @@ glusterd_import_friend_volumes (dict_t *peer_data);
 void
 glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status);
-int
-glusterd_check_generate_start_nfs (void);
-
-int
-glusterd_check_generate_start_shd (void);
-
-int
-glusterd_check_generate_start_quotad (void);
-
-int
-glusterd_check_generate_start_quotad_wait (void);
-
-int
-glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_volume_count_get (void);
@@ -310,6 +223,10 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo,
                      gf_boolean_t del_brick);
 
+gf_boolean_t
+glusterd_is_tier_daemon_running (glusterd_volinfo_t *volinfo);
+
+
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
 
@@ -330,17 +247,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
 int
 glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                        glusterd_brickinfo_t **brickinfo);
-int
-glusterd_is_rb_started (glusterd_volinfo_t *volinfo);
 
-int
-glusterd_is_rb_paused (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status);
-
-gf_boolean_t
-glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
@@ -371,9 +278,9 @@ int
 glusterd_sm_tr_log_add_to_dict (dict_t *dict,
                                 glusterd_sm_tr_log_t *circular_log);
 int
-glusterd_remove_pending_entry (struct list_head *list, void *elem);
+glusterd_remove_pending_entry (struct cds_list_head *list, void *elem);
 int
-glusterd_clear_pending_nodes (struct list_head *list);
+glusterd_clear_pending_nodes (struct cds_list_head *list);
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                         glusterd_brickinfo_t  *brickinfo, char *socketpath);
@@ -458,12 +365,27 @@ int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
 
 int32_t
+glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
+                                   glusterd_volinfo_t **dup_volinfo,
+                                   gf_boolean_t is_hot_tier,
+                                   const char *new_name);
+void
+glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo);
+
+void
+glusterd_defrag_info_set (glusterd_volinfo_t *volinfo, dict_t *dict, int cmd,
+                          int status, int op);
+
+int32_t
 glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
                                         glusterd_volinfo_t *volinfo);
 
 int
 glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                            dict_t *vol_opts);
+
+int
+glusterd_calc_dist_leaf_count (int rcount, int scount);
 
 int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo);
@@ -518,12 +440,14 @@ glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
                           char **op_errstr, gd_node_type type);
 int
-glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 
 int32_t
 glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo);
+
 int
 glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp);
 int
@@ -543,30 +467,8 @@ glusterd_set_originator_uuid (dict_t *dict);
 gf_boolean_t
 is_origin_glusterd (dict_t *dict);
 
-gf_boolean_t
-glusterd_is_quorum_changed (dict_t *options, char *option, char *value);
-
-int
-glusterd_do_quorum_action ();
-
-int
-glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
-                                    int *quorum_count,
-                                    struct list_head *peer_list,
-                                    gf_boolean_t _local__xaction_peers);
-
 int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
-gf_boolean_t
-glusterd_is_quorum_option (char *option);
-gf_boolean_t
-glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
-gf_boolean_t
-glusterd_is_any_volume_in_server_quorum (xlator_t *this);
-gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this,
-                            struct list_head *peers_list,
-                            gf_boolean_t _local__xaction_peers);
 
 int
 glusterd_generate_and_set_task_id (dict_t *dict, char *key);
@@ -632,20 +534,17 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo);
 int
 glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo);
 
+int
+glusterd_is_volume_inode_quota_enabled (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo);
+
 gf_boolean_t
 glusterd_all_volumes_with_quota_stopped ();
 
-int
-glusterd_reconfigure_quotad ();
-
 void
 glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_store_quota_conf_skip_header (xlator_t *this, int fd);
-
-int
-glusterd_store_quota_conf_stamp_header (xlator_t *this, int fd);
 
 int
 glusterd_remove_auxiliary_mount (char *volname);
@@ -660,7 +559,7 @@ rpc_clnt_t *
 glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 
 int32_t
-glusterd_compare_volume_name(struct list_head *, struct list_head *);
+glusterd_compare_volume_name(struct cds_list_head *, struct cds_list_head *);
 
 char*
 glusterd_get_brick_mount_device (char *brick_path);
@@ -698,8 +597,8 @@ int
 glusterd_unlink_file (char *sock_file_path);
 
 int32_t
-glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
-                                char **brick_mount_path);
+glusterd_find_brick_mount_path (char *brick_path, char **brick_mount_path);
+
 /*
  * Function to retrieve list of snap volnames and their uuids
  */
@@ -727,8 +626,8 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
 gf_boolean_t
 glusterd_have_peers ();
 
-void
-glusterd_op_clear_xaction_peers ();
+gf_boolean_t
+glusterd_have_volumes ();
 
 void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
@@ -754,4 +653,41 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
 
 gf_boolean_t
 glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo);
+
+gf_boolean_t
+glusterd_is_shd_compatible_type (int type);
+
+gf_boolean_t
+glusterd_are_all_volumes_stopped ();
+
+gf_boolean_t
+glusterd_all_shd_compatible_volumes_stopped ();
+
+void
+glusterd_nfs_pmap_deregister ();
+
+gf_boolean_t
+glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
+
+void
+glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
+                        int (*compare)(struct cds_list_head *,
+                                       struct cds_list_head *));
+int
+glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
+                               int cmd);
+
+struct rpc_clnt*
+glusterd_defrag_rpc_get (glusterd_defrag_info_t *defrag);
+
+struct rpc_clnt*
+glusterd_defrag_rpc_put (glusterd_defrag_info_t *defrag);
+
+int32_t
+glusterd_count_connected_peers (int32_t *count);
+
+int
+glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
+               int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *));
 #endif

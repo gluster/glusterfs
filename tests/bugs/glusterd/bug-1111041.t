@@ -29,7 +29,7 @@ SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
-SNAPD_PID2=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $7'});
+SNAPD_PID2=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'});
 
 TEST [ $SNAPD_PID -eq $SNAPD_PID2 ]
 

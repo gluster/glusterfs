@@ -10,11 +10,6 @@
 #ifndef _POSIX_H
 #define _POSIX_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -53,12 +48,20 @@
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
 
-#define LINKTO "trusted.glusterfs.dht.linkto"
+#define ACL_BUFFER_MAX 4096 /* size of character buffer */
+
+#define DHT_LINKTO "trusted.glusterfs.dht.linkto"
+/*
+ * TIER_MODE need to be changed when we stack tiers
+ */
+#define TIER_LINKTO "trusted.tier.tier-dht.linkto"
 
 #define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
                                                + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
                                                + SLEN("00/")            \
                                                + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
+#define GF_UNLINK_TRUE 0x0000000000000001
+#define GF_UNLINK_FALSE 0x0000000000000000
 
 /**
  * posix_fd - internal structure common to file and directory fd's
@@ -181,11 +184,11 @@ typedef struct {
         struct iatt *stbuf;
         loc_t       *loc;
         inode_t     *inode; /* for all do_xattrop() key handling */
-        int          fd;
+        fd_t        *fd;
+        int          fdnum;
         int          flags;
         int32_t     op_errno;
 } posix_xattr_filler_t;
-
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
@@ -193,7 +196,30 @@ typedef struct {
 
 #define POSIX_PATH_MAX(this) (((struct posix_private *)this->private)->path_max)
 
+#define POSIX_GET_FILE_UNLINK_PATH(base_path, gfid, unlink_path)                           \
+        do {                                                                               \
+                int  path_len = 0;                                                         \
+                char gfid_str[64] = {0};                                                   \
+                uuid_utoa_r (gfid, gfid_str);                                              \
+                path_len = strlen (base_path) + 1 +                                        \
+                          strlen (GF_UNLINK_PATH) + 1 +                                    \
+                          strlen (gfid_str) + 1;                                           \
+                unlink_path = alloca (path_len);                                           \
+                if (!unlink_path) {                                                        \
+                        gf_msg ("posix", GF_LOG_ERROR, ENOMEM,                             \
+                                P_MSG_UNLINK_FAILED,                                       \
+                                "Failed to get unlink_path");                              \
+                        break;                                                             \
+                }                                                                          \
+                sprintf (unlink_path, "%s/%s/%s",                                          \
+                         base_path, GF_UNLINK_PATH, gfid_str);                             \
+         } while (0)
+
+
 /* Helper functions */
+int posix_inode_ctx_get (inode_t *inode, xlator_t *this, uint64_t *ctx);
+int posix_inode_ctx_set (inode_t *inode, xlator_t *this, uint64_t ctx);
+
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
                     dict_t *xattr_req);
 int posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p);
@@ -201,12 +227,12 @@ int posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
                  struct iatt *iatt);
 int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
                  struct iatt *iatt);
-dict_t *posix_lookup_xattr_fill (xlator_t *this, const char *path,
-                                 loc_t *loc, dict_t *xattr, struct iatt *buf);
+dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
+                          fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,
-                       data_t *value, int flags);
+                       data_t *value, int flags, struct iatt *stbuf);
 int posix_fhandle_pair (xlator_t *this, int fd, char *key, data_t *value,
-                        int flags);
+                        int flags, struct iatt *stbuf);
 void posix_spawn_janitor_thread (xlator_t *this);
 int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                              const char *name, char **contents);
@@ -235,5 +261,17 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
 
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
+
+int
+posix_pacl_set (const char *path, const char *key, const char *acl_s);
+
+int
+posix_pacl_get (const char *path, const char *key, char **acl_s);
+
+int32_t
+posix_get_objectsignature (char *, dict_t *);
+
+int32_t
+posix_fdget_objectsignature (int, dict_t *);
 
 #endif /* _POSIX_H */

@@ -15,6 +15,9 @@ TEST mkdir $M0/d
 TEST $CLI volume quota $V0 limit-usage /d 1MB
 TEST touch $M0/d/a
 echo abc > $M0/d/a
+
+EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "512Bytes" quotausage "/"
+
 #Set the acl xattrs directly on backend, for some reason on mount it gives error
 acl_access_val="0x0200000001000600ffffffff04000400ffffffff10000400ffffffff20000400ffffffff"
 acl_file_val="0x0000000400000001ffffffff0006000000000004ffffffff0004000000000010ffffffff0004000000000020ffffffff00040000"
@@ -55,7 +58,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #Check external xattrs match
 EXPECT "bar" echo $(getfattr -d -m. -e text $B0/${V0}0/d | grep trusted.foo)
@@ -135,4 +138,6 @@ EXPECT "$acl_access_val" echo $(getfattr -d -m. -e hex $B0/${V0}0/d | grep syste
 EXPECT "$acl_file_val" echo $(getfattr -d -m. -e hex $B0/${V0}0/d | grep trusted.SGI_ACL_FILE)
 EXPECT "$acl_access_val" echo $(getfattr -d -m. -e hex $B0/${V0}1/d | grep system.posix_acl_access)
 EXPECT "$acl_file_val" echo $(getfattr -d -m. -e hex $B0/${V0}1/d | grep trusted.SGI_ACL_FILE)
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup

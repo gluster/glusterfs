@@ -11,11 +11,6 @@
 #define _LIBXLATOR_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"
@@ -31,9 +26,6 @@
 #define UUID_SIZE 36
 #define MARKER_UUID_TYPE    1
 #define MARKER_XTIME_TYPE   2
-#define GF_XATTR_QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
-#define GF_XATTR_QUOTA_LIMIT_LIST "trusted.limit.list"
-
 
 typedef int32_t (*xlator_specf_unwind_t) (call_frame_t *frame,
                                           int op_ret, int op_errno,
@@ -138,13 +130,13 @@ int32_t
 cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
-int32_t
-cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
-                       const char *name, void *xl_local,
-                       xlator_specf_unwind_t xl_specf_getxattr_unwind,
-                       xlator_t **sub_volumes, int count, int type,
-                       int *gauge, char *vol_uuid);
-
+int
+cluster_handle_marker_getxattr (call_frame_t *frame, loc_t *loc,
+                                const char *name, char *vol_uuid,
+                                xlator_specf_unwind_t unwind,
+                                int (*populate_args) (call_frame_t *frame,
+                                                      int type, int *gauge,
+                                                      xlator_t **subvols));
 int
 match_uuid_local (const char *name, char *uuid);
 

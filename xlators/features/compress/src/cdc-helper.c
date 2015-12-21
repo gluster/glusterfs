@@ -8,13 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
+#include "syscall.h"
 
 #include "cdc.h"
 #include "cdc-mem-types.h"
@@ -171,17 +167,17 @@ cdc_dump_iovec_to_disk (xlator_t *this, cdc_info_t *ci, const char *file)
                 return;
         }
 
-        written = write (fd, (char *) gzip_header, 10);
+        written = sys_write (fd, (char *) gzip_header, 10);
         total_written += written;
         for (i = 0; i < ci->ncount; i++) {
-                written = write (fd, (char *) ci->vec[i].iov_base, ci->vec[i].iov_len);
+                written = sys_write (fd, (char *) ci->vec[i].iov_base, ci->vec[i].iov_len);
                 total_written += written;
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
                         "dump'd %zu bytes to %s", total_written, GF_CDC_DEBUG_DUMP_FILE );
 
-        close (fd);
+        sys_close (fd);
 }
 
 static int32_t

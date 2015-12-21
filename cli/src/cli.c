@@ -29,11 +29,6 @@
 #include <semaphore.h>
 #include <errno.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
@@ -149,6 +144,10 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         ctx->dict_data_pool = mem_pool_new (data_t, 512);
         if (!ctx->dict_data_pool)
+                return -1;
+
+        ctx->logbuf_pool = mem_pool_new (log_buf_t, 256);
+        if (!ctx->logbuf_pool)
                 return -1;
 
         INIT_LIST_HEAD (&pool->all_frames);
@@ -396,22 +395,28 @@ cli_opt_parse (char *opt, struct cli_state *state)
 int
 parse_cmdline (int argc, char *argv[], struct cli_state *state)
 {
-        int         ret = 0;
-        int         i = 0;
-        int         j = 0;
-        char        *opt = NULL;
+        int                 ret            = 0;
+        int                 i              = 0;
+        int                 j              = 0;
+        char               *opt            = NULL;
+        gf_boolean_t       geo_rep_config  = _gf_false;
 
         state->argc=argc-1;
         state->argv=&argv[1];
 
         /* Do this first so that an option can override. */
-        if (access(SECURE_ACCESS_FILE,F_OK) == 0) {
+        if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 state->ctx->secure_mgmt = 1;
         }
 
+        if (state->argc > GEO_REP_CMD_CONFIG_INDEX &&
+            strtail (state->argv[GEO_REP_CMD_INDEX], "geo") &&
+            strtail (state->argv[GEO_REP_CMD_CONFIG_INDEX], "co"))
+                geo_rep_config = _gf_true;
+
         for (i = 0; i < state->argc; i++) {
                 opt = strtail (state->argv[i], "--");
-                if (opt) {
+                if (opt && !geo_rep_config) {
                         ret = cli_opt_parse (opt, state);
                         if (ret == -1) {
                                 cli_out ("unrecognized option --%s", opt);
@@ -548,7 +553,7 @@ cli_quotad_clnt_rpc_init (void)
                 goto out;
 
         ret = dict_set_str (rpc_opts, "transport.socket.connect-path",
-                                            "/tmp/quotad.socket");
+                                            "/var/run/gluster/quotad.socket");
         if (ret)
                 goto out;
 
@@ -621,7 +626,7 @@ cli_rpc_init (struct cli_state *state)
                         goto out;
         }
 
-        rpc = rpc_clnt_new (options, this->ctx, this->name, 16);
+        rpc = rpc_clnt_new (options, this, this->name, 16);
         if (!rpc)
                 goto out;
 
@@ -647,6 +652,7 @@ cli_local_get ()
         cli_local_t     *local = NULL;
 
         local = GF_CALLOC (1, sizeof (*local), cli_mt_cli_local_t);
+        LOCK_INIT (&local->lock);
 
         return local;
 }
@@ -706,6 +712,9 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        gf_log ("cli", GF_LOG_INFO, "Started running %s with version %s",
+                argv[0], PACKAGE_VERSION);
+
         global_rpc = cli_rpc_init (&state);
         if (!global_rpc)
                 goto out;
@@ -744,3 +753,35 @@ cli_print_line (int len)
 
         printf ("\n");
 }
+
+void
+print_quota_list_header (int type)
+{
+        if (type == GF_QUOTA_OPTION_TYPE_LIST) {
+                cli_out ("                  Path                   Hard-limit "
+                         " Soft-limit      Used  Available  Soft-limit "
+                         "exceeded? Hard-limit exceeded?");
+                cli_out ("-----------------------------------------------------"
+                         "-----------------------------------------------------"
+                         "---------------------");
+        } else {
+                cli_out ("                  Path                   Hard-limit  "
+                         " Soft-limit      Files       Dirs     Available  "
+                         "Soft-limit exceeded? Hard-limit exceeded?");
+                cli_out ("-----------------------------------------------------"
+                         "-----------------------------------------------------"
+                         "-------------------------------------");
+        }
+}
+
+void
+print_quota_list_empty (char *path, int type)
+{
+        if (type == GF_QUOTA_OPTION_TYPE_LIST)
+                cli_out ("%-40s %7s %9s %10s %7s %15s %20s", path,
+                         "N/A", "N/A", "N/A", "N/A", "N/A", "N/A");
+        else
+                cli_out ("%-40s %9s %9s %12s %10s %10s %15s %20s", path,
+                         "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A");
+}
+

@@ -11,11 +11,6 @@
 #ifndef _XDR_RPC_H_
 #define _XDR_RPC_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifndef GF_SOLARIS_HOST_OS
 #include <rpc/rpc.h>
 #endif

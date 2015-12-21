@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "defaults.h"
 #include "crypt-common.h"
 #include "crypt.h"
@@ -404,7 +399,7 @@ int32_t check_format_v1(uint32_t len, unsigned char *wire)
  * return:
  * -1 on errors;
  *  0 on failed verification;
- *  1 on sucessful verification
+ *  1 on successful verification
  */
 static int32_t verify_link_mac_v1(struct mtd_format_v1 *fmt,
 				  uint32_t idx /* index of the mac to verify */,

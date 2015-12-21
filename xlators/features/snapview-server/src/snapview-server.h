@@ -10,11 +10,6 @@
 #ifndef __SNAP_VIEW_H__
 #define __SNAP_VIEW_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dict.h"
 #include "defaults.h"
 #include "mem-types.h"

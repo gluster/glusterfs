@@ -1,0 +1,162 @@
+function check_status()
+{
+	local search_key=$1
+	$GEOREP_CLI $master $slave status detail | egrep -i "$search_key"
+}
+
+function check_status_num_rows()
+{
+	local search_key=$1
+	$GEOREP_CLI $master $slave status detail | egrep -i "$search_key" | wc -l
+}
+
+function create_data()
+{
+	prefix=$1
+
+    # GF_FOP_MKNOD
+    # GF_FOP_MKDIR
+    # GF_FOP_UNLINK
+    # GF_FOP_RMDIR
+    # GF_FOP_SYMLINK
+    # GF_FOP_RENAME
+    # GF_FOP_LINK
+    # GF_FOP_SETXATTR
+    # GF_FOP_REMOVEXATTR
+    # GF_FOP_CREATE
+    # GF_FOP_SETATTR
+
+	# Regular file
+	touch ${master_mnt}/${prefix}_f1
+	touch ${master_mnt}/${prefix}_f2
+	touch ${master_mnt}/${prefix}_f3
+
+	# dir
+	mkdir ${master_mnt}/${prefix}_d1
+	mkdir ${master_mnt}/${prefix}_d2
+	touch ${master_mnt}/${prefix}_d3
+
+	# Hardlink
+	ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1
+
+	# Symlink
+        cd ${master_mnt}
+	ln -s ${prefix}_f1 ${prefix}_sl1
+        cd -
+
+	# data
+	echo "HelloWorld!" >> ${master_mnt}/${prefix}_f1
+
+	# UNLINK
+	rm ${master_mnt}/${prefix}_f2
+
+	# RMDIR
+	rmdir ${master_mnt}/${prefix}_d2
+
+	# Rename - File
+	mv ${master_mnt}/${prefix}_f3 ${master_mnt}/${prefix}_f4
+
+	# Rename - Dir
+	mv ${master_mnt}/${prefix}_d3 ${master_mnt}/${prefix}_d4
+
+        # chown
+	touch ${master_mnt}/${prefix}_chown_f1
+	chown 1000:1000 ${master_mnt}/${prefix}_chown_f1
+}
+
+function chown_file_ok()
+{
+        local file_owner=$(stat --format "%u:%g" "$1" 2>/dev/null)
+        if test "X$file_owner" != "X1000:1000"; then return 1;fi
+}
+
+function regular_file_ok()
+{
+	local file_type=$(stat --format "%F" "$1")
+	if test "X$file_type" != "Xregular file"; then return 1; fi
+}
+
+function directory_ok()
+{
+	file_type=$(stat --format "%F" "$1")
+	if test "X$file_type" != "Xdirectory"; then return 1; fi
+}
+
+function unlink_ok()
+{
+        stat "$1" stat ./case > /dev/null 2>&1
+        rc=$?
+        if test $rc != 0; then return 0; fi
+        return 1;
+}
+
+function hardlink_file_ok()
+{
+	orig_file=$1
+	link_file=$2
+
+	orig_inode=$(stat --format "%i" "$orig_file")
+	rc=$?
+	if test $rc != 0; then return $rc; fi
+
+	link_inode=$(stat --format "%i" "$link_file")
+	rc=$?
+	if test $rc != 0; then return $rc; fi
+
+	if test $orig_inode != $link_inode
+	then
+		return 1
+	fi
+}
+
+function data_ok()
+{
+	path=$1
+	data1="$2"
+        data2=$(cat $path)
+        echo "data1:$data1"
+        echo "data2:$data2"
+        if test "X$data1" != "X$data2"
+        then
+                return 1
+        fi
+}
+
+function symlink_ok()
+{
+	local orig_file_name=$1
+	local symlink_file=$2
+
+
+	local file_type=$(stat --format "%F" "$symlink_file")
+	if test "X$file_type" != "Xsymbolic link"; then return 1; fi
+
+	local fname=$(readlink $symlink_file)
+	if test "X$fname" != "X$orig_file_name"; then return 1; fi
+}
+
+function rename_ok()
+{
+	old_name=$1
+	new_name=$2
+
+	if [ -f $old_name ]
+	then
+		return 1
+	fi
+
+	if [ ! -f $new_name ]
+	then
+		return 1
+	fi
+}
+
+function create_georep_session()
+{
+        $CLI system:: execute gsec_create
+	rc=$?
+	if test $rc != 0; then return $rc; fi
+        $CLI volume geo-rep $master $slave create push-pem
+	rc=$?
+	if test $rc != 0; then return $rc; fi
+}

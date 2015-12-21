@@ -1,6 +1,6 @@
 sbin_PROGRAMS = gluster
 
-gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c \
+gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c cli-cmd-global.c \
 	 cli-cmd-volume.c cli-cmd-peer.c cli-rpc-ops.c cli-cmd-parser.c\
 	 cli-cmd-system.c cli-cmd-misc.c cli-xml-output.c cli-quotad-client.c cli-cmd-snapshot.c
 

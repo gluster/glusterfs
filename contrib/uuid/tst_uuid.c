@@ -49,11 +49,11 @@ static int test_uuid(const char * uuid, int isValid)
 	uuid_t uuidBits;
 	int parsedOk;
 
-	parsedOk = uuid_parse(uuid, uuidBits) == 0;
+	parsedOk = gf_uuid_parse(uuid, uuidBits) == 0;
 
 	printf("%s is %s", uuid, validStr[isValid]);
 	if (parsedOk != isValid) {
-		printf(" but uuid_parse says %s\n", validStr[parsedOk]);
+		printf(" but gf_uuid_parse says %s\n", validStr[parsedOk]);
 		return 1;
 	}
 	printf(", OK\n");
@@ -78,15 +78,15 @@ main(int argc ATTR((unused)) , char **argv ATTR((unused)))
 	int failed = 0;
 	int type, variant;
 
-	uuid_generate(buf);
-	uuid_unparse(buf, str);
+	gf_uuid_generate(buf);
+	gf_uuid_unparse(buf, str);
 	printf("UUID generate = %s\n", str);
 	printf("UUID: ");
 	for (i=0, cp = (unsigned char *) &buf; i < 16; i++) {
 		printf("%02x", *cp++);
 	}
 	printf("\n");
-	type = uuid_type(buf); 	variant = uuid_variant(buf);
+	type = gf_uuid_type(buf); 	variant = gf_uuid_variant(buf);
 	printf("UUID type = %d, UUID variant = %d\n", type, variant);
 	if (variant != UUID_VARIANT_DCE) {
 		printf("Incorrect UUID Variant; was expecting DCE!\n");
@@ -94,15 +94,15 @@ main(int argc ATTR((unused)) , char **argv ATTR((unused)))
 	}
 	printf("\n");
 
-	uuid_generate_random(buf);
-	uuid_unparse(buf, str);
+	gf_uuid_generate_random(buf);
+	gf_uuid_unparse(buf, str);
 	printf("UUID random string = %s\n", str);
 	printf("UUID: ");
 	for (i=0, cp = (unsigned char *) &buf; i < 16; i++) {
 		printf("%02x", *cp++);
 	}
 	printf("\n");
-	type = uuid_type(buf); 	variant = uuid_variant(buf);
+	type = gf_uuid_type(buf); 	variant = gf_uuid_variant(buf);
 	printf("UUID type = %d, UUID variant = %d\n", type, variant);
 	if (variant != UUID_VARIANT_DCE) {
 		printf("Incorrect UUID Variant; was expecting DCE!\n");
@@ -115,15 +115,15 @@ main(int argc ATTR((unused)) , char **argv ATTR((unused)))
 	}
 	printf("\n");
 
-	uuid_generate_time(buf);
-	uuid_unparse(buf, str);
+	gf_uuid_generate_time(buf);
+	gf_uuid_unparse(buf, str);
 	printf("UUID string = %s\n", str);
 	printf("UUID time: ");
 	for (i=0, cp = (unsigned char *) &buf; i < 16; i++) {
 		printf("%02x", *cp++);
 	}
 	printf("\n");
-	type = uuid_type(buf); 	variant = uuid_variant(buf);
+	type = gf_uuid_type(buf); 	variant = gf_uuid_variant(buf);
 	printf("UUID type = %d, UUID variant = %d\n", type, variant);
 	if (variant != UUID_VARIANT_DCE) {
 		printf("Incorrect UUID Variant; was expecting DCE!\n");
@@ -136,25 +136,25 @@ main(int argc ATTR((unused)) , char **argv ATTR((unused)))
 	}
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	time_reg = uuid_time(buf, &tv);
+	time_reg = gf_uuid_time(buf, &tv);
 	printf("UUID time is: (%ld, %ld): %s\n", tv.tv_sec, tv.tv_usec,
 	       ctime(&time_reg));
-	uuid_parse(str, tst);
-	if (!uuid_compare(buf, tst))
+	gf_uuid_parse(str, tst);
+	if (!gf_uuid_compare(buf, tst))
 		printf("UUID parse and compare succeeded.\n");
 	else {
 		printf("UUID parse and compare failed!\n");
 		failed++;
 	}
-	uuid_clear(tst);
-	if (uuid_is_null(tst))
+	gf_uuid_clear(tst);
+	if (gf_uuid_is_null(tst))
 		printf("UUID clear and is null succeeded.\n");
 	else {
 		printf("UUID clear and is null failed!\n");
 		failed++;
 	}
-	uuid_copy(buf, tst);
-	if (!uuid_compare(buf, tst))
+	gf_uuid_copy(buf, tst);
+	if (!gf_uuid_compare(buf, tst))
 		printf("UUID copy and compare succeeded.\n");
 	else {
 		printf("UUID copy and compare failed!\n");

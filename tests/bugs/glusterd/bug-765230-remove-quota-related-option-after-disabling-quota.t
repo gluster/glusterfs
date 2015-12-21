@@ -53,7 +53,8 @@ TEST ! $CLI volume set $V0 features.quota-deem-statfs off
 EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
 
 ## Finish up
-TEST $CLI volume stop $V0;
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 
 TEST $CLI volume delete $V0;

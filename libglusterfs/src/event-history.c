@@ -9,6 +9,7 @@
 */
 
 #include "event-history.h"
+#include "libglusterfs-messages.h"
 
 eh_t *
 eh_new (size_t buffer_size, gf_boolean_t use_buffer_once,
@@ -19,14 +20,12 @@ eh_new (size_t buffer_size, gf_boolean_t use_buffer_once,
 
         history = GF_CALLOC (1, sizeof (eh_t), gf_common_mt_eh_t);
         if (!history) {
-                gf_log ("", GF_LOG_ERROR, "allocating history failed.");
                 goto out;
         }
 
         buffer = cb_buffer_new (buffer_size, use_buffer_once,
                                 destroy_buffer_data);
         if (!buffer) {
-                gf_log ("", GF_LOG_ERROR, "allocating circular buffer failed");
                 GF_FREE (history);
                 history = NULL;
                 goto out;
@@ -44,7 +43,7 @@ eh_dump (eh_t *history, void *data,
          int (dump_fn) (circular_buffer_t *buffer, void *data))
 {
         if (!history) {
-                gf_log ("", GF_LOG_DEBUG, "history is NULL");
+                gf_msg_debug ("event-history", 0, "history is NULL");
                 goto out;
         }
 
@@ -68,8 +67,8 @@ int
 eh_destroy (eh_t *history)
 {
         if (!history) {
-                gf_log ("", GF_LOG_INFO, "history for the xlator is "
-                        "NULL");
+                gf_msg ("event-history", GF_LOG_INFO, 0, LG_MSG_INVALID_ARG,
+                        "history for the xlator is NULL");
                 return -1;
         }
 

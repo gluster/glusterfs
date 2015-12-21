@@ -38,12 +38,11 @@ function check_if_permitted () {
 
 # Create a directory in /tmp to specify which directory to make
 # as home directory for user
-home_dir=$(cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
-home_dir="/tmp/bug-1167580-$home_dir"
-mkdir $home_dir
+home_dir=$(mktemp -d)
+chmod 777 $home_dir
 
 function get_new_user() {
-        local temp=$(cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
+        local temp=$(uuidgen | tr -dc 'a-zA-Z' | head -c 8)
         id $temp
         if [ "$?" == "0" ]
         then
@@ -59,9 +58,9 @@ function create_user() {
 
         if [ "$group" == "" ]
         then
-                useradd -d $home_dir/$user $user
+                /usr/sbin/useradd -d $home_dir/$user $user
         else
-                useradd -d $home_dir/$user -G $group $user
+                /usr/sbin/useradd -d $home_dir/$user -G $group $user
         fi
 
         return $?
@@ -94,7 +93,7 @@ chmod 700 $M0/README
 # enable uss and take a snapshot
 TEST $CLI volume set $V0 uss enable
 TEST $CLI snapshot config activate-on-create on
-TEST $CLI snapshot create snap1 $V0
+TEST $CLI snapshot create snap1 $V0 no-timestamp
 
 # try to access the file using user1 account.
 # It should succeed with both normal mount and snapshot world.
@@ -147,7 +146,7 @@ create_user $user5
 
 chgrp $group3 $M0/file3
 
-TEST $CLI snapshot create snap2 $V0
+TEST $CLI snapshot create snap2 $V0 no-timestamp
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" check_if_permitted $user3 $M0/file3 cat
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" check_if_permitted $user3 $M0/.snaps/snap2/file3 cat

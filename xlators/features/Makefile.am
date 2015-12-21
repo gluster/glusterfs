@@ -1,4 +1,5 @@
-SUBDIRS = locks quota read-only mac-compat quiesce marker index barrier \
-          protect compress changelog gfid-access $(GLUPY_SUBDIR) qemu-block snapview-client snapview-server # trash path-converter # filter
+SUBDIRS = locks quota read-only mac-compat quiesce marker index barrier arbiter\
+          protect compress changelog changetimerecorder ganesha gfid-access $(GLUPY_SUBDIR) qemu-block \
+          upcall snapview-client snapview-server trash shard bit-rot #path-converter # filter
 
 CLEANFILES =

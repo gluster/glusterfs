@@ -5,8 +5,14 @@ N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
 N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
 V1=${V1:=patchy1};            # volume name to use in tests
+GMV0=${GMV0:=master};	      # master volume name to use in geo-rep tests
+GSV0=${GSV0:=slave};	      # slave volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
 WORKDIRS="$B0 $M0 $M1 $M2 $N0 $N1" 
+
+META_VOL=${META_VOL:=gluster_shared_storage}; # shared gluster storage volume used by snapshot scheduler, nfs ganesha and geo-rep.
+META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared gluster volume.
+
 CC=cc
 OSTYPE=$(uname -s)
 
@@ -33,6 +39,7 @@ H0=${H0:=`hostname`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
+UMOUNT_F="umount -f"
 
 PATH=$PATH:${PWD}/tests/utils
 
@@ -44,6 +51,7 @@ NetBSD)
   MOUNT_TYPE_FUSE="puffs|perfuse|fuse.glusterfs"
   GREP_MOUNT_OPT_RO="grep (read-only"
   GREP_MOUNT_OPT_RW="grep -v (read-only"
+  UMOUNT_F="umount -f -R"
   ;;
 *)
   ;;
@@ -57,10 +65,16 @@ CHILD_UP_TIMEOUT=20
 PROBE_TIMEOUT=60
 REBALANCE_TIMEOUT=360
 REOPEN_TIMEOUT=20
-HEAL_TIMEOUT=60
+HEAL_TIMEOUT=80
 MARKER_UPDATE_TIMEOUT=20
 JANITOR_TIMEOUT=60
 UMOUNT_TIMEOUT=5
+CONFIG_UPDATE_TIMEOUT=5
+AUTH_REFRESH_INTERVAL=10
+GRAPH_SWITCH_TIMEOUT=10
+UNLINK_TIMEOUT=5
+
+LOGDIR=$(gluster --print-logdir)
 
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
@@ -113,6 +127,23 @@ function dbg()
         [ "x$DEBUG" = "x0" ] || echo "$*" >&2;
 }
 
+function G_LOG()
+{
+     local g_log_logdir;
+     g_log_logdir=`$CLI --print-logdir`
+     test -d $g_log_logdir
+     if [ $? != 0 ]; then
+        return
+     fi
+     local g_log_string;
+     g_log_string="++++++++++ G_LOG:$0: TEST: $1 $@ ++++++++++"
+     g_log_string="`date -u +["%F %T.%6N"]`:$g_log_string"
+     local g_log_filename
+     for  g_log_filename in `find $g_log_logdir/ -type f -name \*.log`;
+        do
+                echo "$g_log_string" >> "$g_log_filename"
+        done
+}
 
 function test_header()
 {
@@ -165,6 +196,7 @@ function _EXPECT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -198,6 +230,7 @@ function _EXPECT_NOT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -215,7 +248,7 @@ function _EXPECT_KEYWORD()
 {
         TESTLINE=$1;
         shift;
-
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -225,13 +258,13 @@ function _EXPECT_KEYWORD()
         test_footer;
 }
 
-
 function _TEST()
 {
         TESTLINE=$1;
         shift;
         local redirect=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         if [ "$1" = "!" ]; then
@@ -251,6 +284,7 @@ function _EXPECT_WITHIN()
         local timeout=$1
         shift;
 
+        G_LOG $TESTLINE "$@";
         test_header "$@"
 
         e=$1;
@@ -375,19 +409,51 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
-        # unmount filesystems before killing daemons to avoid deadllocks
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
-        for m in $MOUNTPOINTS;
-        do
-                umount $m
+
+        # Prepare flags for umount
+        case `uname -s` in
+        Linux)
+                flag="-l"
+                ;;
+        NetBSD)
+                flag="-f -R"
+                ;;
+        FreeBSD|Darwin)
+                flag="-f"
+                ;;
+        *)
+                flag=""
+                ;;
+        esac
+
+        # Clean up all client mounts
+        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
+                umount $flag $m
         done
 
+        # Unmount all well known mount points
+        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
+        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
+
+
+        # unmount all stale mounts from /tmp, This is a temporary work around
+        # till the stale mount in /tmp is found.
+        umount $flag /tmp/mnt* 2>/dev/null
+
+
+        # Kill all gluster processes with SIGTERM
         killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused || true
-        # allow completion of signal handlers for SIGTERM before issue SIGKILL
+        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
+
+        # Wait a second for SIGTERM to work
         sleep 1
+
+        # Send SIGKILL to all gluster processes that are still running
         killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
+        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs
@@ -401,8 +467,18 @@ function cleanup()
         ## nfs_acl
         rpcinfo -d 100227 3 2>/dev/null || true;
 
+        # unmount brick filesystems after killing daemons
+        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        for m in $MOUNTPOINTS;
+        do
+                umount $flag $m
+        done
+
+        # Cleanup lvm
         type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
+        # Destroy loop devices
+        # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
                 LOOPDEVICES=`losetup -a | grep "$B0/" | \
@@ -434,29 +510,17 @@ function cleanup()
                 ;;
         esac
 
-        if [ -n "${GLUSTERD_WORKDIR}" ] ; then
-            rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
+        # remove contents of "GLUSTERD_WORKDIR" except hooks directory.
+        if [ -n $GLUSTERD_WORKDIR ]
+        then
+                find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
+                -o -exec rm -rf '{}' ';'
+        else
+                echo "GLUSTERD_WORKDIR is not set"
         fi
 
-        # unmount all stale mounts from /tmp, This is a temporary work around
-        # till the stale mount in /tmp is found.
-        case `uname -s` in
-        Linux)
-                flag="-l"
-                ;;
-        NetBSD|FreeBSD|Darwin)
-                flag="-f"
-                ;;
-        *)
-                flag=""
-                ;;
-        esac
-        umount $flag /tmp/mnt* 2>/dev/null
-        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
-        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
-        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
-        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
-
+        # Complete cleanup time
+        rm -rf "$B0/*" "/etc/glusterd/*";
         rm -rf $WORKDIRS
         leftover=""
         for d in $WORKDIRS ; do
@@ -476,8 +540,38 @@ function cleanup()
                 echo
                 return 1;
         fi >&2
+
+        # tar logs at the start and end of every test
+        if [ -n $LOGDIR ]
+        then
+                tarname=$(basename $0 .t)
+                tar -rvf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
+                        --exclude="*.tar" \
+                        && \
+                find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
+                                        -o -exec rm -rf '{}' ';'
+        else
+                echo "LOGDIR is not set"
+        fi
+
         mkdir -p $WORKDIRS
+	# This is usually the last thing a test script calls, so our return
+	# value becomes their exit value.  While it's not great for the mkdir
+	# above to fail, promoting that into a failure of the whole test (and
+	# thus of an entire regression-test run) seems a bit excessive.  Make
+	# sure we return good status anyway.
+	return 0
 }
+
+function force_terminate () {
+        local ret=$?;
+        >&2 echo -e "\nreceived external"\
+                        "signal --`kill -l $ret`--, calling 'cleanup' ...\n";
+        cleanup;
+        exit $ret;
+}
+
+trap force_terminate INT TERM HUP
 
 function volinfo_field()
 {
@@ -801,12 +895,15 @@ log_newer()
         msg=$2
         logdir=`$CLI --print-logdir`
 
+        local x_ifs=$IFS
         IFS="["
-        for date in `grep -hr "$msg" $logdir | awk -F '[\]]' '{print $1}'` ; do
+        for date in `grep -hr "$msg" $logdir | grep -v "G_LOG" | awk -F '[\]]' '{print $1}'` ; do
                 if [ `date -d "$date" +%s` -gt $ts ] ; then
+                        IFS=$x_ifs
                         return 0;
                 fi
         done 2>/dev/null
+        IFS=$x_ifs
         return 1
 }
 

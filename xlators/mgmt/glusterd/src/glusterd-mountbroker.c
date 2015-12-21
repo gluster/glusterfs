@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <inttypes.h>
 #include <fnmatch.h>
 #include <pwd.h>
@@ -21,6 +17,7 @@
 #include "dict.h"
 #include "list.h"
 #include "logging.h"
+#include "syscall.h"
 #include "defaults.h"
 #include "compat.h"
 #include "compat-errno.h"
@@ -31,6 +28,7 @@
 #include "common-utils.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-messages.h"
 
 static int
 seq_dict_foreach (dict_t *dict,
@@ -217,7 +215,8 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 
  out:
         if (ret == SYNTAX_ERR) {
-                gf_log ("", GF_LOG_ERROR, "cannot parse mount patterns %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "cannot parse mount patterns %s",
                         pdesc);
         }
 
@@ -232,6 +231,7 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 const char *georep_mnt_desc_template =
         "SUP("
                 "aux-gfid-mount "
+                "acl "
                 "volfile-server=localhost "
                 "client-pid=%d "
                 "user-map-root=%s "
@@ -545,8 +545,8 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         }
 
         /* look up spec for label */
-        list_for_each_entry (mspec, &priv->mount_specs,
-                             speclist) {
+        cds_list_for_each_entry (mspec, &priv->mount_specs,
+                                 speclist) {
                 if (strcmp (mspec->label, label) != 0)
                         continue;
                 uid = evaluate_mount_request (mspec, argdict);
@@ -588,16 +588,16 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
 
         sla = strrchr (mtptemp, '/');
         *sla = '\0';
-        ret = mkdir (mtptemp, 0700);
+        ret = sys_mkdir (mtptemp, 0700);
         if (ret == 0)
-                ret = chown (mtptemp, uid, 0);
+                ret = sys_chown (mtptemp, uid, 0);
         else if (errno == EEXIST)
                 ret = 0;
         if (ret == -1) {
                 *op_errno = errno;
                 goto out;
         }
-        ret = lstat (mtptemp, &st);
+        ret = sys_lstat (mtptemp, &st);
         if (ret == -1) {
                 *op_errno = errno;
                 goto out;
@@ -629,7 +629,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                 *op_errno = errno;
                 goto out;
         }
-        close (ret);
+        sys_close (ret);
 
         /*** assembly the path from cookie to mountpoint */
         sla = strchr (sla - 1, '/');
@@ -643,9 +643,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         /*** create cookie link in (to-be) mountpoint,
              move it over to the final place */
         *cookieswitch = '/';
-        ret = symlink (mntlink, mtptemp);
+        ret = sys_symlink (mntlink, mtptemp);
         if (ret != -1)
-                ret = rename (mtptemp, cookie);
+                ret = sys_rename (mtptemp, cookie);
         *cookieswitch = '\0';
         if (ret == -1) {
                 *op_errno = errno;
@@ -669,16 +669,18 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
 
         if (*op_errno) {
                 ret = -1;
-                gf_log ("", GF_LOG_WARNING, "unsuccessful mount request (%s)",
+                gf_msg (this->name, GF_LOG_WARNING, *op_errno,
+                        GD_MSG_MOUNT_REQ_FAIL,
+                        "unsuccessful mount request (%s)",
                         strerror (*op_errno));
                 if (mtptemp) {
                         *cookieswitch = '/';
-                        unlink (mtptemp);
+                        sys_unlink (mtptemp);
                         *cookieswitch = '\0';
-                        rmdir (mtptemp);
+                        sys_rmdir (mtptemp);
                 }
                 if (cookie) {
-                        unlink (cookie);
+                        sys_unlink (cookie);
                         GF_FREE (cookie);
                 }
 

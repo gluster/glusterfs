@@ -15,16 +15,12 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "glusterfs.h"
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
+#include "gfapi-messages.h"
 
 
 int
@@ -88,7 +84,8 @@ notify (xlator_t *this, int event, void *data, ...)
 
 	switch (event) {
 	case GF_EVENT_GRAPH_NEW:
-		gf_log (this->name, GF_LOG_INFO, "New graph %s (%d) coming up",
+		gf_msg (this->name, GF_LOG_INFO, 0, API_MSG_NEW_GRAPH,
+                        "New graph %s (%d) coming up",
 			uuid_utoa ((unsigned char *)graph->graph_uuid),
 			graph->id);
 		break;
@@ -113,9 +110,11 @@ notify (xlator_t *this, int event, void *data, ...)
 		break;
 	case GF_EVENT_CHILD_CONNECTING:
 		break;
+        case GF_EVENT_UPCALL:
+                glfs_process_upcall_event (fs, data);
+                break;
 	default:
-		gf_log (this->name, GF_LOG_DEBUG,
-			"got notify event %d", event);
+		gf_msg_debug (this->name, 0, "got notify event %d", event);
 		break;
 	}
 
@@ -133,7 +132,8 @@ mem_acct_init (xlator_t *this)
 
 	ret = xlator_mem_acct_init (this, glfs_mt_end + 1);
 	if (ret) {
-		gf_log (this->name, GF_LOG_ERROR, "Failed to initialise "
+		gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        API_MSG_MEM_ACCT_INIT_FAILED, "Failed to initialise "
                         "memory accounting");
 		return ret;
 	}

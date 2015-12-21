@@ -9,9 +9,7 @@ rdma_la_SOURCES = rdma.c name.c
 rdma_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la     \
 	-libverbs -lrdmacm
 
-noinst_HEADERS = rdma.h name.h
-	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src/ \
-	-I$(top_srcdir)/xlators/protocol/lib/src/ $(GF_CFLAGS)
+noinst_HEADERS = rdma.h name.h rpc-trans-rdma-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src/ \

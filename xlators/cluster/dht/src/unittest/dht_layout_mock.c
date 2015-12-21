@@ -7,11 +7,6 @@
   later), or the GNU General Public License, version 2 (GPLv2), in all
   cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"
@@ -62,7 +57,7 @@ int _gf_log_callingfn (const char *domain, const char *file,
     return 0;
 }
 
-void uuid_unparse(const uuid_t uu, char *out)
+void gf_uuid_unparse(const uuid_t uu, char *out)
 {
     // could call a will-return function here
     // to place the correct data in *out

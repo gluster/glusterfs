@@ -69,27 +69,30 @@ function get_hashed_brick()
 function rebalance_completed()
 {
        val=1
-       test=$(gluster volume rebalance $V0 status | grep localhost | grep -v "in progress" 2>&1)
+       test=$(gluster volume rebalance $V0 status | grep localhost | grep "completed" 2>&1)
        if [ $? -eq 0 ]
        then
                 val=0
        fi
 
        echo $val
-       return $val
+       # Do not *return* the value here.  If it's non-zero, that will cause
+       # EXPECT_WITHIN (e.g. in bug-884455.t) to return prematurely, leading to
+       # a spurious test failure.  Nothing else checks the return value anyway
+       # (they all check the output) so there's no need for it to be non-zero
+       # just because grep didn't find what we want.
 }
 
 function remove_brick_completed()
 {
        val=1
-       test=$(gluster volume remove-brick $V0 $H0:$B0/${V0}2 status | grep localhost | grep -v "in progress" 2>&1)
+       test=$(gluster volume remove-brick $V0 $H0:$B0/${V0}2 status | grep localhost | grep "completed" 2>&1)
        if [ $? -eq 0 ]
        then
                 val=0
        fi
 
        echo $val
-       return $val
 }
 
 function dht_get_linkto_target()

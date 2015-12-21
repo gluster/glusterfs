@@ -13,11 +13,6 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
@@ -577,11 +572,19 @@ int
 cli_cmd_system_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                          const char **words, int wordcount)
 {
-        struct cli_cmd *cmd = NULL;
+        struct cli_cmd        *cmd = NULL;
+        struct cli_cmd        *system_cmd = NULL;
+        int                   count     = 0;
 
-        for (cmd = cli_system_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+        cmd = GF_CALLOC (1, sizeof (cli_system_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, cli_system_cmds, sizeof (cli_system_cmds));
+        count = (sizeof (cli_system_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
 
+        for (system_cmd = cmd; system_cmd->pattern; system_cmd++)
+                cli_out ("%s - %s", system_cmd->pattern, system_cmd->desc);
+
+        GF_FREE (cmd);
         return 0;
 }
 

@@ -40,8 +40,8 @@ do
         echo "Initial content">>file$i
 done
 
-replica_0_files_list=(`ls $B0/${V0}1`)
-replica_1_files_list=(`ls $B0/${V0}3`)
+replica_0_files_list=(`ls $B0/${V0}1|grep -v '^\.'`)
+replica_1_files_list=(`ls $B0/${V0}3|grep -v '^\.'`)
 
 ############ Create data split-brain in the files. ###########################
 TEST kill_brick $V0 $H0 $B0/${V0}1

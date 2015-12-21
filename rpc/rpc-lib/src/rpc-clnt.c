@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
 
 #include "rpc-clnt.h"
@@ -500,6 +495,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
 {
         struct saved_frames    *saved_frames = NULL;
         struct rpc_clnt         *clnt  = NULL;
+        int                     unref = 0;
 
         if (!conn) {
                 goto out;
@@ -521,12 +517,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
 
                 conn->connected = 0;
 
-                if (conn->ping_timer) {
-                        gf_timer_call_cancel (clnt->ctx, conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
-                        rpc_clnt_unref (clnt);
-                }
+                unref = rpc_clnt_remove_ping_timer_locked (clnt);
                 /*reset rpc msgs stats*/
                 conn->pingcnt = 0;
                 conn->msgcnt = 0;
@@ -534,6 +525,8 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
         pthread_mutex_unlock (&conn->lock);
 
         saved_frames_destroy (saved_frames);
+        if (unref)
+                rpc_clnt_unref (clnt);
 
 out:
         return 0;
@@ -724,7 +717,7 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
 out:
-        clnt = rpc_clnt_unref (clnt);
+        rpc_clnt_unref (clnt);
         return ret;
 }
 
@@ -774,12 +767,12 @@ out:
                 mem_put (saved_frame);
         }
 
-        clnt = rpc_clnt_unref (clnt);
+        rpc_clnt_unref (clnt);
         return ret;
 }
 
 
-inline void
+void
 rpc_clnt_set_connected (rpc_clnt_connection_t *conn)
 {
         if (!conn) {
@@ -817,6 +810,16 @@ out:
 static void
 rpc_clnt_destroy (struct rpc_clnt *rpc);
 
+#define RPC_THIS_SAVE(xl) do {                                  \
+        old_THIS = THIS ;                                       \
+        if (!old_THIS)                                          \
+                gf_log_callingfn ("rpc", GF_LOG_CRITICAL,       \
+                                  "THIS is not initialised.");  \
+        THIS = xl;                                              \
+} while (0)
+
+#define RPC_THIS_RESTORE        (THIS = old_THIS)
+
 int
 rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  rpc_transport_event_t event, void *data, ...)
@@ -828,6 +831,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         rpc_transport_pollin_t *pollin      = NULL;
         struct timespec         ts          = {0, };
         void                   *clnt_mydata = NULL;
+        DECLARE_OLD_THIS;
 
         conn = mydata;
         if (conn == NULL) {
@@ -836,6 +840,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         clnt = conn->rpc_clnt;
         if (!clnt)
                 goto out;
+
+        RPC_THIS_SAVE (clnt->owner);
 
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
@@ -937,18 +943,11 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         }
 
 out:
+        RPC_THIS_RESTORE;
         return ret;
 }
 
-
-void
-rpc_clnt_connection_deinit (rpc_clnt_connection_t *conn)
-{
-        return;
-}
-
-
-static inline int
+static int
 rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                           dict_t *options, char *name)
 {
@@ -1041,11 +1040,13 @@ out:
 }
 
 struct rpc_clnt *
-rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx, char *name,
+rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
               uint32_t reqpool_size)
 {
         int                    ret  = -1;
         struct rpc_clnt       *rpc  = NULL;
+        glusterfs_ctx_t       *ctx  = owner->ctx;
+
 
         rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
         if (!rpc) {
@@ -1054,6 +1055,7 @@ rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx, char *name,
 
         pthread_mutex_init (&rpc->lock, NULL);
         rpc->ctx = ctx;
+        rpc->owner = owner;
 
         if (!reqpool_size)
                 reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
@@ -1108,6 +1110,11 @@ rpc_clnt_start (struct rpc_clnt *rpc)
 
         conn = &rpc->conn;
 
+        pthread_mutex_lock (&conn->lock);
+        {
+                rpc->disabled = 0;
+        }
+        pthread_mutex_unlock (&conn->lock);
         rpc_clnt_reconnect (conn);
 
         return 0;
@@ -1455,11 +1462,12 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
                 program->progver);
 
 out:
-        if (ret == -1) {
-                gf_log (clnt->conn.name, GF_LOG_ERROR,
-                        "Program registration failed:"
-                        " %s, Num: %d, Ver: %d", program->progname,
-                        program->prognum, program->progver);
+        if (ret == -1 && clnt) {
+                        gf_log (clnt->conn.name, GF_LOG_ERROR,
+                                        "Program registration failed:"
+                                        " %s, Num: %d, Ver: %d",
+                                        program->progname,
+                                        program->prognum, program->progver);
         }
 
         return ret;
@@ -1629,10 +1637,16 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
         if (!rpc)
                 return;
 
+        /* reading conn->trans outside conn->lock is OK, since this is the last
+         * ref*/
         conn = &rpc->conn;
         trans = conn->trans;
-        rpc_clnt_disable (rpc);
-        rpc_transport_unref (trans);
+        rpc_clnt_disconnect (rpc);
+
+        /* This is to account for rpc_clnt_disable that might have been called
+         * before rpc_clnt_unref */
+        if (trans)
+                rpc_transport_unref (trans);
 }
 
 static void
@@ -1702,6 +1716,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
 {
         rpc_clnt_connection_t *conn = NULL;
         rpc_transport_t       *trans = NULL;
+        int                    unref = 0;
 
         if (!rpc) {
                 goto out;
@@ -1724,12 +1739,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                 }
                 conn->connected = 0;
 
-                if (conn->ping_timer) {
-                        gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
-                        rpc_clnt_unref (rpc);
-                }
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
                 trans = conn->trans;
                 conn->trans = NULL;
 
@@ -1740,6 +1750,50 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                 rpc_transport_disconnect (trans);
         }
 
+        if (unref)
+                rpc_clnt_unref (rpc);
+
+out:
+        return;
+}
+
+void
+rpc_clnt_disconnect (struct rpc_clnt *rpc)
+{
+        rpc_clnt_connection_t *conn  = NULL;
+        rpc_transport_t       *trans = NULL;
+        int                    unref = 0;
+
+        if (!rpc)
+                goto out;
+
+        conn = &rpc->conn;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                rpc->disabled = 1;
+                if (conn->timer) {
+                        gf_timer_call_cancel (rpc->ctx, conn->timer);
+                        conn->timer = NULL;
+                }
+
+                if (conn->reconnect) {
+                        gf_timer_call_cancel (rpc->ctx, conn->reconnect);
+                        conn->reconnect = NULL;
+                }
+                conn->connected = 0;
+
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
+                trans = conn->trans;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        if (trans) {
+                rpc_transport_disconnect (trans);
+        }
+        if (unref)
+                rpc_clnt_unref (rpc);
+
 out:
         return;
 }
@@ -1748,6 +1802,21 @@ out:
 void
 rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
 {
+        if (config->ping_timeout) {
+                if (config->ping_timeout != rpc->conn.ping_timeout)
+                        gf_log (rpc->conn.name, GF_LOG_INFO,
+                                "changing ping timeout to %d (from %d)",
+                                config->ping_timeout,
+                                rpc->conn.ping_timeout);
+
+                pthread_mutex_lock (&rpc->conn.lock);
+                {
+                rpc->conn.ping_timeout = config->ping_timeout;
+                }
+                pthread_mutex_unlock (&rpc->conn.lock);
+
+        }
+
         if (config->rpc_timeout) {
                 if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
                         gf_log (rpc->conn.name, GF_LOG_INFO,

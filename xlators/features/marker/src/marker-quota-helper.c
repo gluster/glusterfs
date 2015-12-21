@@ -7,11 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "locking.h"
 #include "marker-quota.h"
 #include "marker-common.h"
@@ -37,23 +32,27 @@ mq_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         if (parent)
                 loc->parent = inode_ref (parent);
 
+        if (!gf_uuid_is_null (inode->gfid))
+                gf_uuid_copy (loc->gfid, inode->gfid);
+
         loc->path = gf_strdup (path);
         if (!loc->path) {
                 gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
-                goto loc_wipe;
+                goto out;
         }
 
         loc->name = strrchr (loc->path, '/');
         if (loc->name)
                 loc->name++;
         else
-                goto loc_wipe;
+                goto out;
 
         ret = 0;
-loc_wipe:
+
+out:
         if (ret < 0)
                 loc_wipe (loc);
-out:
+
         return ret;
 }
 
@@ -79,13 +78,19 @@ mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
                 parent = inode_find (inode->table,
                                      (unsigned char *) parent_gfid);
 
-        if (parent == NULL)
+        if (parent == NULL) {
+                gf_log ("marker", GF_LOG_ERROR, "parent is NULL for %s",
+                        uuid_utoa(inode->gfid));
                 goto err;
+        }
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log ("marker", GF_LOG_ERROR, "failed to resolve path for %s",
+                        uuid_utoa(inode->gfid));
                 goto err;
+        }
 
         ret = mq_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
@@ -120,6 +125,39 @@ out:
         return ctx;
 }
 
+void
+mq_contri_fini (void *data)
+{
+        inode_contribution_t *contri = data;
+
+        LOCK_DESTROY (&contri->lock);
+        GF_FREE (contri);
+}
+
+inode_contribution_t*
+mq_contri_init (inode_t *inode)
+{
+        inode_contribution_t *contri   = NULL;
+        int32_t               ret      = 0;
+
+        QUOTA_ALLOC (contri, inode_contribution_t, ret);
+        if (ret == -1)
+                goto out;
+
+        GF_REF_INIT (contri, mq_contri_fini);
+
+        contri->contribution = 0;
+        contri->file_count = 0;
+        contri->dir_count = 0;
+        gf_uuid_copy (contri->gfid, inode->gfid);
+
+        LOCK_INIT (&contri->lock);
+        INIT_LIST_HEAD (&contri->contri_list);
+
+out:
+        return contri;
+}
+
 inode_contribution_t *
 mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
 {
@@ -129,39 +167,35 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
         if (!inode || !ctx)
                 goto out;
 
-        list_for_each_entry (temp, &ctx->contribution_head, contri_list) {
-                if (uuid_compare (temp->gfid, inode->gfid) == 0) {
-                        contri = temp;
-                        goto out;
+        LOCK (&ctx->lock);
+        {
+                if (list_empty (&ctx->contribution_head))
+                        goto unlock;
+
+                list_for_each_entry (temp, &ctx->contribution_head,
+                                     contri_list) {
+                        if (gf_uuid_compare (temp->gfid, inode->gfid) == 0) {
+                                contri = temp;
+                                GF_REF_GET (contri);
+                                break;
+                        }
                 }
         }
+unlock:
+        UNLOCK (&ctx->lock);
+
 out:
         return contri;
 }
-
-
-int32_t
-mq_delete_contribution_node (dict_t *dict, char *key,
-                             inode_contribution_t *contribution)
-{
-        if (dict_get (dict, key) != NULL)
-                goto out;
-
-        QUOTA_FREE_CONTRIBUTION_NODE (contribution);
-out:
-        return 0;
-}
-
 
 inode_contribution_t *
 __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
                                 loc_t *loc)
 {
-        int32_t               ret          = 0;
         inode_contribution_t *contribution = NULL;
 
         if (!loc->parent) {
-                if (!uuid_is_null (loc->pargfid))
+                if (!gf_uuid_is_null (loc->pargfid))
                         loc->parent = inode_find (loc->inode->table,
                                                   loc->pargfid);
 
@@ -175,21 +209,14 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
         list_for_each_entry (contribution, &ctx->contribution_head,
                              contri_list) {
                 if (loc->parent &&
-                    uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
+                    gf_uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
                         goto out;
                 }
         }
 
-        QUOTA_ALLOC (contribution, inode_contribution_t, ret);
-        if (ret == -1)
+        contribution = mq_contri_init (loc->parent);
+        if (contribution == NULL)
                 goto out;
-
-        contribution->contribution = 0;
-
-        uuid_copy (contribution->gfid, loc->parent->gfid);
-
-	LOCK_INIT (&contribution->lock);
-        INIT_LIST_HEAD (&contribution->contri_list);
 
         list_add_tail (&contribution->contri_list, &ctx->contribution_head);
 
@@ -208,12 +235,14 @@ mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
                 return NULL;
 
         if (((loc->path) && (strcmp (loc->path, "/") == 0))
-            || (!loc->path && uuid_is_null (loc->pargfid)))
+            || (!loc->path && gf_uuid_is_null (loc->pargfid)))
                 return NULL;
 
         LOCK (&ctx->lock);
         {
                 contribution = __mq_add_new_contribution_node (this, ctx, loc);
+                if (contribution)
+                        GF_REF_GET (contribution);
         }
         UNLOCK (&ctx->lock);
 
@@ -222,37 +251,39 @@ mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
 
 
 int32_t
-mq_dict_set_contribution (xlator_t *this, dict_t *dict,
-                          loc_t *loc)
+mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
+                          uuid_t gfid, char *contri_key)
 {
-        int32_t ret              = -1;
-        char    contri_key [512] = {0, };
+        int32_t ret                  = -1;
+        char    key[QUOTA_KEY_MAX]   = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
 
-        if (loc->parent) {
-                GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
-                if (ret < 0) {
-                        ret = -1;
-                        goto out;
-                }
+        if (gfid && !gf_uuid_is_null(gfid)) {
+                GET_CONTRI_KEY (this, key, gfid, ret);
+        } else if (loc->parent) {
+                GET_CONTRI_KEY (this, key, loc->parent->gfid, ret);
         } else {
                 /* nameless lookup, fetch contributions to all parents */
-                GET_CONTRI_KEY (contri_key, NULL, ret);
+                GET_CONTRI_KEY (this, key, NULL, ret);
         }
 
-        ret = dict_set_int64 (dict, contri_key, 0);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "unable to set dict value on %s.",
-                        loc->path);
+        if (ret < 0)
                 goto out;
-        }
 
-        ret = 0;
+        ret = dict_set_int64 (dict, key, 0);
+        if (ret < 0)
+                goto out;
+
+        if (contri_key)
+                strncpy (contri_key, key, QUOTA_KEY_MAX);
+
 out:
+        if (ret < 0)
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "dict set failed");
+
         return ret;
 }
 
@@ -379,6 +410,12 @@ mq_local_unref (xlator_t *this, quota_local_t *local)
 
         if (local->fd != NULL)
                 fd_unref (local->fd);
+
+        if (local->contri)
+                GF_REF_PUT (local->contri);
+
+        if (local->xdata)
+                dict_unref (local->xdata);
 
         loc_wipe (&local->loc);
 

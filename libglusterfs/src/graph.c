@@ -8,17 +8,16 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include <dlfcn.h>
 #include <netdb.h>
 #include <fnmatch.h>
+#include <stdlib.h>
 #include "defaults.h"
+#include <unistd.h>
+#include "syscall.h"
 
+#include "libglusterfs-messages.h"
 
 #if 0
 static void
@@ -123,7 +122,7 @@ glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         xlator_t        *ixl = NULL;
 
         if (!ctx->master) {
-                gf_log ("glusterfs", GF_LOG_ERROR,
+                gf_msg ("glusterfs", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                         "volume \"%s\" can be added from command line only "
                         "on client side", type);
 
@@ -147,7 +146,7 @@ glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         ixl->is_autoloaded = autoload;
 
         if (xlator_set_type (ixl, type) == -1) {
-                gf_log ("glusterfs", GF_LOG_ERROR,
+                gf_msg ("glusterfs", GF_LOG_ERROR, 0, LG_MSG_INIT_FAILED,
                         "%s (%s) initialization failed",
                         name, type);
                 return -1;
@@ -262,17 +261,18 @@ gf_add_cmdline_options (glusterfs_graph_t *graph, cmd_args_t *cmd_args)
                                                     cmd_option->key,
                                                     cmd_option->value);
                                 if (ret == 0) {
-                                        gf_log (trav->name, GF_LOG_INFO,
+                                        gf_msg (trav->name, GF_LOG_INFO, 0,
+                                                LG_MSG_VOL_OPTION_ADD,
                                                 "adding option '%s' for "
                                                 "volume '%s' with value '%s'",
                                                 cmd_option->key, trav->name,
                                                 cmd_option->value);
                                 } else {
-                                        gf_log (trav->name, GF_LOG_WARNING,
+                                        gf_msg (trav->name, GF_LOG_WARNING,
+                                                -ret, LG_MSG_VOL_OPTION_ADD,
                                                 "adding option '%s' for "
-                                                "volume '%s' failed: %s",
-                                                cmd_option->key, trav->name,
-                                                strerror (-ret));
+                                                "volume '%s' failed",
+                                                cmd_option->key, trav->name);
                                 }
                         }
                 }
@@ -296,8 +296,9 @@ glusterfs_graph_validate_options (glusterfs_graph_t *graph)
 
                 ret = xlator_options_validate (trav, trav->options, &errstr);
                 if (ret) {
-                        gf_log (trav->name, GF_LOG_ERROR,
-                                "validation failed: %s", errstr);
+                        gf_msg (trav->name, GF_LOG_ERROR, 0,
+                                LG_MSG_VALIDATION_FAILED, "validation failed: "
+                                "%s", errstr);
                         return ret;
                 }
                 trav = trav->next;
@@ -318,7 +319,8 @@ glusterfs_graph_init (glusterfs_graph_t *graph)
         while (trav) {
                 ret = xlator_init (trav);
                 if (ret) {
-                        gf_log (trav->name, GF_LOG_ERROR,
+                        gf_msg (trav->name, GF_LOG_ERROR, 0,
+                                LG_MSG_TRANSLATOR_INIT_FAILED,
                                 "initializing translator failed");
                         return ret;
                 }
@@ -328,6 +330,19 @@ glusterfs_graph_init (glusterfs_graph_t *graph)
         return 0;
 }
 
+int
+glusterfs_graph_deactivate (glusterfs_graph_t *graph)
+{
+        xlator_t           *top = NULL;
+
+        if (graph == NULL)
+                goto out;
+
+        top = graph->top;
+        xlator_tree_fini (top);
+ out:
+        return 0;
+}
 
 static int
 _log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
@@ -340,7 +355,8 @@ _log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
         found = xlator_volume_option_get (xl, key);
 
         if (!found) {
-                gf_log (xl->name, GF_LOG_WARNING,
+                gf_msg (xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_XLATOR_OPTION_INVALID,
                         "option '%s' is not recognized", key);
         }
 
@@ -371,15 +387,15 @@ fill_uuid (char *uuid, int size)
         char           now_str[64];
 
         if (gettimeofday (&tv, NULL) == -1) {
-                gf_log ("graph", GF_LOG_ERROR,
-                        "gettimeofday: failed %s",
-                        strerror (errno));
+                gf_msg ("graph", GF_LOG_ERROR, errno,
+                        LG_MSG_GETTIMEOFDAY_FAILED, "gettimeofday: "
+                        "failed");
         }
 
         if (gethostname (hostname, 256) == -1) {
-                gf_log ("graph", GF_LOG_ERROR,
-                        "gethostname: failed %s",
-                        strerror (errno));
+                gf_msg ("graph", GF_LOG_ERROR, errno,
+                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: "
+                        "failed");
         }
 
         gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_dirent);
@@ -448,33 +464,37 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: attach to -n volname */
         ret = glusterfs_graph_settop (graph, ctx);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph settop failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+                        "glusterfs graph settop failed");
                 return -1;
         }
 
         /* XXX: WORM VOLUME */
         ret = glusterfs_graph_worm (graph, ctx);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph worm failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+                        "glusterfs graph worm failed");
                 return -1;
         }
         ret = glusterfs_graph_acl (graph, ctx);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph ACL failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+                        "glusterfs graph ACL failed");
                 return -1;
         }
 
         /* XXX: MAC COMPAT */
         ret = glusterfs_graph_mac_compat (graph, ctx);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph mac compat failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+                        "glusterfs graph mac compat failed");
                 return -1;
         }
 
         /* XXX: gfid-access */
         ret = glusterfs_graph_gfid_access (graph, ctx);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR,
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                         "glusterfs graph 'gfid-access' failed");
                 return -1;
         }
@@ -482,7 +502,7 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 	/* XXX: topmost xlator */
 	ret = glusterfs_graph_meta (graph, ctx);
 	if (ret) {
-		gf_log ("graph", GF_LOG_ERROR,
+		gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
 			"glusterfs graph meta failed");
 		return -1;
 	}
@@ -502,33 +522,160 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: --xlator-option additions */
         gf_add_cmdline_options (graph, &ctx->cmd_args);
 
-
         return 0;
 }
 
+static
+xlator_t *glusterfs_root(glusterfs_graph_t *graph)
+{
+        return graph->first;
+}
+
+static
+int glusterfs_is_leaf(xlator_t *xl)
+{
+        int ret = 0;
+
+        if (!xl->children)
+                ret = 1;
+
+        return ret;
+}
+
+static
+uint32_t glusterfs_count_leaves(xlator_t *xl)
+{
+        int n = 0;
+        xlator_list_t *list = NULL;
+
+        if (glusterfs_is_leaf(xl))
+                n = 1;
+        else
+                for (list = xl->children; list; list = list->next)
+                        n += glusterfs_count_leaves(list->xlator);
+
+        return n;
+}
+
+int glusterfs_get_leaf_count(glusterfs_graph_t *graph)
+{
+        return graph->leaf_count;
+}
+
+static
+int _glusterfs_leaf_position(xlator_t *tgt, int *id, xlator_t *xl)
+{
+        xlator_list_t *list = NULL;
+        int found = 0;
+
+        if (xl == tgt)
+                found = 1;
+        else if (glusterfs_is_leaf(xl))
+                *id += 1;
+        else
+                for (list = xl->children; !found && list; list = list->next)
+                        found = _glusterfs_leaf_position(tgt, id, list->xlator);
+
+        return found;
+}
+
+int glusterfs_leaf_position(xlator_t *tgt)
+{
+        xlator_t *root = NULL;
+        int pos = 0;
+
+        root = glusterfs_root(tgt->graph);
+
+        if (!_glusterfs_leaf_position(tgt, &pos, root))
+                pos = -1;
+
+        return pos;
+}
+
+static int
+_glusterfs_reachable_leaves(xlator_t *base, xlator_t *xl, dict_t *leaves)
+{
+        xlator_list_t *list = NULL;
+        int err = 1;
+        int pos = 0;
+        char strpos[6];
+
+        if (glusterfs_is_leaf(xl)) {
+                pos = glusterfs_leaf_position(xl);
+                if (pos < 0)
+                        goto out;
+                sprintf(strpos, "%d", pos);
+
+                err = dict_set_static_ptr(leaves, strpos, base);
+
+        } else {
+                for (err = 0, list = xl->children;
+                     !err && list;
+                     list = list->next)
+                        err = _glusterfs_reachable_leaves(base, list->xlator,
+                                                          leaves);
+        }
+
+out:
+        return err;
+}
+
+/*
+ * This function determines which leaves are children (or grandchildren)
+ * of the given base. The base may have multiple sub volumes. Each sub
+ * volumes in turn may have sub volumes.. until the leaves are reached.
+ * Each leaf is numbered 1,2,3,...etc.
+ *
+ * The base translator calls this function to see which of *its* subvolumes
+ * it would forward an FOP to, to *get to* a particular leaf.
+ * That information is built into the "leaves" dictionary.
+ * key:destination leaf# -> value:base subvolume xlator.
+ */
+
+int
+glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves)
+{
+        xlator_list_t *list = NULL;
+        int err = 0;
+
+        for (list = base->children; !err && list; list = list->next)
+                err = _glusterfs_reachable_leaves(list->xlator,
+                                                  list->xlator, leaves);
+
+        return err;
+}
 
 int
 glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
         int ret = 0;
+        xlator_t *root = NULL;
+
+        root = glusterfs_root(graph);
+
+        graph->leaf_count = glusterfs_count_leaves(root);
 
         /* XXX: all xlator options validation */
         ret = glusterfs_graph_validate_options (graph);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "validate options failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_VALIDATION_FAILED,
+                        "validate options failed");
                 return ret;
         }
 
         /* XXX: perform init () */
         ret = glusterfs_graph_init (graph);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "init failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_INIT_FAILED,
+                        "init failed");
                 return ret;
         }
 
         ret = glusterfs_graph_unknown_options (graph);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "unknown options failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0,
+                        LG_MSG_UNKNOWN_OPTIONS_FAILED, "unknown options "
+                        "failed");
                 return ret;
         }
 
@@ -541,7 +688,8 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         if (ctx->master) {
                 ret = xlator_notify (ctx->master, GF_EVENT_GRAPH_NEW, graph);
                 if (ret) {
-                        gf_log ("graph", GF_LOG_ERROR,
+                        gf_msg ("graph", GF_LOG_ERROR, 0,
+                                LG_MSG_EVENT_NOTIFY_FAILED,
                                 "graph new notification failed");
                         return ret;
                 }
@@ -551,7 +699,8 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: perform parent up */
         ret = glusterfs_graph_parent_up (graph);
         if (ret) {
-                gf_log ("graph", GF_LOG_ERROR, "parent up notification failed");
+                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
+                        "parent up notification failed");
                 return ret;
         }
 
@@ -567,7 +716,7 @@ xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
         int            ret   = 0;
 
         if (xl1 == NULL || xl2 == NULL) {
-                gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+                gf_msg_debug ("xlator", 0, "invalid argument");
                 return -1;
         }
 
@@ -577,8 +726,8 @@ xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
         while (trav1 && trav2) {
                 ret = xlator_equal_rec (trav1->xlator, trav2->xlator);
                 if (ret) {
-                        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                                "xlators children not equal");
+                        gf_msg_debug ("glusterfsd-mgmt", 0, "xlators children "
+                                      "not equal");
                         goto out;
                 }
 
@@ -622,15 +771,13 @@ is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2)
         ret = xlator_equal_rec (trav1, trav2);
 
         if (ret) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "graphs are not equal");
+                gf_msg_debug ("glusterfsd-mgmt", 0, "graphs are not equal");
                 ret = _gf_false;
                 goto out;
         }
 
         ret = _gf_true;
-        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                "graphs are equal");
+        gf_msg_debug ("glusterfsd-mgmt", 0, "graphs are equal");
 
 out:
         return ret;
@@ -649,9 +796,15 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         glusterfs_graph_t *oldvolfile_graph = NULL;
         glusterfs_graph_t *newvolfile_graph = NULL;
         FILE              *oldvolfile_fp    = NULL;
+        /*Since the function mkstemp() replaces XXXXXX,
+         * assigning it to a variable
+         */
+        char temp_file[]                    = "/tmp/temp_vol_file_XXXXXX";
         gf_boolean_t      active_graph_found = _gf_true;
 
         int ret = -1;
+        int u_ret = -1;
+        int file_desc = -1;
 
         if (!oldvollen) {
                 ret = 1; // Has to call INIT for the whole graph
@@ -659,7 +812,7 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         }
 
         if (!ctx) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
 			"ctx is NULL");
 		goto out;
 	}
@@ -667,16 +820,35 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         oldvolfile_graph = ctx->active;
         if (!oldvolfile_graph) {
                 active_graph_found = _gf_false;
-                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, 0,
+                        LG_MSG_ACTIVE_GRAPH_NULL,
                         "glusterfs_ctx->active is NULL");
 
-                oldvolfile_fp = tmpfile ();
-                if (!oldvolfile_fp) {
-                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR, "Unable to "
-                                "create temporary volfile: (%s)",
-                                strerror (errno));
+                file_desc = mkstemp(temp_file);
+                if (file_desc < 0) {
+                        gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, errno,
+                                LG_MSG_TMPFILE_CREATE_FAILED, "Unable to "
+                                "create temporary volfile");
                         goto out;
                 }
+
+                /*Calling unlink so that when the file is closed or program
+                 *terminates the tempfile is deleted.
+                 */
+                u_ret = sys_unlink(temp_file);
+
+                if (u_ret < 0) {
+                        gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, errno,
+                                LG_MSG_TMPFILE_DELETE_FAILED, "Temporary file"
+                                " delete failed.");
+                        sys_close (file_desc);
+                        goto out;
+                }
+
+
+                oldvolfile_fp = fdopen (file_desc, "w+b");
+                if (!oldvolfile_fp)
+                        goto out;
 
                 fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
                 fflush (oldvolfile_fp);
@@ -700,21 +872,20 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                                       newvolfile_graph)) {
 
                 ret = 1;
-                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "Graph topology not equal(should call INIT)");
+                gf_msg_debug ("glusterfsd-mgmt", 0, "Graph topology not "
+                              "equal(should call INIT)");
                 goto out;
         }
 
-        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                "Only options have changed in the new "
-                "graph");
+        gf_msg_debug ("glusterfsd-mgmt", 0, "Only options have changed in the"
+                      " new graph");
 
         /* */
         ret = glusterfs_graph_reconfigure (oldvolfile_graph,
                                            newvolfile_graph);
         if (ret) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "Could not reconfigure new options in old graph");
+                gf_msg_debug ("glusterfsd-mgmt", 0, "Could not reconfigure "
+                              "new options in old graph");
                 goto out;
         }
 
@@ -763,14 +934,53 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
 }
 
 int
-glusterfs_graph_destroy (glusterfs_graph_t *graph)
+glusterfs_graph_destroy_residual (glusterfs_graph_t *graph)
 {
-        GF_VALIDATE_OR_GOTO ("graph", graph, out);
+        int ret = -1;
 
-        xlator_tree_free (graph->first);
+        if (graph == NULL)
+                return ret;
+
+        ret = xlator_tree_free_memacct (graph->first);
 
         list_del_init (&graph->list);
         GF_FREE (graph);
+
+        return ret;
+}
+
+/* This function destroys all the xlator members except for the
+ * xlator strcuture and its mem accounting field.
+ *
+ * If otherwise, it would destroy the master xlator object as well
+ * its mem accounting, which would mean after calling glusterfs_graph_destroy()
+ * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * not possible because of the following dependencies:
+ * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - xlator objects will have references to those mem pools(g: dict)
+ *
+ * Ordering the freeing in any of the order will also not solve the dependency:
+ * - Freeing xlator objects(including memory accounting) before mem pools
+ *   destruction will mean not use GF_FREE while destroying mem pools.
+ * - Freeing mem pools and then destroying xlator objects would lead to crashes
+ *   when xlator tries to unref dict or other mem pool objects.
+ *
+ * Hence the way chosen out of this interdependency is to split xlator object
+ * free into two stages:
+ * - Free all the xlator members excpet for its mem accounting structure
+ * - Free all the mem accouting structures of xlator along with the xlator
+ *   object itself.
+ */
+int
+glusterfs_graph_destroy (glusterfs_graph_t *graph)
+{
+        int ret = 0;
+
+        GF_VALIDATE_OR_GOTO ("graph", graph, out);
+
+        ret = xlator_tree_free_members (graph->first);
+
+        ret = glusterfs_graph_destroy_residual (graph);
 out:
-        return 0;
+        return ret;
 }

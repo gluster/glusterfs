@@ -19,12 +19,14 @@
 #define HTIME_FILE_NAME "HTIME"
 #define CSNAP_FILE_NAME "CHANGELOG.SNAP"
 #define HTIME_KEY "trusted.glusterfs.htime"
+#define HTIME_CURRENT "trusted.glusterfs.current_htime"
 #define HTIME_INITIAL_VALUE "0:0"
 
 #define CHANGELOG_VERSION_MAJOR  1
-#define CHANGELOG_VERSION_MINOR  1
+#define CHANGELOG_VERSION_MINOR  2
 
 #define CHANGELOG_UNIX_SOCK  DEFAULT_VAR_RUN_DIRECTORY"/changelog-%s.sock"
+#define CHANGELOG_TMP_UNIX_SOCK  DEFAULT_VAR_RUN_DIRECTORY"/.%s%lu.sock"
 
 /**
  * header starts with the version and the format of the changelog.
@@ -42,14 +44,29 @@
                                  CHANGELOG_UNIX_SOCK, md5_sum);         \
         } while (0)
 
+#define CHANGELOG_MAKE_TMP_SOCKET_PATH(brick_path, sockpath, len) do {  \
+                unsigned long pid = 0;                                  \
+                char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};             \
+                pid = (unsigned long) getpid ();                        \
+                md5_wrapper((unsigned char *) brick_path,               \
+                            strlen(brick_path),                         \
+                            md5_sum);                                   \
+                (void) snprintf (sockpath,                              \
+                                 len, CHANGELOG_TMP_UNIX_SOCK,          \
+                                 md5_sum, pid);                         \
+        } while (0)
+
+
 /**
  * ... used by libgfchangelog.
  */
-#define CHANGELOG_GET_ENCODING(fd, buffer, len, enc, enc_len) do {      \
+#define CHANGELOG_GET_HEADER_INFO(fd, buffer, len, enc, maj, min, elen) do { \
                 FILE *fp;                                               \
-                int fd_dup, maj, min;                                   \
+                int fd_dup;                                             \
                                                                         \
                 enc = -1;                                               \
+                maj = -1;                                               \
+                min = -1;                                               \
                 fd_dup = dup (fd);                                      \
                                                                         \
                 if (fd_dup != -1) {                                     \
@@ -63,19 +80,19 @@
                                 }                                       \
                                 fclose (fp);                            \
                         } else {                                        \
-                                close (fd_dup);                         \
+                                sys_close (fd_dup);                     \
                         }                                               \
                 }                                                       \
         } while (0)
 
-#define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {      \
-                strcpy (path, changelog_dir);                   \
-                strcat (path, "/htime");                        \
+#define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {              \
+                strncpy (path, changelog_dir, sizeof (path) - 1);       \
+                strcat (path, "/htime");                                \
         } while(0)
 
-#define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {      \
-                strcpy (path, changelog_dir);                   \
-                strcat (path, "/csnap");                        \
+#define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {              \
+                strncpy (path, changelog_dir, sizeof (path) - 1);       \
+                strcat (path, "/csnap");                                \
         } while(0)
 /**
  * everything after 'CHANGELOG_TYPE_ENTRY' are internal types

@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "statedump.h"
 #include "dht-common.h"
 
@@ -86,4 +81,3 @@ struct xlator_cbks cbks = {
 //      .releasedir = dht_releasedir,
         .forget     = dht_forget
 };
-;

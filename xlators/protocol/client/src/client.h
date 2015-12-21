@@ -48,7 +48,8 @@ typedef enum {
                         goto label;                                     \
                 }                                                       \
                 if (remote_fd == -1) {                                  \
-                        gf_log (xl->name, GF_LOG_WARNING, " (%s) "      \
+                        gf_msg (xl->name, GF_LOG_WARNING, EBADFD,       \
+                                PC_MSG_BAD_FD, " (%s) "                 \
                                 "remote_fd is -1. EBADFD",              \
                                 uuid_utoa (fd->inode->gfid));           \
                         op_errno = EBADFD;                              \
@@ -85,6 +86,7 @@ typedef struct clnt_conf {
         rpc_clnt_prog_t       *handshake;
         rpc_clnt_prog_t       *dump;
 
+        int                    client_id;
         uint64_t               reopen_fd_count; /* Count of fds reopened after a
                                                    connection is established */
         gf_lock_t              rec_lock;
@@ -102,7 +104,7 @@ typedef struct clnt_conf {
         uint16_t               lk_version; /* this variable is used to distinguish
                                               client-server transaction while
                                               performing lock healing */
-        struct timespec        grace_ts;
+        uint32_t               grace_timeout;
         gf_timer_t            *grace_timer;
         gf_boolean_t           grace_timer_needed; /* The state of this flag will
                                                       be used to decide whether
@@ -128,6 +130,9 @@ typedef struct clnt_conf {
 
         int                     event_threads; /* # of event threads
                                                 * configured */
+
+        gf_boolean_t           destroy; /* if enabled implies fini was called
+                                         * on @this xlator instance */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -225,7 +230,8 @@ int client_submit_request (xlator_t *this, void *req,
                            struct iovec *rsp_payload, int rsp_count,
                            struct iobref *rsp_iobref, xdrproc_t xdrproc);
 
-int unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries);
+int unserialize_rsp_dirent (xlator_t *this, struct gfs3_readdir_rsp *rsp,
+                            gf_dirent_t *entries);
 int unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                              struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
 
@@ -264,4 +270,6 @@ gf_boolean_t
 __is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx);
 int
 client_notify_dispatch (xlator_t *this, int32_t event, void *data, ...);
+int
+client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...);
 #endif /* !_CLIENT_H */

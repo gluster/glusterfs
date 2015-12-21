@@ -42,6 +42,10 @@ CONFIGS = (
      "gluster_params",
      "aux-gfid-mount xlator-option=\*-dht.assert-no-child-down=true",
      "aux-gfid-mount"),
+    ("peersrx .",
+     "gluster_params",
+     "aux-gfid-mount",
+     "aux-gfid-mount acl"),
     ("peersrx . .",
      "ssh_command_tar",
      "",
@@ -56,6 +60,10 @@ CONFIGS = (
      "working_dir",
      "@localstatedir@/run/gluster/${mastervol}/${eSlave}",
      "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
+    ("peersrx . .",
+     "ignore_deletes",
+     "true",
+     "false"),
 )
 
 

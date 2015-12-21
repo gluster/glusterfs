@@ -11,11 +11,6 @@
 #ifndef _NFS_FOPS_H_
 #define _NFS_FOPS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dict.h"
 #include "xlator.h"
 #include "iobuf.h"
@@ -23,6 +18,7 @@
 #include "stack.h"
 #include "nfs.h"
 #include "nfs-common.h"
+#include "nfs-messages.h"
 #include <semaphore.h>
 
 /* This structure used to communicate state between a fop and its callback.
@@ -111,7 +107,7 @@ nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
                 nflocal = nfs_fop_local_init (nf);                      \
                 if (nflocal) {                                          \
                         nflocal->proglocal = plocal;                    \
-                        nflocal->progcbk = *VOID(&pcbk);                        \
+                        nflocal->progcbk = *VOID(&pcbk);                \
                         nflocal->nfsx = nf;                             \
                         if (fram)                                       \
                                 ((call_frame_t *)fram)->local = nflocal;\
@@ -129,9 +125,10 @@ nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
 
 #define nfs_fop_handle_local_init(fram,nfx, nfloc, cbck,prgloc,retval,lab)  \
         do {                                                                \
-                prog_data_to_nfl (nfx, nfloc, fram, cbck, prgloc);      \
+                prog_data_to_nfl (nfx, nfloc, fram, cbck, prgloc);          \
                 if (!nfloc) {                                               \
-                        gf_log (GF_NFS,GF_LOG_ERROR,"Failed to init local");\
+                        gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM,               \
+                                NFS_MSG_NO_MEMORY, "Failed to init local"); \
                         retval = -ENOMEM;                                   \
                         goto lab;                                           \
                 }                                                           \

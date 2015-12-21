@@ -26,18 +26,15 @@
  * unit test versions
  */
 #ifdef UNIT_TESTING
-#include <cmockery/cmockery_override.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
 #endif
 
-#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)
 #define GF_MEM_TRAILER_SIZE 8
 #define GF_MEM_HEADER_MAGIC  0xCAFEBABE
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
-
-struct mem_acct {
-        uint32_t            num_types;
-        struct mem_acct_rec     *rec;
-};
+#define GF_MEM_INVALID_MAGIC 0xDEADC0DE
 
 struct mem_acct_rec {
 	const char     *typestr;
@@ -49,6 +46,38 @@ struct mem_acct_rec {
         gf_lock_t       lock;
 };
 
+struct mem_acct {
+        uint32_t            num_types;
+        /*
+         * The lock is only used on ancient platforms (e.g. RHEL5) to keep
+         * refcnt increment/decrement atomic.  We could even make its existence
+         * conditional on the right set of version/feature checks, but it's so
+         * lightweight that it's not worth the obfuscation.
+         */
+        gf_lock_t           lock;
+        unsigned int        refcnt;
+        struct mem_acct_rec rec[0];
+};
+
+struct mem_header {
+        uint32_t        type;
+        size_t          size;
+        struct mem_acct *mem_acct;
+        uint32_t        magic;
+        int             padding[8];
+};
+
+#define GF_MEM_HEADER_SIZE  (sizeof (struct mem_header))
+
+#ifdef DEBUG
+struct mem_invalid {
+        uint32_t  magic;
+        void     *mem_acct;
+        uint32_t  type;
+        size_t    size;
+        void     *baseaddr;
+};
+#endif
 
 void *
 __gf_calloc (size_t cnt, size_t size, uint32_t type, const char *typestr);
@@ -109,11 +138,13 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 #define CALLOC(cnt,size)   __gf_default_calloc(cnt,size)
 #define REALLOC(ptr,size)  __gf_default_realloc(ptr,size)
 
-#define FREE(ptr)                               \
-        if (ptr != NULL) {                      \
-                free ((void *)ptr);             \
-                ptr = (void *)0xeeeeeeee;       \
-        }
+#define FREE(ptr)                                       \
+        do {                                            \
+                if (ptr != NULL) {                      \
+                        free ((void *)ptr);             \
+                        ptr = (void *)0xeeeeeeee;       \
+                }                                       \
+        } while (0)
 
 #define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type, #type)
 

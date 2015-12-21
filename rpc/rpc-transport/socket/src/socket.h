@@ -13,10 +13,12 @@
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
+#include <openssl/x509v3.h>
+#ifdef HAVE_OPENSSL_DH_H
+#include <openssl/dh.h>
+#endif
+#ifdef HAVE_OPENSSL_ECDH_H
+#include <openssl/ecdh.h>
 #endif
 
 #include "event.h"
@@ -59,6 +61,7 @@ typedef enum {
         SP_STATE_RPCFRAG_INIT,
         SP_STATE_READING_MSGTYPE,
         SP_STATE_READ_MSGTYPE,
+        SP_STATE_NOTIFYING_XID
 } sp_rpcfrag_state_t;
 
 typedef enum {
@@ -215,6 +218,7 @@ typedef struct {
         int                    keepalive;
         int                    keepaliveidle;
         int                    keepaliveintvl;
+        int                    timeout;
         uint32_t               backlog;
         gf_boolean_t           read_fail_log;
         gf_boolean_t           ssl_enabled;     /* outbound I/O */

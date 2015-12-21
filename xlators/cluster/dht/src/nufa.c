@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dht-common.h"
 
 /* TODO: all 'TODO's in dht.c holds good */
@@ -206,7 +201,8 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dict value.");
                         op_errno = -1;
                         goto err;
@@ -227,7 +223,8 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dict value.");
                         op_errno = -1;
                         goto err;
@@ -236,7 +233,8 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->link_xattr_name, 256);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dict value.");
                         op_errno = -1;
                         goto err;
@@ -508,7 +506,9 @@ nufa_find_local_brick (xlator_t *xl, void *data)
 
         if (strcmp (xl->name, local_volname) == 0) {
                 conf->private = xl;
-                gf_log (this->name, GF_LOG_INFO, "Using specified subvol %s",
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_SUBVOL_INFO,
+                        "Using specified subvol %s",
                         local_volname);
                 return;
         }
@@ -521,7 +521,8 @@ nufa_find_local_brick (xlator_t *xl, void *data)
             (gf_is_same_address (local_volname, brick_host) ||
              gf_is_local_addr (brick_host))) {
                 conf->private = xl;
-                gf_log (this->name, GF_LOG_INFO, "Using the first local "
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_SUBVOL_INFO, "Using the first local "
                         "subvol %s", xl->name);
                 return;
         }
@@ -551,7 +552,8 @@ nufa_find_local_subvol (xlator_t *this,
 
         xlator_foreach_depth_first (this, fn, data);
         if (!conf->private) {
-                gf_log (this->name, GF_LOG_ERROR, "Couldn't find a local "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_BRICK_ERROR, "Couldn't find a local "
                         "brick");
                 return -1;
         }
@@ -562,7 +564,8 @@ nufa_find_local_subvol (xlator_t *this,
 
                 parent = trav->xlator;
                 if (strcmp (parent->type, "cluster/nufa") == 0) {
-                        gf_log (this->name, GF_LOG_INFO, "Found local subvol, "
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_SUBVOL_INFO, "Found local subvol, "
                                 "%s", candidate->name);
                         ret = 0;
                         conf->private = candidate;
@@ -602,9 +605,9 @@ nufa_init (xlator_t *this)
                         local_volname = my_hostname;
 
                 else
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "could not find hostname (%s)",
-                                strerror (errno));
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                DHT_MSG_GET_HOSTNAME_FAILED,
+                                "could not find hostname");
 
         }
 
@@ -613,7 +616,8 @@ nufa_init (xlator_t *this)
         args.addr_match = addr_match;
         ret = nufa_find_local_subvol (this, nufa_find_local_brick, &args);
         if (ret) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_SUBVOL_INFO,
                         "Unable to find local subvolume, switching "
                         "to dht mode");
                 nufa_to_dht (this);
@@ -621,6 +625,11 @@ nufa_init (xlator_t *this)
         return 0;
 }
 
+dht_methods_t dht_methods = {
+        .migration_get_dst_subvol = dht_migration_get_dst_subvol,
+        .migration_needed = dht_migration_needed,
+        .layout_search   = dht_layout_search,
+};
 
 class_methods_t class_methods = {
         .init           = nufa_init,

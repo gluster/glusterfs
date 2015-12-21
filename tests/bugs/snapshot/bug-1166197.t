@@ -20,11 +20,12 @@ TEST $CLI snapshot config activate-on-create enable
 TEST $CLI volume set $V0 features.uss enable
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status';
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 nolock
 TEST mkdir $N0/testdir
 
-TEST $CLI snapshot create snap1 $V0
-TEST $CLI snapshot create snap2 $V0
+TEST $CLI snapshot create snap1 $V0 no-timestamp
+TEST $CLI snapshot create snap2 $V0 no-timestamp
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $N0/testdir/.snaps
 

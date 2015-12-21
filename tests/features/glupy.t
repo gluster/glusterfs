@@ -20,7 +20,7 @@ volume vol-glupy
 end-volume
 EOF
 
-TEST glusterfs -f $B0/glupytest.vol $M0;
+TEST glusterfs -f $B0/glupytest.vol -l $LOGDIR/glupy.log $M0;
 
 TEST touch $M0/filename;
 EXPECT "filename" ls $M0

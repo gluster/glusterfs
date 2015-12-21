@@ -12,11 +12,6 @@
 #ifndef __AFR_H__
 #define __AFR_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "call-stub.h"
 #include "compat-errno.h"
 #include "afr-mem-types.h"
@@ -38,6 +33,9 @@
 #define AFR_LOCKEE_COUNT_MAX    3
 #define AFR_DOM_COUNT_MAX    3
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
+#define AFR_DEFAULT_SPB_CHOICE_TIMEOUT 300 /*in seconds*/
+
+#define ARBITER_BRICK_INDEX 2
 
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
@@ -51,10 +49,12 @@ typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
 #define AFR_COUNT(array,max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res;})
 #define AFR_INTERSECT(dst,src1,src2,max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i];})
 #define AFR_CMP(a1,a2,len) ({int __cmp = 0; int __i; for (__i = 0; __i < len; __i++) if (a1[__i] != a2[__i]) { __cmp = 1; break;} __cmp;})
-
+#define AFR_IS_ARBITER_BRICK(priv, index) ((priv->arbiter_count == 1) && (index == ARBITER_BRICK_INDEX))
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
         unsigned int child_count;     /* total number of children   */
+        unsigned int arbiter_count;   /*subset of child_count.
+                                        Has to be 0 or 1.*/
 
         xlator_t **children;
 
@@ -97,6 +97,7 @@ typedef struct _afr_private {
         gf_boolean_t      pre_op_compat;      /* on/off */
 	uint32_t          post_op_delay_secs;
         unsigned int      quorum_count;
+        gf_boolean_t      quorum_reads;
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
@@ -124,6 +125,9 @@ typedef struct _afr_private {
 	/* pump dependencies */
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
+        gf_boolean_t           consistent_metadata;
+        uint64_t               spb_choice_timeout;
+        gf_boolean_t           need_heal;
 } afr_private_t;
 
 
@@ -254,6 +258,7 @@ struct afr_reply {
 	int	valid;
 	int32_t	op_ret;
 	int32_t	op_errno;
+	dict_t *xattr;/*For xattrop*/
 	dict_t *xdata;
 	struct iatt poststat;
 	struct iatt postparent;
@@ -261,7 +266,11 @@ struct afr_reply {
 	struct iatt preparent;
 	struct iatt preparent2;
 	struct iatt postparent2;
+        /* For rchecksum */
 	uint8_t checksum[MD5_DIGEST_LENGTH];
+        gf_boolean_t buf_has_zeroes;
+        /* For lookup */
+        int8_t need_heal;
 };
 
 typedef enum {
@@ -560,11 +569,8 @@ typedef struct _afr_local {
 
                 struct {
                         dict_t *xattr;
+                        gf_xattrop_flags_t optype;
                 } xattrop;
-
-                struct {
-                        dict_t *xattr;
-                } fxattrop;
 
                 /* dir write */
 
@@ -652,11 +658,12 @@ typedef struct _afr_local {
 
                 unsigned char   *pre_op;
 
-		/* @fop_subvols: subvolumes on which FOP will be attempted */
-                unsigned char   *fop_subvols;
+                /* For arbiter configuration only. */
+                dict_t **pre_op_xdata;
+                unsigned char *pre_op_sources;
 
-		/* @failed_subvols: subvolumes on which FOP failed. Always
-		   a subset of @fop_subvols */
+		/* @failed_subvols: subvolumes on which a pre-op or a
+                    FOP failed. */
                 unsigned char   *failed_subvols;
 
 		/* @dirtied: flag which indicates whether we set dirty flag
@@ -718,11 +725,11 @@ typedef struct _afr_local {
 
 	syncbarrier_t barrier;
 
-        struct marker_str     marker;
-
         /* extra data for fops */
         dict_t         *xdata_req;
         dict_t         *xdata_rsp;
+
+        dict_t         *xattr_rsp; /*for [f]xattrop*/
 
         mode_t          umask;
         int             xflag;
@@ -731,11 +738,44 @@ typedef struct _afr_local {
 } afr_local_t;
 
 
+typedef struct _afr_inode_ctx {
+        uint64_t        read_subvol;
+        int             spb_choice;
+        gf_timer_t      *timer;
+} afr_inode_ctx_t;
+
+typedef struct afr_spbc_timeout {
+        call_frame_t *frame;
+        gf_boolean_t d_spb;
+        gf_boolean_t m_spb;
+        loc_t        *loc;
+        int          spb_child_index;
+} afr_spbc_timeout_t;
+
+typedef struct afr_spb_status {
+        call_frame_t *frame;
+        loc_t        *loc;
+} afr_spb_status_t;
+
+typedef struct afr_replace_brick_args {
+        call_frame_t *frame;
+        loc_t loc;
+        int rb_index;
+} afr_replace_brick_args_t;
+
+typedef struct afr_read_subvol_args {
+        ia_type_t ia_type;
+        uuid_t gfid;
+} afr_read_subvol_args_t;
+
 /* did a call fail due to a child failing? */
 #define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \
                                            ((op_errno == ENOTCONN) ||   \
                                             (op_errno == EBADFD)))
 
+int
+afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                        unsigned char *readable, int *event_p, int type);
 int
 afr_inode_read_subvol_get (inode_t *inode, xlator_t *this,
 			   unsigned char *data_subvols,
@@ -763,7 +803,8 @@ afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this);
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
-				  unsigned char *readable);
+				  unsigned char *readable,
+                                  afr_read_subvol_args_t *args);
 
 int
 afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
@@ -771,13 +812,14 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 				int type);
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
-		     int *event_p, afr_transaction_type type);
+		     int *event_p, afr_transaction_type type,
+                     afr_read_subvol_args_t *args);
 
-#define afr_data_subvol_get(i, t, s, e) \
-	afr_read_subvol_get(i, t, s, e, AFR_DATA_TRANSACTION)
+#define afr_data_subvol_get(i, t, s, e, a) \
+	afr_read_subvol_get(i, t, s, e, AFR_DATA_TRANSACTION, a)
 
-#define afr_metadata_subvol_get(i, t, s, e) \
-	afr_read_subvol_get(i, t, s, e, AFR_METADATA_TRANSACTION)
+#define afr_metadata_subvol_get(i, t, s, e, a) \
+	afr_read_subvol_get(i, t, s, e, AFR_METADATA_TRANSACTION, a)
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -1003,9 +1045,6 @@ afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count);
 void
 afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
 
-int
-afr_local_pathinfo (char *pathinfo, gf_boolean_t *is_local);
-
 void
 afr_remove_eager_lock_stub (afr_local_t *local);
 
@@ -1019,10 +1058,38 @@ gf_boolean_t
 afr_is_xattr_ignorable (char *key);
 
 int
-afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   dict_t *xdata);
+afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc);
 
 int
 afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc);
 
+int
+afr_get_split_brain_status (void *opaque);
+
+int
+afr_get_split_brain_status_cbk (int ret, call_frame_t *frame, void *opaque);
+
+int
+afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                  int spb_choice);
+int
+afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+                                  int *spb_choice);
+int
+afr_get_child_index_from_name (xlator_t *this, char *name);
+
+int
+afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                    uuid_t gfid, gf_boolean_t *d_spb, gf_boolean_t *m_spb);
+int
+afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode);
+
+int
+afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque);
+
+gf_boolean_t
+afr_get_need_heal (xlator_t *this);
+
+void
+afr_set_need_heal (xlator_t *this, afr_local_t *local);
 #endif /* __AFR_H__ */

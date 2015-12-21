@@ -22,7 +22,7 @@ ln -s $M0/file1 $M0/test/file_symlink
 ls -l $M0/ > /dev/null
 ls -l $M0/test/ > /dev/null
 
-TEST $CLI snapshot create snap1 $V0;
+TEST $CLI snapshot create snap1 $V0 no-timestamp;
 $CLI snapshot activate snap1;
 EXPECT 'Started' snapshot_status snap1;
 

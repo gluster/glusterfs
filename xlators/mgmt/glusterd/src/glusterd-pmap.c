@@ -8,13 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "glusterfs.h"
+#include "syscall.h"
 #include "compat-errno.h"
 
 #include "glusterd.h"
@@ -23,6 +19,7 @@
 #include "portmap-xdr.h"
 #include "xdr-generic.h"
 #include "protocol-common.h"
+#include "glusterd-messages.h"
 #include "rpcsvc.h"
 
 #include <sys/socket.h>
@@ -46,7 +43,7 @@ pmap_port_isfree (int port)
                 return -1;
 
         ret = bind (sock, (struct sockaddr *)&sin, sizeof (sin));
-        close (sock);
+        sys_close (sock);
 
         return (ret == 0) ? 1 : 0;
 }
@@ -223,7 +220,8 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
         pmap->ports[p].type = type;
         pmap->ports[p].xprt = xprt;
 
-        gf_log ("pmap", GF_LOG_INFO, "adding brick %s on port %d",
+        gf_msg ("pmap", GF_LOG_INFO, 0,
+                GD_MSG_BRICK_ADD, "adding brick %s on port %d",
                 brickname, port);
 
         if (pmap->last_alloc < p)
@@ -267,7 +265,8 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
 
         goto out;
 remove:
-        gf_log ("pmap", GF_LOG_INFO, "removing brick %s on port %d",
+        gf_msg ("pmap", GF_LOG_INFO, 0,
+                GD_MSG_BRICK_REMOVE, "removing brick %s on port %d",
                 pmap->ports[p].brickname, p);
 
         free (pmap->ports[p].brickname);

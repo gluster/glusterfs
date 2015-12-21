@@ -9,15 +9,11 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 /* Max file name length is 255 this filename is of length 256. No file with
  * this name can ever come, entry-lock with this name is going to prevent
@@ -44,27 +40,29 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 	subvol = priv->children[child];
 
 	loc.parent = inode_ref (dir);
-	uuid_copy (loc.pargfid, dir->gfid);
+	gf_uuid_copy (loc.pargfid, dir->gfid);
 	loc.name = name;
 	loc.inode = inode_ref (inode);
 
 	if (replies[child].valid && replies[child].op_ret == 0) {
 		switch (replies[child].poststat.ia_type) {
 		case IA_IFDIR:
-			gf_log (this->name, GF_LOG_WARNING,
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
 				"expunging dir %s/%s (%s) on %s",
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
 				subvol->name);
-			ret = syncop_rmdir (subvol, &loc, 1);
+			ret = syncop_rmdir (subvol, &loc, 1, NULL, NULL);
 			break;
 		default:
-			gf_log (this->name, GF_LOG_WARNING,
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
 				"expunging file %s/%s (%s) on %s",
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
 				subvol->name);
-			ret = syncop_unlink (subvol, &loc);
+			ret = syncop_unlink (subvol, &loc, NULL, NULL);
 			break;
 		}
 	}
@@ -97,7 +95,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		return -ENOMEM;
 
 	loc.parent = inode_ref (dir);
-	uuid_copy (loc.pargfid, dir->gfid);
+	gf_uuid_copy (loc.pargfid, dir->gfid);
 	loc.name = name;
 	loc.inode = inode_ref (inode);
 
@@ -113,27 +111,29 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 	iatt = &replies[source].poststat;
 
 	srcloc.inode = inode_ref (inode);
-	uuid_copy (srcloc.gfid, iatt->ia_gfid);
+	gf_uuid_copy (srcloc.gfid, iatt->ia_gfid);
 
 	mode = st_mode_from_ia (iatt->ia_prot, iatt->ia_type);
 
 	switch (iatt->ia_type) {
 	case IA_IFDIR:
-		ret = syncop_mkdir (priv->children[dst], &loc, mode, xdata, 0);
+		ret = syncop_mkdir (priv->children[dst], &loc, mode, 0,
+                                    xdata, NULL);
                 if (ret == 0)
                         newentry[dst] = 1;
 		break;
 	case IA_IFLNK:
 		ret = syncop_lookup (priv->children[dst], &srcloc, 0, 0, 0, 0);
 		if (ret == 0) {
-			ret = syncop_link (priv->children[dst], &srcloc, &loc);
+			ret = syncop_link (priv->children[dst], &srcloc, &loc,
+					   &newent, NULL, NULL);
 		} else {
 			ret = syncop_readlink (priv->children[source], &srcloc,
-					       &linkname, 4096);
+					       &linkname, 4096, NULL, NULL);
 			if (ret <= 0)
 				goto out;
-			ret = syncop_symlink (priv->children[dst], &loc, linkname,
-					      xdata, NULL);
+			ret = syncop_symlink (priv->children[dst], &loc,
+                                              linkname, NULL, xdata, NULL);
                         if (ret == 0)
                                 newentry[dst] = 1;
                 }
@@ -143,7 +143,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		if (ret)
 			goto out;
 		ret = syncop_mknod (priv->children[dst], &loc, mode,
-				    iatt->ia_rdev, xdata, &newent);
+				    iatt->ia_rdev, &newent, xdata, NULL);
 		if (ret == 0 && newent.ia_nlink == 1) {
 			/* New entry created. Mark @dst pending on all sources */
                         newentry[dst] = 1;
@@ -154,6 +154,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 out:
 	if (xdata)
 		dict_unref (xdata);
+	GF_FREE (linkname);
 	loc_wipe (&loc);
 	loc_wipe (&srcloc);
 	return ret;
@@ -178,6 +179,13 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (!replies[source].valid)
 		return -EIO;
 
+        /* Skip healing this entry if the last lookup on it failed for reasons
+         * other than ENOENT.
+         */
+        if ((replies[source].op_ret < 0) &&
+            (replies[source].op_errno != ENOENT))
+                return -replies[source].op_errno;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (!healed_sinks[i])
 			continue;
@@ -185,15 +193,15 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		    replies[source].op_errno == ENOENT) {
 			ret = afr_selfheal_entry_delete (this, fd->inode, name,
                                                          inode, i, replies);
-		} else {
-			if (!uuid_compare (replies[i].poststat.ia_gfid,
+                } else {
+			if (!gf_uuid_compare (replies[i].poststat.ia_gfid,
 					   replies[source].poststat.ia_gfid))
 				continue;
 
 			ret = afr_selfheal_recreate_entry (this, i, source,
 							   fd->inode, name, inode,
 							   replies, newentry);
-		}
+                }
 		if (ret < 0)
 			break;
 	}
@@ -227,9 +235,10 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                 if (replies[i].op_ret != 0)
                         continue;
 
-                if (uuid_compare (replies[src_idx].poststat.ia_gfid,
+                if (gf_uuid_compare (replies[src_idx].poststat.ia_gfid,
                                   replies[i].poststat.ia_gfid)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Gfid mismatch "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Gfid mismatch "
                                 "detected for <%s/%s>, %s on %s and %s on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
@@ -242,7 +251,8 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
 
                 if ((replies[src_idx].poststat.ia_type) !=
                     (replies[i].poststat.ia_type)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Type mismatch "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Type mismatch "
                                 "detected for <%s/%s>, %d on %s and %d on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
@@ -283,6 +293,13 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (source == -1) {
 		/* entry got deleted in the mean time? */
 		return 0;
+	}
+
+        /* Set all the sources as 1, otheriwse newentry_mark won't be set */
+	for (i = 0; i < priv->child_count; i++) {
+		if (replies[i].valid && replies[i].op_ret == 0) {
+			sources[i] = 1;
+		}
 	}
 
         /* In case of a gfid or type mismatch on the entry, return -1.*/
@@ -371,7 +388,8 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
                               inode_t *inode, unsigned char *locked_on,
                               unsigned char *sources, unsigned char *sinks,
                               unsigned char *healed_sinks,
-			      struct afr_reply *replies, int *source_p)
+			      struct afr_reply *replies, int *source_p,
+                              gf_boolean_t *pflag)
 {
 	int ret = -1;
 	int source = -1;
@@ -388,7 +406,8 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
         witness = alloca0 (sizeof (*witness) * priv->child_count);
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_ENTRY_TRANSACTION,
-					   locked_on, sources, sinks, witness);
+					   locked_on, sources, sinks, witness,
+                                           pflag);
 	if (ret)
 		return ret;
 
@@ -445,10 +464,11 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
                                     locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret, this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes "
+                                      " could be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid),
+                                      ret, this->name);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -457,7 +477,7 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
                                                     locked_on,
                                                     sources, sinks,
                                                     healed_sinks, par_replies,
-                                                    &source);
+                                                    &source, NULL);
                 if (ret < 0)
                         goto unlock;
 
@@ -498,6 +518,7 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	call_frame_t *iter_frame = NULL;
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
+        gf_boolean_t mismatch = _gf_false;
 
 	priv = this->private;
 	subvol = priv->children[child];
@@ -508,7 +529,8 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	if (!iter_frame)
 		return -ENOMEM;
 
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
+	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries,
+                                      NULL, NULL))) {
 		if (ret > 0)
 			ret = 0;
 		list_for_each_entry (entry, &entries.list, list) {
@@ -525,7 +547,16 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
                                                          entry->d_name);
 			AFR_STACK_RESET (iter_frame);
+			if (iter_frame->local == NULL) {
+                                ret = -ENOTCONN;
+                                break;
+                        }
 
+                        if (ret == -1) {
+                                /* gfid or type mismatch. */
+                                mismatch = _gf_true;
+                                ret = 0;
+                        }
 			if (ret)
 				break;
 		}
@@ -536,6 +567,9 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	}
 
 	AFR_STACK_DESTROY (iter_frame);
+        if (mismatch == _gf_true)
+                /* undo pending will be skipped */
+                ret = -1;
 	return ret;
 }
 
@@ -546,24 +580,35 @@ afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
+        gf_boolean_t mismatch = _gf_false;
 	int ret = 0;
 
 	priv = this->private;
 
-	gf_log (this->name, GF_LOG_INFO, "performing entry selfheal on %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                AFR_MSG_SELF_HEAL_INFO, "performing entry selfheal on %s",
 		uuid_utoa (fd->inode->gfid));
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (i != source && !healed_sinks[i])
+		if (!healed_sinks[i])
 			continue;
 		ret = afr_selfheal_entry_do_subvol (frame, this, fd, i);
+                if (ret == -1) {
+                        /* gfid or type mismatch. */
+                        mismatch = _gf_true;
+                        ret = 0;
+                }
 		if (ret)
 			break;
 	}
+        if (!ret && source != -1)
+		ret = afr_selfheal_entry_do_subvol (frame, this, fd, source);
+
+        if (mismatch == _gf_true)
+                /* undo pending will be skipped */
+                ret = -1;
 	return ret;
 }
-
-
 
 static int
 __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -578,6 +623,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char          *healed_sinks          = NULL;
 	struct afr_reply       *locked_replies        = NULL;
 	afr_private_t          *priv                  = NULL;
+        gf_boolean_t            did_sh                = _gf_true;
 
 	priv = this->private;
 
@@ -593,11 +639,11 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    data_lock);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret,
-                                this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes could "
+                                      "be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid), ret,
+                                      this->name);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -605,13 +651,21 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		ret = __afr_selfheal_entry_prepare (frame, this, fd->inode,
                                                     data_lock, sources, sinks,
                                                     healed_sinks,
-						    locked_replies, &source);
+						    locked_replies, &source,
+                                                    NULL);
+                if (AFR_COUNT(healed_sinks, priv->child_count) == 0) {
+                        did_sh = _gf_false;
+                        goto unlock;
+                }
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
 				data_lock);
 	if (ret < 0)
 		goto out;
+
+        if (!did_sh)
+                goto out;
 
 	ret = afr_selfheal_entry_do (frame, this, fd, source, sources,
                                      healed_sinks);
@@ -629,12 +683,13 @@ unlock:
                                     postop_lock);
         {
                 if (AFR_CMP (data_lock, postop_lock, priv->child_count) != 0) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "post-op after entry self-heal as %d "
-                                "sub-volumes, as opposed to %d, could be locked"
-                                " in %s domain", uuid_utoa (fd->inode->gfid),
-                                ret, AFR_COUNT (data_lock, priv->child_count),
-                                this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "post-op after entry self-heal as %d "
+                                      "sub-volumes, as opposed to %d, "
+                                      "could be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid),
+                                      ret, AFR_COUNT (data_lock,
+                                      priv->child_count), this->name);
                         ret = -ENOTCONN;
                         goto postop_unlock;
                 }
@@ -648,8 +703,11 @@ postop_unlock:
         afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
                                 postop_lock);
 out:
-        afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
@@ -669,9 +727,9 @@ afr_selfheal_data_opendir (xlator_t *this, inode_t *inode)
 		return NULL;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	ret = syncop_opendir (this, &loc, fd);
+	ret = syncop_opendir (this, &loc, fd, NULL, NULL);
 	if (ret) {
 		fd_unref (fd);
 		fd = NULL;
@@ -706,11 +764,11 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 				       locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret,
-                                priv->sh_domain);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes could "
+                                      "be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid), ret,
+                                      priv->sh_domain);
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
 			   for now in any case there isn't anything to do.
@@ -723,12 +781,13 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
                                                LONG_FILENAME, long_name_locked);
                 {
                         if (ret < 1) {
-                                gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping"
-                                        " entry self-heal as only %d "
-                                        "sub-volumes could be locked in "
-                                        "special-filename domain",
-                                        uuid_utoa (fd->inode->gfid),
-                                        ret);
+                                gf_msg_debug (this->name, 0, "%s: Skipping"
+                                              " entry self-heal as only %d "
+                                              "sub-volumes could be "
+                                              "locked in special-filename "
+                                              "domain",
+                                              uuid_utoa (fd->inode->gfid),
+                                              ret);
                                 ret = -ENOTCONN;
                                 goto unlock;
                         }

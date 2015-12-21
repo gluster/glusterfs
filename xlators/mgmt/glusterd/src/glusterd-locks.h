@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_LOCKS_H_
 #define _GLUSTERD_LOCKS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 typedef struct glusterd_mgmt_v3_lock_object_ {
         uuid_t              lock_owner;
 } glusterd_mgmt_v3_lock_obj;
@@ -37,13 +32,14 @@ int32_t
 glusterd_get_mgmt_v3_lock_owner (char *volname, uuid_t *uuid);
 
 int32_t
-glusterd_mgmt_v3_lock (const char *key, uuid_t uuid, char *type);
+glusterd_mgmt_v3_lock (const char *key, uuid_t uuid, uint32_t *op_errno,
+                       char *type);
 
 int32_t
 glusterd_mgmt_v3_unlock (const char *key, uuid_t uuid, char *type);
 
 int32_t
-glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid);
+glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno);
 
 int32_t
 glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid);

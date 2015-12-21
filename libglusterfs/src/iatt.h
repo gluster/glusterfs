@@ -12,17 +12,12 @@
 #ifndef _IATT_H
 #define _IATT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h> /* for iatt <--> stat conversions */
 #include <unistd.h>
 
 #include "compat.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 
 typedef enum {
         IA_INVAL = 0,
@@ -77,6 +72,7 @@ struct iatt {
 #define IA_ISCHR(t) (t == IA_IFCHR)
 #define IA_ISFIFO(t) (t == IA_IFIFO)
 #define IA_ISSOCK(t) (t == IA_IFSOCK)
+#define IA_ISINVAL(t) (t == IA_INVAL)
 
 #define IA_PROT_RUSR(prot)      ((prot).owner.read == 1)
 #define IA_PROT_WUSR(prot)      ((prot).owner.write == 1)

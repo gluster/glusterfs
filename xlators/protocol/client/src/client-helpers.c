@@ -8,13 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "client.h"
 #include "fd.h"
+#include "client-messages.h"
 
 int
 client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
@@ -94,22 +90,26 @@ this_fd_set_ctx (fd_t *file, xlator_t *this, loc_t *loc, clnt_fd_ctx_t *ctx)
         ret = fd_ctx_get (file, this, &oldaddr);
         if (ret >= 0) {
                 if (loc)
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                PC_MSG_FD_DUPLICATE_TRY,
                                 "%s (%s): trying duplicate remote fd set. ",
                                 loc->path, uuid_utoa (loc->inode->gfid));
                 else
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                PC_MSG_FD_DUPLICATE_TRY,
                                 "%p: trying duplicate remote fd set. ", file);
         }
 
         ret = fd_ctx_set (file, this, (uint64_t)(unsigned long)ctx);
         if (ret < 0) {
                 if (loc)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PC_MSG_FD_SET_FAIL,
                                 "%s (%s): failed to set remote fd",
                                 loc->path, uuid_utoa (loc->inode->gfid));
                 else
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PC_MSG_FD_SET_FAIL,
                                 "%p: failed to set remote fd", file);
         }
 out:
@@ -141,12 +141,16 @@ client_local_wipe (clnt_local_t *local)
 }
 
 int
-unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries)
+unserialize_rsp_dirent (xlator_t *this, struct gfs3_readdir_rsp *rsp,
+                        gf_dirent_t *entries)
 {
         struct gfs3_dirlist  *trav      = NULL;
 	gf_dirent_t          *entry     = NULL;
         int                   entry_len = 0;
         int                   ret       = -1;
+        clnt_conf_t          *conf = NULL;
+
+        conf = this->private;
 
         trav = rsp->reply;
         while (trav) {
@@ -156,7 +160,8 @@ unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries)
                         goto out;
 
                 entry->d_ino  = trav->d_ino;
-                entry->d_off  = trav->d_off;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                                      conf->client_id);
                 entry->d_len  = trav->d_len;
                 entry->d_type = trav->d_type;
 
@@ -182,11 +187,16 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
         inode_table_t        *itable    = NULL;
         int                   entry_len = 0;
         int                   ret       = -1;
+        clnt_conf_t          *conf      = NULL;
 
         trav = rsp->reply;
 
         if (fd)
                 itable = fd->inode->table;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
 
         while (trav) {
                 entry_len = gf_dirent_size (trav->name);
@@ -195,7 +205,8 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                         goto out;
 
                 entry->d_ino  = trav->d_ino;
-                entry->d_off  = trav->d_off;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                                      conf->client_id);
                 entry->d_len  = trav->d_len;
                 entry->d_type = trav->d_type;
 
@@ -214,9 +225,9 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                         ret = dict_unserialize (buf, trav->dict.dict_len,
                                                 &entry->dict);
                         if (ret < 0) {
-                                gf_log (THIS->name, GF_LOG_WARNING,
+                                gf_msg (THIS->name, GF_LOG_WARNING, EINVAL,
+                                        PC_MSG_DICT_UNSERIALIZE_FAIL,
                                         "failed to unserialize xattr dict");
-                                errno = EINVAL;
                                 goto out;
                         }
                         entry->dict->extra_free = buf;

@@ -11,11 +11,6 @@
 #ifndef _EVENT_H_
 #define _EVENT_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <pthread.h>
 
 struct event_pool;
@@ -60,6 +55,8 @@ struct event_pool {
         int eventthreadcount; /* number of event threads to execute. */
         pthread_t pollers[EVENT_MAX_THREADS]; /* poller thread_id store,
                                                      * and live status */
+        int destroy;
+        int activethreadcount;
 };
 
 struct event_ops {
@@ -81,6 +78,7 @@ struct event_ops {
 
         int (*event_reconfigure_threads) (struct event_pool *event_pool,
                                           int newcount);
+        int (*event_pool_destroy) (struct event_pool *event_pool);
 };
 
 struct event_pool *event_pool_new (int count, int eventthreadcount);
@@ -93,5 +91,6 @@ int event_unregister (struct event_pool *event_pool, int fd, int idx);
 int event_unregister_close (struct event_pool *event_pool, int fd, int idx);
 int event_dispatch (struct event_pool *event_pool);
 int event_reconfigure_threads (struct event_pool *event_pool, int value);
-
+int event_pool_destroy (struct event_pool *event_pool);
+int event_dispatch_destroy (struct event_pool *event_pool);
 #endif /* _EVENT_H_ */

@@ -14,6 +14,7 @@
 #include "syncop.h"
 #include "glfs.h"
 #include "glfs-handles.h"
+#include "gfapi-messages.h"
 
 int
 glfs_listxattr_process (void *value, size_t size, dict_t *xattr);
@@ -62,7 +63,7 @@ glfs_iatt_from_stat (struct stat *stat, int valid, struct iatt *iatt,
 
 struct glfs_object *
 pub_glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
-                     const char *path, struct stat *stat)
+                     const char *path, struct stat *stat, int follow)
 {
         int                      ret = 0;
         xlator_t                *subvol = NULL;
@@ -71,13 +72,15 @@ pub_glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
         struct glfs_object      *object = NULL;
         loc_t                    loc = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (path == NULL)) {
+        if (path == NULL) {
                 errno = EINVAL;
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -97,7 +100,7 @@ pub_glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
 
         /* fop/op */
         ret = glfs_resolve_at (fs, subvol, inode, path, &loc, &iatt,
-                                    0 /*TODO: links? */, 0);
+                                    follow, 0);
 
         /* populate out args */
         if (!ret) {
@@ -115,28 +118,41 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.4.2);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.7.4);
 
+struct glfs_object *
+pub_glfs_h_lookupat34 (struct glfs *fs, struct glfs_object *parent,
+                       const char *path, struct stat *stat)
+{
+        return pub_glfs_h_lookupat (fs, parent, path, stat, 0);
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_h_lookupat34, glfs_h_lookupat, 3.4.2);
 
 int
-pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
+pub_glfs_h_statfs (struct glfs *fs, struct glfs_object *object,
+                   struct statvfs *statvfs)
 {
         int              ret = -1;
         xlator_t        *subvol = NULL;
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
-        struct iatt      iatt = {0, };
+
+        DECLARE_OLD_THIS;
 
         /* validate in args */
-        if ((fs == NULL) || (object == NULL)) {
+        if ((fs == NULL) || (object == NULL || statvfs == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -157,7 +173,64 @@ pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_stat (subvol, &loc, &iatt);
+        ret = syncop_statfs (subvol, &loc, statvfs, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        loc_wipe (&loc);
+
+out:
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_statfs, 3.7.0);
+
+int
+pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+        struct iatt      iatt = {0, };
+
+        DECLARE_OLD_THIS;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        /* fop/op */
+        ret = syncop_stat (subvol, &loc, &iatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -172,6 +245,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -182,7 +258,7 @@ int
 pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
                      struct stat *stat)
 {
-        int                      ret = 0;
+        int                      ret = -1;
         xlator_t                *subvol = NULL;
         inode_t                 *inode = NULL;
         struct iatt              iatt = {0, };
@@ -193,7 +269,8 @@ pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -206,6 +283,7 @@ pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
         /* get/refresh the in arg objects inode in correlation to the xlator */
         inode = glfs_resolve_inode (fs, subvol, object);
         if (!inode) {
+                ret = 0;
                 errno = ESTALE;
                 goto out;
         }
@@ -224,6 +302,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -231,14 +312,13 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2);
 
 
 int
-pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
-                      const char *name, void *value, size_t size)
+glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
+                         dict_t **xattr, const char *name)
 {
         int                 ret = 0;
         xlator_t        *subvol = NULL;
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
-        dict_t                *xattr = NULL;
 
         /* validate in args */
         if ((fs == NULL) || (object == NULL)) {
@@ -246,7 +326,15 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        if (!name || *name == '\0') {
+                errno = EINVAL;
+                return -1;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                errno = ENAMETOOLONG;
+                return -1;
+        }
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -266,9 +354,38 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
         /* populate loc */
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, name, NULL);
+        ret = syncop_getxattr (subvol, &loc, xattr, name, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+
+int
+pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
+                      const char *name, void *value, size_t size)
+{
+        int                    ret   = -1;
+        dict_t                *xattr = NULL;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        ret = glfs_h_getxattrs_common (fs, object, &xattr, name);
         if (ret)
                 goto out;
 
@@ -279,13 +396,12 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
                 ret = glfs_listxattr_process (value, size, xattr);
 
 out:
-        loc_wipe (&loc);
+        if (xattr)
+                dict_unref (xattr);
 
-        if (inode)
-                inode_unref (inode);
+        __GLFS_EXIT_FS;
 
-        glfs_subvol_done (fs, subvol);
-
+invalid_fs:
         return ret;
 }
 
@@ -308,7 +424,8 @@ pub_glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -332,7 +449,7 @@ pub_glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_setattr (subvol, &loc, &iatt, glvalid, 0, 0);
+        ret = syncop_setattr (subvol, &loc, &iatt, glvalid, 0, 0, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
         loc_wipe (&loc);
@@ -342,6 +459,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -366,7 +486,18 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        if (!name || *name == '\0') {
+                errno = EINVAL;
+                return -1;
+        }
+
+        if (strlen(name) > GF_XATTR_NAME_MAX) {
+                errno = ENAMETOOLONG;
+                return -1;
+        }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -394,7 +525,7 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_setxattr (subvol, &loc, xattr, flags);
+        ret = syncop_setxattr (subvol, &loc, xattr, flags, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 out:
@@ -408,6 +539,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -429,7 +563,8 @@ pub_glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -450,7 +585,7 @@ pub_glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object,
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_removexattr (subvol, &loc, name, 0);
+        ret = syncop_removexattr (subvol, &loc, name, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 out:
@@ -461,6 +596,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -482,7 +620,8 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -530,7 +669,7 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_open (subvol, &loc, flags, glfd->fd);
+        ret = syncop_open (subvol, &loc, flags, glfd->fd, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         glfd->fd->flags = flags;
@@ -550,6 +689,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return glfd;
 }
 
@@ -576,7 +718,8 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -600,7 +743,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -627,16 +770,11 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
         /* fop/op */
         ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
-                             xattr_req, &iatt);
+                             &iatt, xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
         if (ret == 0) {
-                /* TODO: If the inode existed in the cache (say file already
-                   exists), then the glfs_loc_link will not update the
-                   loc.inode, as a result we will have a 0000 GFID that we
-                   would copy out to the object, this needs to be fixed.
-                */
                 ret = glfs_loc_link (&loc, &iatt);
                 if (ret != 0) {
                         goto out;
@@ -654,6 +792,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
 out:
         if (ret && object != NULL) {
+                /* Release the held reference */
                 glfs_h_close (object);
                 object = NULL;
         }
@@ -673,6 +812,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -698,7 +840,8 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -722,7 +865,7 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -733,7 +876,7 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
         GLFS_LOC_FILL_PINODE (inode, loc, ret, errno, out, path);
 
         /* fop/op */
-        ret = syncop_mkdir (subvol, &loc, mode, xattr_req, &iatt);
+        ret = syncop_mkdir (subvol, &loc, mode, &iatt, xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -765,6 +908,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -790,7 +936,8 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -814,7 +961,7 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -825,7 +972,7 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
         GLFS_LOC_FILL_PINODE (inode, loc, ret, errno, out, path);
 
         /* fop/op */
-        ret = syncop_mknod (subvol, &loc, mode, dev, xattr_req, &iatt);
+        ret = syncop_mknod (subvol, &loc, mode, dev, &iatt, xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -856,6 +1003,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -876,7 +1026,8 @@ pub_glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -899,13 +1050,13 @@ pub_glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path
         }
 
         if (!IA_ISDIR(loc.inode->ia_type)) {
-                ret = syncop_unlink (subvol, &loc);
+                ret = syncop_unlink (subvol, &loc, NULL, NULL);
                 DECODE_SYNCOP_ERR (ret);
                 if (ret != 0) {
                         goto out;
                 }
         } else {
-                ret = syncop_rmdir (subvol, &loc, 0);
+                ret = syncop_rmdir (subvol, &loc, 0, NULL, NULL);
                 DECODE_SYNCOP_ERR (ret);
                 if (ret != 0) {
                         goto out;
@@ -923,6 +1074,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -944,7 +1098,8 @@ pub_glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -983,7 +1138,7 @@ pub_glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_opendir (subvol, &loc, glfd->fd);
+        ret = syncop_opendir (subvol, &loc, glfd->fd, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 out:
@@ -1002,6 +1157,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return glfd;
 }
 
@@ -1016,13 +1174,15 @@ pub_glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask)
 	inode_t         *inode = NULL;
 	loc_t            loc = {0, };
 
+	DECLARE_OLD_THIS;
+
 	/* validate in args */
 	if ((fs == NULL) || (object == NULL)) {
 		errno = EINVAL;
-		goto out;
+		return ret;
 	}
 
-	__glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
 	/* get the active volume */
 	subvol = glfs_active_subvol (fs);
@@ -1044,7 +1204,7 @@ pub_glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask)
 
 	/* fop/op */
 
-	ret = syncop_access (subvol, &loc, mask);
+	ret = syncop_access (subvol, &loc, mask, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 out:
@@ -1056,6 +1216,9 @@ out:
 
 	glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
 	return ret;
 }
 
@@ -1113,7 +1276,8 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1124,10 +1288,17 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         memcpy (loc.gfid, handle, GFAPI_HANDLE_LENGTH);
 
+        /* make sure the gfid received is valid */
+        GF_VALIDATE_OR_GOTO ("glfs_h_create_from_handle",
+                             !(gf_uuid_is_null (loc.gfid)), out);
+
         newinode = inode_find (subvol->itable, loc.gfid);
-        if (newinode)
+        if (newinode) {
+                if (!stat) /* No need of lookup */
+                        goto found;
+
                 loc.inode = newinode;
-        else {
+        } else {
                 loc.inode = inode_new (subvol->itable);
                 if (!loc.inode) {
                         errno = ENOMEM;
@@ -1135,10 +1306,11 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
                 }
         }
 
-        ret = syncop_lookup (subvol, &loc, 0, &iatt, 0, 0);
+        ret = syncop_lookup (subvol, &loc, &iatt, 0, 0, 0);
         DECODE_SYNCOP_ERR (ret);
         if (ret) {
-                gf_log (subvol->name, GF_LOG_WARNING,
+                gf_msg (subvol->name, GF_LOG_WARNING, errno,
+                        API_MSG_INODE_REFRESH_FAILED,
                         "inode refresh of %s failed: %s",
                         uuid_utoa (loc.gfid), strerror (errno));
                 goto out;
@@ -1148,7 +1320,8 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         if (newinode)
                 inode_lookup (newinode);
         else {
-                gf_log (subvol->name, GF_LOG_WARNING,
+                gf_msg (subvol->name, GF_LOG_WARNING, EINVAL,
+                        API_MSG_INVALID_ENTRY,
                         "inode linking of %s failed: %s",
                         uuid_utoa (loc.gfid), strerror (errno));
                 errno = EINVAL;
@@ -1159,6 +1332,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         if (stat)
                 glfs_iatt_to_stat (fs, &iatt, stat);
 
+found:
         object = GF_CALLOC (1, sizeof(struct glfs_object),
                             glfs_mt_glfs_object_t);
         if (object == NULL) {
@@ -1169,7 +1343,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         /* populate the return object */
         object->inode = newinode;
-        uuid_copy (object->gfid, object->inode->gfid);
+        gf_uuid_copy (object->gfid, object->inode->gfid);
 
 out:
         /* TODO: Check where the inode ref is being held? */
@@ -1177,6 +1351,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -1186,7 +1363,6 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2);
 int
 pub_glfs_h_close (struct glfs_object *object)
 {
-        /* Release the held reference */
         inode_unref (object->inode);
         GF_FREE (object);
 
@@ -1204,13 +1380,15 @@ pub_glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
         xlator_t           *subvol = NULL;
         inode_t            *inode = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (object == NULL)) {
+        if (object == NULL) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1230,7 +1408,7 @@ pub_glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_truncate (subvol, &loc, (off_t)offset);
+        ret = syncop_truncate (subvol, &loc, (off_t)offset, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -1245,6 +1423,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1264,14 +1445,16 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
         dict_t             *xattr_req = NULL;
         struct glfs_object *object = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (parent == NULL) || (name == NULL) ||
+        if ((parent == NULL) || (name == NULL) ||
                 (data == NULL)) {
                 errno = EINVAL;
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1295,7 +1478,7 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -1306,16 +1489,11 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
         GLFS_LOC_FILL_PINODE (inode, loc, ret, errno, out, name);
 
         /* fop/op */
-        ret = syncop_symlink (subvol, &loc, data, xattr_req, &iatt);
+        ret = syncop_symlink (subvol, &loc, data, &iatt, xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
         if (ret == 0) {
-                /* TODO: If the inode existed in the cache (say file already
-                 * exists), then the glfs_loc_link will not update the
-                 * loc.inode, as a result we will have a 0000 GFID that we
-                 * would copy out to the object, this needs to be fixed.
-                 */
                 ret = glfs_loc_link (&loc, &iatt);
                 if (ret != 0) {
                         goto out;
@@ -1343,6 +1521,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -1359,13 +1540,15 @@ pub_glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
         inode_t            *inode = NULL;
         char               *linkval = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (object == NULL) || (buf == NULL)) {
+        if ((object == NULL) || (buf == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1385,7 +1568,7 @@ pub_glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
-        ret = syncop_readlink (subvol, &loc, &linkval, bufsiz);
+        ret = syncop_readlink (subvol, &loc, &linkval, bufsiz, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -1403,6 +1586,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1419,15 +1605,18 @@ pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
         inode_t            *pinode = NULL;
         loc_t               oldloc = {0, };
         loc_t               newloc = {0, };
+        struct iatt         iatt = {0, };
+
+        DECLARE_OLD_THIS;
 
         /* validate in args */
-        if ((fs == NULL) || (linksrc == NULL) || (parent == NULL) ||
+        if ((linksrc == NULL) || (parent == NULL) ||
                 (name == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1474,12 +1663,11 @@ pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
         newloc.inode = inode_ref (inode);
 
         /* fop/op */
-        ret = syncop_link (subvol, &oldloc, &newloc);
+        ret = syncop_link (subvol, &oldloc, &newloc, &iatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret == 0)
-                /* TODO: No iatt to pass as there has been no lookup */
-                ret = glfs_loc_link (&newloc, NULL);
+                ret = glfs_loc_link (&newloc, &iatt);
 out:
         loc_wipe (&oldloc);
         loc_wipe (&newloc);
@@ -1492,6 +1680,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1512,14 +1703,16 @@ pub_glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
         struct iatt         oldiatt = {0, };
         struct iatt         newiatt = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (olddir == NULL) || (oldname == NULL) ||
+        if ((olddir == NULL) || (oldname == NULL) ||
                 (newdir == NULL) || (newname == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1569,7 +1762,7 @@ pub_glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
 
         /* TODO: check if new or old is a prefix of the other, and fail EINVAL */
 
-        ret = syncop_rename (subvol, &oldloc, &newloc);
+        ret = syncop_rename (subvol, &oldloc, &newloc, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret == 0)
@@ -1589,8 +1782,391 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 
+int
+glfs_h_poll_cache_invalidation (struct glfs *fs,
+                                struct callback_arg *up_arg,
+                                struct gf_upcall *upcall_data)
+{
+        int                                 ret           = -1;
+        struct glfs_object                  *p_object     = NULL;
+        struct glfs_object                  *oldp_object  = NULL;
+        struct glfs_object                  *object       = NULL;
+        struct gf_upcall_cache_invalidation *ca_data      = NULL;
+        struct callback_inode_arg           *up_inode_arg = NULL;
+
+        ca_data = upcall_data->data;
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             ca_data, out);
+
+        object = glfs_h_create_from_handle (fs, upcall_data->gfid,
+                                            GFAPI_HANDLE_LENGTH,
+                                            NULL);
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             object, out);
+
+        up_inode_arg = calloc (1, sizeof (struct callback_inode_arg));
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             up_inode_arg, out);
+
+        up_arg->event_arg = up_inode_arg;
+
+        up_inode_arg->object = object;
+        up_inode_arg->flags = ca_data->flags;
+        up_inode_arg->expire_time_attr = ca_data->expire_time_attr;
+
+        /* XXX: Update stat as well incase of UP_*_TIMES.
+         * This will be addressed as part of INODE_UPDATE */
+        if (ca_data->flags & GFAPI_INODE_UPDATE_FLAGS) {
+                glfs_iatt_to_stat (fs, &ca_data->stat, &up_inode_arg->buf);
+        }
+
+        if (ca_data->flags & GFAPI_UP_PARENT_TIMES) {
+                p_object = glfs_h_create_from_handle (fs,
+                                                      ca_data->p_stat.ia_gfid,
+                                                      GFAPI_HANDLE_LENGTH,
+                                                      NULL);
+                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                                       p_object, out);
+
+                glfs_iatt_to_stat (fs, &ca_data->p_stat, &up_inode_arg->p_buf);
+        }
+        up_inode_arg->p_object = p_object;
+
+        /* In case of RENAME, update old parent as well */
+        if (ca_data->flags & GFAPI_UP_RENAME) {
+                oldp_object = glfs_h_create_from_handle (fs,
+                                                     ca_data->oldp_stat.ia_gfid,
+                                                     GFAPI_HANDLE_LENGTH,
+                                                     NULL);
+                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                                       oldp_object, out);
+
+                glfs_iatt_to_stat (fs, &ca_data->oldp_stat,
+                                   &up_inode_arg->oldp_buf);
+        }
+        up_inode_arg->oldp_object = oldp_object;
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+/*
+ * This API is used to poll for upcall events stored in the
+ * upcall list. Current users of this API is NFS-Ganesha.
+ * Incase of any event received, it will be mapped appropriately
+ * into 'callback_arg' along with the handle object  to be passed
+ * to NFS-Ganesha.
+ *
+ * On success, applications need to check for 'reason' to decide
+ * if any upcall event is received.
+ *
+ * Current supported upcall_events -
+ *      GFAPI_INODE_INVALIDATE -
+ *              'arg - callback_inode_arg
+ *
+ * After processing the event, applications need to free 'event_arg'.
+ *
+ * Incase of INODE_INVALIDATE, applications need to free "object",
+ * "p_object" and "oldp_object" using glfs_h_close(..).
+ *
+ * Also similar to I/Os, the application should ideally stop polling
+ * before calling glfs_fini(..). Hence making an assumption that
+ * 'fs' & ctx structures cannot be freed while in this routine.
+ */
+int
+pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
+{
+        upcall_entry                        *u_list         = NULL;
+        upcall_entry                        *tmp            = NULL;
+        xlator_t                            *subvol         = NULL;
+        int                                 found           = 0;
+        int                                 reason          = 0;
+        glusterfs_ctx_t                     *ctx            = NULL;
+        int                                 ret             = -1;
+        struct gf_upcall                    *upcall_data    = NULL;
+
+        DECLARE_OLD_THIS;
+
+        if (!up_arg) {
+                errno = EINVAL;
+                goto err;
+        }
+
+        __GLFS_ENTRY_VALIDATE_FS (fs, err);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+
+        if (!subvol) {
+                errno = EIO;
+                goto restore;
+        }
+
+        /* Ideally applications should stop polling before calling
+         * 'glfs_fini'. Yet cross check if cleanup has started
+         */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                ctx = fs->ctx;
+
+                if (ctx->cleanup_started) {
+                        pthread_mutex_unlock (&fs->mutex);
+                        goto out;
+                }
+
+                fs->pin_refcnt++;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        pthread_mutex_lock (&fs->upcall_list_mutex);
+        {
+                list_for_each_entry_safe (u_list, tmp,
+                                          &fs->upcall_list,
+                                          upcall_list) {
+                        found = 1;
+                        break;
+                }
+        }
+        /* No other thread can delete this entry. So unlock it */
+        pthread_mutex_unlock (&fs->upcall_list_mutex);
+
+        if (found) {
+                upcall_data = &u_list->upcall_data;
+
+                switch (upcall_data->event_type) {
+                case GF_UPCALL_CACHE_INVALIDATION:
+                        /* XXX: Need to revisit this to support
+                         * GFAPI_INODE_UPDATE if required.
+                         */
+                        reason = GFAPI_INODE_INVALIDATE;
+                        ret = glfs_h_poll_cache_invalidation (fs,
+                                                              up_arg,
+                                                              upcall_data);
+                        if (!ret) {
+                                break;
+                        }
+                        /* It could so happen that the file which got
+                         * upcall notification may have got deleted
+                         * by other thread. Irrespective of the error,
+                         * log it and return with CBK_NULL reason.
+                         *
+                         * Applications will ignore this notification
+                         * as up_arg->object will be NULL */
+                        gf_msg (subvol->name, GF_LOG_WARNING, errno,
+                                API_MSG_CREATE_HANDLE_FAILED,
+                                "handle creation of %s failed",
+                                uuid_utoa (upcall_data->gfid));
+
+                        reason = GFAPI_CBK_EVENT_NULL;
+                        break;
+                default:
+                        break;
+                }
+
+                up_arg->reason = reason;
+
+                list_del_init (&u_list->upcall_list);
+                GF_FREE (u_list->upcall_data.data);
+                GF_FREE (u_list);
+        }
+
+        ret = 0;
+
+out:
+        pthread_mutex_lock (&fs->mutex);
+        {
+                fs->pin_refcnt--;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        glfs_subvol_done (fs, subvol);
+
+restore:
+        __GLFS_EXIT_FS;
+err:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.0);
+
+#ifdef HAVE_ACL_LIBACL_H
+#include "glusterfs-acl.h"
+#include <acl/libacl.h>
+
+int
+pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type, const acl_t acl)
+{
+        int ret = -1;
+        char *acl_s = NULL;
+        const char *acl_key = NULL;
+        struct glfs_object *new_object = NULL;
+
+        DECLARE_OLD_THIS;
+
+        if (!object || !acl) {
+                errno = EINVAL;
+                return ret;
+        }
+
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        acl_key = gf_posix_acl_get_key (type);
+        if (!acl_key)
+                goto out;
+
+        acl_s = acl_to_any_text (acl, NULL, ',',
+                                 TEXT_ABBREVIATE | TEXT_NUMERIC_IDS);
+        if (!acl_s)
+                goto out;
+
+        if (IA_ISLNK (object->inode->ia_type)) {
+                new_object = glfs_h_resolve_symlink (fs, object);
+                if (new_object == NULL)
+                        goto out;
+        } else
+                new_object = object;
+
+        ret = pub_glfs_h_setxattrs (fs, new_object, acl_key, acl_s,
+                                    strlen (acl_s) + 1, 0);
+
+        acl_free (acl_s);
+
+out:
+        if (IA_ISLNK (object->inode->ia_type) && new_object)
+                glfs_h_close (new_object);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+acl_t
+pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type)
+{
+        int                 ret = 0;
+        acl_t acl = NULL;
+        char *acl_s = NULL;
+        dict_t *xattr = NULL;
+        const char *acl_key = NULL;
+        struct glfs_object *new_object = NULL;
+
+        DECLARE_OLD_THIS;
+
+        if (!object) {
+                errno = EINVAL;
+                return NULL;
+        }
+
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        acl_key = gf_posix_acl_get_key (type);
+        if (!acl_key)
+                goto out;
+
+        if (IA_ISLNK (object->inode->ia_type)) {
+                new_object = glfs_h_resolve_symlink (fs, object);
+                if (new_object == NULL)
+                        goto out;
+        } else
+                new_object = object;
+
+        ret = glfs_h_getxattrs_common (fs, new_object, &xattr, acl_key);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (xattr, (char *)acl_key, &acl_s);
+        if (ret == -1)
+                goto out;
+
+        acl = acl_from_text (acl_s);
+
+out:
+        GF_FREE (acl_s);
+        if (IA_ISLNK (object->inode->ia_type) && new_object)
+                glfs_h_close (new_object);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return acl;
+}
+#else /* !HAVE_ACL_LIBACL_H */
+acl_t
+pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type)
+{
+        errno = ENOTSUP;
+        return NULL;
+}
+
+int
+pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type, const acl_t acl)
+{
+        errno = ENOTSUP;
+        return -1;
+}
+#endif
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0);
+
+/* The API to perform read using anonymous fd */
+ssize_t
+pub_glfs_h_anonymous_read (struct glfs *fs, struct glfs_object *object,
+                           const void *buf, size_t count, off_t offset)
+{
+        struct iovec    iov     = {0, };
+        ssize_t         ret     = 0;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        iov.iov_base = (void *) buf;
+        iov.iov_len = count;
+
+        ret = glfs_anonymous_preadv (fs, object, &iov, 1, offset, 0);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_read, 3.7.0);
+
+/* The API to perform write using anonymous fd */
+ssize_t
+pub_glfs_h_anonymous_write (struct glfs *fs, struct glfs_object *object,
+                            const void *buf, size_t count, off_t offset)
+{
+        struct iovec iov        = {0, };
+        ssize_t      ret        = 0;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        iov.iov_base = (void *) buf;
+        iov.iov_len = count;
+
+        ret = glfs_anonymous_pwritev (fs, object, &iov, 1, offset, 0);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_write, 3.7.0);

@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "glusterfs.h"
 #include "xlator.h"
@@ -39,12 +34,13 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret)
                 goto out;
 
-        uuid_unparse(local->loc.gfid, gfid);
+        gf_uuid_unparse(local->loc.gfid, gfid);
 
         is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                          conf->link_xattr_name);
         if (!is_linkfile)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_NOT_LINK_FILE_ERROR,
                         "got non-linkfile %s:%s, gfid = %s",
                         prev->this->name, local->loc.path, gfid);
 out:
@@ -119,7 +115,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         int          need_unref = 0;
         int          ret = 0;
         dht_conf_t  *conf = this->private;
-        char           gfid[GF_UUID_BUF_SIZE] = {0};
+        char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
@@ -136,8 +132,8 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         }
 
 
-        if (!uuid_is_null (local->gfid)) {
-                uuid_unparse(local->gfid, gfid);
+        if (!gf_uuid_is_null (local->gfid)) {
+                gf_uuid_unparse(local->gfid, gfid);
 
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
@@ -146,7 +142,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                                 "%s: Failed to set dictionary value: "
                                 "key = gfid-req, gfid = %s ", loc->path, gfid);
         } else {
-                uuid_unparse(loc->gfid, gfid);
+                gf_uuid_unparse(loc->gfid, gfid);
         }
 
         ret = dict_set_str (dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
@@ -208,7 +204,7 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
 
-                uuid_unparse(local->loc.gfid, gfid);
+                gf_uuid_unparse(local->loc.gfid, gfid);
                 gf_msg (this->name, GF_LOG_INFO, op_errno,
                         DHT_MSG_UNLINK_FAILED,
                         "Unlinking linkfile %s (gfid = %s)on "
@@ -312,12 +308,13 @@ dht_linkfile_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
 {
-        int     ret = -1;
-        call_frame_t *copy = NULL;
-        dht_local_t  *local = NULL;
-        dht_local_t  *copy_local = NULL;
-        xlator_t     *subvol = NULL;
-        struct iatt   stbuf = {0,};
+        int           ret         = -1;
+        call_frame_t  *copy       = NULL;
+        dht_local_t   *local      = NULL;
+        dht_local_t   *copy_local = NULL;
+        xlator_t      *subvol     = NULL;
+        struct iatt   stbuf       = {0,};
+        dict_t        *xattr      = NULL;
 
         local = frame->local;
 
@@ -327,7 +324,9 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
         if (local->stbuf.ia_type == IA_INVAL)
                 return 0;
 
-        uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
+        DHT_MARK_FOP_INTERNAL (xattr);
+
+        gf_uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
 
         copy = copy_frame (frame);
 
@@ -348,8 +347,14 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
 
         STACK_WIND (copy, dht_linkfile_setattr_cbk, subvol,
                     subvol->fops->setattr, &copy_local->loc,
-                    &stbuf, (GF_SET_ATTR_UID | GF_SET_ATTR_GID), NULL);
+                    &stbuf, (GF_SET_ATTR_UID | GF_SET_ATTR_GID), xattr);
         ret = 0;
 out:
+        if ((ret < 0) && (copy))
+                DHT_STACK_DESTROY (copy);
+
+        if (xattr)
+                dict_unref (xattr);
+
         return ret;
 }

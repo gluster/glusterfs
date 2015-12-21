@@ -31,7 +31,7 @@ TEST $CLI volume set $V0 server.statedump-path $dump_dir;
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST PID=`gluster --xml volume status patchy | grep -A 5 patchy1 | grep '<pid>' | cut -d '>' -f 2 | cut -d '<' -f 1`
+TEST PID=`gluster --xml volume status patchy | grep -A 8 patchy1 | grep '<pid>' | cut -d '>' -f 2 | cut -d '<' -f 1`
 TEST kill -USR1 $PID;
 sleep 2;
 for file_name in $(ls $dump_dir)

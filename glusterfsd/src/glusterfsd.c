@@ -19,6 +19,7 @@
 #include <netdb.h>
 #include <signal.h>
 #include <libgen.h>
+#include <dlfcn.h>
 
 #include <sys/utsname.h>
 
@@ -30,11 +31,6 @@
 #include <semaphore.h>
 #include <errno.h>
 #include <pwd.h>
-
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
@@ -69,8 +65,11 @@
 #include "rpc-clnt.h"
 #include "syncop.h"
 #include "client_t.h"
+#include "netgroups.h"
+#include "exports.h"
 
 #include "daemon.h"
+#include "tw.h"
 
 /* process mode definitions */
 #define GF_SERVER_PROCESS   0
@@ -97,8 +96,8 @@ static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 static struct argp_option gf_options[] = {
         {0, 0, 0, 0, "Basic options:"},
         {"volfile-server", ARGP_VOLFILE_SERVER_KEY, "SERVER", 0,
-         "Server to get the volume file from.  This option overrides "
-         "--volfile option"},
+         "Server to get the volume file from. Unix domain socket path when "
+         "transport type 'unix'. This option overrides --volfile option"},
         {"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0,
          "File to use as VOLUME_FILE"},
         {"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN,
@@ -152,6 +151,12 @@ static struct argp_option gf_options[] = {
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
          "Enable SELinux label (extened attributes) support on inodes"},
+
+        {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
+         "Validate the netgroups file and print it out"},
+        {"print-exports", ARGP_PRINT_EXPORTS, "EXPORTS-FILE", 0,
+        "Validate the exports file and print it out"},
+
         {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
          OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
         {"aux-gfid-mount", ARGP_AUX_GFID_MOUNT_KEY, 0, 0,
@@ -175,6 +180,8 @@ static struct argp_option gf_options[] = {
          "Brick Port to be registered with Gluster portmapper" },
 	{"fopen-keep-cache", ARGP_FOPEN_KEEP_CACHE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
 	 "Do not purge the cache on file open"},
+        {"global-timer-wheel", ARGP_GLOBAL_TIMER_WHEEL, "BOOL",
+         OPTION_ARG_OPTIONAL, "Instantiate process global timer-wheel"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -190,7 +197,9 @@ static struct argp_option gf_options[] = {
          "[default: 1]"},
 	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
 	 "Set auxilary group list timeout to SECONDS for fuse translator "
-	 "[default: 0]"},
+	 "[default: 300]"},
+        {"resolve-gids", ARGP_RESOLVE_GIDS_KEY, 0, 0,
+         "Resolve all auxilary groups in fuse translator (max 32 otherwise)"},
 	{"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
 	 "Set fuse module's background queue length to N "
 	 "[default: 64]"},
@@ -420,6 +429,16 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
 			goto err;
 		}
 	}
+
+        if (cmd_args->resolve_gids) {
+                ret = dict_set_static_ptr (options, "resolve-gids", "on");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "resolve-gids");
+                        goto err;
+                }
+        }
+
 	if (cmd_args->background_qlen) {
 		ret = dict_set_int32 (options, "background-qlen",
                                       cmd_args->background_qlen);
@@ -787,6 +806,14 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->worm = 1;
                 break;
 
+        case ARGP_PRINT_NETGROUPS:
+                cmd_args->print_netgroups = arg;
+                break;
+
+        case ARGP_PRINT_EXPORTS:
+                cmd_args->print_exports = arg;
+                break;
+
         case ARGP_MAC_COMPAT_KEY:
                 if (!arg)
                         arg = "on";
@@ -1048,6 +1075,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
 		break;
 
+        case ARGP_GLOBAL_TIMER_WHEEL:
+                cmd_args->global_timer_wheel = 1;
+                break;
+
 	case ARGP_GID_TIMEOUT_KEY:
 		if (!gf_string2int(arg, &cmd_args->gid_timeout)) {
 			cmd_args->gid_timeout_set = _gf_true;
@@ -1056,6 +1087,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
 		argp_failure(state, -1, 0, "unknown group list timeout %s", arg);
 		break;
+
+        case ARGP_RESOLVE_GIDS_KEY:
+                cmd_args->resolve_gids = 1;
+                break;
+
         case ARGP_FUSE_BACKGROUND_QLEN_KEY:
                 if (!gf_string2int (arg, &cmd_args->background_qlen))
                         break;
@@ -1222,7 +1258,6 @@ cleanup_and_exit (int signum)
 
         glusterfs_pidfile_cleanup (ctx);
 
-        exit (0);
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
         if (ctx->mgmt) {
@@ -1230,19 +1265,27 @@ cleanup_and_exit (int signum)
                 rpc_clnt_connection_cleanup (&ctx->mgmt->conn);
                 rpc_clnt_unref (ctx->mgmt);
         }
+#endif
 
         /* call fini() of each xlator */
-        trav = NULL;
-        if (ctx->active)
-                trav = ctx->active->top;
-        while (trav) {
-                if (trav->fini) {
-                        THIS = trav;
-                        trav->fini (trav);
+
+        /*call fini for glusterd xlator */
+        /* TODO : Invoke fini for rest of the xlators */
+        if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
+
+                trav = NULL;
+                if (ctx->active)
+                        trav = ctx->active->top;
+                while (trav) {
+                        if (trav->fini) {
+                                THIS = trav;
+                                trav->fini (trav);
+                        }
+                        trav = trav->next;
                 }
-                trav = trav->next;
+
         }
-#endif
+        exit(0);
 }
 
 
@@ -1279,8 +1322,8 @@ emancipate (glusterfs_ctx_t *ctx, int ret)
 {
         /* break free from the parent */
         if (ctx->daemon_pipe[1] != -1) {
-                write (ctx->daemon_pipe[1], (void *) &ret, sizeof (ret));
-                close (ctx->daemon_pipe[1]);
+                sys_write (ctx->daemon_pipe[1], (void *) &ret, sizeof (ret));
+                sys_close (ctx->daemon_pipe[1]);
                 ctx->daemon_pipe[1] = -1;
         }
 }
@@ -1519,6 +1562,195 @@ gf_check_and_set_mem_acct (int argc, char *argv[])
         }
 }
 
+/**
+ * print_exports_file - Print out & verify the syntax
+ *                      of the exports file specified
+ *                      in the parameter.
+ *
+ * @exports_file : Path of the exports file to print & verify
+ *
+ * @return : success: 0 when successfully parsed
+ *           failure: 1 when failed to parse one or more lines
+ *                   -1 when other critical errors (dlopen () etc)
+ * Critical errors are treated differently than parse errors. Critical
+ * errors terminate the program immediately here and print out different
+ * error messages. Hence there are different return values.
+ */
+int
+print_exports_file (const char *exports_file)
+{
+        void                   *libhandle = NULL;
+        char                   *libpathfull = NULL;
+        struct exports_file    *file = NULL;
+        int                     ret = 0;
+
+        int  (*exp_file_parse)(const char *filepath,
+                               struct exports_file **expfile,
+                               struct mount3_state *ms) = NULL;
+        void (*exp_file_print)(const struct exports_file *file) = NULL;
+        void (*exp_file_deinit)(struct exports_file *ptr) = NULL;
+
+        /* XLATORDIR passed through a -D flag to GCC */
+        ret = gf_asprintf (&libpathfull, "%s/%s/server.so", XLATORDIR,
+                           "nfs");
+        if (ret < 0) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL, "asprintf () failed.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Load up the library */
+        libhandle = dlopen (libpathfull, RTLD_NOW);
+        if (!libhandle) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error loading NFS server library : "
+                        "%s\n", dlerror ());
+                ret = -1;
+                goto out;
+        }
+
+        /* Load up the function */
+        exp_file_parse = dlsym (libhandle, "exp_file_parse");
+        if (!exp_file_parse) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function exp_file_parse "
+                        "in symbol.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Parse the file */
+        ret = exp_file_parse (exports_file, &file, NULL);
+        if (ret < 0) {
+                ret = 1;        /* This means we failed to parse */
+                goto out;
+        }
+
+        /* Load up the function */
+        exp_file_print = dlsym (libhandle, "exp_file_print");
+        if (!exp_file_print) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function exp_file_print in symbol.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Print it out to screen */
+        exp_file_print (file);
+
+        /* Load up the function */
+        exp_file_deinit = dlsym (libhandle, "exp_file_deinit");
+        if (!exp_file_deinit) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function exp_file_deinit in lib.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Free the file */
+        exp_file_deinit (file);
+
+out:
+        if (libhandle)
+                dlclose(libhandle);
+        GF_FREE (libpathfull);
+        return ret;
+}
+
+
+/**
+ * print_netgroups_file - Print out & verify the syntax
+ *                        of the netgroups file specified
+ *                        in the parameter.
+ *
+ * @netgroups_file : Path of the netgroups file to print & verify
+ * @return : success: 0 when successfully parsed
+ *           failure: 1 when failed to parse one more more lines
+ *                   -1 when other critical errors (dlopen () etc)
+ *
+ * We have multiple returns here because for critical errors, we abort
+ * operations immediately and exit. For example, if we can't load the
+ * NFS server library, then we have a real bad problem so we don't continue.
+ * Or if we cannot allocate anymore memory, we don't want to continue. Also,
+ * we want to print out a different error messages based on the ret value.
+ */
+int
+print_netgroups_file (const char *netgroups_file)
+{
+        void                   *libhandle = NULL;
+        char                   *libpathfull = NULL;
+        struct netgroups_file  *file = NULL;
+        int                     ret = 0;
+
+        struct netgroups_file  *(*ng_file_parse)(const char *file_path) = NULL;
+        void         (*ng_file_print)(const struct netgroups_file *file) = NULL;
+        void         (*ng_file_deinit)(struct netgroups_file *ptr) = NULL;
+
+        /* XLATORDIR passed through a -D flag to GCC */
+        ret = gf_asprintf (&libpathfull, "%s/%s/server.so", XLATORDIR,
+                        "nfs");
+        if (ret < 0) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL, "asprintf () failed.");
+                ret = -1;
+                goto out;
+        }
+        /* Load up the library */
+        libhandle = dlopen (libpathfull, RTLD_NOW);
+        if (!libhandle) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error loading NFS server library : %s\n", dlerror ());
+                ret = -1;
+                goto out;
+        }
+
+        /* Load up the function */
+        ng_file_parse = dlsym (libhandle, "ng_file_parse");
+        if (!ng_file_parse) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function ng_file_parse in symbol.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Parse the file */
+        file = ng_file_parse (netgroups_file);
+        if (!file) {
+                ret = 1;        /* This means we failed to parse */
+                goto out;
+        }
+
+        /* Load up the function */
+        ng_file_print = dlsym (libhandle, "ng_file_print");
+        if (!ng_file_print) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function ng_file_print in symbol.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Print it out to screen */
+        ng_file_print (file);
+
+        /* Load up the function */
+        ng_file_deinit = dlsym (libhandle, "ng_file_deinit");
+        if (!ng_file_deinit) {
+                gf_log ("glusterfs", GF_LOG_CRITICAL,
+                        "Error finding function ng_file_deinit in lib.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Free the file */
+        ng_file_deinit (file);
+
+out:
+        if (libhandle)
+                dlclose(libhandle);
+        GF_FREE (libpathfull);
+        return ret;
+}
+
+
 int
 parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 {
@@ -1534,11 +1766,27 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         cmd_args = &ctx->cmd_args;
 
         /* Do this before argp_parse so it can be overridden. */
-        if (access(SECURE_ACCESS_FILE,F_OK) == 0) {
+        if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 cmd_args->secure_mgmt = 1;
         }
 
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
+        if (cmd_args->print_netgroups) {
+                /* When this option is set we don't want to do anything else
+                 * except for printing & verifying the netgroups file.
+                 */
+                ret = 0;
+                goto out;
+        }
+
+        if (cmd_args->print_exports) {
+                /* When this option is set we don't want to do anything else
+                 * except for printing & verifying the exports file.
+                  */
+                ret = 0;
+                goto out;
+        }
+
 
         ctx->secure_mgmt = cmd_args->secure_mgmt;
 
@@ -1570,7 +1818,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
                 /* Check if the volfile exists, if not give usage output
                    and exit */
-                ret = stat (cmd_args->volfile, &stbuf);
+                ret = sys_stat (cmd_args->volfile, &stbuf);
                 if (ret) {
                         gf_msg ("glusterfs", GF_LOG_CRITICAL, errno,
                                 glusterfsd_msg_16);
@@ -1675,7 +1923,7 @@ glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx)
                       cmd_args->pid_file);
 
         if (ctx->cmd_args.pid_file) {
-                unlink (ctx->cmd_args.pid_file);
+                sys_unlink (ctx->cmd_args.pid_file);
                 ctx->cmd_args.pid_file = NULL;
         }
 
@@ -1706,7 +1954,7 @@ glusterfs_pidfile_update (glusterfs_ctx_t *ctx)
                 return ret;
         }
 
-        ret = ftruncate (fileno (pidfp), 0);
+        ret = sys_ftruncate (fileno (pidfp), 0);
         if (ret) {
                 gf_msg ("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_20,
                         cmd_args->pid_file);
@@ -1865,8 +2113,8 @@ daemonize (glusterfs_ctx_t *ctx)
         switch (ret) {
         case -1:
                 if (ctx->daemon_pipe[0] != -1) {
-                        close (ctx->daemon_pipe[0]);
-                        close (ctx->daemon_pipe[1]);
+                        sys_close (ctx->daemon_pipe[0]);
+                        sys_close (ctx->daemon_pipe[1]);
                 }
 
                 gf_msg ("daemonize", GF_LOG_ERROR, errno, glusterfsd_msg_24);
@@ -1874,12 +2122,12 @@ daemonize (glusterfs_ctx_t *ctx)
         case 0:
                 /* child */
                 /* close read */
-                close (ctx->daemon_pipe[0]);
+                sys_close (ctx->daemon_pipe[0]);
                 break;
         default:
                 /* parent */
                 /* close write */
-                close (ctx->daemon_pipe[1]);
+                sys_close (ctx->daemon_pipe[1]);
 
                 if (ctx->mnt_pid > 0) {
                         ret = waitpid (ctx->mnt_pid, &cstatus, 0);
@@ -1891,7 +2139,7 @@ daemonize (glusterfs_ctx_t *ctx)
                 }
 
                 err = 1;
-                read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
+                sys_read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
                 _exit (err);
         }
 
@@ -1996,7 +2244,6 @@ out:
         return ret;
 }
 
-
 /* This is the only legal global pointer  */
 glusterfs_ctx_t *glusterfsd_ctx;
 
@@ -2006,6 +2253,7 @@ main (int argc, char *argv[])
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = -1;
         char              cmdlinestr[PATH_MAX] = {0,};
+        cmd_args_t       *cmd = NULL;
 
 	gf_check_and_set_mem_acct (argc, argv);
 
@@ -2029,6 +2277,23 @@ main (int argc, char *argv[])
         ret = parse_cmdline (argc, argv, ctx);
         if (ret)
                 goto out;
+        cmd = &ctx->cmd_args;
+        if (cmd->print_netgroups) {
+                /* If this option is set we want to print & verify the file,
+                 * set the return value (exit code in this case) and exit.
+                 */
+                ret =  print_netgroups_file (cmd->print_netgroups);
+                goto out;
+        }
+
+        if (cmd->print_exports) {
+                /* If this option is set we want to print & verify the file,
+                 * set the return value (exit code in this case)
+                 * and exit.
+                 */
+                ret = print_exports_file (cmd->print_exports);
+                goto out;
+        }
 
         ret = logging_init (ctx, argv[0]);
         if (ret)
@@ -2066,6 +2331,13 @@ main (int argc, char *argv[])
                 goto out;
         }
 
+        /* do this _after_ deamonize() */
+        if (cmd->global_timer_wheel) {
+                ret = glusterfs_global_timer_wheel_init (ctx);
+                if (ret)
+                        goto out;
+        }
+
         ret = glusterfs_volumes_init (ctx);
         if (ret)
                 goto out;
@@ -2074,6 +2346,5 @@ main (int argc, char *argv[])
 
 out:
 //        glusterfs_ctx_destroy (ctx);
-
         return ret;
 }

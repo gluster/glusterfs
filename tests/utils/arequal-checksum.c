@@ -70,7 +70,7 @@ add_to_list (char *arg);
 void
 get_absolute_path (char directory[], char *arg);
 
-static inline int roof(int a, int b)
+static int roof(int a, int b)
 {
         return ((((a)+(b)-1)/((b)?(b):1))*(b));
 }

@@ -15,11 +15,6 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "afr.h"
 #include "dict.h"
@@ -67,6 +62,37 @@ afr_copy_frame (call_frame_t *base)
 	return frame;
 }
 
+int
+__afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
+{
+        uint64_t                ctx_int = 0;
+        int                     ret     = -1;
+        afr_inode_ctx_t        *tmp_ctx = NULL;
+
+        ret = __inode_ctx_get (inode, this, &ctx_int);
+        if (ret) {
+                tmp_ctx = GF_CALLOC (1, sizeof (afr_inode_ctx_t),
+                                     gf_afr_mt_inode_ctx_t);
+                if (!tmp_ctx)
+                        goto out;
+
+                ctx_int = (long) tmp_ctx;
+                ret = __inode_ctx_set (inode, this, &ctx_int);
+                if (ret) {
+                        GF_FREE (tmp_ctx);
+                        goto out;
+                }
+                tmp_ctx->spb_choice = -1;
+                tmp_ctx->read_subvol = 0;
+        } else {
+                tmp_ctx = (afr_inode_ctx_t *) ctx_int;
+        }
+
+        *ctx = tmp_ctx;
+        ret = 0;
+out:
+        return ret;
+}
 /*
  * INODE CTX 64-bit VALUE FORMAT FOR SMALL (<= 16) SUBVOL COUNTS:
  *
@@ -109,12 +135,15 @@ __afr_inode_read_subvol_get_small (inode_t *inode, xlator_t *this,
 	uint32_t event = 0;
 	uint64_t val = 0;
 	int i = 0;
+        afr_inode_ctx_t *ctx = NULL;
 
 	priv = this->private;
 
-	ret = __inode_ctx_get (inode, this, &val);
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
 	if (ret < 0)
 		return ret;
+
+        val = ctx->read_subvol;
 
 	metadatamap = (val & 0x000000000000ffff);
 	datamap =     (val & 0x00000000ffff0000) >> 16;
@@ -143,8 +172,14 @@ __afr_inode_read_subvol_set_small (inode_t *inode, xlator_t *this,
 	uint16_t metadatamap = 0;
 	uint64_t val = 0;
 	int i = 0;
+        int ret = -1;
+        afr_inode_ctx_t *ctx = NULL;
 
 	priv = this->private;
+
+        ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                goto out;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (data[i])
@@ -157,9 +192,12 @@ __afr_inode_read_subvol_set_small (inode_t *inode, xlator_t *this,
 		(((uint64_t) datamap) << 16) |
 		(((uint64_t) event) << 32);
 
-	return __inode_ctx_set (inode, this, &val);
-}
+        ctx->read_subvol = val;
 
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
@@ -169,9 +207,13 @@ __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
 	uint16_t metadatamap = 0;
 	uint32_t event = 0;
 	uint64_t val = 0;
+        afr_inode_ctx_t *ctx = NULL;
 
-	ret = __inode_ctx_get (inode, this, &val);
-	(void) ret;
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                return ret;
+
+        val = ctx->read_subvol;
 
 	metadatamap = (val & 0x000000000000ffff) >> 0;
 	datamap =     (val & 0x00000000ffff0000) >> 16;
@@ -181,7 +223,9 @@ __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
 		(((uint64_t) datamap) << 16) |
 		(((uint64_t) event) << 32);
 
-	return __inode_ctx_set (inode, this, &val);
+        ctx->read_subvol = val;
+
+        return ret;
 }
 
 
@@ -205,6 +249,20 @@ __afr_inode_read_subvol_get (inode_t *inode, xlator_t *this,
 	return ret;
 }
 
+int
+__afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+			            int *spb_choice)
+{
+        afr_inode_ctx_t *ctx = NULL;
+        int ret = -1;
+
+        ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret < 0)
+                return ret;
+
+        *spb_choice = ctx->spb_choice;
+        return 0;
+}
 
 int
 __afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
@@ -224,6 +282,23 @@ __afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data
 	return ret;
 }
 
+int
+__afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                    int spb_choice)
+{
+        afr_inode_ctx_t *ctx = NULL;
+	int ret = -1;
+
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                goto out;
+
+        ctx->spb_choice = spb_choice;
+
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 __afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
@@ -248,14 +323,87 @@ afr_inode_read_subvol_get (inode_t *inode, xlator_t *this, unsigned char *data,
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
 	{
 		ret = __afr_inode_read_subvol_get (inode, this, data,
 						   metadata, event_p);
 	}
 	UNLOCK(&inode->lock);
+out:
+        return ret;
+}
 
-	return ret;
+int
+afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                       unsigned char *readable, int *event_p, int type)
+{
+
+        afr_private_t *priv = this->private;
+        afr_local_t *local = frame->local;
+        unsigned char *data = alloca0 (priv->child_count);
+        unsigned char *metadata = alloca0 (priv->child_count);
+        int data_count = 0;
+        int metadata_count = 0;
+        int event_generation = 0;
+        int ret = 0;
+
+        /* We don't care about split-brains for entry transactions. */
+        if (type == AFR_ENTRY_TRANSACTION || type == AFR_ENTRY_RENAME_TRANSACTION)
+                return 0;
+
+        ret = afr_inode_read_subvol_get (inode, this, data, metadata,
+                                         &event_generation);
+        if (ret == -1)
+                return -EIO;
+
+        data_count = AFR_COUNT (data, priv->child_count);
+        metadata_count = AFR_COUNT (metadata, priv->child_count);
+
+        if (inode->ia_type == IA_IFDIR) {
+                /* For directories, allow even if it is in data split-brain. */
+                if (type == AFR_METADATA_TRANSACTION ||
+                    local->op == GF_FOP_STAT || local->op == GF_FOP_FSTAT) {
+                        if (!metadata_count)
+                                return -EIO;
+                }
+        } else {
+                /* For files, abort in case of data/metadata split-brain. */
+                if (!data_count || !metadata_count)
+                        return -EIO;
+        }
+
+        if (type == AFR_METADATA_TRANSACTION && readable)
+                memcpy (readable, metadata, priv->child_count * sizeof *metadata);
+        if (type == AFR_DATA_TRANSACTION && readable) {
+                if (!data_count)
+                        memcpy (readable, local->child_up,
+                                priv->child_count * sizeof *readable);
+                else
+                        memcpy (readable, data, priv->child_count * sizeof *data);
+        }
+        if (event_p)
+                *event_p = event_generation;
+        return 0;
+}
+
+int
+afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+                                  int *spb_choice)
+{
+	int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+	LOCK(&inode->lock);
+	{
+		ret = __afr_inode_split_brain_choice_get (inode, this,
+                                                          spb_choice);
+	}
+	UNLOCK(&inode->lock);
+out:
+        return ret;
 }
 
 
@@ -265,13 +413,34 @@ afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
 	{
 		ret = __afr_inode_read_subvol_set (inode, this, data, metadata,
 						   event);
 	}
 	UNLOCK(&inode->lock);
+out:
+        return ret;
+}
 
+
+int
+afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                  int spb_choice)
+{
+	int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+	LOCK(&inode->lock);
+	{
+		ret = __afr_inode_split_brain_choice_set (inode, this,
+                                                          spb_choice);
+	}
+	UNLOCK(&inode->lock);
+out:
 	return ret;
 }
 
@@ -281,15 +450,153 @@ afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
-	{
-		ret = __afr_inode_read_subvol_reset (inode, this);
-	}
-	UNLOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_read_subvol_reset (inode, this);
+        }
+        UNLOCK(&inode->lock);
+out:
 	return ret;
 }
 
+int
+afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode)
+{
+        afr_inode_ctx_t *ctx    = NULL;
+        int              ret    = -1;
+
+        if (!inode)
+                return ret;
+
+        LOCK(&inode->lock);
+        {
+                __afr_inode_ctx_get (this, inode, &ctx);
+                if (!ctx) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to cancel"
+                                " split-brain choice timer.");
+                        goto out;
+                }
+                ctx->spb_choice = -1;
+                if (ctx->timer) {
+                        gf_timer_call_cancel (this->ctx, ctx->timer);
+                        ctx->timer = NULL;
+                }
+                ret = 0;
+        }
+out:
+        UNLOCK(&inode->lock);
+        return ret;
+}
+
+void
+afr_set_split_brain_choice_cbk (void *data)
+{
+        inode_t      *inode     = data;
+        xlator_t     *this      = THIS;
+
+        afr_spb_choice_timeout_cancel (this, inode);
+        inode_unref (inode);
+        return;
+}
+
+
+int
+afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
+{
+        int     op_errno         = ENOMEM;
+        afr_private_t *priv      = NULL;
+        afr_inode_ctx_t *ctx     = NULL;
+        inode_t *inode           = NULL;
+        loc_t   *loc             = NULL;
+        xlator_t *this           = NULL;
+        afr_spbc_timeout_t *data = opaque;
+        struct timespec delta    = {0, };
+
+        if (ret)
+                goto out;
+
+        frame = data->frame;
+        loc = data->loc;
+        this = frame->this;
+        priv = this->private;
+
+        delta.tv_sec = priv->spb_choice_timeout;
+        delta.tv_nsec = 0;
+
+        inode = loc->inode;
+        if (!inode)
+                goto out;
+
+        if (!(data->d_spb || data->m_spb)) {
+                gf_log (this->name, GF_LOG_WARNING, "Cannot set "
+                        "replica.split-brain-choice on %s. File is"
+                        " not in data/metadata split-brain.",
+                        uuid_utoa (loc->gfid));
+                ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, inode, &ctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
+                                "inode_ctx for %s", loc->name);
+                        goto unlock;
+                }
+
+                ctx->spb_choice = data->spb_child_index;
+
+                /* Possible changes in spb-choice :
+                 *         -1 to valid    : ref and inject timer
+                 *
+                 *         valid to valid : cancel timer and inject new one
+                 *
+                 *         valid to -1    : cancel timer and unref
+                 *
+                 *         -1    to -1    : do not do anything
+                 */
+
+                /* ctx->timer is NULL iff previous value of
+                 * ctx->spb_choice is -1
+                 */
+                if (ctx->timer) {
+                        if (ctx->spb_choice == -1) {
+                                gf_timer_call_cancel (this->ctx, ctx->timer);
+                                ctx->timer = NULL;
+                                inode_unref (inode);
+                                goto unlock;
+                        }
+                        goto reset_timer;
+                } else {
+                        if (ctx->spb_choice == -1)
+                                goto unlock;
+                }
+
+                inode = inode_ref (loc->inode);
+                goto set_timer;
+
+reset_timer:
+                gf_timer_call_cancel (this->ctx, ctx->timer);
+                ctx->timer = NULL;
+
+set_timer:
+                ctx->timer = gf_timer_call_after (this->ctx, delta,
+                                                  afr_set_split_brain_choice_cbk,
+                                                  inode);
+        }
+unlock:
+        UNLOCK(&inode->lock);
+        inode_invalidate (inode);
+out:
+        if (data)
+                GF_FREE (data);
+        AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
+        return 0;
+}
 
 int
 afr_accused_fill (xlator_t *this, dict_t *xdata, unsigned char *accused,
@@ -330,6 +637,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
+                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE))
+                        continue;
 		if (data_accused[i])
 			continue;
 		if (replies[i].poststat.ia_size > maxsize)
@@ -339,6 +648,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	for (i = 0; i < priv->child_count; i++) {
 		if (data_accused[i])
 			continue;
+                if (AFR_IS_ARBITER_BRICK(priv, i))
+                        continue;
 		if (replies[i].poststat.ia_size < maxsize)
 			data_accused[i] = 1;
 	}
@@ -389,8 +700,14 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			continue;
 		}
 
+                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE)) {
+			data_readable[i] = 0;
+			metadata_readable[i] = 0;
+			continue;
+                }
+
 		afr_accused_fill (this, replies[i].xdata, data_accused,
-				  (inode->ia_type == IA_IFDIR) ?
+				  (replies[i].poststat.ia_type == IA_IFDIR) ?
 				   AFR_ENTRY_TRANSACTION : AFR_DATA_TRANSACTION);
 
 		afr_accused_fill (this, replies[i].xdata,
@@ -515,7 +832,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 	if (ret && afr_selfheal_enabled (this)) {
 		heal = copy_frame (frame);
 		if (heal)
-			heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
 		ret = synctask_new (this->ctx->env, afr_refresh_selfheal_wrap,
 				    afr_refresh_selfheal_done, heal, frame);
 		if (ret)
@@ -528,39 +845,59 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
-
-int
+void
 afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			      int op_ret, int op_errno, inode_t *inode,
-			      struct iatt *buf, dict_t *xdata, struct iatt *par)
+                              int op_ret, int op_errno, struct iatt *buf,
+                              dict_t *xdata, struct iatt *par)
 {
-	afr_local_t *local = NULL;
-	int call_child = (long) cookie;
-	int call_count = 0;
+        afr_local_t *local = NULL;
+        int call_child = (long) cookie;
+        int8_t need_heal = 1;
+        int call_count = 0;
+        GF_UNUSED int ret = 0;
 
-	local = frame->local;
-
-	local->replies[call_child].valid = 1;
-	local->replies[call_child].op_ret = op_ret;
-	local->replies[call_child].op_errno = op_errno;
+        local = frame->local;
+        local->replies[call_child].valid = 1;
+        local->replies[call_child].op_ret = op_ret;
+        local->replies[call_child].op_errno = op_errno;
 	if (op_ret != -1) {
 		local->replies[call_child].poststat = *buf;
-		local->replies[call_child].postparent = *par;
-		local->replies[call_child].xdata = dict_ref (xdata);
+		if (par)
+                        local->replies[call_child].postparent = *par;
+                if (xdata)
+		        local->replies[call_child].xdata = dict_ref (xdata);
 	}
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[call_child].need_heal = need_heal;
+        } else {
+                local->replies[call_child].need_heal = need_heal;
+        }
 
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0)
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                afr_set_need_heal (this, local);
 		afr_inode_refresh_done (frame, this);
+        }
 
+}
+
+int
+afr_inode_refresh_subvol_with_lookup_cbk (call_frame_t *frame, void *cookie,
+                                          xlator_t *this, int op_ret,
+                                          int op_errno, inode_t *inode,
+                                          struct iatt *buf, dict_t *xdata,
+                                          struct iatt *par)
+{
+        afr_inode_refresh_subvol_cbk (frame, cookie, this, op_ret, op_errno,
+                                      buf, xdata, par);
 	return 0;
 }
 
 
 int
-afr_inode_refresh_subvol (call_frame_t *frame, xlator_t *this, int i,
-			  inode_t *inode, dict_t *xdata)
+afr_inode_refresh_subvol_with_lookup (call_frame_t *frame, xlator_t *this,
+                                      int i, inode_t *inode, dict_t *xdata)
 {
 	loc_t loc = {0, };
 	afr_private_t *priv = NULL;
@@ -568,14 +905,40 @@ afr_inode_refresh_subvol (call_frame_t *frame, xlator_t *this, int i,
 	priv = this->private;
 
 	loc.inode = inode;
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_cbk,
+	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_with_lookup_cbk,
 			   (void *) (long) i, priv->children[i],
 			   priv->children[i]->fops->lookup, &loc, xdata);
 	return 0;
 }
 
+int
+afr_inode_refresh_subvol_with_fstat_cbk (call_frame_t *frame,
+                                         void *cookie, xlator_t *this,
+                                         int32_t op_ret, int32_t op_errno,
+                                         struct iatt *buf, dict_t *xdata)
+{
+        afr_inode_refresh_subvol_cbk (frame, cookie, this, op_ret, op_errno,
+                                      buf, xdata, NULL);
+        return 0;
+}
+
+int
+afr_inode_refresh_subvol_with_fstat (call_frame_t *frame, xlator_t *this, int i,
+			             dict_t *xdata)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+
+        priv = this->private;
+        local = frame->local;
+
+        STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_with_fstat_cbk,
+                           (void *) (long) i, priv->children[i],
+                           priv->children[i]->fops->fstat, local->fd, xdata);
+        return 0;
+}
 
 int
 afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
@@ -584,12 +947,24 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int call_count = 0;
 	int i = 0;
+        int ret = 0;
 	dict_t *xdata = NULL;
+        afr_fd_ctx_t  *fd_ctx = NULL;
+        unsigned char *wind_subvols = NULL;
 
 	priv = this->private;
 	local = frame->local;
+        wind_subvols = alloca0 (priv->child_count);
 
         afr_local_replies_wipe (local, priv);
+
+        if (local->fd) {
+                fd_ctx = afr_fd_ctx_get (local->fd, this);
+                if (!fd_ctx) {
+                        afr_inode_refresh_done (frame, this);
+                        return 0;
+                }
+        }
 
 	xdata = dict_new ();
 	if (!xdata) {
@@ -603,15 +978,41 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	local->call_count = AFR_COUNT (local->child_up, priv->child_count);
+        ret = dict_set_str (xdata, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
+        }
+
+        if (local->fd) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (local->child_up[i] &&
+                            fd_ctx->opened_on[i] == AFR_FD_OPENED)
+                                wind_subvols[i] = 1;
+                }
+        } else {
+                memcpy (wind_subvols, local->child_up,
+                        sizeof (*local->child_up) * priv->child_count);
+        }
+
+	local->call_count = AFR_COUNT (wind_subvols, priv->child_count);
 
 	call_count = local->call_count;
+        if (!call_count) {
+                dict_unref (xdata);
+                afr_inode_refresh_done (frame, this);
+                return 0;
+        }
 	for (i = 0; i < priv->child_count; i++) {
-		if (!local->child_up[i])
+		if (!wind_subvols[i])
 			continue;
 
-		afr_inode_refresh_subvol (frame, this, i, local->refreshinode,
-					  xdata);
+                if (local->fd)
+                        afr_inode_refresh_subvol_with_fstat (frame, this, i,
+                                                             xdata);
+                else
+                        afr_inode_refresh_subvol_with_lookup (frame, this, i,
+                                                    local->refreshinode, xdata);
 
 		if (!--call_count)
 			break;
@@ -659,7 +1060,8 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
                 ret = dict_set_uint64 (xattr_req, priv->pending_key[i],
                                        AFR_NUM_CHANGE_LOGS * sizeof(int));
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
                                 "Unable to set dict value for %s",
                                 priv->pending_key[i]);
                 /* 3 = data+metadata+entry */
@@ -667,14 +1069,14 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
         ret = dict_set_uint64 (xattr_req, AFR_DIRTY,
 			       AFR_NUM_CHANGE_LOGS * sizeof(int));
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "failed to set dirty "
-                        "query flag");
+                gf_msg_debug (this->name, -ret, "failed to set dirty "
+                              "query flag");
         }
 
         ret = dict_set_int32 (xattr_req, "list-xattr", 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Unable to set list-xattr in dict ");
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set list-xattr in dict ");
         }
 
 	return ret;
@@ -692,33 +1094,38 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
         if (!local->xattr_req)
                 goto out;
 
-        if (xattr_req != local->xattr_req)
+        if (xattr_req && (xattr_req != local->xattr_req))
                 dict_copy (xattr_req, local->xattr_req);
 
         ret = afr_xattr_req_prepare (this, local->xattr_req);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"%s: Unable to prepare xattr_req", loc->path);
-	}
 
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_INODELK_COUNT);
         }
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
 
         ret = dict_set_uint32 (local->xattr_req, GLUSTERFS_PARENT_ENTRYLK, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_PARENT_ENTRYLK);
+        }
+
+        ret = dict_set_str (xattr_req, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
         }
 
         ret = 0;
@@ -728,7 +1135,7 @@ out:
 
 
 int
-afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
+afr_hash_child (afr_read_subvol_args_t *args, int32_t child_count, int hashmode)
 {
         uuid_t gfid_copy = {0,};
         pid_t pid;
@@ -737,11 +1144,9 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
                 return -1;
         }
 
-        if (inode) {
-               uuid_copy (gfid_copy, inode->gfid);
-        }
+        gf_uuid_copy (gfid_copy, args->gfid);
 
-        if (hashmode > 1 && inode->ia_type != IA_IFDIR) {
+        if ((hashmode > 1) && (args->ia_type != IA_IFDIR)) {
                 /*
                  * Why getpid?  Because it's one of the cheapest calls
                  * available - faster than gethostname etc. - and returns a
@@ -762,32 +1167,41 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
-				  unsigned char *readable)
+				  unsigned char *readable,
+                                  afr_read_subvol_args_t *args)
 {
-	afr_private_t *priv = NULL;
-	int read_subvol = -1;
-	int i = 0;
+	int             i           = 0;
+	int             read_subvol = -1;
+	afr_private_t  *priv        = NULL;
+        afr_read_subvol_args_t local_args = {0,};
 
 	priv = this->private;
 
 	/* first preference - explicitly specified or local subvolume */
 	if (priv->read_child >= 0 && readable[priv->read_child])
-		return priv->read_child;
+                return priv->read_child;
+
+        if (inode_is_linked (inode)) {
+                gf_uuid_copy (local_args.gfid, inode->gfid);
+                local_args.ia_type = inode->ia_type;
+        } else if (args) {
+                local_args = *args;
+        }
 
 	/* second preference - use hashed mode */
-	read_subvol = afr_hash_child (inode, priv->child_count,
-				      priv->hash_mode);
+	read_subvol = afr_hash_child (&local_args, priv->child_count,
+                                      priv->hash_mode);
 	if (read_subvol >= 0 && readable[read_subvol])
-		return read_subvol;
+                return read_subvol;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (readable[i])
-			return i;
+                if (readable[i])
+                return i;
 	}
 
-	/* no readable subvolumes, either split brain or all subvols down */
+        /* no readable subvolumes, either split brain or all subvols down */
 
-	return -1;
+        return -1;
 }
 
 
@@ -810,7 +1224,8 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
-		     int *event_p, afr_transaction_type type)
+		     int *event_p, afr_transaction_type type,
+                     afr_read_subvol_args_t *args)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *data_readable = NULL;
@@ -837,10 +1252,10 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 	if (AFR_COUNT (intersection, priv->child_count) > 0)
 		subvol = afr_read_subvol_select_by_policy (inode, this,
-							   intersection);
+							   intersection, args);
 	else
 		subvol = afr_read_subvol_select_by_policy (inode, this,
-							   readable);
+							   readable, args);
 	if (subvol_p)
 		*subvol_p = subvol;
 	if (event_p)
@@ -870,8 +1285,18 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         afr_entry_lockee_cleanup (&local->internal_lock);
 
         GF_FREE (local->transaction.pre_op);
+
+        GF_FREE (local->transaction.pre_op_sources);
+        if (local->transaction.pre_op_xdata) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->transaction.pre_op_xdata[i])
+                                continue;
+                        dict_unref (local->transaction.pre_op_xdata[i]);
+                }
+                GF_FREE (local->transaction.pre_op_xdata);
+        }
+
         GF_FREE (local->transaction.eager_lock);
-        GF_FREE (local->transaction.fop_subvols);
         GF_FREE (local->transaction.failed_subvols);
 
         GF_FREE (local->transaction.basename);
@@ -892,6 +1317,11 @@ afr_replies_wipe (struct afr_reply *replies, int count)
                 if (replies[i].xdata) {
                         dict_unref (replies[i].xdata);
                         replies[i].xdata = NULL;
+                }
+
+                if (replies[i].xattr) {
+                        dict_unref (replies[i].xattr);
+                        replies[i].xattr = NULL;
                 }
         }
 }
@@ -944,6 +1374,9 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
+
+        if (local->xattr_rsp)
+                dict_unref (local->xattr_rsp);
 
         if (local->dict)
                 dict_unref (local->dict);
@@ -1022,10 +1455,6 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 if (local->cont.xattrop.xattr)
                         dict_unref (local->cont.xattrop.xattr);
         }
-        { /* fxattrop */
-                if (local->cont.fxattrop.xattr)
-                        dict_unref (local->cont.fxattrop.xattr);
-        }
         { /* symlink */
                 GF_FREE (local->cont.symlink.linkpath);
         }
@@ -1092,65 +1521,6 @@ afr_is_entry_possibly_under_txn (afr_local_t *local, xlator_t *this)
 }
 
 
-/*
- * Quota size xattrs are not maintained by afr. There is a
- * possibility that they differ even when both the directory changelog xattrs
- * suggest everything is fine. So if there is at least one 'source' check among
- * the sources which has the maximum quota size. Otherwise check among all the
- * available ones for maximum quota size. This way if there is a source and
- * stale copies it always votes for the 'source'.
- * */
-
-static void
-afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
-{
-	unsigned char *readable = NULL;
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
-	struct afr_reply *replies = NULL;
-	int i = 0;
-	uint64_t size = 0;
-	uint64_t max_size = 0;
-	int readable_cnt = 0;
-
-	local = frame->local;
-	priv = this->private;
-	replies = local->replies;
-
-	readable = alloca0 (priv->child_count);
-
-	afr_inode_read_subvol_get (local->inode, this, readable, 0, 0);
-
-	readable_cnt = AFR_COUNT (readable, priv->child_count);
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid || replies[i].op_ret == -1)
-			continue;
-		if (readable_cnt && !readable[i])
-			continue;
-		if (!replies[i].xdata)
-			continue;
-		if (dict_get_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, &size))
-			continue;
-		if (size > max_size)
-			max_size = size;
-	}
-
-	if (!max_size)
-		return;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid || replies[i].op_ret == -1)
-			continue;
-		if (readable_cnt && !readable[i])
-			continue;
-		if (!replies[i].xdata)
-			continue;
-		if (dict_set_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, max_size))
-			continue;
-	}
-}
-
 static char *afr_ignore_xattrs[] = {
         GLUSTERFS_OPEN_FD_COUNT,
         GLUSTERFS_PARENT_ENTRYLK,
@@ -1175,48 +1545,19 @@ afr_is_xattr_ignorable (char *key)
         return _gf_false;
 }
 
-int
-xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data)
+static gf_boolean_t
+afr_xattr_match (dict_t *this, char *key1, data_t *value1, void *data)
 {
-        dict_t *xattr2 = (dict_t *)data;
-        data_t *value2 = NULL;
+        if (!afr_is_xattr_ignorable (key1))
+                return _gf_true;
 
-        if (afr_is_xattr_ignorable (key1))
-                return 0;
-
-        value2 = dict_get (xattr2, key1);
-        if (!value2)
-                return -1;
-
-        if (value1->len != value2->len)
-                return -1;
-        if(memcmp(value1->data, value2->data, value1->len))
-                return -1;
-        else
-                return 0;
-
+        return _gf_false;
 }
 
-/* To conclude that both dicts are equal, we need to check if
- * 1) For every key-val pair in dict1, a match is present in dict2
- * 2) For every key-val pair in dict2, a match is present in dict1
- * We need to do both because ignoring glusterfs' internal xattrs
- * happens only in xattr_is_equal().
- */
 gf_boolean_t
 afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2)
 {
-        int ret = 0;
-
-        ret = dict_foreach (dict1, xattr_is_equal, dict2);
-        if (ret == -1)
-                return _gf_false;
-
-        ret = dict_foreach (dict2, xattr_is_equal, dict1);
-        if (ret == -1)
-                 return _gf_false;
-
-        return _gf_true;
+        return are_dicts_equal (dict1, dict2, afr_xattr_match, NULL);
 }
 
 static int
@@ -1231,7 +1572,8 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
         priv = this->private;
 
         if (parent)
-                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0);
+                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0,
+                                                       NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!replies[i].valid)
@@ -1263,6 +1605,40 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
 
 }
 
+int
+afr_read_subvol_decide (inode_t *inode, xlator_t *this,
+                        afr_read_subvol_args_t *args)
+{
+        int data_subvol  = -1;
+        int mdata_subvol = -1;
+
+        data_subvol = afr_data_subvol_get (inode, this,
+                                           0, 0, args);
+        mdata_subvol = afr_metadata_subvol_get (inode, this,
+                                                0, 0, args);
+        if (data_subvol == -1 || mdata_subvol == -1)
+                return -1;
+
+        return data_subvol;
+}
+
+static inline int
+afr_first_up_child (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t       *priv  = NULL;
+        afr_local_t         *local = NULL;
+        int                  i     = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++)
+                if (local->replies[i].valid &&
+                    local->replies[i].op_ret == 0)
+                        return i;
+        return 0;
+}
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1279,6 +1655,9 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	gf_boolean_t        locked_entry = _gf_false;
 	gf_boolean_t        can_interpret = _gf_true;
         inode_t            *parent = NULL;
+        int                 spb_choice = -1;
+        ia_type_t           ia_type = IA_INVAL;
+        afr_read_subvol_args_t args = {0,};
 
         priv  = this->private;
         local = frame->local;
@@ -1291,6 +1670,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
 	afr_inode_read_subvol_get (parent, this, readable, NULL, &event);
 
+        afr_inode_split_brain_choice_get (local->inode, this,
+                                                &spb_choice);
 	/* First, check if we have a gfid-change from somewhere,
 	   If so, propagate that so that a fresh lookup can be
 	   issued
@@ -1323,7 +1704,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
 		if (read_subvol == -1 || !readable[read_subvol]) {
 			read_subvol = i;
-			uuid_copy (read_gfid, replies[i].poststat.ia_gfid);
+			gf_uuid_copy (read_gfid, replies[i].poststat.ia_gfid);
+                        ia_type = replies[i].poststat.ia_type;
 			local->op_ret = 0;
 		}
 	}
@@ -1342,7 +1724,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 			continue;
 		}
 
-		if (!uuid_compare (replies[i].poststat.ia_gfid, read_gfid))
+		if (!gf_uuid_compare (replies[i].poststat.ia_gfid, read_gfid))
                         continue;
 
 		can_interpret = _gf_false;
@@ -1369,29 +1751,38 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		   a response from all the UP subvolumes and all of them resolved
 		   to the same GFID
 		*/
+                gf_uuid_copy (args.gfid, read_gfid);
+                args.ia_type = ia_type;
 		if (afr_replies_interpret (frame, this, local->inode)) {
-			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0);
+                        read_subvol = afr_read_subvol_decide (local->inode,
+                                                              this, &args);
 			afr_inode_read_subvol_reset (local->inode, this);
 			goto cant_interpret;
 		} else {
-			read_subvol = afr_data_subvol_get (local->inode, this,
-							   0, 0);
+                        read_subvol = afr_data_subvol_get (local->inode, this,
+                                                           0, 0, &args);
 		}
 	} else {
 	cant_interpret:
-		if (read_subvol == -1)
-			dict_del (replies[0].xdata, GF_CONTENT_KEY);
-		else
-			dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
+                if (read_subvol == -1) {
+                        if (spb_choice >= 0)
+                                read_subvol = spb_choice;
+                        else
+                                read_subvol = afr_first_up_child (frame, this);
+                }
+		dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
 	}
 
 	afr_handle_quota_size (frame, this);
 
 unwind:
-	if (read_subvol == -1)
-		read_subvol = 0;
-
+        afr_set_need_heal (this, local);
+        if (read_subvol == -1) {
+                if (spb_choice >= 0)
+                        read_subvol = spb_choice;
+                else
+                        read_subvol = afr_first_up_child (frame, this);
+        }
         par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
                                                       readable);
 
@@ -1433,69 +1824,13 @@ afr_final_errno (afr_local_t *local, afr_private_t *priv)
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
 			continue;
-		if (local->replies[i].op_ret == 0)
+		if (local->replies[i].op_ret >= 0)
 			continue;
 		tmp_errno = local->replies[i].op_errno;
 		op_errno = afr_higher_errno (op_errno, tmp_errno);
 	}
 
 	return op_errno;
-}
-
-static int
-get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
-{
-        char    *start = NULL;
-        char    *end = NULL;
-        int     ret  = -1;
-        int     i    = 0;
-
-        if (!pathinfo)
-                goto out;
-
-        start = strchr (pathinfo, ':');
-        if (!start)
-                goto out;
-        end = strrchr (pathinfo, ':');
-        if (start == end)
-                goto out;
-
-        memset (hostname, 0, size);
-        i = 0;
-        while (++start != end)
-                hostname[i++] = *start;
-        ret = 0;
-out:
-        return ret;
-}
-
-int
-afr_local_pathinfo (char *pathinfo, gf_boolean_t *local)
-{
-        int             ret   = 0;
-        char            pathinfohost[1024] = {0};
-        char            localhost[1024] = {0};
-        xlator_t        *this = THIS;
-
-        *local = _gf_false;
-        ret = get_pathinfo_host (pathinfo, pathinfohost, sizeof (pathinfohost));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid pathinfo: %s",
-                        pathinfo);
-                goto out;
-        }
-
-        ret = gethostname (localhost, sizeof (localhost));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "gethostname() failed, "
-                        "reason: %s", strerror (errno));
-                goto out;
-        }
-
-        if (!strcmp (localhost, pathinfohost))
-                *local = _gf_true;
-out:
-        return ret;
 }
 
 static int32_t
@@ -1521,7 +1856,7 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        ret = afr_local_pathinfo (pathinfo, &is_local);
+        ret = glusterfs_is_local_pathinfo (pathinfo, &is_local);
         if (ret) {
                 goto out;
         }
@@ -1533,9 +1868,13 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * the slowest local subvolume is far preferable to a remote one.
          */
         if (is_local) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "selecting local read_child %s",
+                /* Don't set arbiter as read child. */
+                if (AFR_IS_ARBITER_BRICK(priv, child_index))
+                        goto out;
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_LOCAL_CHILD, "selecting local read_child %s",
                         priv->children[child_index]->name);
+
                 priv->read_child = child_index;
         }
 out:
@@ -1573,6 +1912,8 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         afr_private_t *priv       = NULL;
         struct afr_reply *replies = NULL;
         int i= 0, first = -1;
+        int ret = -1;
+        dict_t *dict = NULL;
 
         local = frame->local;
         this  = frame->this;
@@ -1597,13 +1938,26 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         inode_unref (inode);
 
         afr_local_replies_wipe (local, this->private);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+        ret = dict_set_str (dict, "link-count", GF_XATTROP_INDEX_COUNT);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set link-count in dict ");
+        }
+
         inode = afr_selfheal_unlocked_lookup_on (frame, local->loc.parent,
                                                  local->loc.name, local->replies,
-                                                 local->child_up, NULL);
+                                                 local->child_up, dict);
         if (inode)
                 inode_unref (inode);
 out:
         afr_lookup_done (frame, this);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
@@ -1622,6 +1976,9 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
         replies = local->replies;
         priv = this->private;
 
+        if (!priv->metadata_self_heal)
+                return _gf_false;
+
         for (i = 0; i < priv->child_count; i++) {
                 if(!replies[i].valid || replies[i].op_ret == -1)
                         continue;
@@ -1631,7 +1988,7 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
                         continue;
                 }
 
-                if (uuid_compare (stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
+                if (gf_uuid_compare (stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
                         start = _gf_false;
                         break;
                 }
@@ -1669,7 +2026,7 @@ afr_lookup_metadata_heal_check (call_frame_t *frame, xlator_t *this)
 
         heal = copy_frame (frame);
         if (heal)
-                heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+                heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
         ret = synctask_new (this->ctx->env, afr_lookup_sh_metadata_wrap,
                             afr_refresh_selfheal_done, heal, frame);
         if(ret)
@@ -1747,7 +2104,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 			break;
 		}
 
-		if (uuid_compare (replies[i].poststat.ia_gfid,
+		if (gf_uuid_compare (replies[i].poststat.ia_gfid,
 				  replies[first].poststat.ia_gfid)) {
 			need_heal = _gf_true;
 			break;
@@ -1757,7 +2114,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	if (need_heal) {
 		heal = copy_frame (frame);
 		if (heal)
-			heal->root->pid = GF_CLIENT_PID_AFR_SELF_HEALD;
+			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
 		ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
 				    afr_refresh_selfheal_done, heal, frame);
 		if (ret)
@@ -1779,6 +2136,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *   local = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
+        GF_UNUSED int   ret             = 0;
+	int8_t need_heal                = 1;
 
 	child_index = (long) cookie;
 
@@ -1795,6 +2154,12 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata && dict_get (xdata, "gfid-changed"))
                 local->cont.lookup.needs_fresh_lookup = _gf_true;
 
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[child_index].need_heal = need_heal;
+        } else {
+                local->replies[child_index].need_heal = need_heal;
+        }
 	if (op_ret != -1) {
 		local->replies[child_index].poststat = *buf;
 		local->replies[child_index].postparent = *postparent;
@@ -1804,6 +2169,7 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
+                afr_set_need_heal (this, local);
 		afr_lookup_entry_heal (frame, this);
         }
 
@@ -1819,10 +2185,14 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local = NULL;
 	int                 i = -1;
 	int                 op_errno = 0;
-	int                 read_subvol = 0;
+	int                 spb_choice = -1;
+	int                 read_subvol = -1;
 
         priv  = this->private;
         local = frame->local;
+
+        afr_inode_split_brain_choice_get (local->inode, this,
+                                          &spb_choice);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
@@ -1841,23 +2211,26 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
 
 	afr_replies_interpret (frame, this, local->inode);
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0);
+	read_subvol = afr_read_subvol_decide (local->inode, this, NULL);
 	if (read_subvol == -1) {
-		gf_log (this->name, GF_LOG_WARNING, "no read subvols for %s",
+	        gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_READ_SUBVOL_ERROR, "no read subvols for %s",
 			local->loc.path);
 
-		for (i = 0; i < priv->child_count; i++) {
-			if (!local->replies[i].valid ||
-			    local->replies[i].op_ret == -1)
-				continue;
-			read_subvol = i;
-			break;
-		}
+                if (spb_choice >= 0) {
+                        read_subvol = spb_choice;
+                } else {
+                        read_subvol = afr_first_up_child (frame, this);
+                }
 	}
 
 unwind:
-	if (read_subvol == -1)
-		read_subvol = 0;
+	if (read_subvol == -1) {
+                if (spb_choice >= 0)
+                        read_subvol = spb_choice;
+                else
+                        read_subvol = afr_first_up_child (frame, this);
+        }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
@@ -1874,6 +2247,8 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *   local = NULL;
         int             call_count      = -1;
         int             child_index     = -1;
+        GF_UNUSED int ret               = 0;
+	int8_t need_heal                = 1;
 
 	child_index = (long) cookie;
 
@@ -1892,8 +2267,16 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->do_discovery && (op_ret == 0))
                 afr_attempt_local_discovery (this, child_index);
 
+        if (xdata) {
+                ret = dict_get_int8 (xdata, "link-count", &need_heal);
+                local->replies[child_index].need_heal = need_heal;
+        } else {
+                local->replies[child_index].need_heal = need_heal;
+        }
+
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
+               afr_set_need_heal (this, local);
                afr_discover_done (frame, this);
         }
 
@@ -1994,13 +2377,13 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 		   allocate one for us */
 		local->xattr_req = dict_ref (xattr_req);
 
-	if (uuid_is_null (loc->inode->gfid)) {
+	if (gf_uuid_is_null (loc->inode->gfid)) {
 		afr_discover_do (frame, this, 0);
 		return 0;
 	}
 
 	afr_read_subvol_get (loc->inode, this, NULL, &event,
-			     AFR_DATA_TRANSACTION);
+			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
 		afr_inode_refresh (frame, this, loc->inode, afr_discover_do);
@@ -2105,7 +2488,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         void          *gfid_req = NULL;
         int            ret = 0;
 
-	if (!loc->parent && uuid_is_null (loc->pargfid)) {
+	if (!loc->parent && gf_uuid_is_null (loc->pargfid)) {
                 if (xattr_req)
                         dict_del (xattr_req, "gfid-req");
 		afr_discover (frame, this, loc, xattr_req);
@@ -2139,14 +2522,14 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 		   allocate one for us */
                 ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
                 if (ret == 0) {
-                        uuid_copy (local->cont.lookup.gfid_req, gfid_req);
+                        gf_uuid_copy (local->cont.lookup.gfid_req, gfid_req);
                         dict_del (xattr_req, "gfid-req");
                 }
 		local->xattr_req = dict_ref (xattr_req);
         }
 
 	afr_read_subvol_get (loc->parent, this, NULL, &event,
-			     AFR_DATA_TRANSACTION);
+			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
 		afr_inode_refresh (frame, this, loc->parent, afr_lookup_do);
@@ -2278,8 +2661,8 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set fd ctx (%p)", fd);
+                gf_msg_debug (this->name, 0,
+                              "failed to set fd ctx (%p)", fd);
 out:
         return ret;
 }
@@ -2409,7 +2792,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         if (fd_ctx) {
                 //no need to take any locks
                 if (!list_empty (&fd_ctx->eager_locked))
-                        gf_log (this->name, GF_LOG_WARNING, "%s: Stale "
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_INVALID_DATA, "%s: Stale "
                                 "Eager-lock stubs found",
                                 uuid_utoa (fd->inode->gfid));
 
@@ -2466,7 +2850,7 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0);
+	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
 
         LOCK (&frame->lock);
         {
@@ -2657,166 +3041,6 @@ out:
 
 /* }}} */
 
-/* {{{ xattrop */
-
-int32_t
-afr_xattrop_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno,
-                 dict_t *xattr, dict_t *xdata)
-{
-        afr_local_t *local = NULL;
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0) {
-                        if (!local->cont.xattrop.xattr)
-                                local->cont.xattrop.xattr = dict_ref (xattr);
-
-			if (!local->xdata_rsp && xdata)
-				local->xdata_rsp = dict_ref (xdata);
-
-                        local->op_ret = 0;
-                }
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (xattrop, frame, local->op_ret, local->op_errno,
-                local->cont.xattrop.xattr, local->xdata_rsp);
-
-        return 0;
-}
-
-
-int32_t
-afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
-{
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = ENOMEM;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-		goto out;
-
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_xattrop_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->xattrop,
-                                    loc, optype, xattr, xdata);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
-
-        return 0;
-}
-
-/* }}} */
-
-/* {{{ fxattrop */
-
-int32_t
-afr_fxattrop_cbk (call_frame_t *frame, void *cookie,
-                  xlator_t *this, int32_t op_ret, int32_t op_errno,
-                  dict_t *xattr, dict_t *xdata)
-{
-        afr_local_t *local = NULL;
-
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0) {
-                        if (!local->cont.fxattrop.xattr)
-                                local->cont.fxattrop.xattr = dict_ref (xattr);
-
-			if (!local->xdata_rsp && xdata)
-				local->xdata_rsp = dict_ref (xdata);
-                        local->op_ret = 0;
-                }
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (fxattrop, frame, local->op_ret, local->op_errno,
-                                  local->cont.fxattrop.xattr, local->xdata_rsp);
-
-        return 0;
-}
-
-
-int32_t
-afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
-{
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = 0;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-                goto out;
-
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_fxattrop_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->fxattrop,
-                                    fd, optype, xattr, xdata);
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
-
-        return 0;
-}
-
-/* }}} */
-
 int32_t
 afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
@@ -2834,7 +3058,9 @@ afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret < 0 && op_errno != ENOTCONN) {
                 loc_gfid (&local->loc, gfid);
-                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to unlock %s "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_INODE_UNLOCK_FAIL,
+                        "%s: Failed to unlock %s "
                         "with lk_owner: %s (%s)", uuid_utoa (gfid),
                         priv->children[child_index]->name,
                         lkowner_utoa (&frame->root->lk_owner),
@@ -2972,7 +3198,7 @@ afr_parallel_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-static inline gf_boolean_t
+static gf_boolean_t
 afr_is_conflicting_lock_present (int32_t op_ret, int32_t op_errno)
 {
         if (op_ret == -1 && op_errno == EAGAIN)
@@ -3402,6 +3628,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 	if (!local)
 		goto out;
 
+        if (priv->arbiter_count == 1 && local->child_up[ARBITER_BRICK_INDEX])
+                local->call_count--;
         call_count = local->call_count;
 	if (!call_count) {
 		op_errno = ENOTCONN;
@@ -3410,6 +3638,8 @@ afr_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
+                        if (AFR_IS_ARBITER_BRICK(priv, i))
+                                continue;
                         STACK_WIND (frame, afr_statfs_cbk,
                                     priv->children[i],
                                     priv->children[i]->fops->statfs,
@@ -3583,6 +3813,16 @@ out:
 int
 afr_forget (xlator_t *this, inode_t *inode)
 {
+        uint64_t        ctx_int = 0;
+        afr_inode_ctx_t *ctx    = NULL;
+
+        afr_spb_choice_timeout_cancel (this, inode);
+        inode_ctx_del (inode, this, &ctx_int);
+        if (!ctx_int)
+                return 0;
+
+        ctx = (afr_inode_ctx_t *)ctx_int;
+        GF_FREE (ctx);
         return 0;
 }
 
@@ -3617,6 +3857,7 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("read_child", "%d", priv->read_child);
         gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
+        gf_proc_dump_write("quorum-reads", "%d", priv->quorum_reads);
 
         return 0;
 }
@@ -3658,7 +3899,6 @@ afr_notify (xlator_t *this, int32_t event,
         int             idx                 = -1;
         int             ret                 = -1;
         int             call_psh            = 0;
-        int             up_child            = -1;
         dict_t          *input              = NULL;
         dict_t          *output             = NULL;
         gf_boolean_t    had_quorum          = _gf_false;
@@ -3719,7 +3959,6 @@ afr_notify (xlator_t *this, int32_t event,
                         priv->child_up[idx] = 1;
 
                         call_psh = 1;
-                        up_child = idx;
                         for (i = 0; i < priv->child_count; i++)
                                 if (priv->child_up[i] == 1)
                                         up_children++;
@@ -3768,7 +4007,7 @@ afr_notify (xlator_t *this, int32_t event,
                                         "All subvolumes are down. Going offline "
                                         "until atleast one of them comes back up.");
                         } else {
-                                event = GF_EVENT_CHILD_MODIFIED;
+                                event = GF_EVENT_SOME_CHILD_DOWN;
                         }
 
                         priv->last_event[idx] = event;
@@ -3855,22 +4094,18 @@ afr_notify (xlator_t *this, int32_t event,
         if (propagate)
                 ret = default_notify (this, event, data);
 
-        if (!had_heard_from_all && have_heard_from_all && priv->shd.iamshd) {
-                /*
-                 * Since self-heal is supposed to be launched only after
-                 * the responses from all the bricks are collected,
-                 * launch self-heals now on all up subvols.
+        if ((!had_heard_from_all) || call_psh) {
+                /* Launch self-heal on all local subvolumes if:
+                 * a) We have_heard_from_all for the first time
+                 * b) Already heard from everyone, but we now got a child-up
+                 *    event.
                  */
-                for (i = 0; i < priv->child_count; i++)
-                        if (priv->child_up[i])
-                                afr_selfheal_childup (this, i);
-        } else if (have_heard_from_all && call_psh && priv->shd.iamshd) {
-                /*
-                 * Already heard from everyone. Just launch heal on now up
-                 * subvolume.
-                 */
-                 afr_selfheal_childup (this, up_child);
-	}
+                if (have_heard_from_all && priv->shd.iamshd) {
+                        for (i = 0; i < priv->child_count; i++)
+                                if (priv->child_up[i])
+                                        afr_selfheal_childup (this, i);
+                }
+        }
 out:
         return ret;
 }
@@ -3897,7 +4132,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
                 sizeof (*local->child_up) * priv->child_count);
         local->call_count = AFR_COUNT (local->child_up, priv->child_count);
         if (local->call_count == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        AFR_MSG_ALL_SUBVOLS_DOWN, "no subvolumes up");
                 if (op_errno)
                         *op_errno = ENOTCONN;
                 goto out;
@@ -4053,11 +4289,19 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->transaction.pre_op)
                 goto out;
 
-        local->transaction.fop_subvols = GF_CALLOC (sizeof (*local->transaction.fop_subvols),
-						    priv->child_count,
-						    gf_afr_mt_char);
-        if (!local->transaction.fop_subvols)
-                goto out;
+        if (priv->arbiter_count == 1) {
+                local->transaction.pre_op_xdata =
+                        GF_CALLOC (sizeof (*local->transaction.pre_op_xdata),
+                                   priv->child_count, gf_afr_mt_dict_t);
+                if (!local->transaction.pre_op_xdata)
+                        goto out;
+
+                local->transaction.pre_op_sources =
+                        GF_CALLOC (sizeof (*local->transaction.pre_op_sources),
+                                   priv->child_count, gf_afr_mt_char);
+                if (!local->transaction.pre_op_sources)
+                        goto out;
+        }
 
         local->transaction.failed_subvols = GF_CALLOC (sizeof (*local->transaction.failed_subvols),
 						       priv->child_count,
@@ -4129,7 +4373,6 @@ afr_priv_destroy (afr_private_t *priv)
 
         if (!priv)
                 goto out;
-        inode_unref (priv->root_inode);
         GF_FREE (priv->last_event);
         if (priv->pending_key) {
                 for (i = 0; i < priv->child_count; i++)
@@ -4144,18 +4387,6 @@ afr_priv_destroy (afr_private_t *priv)
 out:
         return;
 }
-
-int
-xlator_subvolume_count (xlator_t *this)
-{
-        int i = 0;
-        xlator_list_t *list = NULL;
-
-        for (list = this->children; list; list = list->next)
-                i++;
-        return i;
-}
-
 
 void
 afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
@@ -4227,7 +4458,8 @@ out:
 
 int
 afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
-                                      inode_t *inode, gf_boolean_t *msh)
+                                      inode_t *inode, gf_boolean_t *msh,
+                                      gf_boolean_t *pending)
 {
         int ret = -1;
         unsigned char *locked_on = NULL;
@@ -4258,7 +4490,8 @@ afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
                 ret = __afr_selfheal_metadata_prepare (frame, this, inode,
                                                        locked_on, sources,
                                                        sinks, healed_sinks,
-                                                       locked_replies);
+                                                       locked_replies,
+                                                       pending);
                 *msh = afr_decide_heal_info (priv, sources, ret);
         }
         afr_selfheal_uninodelk (frame, this, inode, this->name,
@@ -4271,7 +4504,8 @@ out:
 
 int
 afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
-                                  inode_t *inode, gf_boolean_t *dsh)
+                                  inode_t *inode, gf_boolean_t *dsh,
+                                  gf_boolean_t *pflag)
 {
         int ret = -1;
         afr_private_t   *priv = NULL;
@@ -4313,7 +4547,8 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                         ret = __afr_selfheal_data_prepare (frame, this, inode,
                                                            data_lock, sources,
                                                            sinks, healed_sinks,
-                                                           locked_replies);
+                                                           locked_replies,
+                                                           pflag);
                         *dsh = afr_decide_heal_info (priv, sources, ret);
                 }
                 afr_selfheal_uninodelk (frame, this, inode, this->name, 0, 0,
@@ -4331,7 +4566,7 @@ out:
 int
 afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                    inode_t *inode,
-                                   gf_boolean_t *esh)
+                                   gf_boolean_t *esh, gf_boolean_t *pflag)
 {
         int ret = -1;
         int source = -1;
@@ -4376,7 +4611,7 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                                             data_lock, sources,
                                                             sinks, healed_sinks,
                                                             locked_replies,
-                                                            &source);
+                                                            &source, pflag);
                         if ((ret == 0) && source < 0)
                                 ret = -EIO;
                         *esh = afr_decide_heal_info (priv, sources, ret);
@@ -4398,7 +4633,8 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
                              inode_t **inode,
                              gf_boolean_t *entry_selfheal,
                              gf_boolean_t *data_selfheal,
-                             gf_boolean_t *metadata_selfheal)
+                             gf_boolean_t *metadata_selfheal,
+                             gf_boolean_t *pending)
 
 {
         int ret             = -1;
@@ -4415,21 +4651,22 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
 
         if (msh) {
                 ret = afr_selfheal_locked_metadata_inspect (frame, this,
-                                                            *inode, &msh);
+                                                            *inode, &msh,
+                                                            pending);
                 if (ret == -EIO)
                         goto out;
         }
 
         if (dsh) {
                 ret = afr_selfheal_locked_data_inspect (frame, this, *inode,
-                                                        &dsh);
+                                                        &dsh, pending);
                 if (ret == -EIO || (ret == -EAGAIN))
                         goto out;
         }
 
         if (esh) {
                 ret = afr_selfheal_locked_entry_inspect (frame, this, *inode,
-                                                         &esh);
+                                                         &esh, pending);
         }
 
 out:
@@ -4451,44 +4688,35 @@ afr_set_heal_info (char *status)
                 goto out;
         }
 
-        if (!strcmp (status, "heal")) {
-                ret = dict_set_str (dict, "heal-info", "heal");
-                if (ret)
-                        gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
-                                "heal");
-        } else if (!strcmp (status, "split-brain")) {
-                ret = dict_set_str (dict, "heal-info", "split-brain");
-                if (ret)
-                        gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
-                                "split-brain");
-        } else if (!strcmp (status, "possibly-healing")) {
-                ret = dict_set_str (dict, "heal-info", "possibly-healing");
-                if (ret)
-                       gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
-                                "possibly-healing");
-        }
+        ret = dict_set_str (dict, "heal-info", status);
+        if (ret)
+                gf_msg ("", GF_LOG_WARNING, -ret,
+                        AFR_MSG_DICT_SET_FAILED,
+                        "Failed to set heal-info key to "
+                        "%s", status);
 out:
         return dict;
 }
 
 int
-afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   dict_t *xdata)
+afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         gf_boolean_t    data_selfheal     = _gf_false;
         gf_boolean_t    metadata_selfheal = _gf_false;
         gf_boolean_t    entry_selfheal    = _gf_false;
+        gf_boolean_t    pending           = _gf_false;
         dict_t         *dict              = NULL;
         int             ret               = -1;
         int             op_errno          = 0;
+        int             size              = 0;
         inode_t        *inode             = NULL;
+        char           *substr            = NULL;
+        char           *status            = NULL;
 
         ret = afr_selfheal_locked_inspect (frame, this, loc->gfid, &inode,
                                            &entry_selfheal,
-                                           &data_selfheal, &metadata_selfheal);
+                                           &data_selfheal, &metadata_selfheal,
+                                           &pending);
 
         if (ret == -ENOMEM) {
                 op_errno = -ret;
@@ -4496,10 +4724,27 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
+        if (pending) {
+                size = strlen ("-pending") + 1;
+                gf_asprintf (&substr, "-pending");
+                if (!substr)
+                        goto out;
+        }
+
         if (ret == -EIO) {
-                dict = afr_set_heal_info ("split-brain");
+                size += strlen ("split-brain") + 1;
+                ret = gf_asprintf (&status, "split-brain%s",
+                                   substr? substr : "");
+                if (ret < 0)
+                        goto out;
+                dict = afr_set_heal_info (status);
         } else if (ret == -EAGAIN) {
-                dict = afr_set_heal_info ("possibly-healing");
+                size += strlen ("possibly-healing") + 1;
+                ret = gf_asprintf (&status, "possibly-healing%s",
+                                   substr? substr : "");
+                if (ret < 0)
+                        goto out;
+                dict = afr_set_heal_info (status);
         } else if (ret >= 0) {
                 /* value of ret = source index
                  * so ret >= 0 and at least one of the 3 booleans set to
@@ -4509,7 +4754,12 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     !metadata_selfheal) {
                         dict = afr_set_heal_info ("no-heal");
                 } else {
-                        dict = afr_set_heal_info ("heal");
+                        size += strlen ("heal") + 1;
+                        ret = gf_asprintf (&status, "heal%s",
+                                           substr? substr : "");
+                        if (ret < 0)
+                                goto out;
+                        dict = afr_set_heal_info (status);
                 }
         } else if (ret < 0) {
                 /* Apart from above checked -ve ret values, there are
@@ -4521,7 +4771,12 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  */
                 if (data_selfheal || entry_selfheal ||
                     metadata_selfheal) {
-                        dict = afr_set_heal_info ("heal");
+                        size += strlen ("heal") + 1;
+                        ret = gf_asprintf (&status, "heal%s",
+                                           substr? substr : "");
+                        if (ret < 0)
+                                goto out;
+                        dict = afr_set_heal_info (status);
                 }
         }
         ret = 0;
@@ -4534,20 +4789,185 @@ out:
                 inode_forget (inode, 1);
                 inode_unref (inode);
         }
+        GF_FREE (substr);
+        return ret;
+}
+
+int
+_afr_is_split_brain (call_frame_t *frame, xlator_t *this,
+                         struct afr_reply *replies,
+                         afr_transaction_type type,
+                         gf_boolean_t *spb)
+{
+        afr_private_t    *priv              = NULL;
+        uint64_t         *witness           = NULL;
+        unsigned char    *sources           = NULL;
+        unsigned char    *sinks             = NULL;
+        int               sources_count     = 0;
+        int               ret               = 0;
+
+        priv = this->private;
+
+        sources = alloca0 (priv->child_count);
+        sinks = alloca0 (priv->child_count);
+        witness = alloca0(priv->child_count * sizeof (*witness));
+
+        ret = afr_selfheal_find_direction (frame, this, replies,
+					   type, priv->child_up, sources,
+                                           sinks, witness, NULL);
+        if (ret)
+                return ret;
+
+        sources_count = AFR_COUNT (sources, priv->child_count);
+        if (!sources_count)
+                *spb = _gf_true;
+
+        return ret;
+}
+
+int
+afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                    uuid_t gfid, gf_boolean_t *d_spb, gf_boolean_t *m_spb)
+{
+        int    ret                          = -1;
+        afr_private_t    *priv              = NULL;
+        struct afr_reply *replies           = NULL;
+
+        priv = this->private;
+
+        replies = alloca0 (sizeof (*replies) * priv->child_count);
+
+        ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies);
+        if (ret)
+                goto out;
+
+        ret = _afr_is_split_brain (frame, this, replies,
+                                    AFR_DATA_TRANSACTION, d_spb);
+        if (ret)
+                goto out;
+
+        ret = _afr_is_split_brain (frame, this, replies,
+                                    AFR_METADATA_TRANSACTION, m_spb);
+out:
+        if (replies) {
+                afr_replies_wipe (replies, priv->child_count);
+                replies = NULL;
+        }
+        return ret;
+}
+
+int
+afr_get_split_brain_status_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+        GF_FREE (opaque);
+        return 0;
+}
+
+int
+afr_get_split_brain_status (void *opaque)
+{
+        gf_boolean_t      d_spb             = _gf_false;
+        gf_boolean_t      m_spb             = _gf_false;
+        int               ret               = -1;
+        int               op_errno          = 0;
+        int               i                 = 0;
+        char             *choices           = NULL;
+        char             *status            = NULL;
+        dict_t           *dict              = NULL;
+        inode_t          *inode             = NULL;
+        afr_private_t    *priv              = NULL;
+        xlator_t         **children         = NULL;
+        call_frame_t     *frame             = NULL;
+        xlator_t         *this              = NULL;
+        loc_t            *loc               = NULL;
+        afr_spb_status_t *data              = NULL;
+
+        data     = opaque;
+        frame    = data->frame;
+        this     = frame->this;
+        loc      = data->loc;
+        priv     = this->private;
+        children = priv->children;
+
+        inode = afr_inode_find (this, loc->gfid);
+        if (!inode)
+                goto out;
+
+        /* Calculation for string length :
+        * (child_count X length of child-name) + strlen ("    Choices :")
+        * child-name consists of :
+        * a) 256 = max characters for volname according to GD_VOLUME_NAME_MAX
+        * b) strlen ("-client-00,") assuming 16 replicas
+        */
+        choices = alloca0 (priv->child_count * (256 + strlen ("-client-00,")) +
+                           strlen ("    Choices:"));
+
+        ret = afr_is_split_brain (frame, this, inode, loc->gfid, &d_spb,
+                                  &m_spb);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                op_errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        if (d_spb || m_spb) {
+                sprintf (choices, "    Choices:");
+                for (i = 0; i < priv->child_count; i++) {
+                        strcat (choices, children[i]->name);
+                        strcat (choices, ",");
+                }
+                choices[strlen (choices) - 1] = '\0';
+
+                ret = gf_asprintf (&status, "data-split-brain:%s    "
+                                    "metadata-split-brain:%s%s",
+                                    (d_spb) ? "yes" : "no",
+                                    (m_spb) ? "yes" : "no", choices);
+
+                if (-1 == ret) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+                ret = dict_set_dynstr (dict, GF_AFR_SBRAIN_STATUS, status);
+                if (ret) {
+                        op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                ret = dict_set_str (dict, GF_AFR_SBRAIN_STATUS,
+                                    "The file is not under data or"
+                                    " metadata split-brain");
+                if (ret) {
+                        op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        if (dict)
+               dict_unref (dict);
+        if (inode)
+                inode_unref (inode);
         return ret;
 }
 
 int32_t
 afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        gf_boolean_t    data_selfheal     = _gf_false;
-        gf_boolean_t    metadata_selfheal = _gf_false;
-        gf_boolean_t    entry_selfheal    = _gf_false;
+        int             ret               = 0;
+        int             op_errno          = 0;
         dict_t         *dict              = NULL;
         afr_local_t    *local             = NULL;
-        inode_t        *inode             = NULL;
-        int entry_ret = 0, metadata_ret = 0, data_ret = 0;
-        int ret = 0, op_errno = 0;
 
         local = frame->local;
         dict = dict_new ();
@@ -4557,54 +4977,90 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        ret = afr_selfheal_unlocked_inspect (frame, this, loc->gfid, &inode,
-                                             &data_selfheal,
-                                             &metadata_selfheal,
-                                             &entry_selfheal);
-        if (ret) {
-                op_errno = -ret;
-                ret = -1;
-                goto out;
-        }
+        ret = afr_selfheal_do (frame, this, loc->gfid);
 
-        if (!data_selfheal && !metadata_selfheal && !entry_selfheal) {
+        if (ret == 1 || ret == 2) {
                 ret = dict_set_str (dict, "sh-fail-msg",
                                     "File not in split-brain");
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
                                 "Failed to set sh-fail-msg in dict");
                 ret = 0;
                 goto out;
-        }
-
-        if (data_selfheal)
-                data_ret = afr_selfheal_data (frame, this, inode);
-
-        if (metadata_selfheal)
-                metadata_ret = afr_selfheal_metadata (frame, this, inode);
-
-        if (entry_selfheal)
-                entry_ret = afr_selfheal_entry (frame, this, inode);
-
-        ret = (data_ret | metadata_ret | entry_ret);
-
-        if (local->xdata_rsp) {
-                /* 'sh-fail-msg' has been set in the dict during self-heal.*/
-                dict_copy (local->xdata_rsp, dict);
-                ret = 0;
-        } else if (ret) {
-                /*Some other error during self-heal. Just propagate it.*/
-                op_errno = -ret;
-                ret = -1;
+        } else {
+                if (local->xdata_rsp) {
+                        /* 'sh-fail-msg' has been set in the dict during self-heal.*/
+                        dict_copy (local->xdata_rsp, dict);
+                        ret = 0;
+                } else if (ret < 0) {
+                        op_errno = -ret;
+                        ret = -1;
+                }
         }
 
 out:
-        AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        if (local->op == GF_FOP_GETXATTR)
+                AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        else if (local->op == GF_FOP_SETXATTR)
+                AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
         if (dict)
                 dict_unref(dict);
-        if (inode) {
-                inode_forget (inode, 1);
-                inode_unref (inode);
-        }
         return ret;
+}
+
+int
+afr_get_child_index_from_name (xlator_t *this, char *name)
+{
+        afr_private_t *priv  = this->private;
+        int            index = -1;
+
+        for (index = 0; index < priv->child_count; index++) {
+                if (!strcmp (priv->children[index]->name, name))
+                        goto out;
+        }
+        index = -1;
+out:
+        return index;
+}
+
+void
+afr_priv_need_heal_set (afr_private_t *priv, gf_boolean_t need_heal)
+{
+        LOCK (&priv->lock);
+        {
+                priv->need_heal = need_heal;
+        }
+        UNLOCK (&priv->lock);
+}
+
+void
+afr_set_need_heal (xlator_t *this, afr_local_t *local)
+{
+        int             i         = 0;
+        afr_private_t  *priv      = this->private;
+        gf_boolean_t    need_heal = _gf_false;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->replies[i].valid && local->replies[i].need_heal) {
+                        need_heal = _gf_true;
+                        break;
+                }
+        }
+        afr_priv_need_heal_set (priv, need_heal);
+        return;
+}
+
+gf_boolean_t
+afr_get_need_heal (xlator_t *this)
+{
+        afr_private_t  *priv      = this->private;
+        gf_boolean_t    need_heal = _gf_true;
+
+        LOCK (&priv->lock);
+        {
+                need_heal = priv->need_heal;
+        }
+        UNLOCK (&priv->lock);
+        return need_heal;
 }

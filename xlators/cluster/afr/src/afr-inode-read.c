@@ -16,11 +16,6 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "afr.h"
 #include "dict.h"
@@ -30,12 +25,92 @@
 #include "stack.h"
 #include "list.h"
 #include "call-stub.h"
+#include "byte-order.h"
 #include "defaults.h"
 #include "common-utils.h"
 #include "compat-errno.h"
 #include "compat.h"
+#include "quota-common-utils.h"
 
 #include "afr-transaction.h"
+#include "afr-messages.h"
+
+/*
+ * Quota size xattrs are not maintained by afr. There is a
+ * possibility that they differ even when both the directory changelog xattrs
+ * suggest everything is fine. So if there is at least one 'source' check among
+ * the sources which has the maximum quota size. Otherwise check among all the
+ * available ones for maximum quota size. This way if there is a source and
+ * stale copies it always votes for the 'source'.
+ * */
+
+int
+afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
+{
+        unsigned char *readable   = NULL;
+        afr_local_t *local        = NULL;
+        afr_private_t *priv       = NULL;
+        struct afr_reply *replies = NULL;
+        int i                     = 0;
+        int ret                   = 0;
+        quota_meta_t size         = {0, };
+        quota_meta_t max_size     = {0, };
+        int readable_cnt          = 0;
+        int read_subvol           = -1;
+
+        local = frame->local;
+        priv = this->private;
+        replies = local->replies;
+
+        readable = alloca0 (priv->child_count);
+
+        afr_inode_read_subvol_get (local->inode, this, readable, 0, 0);
+
+        readable_cnt = AFR_COUNT (readable, priv->child_count);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (readable_cnt && !readable[i])
+                        continue;
+                if (!replies[i].xdata)
+                        continue;
+                ret = quota_dict_get_meta (replies[i].xdata, QUOTA_SIZE_KEY,
+                                           &size);
+                if (ret == -1)
+                        continue;
+                if (read_subvol == -1)
+                        read_subvol = i;
+                if (size.size > max_size.size ||
+                    (size.file_count + size.dir_count) >
+                    (max_size.file_count + max_size.dir_count))
+                        read_subvol = i;
+
+                if (size.size > max_size.size)
+                        max_size.size = size.size;
+                if (size.file_count > max_size.file_count)
+                        max_size.file_count = size.file_count;
+                if (size.dir_count > max_size.dir_count)
+                        max_size.dir_count = size.dir_count;
+        }
+
+        if (max_size.size == 0 && max_size.file_count == 0 &&
+            max_size.dir_count == 0)
+                return read_subvol;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (readable_cnt && !readable[i])
+                        continue;
+                if (!replies[i].xdata)
+                        continue;
+                quota_dict_set_meta (replies[i].xdata, QUOTA_SIZE_KEY,
+                                     &max_size, IA_IFDIR);
+        }
+
+        return read_subvol;
+}
 
 
 /* {{{ access */
@@ -515,8 +590,6 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error serializing dictionary");
                         goto unwind;
                 }
                 if (serz_len == -1)
@@ -527,7 +600,8 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                ENOMEM, AFR_MSG_DICT_SET_FAILED,
                                 "Error setting dictionary");
                         goto unwind;
                 }
@@ -603,8 +677,6 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error serializing dictionary");
                         goto unwind;
                 }
                 if (serz_len == -1)
@@ -615,7 +687,8 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                ENOMEM, AFR_MSG_DICT_SET_FAILED,
                                 "Error setting dictionary");
                         goto unwind;
                 }
@@ -680,6 +753,37 @@ afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
         if (unwind)
                 AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
                                   NULL);
+
+        return 0;
+}
+
+int32_t
+afr_getxattr_quota_size_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             dict_t *dict, dict_t *xdata)
+{
+        int         idx         = (long) cookie;
+        int         call_count  = 0;
+        afr_local_t *local      = frame->local;
+        int         read_subvol = -1;
+
+        local->replies[idx].valid = 1;
+        local->replies[idx].op_ret = op_ret;
+        local->replies[idx].op_errno = op_errno;
+        if (dict)
+                local->replies[idx].xdata = dict_ref (dict);
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                local->inode = inode_ref (local->loc.inode);
+                read_subvol = afr_handle_quota_size (frame, this);
+                if (read_subvol != -1) {
+                        op_ret = local->replies[read_subvol].op_ret;
+                        op_errno = local->replies[read_subvol].op_errno;
+                        dict = local->replies[read_subvol].xdata;
+                }
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
+                                  xdata);
+        }
 
         return 0;
 }
@@ -937,7 +1041,8 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         int32_t      tlen           = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -976,7 +1081,8 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                         ret = dict_set_dynstr (local->dict,
                                                xattr_cky, xattr);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        -ret, AFR_MSG_DICT_SET_FAILED,
                                         "Cannot set xattr cookie key");
                                 goto unlock;
                         }
@@ -1017,8 +1123,6 @@ unlock:
                                                        + strlen (xattr_serz),
                                                        &tlen, ' ');
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
-                                " dictionary");
                         goto unwind;
                 }
 
@@ -1029,8 +1133,9 @@ unlock:
                 ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
                                        xattr_serz);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
-                                " key in dict");
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "Cannot set pathinfo key in dict");
 
         unwind:
                 AFR_STACK_UNWIND (fgetxattr, frame, local->op_ret,
@@ -1061,7 +1166,8 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         int32_t      tlen           = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -1100,8 +1206,11 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                 ret = dict_set_dynstr (local->dict,
                                                        xattr_cky, xattr);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Cannot set xattr cookie key");
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                -ret,
+                                                AFR_MSG_DICT_SET_FAILED,
+                                                "Cannot set xattr "
+                                                "cookie key");
                                         goto unlock;
                                 }
 
@@ -1138,8 +1247,6 @@ unlock:
                                                        xattr_serz + strlen (xattr_serz),
                                                        &tlen, ' ');
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
-                                " dictionary");
                         goto unwind;
                 }
 
@@ -1150,8 +1257,9 @@ unlock:
                 ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
                                        xattr_serz);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
-                                " key in dict");
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "Cannot set pathinfo key in dict");
 
         unwind:
                 AFR_STACK_UNWIND (getxattr, frame, local->op_ret,
@@ -1185,7 +1293,8 @@ afr_common_getxattr_stime_cbk (call_frame_t *frame, void *cookie,
         int32_t      callcnt        = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -1256,6 +1365,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 }
         } else if (fnmatch (GF_XATTR_STIME_PATTERN, name, FNM_NOESCAPE) == 0) {
                 *cbk = afr_common_getxattr_stime_cbk;
+        } else if (strcmp (name, QUOTA_SIZE_KEY) == 0) {
+                *cbk = afr_getxattr_quota_size_cbk;
         } else {
                 is_spl = _gf_false;
         }
@@ -1296,6 +1407,76 @@ afr_getxattr_all_subvols (xlator_t *this, call_frame_t *frame,
         return;
 }
 
+int
+afr_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                          xlator_t **subvols)
+{
+        xlator_t *this = frame->this;
+        afr_private_t *priv = this->private;
+
+        memcpy (subvols, priv->children, sizeof (*subvols) * priv->child_count);
+
+        if (type == MARKER_XTIME_TYPE) {
+                /*Don't error out on ENOENT/ENOTCONN */
+                gauge[MCNT_NOTFOUND] = 0;
+                gauge[MCNT_ENOTCONN] = 0;
+        }
+        return priv->child_count;
+}
+
+static int
+afr_handle_heal_xattrs (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                        const char *heal_op)
+{
+        int                     ret     = -1;
+        afr_spb_status_t       *data    = NULL;
+
+        if (!strcmp (heal_op, GF_HEAL_INFO)) {
+                afr_get_heal_info (frame, this, loc);
+                ret = 0;
+                goto out;
+        }
+
+        if (!strcmp (heal_op, GF_AFR_HEAL_SBRAIN)) {
+                afr_heal_splitbrain_file (frame, this, loc);
+                ret = 0;
+                goto out;
+        }
+
+        if (!strcmp (heal_op, GF_AFR_SBRAIN_STATUS)) {
+                data = GF_CALLOC (1, sizeof (*data), gf_afr_mt_spb_status_t);
+                if (!data) {
+                        ret = 1;
+                        goto out;
+                }
+                data->frame = frame;
+                data->loc = loc;
+                ret = synctask_new (this->ctx->env,
+                                    afr_get_split_brain_status,
+                                    afr_get_split_brain_status_cbk,
+                                    NULL, data);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN_STATUS,
+                                "Failed to create"
+                                " synctask. Unable to fetch split-brain status"
+                                " for %s.", loc->name);
+                        ret = 1;
+                        goto out;
+                }
+                goto out;
+        }
+
+out:
+        if (ret == 1) {
+                AFR_STACK_UNWIND (getxattr, frame, -1, ENOMEM, NULL, NULL);
+                if (data)
+                        GF_FREE (data);
+                ret = 0;
+        }
+        return ret;
+}
+
 int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *name, dict_t *xdata)
@@ -1303,13 +1484,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
         afr_private_t           *priv         = NULL;
         xlator_t                **children    = NULL;
         afr_local_t             *local        = NULL;
-        xlator_list_t           *trav         = NULL;
-        xlator_t                **sub_volumes = NULL;
         int                     i             = 0;
         int32_t                 op_errno      = 0;
         int                     ret           = -1;
         fop_getxattr_cbk_t      cbk           = NULL;
-        int                     afr_xtime_gauge[MCNT_MAX] = {0,};
 
 
 	local = AFR_FRAME_INIT (frame, op_errno);
@@ -1339,55 +1517,21 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (!strncmp (name, AFR_XATTR_PREFIX,
                       strlen (AFR_XATTR_PREFIX))) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%s: no data present for key %s",
-                        loc->path, name);
                 op_errno = ENODATA;
                 goto out;
         }
-        if ((strcmp (GF_XATTR_MARKER_KEY, name) == 0)
-            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
 
-                local->marker.call_count = priv->child_count;
-
-                sub_volumes = alloca ( priv->child_count * sizeof (xlator_t *));
-                for (i = 0, trav = this->children; trav ;
-                     trav = trav->next, i++) {
-
-                        *(sub_volumes + i)  = trav->xlator;
-                }
-
-                if (cluster_getmarkerattr (frame, this, loc, name,
-                                           local, afr_getxattr_unwind,
-                                           sub_volumes,
-                                           priv->child_count,
-                                           MARKER_UUID_TYPE,
-                                           marker_uuid_default_gauge,
-                                           priv->vol_uuid)) {
-
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: failed to get marker attr (%s)",
-                                loc->path, name);
-                        op_errno = EINVAL;
-                        goto out;
-                }
-
+        if (cluster_handle_marker_getxattr (frame, loc, name, priv->vol_uuid,
+                                            afr_getxattr_unwind,
+                                            afr_marker_populate_args) == 0)
                 return 0;
-        }
 
-        if (!strcmp (name, GF_AFR_HEAL_INFO)) {
-                afr_get_heal_info (frame, this, loc, xdata);
+        ret = afr_handle_heal_xattrs (frame, this, &local->loc, name);
+        if (ret == 0)
                 return 0;
-        }
-
-        if (!strcmp (name, GF_AFR_HEAL_SBRAIN)) {
-                afr_heal_splitbrain_file (frame, this, loc);
-                return 0;
-        }
 
         /*
-         * if we are doing getxattr with pathinfo as the key then we
-         * collect information from all childs
+         * Special xattrs which need responses from all subvols
          */
         if (afr_is_special_xattr (name, &cbk, 0)) {
                 afr_getxattr_all_subvols (this, frame, name, loc, cbk);
@@ -1402,46 +1546,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                    children[i]->fops->getxattr,
                                    loc, name, xdata);
                 return 0;
-        }
-
-        if (*priv->vol_uuid) {
-                if ((match_uuid_local (name, priv->vol_uuid) == 0)
-                    && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                        local->marker.call_count = priv->child_count;
-
-                        sub_volumes = alloca ( priv->child_count
-                                               * sizeof (xlator_t *));
-                        for (i = 0, trav = this->children; trav ;
-                             trav = trav->next, i++) {
-
-                                *(sub_volumes + i)  = trav->xlator;
-
-                        }
-
-                        /* don't err out on getting ENOTCONN (brick down)
-                         * from a subset of the bricks
-                         */
-                        memcpy (afr_xtime_gauge, marker_xtime_default_gauge,
-                                sizeof (afr_xtime_gauge));
-                        afr_xtime_gauge[MCNT_NOTFOUND] = 0;
-                        afr_xtime_gauge[MCNT_ENOTCONN] = 0;
-                        if (cluster_getmarkerattr (frame, this, loc,
-                                                   name, local,
-                                                   afr_getxattr_unwind,
-                                                   sub_volumes,
-                                                   priv->child_count,
-                                                   MARKER_XTIME_TYPE,
-                                                   afr_xtime_gauge,
-                                                   priv->vol_uuid)) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "%s: failed to get marker attr (%s)",
-                                        loc->path, name);
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-
-                        return 0;
-                }
         }
 
 no_name:

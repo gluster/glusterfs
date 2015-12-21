@@ -34,30 +34,20 @@ EXPECT $TASK_ID get-task-id
 
 COMMAND="volume rebalance $V0 status"
 PATTERN="completed"
-EXPECT_WITHIN 300 $PATTERN get-task-status
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 
 ###################
 ## Replace-brick ##
 ###################
 REP_BRICK_PAIR="$H0:$B0/${V0}2 $H0:$B0/${V0}3"
 
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR start"
-PATTERN="ID:"
-TEST check-and-store-task-id
-
-COMMAND="volume status $V0"
-PATTERN="ID"
-EXPECT $TASK_ID get-task-id
-
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR status"
-PATTERN="complete"
-EXPECT_WITHIN 300 $PATTERN get-task-status
-
-TEST $CLI volume replace-brick $V0 $REP_BRICK_PAIR commit;
+TEST $CLI volume replace-brick $V0 $REP_BRICK_PAIR commit force;
 
 ##################
 ## Remove-brick ##
 ##################
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}3
+
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 start"
 PATTERN="ID:"
 TEST check-and-store-task-id
@@ -68,7 +58,7 @@ EXPECT $TASK_ID get-task-id
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
 PATTERN="completed"
-EXPECT_WITHIN 300 $PATTERN get-task-status
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 commit
 

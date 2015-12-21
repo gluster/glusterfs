@@ -19,13 +19,13 @@ S2="-${V0}-snap2"   #Create snapshot with name starts with hyphen(-)
 #Create snapshot with a long name
 S3="${V0}_single_gluster_volume_is_accessible_by_multiple_clients_offline_snapshot_is_a_long_name"
 
-TEST $CLI snapshot create $S1 $V0
+TEST $CLI snapshot create $S1 $V0 no-timestamp
 TEST snapshot_exists 0 $S1
 
-TEST $CLI snapshot create $S2 $V0
+TEST $CLI snapshot create $S2 $V0 no-timestamp
 TEST snapshot_exists 0 $S2
 
-TEST $CLI snapshot create $S3 $V0
+TEST $CLI snapshot create $S3 $V0 no-timestamp
 TEST snapshot_exists 0 $S3
 
 

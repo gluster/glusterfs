@@ -22,6 +22,7 @@ enum gf_fuse_mem_types_ {
         gf_fuse_mt_fd_ctx_t,
         gf_fuse_mt_graph_switch_args_t,
 	gf_fuse_mt_gids_t,
+        gf_fuse_mt_invalidate_node_t,
         gf_fuse_mt_end
 };
 #endif

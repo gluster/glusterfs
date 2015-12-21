@@ -20,6 +20,7 @@ static mach_timebase_info_data_t gf_timebase;
 
 #include "logging.h"
 #include "timespec.h"
+#include "libglusterfs-messages.h"
 
 void timespec_now (struct timespec *ts)
 {
@@ -51,10 +52,6 @@ void timespec_now (struct timespec *ts)
         ts->tv_nsec = (time - (ts->tv_sec * GIGA));
 
 #endif /* Platform verification */
-	/*
-        gf_log_callingfn ("timer", GF_LOG_TRACE, "%"GF_PRI_TIME".%09"GF_PRI_TIME,
-                          ts->tv_sec, ts->tv_nsec);
-	*/
 }
 
 void timespec_adjust_delta (struct timespec *ts, struct timespec delta)

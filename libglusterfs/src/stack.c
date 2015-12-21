@@ -10,26 +10,13 @@
 
 #include "statedump.h"
 #include "stack.h"
-
-static inline
-int call_frames_count (call_frame_t *call_frame)
-{
-        call_frame_t *pos;
-        int32_t count = 0;
-
-        if (!call_frame)
-                return count;
-
-        for (pos = call_frame; pos != NULL; pos = pos->next)
-                count++;
-
-        return count;
-}
+#include "libglusterfs-messages.h"
 
 call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
 {
         call_stack_t    *stack = NULL;
+        call_frame_t    *frame = NULL;
 
         if (!xl || !pool) {
                 return NULL;
@@ -39,17 +26,31 @@ create_frame (xlator_t *xl, call_pool_t *pool)
         if (!stack)
                 return NULL;
 
+        INIT_LIST_HEAD (&stack->myframes);
+
+        frame = mem_get0 (pool->frame_mem_pool);
+        if (!frame) {
+                mem_put (stack);
+                return NULL;
+        }
+
+        frame->root = stack;
+        frame->this = xl;
+        LOCK_INIT (&frame->lock);
+        INIT_LIST_HEAD (&frame->frames);
+        list_add (&frame->frames, &stack->myframes);
+
         stack->pool = pool;
-        stack->frames.root = stack;
-        stack->frames.this = xl;
         stack->ctx = xl->ctx;
 
         if (stack->ctx->measure_latency) {
                 if (gettimeofday (&stack->tv, NULL) == -1)
-                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
-                                " (%s)", strerror (errno));
-                memcpy (&stack->frames.begin, &stack->tv, sizeof (stack->tv));
+                        gf_msg ("stack", GF_LOG_ERROR, errno,
+                                LG_MSG_GETTIMEOFDAY_FAILED,
+                                "gettimeofday () failed");
+                memcpy (&frame->begin, &stack->tv, sizeof (stack->tv));
         }
+
 
         LOCK (&pool->lock);
         {
@@ -58,10 +59,9 @@ create_frame (xlator_t *xl, call_pool_t *pool)
         }
         UNLOCK (&pool->lock);
 
-        LOCK_INIT (&stack->frames.lock);
         LOCK_INIT (&stack->stack_lock);
 
-        return &stack->frames;
+        return frame;
 }
 
 void
@@ -136,7 +136,7 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         char prefix[GF_DUMP_MAX_BUF_LEN];
         va_list ap;
         call_frame_t *trav;
-        int32_t cnt, i;
+        int32_t i = 1, cnt = 0;
         char timestr[256] = {0,};
 
         if (!call_stack)
@@ -144,13 +144,12 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
 
         GF_ASSERT (key_buf);
 
-        cnt = call_frames_count(&call_stack->frames);
-
         memset(prefix, 0, sizeof(prefix));
         va_start(ap, key_buf);
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
         va_end(ap);
 
+        cnt = call_frames_count (call_stack);
         if (call_stack->ctx->measure_latency) {
                 gf_time_fmt (timestr, sizeof timestr, call_stack->tv.tv_sec,
                              gf_timefmt_FT);
@@ -176,14 +175,10 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         gf_proc_dump_write("type", "%d", call_stack->type);
         gf_proc_dump_write("cnt", "%d", cnt);
 
-        trav = &call_stack->frames;
-
-        for (i = 1; i <= cnt; i++) {
-                if (trav) {
-                        gf_proc_dump_add_section("%s.frame.%d", prefix, i);
-                        gf_proc_dump_call_frame(trav, "%s.frame.%d", prefix, i);
-                        trav = trav->next;
-                }
+        list_for_each_entry (trav, &call_stack->myframes, frames) {
+                gf_proc_dump_add_section("%s.frame.%d", prefix, i);
+                gf_proc_dump_call_frame(trav, "%s.frame.%d", prefix, i);
+                i++;
         }
 }
 
@@ -317,14 +312,13 @@ gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
         int             ret = -1;
         char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
         call_frame_t    *trav = NULL;
-        int             count = 0;
         int             i = 0;
+        int             count = 0;
 
         if (!call_stack || !dict)
                 return;
 
-        count = call_frames_count (&call_stack->frames);
-
+        count = call_frames_count (call_stack);
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.uid", prefix);
         ret = dict_set_int32 (dict, key, call_stack->uid);
@@ -372,15 +366,12 @@ gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
         if (ret)
                 return;
 
-        trav = &call_stack->frames;
-        for (i = 0; i < count; i++) {
-                if (trav) {
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "%s.frame%d",
-                                  prefix, i);
-                        gf_proc_dump_call_frame_to_dict (trav, key, dict);
-                        trav = trav->next;
-                }
+        list_for_each_entry (trav, &call_stack->myframes, frames) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.frame%d",
+                          prefix, i);
+                gf_proc_dump_call_frame_to_dict (trav, key, dict);
+                i++;
         }
 
         return;
@@ -399,8 +390,9 @@ gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool, dict_t *dict)
 
         ret = TRY_LOCK (&call_pool->lock);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "Unable to dump call pool"
-                        " to dict. errno: %d", errno);
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        LG_MSG_LOCK_FAILURE, "Unable to dump call "
+                        "pool to dict.");
                 return;
         }
 

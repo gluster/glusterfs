@@ -14,6 +14,7 @@
 #include "locking.h"
 #include "mem-pool.h"
 #include "logging.h"
+#include "libglusterfs-messages.h"
 
 #include <pthread.h>
 #include <string.h>
@@ -57,8 +58,9 @@ __rbthash_init_buckets (rbthash_table_t *tbl, int buckets)
                 LOCK_INIT (&tbl->buckets[i].bucketlock);
                 tbl->buckets[i].bucket = rb_create ((rb_comparison_func *)rbthash_comparator, tbl, NULL);
                 if (!tbl->buckets[i].bucket) {
-                        gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to create rb"
-                                " table bucket");
+                        gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                                LG_MSG_RB_TABLE_CREATE_FAILED, "Failed to "
+                                "create rb table bucket");
                         ret = -1;
                         goto err;
                 }
@@ -90,18 +92,19 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
         int                     ret = -1;
 
         if (!hfunc) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Hash function not given");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_HASH_FUNC_ERROR,
+                        "Hash function not given");
                 return NULL;
         }
 
         if (!entrypool && !expected_entries) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR,
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
                         "Both mem-pool and expected entries not provided");
                 return NULL;
         }
 
         if (entrypool && expected_entries) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR,
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
                         "Both mem-pool and expected entries are provided");
                 return NULL;
         }
@@ -122,8 +125,6 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
                 newtab->entrypool =
                         mem_pool_new (rbthash_entry_t, expected_entries);
                 if (!newtab->entrypool) {
-                        gf_log (GF_RBTHASH, GF_LOG_ERROR,
-                                "Failed to allocate mem-pool");
                         goto free_buckets;
                 }
                 newtab->pool_alloced = _gf_true;
@@ -137,11 +138,13 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
         ret = __rbthash_init_buckets (newtab, buckets);
 
         if (ret == -1) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to init buckets");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_INIT_BUCKET_FAILED,
+                        "Failed to init buckets");
                 if (newtab->pool_alloced)
                         mem_pool_destroy (newtab->entrypool);
         } else {
-                gf_log (GF_RBTHASH, GF_LOG_TRACE, "Inited hash table: buckets:"
+                gf_msg_trace (GF_RBTHASH, 0, "Inited hash table: buckets:"
                         " %d", buckets);
         }
 
@@ -172,8 +175,9 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
 
         entry = mem_get (tbl->entrypool);
         if (!entry) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to get entry from"
-                        " mem-pool");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_GET_ENTRY_FAILED,
+                        "Failed to get entry from mem-pool");
                 goto ret;
         }
 
@@ -187,7 +191,7 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
         memcpy (entry->key, key, keylen);
         entry->keylen = keylen;
         entry->keyhash = tbl->hashfunc (entry->key, entry->keylen);
-        gf_log (GF_RBTHASH, GF_LOG_TRACE, "HASH: %u", entry->keyhash);
+        gf_msg_trace (GF_RBTHASH, 0, "HASH: %u", entry->keyhash);
 
         ret = 0;
 free_entry:
@@ -227,13 +231,13 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
 }
 
 
-static inline struct rbthash_bucket *
+static struct rbthash_bucket *
 rbthash_entry_bucket (rbthash_table_t *tbl, rbthash_entry_t * entry)
 {
         int     nbucket = 0;
 
         nbucket = (entry->keyhash % tbl->numbuckets);
-        gf_log (GF_RBTHASH, GF_LOG_TRACE, "BUCKET: %d", nbucket);
+        gf_msg_trace (GF_RBTHASH, 0, "BUCKET: %d", nbucket);
         return &tbl->buckets[nbucket];
 }
 
@@ -249,7 +253,9 @@ rbthash_insert_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
 
         bucket = rbthash_entry_bucket (tbl, entry);
         if (!bucket) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to get bucket");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_GET_BUCKET_FAILED,
+                        "Failed to get bucket");
                 goto err;
         }
 
@@ -257,7 +263,8 @@ rbthash_insert_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
         LOCK (&bucket->bucketlock);
         {
                 if (!rb_probe (bucket->bucket, (void *)entry)) {
-                        gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to insert"
+                        gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                                LG_MSG_RBTHASH_INSERT_FAILED, "Failed to insert"
                                 " entry");
                         ret = -1;
                 }
@@ -280,14 +287,18 @@ rbthash_insert (rbthash_table_t *tbl, void *data, void *key, int keylen)
 
         entry = rbthash_init_entry (tbl, data, key, keylen);
         if (!entry) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to init entry");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_INIT_ENTRY_FAILED,
+                        "Failed to init entry");
                 goto err;
         }
 
         ret = rbthash_insert_entry (tbl, entry);
 
         if (ret == -1) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to insert entry");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_INSERT_FAILED,
+                        "Failed to insert entry");
                 rbthash_deinit_entry (tbl, entry);
         }
 
@@ -301,7 +312,7 @@ err:
         return ret;
 }
 
-static inline struct rbthash_bucket *
+static struct rbthash_bucket *
 rbthash_key_bucket (rbthash_table_t *tbl, void *key, int keylen)
 {
         uint32_t        keyhash = 0;
@@ -311,9 +322,9 @@ rbthash_key_bucket (rbthash_table_t *tbl, void *key, int keylen)
                 return NULL;
 
         keyhash =  tbl->hashfunc (key, keylen);
-        gf_log (GF_RBTHASH, GF_LOG_TRACE, "HASH: %u", keyhash);
+        gf_msg_trace (GF_RBTHASH, 0, "HASH: %u", keyhash);
         nbucket = (keyhash % tbl->numbuckets);
-        gf_log (GF_RBTHASH, GF_LOG_TRACE, "BUCKET: %u", nbucket);
+        gf_msg_trace (GF_RBTHASH, 0, "BUCKET: %u", nbucket);
 
         return &tbl->buckets[nbucket];
 }
@@ -331,7 +342,8 @@ rbthash_get (rbthash_table_t *tbl, void *key, int keylen)
 
         bucket = rbthash_key_bucket (tbl, key, keylen);
         if (!bucket) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to get bucket");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_GET_BUCKET_FAILED,
+                        "Failed to get bucket");
                 return NULL;
         }
 
@@ -363,7 +375,9 @@ rbthash_remove (rbthash_table_t *tbl, void *key, int keylen)
 
         bucket = rbthash_key_bucket (tbl, key, keylen);
         if (!bucket) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to get bucket");
+                gf_msg (GF_RBTHASH, GF_LOG_ERROR, 0,
+                        LG_MSG_RBTHASH_GET_BUCKET_FAILED,
+                        "Failed to get bucket");
                 return NULL;
         }
 

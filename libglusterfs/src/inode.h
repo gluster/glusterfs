@@ -11,11 +11,6 @@
 #ifndef _INODE_H
 #define _INODE_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -33,8 +28,8 @@ typedef struct _dentry dentry_t;
 #include "list.h"
 #include "xlator.h"
 #include "iatt.h"
-#include "uuid.h"
-
+#include "compat-uuid.h"
+#include "fd.h"
 
 struct _inode_table {
         pthread_mutex_t    lock;
@@ -98,7 +93,7 @@ struct _inode {
         struct list_head     hash;          /* hash table pointers */
         struct list_head     list;          /* active/lru/purge */
 
-	struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
+        struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
 };
 
 
@@ -108,6 +103,12 @@ struct _inode {
 
 inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);
+
+void
+inode_table_destroy_all (glusterfs_ctx_t *ctx);
+
+void
+inode_table_destroy (inode_table_t *inode_table);
 
 inode_t *
 inode_new (inode_table_t *table);
@@ -133,6 +134,9 @@ inode_lookup (inode_t *inode);
 
 int
 inode_forget (inode_t *inode, uint64_t nlookup);
+
+int
+inode_ref_reduce_by_n (inode_t *inode, uint64_t nref);
 
 int
 inode_invalidate(inode_t *inode);
@@ -256,5 +260,20 @@ __inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
 
 void
 inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
+
+void
+inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode);
+
+int
+inode_is_linked (inode_t *inode);
+
+void
+inode_set_need_lookup (inode_t *inode, xlator_t *this);
+
+gf_boolean_t
+inode_needs_lookup (inode_t *inode, xlator_t *this);
+
+int
+inode_has_dentry (inode_t *inode);
 
 #endif /* _INODE_H */

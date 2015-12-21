@@ -30,11 +30,11 @@ TEST snapshot_n_exists $V0 3 $V0_snap
 
 #Creating the 4th snapshot on the volume and expecting it to be created
 # but with the deletion of the oldest snapshot i.e 1st snapshot
-TEST  $CLI_1 snapshot create ${V0}_snap4 ${V0}
+TEST  $CLI_1 snapshot create ${V0}_snap4 ${V0} no-timestamp
 TEST  snapshot_exists 1 ${V0}_snap4
 TEST ! snapshot_exists 1 ${V0}_snap1
 TEST $CLI_1 snapshot delete ${V0}_snap4
-TEST $CLI_1 snapshot create ${V0}_snap1 ${V0}
+TEST $CLI_1 snapshot create ${V0}_snap1 ${V0} no-timestamp
 TEST snapshot_exists 1 ${V0}_snap1
 
 #Deleting the 4 snaps

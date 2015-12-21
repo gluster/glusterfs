@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
@@ -49,13 +44,14 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	priv = this->private;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	gf_log (this->name, GF_LOG_INFO, "performing metadata selfheal on %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                AFR_MSG_SELF_HEAL_INFO, "performing metadata selfheal on %s",
 		uuid_utoa (inode->gfid));
 
 	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL,
-                               NULL);
+                               NULL, NULL);
 	if (ret < 0) {
 		ret = -EIO;
                 goto out;
@@ -74,19 +70,20 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 		ret = syncop_setattr (priv->children[i], &loc,
 				      &locked_replies[source].poststat,
-				      AFR_HEAL_ATTR, NULL, NULL);
+				      AFR_HEAL_ATTR, NULL, NULL, NULL, NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 
 		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0,
-                                       NULL);
+                                       NULL, NULL);
 		if (old_xattr) {
 			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
-						  old_xattr);
+						  old_xattr, NULL);
 		}
 
-		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0);
+		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0, NULL,
+                                       NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 	}
@@ -102,7 +99,7 @@ out:
 	return ret;
 }
 
-static inline uint64_t
+static uint64_t
 mtime_ns(struct iatt *ia)
 {
         uint64_t ret;
@@ -116,7 +113,7 @@ mtime_ns(struct iatt *ia)
 /*
  * When directory content is modified, [mc]time is updated. On
  * Linux, the filesystem does it, while at least on NetBSD, the
- * kernel file-system independant code does it. This means that
+ * kernel file-system independent code does it. This means that
  * when entries are added while bricks are down, the kernel sends
  * a SETATTR [mc]time which will cause metadata split brain for
  * the directory. In this case, clear the split brain by finding
@@ -231,7 +228,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		source = afr_dirtime_splitbrain_source (frame, this,
 							replies, locked_on);
 		if (source != -1) {
-			gf_log (this->name, GF_LOG_NOTICE, "clear time "
+		        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_SPLIT_BRAIN, "clear time "
 				"split brain on %s",
 				 uuid_utoa (replies[source].poststat.ia_gfid));
 			sources[source] = 1;
@@ -276,10 +274,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		    !IA_EQUAL (first, replies[i].poststat, uid) ||
 		    !IA_EQUAL (first, replies[i].poststat, gid) ||
 		    !IA_EQUAL (first, replies[i].poststat, prot)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: iatt mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: iatt mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
 			sources[i] = 0;
 			healed_sinks[i] = 1;
 		}
@@ -290,10 +289,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 			continue;
                 if (!afr_xattrs_are_equal (replies[source].xdata,
                                            replies[i].xdata)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: xattr mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: xattr mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
                         sources[i] = 0;
                         healed_sinks[i] = 1;
                 }
@@ -307,7 +307,7 @@ int
 __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				 unsigned char *locked_on, unsigned char *sources,
 				 unsigned char *sinks, unsigned char *healed_sinks,
-				 struct afr_reply *replies)
+				 struct afr_reply *replies, gf_boolean_t *pflag)
 {
 	int ret = -1;
 	int source = -1;
@@ -325,7 +325,8 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
         witness = alloca0 (sizeof (*witness) * priv->child_count);
         ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_METADATA_TRANSACTION,
-					   locked_on, sources, sinks, witness);
+					   locked_on, sources, sinks, witness,
+                                           pflag);
 	if (ret)
 		return ret;
 
@@ -377,6 +378,7 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	unsigned char *data_lock = NULL;
 	unsigned char *healed_sinks = NULL;
 	struct afr_reply *locked_replies = NULL;
+        gf_boolean_t did_sh = _gf_true;
 	int source = -1;
 
 	priv = this->private;
@@ -399,14 +401,14 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		ret = __afr_selfheal_metadata_prepare (frame, this, inode,
                                                        data_lock, sources,
                                                        sinks, healed_sinks,
-						       locked_replies);
+						       locked_replies, NULL);
 		if (ret < 0)
 			goto unlock;
 
 		source = ret;
 
                 if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
-                        ret = -ENOTCONN;
+                        did_sh = _gf_false;
                         goto unlock;
                 }
 
@@ -424,8 +426,11 @@ unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
 
-        afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);

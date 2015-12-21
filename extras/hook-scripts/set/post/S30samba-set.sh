@@ -28,7 +28,7 @@ USERSMB_SET=""
 USERCIFS_SET=""
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -o "o" -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  --name $PROGNAME -o "o:" -- $@)
         eval set -- "$ARGS"
 
         while true; do
@@ -41,10 +41,13 @@ function parse_args () {
                     shift
                     GLUSTERD_WORKDIR=$1
                     ;;
-                *)
+                --)
                     shift
-                    for pair in $@; do
-                        read key value < <(echo "$pair" | tr "=" " ")
+                    break
+                    ;;
+                -o)
+                    shift
+                        read key value < <(echo "$1" | tr "=" " ")
                         case "$key" in
                             "user.cifs")
                                 USERCIFS_SET="YES"
@@ -55,7 +58,8 @@ function parse_args () {
                             *)
                                 ;;
                         esac
-                    done
+                    ;;
+                *)
                     shift
                     break
                     ;;
@@ -95,7 +99,7 @@ function sighup_samba () {
         then
                 kill -HUP "$pid";
         else
-                /etc/init.d/smb condrestart
+                service smb condrestart
         fi
 }
 

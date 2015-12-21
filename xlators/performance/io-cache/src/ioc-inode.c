@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "io-cache.h"
 #include "ioc-mem-types.h"
 
@@ -52,7 +47,8 @@ ptr_to_str (void *ptr)
 
         ret = gf_asprintf (&str, "%p", ptr);
         if (-1 == ret) {
-                gf_log ("io-cache", GF_LOG_WARNING,
+                gf_msg ("io-cache", GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_STR_COVERSION_FAILED,
                         "asprintf failed while converting ptr to str");
                 str = NULL;
                 goto out;
@@ -82,7 +78,8 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
         if (ioc_inode == NULL) {
                 local->op_ret = -1;
                 local->op_errno = EINVAL;
-                gf_log (frame->this->name, GF_LOG_WARNING, "ioc_inode is NULL");
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_INODE_NULL, "ioc_inode is NULL");
                 goto out;
         }
 
@@ -99,7 +96,8 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                 cache_still_valid = 0;
 
         if (!waiter) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_PAGE_WAIT_VALIDATE,
                         "cache validate called without any "
                         "page waiting to be validated");
         }
@@ -130,12 +128,15 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                                 waiter_page->ready = 0;
                                                 need_fault = 1;
                                         } else {
-                                                gf_log (frame->this->name,
-                                                        GF_LOG_TRACE,
-                                                        "validate frame(%p) is "
-                                                        "waiting for in-transit"
-                                                        " page = %p", frame,
-                                                        waiter_page);
+                                                gf_msg_trace (frame->this->name,
+                                                              0,
+                                                              "validate "
+                                                              "frame(%p) is "
+                                                              "waiting for "
+                                                              "in-transit"
+                                                              " page = %p",
+                                                              frame,
+                                                              waiter_page);
                                         }
                                 }
                                 ioc_inode_unlock (ioc_inode);
@@ -198,8 +199,8 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
         }
         ioc_table_unlock (table);
 
-        gf_log (table->xl->name, GF_LOG_TRACE,
-                "adding to inode_lru[%d]", weight);
+        gf_msg_trace (table->xl->name, 0,
+                      "adding to inode_lru[%d]", weight);
 
 out:
         return ioc_inode;

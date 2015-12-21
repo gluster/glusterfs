@@ -11,11 +11,6 @@
 #ifndef __IO_CACHE_H
 #define __IO_CACHE_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include "compat-errno.h"
 
@@ -29,6 +24,7 @@
 #include "hashfn.h"
 #include <sys/time.h>
 #include <fnmatch.h>
+#include "io-cache-messages.h"
 
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
@@ -224,64 +220,64 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 
 #define ioc_inode_lock(ioc_inode)                                       \
         do {                                                            \
-                gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,       \
-                        "locked inode(%p)", ioc_inode);                 \
+                gf_msg_trace (ioc_inode->table->xl->name, 0,            \
+                              "locked inode(%p)", ioc_inode);           \
                 pthread_mutex_lock (&ioc_inode->inode_lock);            \
         } while (0)
 
 
 #define ioc_inode_unlock(ioc_inode)                                     \
         do {                                                            \
-                gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,       \
-                        "unlocked inode(%p)", ioc_inode);               \
+                gf_msg_trace (ioc_inode->table->xl->name, 0,            \
+                              "unlocked inode(%p)", ioc_inode);         \
                 pthread_mutex_unlock (&ioc_inode->inode_lock);          \
         } while (0)
 
 
-#define ioc_table_lock(table)                                   \
-        do {                                                    \
-                gf_log (table->xl->name, GF_LOG_TRACE,          \
-                        "locked table(%p)", table);             \
-                pthread_mutex_lock (&table->table_lock);        \
+#define ioc_table_lock(table)                                           \
+        do {                                                            \
+                gf_msg_trace (table->xl->name, 0,                       \
+                              "locked table(%p)", table);               \
+                pthread_mutex_lock (&table->table_lock);                \
         } while (0)
 
 
-#define ioc_table_unlock(table)                                 \
-        do {                                                    \
-                gf_log (table->xl->name, GF_LOG_TRACE,          \
-                        "unlocked table(%p)", table);           \
-                pthread_mutex_unlock (&table->table_lock);      \
+#define ioc_table_unlock(table)                                         \
+        do {                                                            \
+                gf_msg_trace (table->xl->name, 0,                       \
+                              "unlocked table(%p)", table);             \
+                pthread_mutex_unlock (&table->table_lock);              \
         } while (0)
 
 
 #define ioc_local_lock(local)                                           \
         do {                                                            \
-                gf_log (local->inode->table->xl->name, GF_LOG_TRACE,    \
-                        "locked local(%p)", local);                     \
+                gf_msg_trace (local->inode->table->xl->name, 0,         \
+                              "locked local(%p)", local);               \
                 pthread_mutex_lock (&local->local_lock);                \
         } while (0)
 
 
 #define ioc_local_unlock(local)                                         \
         do {                                                            \
-                gf_log (local->inode->table->xl->name, GF_LOG_TRACE,    \
-                        "unlocked local(%p)", local);                   \
+                gf_msg_trace (local->inode->table->xl->name, 0,         \
+                              "unlocked local(%p)", local);             \
                 pthread_mutex_unlock (&local->local_lock);              \
         } while (0)
 
 
 #define ioc_page_lock(page)                                             \
         do {                                                            \
-                gf_log (page->inode->table->xl->name, GF_LOG_TRACE,     \
-                        "locked page(%p)", page);                       \
+                gf_msg_trace (page->inode->table->xl->name, 0,          \
+                              "locked page(%p)", page);                 \
                 pthread_mutex_lock (&page->page_lock);                  \
         } while (0)
 
 
 #define ioc_page_unlock(page)                                           \
         do {                                                            \
-                gf_log (page->inode->table->xl->name, GF_LOG_TRACE,     \
-                        "unlocked page(%p)", page);                     \
+                gf_msg_trace (page->inode->table->xl->name, 0,          \
+                              "unlocked page(%p)", page);               \
                 pthread_mutex_unlock (&page->page_lock);                \
         } while (0)
 

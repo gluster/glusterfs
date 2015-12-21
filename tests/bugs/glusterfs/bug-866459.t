@@ -25,7 +25,6 @@ dd of=$M0/a if=/dev/urandom bs=1024k count=1 2>&1 > /dev/null
 B0_hiphenated=`echo $B0 | tr '/' '-'`
 ## Bring a brick down
 TEST kill_brick $V0 $H0 $B0/${V0}1
-EXPECT '1' echo `pgrep glusterfsd | wc -l`
 ## Rewrite the file
 dd of=$M0/a if=/dev/urandom bs=1024k count=1 2>&1 > /dev/null
 TEST $CLI volume start $V0 force

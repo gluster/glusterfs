@@ -7,11 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
+#include "compat.h"
+#include "syscall.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -66,14 +63,17 @@ str2argv (char *str, char ***argv)
 {
         char *p         = NULL;
         char *savetok   = NULL;
+        char *temp      = NULL;
+        char *temp1     = NULL;
         int argc        = 0;
         size_t argv_len = 32;
         int ret         = 0;
+        int i           = 0;
 
         assert (str);
-        str = strdup (str);
+        temp = str = strdup (str);
         if (!str)
-                return -1;
+                goto error;
 
         *argv = calloc (argv_len, sizeof (**argv));
         if (!*argv)
@@ -90,13 +90,21 @@ str2argv (char *str, char ***argv)
                         if (ret == -1)
                                 goto error;
                 }
-                (*argv)[argc - 1] = p;
+                temp1 = strdup (p);
+                if (!temp1)
+                        goto error;
+                (*argv)[argc - 1] = temp1;
         }
 
+        free(temp);
         return argc;
 
  error:
         fprintf (stderr, "out of memory\n");
+        free(temp);
+        for (i = 0; i < argc - 1; i++)
+                free((*argv)[i]);
+        free(*argv);
         return -1;
 }
 
@@ -183,12 +191,12 @@ find_gsyncd (pid_t pid, pid_t ppid, char *name, void *data)
         if (ppid != pida[0])
                 return 0;
 
-        sprintf (path, PROC"/%d/cmdline", pid);
+        snprintf (path, sizeof path, PROC"/%d/cmdline", pid);
         fd = open (path, O_RDONLY);
         if (fd == -1)
                 return 0;
-        ret = read (fd, buf, sizeof (buf));
-        close (fd);
+        ret = sys_read (fd, buf, sizeof (buf));
+        sys_close (fd);
         if (ret == -1)
                 return 0;
         for (zeros = 0, p = buf; zeros < 2 && p < buf + ret; p++)
@@ -264,8 +272,8 @@ invoke_rsync (int argc, char **argv)
                 goto error;
         }
         /* check if rsync target matches gsyncd target */
-        sprintf (path, PROC"/%d/cwd", pida[1]);
-        ret = readlink (path, buf, sizeof (buf));
+        snprintf (path, sizeof path, PROC"/%d/cwd", pida[1]);
+        ret = sys_readlink (path, buf, sizeof (buf));
         if (ret == -1 || ret == sizeof (buf))
                 goto error;
         if (strcmp (argv[argc - 1], "/") == 0 /* root dir cannot be a target */ ||
@@ -348,6 +356,7 @@ main (int argc, char **argv)
         struct invocable *i     = NULL;
         char             *b     = NULL;
         char             *sargv = NULL;
+        int               j     = 0;
 
 #ifdef USE_LIBGLUSTERFS
         glusterfs_ctx_t *ctx = NULL;
@@ -412,5 +421,8 @@ main (int argc, char **argv)
         fprintf (stderr, "invoking %s in restricted SSH session is not allowed\n",
                  b);
 
+        for (j = 1; j < argc; j++)
+                free(argv[j]);
+        free(argv);
         return 1;
 }

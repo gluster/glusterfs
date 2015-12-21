@@ -14,16 +14,16 @@ import time
 import stat
 import json
 import logging
-import socket
+import fcntl
 import string
 import errno
-from errno import ENOENT, ENODATA, EPIPE, EEXIST
+import tarfile
+from errno import ENOENT, ENODATA, EEXIST, EACCES, EAGAIN, ESTALE
 from threading import Condition, Lock
 from datetime import datetime
 from gconf import gconf
-from tempfile import NamedTemporaryFile
 from syncdutils import Thread, GsyncdError, boolify, escape
-from syncdutils import unescape, select, gauxpfx, md5hex, selfkill
+from syncdutils import unescape, gauxpfx, md5hex, selfkill
 from syncdutils import lstat, errno_wrap
 from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
 
@@ -36,6 +36,14 @@ URXTIME = (-1, 0)
 # then geo-rep can enter into xsync crawl after history
 # crawl before starting live changelog crawl.
 CHANGELOG_ROLLOVER_TIME = 15
+
+# Max size of Changelogs to process per batch, Changelogs Processing is
+# not limited by the number of changelogs but instead based on
+# size of the changelog file, One sample changelog file size was 145408
+# with ~1000 CREATE and ~1000 DATA. 5 such files in one batch is 727040
+# If geo-rep worker crashes while processing a batch, it has to retry only
+# that batch since stime will get updated after each batch.
+MAX_CHANGELOG_BATCH_SIZE = 727040
 
 # Utility functions to help us to get to closer proximity
 # of the DRY principle (no, don't look for elevated or
@@ -168,10 +176,7 @@ class NormalMixin(object):
             raise GsyncdError("timestamp corruption for " + path)
 
     def need_sync(self, e, xte, xtrd):
-        if self.xsync_upper_limit:
-            return xte > xtrd and xte <= self.xsync_upper_limit
-        else:
-            return xte > xtrd
+        return xte > xtrd
 
     def set_slave_xtime(self, path, mark):
         self.slave.server.set_stime(path, self.uuid, mark)
@@ -239,7 +244,6 @@ class TarSSHEngine(object):
     """
 
     def a_syncdata(self, files):
-        self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
         self.current_files_skipped_count = 0
         del self.skipped_gfid_list[:]
@@ -278,7 +282,6 @@ class RsyncEngine(object):
     """Sync engine that uses rsync(1) for data transfers"""
 
     def a_syncdata(self, files):
-        self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
         self.current_files_skipped_count = 0
         del self.skipped_gfid_list[:]
@@ -390,18 +393,6 @@ class GMasterCommon(object):
                     raise
         return default_data
 
-    def update_crawl_data(self):
-        if getattr(gconf, 'state_detail_file', None):
-            try:
-                same_dir = os.path.dirname(gconf.state_detail_file)
-                with NamedTemporaryFile(dir=same_dir, delete=False) as tmp:
-                    json.dump(self.total_crawl_stats, tmp)
-                    tmp.flush()
-                    os.fsync(tmp.fileno())
-                    os.rename(tmp.name, gconf.state_detail_file)
-            except (IOError, OSError):
-                raise
-
     def __init__(self, master, slave):
         self.master = master
         self.slave = slave
@@ -427,14 +418,12 @@ class GMasterCommon(object):
         self.total_turns = int(gconf.turns)
         self.crawl_start = datetime.now()
         self.lastreport = {'crawls': 0, 'turns': 0, 'time': 0}
-        self.total_crawl_stats = None
         self.start = None
         self.change_seen = None
         # the actual volinfo we make use of
         self.volinfo = None
         self.terminate = False
         self.sleep_interval = 1
-        self.checkpoint_thread = None
         self.current_files_skipped_count = 0
         self.skipped_gfid_list = []
         self.unlinked_gfids = []
@@ -451,14 +440,84 @@ class GMasterCommon(object):
             t = Thread(target=keep_alive)
             t.start()
 
-    def should_crawl(cls):
-        return gconf.glusterd_uuid in cls.master.server.node_uuid()
+    def mgmt_lock(self):
+
+        """Take management volume lock """
+        if gconf.mgmt_lock_fd:
+            try:
+                fcntl.lockf(gconf.mgmt_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if not gconf.active_earlier:
+                    gconf.active_earlier = True
+                    logging.info("Got lock : %s : Becoming ACTIVE"
+                                 % gconf.local_path)
+                return True
+            except:
+                ex = sys.exc_info()[1]
+                if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+                    if not gconf.passive_earlier:
+                        gconf.passive_earlier = True
+                        logging.info("Didn't get lock : %s : Becoming PASSIVE"
+                                     % gconf.local_path)
+                    return False
+                raise
+
+        fd = None
+        bname = str(self.uuid) + "_" + str(gconf.slave_id) + "_subvol_" \
+            + str(gconf.subvol_num) + ".lock"
+        mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
+        path = os.path.join(mgmt_lock_dir, bname)
+        logging.debug("lock_file_path: %s" % path)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        except OSError:
+            ex = sys.exc_info()[1]
+            if ex.errno == ENOENT:
+                logging.info("Creating geo-rep directory in meta volume...")
+                try:
+                    os.makedirs(mgmt_lock_dir)
+                except OSError:
+                    ex = sys.exc_info()[1]
+                    if ex.errno == EEXIST:
+                        pass
+                    else:
+                        raise
+                fd = os.open(path, os.O_CREAT | os.O_RDWR)
+            else:
+                raise
+        try:
+            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Save latest FD for future use
+            gconf.mgmt_lock_fd = fd
+        except:
+            ex = sys.exc_info()[1]
+            if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+                # cannot grab, it's taken
+                if not gconf.passive_earlier:
+                    gconf.passive_earlier = True
+                    logging.info("Didn't get lock : %s : Becoming PASSIVE"
+                                 % gconf.local_path)
+                gconf.mgmt_lock_fd = fd
+                return False
+            raise
+
+        if not gconf.active_earlier:
+            gconf.active_earlier = True
+            logging.info("Got lock : %s : Becoming ACTIVE" % gconf.local_path)
+        return True
+
+    def should_crawl(self):
+        if not boolify(gconf.use_meta_volume):
+            return gconf.glusterd_uuid in self.master.server.node_uuid()
+
+        if not os.path.ismount(gconf.meta_volume_mnt):
+            logging.error("Meta-volume is not mounted. Worker Exiting...")
+            sys.exit(1)
+        return self.mgmt_lock()
 
     def register(self):
         self.register()
 
-    def crawlwrap(self, oneshot=False, no_stime_update=False,
-                  register_time=None):
+    def crawlwrap(self, oneshot=False, register_time=None):
         if oneshot:
             # it's important to do this during the oneshot crawl as
             # for a passive gsyncd (ie. in a replicate scenario)
@@ -469,11 +528,11 @@ class GMasterCommon(object):
         # then it sets register_time which is the time when geo-rep
         # worker registerd to changelog consumption. Since nsec is
         # not considered in register time, their are chances of skipping
-        # changes detection in xsync crawl. Add 1 sec to upper_limit.
-        # This limit will be reset when crawlwrap is called again.
-        self.xsync_upper_limit = None
+        # changes detection in xsync crawl. This limit will be reset when
+        # crawlwrap is called again.
+        self.live_changelog_start_time = None
         if register_time:
-            self.xsync_upper_limit = (register_time + 1, 0)
+            self.live_changelog_start_time = (register_time, 0)
 
         # no need to maintain volinfo state machine.
         # in a cascading setup, each geo-replication session is
@@ -493,10 +552,8 @@ class GMasterCommon(object):
             if self.volinfo['retval']:
                 logging.warn("master cluster's info may not be valid %d" %
                              self.volinfo['retval'])
-            self.start_checkpoint_thread()
         else:
             raise GsyncdError("master volinfo unavailable")
-        self.total_crawl_stats = self.get_initial_crawl_data()
         self.lastreport['time'] = time.time()
         logging.info('crawl interval: %d seconds' % self.sleep_interval)
 
@@ -521,7 +578,7 @@ class GMasterCommon(object):
                 t0 = t1
             self.update_worker_remote_node()
             if not crawl:
-                self.update_worker_health("Passive")
+                self.status.set_passive()
                 # bring up _this_ brick to the cluster stime
                 # which is min of cluster (but max of the replicas)
                 brick_stime = self.xtime('.', self.slave)
@@ -533,36 +590,28 @@ class GMasterCommon(object):
                     if brick_stime < cluster_stime:
                         self.slave.server.set_stime(
                             self.FLAT_DIR_HIERARCHY, self.uuid, cluster_stime)
+                        # Purge all changelogs available in processing dir
+                        # less than cluster_stime
+                        proc_dir = os.path.join(self.setup_working_dir(),
+                                                ".processing")
+
+                        if os.path.exists(proc_dir):
+                            to_purge = [f for f in os.listdir(proc_dir)
+                                        if (f.startswith("CHANGELOG.") and
+                                            int(f.split('.')[-1]) <
+                                            cluster_stime[0])]
+                            for f in to_purge:
+                                os.remove(os.path.join(proc_dir, f))
+
                 time.sleep(5)
                 continue
-            self.update_worker_health("Active")
-            self.crawl(no_stime_update=no_stime_update)
+
+            self.status.set_active()
+            self.crawl()
+
             if oneshot:
                 return
             time.sleep(self.sleep_interval)
-
-    @classmethod
-    def _checkpt_param(cls, chkpt, prm, xtimish=True):
-        """use config backend to lookup a parameter belonging to
-           checkpoint @chkpt"""
-        cprm = gconf.configinterface.get_realtime('checkpoint_' + prm)
-        if not cprm:
-            return
-        chkpt_mapped, val = cprm.split(':', 1)
-        if unescape(chkpt_mapped) != chkpt:
-            return
-        if xtimish:
-            val = cls.deserialize_xtime(val)
-        return val
-
-    @classmethod
-    def _set_checkpt_param(cls, chkpt, prm, val, xtimish=True):
-        """use config backend to store a parameter associated
-           with checkpoint @chkpt"""
-        if xtimish:
-            val = cls.serialize_xtime(val)
-        gconf.configinterface.set(
-            'checkpoint_' + prm, "%s:%s" % (escape(chkpt), val))
 
     @staticmethod
     def humantime(*tpair):
@@ -591,116 +640,6 @@ class GMasterCommon(object):
         date += "%s:%s:%s" % (string.zfill(h, 2),
                               string.zfill(m, 2), string.zfill(s, 2))
         return date
-
-    def checkpt_service(self, chan, chkpt):
-        """checkpoint service loop
-
-        monitor and verify checkpoint status for @chkpt, and listen
-        for incoming requests for whom we serve a pretty-formatted
-        status report"""
-        while True:
-            chkpt = gconf.configinterface.get_realtime("checkpoint")
-            if not chkpt:
-                gconf.configinterface.delete("checkpoint_completed")
-                gconf.configinterface.delete("checkpoint_target")
-                # dummy loop for the case when there is no checkpt set
-                select([chan], [], [])
-                conn, _ = chan.accept()
-                conn.send('\0')
-                conn.close()
-                continue
-
-            checkpt_tgt = self._checkpt_param(chkpt, 'target')
-            if not checkpt_tgt:
-                checkpt_tgt = self.xtime('.')
-                if isinstance(checkpt_tgt, int):
-                    raise GsyncdError("master root directory is "
-                                      "unaccessible (%s)",
-                                      os.strerror(checkpt_tgt))
-                self._set_checkpt_param(chkpt, 'target', checkpt_tgt)
-            logging.debug("checkpoint target %s has been determined "
-                          "for checkpoint %s" %
-                          (repr(checkpt_tgt), chkpt))
-
-            # check if the label is 'now'
-            chkpt_lbl = chkpt
-            try:
-                x1, x2 = chkpt.split(':')
-                if x1 == 'now':
-                    chkpt_lbl = "as of " + self.humantime(x2)
-            except:
-                pass
-            completed = self._checkpt_param(chkpt, 'completed', xtimish=False)
-            if completed:
-                completed = tuple(int(x) for x in completed.split('.'))
-            s, _, _ = select([chan], [], [], (not completed) and 5 or None)
-            # either request made and we re-check to not
-            # give back stale data, or we still hunting for completion
-            if (self.native_xtime(checkpt_tgt) and (
-                    self.native_xtime(checkpt_tgt) < self.volmark)):
-                # indexing has been reset since setting the checkpoint
-                status = "is invalid"
-            else:
-                xtr = self.xtime('.', self.slave)
-                if isinstance(xtr, int):
-                    raise GsyncdError("slave root directory is "
-                                      "unaccessible (%s)",
-                                      os.strerror(xtr))
-                ncompleted = self.xtime_geq(xtr, checkpt_tgt)
-                if completed and not ncompleted:  # stale data
-                    logging.warn("completion time %s for checkpoint %s "
-                                 "became stale" %
-                                 (self.humantime(*completed), chkpt))
-                    completed = None
-                    gconf.configinterface.delete('checkpoint_completed')
-                if ncompleted and not completed:  # just reaching completion
-                    completed = "%.6f" % time.time()
-                    self._set_checkpt_param(
-                        chkpt, 'completed', completed, xtimish=False)
-                    completed = tuple(int(x) for x in completed.split('.'))
-                    logging.info("checkpoint %s completed" % chkpt)
-                status = completed and \
-                    "completed at " + self.humantime(completed[0]) or \
-                    "not reached yet"
-            if s:
-                conn = None
-                try:
-                    conn, _ = chan.accept()
-                    try:
-                        conn.send("checkpoint %s is %s\0" %
-                                  (chkpt_lbl, status))
-                    except:
-                        exc = sys.exc_info()[1]
-                        if ((isinstance(exc, OSError) or isinstance(
-                                exc, IOError)) and exc.errno == EPIPE):
-                            logging.debug('checkpoint client disconnected')
-                        else:
-                            raise
-                finally:
-                    if conn:
-                        conn.close()
-
-    def start_checkpoint_thread(self):
-        """prepare and start checkpoint service"""
-        if self.checkpoint_thread or not (
-            getattr(gconf, 'state_socket_unencoded', None) and getattr(
-                gconf, 'socketdir', None)
-        ):
-            return
-        chan = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        state_socket = os.path.join(
-            gconf.socketdir, md5hex(gconf.state_socket_unencoded) + ".socket")
-        try:
-            os.unlink(state_socket)
-        except:
-            if sys.exc_info()[0] == OSError:
-                pass
-        chan.bind(state_socket)
-        chan.listen(1)
-        chkpt = gconf.configinterface.get_realtime("checkpoint")
-        t = Thread(target=self.checkpt_service, args=(chan, chkpt))
-        t.start()
-        self.checkpoint_thread = t
 
     def add_job(self, path, label, job, *a, **kw):
         """insert @job function to job table at @path with @label"""
@@ -757,6 +696,7 @@ class GMasterChangelogMixin(GMasterCommon):
     # index for change type and entry
     IDX_START = 0
     IDX_END = 2
+    UNLINK_ENTRY = 2
 
     POS_GFID = 0
     POS_TYPE = 1
@@ -774,6 +714,47 @@ class GMasterChangelogMixin(GMasterCommon):
 
     CHANGELOG_LOG_LEVEL = 9
     CHANGELOG_CONN_RETRIES = 5
+
+    def archive_and_purge_changelogs(self, changelogs):
+        # Creates tar file instead of tar.gz, since changelogs will
+        # be appended to existing tar. archive name is
+        # archive_<YEAR><MONTH>.tar
+        archive_name = "archive_%s.tar" % datetime.today().strftime(
+            gconf.changelog_archive_format)
+
+        try:
+            tar = tarfile.open(os.path.join(self.processed_changelogs_dir,
+                                            archive_name),
+                               "a")
+        except tarfile.ReadError:
+            tar = tarfile.open(os.path.join(self.processed_changelogs_dir,
+                                            archive_name),
+                               "w")
+
+        for f in changelogs:
+            try:
+                f = os.path.basename(f)
+                tar.add(os.path.join(self.processed_changelogs_dir, f),
+                        arcname=os.path.basename(f))
+            except:
+                exc = sys.exc_info()[1]
+                if ((isinstance(exc, OSError) or
+                     isinstance(exc, IOError)) and exc.errno == ENOENT):
+                    continue
+                else:
+                    tar.close()
+                    raise
+        tar.close()
+
+        for f in changelogs:
+            try:
+                f = os.path.basename(f)
+                os.remove(os.path.join(self.processed_changelogs_dir, f))
+            except OSError as e:
+                if e.errno == errno.ENOENT:
+                    continue
+                else:
+                    raise
 
     def fallback_xsync(self):
         logging.info('falling back to xsync mode')
@@ -832,10 +813,28 @@ class GMasterChangelogMixin(GMasterCommon):
         def purge_update():
             files_pending['purge'] += 1
 
+        def log_failures(failures, entry_key, gfid_prefix, log_prefix):
+            num_failures = 0
+            for failure in failures:
+                st = lstat(os.path.join(gfid_prefix, failure[0][entry_key]))
+                if not isinstance(st, int):
+                    num_failures += 1
+                    logging.warn('%s FAILED: %s' % (log_prefix, repr(failure)))
+
+            self.status.inc_value("failures", num_failures)
+
         for e in clist:
             e = e.strip()
             et = e[self.IDX_START:self.IDX_END]   # entry type
             ec = e[self.IDX_END:].split(' ')      # rest of the bits
+
+            # skip ENTRY operation if hot tier brick
+            if self.name == 'live_changelog' or \
+                self.name == 'history_changelog':
+                if boolify(gconf.is_hottier) and et == self.TYPE_ENTRY:
+                    logging.debug('skip ENTRY op: %s if hot tier brick'
+                                  % (ec[self.POS_TYPE]))
+                    continue
 
             if et == self.TYPE_ENTRY:
                 # extract information according to the type of
@@ -850,30 +849,51 @@ class GMasterChangelogMixin(GMasterCommon):
                 gfid = ec[self.POS_GFID]
 
                 if ty in ['UNLINK', 'RMDIR']:
+                    # The index of PARGFID/BNAME for UNLINK, RMDIR
+                    # is no more the last index. It varies based on
+                    # changelog.capture-del-path is enabled or not.
+                    en = unescape(os.path.join(pfx, ec[self.UNLINK_ENTRY]))
+
                     # Remove from DATA list, so that rsync will
                     # not fail
                     pt = os.path.join(pfx, ec[0])
                     if pt in datas:
                         datas.remove(pt)
 
-                    purge_update()
-                    entries.append(edct(ty, gfid=gfid, entry=en))
+                    if not boolify(gconf.ignore_deletes):
+                        purge_update()
+                        entries.append(edct(ty, gfid=gfid, entry=en))
                 elif ty in ['CREATE', 'MKDIR', 'MKNOD']:
                     entry_update()
                     # stat information present in the changelog itself
                     entries.append(edct(ty, gfid=gfid, entry=en,
                                         mode=int(ec[2]),
                                         uid=int(ec[3]), gid=int(ec[4])))
+
+                    # Special case: add DATA in case of tier linkto file,
+                    # Here, we have the assumption that only tier-gfid.linkto
+                    # causes this mknod
+                    if ty in ['MKNOD']:
+                        mode = int(ec[2])
+                        if mode & 01000:
+                            datas.add(os.path.join(pfx, ec[0]))
+
                 elif ty == "RENAME":
                     go = os.path.join(pfx, gfid)
                     st = lstat(go)
                     if isinstance(st, int):
                         st = {}
 
+                    rl = None
+                    if st and stat.S_ISLNK(st.st_mode):
+                        rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
+                        if isinstance(rl, int):
+                            rl = None
+
                     entry_update()
                     e1 = unescape(os.path.join(pfx, ec[self.POS_ENTRY1 - 1]))
                     entries.append(edct(ty, gfid=gfid, entry=e1, entry1=en,
-                                        stat=st))
+                                        stat=st, link=rl))
                 else:
                     # stat() to get mode and other information
                     go = os.path.join(pfx, gfid)
@@ -886,7 +906,7 @@ class GMasterChangelogMixin(GMasterCommon):
                         entry_update()
                         entries.append(edct(ty, stat=st, entry=en, gfid=gfid))
                     elif ty == 'SYMLINK':
-                        rl = errno_wrap(os.readlink, [en], [ENOENT])
+                        rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
                         if isinstance(rl, int):
                             continue
                         entry_update()
@@ -916,14 +936,28 @@ class GMasterChangelogMixin(GMasterCommon):
                                                       st_mtime=ec[6])))
                     else:
                         meta_gfid.add((os.path.join(pfx, ec[0]), ))
+                elif ec[1] == 'SETXATTR' or ec[1] == 'XATTROP' or \
+                     ec[1] == 'FXATTROP':
+                    # To sync xattr/acls use rsync/tar, --xattrs and --acls
+                    # switch to rsync and tar
+                    if not boolify(gconf.use_tarssh) and \
+                       (boolify(gconf.sync_xattrs) or boolify(gconf.sync_acls)):
+                        datas.add(os.path.join(pfx, ec[0]))
             else:
                 logging.warn('got invalid changelog type: %s' % (et))
         logging.debug('entries: %s' % repr(entries))
-        if not retry:
-            self.update_worker_cumilitive_status(files_pending)
+
+        # Increment counters for Status
+        self.status.inc_value("entry", len(entries))
+        self.files_in_batch += len(datas)
+        self.status.inc_value("data", len(datas))
+
         # sync namespace
         if entries:
-            self.slave.server.entry_ops(entries)
+            failures = self.slave.server.entry_ops(entries)
+            log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
+            self.status.dec_value("entry", len(entries))
+
         # sync metadata
         if meta_gfid:
             meta_entries = []
@@ -937,7 +971,11 @@ class GMasterChangelogMixin(GMasterCommon):
                     continue
                 meta_entries.append(edct('META', go=go[0], stat=st))
             if meta_entries:
-                self.slave.server.meta_ops(meta_entries)
+                self.status.inc_value("meta", len(entries))
+                failures = self.slave.server.meta_ops(meta_entries)
+                log_failures(failures, 'go', '', 'META')
+                self.status.dec_value("meta", len(entries))
+
         # sync data
         if datas:
             self.a_syncdata(datas)
@@ -945,6 +983,8 @@ class GMasterChangelogMixin(GMasterCommon):
     def process(self, changes, done=1):
         tries = 0
         retry = False
+        self.unlinked_gfids = []
+        self.files_in_batch = 0
 
         while True:
             self.skipped_gfid_list = []
@@ -990,7 +1030,11 @@ class GMasterChangelogMixin(GMasterCommon):
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
                     map(self.changelog_done_func, changes)
-                self.update_worker_files_syncd()
+                    self.archive_and_purge_changelogs(changes)
+
+                # Reset Data counter after sync
+                self.status.dec_value("data", self.files_in_batch)
+                self.files_in_batch = 0
                 break
 
             # We do not know which changelog transfer failed, retry everything.
@@ -1000,15 +1044,20 @@ class GMasterChangelogMixin(GMasterCommon):
                 logging.warn('changelogs %s could not be processed - '
                              'moving on...' %
                              ' '.join(map(os.path.basename, changes)))
-                self.update_worker_total_files_skipped(
-                    self.current_files_skipped_count)
+                self.status.inc_value("failures",
+                                      self.current_files_skipped_count)
                 logging.warn('SKIPPED GFID = %s' %
                              ','.join(self.skipped_gfid_list))
-                self.update_worker_files_syncd()
+
+                # Reset data counter on failure
+                self.status.dec_value("data", self.files_in_batch)
+                self.files_in_batch = 0
+
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
                     map(self.changelog_done_func, changes)
+                    self.archive_and_purge_changelogs(changes)
                 break
             # it's either entry_ops() or Rsync that failed to do it's
             # job. Mostly it's entry_ops() [which currently has a problem
@@ -1019,6 +1068,10 @@ class GMasterChangelogMixin(GMasterCommon):
             # TODO: remove entry retries when it's gets fixed.
             logging.warn('incomplete sync, retrying changelogs: %s' %
                          ' '.join(map(os.path.basename, changes)))
+
+            # Reset the Data counter before Retry
+            self.status.dec_value("data", self.files_in_batch)
+            self.files_in_batch = 0
             time.sleep(0.5)
 
     def upd_stime(self, stime, path=None):
@@ -1027,164 +1080,46 @@ class GMasterChangelogMixin(GMasterCommon):
         if not stime == URXTIME:
             self.sendmark(path, stime)
 
-    def get_worker_status_file(self):
-        file_name = gconf.local_path + '.status'
-        file_name = file_name.replace("/", "_")
-        worker_status_file = gconf.georep_session_working_dir + file_name
-        return worker_status_file
+        # Update last_synced_time in status file based on stime
+        chkpt_time = gconf.configinterface.get_realtime(
+            "checkpoint")
+        checkpoint_time = 0
+        if chkpt_time is not None:
+            checkpoint_time = int(chkpt_time)
 
-    def update_worker_status(self, key, value):
-        default_data = {"remote_node": "N/A",
-                        "worker status": "Not Started",
-                        "crawl status": "N/A",
-                        "files_syncd": 0,
-                        "files_remaining": 0,
-                        "bytes_remaining": 0,
-                        "purges_remaining": 0,
-                        "total_files_skipped": 0}
-        worker_status_file = self.get_worker_status_file()
-        try:
-            with open(worker_status_file, 'r+') as f:
-                loaded_data = json.load(f)
-                loaded_data[key] = value
-                os.ftruncate(f.fileno(), 0)
-                os.lseek(f.fileno(), 0, os.SEEK_SET)
-                json.dump(loaded_data, f)
-                f.flush()
-                os.fsync(f.fileno())
-        except (IOError, OSError, ValueError):
-            logging.info('Creating new %s' % worker_status_file)
-            try:
-                with open(worker_status_file, 'wb') as f:
-                    default_data[key] = value
-                    json.dump(default_data, f)
-                    f.flush()
-                    os.fsync(f.fileno())
-            except:
-                raise
-
-    def update_worker_cumilitive_status(self, files_pending):
-        default_data = {"remote_node": "N/A",
-                        "worker status": "Not Started",
-                        "crawl status": "N/A",
-                        "files_syncd": 0,
-                        "files_remaining": 0,
-                        "bytes_remaining": 0,
-                        "purges_remaining": 0,
-                        "total_files_skipped": 0}
-        worker_status_file = self.get_worker_status_file()
-        try:
-            with open(worker_status_file, 'r+') as f:
-                loaded_data = json.load(f)
-                loaded_data['files_remaining'] = files_pending['count']
-                loaded_data['bytes_remaining'] = files_pending['bytes']
-                loaded_data['purges_remaining'] = files_pending['purge']
-                os.ftruncate(f.fileno(), 0)
-                os.lseek(f.fileno(), 0, os.SEEK_SET)
-                json.dump(loaded_data, f)
-                f.flush()
-                os.fsync(f.fileno())
-        except (IOError, OSError, ValueError):
-            logging.info('Creating new %s' % worker_status_file)
-            try:
-                with open(worker_status_file, 'wb') as f:
-                    default_data['files_remaining'] = files_pending['count']
-                    default_data['bytes_remaining'] = files_pending['bytes']
-                    default_data['purges_remaining'] = files_pending['purge']
-                    json.dump(default_data, f)
-                    f.flush()
-                    os.fsync(f.fileno())
-            except:
-                raise
+        self.status.set_last_synced(stime, checkpoint_time)
 
     def update_worker_remote_node(self):
         node = sys.argv[-1]
-        node = node.split("@")[-1]
+        node_data = node.split("@")
+        node = node_data[-1]
         remote_node_ip = node.split(":")[0]
-        remote_node_vol = node.split(":")[3]
-        remote_node = remote_node_ip + '::' + remote_node_vol
-        self.update_worker_status('remote_node', remote_node)
+        self.status.set_slave_node(remote_node_ip)
 
-    def update_worker_health(self, state):
-        self.update_worker_status('worker status', state)
+    def changelogs_batch_process(self, changes):
+        changelogs_batches = []
+        current_size = 0
+        for c in changes:
+            si = os.lstat(c).st_size
+            if (si + current_size) > MAX_CHANGELOG_BATCH_SIZE:
+                # Create new batch if single Changelog file greater than
+                # Max Size! or current batch size exceeds Max size
+                changelogs_batches.append([c])
+                current_size = si
+            else:
+                # Append to last batch, if No batches available Create one
+                current_size += si
+                if not changelogs_batches:
+                    changelogs_batches.append([c])
+                else:
+                    changelogs_batches[-1].append(c)
 
-    def update_worker_crawl_status(self, state):
-        self.update_worker_status('crawl status', state)
+        for batch in changelogs_batches:
+            logging.debug('processing changes %s' % repr(batch))
+            self.process(batch)
 
-    def update_worker_files_syncd(self):
-        default_data = {"remote_node": "N/A",
-                        "worker status": "Not Started",
-                        "crawl status": "N/A",
-                        "files_syncd": 0,
-                        "files_remaining": 0,
-                        "bytes_remaining": 0,
-                        "purges_remaining": 0,
-                        "total_files_skipped": 0}
-        worker_status_file = self.get_worker_status_file()
-        try:
-            with open(worker_status_file, 'r+') as f:
-                loaded_data = json.load(f)
-                loaded_data['files_syncd'] += loaded_data['files_remaining']
-                loaded_data['files_remaining'] = 0
-                loaded_data['bytes_remaining'] = 0
-                loaded_data['purges_remaining'] = 0
-                os.ftruncate(f.fileno(), 0)
-                os.lseek(f.fileno(), 0, os.SEEK_SET)
-                json.dump(loaded_data, f)
-                f.flush()
-                os.fsync(f.fileno())
-        except (IOError, OSError, ValueError):
-            logging.info('Creating new %s' % worker_status_file)
-            try:
-                with open(worker_status_file, 'wb') as f:
-                    json.dump(default_data, f)
-                    f.flush()
-                    os.fsync(f.fileno())
-            except:
-                raise
-
-    def update_worker_files_remaining(self, state):
-        self.update_worker_status('files_remaining', state)
-
-    def update_worker_bytes_remaining(self, state):
-        self.update_worker_status('bytes_remaining', state)
-
-    def update_worker_purges_remaining(self, state):
-        self.update_worker_status('purges_remaining', state)
-
-    def update_worker_total_files_skipped(self, value):
-        default_data = {"remote_node": "N/A",
-                        "worker status": "Not Started",
-                        "crawl status": "N/A",
-                        "files_syncd": 0,
-                        "files_remaining": 0,
-                        "bytes_remaining": 0,
-                        "purges_remaining": 0,
-                        "total_files_skipped": 0}
-        worker_status_file = self.get_worker_status_file()
-        try:
-            with open(worker_status_file, 'r+') as f:
-                loaded_data = json.load(f)
-                loaded_data['total_files_skipped'] = value
-                loaded_data['files_remaining'] -= value
-                os.ftruncate(f.fileno(), 0)
-                os.lseek(f.fileno(), 0, os.SEEK_SET)
-                json.dump(loaded_data, f)
-                f.flush()
-                os.fsync(f.fileno())
-        except (IOError, OSError, ValueError):
-            logging.info('Creating new %s' % worker_status_file)
-            try:
-                with open(worker_status_file, 'wb') as f:
-                    default_data['total_files_skipped'] = value
-                    json.dump(default_data, f)
-                    f.flush()
-                    os.fsync(f.fileno())
-            except:
-                raise
-
-    def crawl(self, no_stime_update=False):
-        self.update_worker_crawl_status("Changelog Crawl")
+    def crawl(self):
+        self.status.set_worker_crawl_status("Changelog Crawl")
         changes = []
         # get stime (from the brick) and purge changelogs
         # that are _historical_ to that time.
@@ -1204,32 +1139,40 @@ class GMasterChangelogMixin(GMasterCommon):
                         os.path.basename(pr))
                     self.changelog_done_func(pr)
                     changes.remove(pr)
+                self.archive_and_purge_changelogs(processed)
 
-            if changes:
-                logging.debug('processing changes %s' % repr(changes))
-                self.process(changes)
+        self.changelogs_batch_process(changes)
 
-    def register(self, register_time, changelog_agent):
+    def register(self, register_time, changelog_agent, status):
         self.changelog_agent = changelog_agent
         self.sleep_interval = int(gconf.change_interval)
         self.changelog_done_func = self.changelog_agent.done
+        self.processed_changelogs_dir = os.path.join(self.setup_working_dir(),
+                                                     ".processed")
+        self.name = "live_changelog"
+        self.status = status
 
 
 class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
-    def register(self, register_time, changelog_agent):
+    def register(self, register_time, changelog_agent, status):
         self.changelog_agent = changelog_agent
         self.changelog_register_time = register_time
         self.history_crawl_start_time = register_time
         self.changelog_done_func = self.changelog_agent.history_done
         self.history_turns = 0
+        self.processed_changelogs_dir = os.path.join(self.setup_working_dir(),
+                                                     ".history/.processed")
+        self.name = "history_changelog"
+        self.status = status
 
-    def crawl(self, no_stime_update=False):
+    def crawl(self):
         self.history_turns += 1
-        self.update_worker_crawl_status("History Crawl")
+        self.status.set_worker_crawl_status("History Crawl")
         purge_time = self.get_purge_time()
 
-        logging.info('starting history crawl... turns: %s, stime: %s'
-                     % (self.history_turns, repr(purge_time)))
+        end_time = int(time.time())
+        logging.info('starting history crawl... turns: %s, stime: %s, etime: %s'
+                     % (self.history_turns, repr(purge_time), repr(end_time)))
 
         if not purge_time or purge_time == URXTIME:
             logging.info("stime not available, abandoning history crawl")
@@ -1243,7 +1186,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         ret, actual_end = self.changelog_agent.history(
             changelog_path,
             purge_time[0],
-            self.changelog_register_time,
+            end_time,
             int(gconf.sync_jobs))
 
         # scan followed by getchanges till scan returns zero.
@@ -1267,9 +1210,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
                         self.changelog_done_func(pr)
                         changes.remove(pr)
 
-            if changes:
-                logging.debug('processing changes %s' % repr(changes))
-                self.process(changes)
+            self.changelogs_batch_process(changes)
 
         history_turn_time = int(time.time()) - self.history_crawl_start_time
 
@@ -1307,13 +1248,16 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
 
     XSYNC_MAX_ENTRIES = 1 << 13
 
-    def register(self, register_time=None, changelog_agent=None):
+    def register(self, register_time=None, changelog_agent=None, status=None):
+        self.status = status
         self.counter = 0
         self.comlist = []
         self.stimes = []
         self.sleep_interval = 60
         self.tempdir = self.setup_working_dir()
         self.tempdir = os.path.join(self.tempdir, 'xsync')
+        self.processed_changelogs_dir = self.tempdir
+        self.name = "xsync"
         logging.info('xsync temp directory: %s' % self.tempdir)
         try:
             os.makedirs(self.tempdir)
@@ -1324,7 +1268,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             else:
                 raise
 
-    def crawl(self, no_stime_update=False):
+    def crawl(self):
         """
         event dispatcher thread
 
@@ -1337,7 +1281,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         t.start()
         logging.info('starting hybrid crawl..., stime: %s'
                      % repr(self.get_purge_time()))
-        self.update_worker_crawl_status("Hybrid Crawl")
+        self.status.set_worker_crawl_status("Hybrid Crawl")
         while True:
             try:
                 item = self.comlist.pop(0)
@@ -1348,25 +1292,19 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 elif item[0] == 'xsync':
                     logging.info('processing xsync changelog %s' % (item[1]))
                     self.process([item[1]], 0)
+                    self.archive_and_purge_changelogs([item[1]])
                 elif item[0] == 'stime':
-                    if not no_stime_update:
-                        # xsync is started after running history but if
-                        # history actual end time is less than register time
-                        # then if we update stime, live changelog processing
-                        # will skip the changelogs for which TS is less than
-                        # stime. During this deletes and renames are not
-                        # propogated. By not setting stime live changelog will
-                        # start processing from the register time. Since we
-                        # have xsync_upper_limit their will not be much
-                        # overlap/redo of changelogs.
-                        logging.debug('setting slave time: %s' % repr(item[1]))
-                        self.upd_stime(item[1][1], item[1][0])
+                    logging.debug('setting slave time: %s' % repr(item[1]))
+                    self.upd_stime(item[1][1], item[1][0])
                 else:
                     logging.warn('unknown tuple in comlist (%s)' % repr(item))
             except IndexError:
                 time.sleep(1)
 
     def write_entry_change(self, prefix, data=[]):
+        if not getattr(self, "fh", None):
+            self.open()
+
         self.fh.write("%s %s\n" % (prefix, ' '.join(data)))
 
     def open(self):
@@ -1378,7 +1316,11 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             raise
 
     def close(self):
-        self.fh.close()
+        if getattr(self, "fh", None):
+            self.fh.flush()
+            os.fsync(self.fh.fileno())
+            self.fh.close()
+            self.fh = None
 
     def fname(self):
         return self.xsync_change
@@ -1389,11 +1331,11 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
     def sync_xsync(self, last):
         """schedule a processing of changelog"""
         self.close()
-        self.put('xsync', self.fname())
+        if self.counter > 0:
+            self.put('xsync', self.fname())
         self.counter = 0
         if not last:
             time.sleep(1)  # make sure changelogs are 1 second apart
-            self.open()
 
     def sync_stime(self, stime=None, last=False):
         """schedule a stime synchronization"""
@@ -1427,7 +1369,6 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         the filesystem tree, but set after directory synchronization.
         """
         if path == '.':
-            self.open()
             self.crawls += 1
         if not xtr_root:
             # get the root stime and use it for all comparisons
@@ -1479,22 +1420,30 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 logging.warn('skipping entry %s..' % e)
                 continue
             mo = st.st_mode
-            self.counter += 1
+            self.counter += 1 if ((stat.S_ISDIR(mo) or
+                                   stat.S_ISLNK(mo) or
+                                   stat.S_ISREG(mo))) else 0
             if self.counter == self.XSYNC_MAX_ENTRIES:
                 self.sync_done(self.stimes, False)
                 self.stimes = []
             if stat.S_ISDIR(mo):
-                self.write_entry_change("E", [gfid, 'MKDIR', str(mo), str(
-                    st.st_uid), str(st.st_gid), escape(os.path.join(pargfid,
-                                                                    bname))])
+                self.write_entry_change("E", [gfid, 'MKDIR', str(mo),
+                    str(0), str(0), escape(os.path.join(pargfid, bname))])
                 self.write_entry_change("M", [gfid, "SETATTR", str(st.st_uid),
                                               str(st.st_gid), str(st.st_mode),
                                               str(st.st_atime),
                                               str(st.st_mtime)])
                 self.Xcrawl(e, xtr_root)
                 stime_to_update = xte
-                if self.xsync_upper_limit:
-                    stime_to_update = min(self.xsync_upper_limit, xte)
+                # Live Changelog Start time indicates that from that time
+                # onwards Live changelogs are available. If we update stime
+                # greater than live_changelog_start time then Geo-rep will
+                # skip those changelogs as already processed. But Xsync
+                # actually failed to sync the deletes and Renames. Update
+                # stime as min(Live_changelogs_time, Actual_stime) When it
+                # switches to Changelog mode, it syncs Deletes and Renames.
+                if self.live_changelog_start_time:
+                    stime_to_update = min(self.live_changelog_start_time, xte)
                 self.stimes.append((e, stime_to_update))
             elif stat.S_ISLNK(mo):
                 self.write_entry_change(
@@ -1509,8 +1458,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 if nlink == 1:
                     self.write_entry_change("E",
                                             [gfid, 'MKNOD', str(mo),
-                                             str(st.st_uid),
-                                             str(st.st_gid),
+                                             str(0), str(0),
                                              escape(os.path.join(
                                                  pargfid, bname))])
                 else:
@@ -1520,8 +1468,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.write_entry_change("D", [gfid])
         if path == '.':
             stime_to_update = xtl
-            if self.xsync_upper_limit:
-                stime_to_update = min(self.xsync_upper_limit, xtl)
+            if self.live_changelog_start_time:
+                stime_to_update = min(self.live_changelog_start_time, xtl)
             self.stimes.append((path, stime_to_update))
             self.sync_done(self.stimes, True)
 

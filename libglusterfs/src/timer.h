@@ -11,11 +11,6 @@
 #ifndef _TIMER_H
 #define _TIMER_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include <sys/time.h>
@@ -29,12 +24,12 @@ struct _gf_timer {
         gf_timer_cbk_t    callbk;
         void             *data;
         xlator_t         *xl;
+	gf_boolean_t      fired;
 };
 
 struct _gf_timer_registry {
         pthread_t        th;
         char             fin;
-        struct _gf_timer stale;
         struct _gf_timer active;
         pthread_mutex_t  lock;
 };
@@ -58,4 +53,6 @@ gf_timer_proc (void *data);
 gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx);
 
+void
+gf_timer_registry_destroy (glusterfs_ctx_t *ctx);
 #endif /* _TIMER_H */

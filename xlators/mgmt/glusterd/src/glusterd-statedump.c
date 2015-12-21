@@ -8,16 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "statedump.h"
 #include "glusterd.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-quotad-svc.h"
+#include "glusterd-nfs-svc.h"
 #include "glusterd-locks.h"
-
-
+#include "glusterd-messages.h"
 
 static void
 glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
@@ -35,7 +32,7 @@ glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
                             uuid_utoa (peerinfo->uuid));
 
         gf_proc_dump_build_key (key, subkey, "hostname");
-        gf_proc_dump_write (key, "%d", peerinfo->hostname);
+        gf_proc_dump_write (key, "%s", peerinfo->hostname);
 
         gf_proc_dump_build_key (key, subkey, "port");
         gf_proc_dump_write (key, "%d", peerinfo->port);
@@ -154,7 +151,9 @@ glusterd_dict_mgmt_v3_lock_statedump (dict_t *dict)
         char         dump[64*1024]             = {0,};
 
         if (!dict) {
-                gf_log_callingfn ("glusterd", GF_LOG_WARNING, "dict NULL");
+                gf_msg_callingfn ("glusterd", GF_LOG_WARNING, EINVAL,
+                                  GD_MSG_DICT_EMPTY,
+                                  "dict NULL");
                 goto out;
         }
         for (trav = dict->members_list; trav; trav = trav->next) {
@@ -223,17 +222,21 @@ glusterd_dump_priv (xlator_t *this)
                 gf_proc_dump_write (key, "%d", priv->ping_timeout);
 
                 gf_proc_dump_build_key (key, "glusterd", "shd.online");
-                gf_proc_dump_write (key, "%d", priv->shd->online);
+                gf_proc_dump_write (key, "%d", priv->shd_svc.online);
 
                 gf_proc_dump_build_key (key, "glusterd", "nfs.online");
-                gf_proc_dump_write (key, "%d", priv->nfs->online);
+                gf_proc_dump_write (key, "%d", priv->nfs_svc.online);
 
                 gf_proc_dump_build_key (key, "glusterd", "quotad.online");
-                gf_proc_dump_write (key, "%d", priv->quotad->online);
+                gf_proc_dump_write (key, "%d", priv->quotad_svc.online);
+
+                gf_proc_dump_build_key (key, "glusterd", "bitd.online");
+                gf_proc_dump_write (key, "%d", priv->bitd_svc.online);
+
+                gf_proc_dump_build_key (key, "glusterd", "scrub.online");
+                gf_proc_dump_write (key, "%d", priv->scrub_svc.online);
 
                 GLUSTERD_DUMP_PEERS (&priv->peers, uuid_list, _gf_false);
-                GLUSTERD_DUMP_PEERS (&priv->xaction_peers, op_peers_list,
-                                     _gf_true);
                 glusterd_dump_client_details (priv);
                 glusterd_dict_mgmt_v3_lock_statedump(priv->mgmt_v3_lock);
                 dict_dump_to_statedump (priv->opts, "options", "glusterd");

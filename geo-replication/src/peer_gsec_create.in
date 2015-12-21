@@ -13,6 +13,11 @@ if [ ! -f "$GLUSTERD_WORKDIR"/geo-replication/tar_ssh.pem.pub ]; then
     ssh-keygen -N '' -f "$GLUSTERD_WORKDIR"/geo-replication/tar_ssh.pem > /dev/null
 fi
 
-output1=`echo command=\"${exec_prefix}/libexec/glusterfs/gsyncd\" " "``cat "$GLUSTERD_WORKDIR"/geo-replication/secret.pem.pub`
-output2=`echo command=\"tar \$\{SSH_ORIGINAL_COMMAND#* \}\" " "``cat "$GLUSTERD_WORKDIR"/geo-replication/tar_ssh.pem.pub`
+if [ "Xcontainer" = "X$1" ]; then
+    output1=`cat "$GLUSTERD_WORKDIR"/geo-replication/secret.pem.pub`
+    output2=`cat "$GLUSTERD_WORKDIR"/geo-replication/tar_ssh.pem.pub`
+else
+    output1=`echo command=\"${exec_prefix}/libexec/glusterfs/gsyncd\" " "``cat "$GLUSTERD_WORKDIR"/geo-replication/secret.pem.pub`
+    output2=`echo command=\"tar \$\{SSH_ORIGINAL_COMMAND#* \}\" " "``cat "$GLUSTERD_WORKDIR"/geo-replication/tar_ssh.pem.pub`
+fi
 echo -e "$output1\n$output2"

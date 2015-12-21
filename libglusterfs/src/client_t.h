@@ -11,11 +11,6 @@
 #ifndef _CLIENT_T_H
 #define _CLIENT_T_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "locking.h"  /* for gf_lock_t, not included by glusterfs.h */
 
@@ -77,6 +72,23 @@ typedef struct clienttable clienttable_t;
 #define GF_CLIENTENTRY_ALLOCATED    -2
 
 struct rpcsvc_auth_data;
+
+/*
+ * a more comprehensive feature test is shown at
+ * http://lists.iptel.org/pipermail/semsdev/2010-October/005075.html
+ * this is sufficient for RHEL5 i386 builds
+ */
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) && !defined(__i386__)
+# define INCREMENT_ATOMIC(lk,op) __sync_add_and_fetch(&op, 1)
+# define DECREMENT_ATOMIC(lk,op) __sync_sub_and_fetch(&op, 1)
+#else
+/* These are only here for old gcc, e.g. on RHEL5 i386.
+ * We're not ever going to use this in an if stmt,
+ * but let's be pedantically correct for style points */
+# define INCREMENT_ATOMIC(lk,op) do { LOCK (&lk); ++op; UNLOCK (&lk); } while (0)
+/* this is a gcc 'statement expression', it works with llvm/clang too */
+# define DECREMENT_ATOMIC(lk,op) ({ LOCK (&lk); --op; UNLOCK (&lk); op; })
+#endif
 
 client_t *
 gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid);

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -23,9 +24,6 @@ TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 ## Reset cmd resets only unprotected option(s), succeeds.
 TEST $CLI volume reset $V0;
 
-## Reset should fail
-TEST ! $CLI volume reset $V0;
-
 ## Set an unprotected option
 TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 
@@ -34,6 +32,7 @@ TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 TEST $CLI volume reset $V0 force;
 
 TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 TEST $CLI volume delete $V0
 
 cleanup;
