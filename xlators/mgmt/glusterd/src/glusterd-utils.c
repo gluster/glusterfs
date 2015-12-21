@@ -2547,6 +2547,14 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
 
                 memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s%d.brick%d.uuid",
+                          prefix, count, i);
+                ret = dict_set_dynstr_with_alloc (dict, key,
+                                                  uuid_utoa(brickinfo->uuid));
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d", prefix, count, i);
                 ret = gd_add_brick_snap_details_to_dict (dict, key, brickinfo);
                 if (ret)
@@ -3010,6 +3018,7 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
         xlator_t                *this     = NULL;
+        char                    *brick_uuid_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3067,9 +3076,14 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         if (ret)
                 goto out;
 
-        //peerinfo might not be added yet
-        (void) glusterd_resolve_brick (new_brickinfo);
-        ret = 0;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.brick%d.uuid",
+                  prefix, vol_count, brick_count);
+        ret = dict_get_str (peer_data, key, &brick_uuid_str);
+        if (ret)
+                goto out;
+        gf_uuid_parse (brick_uuid_str, new_brickinfo->uuid);
+
         *brickinfo = new_brickinfo;
 out:
         if (msg[0])
