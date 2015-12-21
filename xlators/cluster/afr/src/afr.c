@@ -407,6 +407,13 @@ init (xlator_t *this)
                 ret = -ENOMEM;
                 goto out;
         }
+        if (!xattrs_list) {
+                ret = -EINVAL;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_NO_CHANGELOG,
+                        "Unable to fetch afr pending changelogs. Is op-version"
+                        " >= 30707?");
+                goto out;
+        }
         ptr = gf_strdup (xattrs_list);
         if (!ptr) {
                 ret = -ENOMEM;
