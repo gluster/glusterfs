@@ -54,23 +54,32 @@ void
 glfsh_print_heal_op_status (int ret, uint64_t num_entries,
                             gf_xl_afr_op_t heal_op)
 {
+        char *fmt_str = NULL;
 
-        if (ret == -ENOTCONN && num_entries == 0) {
+        if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
+                fmt_str = "Number of entries:";
+        else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES)
+                fmt_str = "Number of entries in split-brain:";
+        else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK)
+                fmt_str = "Number of healed entries:";
+
+        if (ret < 0 && num_entries == 0) {
                 printf ("Status: %s\n", strerror (-ret));
+                if (fmt_str)
+                        printf ("%s -\n", fmt_str);
                 return;
+        } else if (ret == 0) {
+                printf ("Status: Connected\n");
         }
+
         if (ret < 0) {
-                printf ("Failed to process entries completely. "
-                         "Number of entries so far: %"PRIu64"\n", num_entries);
+                if (fmt_str)
+                        printf ("Status: Failed to process entries completely. "
+                                "(%s)\n%s: %"PRIu64"\n",
+                         strerror (-ret), fmt_str, num_entries);
         } else {
-                if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
-                        printf ("Number of entries: %"PRIu64"\n", num_entries);
-                else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES)
-                        printf ("Number of entries in split-brain: %"PRIu64"\n"
-                                , num_entries);
-                else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK)
-                        printf ("Number of healed entries: %"PRIu64"\n",
-                                num_entries);
+                if (fmt_str)
+                        printf ("%s %"PRIu64"\n", fmt_str, num_entries);
         }
         return;
 }
