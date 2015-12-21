@@ -1735,17 +1735,16 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 fdstat_requested = 1;
         }
 
-        if (priv->background_unlink || fdstat_requested) {
-                if (IA_ISREG (loc->inode->ia_type)) {
-                        fd = open (real_path, O_RDONLY);
-                        if (fd == -1) {
-                                op_ret = -1;
-                                op_errno = errno;
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_OPEN_FAILED,
-                                        "open of %s failed", real_path);
-                                goto out;
-                        }
+        if (fdstat_requested ||
+            (priv->background_unlink && IA_ISREG (loc->inode->ia_type))) {
+                fd = open (real_path, O_RDONLY);
+                if (fd == -1) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_OPEN_FAILED,
+                                "open of %s failed", real_path);
+                        goto out;
                 }
         }
 
