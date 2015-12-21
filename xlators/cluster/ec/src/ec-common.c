@@ -897,6 +897,7 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ec_lock_link_t *link = fop->data;
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
+    ec_config_t config = {0,};
 
     lock = link->lock;
     parent = link->fop;
@@ -936,7 +937,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
     ctx->have_version = _gf_true;
 
-    if (lock->loc.inode->ia_type == IA_IFREG) {
+    if (lock->loc.inode->ia_type == IA_IFREG ||
+        lock->loc.inode->ia_type == IA_INVAL) {
         op_errno = -ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size);
         if (op_errno != 0) {
             gf_msg (this->name, GF_LOG_ERROR, op_errno,
@@ -956,17 +958,21 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
             goto unlock;
         }
-        if (!ec_config_check(parent, &ctx->config)) {
-            gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                    EC_MSG_CONFIG_XATTR_INVALID,
-                    "Invalid config xattr");
+        if (!(lock->loc.inode->ia_type == IA_INVAL &&
+            !memcmp(&config, &ctx->config, sizeof(config)))) {
 
-            op_errno = EINVAL;
+                if (!ec_config_check(parent, &ctx->config)) {
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                EC_MSG_CONFIG_XATTR_INVALID,
+                                "Invalid config xattr");
 
-            goto unlock;
+                        op_errno = EINVAL;
+
+                        goto unlock;
+                }
+                ctx->have_config = _gf_true;
+
         }
-
-        ctx->have_config = _gf_true;
     }
 
     ctx->have_info = _gf_true;
@@ -1039,7 +1045,9 @@ void ec_get_size_version(ec_lock_link_t *link)
 
     /* Determine if there's something we need to retrieve for the current
      * operation. */
-    if (!lock->query && (lock->loc.inode->ia_type != IA_IFREG)) {
+    if (!lock->query &&
+        (lock->loc.inode->ia_type != IA_IFREG) &&
+        (lock->loc.inode->ia_type != IA_INVAL)) {
         return;
     }
 
@@ -1080,7 +1088,8 @@ void ec_get_size_version(ec_lock_link_t *link)
         goto out;
     }
 
-    if (lock->loc.inode->ia_type == IA_IFREG) {
+    if (lock->loc.inode->ia_type == IA_IFREG ||
+        lock->loc.inode->ia_type == IA_INVAL) {
         error = ec_dict_set_number(dict, EC_XATTR_SIZE, 0);
         if (error == 0) {
             error = ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
