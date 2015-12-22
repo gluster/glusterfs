@@ -2299,10 +2299,29 @@ out:
 int
 remove_quota_keys (dict_t *dict, char *k, data_t *v, void *data)
 {
-	call_frame_t 	*frame = data;
-	marker_local_t 	*local = frame->local;
-	xlator_t 	*this = frame->this;
-	int 		ret = -1;
+        call_frame_t    *frame              = data;
+        marker_local_t  *local              = frame->local;
+        xlator_t        *this               = frame->this;
+        marker_conf_t   *priv               = NULL;
+        char             ver_str[NAME_MAX]  = {0,};
+        char            *dot                = NULL;
+        int              ret                = -1;
+
+        priv = this->private;
+
+        /* If quota is enabled immediately after disable.
+         * quota healing starts creating new xattrs
+         * before completing the cleanup operation.
+         * So we should check if the xattr is the new.
+         * Do not remove xattr if its xattr
+         * version is same as current version
+         */
+        if ((priv->feature_enabled & GF_QUOTA) && priv->version > 0) {
+                snprintf (ver_str, sizeof (ver_str), ".%d", priv->version);
+                dot = strrchr (k, '.');
+                if (dot && !strcmp(dot, ver_str))
+                        return 0;
+        }
 
 	ret = syncop_removexattr (FIRST_CHILD (this), &local->loc, k, 0, NULL);
 	if (ret) {
