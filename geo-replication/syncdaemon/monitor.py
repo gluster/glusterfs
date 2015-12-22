@@ -145,7 +145,10 @@ class Volinfo(object):
 
     def disperse_count(self, tier, hot):
         if (tier and hot):
-            return int(self.get('hotBricks/hotdisperseCount')[0].text)
+            # Tiering doesn't support disperse volume as hot brick,
+            # hence no xml output, so returning 0. In case, if it's
+            # supported later, we should change here.
+            return 0
         elif (tier and not hot):
             return int(self.get('coldBricks/colddisperseCount')[0].text)
         else:
