@@ -10849,9 +10849,12 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 cli_out ("%s: %"PRIu64 "\n", "Number of Unsigned files",
                           unsigned_files);
 
-                cli_out ("%s: %s\n", "Last completed scrub time",
-                          (*last_scrub) ? last_scrub : "Scrubber pending to "
-                           "complete.");
+                if ((!last_scrub) || !strcmp (last_scrub, ""))
+                        cli_out ("%s: %s\n", "Last completed scrub time",
+                                 "Scrubber pending to complete.");
+                else
+                        cli_out ("%s: %s\n", "Last completed scrub time",
+                                 last_scrub);
 
                 /* Printing last scrub duration time in human readable form*/
                 days       = scrub_time/86400;
