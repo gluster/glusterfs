@@ -537,12 +537,16 @@ tier_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         }
 
         local->flags = xflag;
-        if (hashed_subvol == cached_subvol) {
+        if (IA_ISREG (loc->inode->ia_type) &&
+            (hashed_subvol == cached_subvol)) {
                 /*
                  * File resides in cold tier. We need to stat
                  * the file to see if it is being promoted.
                  * If yes we need to delete the destination
                  * file as well.
+                 *
+                 * Currently we are doing this check only for
+                 * regular files.
                  */
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata) {
