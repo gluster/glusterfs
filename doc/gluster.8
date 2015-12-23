@@ -124,6 +124,32 @@ Check status of data movement from the hot to cold tier.
 .TP
 \fB\ volume tier <VOLNAME> detach stop\fR
 Stop detaching the hot tier from the volume.
+.SS "Geo-replication Commands"
+.TP
+\fI\ Note\fR: password-less ssh, from the master node (where these commands are executed) to the slave node <SLAVE_HOST>, is a prerequisite for the geo-replication commands.
+.TP
+\fB\ system:: execute gsec_create\fR
+Generates pem keys which are required for push-pem
+.TP
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> create [push-pem] [force]\fR
+Create a new geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+Use push-pem to push the keys automatically.
+.TP
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {start|stop} [force] \fR
+Start/stop the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+.TP
+\fB\ volume geo-replication [<MASTER_VOL> [<SLAVE_HOST>::<SLAVE_VOL>]] status [detail] \fR
+Query status of the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+.TP
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {pause|resume} [force] \fR
+Pause/resume the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+.TP
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> delete \fR
+Delete the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+.TP
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> config [[!]<options> [<value>]] \fR
+View (when no option provided) or set configuration for this geo-replication session.
+Use "!<OPTION>" to reset option <OPTION> to default value.
 .SS "Bitrot Commands"
 .TP
 \fB\ volume bitrot <VOLNAME> {enable|disable} \fR
