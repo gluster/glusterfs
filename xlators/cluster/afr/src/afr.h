@@ -99,8 +99,7 @@ typedef struct _afr_private {
 
         unsigned int wait_count;      /* # of servers to wait for success */
 
-        uint64_t up_count;      /* number of CHILD_UPs we have seen */
-        uint64_t down_count;    /* number of CHILD_DOWNs we have seen */
+        gf_timer_t *timer;      /* launched when parent up is received */
 
         gf_boolean_t      optimistic_change_log;
         gf_boolean_t      eager_lock;

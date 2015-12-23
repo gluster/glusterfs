@@ -3917,6 +3917,117 @@ find_child_index (xlator_t *this, xlator_t *child)
         return i;
 }
 
+static int
+__afr_get_up_children_count (afr_private_t *priv)
+{
+        int             up_children         = 0;
+        int             i = 0;
+
+        for (i = 0; i < priv->child_count; i++)
+                if (priv->child_up[i] == 1)
+                        up_children++;
+
+        return up_children;
+}
+
+glusterfs_event_t
+__afr_transform_event_from_state (afr_private_t *priv)
+{
+        int i = 0;
+        int up_children = 0;
+
+        if (AFR_COUNT (priv->last_event, priv->child_count) ==
+                       priv->child_count)
+                /* have_heard_from_all. Let afr_notify() do the propagation. */
+                return GF_EVENT_MAXVAL;
+
+        up_children = __afr_get_up_children_count (priv);
+        if (up_children) {
+                /* We received at least one child up and there are pending
+                 * notifications from some children. Treat these children as
+                 * having sent a GF_EVENT_CHILD_DOWN. i.e. set the event as
+                 * GF_EVENT_CHILD_MODIFIED, as done in afr_notify() */
+                for (i = 0; i < priv->child_count; i++) {
+                        if (priv->last_event[i])
+                                continue;
+                        priv->last_event[i] = GF_EVENT_CHILD_MODIFIED;
+                        priv->child_up[i] = 0;
+                }
+                return GF_EVENT_CHILD_UP;
+        } else {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (priv->last_event[i])
+                                continue;
+                        priv->last_event[i] = GF_EVENT_SOME_CHILD_DOWN;
+                        priv->child_up[i] = 0;
+                }
+                return GF_EVENT_CHILD_DOWN;
+        }
+
+        return GF_EVENT_MAXVAL;
+}
+
+static void
+afr_notify_cbk (void *data)
+{
+        xlator_t *this = data;
+        afr_private_t *priv = this->private;
+        glusterfs_event_t event = GF_EVENT_MAXVAL;
+        gf_boolean_t propagate = _gf_false;
+
+        LOCK (&priv->lock);
+        {
+                if (!priv->timer) {
+                        /*
+                         * Either child_up/child_down is already sent to parent.
+                         * This is a spurious wake up.
+                         */
+                        goto unlock;
+                }
+                priv->timer = NULL;
+                event = __afr_transform_event_from_state (priv);
+                if (event != GF_EVENT_MAXVAL)
+                        propagate = _gf_true;
+        }
+unlock:
+        UNLOCK (&priv->lock);
+        if (propagate)
+                default_notify (this, event, NULL);
+}
+
+static void
+__afr_launch_notify_timer (xlator_t *this, afr_private_t *priv)
+{
+
+        struct timespec delay = {0, };
+
+        gf_msg_debug (this->name, 0, "Initiating child-down timer");
+        delay.tv_sec = 10;
+        delay.tv_nsec = 0;
+        priv->timer = gf_timer_call_after (this->ctx, delay,
+                                           afr_notify_cbk, this);
+        if (priv->timer == NULL) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_TIMER_CREATE_FAIL,
+                        "Cannot create timer for delayed initialization");
+        }
+}
+
+int
+__get_heard_from_all_status (xlator_t *this)
+{
+        afr_private_t *priv          = this->private;
+        int           heard_from_all = 1;
+        int           i              = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!priv->last_event[i]) {
+                        heard_from_all = 0;
+                        break;
+                }
+        }
+        return heard_from_all;
+}
+
 int32_t
 afr_notify (xlator_t *this, int32_t event,
             void *data, void *data2)
@@ -3949,12 +4060,6 @@ afr_notify (xlator_t *this, int32_t event,
          */
         priv->did_discovery = _gf_false;
 
-        had_heard_from_all = 1;
-        for (i = 0; i < priv->child_count; i++) {
-                if (!priv->last_event[i]) {
-                        had_heard_from_all = 0;
-                }
-        }
 
         /* parent xlators dont need to know about every child_up, child_down
          * because of afr ha. If all subvolumes go down, child_down has
@@ -3974,10 +4079,32 @@ afr_notify (xlator_t *this, int32_t event,
 
         had_quorum = priv->quorum_count && afr_has_quorum (priv->child_up,
                                                            this);
-        switch (event) {
-        case GF_EVENT_CHILD_UP:
+        if (event == GF_EVENT_TRANSLATOR_OP) {
                 LOCK (&priv->lock);
                 {
+                        had_heard_from_all = __get_heard_from_all_status (this);
+                }
+                UNLOCK (&priv->lock);
+
+                if (!had_heard_from_all) {
+                        ret = -1;
+                } else {
+                        input = data;
+                        output = data2;
+                        ret = afr_xl_op (this, input, output);
+                }
+                goto out;
+        }
+
+        LOCK (&priv->lock);
+        {
+                had_heard_from_all = __get_heard_from_all_status (this);
+                switch (event) {
+                case GF_EVENT_PARENT_UP:
+                        __afr_launch_notify_timer (this, priv);
+                        propagate = 1;
+                        break;
+                case GF_EVENT_CHILD_UP:
                         /*
                          * This only really counts if the child was never up
                          * (value = -1) or had been down (value = 0).  See
@@ -3985,48 +4112,28 @@ afr_notify (xlator_t *this, int32_t event,
                          * explanation.
                          */
                         if (priv->child_up[idx] != 1) {
-                                priv->up_count++;
-				priv->event_generation++;
+                                priv->event_generation++;
                         }
                         priv->child_up[idx] = 1;
 
                         call_psh = 1;
-                        for (i = 0; i < priv->child_count; i++)
-                                if (priv->child_up[i] == 1)
-                                        up_children++;
+                        up_children = __afr_get_up_children_count (priv);
                         if (up_children == 1) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
                                         AFR_MSG_SUBVOL_UP,
                                         "Subvolume '%s' came back up; "
-                                        "going online.", ((xlator_t *)data)->name);
+                                     "going online.", ((xlator_t *)data)->name);
                         } else {
                                 event = GF_EVENT_CHILD_MODIFIED;
                         }
 
                         priv->last_event[idx] = event;
-                }
-                UNLOCK (&priv->lock);
 
-                break;
+                        break;
 
-        case GF_EVENT_CHILD_DOWN:
-                LOCK (&priv->lock);
-                {
-                        /*
-                         * If a brick is down when we start, we'll get a
-                         * CHILD_DOWN to indicate its initial state.  There
-                         * was never a CHILD_UP in this case, so if we
-                         * increment "down_count" the difference between than
-                         * and "up_count" will no longer be the number of
-                         * children that are currently up.  This has serious
-                         * implications e.g. for quorum enforcement, so we
-                         * don't increment these values unless the event
-                         * represents an actual state transition between "up"
-                         * (value = 1) and anything else.
-                         */
+                case GF_EVENT_CHILD_DOWN:
                         if (priv->child_up[idx] == 1) {
-                                priv->down_count++;
-				priv->event_generation++;
+                                priv->event_generation++;
                         }
                         priv->child_up[idx] = 0;
 
@@ -4036,42 +4143,56 @@ afr_notify (xlator_t *this, int32_t event,
                         if (down_children == priv->child_count) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         AFR_MSG_ALL_SUBVOLS_DOWN,
-                                        "All subvolumes are down. Going offline "
-                                        "until atleast one of them comes back up.");
+                                       "All subvolumes are down. Going offline "
+                                    "until atleast one of them comes back up.");
                         } else {
                                 event = GF_EVENT_SOME_CHILD_DOWN;
                         }
 
                         priv->last_event[idx] = event;
-                }
-                UNLOCK (&priv->lock);
 
-                break;
+                        break;
 
-        case GF_EVENT_CHILD_CONNECTING:
-                LOCK (&priv->lock);
-                {
+                case GF_EVENT_CHILD_CONNECTING:
                         priv->last_event[idx] = event;
+
+                        break;
+
+                case GF_EVENT_SOME_CHILD_DOWN:
+                        priv->last_event[idx] = event;
+                        break;
+
+                default:
+                        propagate = 1;
+                        break;
                 }
-                UNLOCK (&priv->lock);
+                have_heard_from_all = __get_heard_from_all_status (this);
+                if (!had_heard_from_all && have_heard_from_all) {
+                        if (priv->timer) {
+                                gf_timer_call_cancel (this->ctx, priv->timer);
+                                priv->timer = NULL;
+                        }
+                        /* This is the first event which completes aggregation
+                           of events from all subvolumes. If at least one subvol
+                           had come up, propagate CHILD_UP, but only this time
+                        */
+                        event = GF_EVENT_CHILD_DOWN;
+                        up_children = __afr_get_up_children_count (priv);
+                        for (i = 0; i < priv->child_count; i++) {
+                                if (priv->last_event[i] == GF_EVENT_CHILD_UP) {
+                                        event = GF_EVENT_CHILD_UP;
+                                        break;
+                                }
 
-                break;
-
-        case GF_EVENT_TRANSLATOR_OP:
-                input = data;
-                output = data2;
-                if (!had_heard_from_all) {
-                        ret = -1;
-                        goto out;
+                                if (priv->last_event[i] ==
+                                                GF_EVENT_CHILD_CONNECTING) {
+                                        event = GF_EVENT_CHILD_CONNECTING;
+                               /* continue to check other events for CHILD_UP */
+                                }
+                        }
                 }
-                ret = afr_xl_op (this, input, output);
-                goto out;
-                break;
-
-        default:
-                propagate = 1;
-                break;
         }
+        UNLOCK (&priv->lock);
 
         if (priv->quorum_count) {
                 has_quorum = afr_has_quorum (priv->child_up, this);
@@ -4084,43 +4205,10 @@ afr_notify (xlator_t *this, int32_t event,
                                 "Client-quorum is not met");
         }
 
-        /* have all subvolumes reported status once by now? */
-        have_heard_from_all = 1;
-        for (i = 0; i < priv->child_count; i++) {
-                if (!priv->last_event[i])
-                        have_heard_from_all = 0;
-        }
-
         /* if all subvols have reported status, no need to hide anything
            or wait for anything else. Just propagate blindly */
         if (have_heard_from_all)
                 propagate = 1;
-
-        if (!had_heard_from_all && have_heard_from_all) {
-                /* This is the first event which completes aggregation
-                   of events from all subvolumes. If at least one subvol
-                   had come up, propagate CHILD_UP, but only this time
-                */
-                event = GF_EVENT_CHILD_DOWN;
-
-                LOCK (&priv->lock);
-                {
-                        up_children = AFR_COUNT (priv->child_up, priv->child_count);
-                        for (i = 0; i < priv->child_count; i++) {
-                                if (priv->last_event[i] == GF_EVENT_CHILD_UP) {
-                                        event = GF_EVENT_CHILD_UP;
-                                        break;
-                                }
-
-                                if (priv->last_event[i] ==
-                                                GF_EVENT_CHILD_CONNECTING) {
-                                        event = GF_EVENT_CHILD_CONNECTING;
-                                        /* continue to check other events for CHILD_UP */
-                                }
-                        }
-                }
-                UNLOCK (&priv->lock);
-        }
 
         ret = 0;
         if (propagate)
@@ -4366,18 +4454,18 @@ gf_boolean_t
 afr_have_quorum (char *logname, afr_private_t *priv)
 {
         unsigned int        quorum = 0;
+        unsigned int        up_children = 0;
 
         GF_VALIDATE_OR_GOTO(logname,priv,out);
 
+        up_children = __afr_get_up_children_count (priv);
         quorum = priv->quorum_count;
-        if (quorum != AFR_QUORUM_AUTO) {
-                return (priv->up_count >= (priv->down_count + quorum));
-        }
+        if (quorum != AFR_QUORUM_AUTO)
+                return up_children >= quorum;
 
         quorum = priv->child_count / 2 + 1;
-        if (priv->up_count >= (priv->down_count + quorum)) {
+        if (up_children >= quorum)
                 return _gf_true;
-        }
 
         /*
          * Special case for even numbers of nodes: if we have exactly half
@@ -4388,7 +4476,7 @@ afr_have_quorum (char *logname, afr_private_t *priv)
          */
         if ((priv->child_count % 2) == 0) {
                 quorum = priv->child_count / 2;
-                if (priv->up_count >= (priv->down_count + quorum)) {
+                if (up_children >= quorum) {
                         if (priv->child_up[0]) {
                                 return _gf_true;
                         }

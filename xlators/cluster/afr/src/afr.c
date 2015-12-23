@@ -510,6 +510,12 @@ fini (xlator_t *this)
         afr_private_t *priv = NULL;
 
         priv = this->private;
+        LOCK (&priv->lock);
+        if (priv->timer != NULL) {
+                gf_timer_call_cancel(this->ctx, priv->timer);
+                priv->timer = NULL;
+        }
+        UNLOCK (&priv->lock);
         this->private = NULL;
         afr_priv_destroy (priv);
         //if (this->itable);//I dont see any destroy func

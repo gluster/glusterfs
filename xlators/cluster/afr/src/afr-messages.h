@@ -40,7 +40,7 @@
  */
 
 #define GLFS_COMP_BASE_AFR      GLFS_MSGID_COMP_AFR
-#define GLFS_NUM_MESSAGES       40
+#define GLFS_NUM_MESSAGES       41
 #define GLFS_MSGID_END          (GLFS_COMP_BASE_AFR + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_AFR, "Invalid: Start of messages"
@@ -352,6 +352,14 @@
  * volfiles are regenerated.
 */
 #define AFR_MSG_NO_CHANGELOG  (GLFS_COMP_BASE_AFR + 40)
+
+/*!
+ * @messageid 108041
+ * @diagnosis Unable to create timer thread for delayed initialization.
+ * @recommendedaction Possibly check process's log file for messages from
+ * timer infra.
+*/
+#define AFR_MSG_TIMER_CREATE_FAIL               (GLFS_COMP_BASE_AFR + 41)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_AFR_MESSAGES_H_ */
