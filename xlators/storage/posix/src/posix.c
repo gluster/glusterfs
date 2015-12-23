@@ -1749,7 +1749,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+        if (IA_ISREG (loc->inode->ia_type) &&
+            xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
                 fdstat_requested = 1;
         }
 
