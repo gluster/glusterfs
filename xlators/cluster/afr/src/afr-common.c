@@ -637,7 +637,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 	priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
-                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE))
+                if (replies[i].valid && replies[i].xdata &&
+                    dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE))
                         continue;
 		if (data_accused[i])
 			continue;
