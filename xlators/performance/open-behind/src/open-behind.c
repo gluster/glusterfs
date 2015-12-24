@@ -865,14 +865,15 @@ ob_fdctx_dump (xlator_t *this, fd_t *fd)
 
         gf_proc_dump_write ("open_frame", "%p", ob_fd->open_frame);
 
-        gf_proc_dump_write ("open_frame.root.unique", "%p",
-			    ob_fd->open_frame->root->unique);
+        if (ob_fd->open_frame)
+                gf_proc_dump_write ("open_frame.root.unique", "%p",
+                                    ob_fd->open_frame->root->unique);
 
 	gf_proc_dump_write ("loc.path", "%s", ob_fd->loc.path);
 
 	gf_proc_dump_write ("loc.ino", "%s", uuid_utoa (ob_fd->loc.gfid));
 
-        gf_proc_dump_write ("flags", "%p", ob_fd->open_frame);
+        gf_proc_dump_write ("flags", "%d", ob_fd->flags);
 
 	UNLOCK (&fd->lock);
 
