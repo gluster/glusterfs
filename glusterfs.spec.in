@@ -64,7 +64,7 @@
 %{?_without_bd:%global _without_bd --disable-bd-xlator}
 
 %if ( 0%{?rhel} && 0%{?rhel} < 6 || 0%{?sles_version} )
-%define _without_bd --disable-bd-xlator
+%global _without_bd --disable-bd-xlator
 %endif
 
 # if you wish to compile an rpm without the qemu-block support...
@@ -73,7 +73,7 @@
 
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
 # xlators/features/qemu-block fails to build on RHEL5, disable it
-%define _without_qemu_block --disable-qemu-block
+%global _without_qemu_block --disable-qemu-block
 %endif
 
 # Disable data-tiering on EL5, sqlite is too old
@@ -94,9 +94,9 @@
 %endif
 
 %if 0%{?_tmpfilesdir:1}
-%define _with_tmpfilesdir --with-tmpfilesdir=%{_tmpfilesdir}
+%global _with_tmpfilesdir --with-tmpfilesdir=%{_tmpfilesdir}
 %else
-%define _with_tmpfilesdir --without-tmpfilesdir
+%global _with_tmpfilesdir --without-tmpfilesdir
 %endif
 
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
@@ -106,25 +106,25 @@
 %endif
 
 %if ( 0%{?_with_systemd:1} )
-%define _init_enable()  /bin/systemctl enable %1.service ;
-%define _init_disable() /bin/systemctl disable %1.service ;
-%define _init_restart() /bin/systemctl try-restart %1.service ;
-%define _init_start()   /bin/systemctl start %1.service ;
-%define _init_stop()    /bin/systemctl stop %1.service ;
-%define _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
+%global _init_enable()  /bin/systemctl enable %1.service ;
+%global _init_disable() /bin/systemctl disable %1.service ;
+%global _init_restart() /bin/systemctl try-restart %1.service ;
+%global _init_start()   /bin/systemctl start %1.service ;
+%global _init_stop()    /bin/systemctl stop %1.service ;
+%global _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
-%define _init_glusterd   %{_unitdir}/glusterd.service
-%define _init_glusterfsd %{_unitdir}/glusterfsd.service
+%global _init_glusterd   %{_unitdir}/glusterd.service
+%global _init_glusterfsd %{_unitdir}/glusterfsd.service
 %else
-%define _init_enable()  /sbin/chkconfig --add %1 ;
-%define _init_disable() /sbin/chkconfig --del %1 ;
-%define _init_restart() /sbin/service %1 condrestart &>/dev/null ;
-%define _init_start()   /sbin/service %1 start &>/dev/null ;
-%define _init_stop()    /sbin/service %1 stop &>/dev/null ;
-%define _init_install() install -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
+%global _init_enable()  /sbin/chkconfig --add %1 ;
+%global _init_disable() /sbin/chkconfig --del %1 ;
+%global _init_restart() /sbin/service %1 condrestart &>/dev/null ;
+%global _init_start()   /sbin/service %1 start &>/dev/null ;
+%global _init_stop()    /sbin/service %1 stop &>/dev/null ;
+%global _init_install() install -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
 # can't seem to make a generic macro that works
-%define _init_glusterd   %{_sysconfdir}/init.d/glusterd
-%define _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
+%global _init_glusterd   %{_sysconfdir}/init.d/glusterd
+%global _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
 %endif
 
 %if ( 0%{_for_fedora_koji_builds} )
@@ -138,8 +138,8 @@
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
-   # _sharedstatedir is not provided by RHEL5
-   %define _sharedstatedir /var/lib
+# _sharedstatedir is not provided by RHEL5
+%global _sharedstatedir /var/lib
 %endif
 
 # We do not want to generate useless provides and requires for xlator
@@ -148,14 +148,14 @@
 #
 # TODO: RHEL5 does not have a convenient solution
 %if ( 0%{?rhel} == 6 )
-    # filter_setup exists in RHEL6 only
-    %filter_provides_in %{_libdir}/glusterfs/%{version}/
-    %global __filter_from_req %{?__filter_from_req} | grep -v -P '^(?!lib).*\.so.*$'
-    %filter_setup
+# filter_setup exists in RHEL6 only
+%filter_provides_in %{_libdir}/glusterfs/%{version}/
+%global __filter_from_req %{?__filter_from_req} | grep -v -P '^(?!lib).*\.so.*$'
+%filter_setup
 %else
-    # modern rpm and current Fedora do not generate requires when the
-    # provides are filtered
-    %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
+# modern rpm and current Fedora do not generate requires when the
+# provides are filtered
+%global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
 
