@@ -17,7 +17,7 @@ export_directory="/export/glusterfs"
 clean_dir()
 {
     # Clean the 'link' files on backend
-    find "${export_directory}" -type f -perm +01000 -exec rm -v '{}' \; 
+    find "${export_directory}" -type f -perm /01000 -exec rm -v '{}' \;
 }
 
 main()
