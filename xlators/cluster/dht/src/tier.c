@@ -241,51 +241,6 @@ out:
 }
 
 int
-tier_do_migration (xlator_t *this, int promote)
-{
-        gf_defrag_info_t       *defrag = NULL;
-        dht_conf_t             *conf   = NULL;
-        long                    rand = 0;
-        int                     migrate = 0;
-        gf_tier_conf_t         *tier_conf = NULL;
-
-        conf = this->private;
-        if (!conf)
-                goto exit;
-
-        defrag = conf->defrag;
-        if (!defrag)
-                goto exit;
-
-        if (defrag->tier_conf.mode != TIER_MODE_WM) {
-                migrate = 1;
-                goto exit;
-        }
-
-        tier_conf = &defrag->tier_conf;
-
-        switch (tier_conf->watermark_last) {
-        case TIER_WM_LOW:
-                migrate = promote ? 1 : 0;
-                break;
-        case TIER_WM_HI:
-                migrate = promote ? 0 : 1;
-                break;
-        case TIER_WM_MID:
-                rand = random() % 100;
-                if (promote) {
-                        migrate = (rand > tier_conf->percent_full);
-                } else {
-                        migrate = (rand <= tier_conf->percent_full);
-                }
-                break;
-        }
-
-exit:
-        return migrate;
-}
-
-int
 tier_check_watermark (xlator_t *this, loc_t *root_loc)
 {
         tier_watermark_op_t     wm = TIER_WM_NONE;
@@ -377,6 +332,85 @@ exit:
         return ret;
 }
 
+int
+tier_do_migration (xlator_t *this, int promote, loc_t *root_loc)
+{
+        gf_defrag_info_t       *defrag = NULL;
+        dht_conf_t             *conf   = NULL;
+        long                    rand = 0;
+        int                     migrate = 0;
+        gf_tier_conf_t         *tier_conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                goto exit;
+
+        defrag = conf->defrag;
+        if (!defrag)
+                goto exit;
+
+        if (defrag->tier_conf.mode != TIER_MODE_WM) {
+                migrate = 1;
+                goto exit;
+        }
+
+        if (tier_check_watermark (this, root_loc) != 0) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to get watermark");
+                goto exit;
+        }
+
+        tier_conf = &defrag->tier_conf;
+
+        switch (tier_conf->watermark_last) {
+        case TIER_WM_LOW:
+                migrate = promote ? 1 : 0;
+                break;
+        case TIER_WM_HI:
+                migrate = promote ? 0 : 1;
+                break;
+        case TIER_WM_MID:
+                rand = random() % 100;
+                if (promote) {
+                        migrate = (rand > tier_conf->percent_full);
+                } else {
+                        migrate = (rand <= tier_conf->percent_full);
+                }
+                break;
+        }
+
+exit:
+        return migrate;
+}
+
+int
+tier_migrate (xlator_t *this, int is_promotion, dict_t *migrate_data,
+              loc_t *loc, gf_tier_conf_t *tier_conf)
+{
+        int ret = -1;
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        if (is_promotion)
+                tier_conf->promote_in_progress = 1;
+        else
+                tier_conf->demote_in_progress = 1;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        /* Data migration */
+        ret = syncop_setxattr (this, loc, migrate_data, 0,
+                               NULL, NULL);
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        if (is_promotion)
+                tier_conf->promote_in_progress = 0;
+        else
+                tier_conf->demote_in_progress = 0;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        return ret;
+}
+
 static int
 tier_migrate_using_query_file (void *_args)
 {
@@ -408,6 +442,7 @@ tier_migrate_using_query_file (void *_args)
         dht_conf_t   *conf                      = NULL;
         uint64_t total_migrated_bytes           = 0;
         int total_files                         = 0;
+        loc_t root_loc                          = { 0 };
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
@@ -419,6 +454,8 @@ tier_migrate_using_query_file (void *_args)
         conf = this->private;
 
         defrag = query_cbk_args->defrag;
+
+        dht_build_root_loc (defrag->root_inode, &root_loc);
 
         migrate_data = dict_new ();
         if (!migrate_data)
@@ -461,7 +498,8 @@ tier_migrate_using_query_file (void *_args)
 
                 dict_del (migrate_data, "from.migrator");
 
-                if (defrag->tier_conf.request_pause) {
+                if (gf_defrag_get_pause_state (&defrag->tier_conf)
+                    != TIER_RUNNING) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 DHT_MSG_LOG_TIER_STATUS,
                                 "Tiering paused. "
@@ -469,7 +507,7 @@ tier_migrate_using_query_file (void *_args)
                         break;
                 }
 
-                if (!tier_do_migration (this, query_cbk_args->is_promotion)) {
+                if (!tier_do_migration (this, query_cbk_args->is_promotion, &root_loc)) {
                         gfdb_methods.gfdb_query_record_free (query_record);
                         query_record = NULL;
                         continue;
@@ -653,7 +691,8 @@ tier_migrate_using_query_file (void *_args)
 
                         gf_uuid_copy (loc.gfid, loc.inode->gfid);
 
-                        if (defrag->tier_conf.request_pause) {
+                        if (gf_defrag_get_pause_state (&defrag->tier_conf)
+                            != TIER_RUNNING) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
                                         "Tiering paused. "
@@ -662,9 +701,9 @@ tier_migrate_using_query_file (void *_args)
                                 goto abort;
                         }
 
-                        /* Data migration */
-                        ret = syncop_setxattr (this, &loc, migrate_data, 0,
-                                               NULL, NULL);
+                        ret = tier_migrate (this, query_cbk_args->is_promotion,
+                                            migrate_data, &loc, &defrag->tier_conf);
+
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR, "Failed to "
@@ -1639,8 +1678,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                if (tier_conf->request_pause)
-                        gf_defrag_wake_pause_tier (tier_conf, _gf_true);
+                gf_defrag_check_pause_tier (tier_conf);
 
                 sleep(1);
 
@@ -1664,8 +1702,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                if ((defrag->tier_conf.paused) ||
-                    (defrag->tier_conf.request_pause))
+                if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING)
                         continue;
 
 
@@ -2069,15 +2106,15 @@ tier_init (xlator_t *this)
                 defrag->tier_conf.mode = ret;
         }
 
-        defrag->tier_conf.request_pause = 0;
-
         pthread_mutex_init (&defrag->tier_conf.pause_mutex, 0);
+
+        gf_defrag_set_pause_state (&defrag->tier_conf, TIER_RUNNING);
 
         ret = dict_get_str (this->options,
                               "tier-pause", &paused);
 
         if (paused && strcmp (paused, "on") == 0)
-                defrag->tier_conf.request_pause = 1;
+                gf_defrag_set_pause_state (&defrag->tier_conf, TIER_REQUEST_PAUSE);
 
         ret = gf_asprintf(&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
