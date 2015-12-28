@@ -826,7 +826,7 @@ __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_
                 else
                         ret = syncop_writev (to, dst, vector, count,
                                              offset, iobref, 0, NULL, NULL);
-                if (defrag->tier_conf.request_pause) {
+                if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING) {
                         gf_msg ("tier", GF_LOG_INFO, 0,
                                 DHT_MSG_TIER_PAUSED,
                                 "Migrate file paused");
@@ -3619,23 +3619,60 @@ out:
 }
 
 void
-gf_defrag_wake_pause_tier (gf_tier_conf_t *tier_conf, gf_boolean_t pause)
+gf_defrag_set_pause_state (gf_tier_conf_t *tier_conf, tier_pause_state_t state)
 {
-        int woke = 0;
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        tier_conf->pause_state = state;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+}
+
+tier_pause_state_t
+gf_defrag_get_pause_state (gf_tier_conf_t *tier_conf)
+{
+        int state;
 
         pthread_mutex_lock (&tier_conf->pause_mutex);
+        state = tier_conf->pause_state;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        return state;
+}
+
+tier_pause_state_t
+gf_defrag_check_pause_tier (gf_tier_conf_t *tier_conf)
+{
+        int woke = 0;
+        int state  = -1;
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+
+        if (tier_conf->pause_state == TIER_RUNNING)
+                goto out;
+
+        if (tier_conf->pause_state == TIER_PAUSED)
+                goto out;
+
+        if (tier_conf->promote_in_progress ||
+            tier_conf->demote_in_progress)
+                goto out;
+
+        tier_conf->pause_state = TIER_PAUSED;
+
         if (tier_conf->pause_synctask) {
-                tier_conf->paused = pause;
                 synctask_wake (tier_conf->pause_synctask);
                 tier_conf->pause_synctask = 0;
                 woke = 1;
         }
-        pthread_mutex_unlock (&tier_conf->pause_mutex);
-        tier_conf->request_pause = 0;
 
         gf_msg ("tier", GF_LOG_DEBUG, 0,
                 DHT_MSG_TIER_PAUSED,
-                "woken %d paused %d", woke, tier_conf->paused);
+                "woken %d", woke);
+out:
+        state = tier_conf->pause_state;
+
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        return state;
 }
 
 void
@@ -3658,7 +3695,7 @@ gf_defrag_pause_tier_timeout (void *data)
                 DHT_MSG_TIER_PAUSED,
                 "Request pause timer timeout");
 
-        gf_defrag_wake_pause_tier (&defrag->tier_conf, _gf_false);
+        gf_defrag_check_pause_tier (&defrag->tier_conf);
 
 out:
         return;
@@ -3676,12 +3713,16 @@ gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag)
 
         /*
          * Set flag requesting to pause tiering. Wait 'delay' seconds for
-         * tiering to actually stop as indicated by the "paused" boolean,
+         * tiering to actually stop as indicated by the pause state
          * before returning success or failure.
          */
-        defrag->tier_conf.request_pause = 1;
+        gf_defrag_set_pause_state (&defrag->tier_conf, TIER_REQUEST_PAUSE);
 
-        if (defrag->tier_conf.paused == _gf_true)
+        /*
+         * If migration is not underway, can pause immediately.
+         */
+        gf_defrag_check_pause_tier (&defrag->tier_conf);
+        if (gf_defrag_get_pause_state (&defrag->tier_conf) == TIER_PAUSED)
                 goto out;
 
         gf_msg (this->name, GF_LOG_DEBUG, 0,
@@ -3698,11 +3739,12 @@ gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag)
 
         synctask_yield (defrag->tier_conf.pause_synctask);
 
-        if (defrag->tier_conf.paused == _gf_true)
+        if (gf_defrag_get_pause_state (&defrag->tier_conf) == TIER_PAUSED)
                 goto out;
 
-        ret = -1;
+        gf_defrag_set_pause_state (&defrag->tier_conf, TIER_RUNNING);
 
+        ret = -1;
 out:
 
         gf_msg (this->name, GF_LOG_DEBUG, 0,
@@ -3719,8 +3761,7 @@ gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag)
                 DHT_MSG_TIER_RESUME,
                 "Pause end. Resume tiering");
 
-        defrag->tier_conf.request_pause = 0;
-        defrag->tier_conf.paused = _gf_false;
+        gf_defrag_set_pause_state (&defrag->tier_conf, TIER_RUNNING);
 
         return 0;
 }
