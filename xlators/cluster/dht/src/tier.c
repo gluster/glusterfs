@@ -79,51 +79,6 @@ out:
 }
 
 int
-tier_do_migration (xlator_t *this, int promote)
-{
-        gf_defrag_info_t       *defrag = NULL;
-        dht_conf_t             *conf   = NULL;
-        long                    rand = 0;
-        int                     migrate = 0;
-        gf_tier_conf_t         *tier_conf = NULL;
-
-        conf = this->private;
-        if (!conf)
-                goto exit;
-
-        defrag = conf->defrag;
-        if (!defrag)
-                goto exit;
-
-        if (defrag->tier_conf.mode != TIER_MODE_WM) {
-                migrate = 1;
-                goto exit;
-        }
-
-        tier_conf = &defrag->tier_conf;
-
-        switch (tier_conf->watermark_last) {
-        case TIER_WM_LOW:
-                migrate = promote ? 1 : 0;
-                break;
-        case TIER_WM_HI:
-                migrate = promote ? 0 : 1;
-                break;
-        case TIER_WM_MID:
-                rand = random() % 100;
-                if (promote) {
-                        migrate = (rand > tier_conf->percent_full);
-                } else {
-                        migrate = (rand <= tier_conf->percent_full);
-                }
-                break;
-        }
-
-exit:
-        return migrate;
-}
-
-int
 tier_check_watermark (xlator_t *this, loc_t *root_loc)
 {
         tier_watermark_op_t     wm = TIER_WM_NONE;
@@ -152,6 +107,7 @@ tier_check_watermark (xlator_t *this, loc_t *root_loc)
         /* Find how much free space is on the hot subvolume. Then see if that value */
         /* is less than or greater than user defined watermarks. Stash results in */
         /* the tier_conf data structure. */
+
         ret = syncop_statfs (conf->subvolumes[1], root_loc, &statfs,
                              xdata, NULL);
         if (ret) {
@@ -192,6 +148,59 @@ exit:
         return ret;
 }
 
+int
+tier_do_migration (xlator_t *this, int promote, loc_t *root_loc)
+{
+        gf_defrag_info_t       *defrag = NULL;
+        dht_conf_t             *conf   = NULL;
+        long                    rand = 0;
+        int                     migrate = 0;
+        gf_tier_conf_t         *tier_conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                goto exit;
+
+        defrag = conf->defrag;
+        if (!defrag)
+                goto exit;
+
+        if (defrag->tier_conf.mode != TIER_MODE_WM) {
+                migrate = 1;
+                goto exit;
+        }
+
+        if (tier_check_watermark (this, root_loc) != 0) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to get watermark");
+                goto exit;
+        }
+
+        tier_conf = &defrag->tier_conf;
+
+        switch (tier_conf->watermark_last) {
+        case TIER_WM_LOW:
+                migrate = promote ? 1 : 0;
+                break;
+        case TIER_WM_HI:
+                migrate = promote ? 0 : 1;
+                break;
+        case TIER_WM_MID:
+                rand = random() % 100;
+                if (promote) {
+                        migrate = (rand > tier_conf->percent_full);
+                } else {
+                        migrate = (rand <= tier_conf->percent_full);
+                }
+                break;
+        }
+
+exit:
+        return migrate;
+}
+
+
 static int
 tier_migrate_using_query_file (void *_args)
 {
@@ -224,6 +233,7 @@ tier_migrate_using_query_file (void *_args)
         dht_conf_t   *conf                      = NULL;
         uint64_t total_migrated_bytes           = 0;
         int total_files                         = 0;
+        loc_t root_loc                          = { 0 };
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
@@ -259,6 +269,7 @@ tier_migrate_using_query_file (void *_args)
                 goto out;
         }
 
+        dht_build_root_loc (defrag->root_inode, &root_loc);
 
         /* Per file */
         while ((ret = gfdb_methods.gfdb_read_query_record
@@ -287,7 +298,7 @@ tier_migrate_using_query_file (void *_args)
                         break;
                 }
 
-                if (!tier_do_migration (this, query_cbk_args->is_promotion)) {
+                if (!tier_do_migration (this, query_cbk_args->is_promotion, &root_loc)) {
                         gfdb_methods.gfdb_query_record_free (query_record);
                         query_record = NULL;
                         continue;
