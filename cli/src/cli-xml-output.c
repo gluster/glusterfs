@@ -1753,12 +1753,11 @@ cli_xml_output_vol_status (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-        }
-
-        /* </coldBricks>*/
-        if (type == GF_CLUSTER_TYPE_TIER && i >= hot_brick_count) {
-                ret = xmlTextWriterEndElement (local->writer);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                /* </coldBricks>*/
+                if (type == GF_CLUSTER_TYPE_TIER && i == brick_index_max) {
+                        ret = xmlTextWriterEndElement (local->writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
         }
 
         /* Tasks are only present when a normal volume status call is done on a
