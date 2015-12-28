@@ -3977,14 +3977,15 @@ int
 quota_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
 {
-        quota_priv_t    *priv                   = NULL;
+        quota_priv_t   *priv                    = NULL;
         int             op_errno                = EINVAL;
         int             op_ret                  = -1;
         int64_t         hard_lim                = -1;
         int64_t         soft_lim                = -1;
         int64_t         object_hard_limit       = -1;
         int64_t         object_soft_limit       = -1;
-        quota_local_t   *local                  = NULL;
+        quota_local_t  *local                   = NULL;
+        gf_boolean_t    internal_fop            = _gf_false;
 
         priv = this->private;
 
@@ -3994,7 +3995,10 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
 
-        if (frame->root->pid >= 0) {
+        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY))
+                internal_fop = _gf_true;
+
+        if (frame->root->pid >= 0 && internal_fop == _gf_false) {
                 GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.quota*", dict,
                                            op_errno, err);
                 GF_IF_INTERNAL_XATTR_GOTO ("trusted.pgfid*", dict, op_errno,

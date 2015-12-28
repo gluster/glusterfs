@@ -646,6 +646,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 {
         xlator_t          *subvol = NULL;
         dict_t            *xattr = NULL;
+        dict_t            *xdata = NULL;
         int                ret = 0;
         xlator_t          *this = NULL;
         int32_t           *disk_layout = NULL;
@@ -671,6 +672,19 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
         xattr = get_new_dict ();
         if (!xattr) {
+                goto err;
+        }
+
+        xdata = dict_new ();
+        if (!xdata)
+                goto err;
+
+        ret = dict_set_str (xdata, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value: key = %s,"
+                        " gfid = %s", loc->path,
+                        GLUSTERFS_INTERNAL_FOP_KEY, gfid);
                 goto err;
         }
 
@@ -723,15 +737,19 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
         STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
                     subvol, subvol->fops->setxattr,
-                    loc, xattr, 0, NULL);
+                    loc, xattr, 0, xdata);
 
         dict_unref (xattr);
+        dict_unref (xdata);
 
         return 0;
 
 err:
         if (xattr)
                 dict_destroy (xattr);
+
+        if (xdata)
+                dict_unref (xdata);
 
         GF_FREE (disk_layout);
 
