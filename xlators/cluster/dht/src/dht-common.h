@@ -340,6 +340,12 @@ typedef enum tier_mode_ {
         TIER_MODE_WM
 } tier_mode_t;
 
+typedef enum tier_pause_state_ {
+        TIER_RUNNING = 0,
+        TIER_REQUEST_PAUSE,
+        TIER_PAUSED
+} tier_pause_state_t;
+
 typedef struct gf_tier_conf {
         int                          is_tier;
         int                          watermark_hi;
@@ -355,11 +361,12 @@ typedef struct gf_tier_conf {
         int                          tier_demote_frequency;
         uint64_t                     st_last_promoted_size;
         uint64_t                     st_last_demoted_size;
-        int                          request_pause;
-        gf_boolean_t                 paused;
+        tier_pause_state_t           pause_state;
         struct synctask             *pause_synctask;
         gf_timer_t                  *pause_timer;
         pthread_mutex_t              pause_mutex;
+        int                          promote_in_progress;
+        int                          demote_in_progress;
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {
@@ -995,11 +1002,17 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
 
+void
+gf_defrag_set_pause_state (gf_tier_conf_t *tier_conf, tier_pause_state_t state);
+
+tier_pause_state_t
+gf_defrag_get_pause_state (gf_tier_conf_t *tier_conf);
+
 int
 gf_defrag_pause_tier (xlator_t *this, gf_defrag_info_t *defrag);
 
-void
-gf_defrag_wake_pause_tier (gf_tier_conf_t *defrag, gf_boolean_t pause);
+tier_pause_state_t
+gf_defrag_check_pause_tier (gf_tier_conf_t *defrag);
 
 int
 gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag);

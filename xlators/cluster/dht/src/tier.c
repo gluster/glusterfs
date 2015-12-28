@@ -200,6 +200,32 @@ exit:
         return migrate;
 }
 
+int
+tier_migrate (xlator_t *this, int is_promotion, dict_t *migrate_data,
+              loc_t *loc, gf_tier_conf_t *tier_conf)
+{
+        int ret = -1;
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        if (is_promotion)
+                tier_conf->promote_in_progress = 1;
+        else
+                tier_conf->demote_in_progress = 1;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        /* Data migration */
+        ret = syncop_setxattr (this, loc, migrate_data, 0,
+                               NULL, NULL);
+
+        pthread_mutex_lock (&tier_conf->pause_mutex);
+        if (is_promotion)
+                tier_conf->promote_in_progress = 0;
+        else
+                tier_conf->demote_in_progress = 0;
+        pthread_mutex_unlock (&tier_conf->pause_mutex);
+
+        return ret;
+}
 
 static int
 tier_migrate_using_query_file (void *_args)
@@ -290,7 +316,8 @@ tier_migrate_using_query_file (void *_args)
 
                 dict_del (migrate_data, "from.migrator");
 
-                if (defrag->tier_conf.request_pause) {
+                if (gf_defrag_get_pause_state (&defrag->tier_conf)
+                    != TIER_RUNNING) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 DHT_MSG_LOG_TIER_STATUS,
                                 "Tiering paused. "
@@ -486,7 +513,8 @@ tier_migrate_using_query_file (void *_args)
 
                         gf_uuid_copy (loc.gfid, loc.inode->gfid);
 
-                        if (defrag->tier_conf.request_pause) {
+                        if (gf_defrag_get_pause_state (&defrag->tier_conf)
+                            != TIER_RUNNING) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
                                         "Tiering paused. "
@@ -495,9 +523,9 @@ tier_migrate_using_query_file (void *_args)
                                 goto abort;
                         }
 
-                        /* Data migration */
-                        ret = syncop_setxattr (this, &loc, migrate_data, 0,
-                                               NULL, NULL);
+                        ret = tier_migrate (this, query_cbk_args->is_promotion,
+                                            migrate_data, &loc, &defrag->tier_conf);
+
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR, "Failed to "
@@ -1389,8 +1417,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                if (tier_conf->request_pause)
-                        gf_defrag_wake_pause_tier (tier_conf, _gf_true);
+                gf_defrag_check_pause_tier (tier_conf);
 
                 sleep(1);
 
@@ -1414,8 +1441,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                if ((defrag->tier_conf.paused) ||
-                    (defrag->tier_conf.request_pause))
+                if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING)
                         continue;
 
 
@@ -1819,15 +1845,15 @@ tier_init (xlator_t *this)
                 defrag->tier_conf.mode = ret;
         }
 
-        defrag->tier_conf.request_pause = 0;
-
         pthread_mutex_init (&defrag->tier_conf.pause_mutex, 0);
+
+        gf_defrag_set_pause_state (&defrag->tier_conf, TIER_RUNNING);
 
         ret = dict_get_str (this->options,
                               "tier-pause", &paused);
 
         if (paused && strcmp (paused, "on") == 0)
-                defrag->tier_conf.request_pause = 1;
+                gf_defrag_set_pause_state (&defrag->tier_conf, TIER_REQUEST_PAUSE);
 
         ret = gf_asprintf(&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
