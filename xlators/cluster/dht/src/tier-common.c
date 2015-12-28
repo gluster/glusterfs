@@ -135,6 +135,7 @@ tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         xlator_t        *cached_subvol     = NULL;
         dht_conf_t      *conf              = NULL;
         int              ret               = -1;
+        unsigned char   *gfid              = NULL;
 
         local = frame->local;
         if (!local) {
@@ -159,9 +160,19 @@ tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         if (local->params) {
                 dict_del (local->params, conf->link_xattr_name);
                 dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
-                ret = dict_set_static_bin (local->params, TIER_LINKFILE_GFID,
-                                           stbuf->ia_gfid, 16);
+
+                gfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+                if (!gfid) {
+                        local->op_errno = ENOMEM;
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+
+                gf_uuid_copy (gfid, stbuf->ia_gfid);
+                ret = dict_set_dynptr (local->params, TIER_LINKFILE_GFID,
+                                           gfid, sizeof (uuid_t));
                 if (ret) {
+                        GF_FREE (gfid);
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dictionary value"
