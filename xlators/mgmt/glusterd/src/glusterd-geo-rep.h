@@ -14,6 +14,15 @@
 #define GSYNC_CONF_TEMPLATE GEOREP"/gsyncd_template.conf"
 #endif
 
+/* <slave host>::<slave volume> */
+#define SLAVE_URL_INFO_MAX (_POSIX_HOST_NAME_MAX + GD_VOLUME_NAME_MAX + 3)
+
+/* slave info format:
+ * <master host uuid>:ssh://{<slave_user>@}<slave host>::<slave volume> \
+ * :<slave volume uuid> */
+#define VOLINFO_SLAVE_URL_MAX (_POSIX_LOGIN_NAME_MAX + (2*GF_UUID_BUF_SIZE) \
+                                 + SLAVE_URL_INFO_MAX + 10)
+
 typedef struct glusterd_gsync_status_temp {
         dict_t *rsp_dict;
         glusterd_volinfo_t *volinfo;

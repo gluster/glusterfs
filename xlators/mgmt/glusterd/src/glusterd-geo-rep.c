@@ -395,18 +395,69 @@ glusterd_urltransform_add (runner_t *runner, const char *url)
         runner_add_arg (runner, url);
 }
 
+/* Helper routine to terminate just before slave_voluuid */
+static int32_t
+parse_slave_url (char *slv_url, char **slave)
+{
+        char      *tmp  = NULL;
+        xlator_t  *this = NULL;
+        int32_t    ret  = -1;
+
+        this = THIS;
+
+        /* slave format:
+         * master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid */
+        *slave = strchr (slv_url, ':');
+        if (!(*slave)) {
+                goto out;
+        }
+        (*slave)++;
+
+        /* To terminate at : before slave volume uuid */
+        tmp = strstr (*slave, "::");
+        if (!tmp) {
+                goto out;
+        }
+        tmp += 2;
+        tmp = strchr (tmp, ':');
+        if (!tmp) {
+                goto out;
+        } else
+                *tmp = '\0';
+
+        ret = 0;
+        gf_msg_debug (this->name, 0, "parse slave: %s !!", *slave);
+out:
+        return ret;
+}
+
 static int
 _glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *data)
 {
         runner_t *runner = (runner_t *)data;
-        char *slave = NULL;
+        char slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
+        char *slave          = NULL;
+        xlator_t  *this      = NULL;
+        int32_t  ret         = -1;
 
-        slave = strchr (value->data, ':');
-        GF_ASSERT (slave);
-        slave++;
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        gf_msg_debug (this->name, 0, "value->data %s", value->data);
+
+        strncpy (slv_url, value->data, sizeof(slv_url));
+        ret = parse_slave_url (slv_url, &slave);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                        "Error in parsing slave: %s!", value->data);
+                goto out;
+        }
+
         runner_add_arg (runner, slave);
-
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 static void
@@ -529,6 +580,13 @@ struct dictidxmark {
         char *ikey;
 };
 
+
+struct slave_vol_config {
+       char      old_slvhost[_POSIX_HOST_NAME_MAX+1];
+       char      slave_voluuid[GF_UUID_BUF_SIZE];
+       unsigned  old_slvidx;
+};
+
 static int
 _dict_mark_atindex (dict_t *dict, char *key, data_t *value, void *data)
 {
@@ -559,9 +617,14 @@ glusterd_get_slave (glusterd_volinfo_t *vol, const char *slaveurl, char **slavek
         int n = 0;
         int i = 0;
         char **linearr = NULL;
+        int32_t ret = 0;
 
         glusterd_urltransform_init (&runner, "canonicalize");
-        dict_foreach (vol->gsync_slaves, _glusterd_urltransform_add_iter, &runner);
+        ret = dict_foreach (vol->gsync_slaves, _glusterd_urltransform_add_iter,
+                                               &runner);
+        if (ret < 0)
+                return -2;
+
         glusterd_urltransform_add (&runner, slaveurl);
 
         n = glusterd_urltransform (&runner, &linearr);
@@ -581,7 +644,6 @@ glusterd_get_slave (glusterd_volinfo_t *vol, const char *slaveurl, char **slavek
 
         return i;
 }
-
 
 static int
 glusterd_query_extutil_generic (char *resbuf, size_t blen, runner_t *runner, void *data,
@@ -635,6 +697,34 @@ glusterd_query_extutil (char *resbuf, runner_t *runner)
         return glusterd_query_extutil_generic (resbuf, PATH_MAX, runner, NULL,
                                                _fcbk_singleline);
 }
+
+static int
+glusterd_get_slave_voluuid (char *slave_host, char *slave_vol, char *vol_uuid)
+{
+        runner_t          runner = {0,};
+        glusterd_conf_t   *priv  = NULL;
+        xlator_t          *this  = NULL;
+        int ret                  = -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        runinit (&runner);
+        runner_add_arg  (&runner, GSYNCD_PREFIX"/gsyncd");
+        runner_add_arg  (&runner, "--slavevoluuid-get");
+        runner_argprintf (&runner, "%s::%s", slave_host, slave_vol);
+
+        synclock_unlock (&priv->big_lock);
+        ret = glusterd_query_extutil (vol_uuid, &runner);
+        synclock_lock (&priv->big_lock);
+
+out:
+        return ret;
+}
+
 
 static int
 _fcbk_conftodict (char *resbuf, size_t blen, FILE *fp, void *data)
@@ -1161,7 +1251,7 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                                    dict_t *rsp_dict, char *node);
 
 static int
-_get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
+_get_status_mst_slv (dict_t *dict, char *key, data_t *value, void *data)
 {
         glusterd_gsync_status_temp_t *param                = NULL;
         char                         *slave                = NULL;
@@ -1173,40 +1263,40 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         char                           conf_path[PATH_MAX] = "";
         int                           ret                  = -1;
         glusterd_conf_t              *priv                 = NULL;
-        xlator_t                     *this1                = NULL;
+        xlator_t                     *this                 = NULL;
+        char                         slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
 
-        this1 = THIS;
-        GF_ASSERT (this1);
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
 
         param = (glusterd_gsync_status_temp_t *)data;
 
-        GF_ASSERT (param);
-        GF_ASSERT (param->volinfo);
+        GF_VALIDATE_OR_GOTO (this->name, param, out);
+        GF_VALIDATE_OR_GOTO (this->name, param->volinfo, out);
 
-        if (this1)
-                priv = this1->private;
-        if (priv == NULL) {
-                gf_msg (this1->name, GF_LOG_ERROR, 0,
-                        GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
-                        "priv of glusterd not present");
+        if (this)
+                priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        strncpy (slv_url, value->data, sizeof(slv_url));
+        ret = parse_slave_url (slv_url, &slave);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                        "Error in parsing slave: %s!", value->data);
                 goto out;
         }
-
-        slave = strchr(value->data, ':');
-        if (!slave)
-                return 0;
-        slave++;
 
         ret = glusterd_get_slave_info (slave, &slave_url,
                                        &slave_host, &slave_vol, &errmsg);
         if (ret) {
                 if (errmsg)
-                        gf_msg (this1->name, GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SLAVEINFO_FETCH_ERROR,
                                 "Unable to fetch slave details. Error: %s",
                                 errmsg);
                 else
-                        gf_msg (this1->name, GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SLAVEINFO_FETCH_ERROR,
                                 "Unable to fetch slave details.");
                 ret = -1;
@@ -1225,18 +1315,19 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                                                 param->node);
 out:
 
-        GF_FREE (errmsg);
+        if (errmsg)
+                GF_FREE (errmsg);
 
         if (slave_buf)
                 GF_FREE(slave_buf);
 
-        gf_msg_debug (this1->name, 0, "Returning %d.", ret);
+        gf_msg_debug (this->name, 0, "Returning %d.", ret);
         return ret;
 }
 
 
 static int
-_get_max_gsync_slave_num (dict_t *this, char *key, data_t *value, void *data)
+_get_max_gsync_slave_num (dict_t *dict, char *key, data_t *value, void *data)
 {
         int  tmp_slvnum = 0;
         int *slvnum = (int *)data;
@@ -1246,6 +1337,67 @@ _get_max_gsync_slave_num (dict_t *this, char *key, data_t *value, void *data)
                 *slvnum = tmp_slvnum;
 
         return 0;
+}
+
+static int
+_get_slave_idx_slave_voluuid (dict_t *dict, char *key, data_t *value,
+                              void *data)
+{
+        char  *slave_voluuid                 = NULL;
+        char  *slave_info                    = NULL;
+        xlator_t  *this                      = NULL;
+        struct slave_vol_config *slave_cfg   = NULL;
+        int  i                               = 0;
+        int  ret                             = -1;
+        unsigned  tmp_slvnum                 = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        slave_cfg = data;
+
+        if (value)
+                slave_info = value->data;
+
+        if (!(slave_info) || strlen (slave_info) == 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_SLAVE,
+                        "Invalid slave in dict");
+                ret = -2;
+                goto out;
+        }
+
+        /* slave format:
+         * master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid */
+        while (i++ < 5) {
+                slave_info = strchr (slave_info, ':');
+                if (slave_info)
+                        slave_info++;
+                else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                                "slave_info becomes NULL!");
+                        ret = -2;
+                        goto out;
+                }
+        }
+        if (strcmp (slave_info, slave_cfg->slave_voluuid) == 0) {
+                gf_msg_debug (this->name, 0, "Same slave volume "
+                              "already present %s",
+                              slave_cfg->slave_voluuid);
+                ret = -1;
+
+                sscanf (key, "slave%d", &tmp_slvnum);
+                slave_cfg->old_slvidx = tmp_slvnum;
+
+                gf_msg_debug (this->name, 0, "and "
+                              "its index is: %d", tmp_slvnum);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
 }
 
 static int
@@ -1364,8 +1516,8 @@ glusterd_check_gsync_running_local (char *master, char *slave,
 
 static int
 glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
-                              char *host_uuid, char **op_errstr,
-                              gf_boolean_t is_force)
+                              char *host_uuid, char *slave_voluuid,
+                              char **op_errstr, gf_boolean_t is_force)
 {
         int    ret = 0;
         int    maxslv = 0;
@@ -1376,6 +1528,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
         char   key[512] = {0, };
         char  *t = NULL;
         xlator_t *this = NULL;
+        struct slave_vol_config slave1  = {{0},};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1383,6 +1536,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (host_uuid);
+        GF_VALIDATE_OR_GOTO (this->name, slave_voluuid, out);
 
         ret = glusterd_get_slave (volinfo, slave, &slavekey);
         switch (ret) {
@@ -1429,16 +1583,46 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
         if (ret == -1)
                 goto out;
 
-        ret = gf_asprintf (&value,  "%s:%s", host_uuid, linearr[0]);
+        ret = gf_asprintf (&value,  "%s:%s:%s", host_uuid,
+                                    linearr[0], slave_voluuid);
+
         glusterd_urltransform_free (linearr, 1);
         if (ret  == -1)
                 goto out;
 
-        dict_foreach (volinfo->gsync_slaves, _get_max_gsync_slave_num, &maxslv);
-        snprintf (key, 512, "slave%d", maxslv + 1);
-        ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
-        if (ret)
+        /* Given the slave volume uuid, check and get any existing slave */
+        strncpy (slave1.slave_voluuid, slave_voluuid, GF_UUID_BUF_SIZE);
+        ret = dict_foreach (volinfo->gsync_slaves,
+                            _get_slave_idx_slave_voluuid, &slave1);
+
+        if (ret == 0) { /* New slave */
+                dict_foreach (volinfo->gsync_slaves, _get_max_gsync_slave_num,
+                              &maxslv);
+                snprintf (key, 512, "slave%d", maxslv + 1);
+
+                ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
+                if (ret)
+                        goto out;
+        } else if (ret == -1) { /* Existing slave */
+                snprintf (key, 512, "slave%d", slave1.old_slvidx);
+
+                /* Delete present slave info(with old hostname) */
+                dict_del (volinfo->gsync_slaves, key);
+
+                gf_msg_debug (this->name, 0, "Replacing key:%s with new value"
+                              ":%s", key, value);
+
+                /* Add new slave's value, with the same slave index */
+                ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
+                if (ret)
+                        goto out;
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REMOTE_VOL_UUID_FAIL,
+                        "_get_slave_idx_slave_voluuid failed!");
+                ret = -1;
                 goto out;
+        }
 
         ret = glusterd_store_volinfo (volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -2486,6 +2670,107 @@ out:
         return ret;
 }
 
+/* Return -1 only if there is a match in volume uuid */
+static int
+get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
+{
+        char *slave_voluuid                 = NULL;
+        char *slave_info                    = NULL;
+        char *tmp                           = NULL;
+        char tmp_char                       = 0;
+        char *slave_host                    = NULL;
+        xlator_t  *this                     = NULL;
+        struct slave_vol_config *slave_vol  = NULL;
+        int i                               = 0;
+        int ret                             = -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        slave_vol = data;
+        slave_info = value->data;
+
+        gf_msg_debug (this->name, 0, "slave_info:%s !", slave_info);
+
+        if (!(slave_info) || strlen (slave_info) == 0) {
+                /* no slaves present, peace  */
+                ret = 0;
+                goto out;
+        }
+
+        /* slave format:
+         * master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid */
+        while (i++ < 5) {
+                slave_info = strchr (slave_info, ':');
+                if (slave_info)
+                        slave_info++;
+        }
+
+        if (!(slave_info) || strlen(slave_info) == 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                        "slave_info format is wrong!");
+                ret = -2;
+                goto out;
+        } else {
+                if (strcmp (slave_info, slave_vol->slave_voluuid) == 0) {
+                        ret = -1;
+
+                        /* get corresponding slave host for reference*/
+                        slave_host = value->data;
+                        slave_host = strstr (slave_host, "://");
+                        if (slave_host)
+                                slave_host += 3;
+
+                        /* To go past username in non-root geo-rep session */
+                        tmp = strchr (slave_host, '@');
+                        if (tmp)
+                                slave_host = tmp + 1;
+
+                        tmp = strchr (slave_host, ':');
+                        if (!tmp) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                                        "Invalid slave_host!");
+                                ret = -2;
+                                goto out;
+                        }
+
+                        strncpy (slave_vol->old_slvhost, slave_host,
+                                                 (tmp - slave_host));
+                        slave_vol->old_slvhost[(tmp - slave_host)+1] = '\0';
+
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* Given slave host and slave volume, check whether slave volume uuid
+ * already present.
+ * If slave volume uuid is present, get corresponding slave host
+ * for reference */
+static int
+glusterd_get_slavehost_from_voluuid (glusterd_volinfo_t *volinfo,
+                      char *slave_host, char *slave_vol,
+                      struct slave_vol_config *slave1)
+{
+        int                ret   = -1;
+        xlator_t           *this = NULL;
+
+        this = THIS;
+
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+
+        ret = dict_foreach (volinfo->gsync_slaves, get_slavehost_from_voluuid,
+                                                   slave1);
+out:
+        return ret;
+}
+
 int
 glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 {
@@ -2514,7 +2799,15 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t *volinfo                   = NULL;
         struct stat         stbuf                     = {0,};
         xlator_t           *this                      = NULL;
-
+        char                     *georep_session_wrkng_dir  = NULL;
+        struct slave_vol_config  slave1                     = {{0},};
+        int                      type                       = 0;
+        char                     monitor_status[NAME_MAX]   = {0,};
+        char                     old_slave_url_info[SLAVE_URL_INFO_MAX] = {0};
+        char                     *old_slave_url             = NULL;
+        char                     old_confpath[PATH_MAX]     = {0};
+        gf_boolean_t             is_running                 = _gf_false;
+        int                      ret_status                 = 0;
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
@@ -2734,6 +3027,96 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_FORCE_CREATE_SESSION,
                         "Session between %s and %s is already created. Force"
                         " creating again.", volinfo->volname, slave);
+
+        ret = glusterd_get_slave_voluuid (slave_host, slave_vol,
+                                          slave1.slave_voluuid);
+        if ((ret) || (strlen(slave1.slave_voluuid) == 0)) {
+                snprintf (errmsg, sizeof (errmsg),
+                          "Unable to get remote volume uuid.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REMOTE_VOL_UUID_FAIL, "%s", errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (dict, "slave_voluuid",
+                                          slave1.slave_voluuid);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Unable to set slave volume uuid in the dict");
+                goto out;
+        }
+
+        /* Check whether session is already created using slave volume uuid */
+        ret = glusterd_get_slavehost_from_voluuid (volinfo, slave_host,
+                                              slave_vol, &slave1);
+        if (ret == -1) {
+                if (!is_force) {
+                        snprintf (errmsg, sizeof (errmsg), "Session between %s"
+                                  " and %s:%s is already created! Cannot create "
+                                  "with new slave:%s again!",
+                                  volinfo->volname, slave1.old_slvhost,
+                                  slave_vol, slave_host);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                 GD_MSG_FORCE_CREATE_SESSION, "Session between"
+                                  " %s and %s:%s is already created! "
+                                  "Cannot create with new slave:%s again!",
+                                  volinfo->volname, slave1.old_slvhost,
+                                  slave_vol, slave_host);
+                        goto out;
+                }
+                /* Now, check whether session is already started, if so, warn!*/
+                ret = snprintf (old_confpath, sizeof(old_confpath) - 1,
+                                "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
+                                conf->workdir, volinfo->volname,
+                                slave1.old_slvhost, slave_vol);
+
+                /* construct old slave url with (old) slave host */
+                old_slave_url = old_slave_url_info;
+                strncpy (old_slave_url, slave1.old_slvhost,
+                                        sizeof(old_slave_url_info));
+                old_slave_url = strcat (old_slave_url, "::");
+                old_slave_url = strncat (old_slave_url, slave_vol,
+                                                  sizeof(old_slave_url_info));
+
+                ret = glusterd_check_gsync_running_local (volinfo->volname,
+                                                          old_slave_url,
+                                                          old_confpath,
+                                                          &is_running);
+                if (_gf_true == is_running) {
+                        snprintf (errmsg, sizeof(errmsg), "Geo"
+                                  " -replication session between %s and %s"
+                                  " is still active. Please stop the "
+                                  "session and retry.",
+                                  volinfo->volname, old_slave_url);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_dynstr_with_alloc (dict, "old_slavehost",
+                                                  slave1.old_slvhost);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Unable to set old_slavehost in the dict");
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, "existing_session", _gf_true);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Unable to set existing_session in the dict");
+                        goto out;
+                }
+        } else if (ret == -2) {
+                snprintf (errmsg, sizeof (errmsg), "get_slavehost_from_voluuid"
+                          " failed %s %s!!", slave_host, slave_vol);
+                gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_FORCE_CREATE_SESSION,
+                        "get_slavehost_from_voluuid failed %s %s!!",
+                         slave_host, slave_vol);
+                goto out;
+        }
 
         ret = glusterd_verify_gsyncd_spawn (volinfo->volname, slave);
         if (ret) {
@@ -3301,7 +3684,7 @@ stop_gsync (char *master, char *slave, char **msg,
         pid_t           pid     = 0;
         char            pidfile[PATH_MAX] = {0,};
         char            errmsg[PATH_MAX] = "";
-        char            buf [1024] = {0,};
+        char            buf[1024] = {0,};
         int             i       = 0;
         gf_boolean_t    is_template_in_use = _gf_false;
         xlator_t        *this   = NULL;
@@ -3885,7 +4268,8 @@ fetch_data:
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_STAT_FILE_READ_FAILED,
                         "Unable to read the status file for %s(master), "
-                        "%s(slave)", master, slave);
+                        "%s(slave) statefile: %s", master, slave,
+                         statefile);
                 strncpy (monitor_status, "defunct", sizeof (monitor_status));
         }
 
@@ -5368,7 +5752,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         /* pid-file */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_arg (&runner, "pid-file");
-        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}.pid", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/monitor.pid", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -5382,7 +5766,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         /* state-file */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_arg (&runner, "state-file");
-        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}.status", georepdir);
+        runner_argprintf (&runner, "%s/${mastervol}_${remotehost}_${slavevol}/monitor.status", georepdir);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -5603,7 +5987,7 @@ int
 glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
         char                common_pem_file[PATH_MAX] = "";
-        char                errmsg[PATH_MAX]          = "";
+        char                errmsg[PATH_MAX]  = {0,};
         char                hooks_args[PATH_MAX]      = "";
         char                uuid_str [64]             = "";
         char               *host_uuid                 = NULL;
@@ -5624,6 +6008,13 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
         xlator_t           *this                      = NULL;
+        char                old_working_dir[PATH_MAX] = {0};
+        char                new_working_dir[PATH_MAX] = {0};
+        char               *slave_info                = NULL;
+        char                slave_url_info[SLAVE_URL_INFO_MAX] = {0};
+        char               *slave_voluuid             = NULL;
+        char               *old_slavehost             = NULL;
+        gf_boolean_t        is_existing_session       = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5753,6 +6144,77 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
 create_essentials:
+        /* Fetch slave volume uuid, to get stored in volume info. */
+        ret = dict_get_str (dict, "slave_voluuid", &slave_voluuid);
+        if (ret) {
+                snprintf (errmsg, sizeof (errmsg),
+                          "Unable to fetch slave volume uuid from dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                         GD_MSG_DICT_GET_FAILED,
+                         "%s", errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        is_existing_session = dict_get_str_boolean (dict, "existing_session",
+                                                    _gf_false);
+        if (is_existing_session) {
+                ret = dict_get_str (dict, "old_slavehost", &old_slavehost);
+                if (ret) {
+                        snprintf (errmsg, sizeof (errmsg),
+                                  "Unable to fetch old_slavehost");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                 GD_MSG_DICT_GET_FAILED,
+                                 "%s", errmsg);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Rename existing geo-rep session with new Slave Host */
+                ret = snprintf (old_working_dir,
+                         sizeof (old_working_dir) - 1,
+                         "%s/"GEOREP"/%s_%s_%s", conf->workdir,
+                         volinfo->volname, old_slavehost,
+                         slave_vol);
+
+                ret = snprintf (new_working_dir,
+                         sizeof (new_working_dir) - 1,
+                         "%s/"GEOREP"/%s_%s_%s", conf->workdir,
+                         volinfo->volname, slave_host, slave_vol);
+
+                ret = sys_rename (old_working_dir, new_working_dir);
+                if (!ret) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_FORCE_CREATE_SESSION,
+                                "rename of old working dir %s to "
+                                "new working dir %s is done! ",
+                                 old_working_dir, new_working_dir);
+                } else {
+                        if (errno == ENOENT) {
+                                /* log error, but proceed with directory
+                                 * creation below */
+                                gf_msg_debug (this->name, 0,
+                                              "old_working_dir(%s) "
+                                               "not present.",
+                                               old_working_dir);
+                        } else {
+                                snprintf (errmsg, sizeof (errmsg),
+                                          "rename of old working dir %s to "
+                                          "new working dir %s failed! Error: %s",
+                                          old_working_dir, new_working_dir,
+                                          strerror (errno));
+                                gf_msg (this->name,  GF_LOG_INFO, 0,
+                                        GD_MSG_FORCE_CREATE_SESSION,
+                                        "rename of old working dir %s to "
+                                        "new working dir %s failed! Error: %s!",
+                                        old_working_dir, new_working_dir,
+                                        strerror (errno));
+
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
 
         ret = glusterd_create_essential_dir_files (volinfo, dict, slave,
                                                    slave_host, slave_vol,
@@ -5761,8 +6223,8 @@ create_essentials:
                 goto out;
 
         ret = glusterd_store_slave_in_info (volinfo, slave,
-                                            host_uuid, op_errstr,
-                                            is_force);
+                                            host_uuid, slave_voluuid,
+                                            op_errstr, is_force);
         if (ret) {
                 snprintf (errmsg, sizeof (errmsg), "Unable to store"
                           " slave info.");
@@ -5778,12 +6240,20 @@ create_essentials:
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_MARKER_START_FAIL, "marker/changelog"
                         " start failed");
-                *op_errstr = gf_strdup ("Index initialization failed");
+                snprintf (errmsg, sizeof (errmsg),
+                          "Index initialization failed");
+
                 ret = -1;
                 goto out;
         }
 
 out:
+        if (ret && errmsg[0] != '\0') {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_GSYNCD_ERROR,
+                        "%s", errmsg);
+                *op_errstr = gf_strdup (errmsg);
+        }
+
         GF_FREE (slave_url_buf);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;

@@ -64,6 +64,18 @@ CONFIGS = (
      "ignore_deletes",
      "true",
      "false"),
+    ("peersrx . .",
+     "pid-file",
+     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     "${slavevol}/${eSlave}.pid",
+     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     "${slavevol}/monitor.pid"),
+    ("peersrx . .",
+     "state-file",
+     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     "${slavevol}/${eSlave}.status",
+     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     "${slavevol}/monitor.status"),
 )
 
 
