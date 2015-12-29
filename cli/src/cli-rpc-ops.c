@@ -10804,34 +10804,6 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
                 memset (key, 0, 256);
-                snprintf (key, 256, "scrubbed-files-%d", i);
-                ret = dict_get_uint64 (dict, key, &scrub_files);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get scrubbed "
-                                "files");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "unsigned-files-%d", i);
-                ret = dict_get_uint64 (dict, key, &unsigned_files);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get unsigned "
-                                "files");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "scrub-duration-%d", i);
-                ret = dict_get_uint64 (dict, key, &scrub_time);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub "
-                                "duration");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "last-scrub-time-%d", i);
-                ret = dict_get_str (dict, key, &last_scrub);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub"
-                                " time");
-
-                memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", i);
                 ret = dict_get_uint64 (dict, key, &error_count);
                 if (ret)
@@ -10841,40 +10813,20 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 cli_out ("\n%s\n", "=========================================="
                          "===============");
 
-                cli_out ("%s: %s\n", "Node name", node_name);
-
-                cli_out ("%s: %"PRIu64 "\n", "Number of Scrubbed files",
-                          scrub_files);
-
-                cli_out ("%s: %"PRIu64 "\n", "Number of Unsigned files",
-                          unsigned_files);
-
-                if ((!last_scrub) || !strcmp (last_scrub, ""))
-                        cli_out ("%s: %s\n", "Last completed scrub time",
-                                 "Scrubber pending to complete.");
-                else
-                        cli_out ("%s: %s\n", "Last completed scrub time",
-                                 last_scrub);
-
-                /* Printing last scrub duration time in human readable form*/
-                days       = scrub_time/86400;
-                hour       = (scrub_time%86400)/3600;
-                minut      = (scrub_time%86400%3600)/60;
-                second     = (scrub_time%86400%3600%60);
-                cli_out ("%s: %"PRIu64 ":%"PRIu64 ":%"PRIu64 ":%"PRIu64 "\n",
-                         "Duration of last scrub", days, hour, minut, second);
+                cli_out ("%s: %s\n", "Node", node_name);
 
                 cli_out ("%s: %"PRIu64 "\n", "Error count", error_count);
 
-                if (error_count)
-                        cli_out ("%s:\n", "Corrupted object's");
-                /* Printing list of bad file's (Corrupted object's)*/
-                for (j = 0; j < error_count; j++) {
-                        memset (key, 0, 256);
-                        snprintf (key, 256, "quarantine-%d-%d", j, i);
-                        ret = dict_get_str (dict, key, &bad_file_str);
-                        if (!ret) {
-                                cli_out ("%s\n", bad_file_str);
+                if (error_count) {
+                        cli_out ("%s:\n", "Corrupted object's [GFID]");
+                        /* Printing list of bad file's (Corrupted object's)*/
+                        for (j = 0; j < error_count; j++) {
+                                memset (key, 0, 256);
+                                snprintf (key, 256, "quarantine-%d-%d", j, i);
+                                ret = dict_get_str (dict, key, &bad_file_str);
+                                if (!ret) {
+                                        cli_out ("%s\n", bad_file_str);
+                                }
                         }
                 }
         }
