@@ -68,7 +68,8 @@ class Xattr(object):
     def llistxattr(cls, path, siz=0):
         ret = cls._query_xattr(path, siz, 'llistxattr')
         if isinstance(ret, str):
-            ret = ret.split('\0')
+            ret = ret.strip('\0')
+            ret = ret.split('\0') if ret else []
         return ret
 
     @classmethod
@@ -86,9 +87,22 @@ class Xattr(object):
     @classmethod
     def llistxattr_buf(cls, path):
         """listxattr variant with size discovery"""
-        size = cls.llistxattr(path)
-        if size == -1:
-            cls.raise_oserr()
-        if size == 0:
-            return []
-        return cls.llistxattr(path, size)
+        try:
+            # Assuming no more than 100 xattrs in a file/directory and
+            # each xattr key length will be less than 256 bytes
+            # llistxattr will be called with bigger size so that
+            # listxattr will not fail with ERANGE. OSError will be
+            # raised if fails even with the large size specified.
+            size = 256 * 100
+            return cls.llistxattr(path, size)
+        except OSError:
+            # If fixed length failed for getting list of xattrs then
+            # use the llistxattr call to get the size and use that
+            # size to get the list of xattrs.
+            size = cls.llistxattr(path)
+            if size == -1:
+                cls.raise_oserr()
+            if size == 0:
+                return []
+
+            return cls.llistxattr(path, size)
