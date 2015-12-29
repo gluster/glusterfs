@@ -7020,6 +7020,31 @@ glusterd_get_trusted_client_filepath (char *filepath,
         return ret;
 }
 
+void glusterd_update_tier_status (glusterd_volinfo_t *volinfo) {
+
+        glusterd_rebalance_t    *rebal       = NULL;
+
+        rebal = &volinfo->rebal;
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER)
+                return;
+
+        /*
+         * If tier process status is stopped or failed, then
+         * manually changing the status.
+         */
+
+        switch (rebal->defrag_status) {
+        case GF_DEFRAG_STATUS_FAILED:
+        case GF_DEFRAG_STATUS_STOPPED:
+                rebal->defrag_status = GF_DEFRAG_STATUS_STARTED;
+                break;
+        default:
+                break;
+        }
+        return;
+}
+
 int
 glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                               size_t len, int cmd, defrag_cbk_fn_t cbk)
@@ -7042,6 +7067,13 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
          * there is an existing process already and connect to it. If not, then
          * start the rebalance process
          */
+
+        /*
+         * Changing the status of tier process to start the daemon
+         * forcefully.
+         */
+        glusterd_update_tier_status (volinfo);
+
         switch (volinfo->rebal.defrag_status) {
         case GF_DEFRAG_STATUS_COMPLETE:
         case GF_DEFRAG_STATUS_STOPPED:

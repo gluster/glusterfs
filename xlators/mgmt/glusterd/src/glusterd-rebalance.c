@@ -135,8 +135,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 UNLOCK (&defrag->lock);
 
                 if (!gf_is_service_running (pidfile, NULL)) {
-                        if (volinfo->type != GF_CLUSTER_TYPE_TIER &&
-                            volinfo->rebal.defrag_status ==
+                        if (volinfo->rebal.defrag_status ==
                                                 GF_DEFRAG_STATUS_STARTED) {
                                 volinfo->rebal.defrag_status =
                                                    GF_DEFRAG_STATUS_FAILED;
