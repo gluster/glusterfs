@@ -21,7 +21,6 @@ VOLUME_OP=
 GLUSTERD_WORKDIR=
 ENABLED_NAME="S28Quota-root-xattr-heal.sh"
 
-
 cleanup_mountpoint ()
 {
         umount -f $MOUNT_DIR;
@@ -35,6 +34,17 @@ cleanup_mountpoint ()
         then
                 return $?
         fi
+}
+
+disable_and_exit ()
+{
+        if [ -e "$ENABLED_STATE" ]
+        then
+                unlink $ENABLED_STATE;
+                exit $?
+        fi
+
+        exit 0
 }
 
 ##------------------------------------------
@@ -73,20 +83,12 @@ done
 
 ENABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/$VOLUME_OP/post/$ENABLED_NAME"
 
-
-FLAG=`gluster volume quota $VOL_NAME list / 2>&1 | grep \
-      '\(No quota configured on volume\)\|\(Limit not set\)'`;
-if ! [ -z $FLAG ]
+## Is quota enabled?
+FLAG=`grep "^features.quota=" $GLUSTERD_WORKDIR/vols/$VOL_NAME/info \
+      | awk -F'=' '{print $NF}'`;
+if [ "$FLAG" != "on" ]
 then
-        ls $ENABLED_STATE;
-        RET=$?
-        if [ 0 -eq $RET ]
-        then
-                unlink $ENABLED_STATE;
-                exit $?
-        fi
-
-        exit $RET;
+        disable_and_exit
 fi
 
 ## -----------------------------------
@@ -102,16 +104,22 @@ fi
 ## ------------------
 ## Getfattr the value
 ## ------------------
-VALUE=`getfattr -n "$QUOTA_CONFIG_XATTR" -e hex --absolute-names $MOUNT_DIR \
-       2>&1 | grep $QUOTA_CONFIG_XATTR | awk -F'=' '{print $2}'`
+VALUE=$(getfattr -n $QUOTA_CONFIG_XATTR -e hex --absolute-names $MOUNT_DIR 2>&1)
 RET=$?
 if [ 0 -ne $RET ]
 then
         ## Clean up and exit
         cleanup_mountpoint;
 
+        echo $VALUE | grep -iq "No such attribute"
+        if [ 0 -eq $? ]; then
+                disable_and_exit
+        fi
+
         exit $RET;
 fi
+
+VALUE=$(echo $VALUE | grep $QUOTA_CONFIG_XATTR | awk -F'=' '{print $NF}')
 ## ------------------
 
 ## ---------
@@ -129,13 +137,4 @@ fi
 ## ---------
 
 cleanup_mountpoint;
-
-## Disable
-ls $ENABLED_STATE;
-RET=$?
-if [ 0 -eq $RET ]
-then
-        unlink $ENABLED_STATE;
-        exit $?
-fi
-exit $?
+disable_and_exit;
