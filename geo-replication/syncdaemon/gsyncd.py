@@ -32,8 +32,13 @@ from syncdutils import GsyncdError, select, set_term_handler
 from configinterface import GConffile, upgrade_config_file
 import resource
 from monitor import monitor
+import xml.etree.ElementTree as XET
+from subprocess import PIPE
+import subprocess
 from changelogagent import agent, Changelog
 from gsyncdstatus import set_monitor_status, GeorepStatus
+
+ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
 
 class GLogger(Logger):
@@ -110,6 +115,36 @@ class GLogger(Logger):
         lkw.update({'saved_label': kw.get('label')})
         gconf.log_metadata = lkw
         gconf.log_exit = True
+
+
+# Given slave host and its volume name, get corresponding volume uuid
+def slave_vol_uuid_get(host, vol):
+    po = subprocess.Popen(['gluster', '--xml', '--remote-host=' + host,
+                           'volume', 'info', vol], bufsize=0,
+                          stdin=None, stdout=PIPE, stderr=PIPE)
+    vix, err = po.communicate()
+    if po.returncode != 0:
+        logging.info("Volume info failed, unable to get "
+                     "volume uuid of %s present in %s,"
+                     "returning empty string: %s" %
+                     (vol, host, po.returncode))
+        return ""
+    vi = XET.fromstring(vix)
+    if vi.find('opRet').text != '0':
+        logging.info("Unable to get volume uuid of %s, "
+                     "present in %s returning empty string: %s" %
+                     (vol, host, vi.find('opErrstr').text))
+        return ""
+
+    try:
+        voluuid = vi.find("volInfo/volumes/volume/id").text
+    except (ParseError, AttributeError, ValueError) as e:
+        logging.info("Parsing failed to volume uuid of %s, "
+                     "present in %s returning empty string: %s" %
+                     (vol, host, e))
+        voluuid = ""
+
+    return voluuid
 
 
 def startup(**kw):
@@ -314,6 +349,8 @@ def main_i():
                   action='callback', callback=store_local_curry('dont'))
     op.add_option('--verify', type=str, dest="verify",
                   action='callback', callback=store_local)
+    op.add_option('--slavevoluuid-get', type=str, dest="slavevoluuid_get",
+                  action='callback', callback=store_local)
     op.add_option('--create', type=str, dest="create",
                   action='callback', callback=store_local)
     op.add_option('--delete', dest='delete', action='callback',
@@ -375,6 +412,14 @@ def main_i():
     defaults = op.get_default_values()
     opts, args = op.parse_args(values=optparse.Values())
     args_orig = args[:]
+
+    voluuid_get = rconf.get('slavevoluuid_get')
+    if voluuid_get:
+        slave_host, slave_vol = voluuid_get.split("::")
+        svol_uuid = slave_vol_uuid_get(slave_host, slave_vol)
+        print svol_uuid
+        return
+
     r = rconf.get('resource_local')
     if r:
         if len(args) == 0:
