@@ -444,13 +444,6 @@ function cleanup()
         umount $flag /tmp/mnt* 2>/dev/null
 
 
-        # Kill all gluster processes with SIGTERM
-        killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
-
-        # Wait a second for SIGTERM to work
-        sleep 1
-
         # Send SIGKILL to all gluster processes that are still running
         killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
         test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
