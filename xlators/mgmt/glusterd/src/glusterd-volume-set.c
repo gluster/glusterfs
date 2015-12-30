@@ -2839,29 +2839,29 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "features.ctr-sql-db-cachesize",
           .voltype     = "features/changetimerecorder",
-          .value       = "1000",
+          .value       = "12500",
           .option      = "sql-db-cachesize",
           .validate_fn = validate_ctr_sql_params,
           .op_version  = GD_OP_VERSION_3_7_7,
           .description = "Defines the cache size of the sqlite database of "
                          "changetimerecorder xlator."
                          "The input to this option is in pages."
-                         "Each page is 4096 bytes. Default value is 1000 "
-                         "pages i.e ~ 4 MB. "
+                         "Each page is 4096 bytes. Default value is 12500 "
+                         "pages."
                          "The max value is 262144 pages i.e 1 GB and "
                          "the min value is 1000 pages i.e ~ 4 MB. "
         },
         { .key         = "features.ctr-sql-db-wal-autocheckpoint",
           .voltype     = "features/changetimerecorder",
-          .value       = "1000",
+          .value       = "25000",
           .option      = "sql-db-wal-autocheckpoint",
           .validate_fn = validate_ctr_sql_params,
           .op_version  = GD_OP_VERSION_3_7_7,
           .description = "Defines the autocheckpoint of the sqlite database of "
                          " changetimerecorder. "
                          "The input to this option is in pages. "
-                         "Each page is 4096 bytes. Default value is 1000 "
-                         "pages i.e ~ 4 MB."
+                         "Each page is 4096 bytes. Default value is 25000 "
+                         "pages."
                          "The max value is 262144 pages i.e 1 GB and "
                          "the min value is 1000 pages i.e ~4 MB."
         },

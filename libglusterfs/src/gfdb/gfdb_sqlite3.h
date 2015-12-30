@@ -170,8 +170,8 @@ do {\
 
 #define GF_SQL_DEFAULT_DBPATH                   ""
 #define GF_SQL_DEFAULT_PAGE_SIZE                "4096"
-#define GF_SQL_DEFAULT_CACHE_SIZE               "1000"
-#define GF_SQL_DEFAULT_WAL_AUTOCHECKPOINT       "1000"
+#define GF_SQL_DEFAULT_CACHE_SIZE               "12500"
+#define GF_SQL_DEFAULT_WAL_AUTOCHECKPOINT       "25000"
 #define GF_SQL_DEFAULT_JOURNAL_MODE             GF_SQL_JM_WAL
 #define GF_SQL_DEFAULT_SYNC                     GF_SQL_SYNC_OFF
 #define GF_SQL_DEFAULT_AUTO_VACUUM              GF_SQL_AV_NONE
