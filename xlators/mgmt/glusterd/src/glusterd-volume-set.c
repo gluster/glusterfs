@@ -1281,7 +1281,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "performance.resync-failed-syncs-after-fsync",
           .voltype    = "performance/write-behind",
           .option     = "resync-failed-syncs-after-fsync",
-          .op_version = GD_OP_VERSION_3_7_6,
+          .op_version = GD_OP_VERSION_3_7_7,
           .flags      = OPT_FLAG_CLIENT_OPT,
           .description = "If sync of \"cached-writes issued before fsync\" "
                          "(to backend) fails, this option configures whether "
