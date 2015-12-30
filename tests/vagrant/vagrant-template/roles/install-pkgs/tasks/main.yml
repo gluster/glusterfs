@@ -12,8 +12,7 @@
     - autoconf
     - automake
     - bison
-    - cmockery2
-    - cmockery2-devel
+    - libcmocka-devel
     - cifs-utils
     - dbench
     - dos2unix
@@ -46,7 +45,6 @@
     - pkgconfig
     - procps-ng
     - psmisc
-    - python-devel
     - python-devel
     - python-eventlet
     - python-netifaces
