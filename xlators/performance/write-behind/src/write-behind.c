@@ -813,7 +813,7 @@ wb_fulfill_err (wb_request_t *head, int op_errno)
 	UNLOCK (&wb_inode->lock);
 }
 
-inline void
+void
 __wb_modify_write_request (wb_request_t *req, int synced_size,
                            int head_total_size)
 {
