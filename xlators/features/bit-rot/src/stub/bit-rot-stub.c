@@ -1605,6 +1605,17 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
         }
 
+        /**
+         * If xattr is node-uuid and the inode is marked bad, return EIO.
+         * Returning EIO would result in AFR to choose correct node-uuid
+         * coresponding to the subvolume * where the good copy of the
+         * file resides.
+         */
+        if (IA_ISREG (loc->inode->ia_type) && XATTR_IS_NODE_UUID (name) &&
+            br_stub_check_bad_object (this, loc->inode, &op_ret, &op_errno)) {
+                goto unwind;
+        }
+
         if (br_stub_is_internal_xattr (name))
                 goto unwind;
 
@@ -1666,6 +1677,17 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (!name) {
                 cbk = br_stub_listxattr_cbk;
                 goto wind;
+        }
+
+        /**
+         * If xattr is node-uuid and the inode is marked bad, return EIO.
+         * Returning EIO would result in AFR to choose correct node-uuid
+         * coresponding to the subvolume * where the good copy of the
+         * file resides.
+         */
+        if (IA_ISREG (fd->inode->ia_type) && XATTR_IS_NODE_UUID (name) &&
+            br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno)) {
+                goto unwind;
         }
 
         if (br_stub_is_internal_xattr (name))
