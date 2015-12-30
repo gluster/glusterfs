@@ -604,6 +604,10 @@ init (xlator_t *this)
     if (ec_assign_read_policy (ec, read_policy))
             goto failed;
 
+    this->itable = inode_table_new (EC_SHD_INODE_LRU_LIMIT, this);
+    if (!this->itable)
+            goto failed;
+
     if (ec->shd.iamshd)
             ec_selfheal_daemon_init (this);
     gf_msg_debug (this->name, 0, "Disperse translator initialized.");
