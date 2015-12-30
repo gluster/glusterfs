@@ -170,3 +170,10 @@ function volinfo_field_2()
 
     $CLI_2 volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
+
+function brick_up_status_1 {
+        local vol=$1
+        local host=$2
+        local brick=$3
+        $CLI_1 volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
+}
