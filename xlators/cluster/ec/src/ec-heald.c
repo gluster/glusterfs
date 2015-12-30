@@ -19,7 +19,6 @@
 #include "syncop-utils.h"
 #include "protocol-common.h"
 
-#define SHD_INODE_LRU_LIMIT          10
 #define ASSERT_LOCAL(this, healer)				        \
         do {                                                            \
                 if (!ec_shd_is_subvol_local (this, healer->subvol)) {	\
@@ -512,10 +511,6 @@ ec_selfheal_daemon_init (xlator_t *this)
 
         ec = this->private;
         shd = &ec->shd;
-
-        this->itable = inode_table_new (SHD_INODE_LRU_LIMIT, this);
-        if (!this->itable)
-                goto out;
 
         shd->index_healers = GF_CALLOC (sizeof(*shd->index_healers),
                                         ec->nodes,

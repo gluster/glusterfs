@@ -24,6 +24,7 @@
 #define EC_XATTR_DIRTY   EC_XATTR_PREFIX"dirty"
 
 #define EC_VERSION_SIZE 2
+#define EC_SHD_INODE_LRU_LIMIT          10
 
 typedef enum {
         EC_ROUND_ROBIN,
