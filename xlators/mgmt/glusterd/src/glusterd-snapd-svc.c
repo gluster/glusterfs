@@ -295,18 +295,19 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                          "--brick-name", snapd_id,
                          "-S", svc->conn.sockpath, NULL);
 
-        snapd_port = volinfo->snapd.port;
+
+        snapd_port = pmap_registry_alloc (THIS);
         if (!snapd_port) {
-                snapd_port = pmap_registry_alloc (THIS);
-                if (!snapd_port) {
-                        snprintf (msg, sizeof (msg), "Could not allocate port "
-                                  "for snapd service for volume %s",
-                                  volinfo->volname);
-                        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
-                        ret = -1;
-                        goto out;
-                }
+                snprintf (msg, sizeof (msg), "Could not allocate port "
+                          "for snapd service for volume %s",
+                          volinfo->volname);
+                runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+                ret = -1;
+                goto out;
         }
+
+        volinfo->snapd.port = snapd_port;
+
         runner_add_arg (&runner, "--brick-port");
         runner_argprintf (&runner, "%d", snapd_port);
         runner_add_arg (&runner, "--xlator-option");
@@ -327,7 +328,6 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                 }
                 synclock_lock (&priv->big_lock);
         }
-        volinfo->snapd.port = snapd_port;
 
 out:
         return ret;
