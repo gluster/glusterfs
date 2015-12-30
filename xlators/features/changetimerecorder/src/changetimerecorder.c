@@ -2441,11 +2441,11 @@ struct volume_options options[] = {
         },
         { .key  = {GFDB_SQL_PARAM_WAL_AUTOCHECK},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "1000"
+          .default_value = "25000"
         },
         { .key  = {GFDB_SQL_PARAM_CACHE_SIZE},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "1000"
+          .default_value = "12500"
         },
         { .key  = {GFDB_SQL_PARAM_PAGE_SIZE},
           .type = GF_OPTION_TYPE_INT,
