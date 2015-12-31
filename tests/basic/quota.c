@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 ssize_t
 nwrite (int fd, const void *buf, size_t count)
