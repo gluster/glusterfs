@@ -61,11 +61,11 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (op_ret == -1) {
-                if (local->linked == _gf_true) {
+                if (local->linked == _gf_true && local->xattr_req) {
                         local->op_errno = op_errno;
                         local->op_ret = op_ret;
                         ret = dht_fill_dict_to_avoid_unlink_of_migrating_file
-                              (local->params);
+                              (local->xattr_req);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         DHT_MSG_DICT_SET_FAILED,
@@ -78,7 +78,7 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     tier_create_unlink_stale_linkto_cbk,
                                     hashed_subvol,
                                     hashed_subvol->fops->unlink,
-                                    &local->loc, 0, local->params);
+                                    &local->loc, 0, local->xattr_req);
                         return 0;
                 }
                 goto out;
@@ -111,8 +111,8 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_linkfile_attr_heal (frame, this);
         }
 out:
-        if (local->params) {
-                dict_del (local->params, TIER_LINKFILE_GFID);
+        if (local->xattr_req) {
+                dict_del (local->xattr_req, TIER_LINKFILE_GFID);
         }
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
@@ -160,25 +160,76 @@ tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         if (local->params) {
                 dict_del (local->params, conf->link_xattr_name);
                 dict_del (local->params, GLUSTERFS_INTERNAL_FOP_KEY);
+        }
 
-                gfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
-                if (!gfid) {
+        /*
+         * We will delete the linkfile if data file creation fails.
+         * When deleting this stale linkfile, there is a possibility
+         * for a race between this linkfile deletion and a stale
+         * linkfile deletion triggered by another lookup from different
+         * client.
+         *
+         * For eg:
+         *
+         *     Client 1                        Client 2
+         *
+         * 1   linkfile created for foo
+         *
+         * 2   data file creation failed
+         *
+         * 3                                   creating a file with same name
+         *
+         * 4                                   lookup before creation deleted
+         *                                     the linkfile created by client1
+         *                                     considering as a stale linkfile.
+         *
+         * 5                                   New linkfile created for foo
+         *                                     with different gfid.
+         *
+         * 6 Trigger linkfile deletion as
+         *   data file creation failed.
+         *
+         * 7 Linkfile deleted which is
+         *   created by client2.
+         *
+         * 8                                   Data file created.
+         *
+         * With this race, we will end up having a file in a non-hashed subvol
+         * without a linkfile in hashed subvol.
+         *
+         * To avoid this, we store the gfid of linkfile created by client, So
+         * If we delete the linkfile , we validate gfid of existing file with
+         * stored value from posix layer.
+         *
+         * Storing this value in local->xattr_req as local->params was also used
+         * to create the data file. During the linkfile deletion we will use
+         * local->xattr_req dictionary.
+         */
+        if (!local->xattr_req) {
+                local->xattr_req = dict_new ();
+                if (!local->xattr_req) {
                         local->op_errno = ENOMEM;
                         op_errno = ENOMEM;
                         goto err;
                 }
+        }
 
-                gf_uuid_copy (gfid, stbuf->ia_gfid);
-                ret = dict_set_dynptr (local->params, TIER_LINKFILE_GFID,
-                                           gfid, sizeof (uuid_t));
-                if (ret) {
-                        GF_FREE (gfid);
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                DHT_MSG_DICT_SET_FAILED,
-                                "Failed to set dictionary value"
-                                " : key = %s", TIER_LINKFILE_GFID);
-                }
+        gfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        if (!gfid) {
+                local->op_errno = ENOMEM;
+                op_errno = ENOMEM;
+                goto err;
+        }
 
+        gf_uuid_copy (gfid, stbuf->ia_gfid);
+        ret = dict_set_dynptr (local->xattr_req, TIER_LINKFILE_GFID,
+                                   gfid, sizeof (uuid_t));
+        if (ret) {
+                GF_FREE (gfid);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value"
+                        " : key = %s", TIER_LINKFILE_GFID);
         }
 
         STACK_WIND (frame, tier_create_cbk,
