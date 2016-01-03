@@ -472,6 +472,9 @@ with_options()
             [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
             fuse_mountopts="${fuse_mountopts}$key=\"$value\""
             ;;
+        x-*)
+            # comments or userspace application-specific options, drop them
+            ;;
         *)
             warn "Invalid option: $key"
             exit 1
@@ -516,10 +519,29 @@ without_options()
          # "mount -t glusterfs" sends this, but it's useless.
         "rw")
             ;;
+         # TODO: not sure how to handle this yet
+        "async"|"sync"|"dirsync"|\
+        "mand"|"nomand"|\
+        "silent"|"loud"|\
+        "iversion"|"noiversion"|\
+        "nofail")
+            warn "mount option '${option}' is not handled (yet?)"
+            ;;
+         # standard mount options to pass to the kernel
+        "atime"|"noatime"|"diratime"|"nodiratime"|\
+        "relatime"|"norelatime"|\
+        "strictatime"|"nostrictatime"|"lazyatime"|"nolazyatime"|\
+        "dev"|"nodev"|"exec"|"noexec"|"suid"|"nosuid")
+            [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
+            fuse_mountopts="${fuse_mountopts}${option}"
+            ;;
          # these ones are interpreted during system initialization
-        "noauto")
+        "auto"|"noauto")
             ;;
         "_netdev")
+            ;;
+        x-*)
+            # comments or userspace application-specific options, drop them
             ;;
         *)
             warn "Invalid option $option";
