@@ -2,8 +2,6 @@
 # RHS-2.0 only
 # - The script mounts the 'meta-vol' on start 'event' on a known
 #   directory (eg. /gluster/lock)
-# - Adds the necessary configuration changes for ctdb in smb.conf and
-#   restarts smb service.
 # - P.S: There are other 'tasks' that need to be done outside this script
 #   to get CTDB based failover up and running.
 
