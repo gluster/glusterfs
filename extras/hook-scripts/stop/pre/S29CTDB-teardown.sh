@@ -1,5 +1,4 @@
 #! /bin/bash
-#non-portable - RHS-2.0 only
 
 CTDB_MNT=/gluster/lock
 PROGNAME="ctdb"

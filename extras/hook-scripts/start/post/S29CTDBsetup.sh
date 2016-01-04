@@ -1,5 +1,5 @@
 #! /bin/bash
-# RHS-2.0 only
+#
 # - The script mounts the 'meta-vol' on start 'event' on a known
 #   directory (eg. /gluster/lock)
 # - P.S: There are other 'tasks' that need to be done outside this script
