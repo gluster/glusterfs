@@ -206,7 +206,6 @@ function is_bad_test ()
               ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
               ./tests/geo-rep/georep-basic-dr-rsync.t \
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
-              ./tests/bugs/replicate/bug-1221481-allow-fops-on-dir-split-brain.t \
               ./tests/bugs/fuse/bug-924726.t \
               ./tests/basic/afr/split-brain-healing.t \
               ./tests/basic/afr/replace-brick-self-heal.t \
