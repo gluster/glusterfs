@@ -356,9 +356,10 @@ int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
         if (conf->decommission_subvols_cnt) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         if (conf->decommissioned_bricks[i] &&
-                            conf->decommissioned_bricks[i] == this)
+                            conf->decommissioned_bricks[i] == this) {
                                 ret = -1;
                                 goto out;
+                        }
                 }
         }
 
