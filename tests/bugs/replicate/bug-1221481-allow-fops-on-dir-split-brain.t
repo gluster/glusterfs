@@ -15,19 +15,16 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 
 TEST mkdir $M0/dir
 TEST touch $M0/dir/file{1..5}
 
-#Create metadata and entry split-brain
+#Create entry split-brain
 TEST kill_brick $V0 $H0 $B0/$V0"1"
-TEST setfattr -n user.attribute -v value1 $M0/dir
 TEST touch $M0/dir/FILE
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_meta $M0 $V0-replicate-0 1
 TEST kill_brick $V0 $H0 $B0/$V0"0"
-TEST setfattr -n user.attribute -v value2 $M0/dir
 TEST touch $M0/dir/FILE
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_meta $M0 $V0-replicate-0 0
 
-TEST ! getfattr $M0/dir
 cd $M0/dir
 EXPECT "6" echo $(ls | wc -l)
 TEST ! cat FILE
