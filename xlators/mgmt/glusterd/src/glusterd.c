@@ -1029,17 +1029,6 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
 }
 
 
-int
-glusterd_uds_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
-                            void *data)
-{
-        /* glusterd_rpcsvc_notify() does stuff that calls coming in from the
-         * unix domain socket don't need. This is just an empty function to be
-         * used for the uds listener. This will be used later if required.
-         */
-        return 0;
-}
-
 /* The glusterd unix domain socket listener only listens for cli */
 rpcsvc_t *
 glusterd_init_uds_listener (xlator_t *this)
@@ -1075,8 +1064,7 @@ glusterd_init_uds_listener (xlator_t *this)
                 goto out;
         }
 
-        ret = rpcsvc_register_notify (rpc, glusterd_uds_rpcsvc_notify,
-                                      this);
+        ret = rpcsvc_register_notify (rpc, glusterd_rpcsvc_notify, this);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "Failed to register notify function");
@@ -1140,8 +1128,7 @@ glusterd_stop_uds_listener (xlator_t *this)
         }
 
         (void) rpcsvc_unregister_notify (conf->uds_rpc,
-                                         glusterd_uds_rpcsvc_notify,
-                                         this);
+                                         glusterd_rpcsvc_notify, this);
 
         sock_data = dict_get (this->options, "glusterd-sockfile");
         if (!sock_data) {
