@@ -813,9 +813,9 @@ wb_fulfill_err (wb_request_t *head, int op_errno)
 	UNLOCK (&wb_inode->lock);
 }
 
+
 void
-__wb_modify_write_request (wb_request_t *req, int synced_size,
-                           int head_total_size)
+__wb_modify_write_request (wb_request_t *req, int synced_size)
 {
         struct iovec *vector = NULL;
         int           count  = 0;
@@ -825,7 +825,6 @@ __wb_modify_write_request (wb_request_t *req, int synced_size,
 
         req->write_size -= synced_size;
         req->stub->args.offset += synced_size;
-        req->total_size = head_total_size;
 
         vector = req->stub->args.vector;
         count = req->stub->args.count;
@@ -838,7 +837,7 @@ out:
 }
 
 int
-__wb_fulfill_short_write (wb_request_t *req, int size, int total_size)
+__wb_fulfill_short_write (wb_request_t *req, int size)
 {
         int accounted_size = 0;
 
@@ -850,7 +849,7 @@ __wb_fulfill_short_write (wb_request_t *req, int size, int total_size)
                 __wb_fulfill_request (req);
         } else {
                 accounted_size = size;
-                __wb_modify_write_request (req, size, total_size);
+                __wb_modify_write_request (req, size);
         }
 
 out:
@@ -860,24 +859,20 @@ out:
 void
 wb_fulfill_short_write (wb_request_t *head, int size)
 {
-        wb_inode_t   *wb_inode   = NULL;
-        wb_request_t *req        = NULL, *tmp = NULL;
-        int           total_size = 0, accounted_size = 0;
+        wb_inode_t   *wb_inode       = NULL;
+        wb_request_t *req            = NULL, *tmp = NULL;
+        int           accounted_size = 0;
 
         if (!head)
                 goto out;
 
         wb_inode = head->wb_inode;
 
-        total_size = head->total_size - size;
-        head->total_size = size;
-
         req = head;
 
         LOCK (&wb_inode->lock);
         {
-                accounted_size = __wb_fulfill_short_write (head, size,
-                                                           total_size);
+                accounted_size = __wb_fulfill_short_write (head, size);
 
                 size -= accounted_size;
 
@@ -885,8 +880,7 @@ wb_fulfill_short_write (wb_request_t *head, int size)
                         goto done;
 
                 list_for_each_entry_safe (req, tmp, &head->winds, winds) {
-                        accounted_size = __wb_fulfill_short_write (req, size,
-                                                                   total_size);
+                        accounted_size = __wb_fulfill_short_write (req, size);
                         size -= accounted_size;
 
                         if (size == 0)
