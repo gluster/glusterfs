@@ -701,7 +701,8 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			continue;
 		}
 
-                if (dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE)) {
+                if (replies[i].xdata &&
+                    dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE)) {
 			data_readable[i] = 0;
 			metadata_readable[i] = 0;
 			continue;
