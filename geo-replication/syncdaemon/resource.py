@@ -670,6 +670,21 @@ class Server(object):
 
             errno_wrap(os.rmdir, [path], [ENOENT, ESTALE])
 
+        def rename_with_disk_gfid_confirmation(gfid, entry, en):
+            if not matching_disk_gfid(gfid, entry):
+                logging.error("RENAME ignored: "
+                              "source entry:%s(gfid:%s) does not match with "
+                              "on-disk gfid(%s), when attempting to rename "
+                              "to %s" %
+                              (entry, gfid, cls.gfid_mnt(entry), en))
+                return
+
+            cmd_ret = errno_wrap(os.rename,
+                                 [entry, en],
+                                 [ENOENT, EEXIST], [ESTALE])
+            collect_failure(e, cmd_ret)
+
+
         for e in entries:
             blob = None
             op = e['op']
@@ -738,10 +753,15 @@ class Server(object):
                             (pg, bname) = entry2pb(en)
                             blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
-                    cmd_ret = errno_wrap(os.rename,
-                                         [entry, en],
-                                         [ENOENT, EEXIST], [ESTALE])
-                    collect_failure(e, cmd_ret)
+                    st1 = lstat(en)
+                    if isinstance(st1, int):
+                        rename_with_disk_gfid_confirmation(gfid, entry, en)
+                    else:
+                        if st.st_ino == st1.st_ino:
+                            # we have a hard link, we can now unlink source
+                            os.unlink(entry)
+                        else:
+                            rename_with_disk_gfid_confirmation(gfid, entry, en)
             if blob:
                 cmd_ret = errno_wrap(Xattr.lsetxattr,
                                      [pg, 'glusterfs.gfid.newfile', blob],
