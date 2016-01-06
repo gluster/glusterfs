@@ -1641,6 +1641,7 @@ up_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 op_errno = ENOMEM;
                 goto err;
         }
+        dict_unref (xattr);
 
 out:
         STACK_WIND (frame, up_setxattr_cbk, FIRST_CHILD(this),
@@ -1650,6 +1651,8 @@ out:
         return 0;
 
 err:
+        if (xattr)
+                dict_unref (xattr);
         UPCALL_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
 
         return 0;
@@ -1719,6 +1722,7 @@ up_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 op_errno = ENOMEM;
                 goto err;
         }
+        dict_unref (xattr);
 
 out:
         STACK_WIND (frame, up_fsetxattr_cbk,
@@ -1728,6 +1732,8 @@ out:
         return 0;
 
 err:
+        if (xattr)
+                dict_unref (xattr);
         UPCALL_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
 
         return 0;
@@ -2010,13 +2016,8 @@ upcall_local_wipe (xlator_t *this, upcall_local_t *local)
 {
         if (local) {
                 inode_unref (local->inode);
-                if (local->xattr) {
-                        /* There will be 2 refs at this point, hence dict_destroy:
-                         * 1. taken by dict_copy_with_ref
-                         * 2. taken by upcall_local_init ()
-                         */
-                        dict_destroy (local->xattr);
-                }
+                if (local->xattr)
+                        dict_unref (local->xattr);
                 loc_wipe (&local->rename_oldloc);
                 loc_wipe (&local->loc);
                 if (local->fd)

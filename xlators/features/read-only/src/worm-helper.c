@@ -62,7 +62,7 @@ worm_init_state (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr)
                                        NULL);
 out:
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         return ret;
 }
 
@@ -283,7 +283,7 @@ gf_worm_set_xattr (xlator_t *this, worm_reten_state_t *reten_state,
                                        NULL);
 out:
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         return ret;
 }
 

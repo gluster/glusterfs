@@ -3282,7 +3282,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         fuse_resolve_inode_init (state, &state->resolve, finh->nodeid);
 
-        state->xattr = get_new_dict ();
+        state->xattr = dict_new ();
         if (!state->xattr) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRIu64": SETXATTR dict allocation failed",
@@ -3312,7 +3312,6 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
         dict_set (state->xattr, newkey,
                   data_from_dynptr ((void *)dict_value, fsi->size));
-        dict_ref (state->xattr);
 
         state->flags = fsi->flags;
         state->name = newkey;

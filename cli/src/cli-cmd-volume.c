@@ -594,7 +594,7 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         if (ret) {
                 cli_cmd_sent_status_get (&sent);

@@ -498,7 +498,7 @@ out:
         cli_cmd_broadcast_response (ret);
 
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -1067,7 +1067,7 @@ out:
         cli_cmd_broadcast_response (ret);
 
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         free (rsp.dict.dict_val);
 

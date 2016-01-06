@@ -113,7 +113,6 @@ int32_t dict_unserialize (char *buf, int32_t size, dict_t **fill);
 
 int32_t dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length);
 
-void dict_destroy (dict_t *dict);
 void dict_unref (dict_t *dict);
 dict_t *dict_ref (dict_t *dict);
 data_t *data_ref (data_t *data);
@@ -154,11 +153,7 @@ char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);
 
-data_t *get_new_data (void);
 data_t * data_copy (data_t *old);
-dict_t *get_new_dict_full (int size_hint);
-dict_t *get_new_dict (void);
-
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,
                             char *key,
@@ -191,6 +186,7 @@ int dict_null_foreach_fn (dict_t *d, char *k,
 int dict_remove_foreach_fn (dict_t *d, char *k,
                             data_t *v, void *tmp);
 dict_t *dict_copy (dict_t *this, dict_t *new);
+dict_t *get_new_dict (void);
 int dict_keys_join (void *value, int size, dict_t *dict,
                     int (*filter_fn)(char *key));
 

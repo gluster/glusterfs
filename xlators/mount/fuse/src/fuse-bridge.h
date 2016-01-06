@@ -257,7 +257,6 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                                                 GF_LOG_WARNING,         \
                                                 "%s Failed adding umask"\
                                                 " to request", op);     \
-                                        dict_destroy (state->xdata);    \
                                         send_fuse_err (this, finh, ENOMEM); \
                                         free_fuse_state (state);        \
                                         return;                         \
@@ -269,7 +268,6 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                                                 GF_LOG_WARNING,         \
                                                 "%s Failed adding mode " \
                                                 "to request", op);         \
-                                        dict_destroy (state->xdata);    \
                                         send_fuse_err (this, finh, ENOMEM); \
                                         free_fuse_state (state);        \
                                         return;                         \

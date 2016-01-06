@@ -4047,7 +4047,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                         if (ret)
                                                 goto out;
                                 }
-                                dict_destroy (req_dict);
+                                dict_unref (req_dict);
                                 req_dict = dict_ref (dict);
                         }
                         break;
@@ -4073,7 +4073,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                         goto out;
                                 }
 
-                                dict_destroy (req_dict);
+                                dict_unref (req_dict);
                                 req_dict = dict_ref (dict);
                         }
                         break;

@@ -66,7 +66,7 @@ cli_cmd_getspec_cbk (struct cli_state *state, struct cli_cmd_word *word,
 out:
         if (!proc && ret) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
                 if (wordcount > 1)
                         cli_out ("Fetching spec for volume %s failed",
                                  (char *)words[2]);
@@ -109,7 +109,7 @@ cli_cmd_pmap_b2p_cbk (struct cli_state *state, struct cli_cmd_word *word,
 out:
         if (!proc && ret) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
                 if (wordcount > 1)
                         cli_out ("Fetching spec for volume %s failed",
                                  (char *)words[3]);
@@ -188,7 +188,7 @@ make_seq_dict (int argc, char **argv)
         }
 
         if (ret) {
-                dict_destroy (dict);
+                dict_unref (dict);
                 dict = NULL;
         }
 

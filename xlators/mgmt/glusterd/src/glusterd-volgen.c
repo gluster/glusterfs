@@ -93,7 +93,7 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         ret = xlator_set_type_virtual (xl, type);
         if (ret)
                 goto error;
-        xl->options = get_new_dict();
+        xl->options = dict_new ();
         if (!xl->options)
                 goto error;
         xl->name = volname;
@@ -1065,7 +1065,7 @@ build_graph_generic (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int ret = 0;
 
         if (mod_dict) {
-                set_dict = dict_copy (volinfo->dict, NULL);
+                set_dict = dict_copy_with_ref (volinfo->dict, NULL);
                 if (!set_dict)
                         return -1;
                  dict_copy (mod_dict, set_dict);
@@ -1079,7 +1079,7 @@ build_graph_generic (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = volgen_graph_set_options (graph, set_dict);
 
         if (mod_dict)
-                dict_destroy (set_dict);
+                dict_unref (set_dict);
 
         return ret;
 }
@@ -4798,7 +4798,7 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
                 return 0;
         }
 
-        set_dict = dict_copy (volinfo->dict, NULL);
+        set_dict = dict_copy_with_ref (volinfo->dict, NULL);
         if (!set_dict)
                 return -1;
 
@@ -4840,7 +4840,7 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
 out:
         volgen_graph_free (&graph);
 
-        dict_destroy (set_dict);
+        dict_unref (set_dict);
 
         return ret;
 }
@@ -5106,7 +5106,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
  out:
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
-        dict_destroy (set_dict);
+        dict_unref (set_dict);
 
         return ret;
 }
