@@ -680,7 +680,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
         conf = this->private;
 
-        xattr = get_new_dict ();
+        xattr = dict_new ();
         if (!xattr) {
                 goto err;
         }
@@ -726,7 +726,6 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                         "Directory self heal xattr failed:"
                         "%s: (subvol %s) Failed to set xattr dictionary,"
                         " gfid = %s", loc->path, subvol->name, gfid);
-                GF_FREE (disk_layout);
                 goto err;
         }
         disk_layout = NULL;
@@ -736,7 +735,6 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                       " for %s", layout->list[i].start, layout->list[i].stop,
                       layout->type, subvol->name, loc->path);
 
-        dict_ref (xattr);
         if (local->xattr) {
                 data = dict_get (local->xattr, QUOTA_LIMIT_KEY);
                 if (data) {
@@ -776,7 +774,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
 
 err:
         if (xattr)
-                dict_destroy (xattr);
+                dict_unref (xattr);
 
         if (xdata)
                 dict_unref (xdata);
@@ -2411,7 +2409,7 @@ dht_update_commit_hash_for_layout_resume (call_frame_t *frame, void *cookie,
                         goto err;
                 }
 
-                xattr[i] = get_new_dict ();
+                xattr[i] = dict_new ();
                 if (!xattr[i]) {
                         local->op_errno = errno;
 
@@ -2452,22 +2450,22 @@ dht_update_commit_hash_for_layout_resume (call_frame_t *frame, void *cookie,
         local->op_ret = 0;
         local->op_errno = 0;
         for (i = 0; i < count; i++) {
-                dict_ref (xattr[i]);
-
                 STACK_WIND (frame, dht_update_commit_hash_for_layout_cbk,
                             conf->local_subvols[i],
                             conf->local_subvols[i]->fops->setxattr,
                             &local->loc, xattr[i], 0, NULL);
 
-                dict_unref (xattr[i]);
         }
+        for (i = 0; i < count; i++)
+                dict_unref (xattr[i]);
+        GF_FREE (xattr);
 
         return 0;
 err:
         if (xattr) {
                 for (i = 0; i < count; i++) {
                         if (xattr[i])
-                                dict_destroy (xattr[i]);
+                                dict_unref (xattr[i]);
                 }
 
                 GF_FREE (xattr);

@@ -576,7 +576,7 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 
         ret = dict_set_int32 (xattr, GF_GFIDLESS_LOOKUP, 1);
         if (ret) {
-                dict_destroy (xattr);
+                dict_unref (xattr);
                 return -1;
         }
 

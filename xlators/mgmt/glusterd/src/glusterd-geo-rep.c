@@ -1982,7 +1982,7 @@ is_geo_rep_active (glusterd_volinfo_t *volinfo, char *slave,
         ret = 0;
 out:
         if (confd)
-                dict_destroy (confd);
+                dict_unref (confd);
         return ret;
 }
 
@@ -2621,7 +2621,7 @@ fetch_data:
         }
 
         if (confd)
-                dict_destroy (confd);
+                dict_unref (confd);
 
         gf_msg_debug (this->name, 0, "Returning %d ", ret);
         return ret;

@@ -235,7 +235,7 @@ dht_fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
-                dict_destroy(conf->leaf_to_subvol);
+                dict_unref(conf->leaf_to_subvol);
 
                 GF_FREE (conf->subvolumes);
 

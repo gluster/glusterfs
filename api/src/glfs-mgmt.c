@@ -313,7 +313,7 @@ out:
         }
 
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);

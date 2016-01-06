@@ -864,11 +864,11 @@ jbr_getxattr_special (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         STACK_UNWIND_STRICT (getxattr, frame, 0, 0, result, NULL);
-        dict_destroy(result);
+        dict_unref(result);
         return 0;
 
 dsu_failed:
-        dict_destroy(result);
+        dict_unref(result);
 dn_failed:
         STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM, NULL, NULL);
         return 0;

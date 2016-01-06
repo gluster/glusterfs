@@ -433,7 +433,7 @@ out:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent, xdata);
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         return ret;
 }
 

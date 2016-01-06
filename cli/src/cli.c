@@ -575,7 +575,7 @@ cli_quotad_clnt_rpc_init (void)
 out:
         if (ret) {
                 if (rpc_opts)
-                        dict_destroy(rpc_opts);
+                        dict_unref(rpc_opts);
         }
         return rpc;
 }

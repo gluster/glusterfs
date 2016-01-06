@@ -740,7 +740,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse create volume CLI");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         GF_FREE (trans_type);
@@ -816,7 +816,7 @@ cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **options)
 
 out:
         if (ret && dict) {
-                dict_destroy (dict);
+                dict_unref (dict);
         }
 
                 return ret;
@@ -978,7 +978,7 @@ cli_cmd_inode_quota_parse (const char **words, int wordcount, dict_t **options)
 out:
         if (ret < 0) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;
@@ -1317,7 +1317,7 @@ set_type:
 out:
         if (ret < 0) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;
@@ -1570,8 +1570,8 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
         *options = dict;
 
 out:
-        if (ret)
-                dict_destroy (dict);
+        if (ret && dict)
+                dict_unref (dict);
 
         return ret;
 }
@@ -1711,7 +1711,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse add-brick CLI");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;
@@ -1790,7 +1790,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse tier CLI");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;
@@ -2019,7 +2019,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse remove-brick CLI");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         GF_FREE (tmp_brick);
@@ -2112,7 +2112,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse replace-brick CLI");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;
@@ -2173,7 +2173,7 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
 
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -2230,7 +2230,7 @@ cli_cmd_log_level_parse (const char **words, int worcount, dict_t **options)
 
  out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -2281,7 +2281,7 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
 
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -2335,7 +2335,7 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
 
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -2757,7 +2757,7 @@ out:
                 GF_FREE (slave_temp);
         if (ret) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         } else
                 *options = dict;
 
@@ -2854,7 +2854,7 @@ cli_cmd_volume_profile_parse (const char **words, int wordcount,
         *options = dict;
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         return ret;
 }
 
@@ -3043,7 +3043,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         *options = dict;
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         return ret;
 }
 
@@ -3256,7 +3256,7 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
 
  out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -3318,7 +3318,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         *options = dict;
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         if (ret)
                 gf_log ("cli", GF_LOG_ERROR, "Error parsing dumpoptions");
         return ret;
@@ -3794,7 +3794,7 @@ done:
 
 out:
         if (ret && dict)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }
@@ -5118,7 +5118,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
 out:
         if (ret) {
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         } else
                 *options = dict;
 
@@ -5373,7 +5373,7 @@ out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse bitrot command");
                 if (dict)
-                        dict_destroy (dict);
+                        dict_unref (dict);
         }
 
         return ret;

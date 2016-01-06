@@ -1132,13 +1132,13 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
                 dict_copy (xattr, xattr_req);
 
 	if (afr_xattr_req_prepare (frame->this, xattr_req) != 0) {
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 		return NULL;
 	}
 
 	inode = inode_new (parent->table);
 	if (!inode) {
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 		return NULL;
 	}
 
@@ -1176,7 +1176,7 @@ afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
 		return -ENOMEM;
 
 	if (afr_xattr_req_prepare (frame->this, xattr_req) != 0) {
-		dict_destroy (xattr_req);
+		dict_unref (xattr_req);
 		return -ENOMEM;
 	}
 
