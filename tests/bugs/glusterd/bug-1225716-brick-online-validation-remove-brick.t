@@ -23,6 +23,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 #remove-brick start should succeed as the brick is up
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 start
 
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}1"
+
 #kill a brick process
 kill -15 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
