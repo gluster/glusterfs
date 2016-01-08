@@ -1111,7 +1111,8 @@ _afr_handle_replace_brick_type (xlator_t *this, call_frame_t *frame,
         }
 
         if (!count) {
-                gf_log (this->name, GF_LOG_ERROR, "Couldn't acquire lock on"
+                gf_msg (this->name, GF_LOG_ERROR, EAGAIN,
+                        AFR_MSG_REPLACE_BRICK_STATUS, "Couldn't acquire lock on"
                         " any child.");
                 ret = -EAGAIN;
                 goto unlock;
@@ -1169,8 +1170,8 @@ _afr_handle_replace_brick (void *opaque)
 
         loc_copy (&local->loc, &data->loc);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Child being replaced is : %s",
-                priv->children[rb_index]->name);
+        gf_msg_debug (this->name, 0, "Child being replaced is : %s",
+                      priv->children[rb_index]->name);
 
         ret = _afr_handle_replace_brick_type (this, frame, &local->loc, rb_index,
                                               AFR_METADATA_TRANSACTION);
@@ -1420,9 +1421,10 @@ afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
 
         if (!ret) {
                 if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
-                        gf_log (this->name, GF_LOG_ERROR, "'%s' is an internal"
-                                " extended attribute : %s.",
-                                GF_AFR_REPLACE_BRICK, strerror (EPERM));
+                        gf_msg (this->name, GF_LOG_ERROR, EPERM,
+                                AFR_MSG_REPLACE_BRICK_STATUS, "'%s' is an "
+                                "internal extended attribute",
+                                GF_AFR_REPLACE_BRICK);
                         ret = 1;
                         goto out;
                 }
