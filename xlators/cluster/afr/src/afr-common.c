@@ -479,8 +479,9 @@ afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode)
         {
                 __afr_inode_ctx_get (this, inode, &ctx);
                 if (!ctx) {
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to cancel"
-                                " split-brain choice timer.");
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
+                                "Failed to cancel split-brain choice timer.");
                         goto out;
                 }
                 ctx->spb_choice = -1;
@@ -535,7 +536,8 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
                 goto out;
 
         if (!(data->d_spb || data->m_spb)) {
-                gf_log (this->name, GF_LOG_WARNING, "Cannot set "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR, "Cannot set "
                         "replica.split-brain-choice on %s. File is"
                         " not in data/metadata split-brain.",
                         uuid_utoa (loc->gfid));
@@ -548,8 +550,9 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
         {
                 ret = __afr_inode_ctx_get (this, inode, &ctx);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
-                                "inode_ctx for %s", loc->name);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
+                                "Failed to get inode_ctx for %s", loc->name);
                         goto unlock;
                 }
 
