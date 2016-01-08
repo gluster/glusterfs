@@ -735,9 +735,9 @@ afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
                 if (++curr_call_child == priv->child_count)
                         goto unwind;
 
-                gf_log (this->name, GF_LOG_WARNING,
-                        "op_ret (-1): Re-querying afr-child (%d/%d)",
-                        curr_call_child, priv->child_count);
+                gf_msg_debug (this->name, op_errno,
+                              "op_ret (-1): Re-querying afr-child (%d/%d)",
+                              curr_call_child, priv->child_count);
 
                 unwind = 0;
                 STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
