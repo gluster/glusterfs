@@ -197,7 +197,7 @@ BuildRequires:    python-simplejson
 BuildRequires:    systemd-units
 %endif
 
-Requires:         %{name}-libs = %{version}-%{release}
+Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 BuildRequires:    bison flex
 BuildRequires:    gcc make automake libtool
 BuildRequires:    ncurses-devel readline-devel
@@ -254,8 +254,8 @@ and client framework.
 %package api
 Summary:          GlusterFS api library
 Group:            System Environment/Daemons
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-client-xlators = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
 #Provides:         python-gluster = %{version}-%{release}
 
@@ -273,8 +273,8 @@ This package provides the glusterfs libgfapi library.
 %package api-devel
 Summary:          Development Libraries
 Group:            Development/Libraries
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-devel = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-devel%{?_isa} = %{version}-%{release}
 Requires:         libacl-devel
 
 %description api-devel
@@ -291,7 +291,7 @@ This package provides the api include files.
 %package cli
 Summary:          GlusterFS CLI
 Group:            Applications/File
-Requires:         %{name}-libs = %{version}-%{release}
+Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 
 %description cli
 GlusterFS is a distributed file-system capable of scaling to several
@@ -307,9 +307,9 @@ This package provides the GlusterFS CLI application and its man page
 %package devel
 Summary:          Development Libraries
 Group:            Development/Libraries
-Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
 # Needed for the Glupy examples to work
-Requires:         %{name}-extra-xlators = %{version}-%{release}
+Requires:         %{name}-extra-xlators%{?_isa} = %{version}-%{release}
 
 %description devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -348,8 +348,8 @@ Group:            Applications/File
 BuildRequires:    fuse-devel
 Requires:         attr
 
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-client-xlators = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -370,7 +370,7 @@ glusterfs(d) binary.
 Summary:          NFS-Ganesha configuration
 Group:            Applications/File
 
-Requires:         %{name}-server = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         nfs-ganesha-gluster
 Requires:         pcs, /usr/bin/dbus-send
 
@@ -390,8 +390,8 @@ NFS-Ganesha as the NFS server using GlusterFS
 %package geo-replication
 Summary:          GlusterFS Geo-replication
 Group:            Applications/File
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-server = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         python python-ctypes
 Requires:         rsync
 
@@ -458,7 +458,7 @@ Summary:          GlusterFS rdma support for ib-verbs
 Group:            Applications/File
 BuildRequires:    libibverbs-devel
 BuildRequires:    librdmacm-devel >= 1.0.15
-Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
 
 %description rdma
 GlusterFS is a distributed file-system capable of scaling to several
@@ -475,9 +475,9 @@ This package provides support to ib-verbs library.
 %package regression-tests
 Summary:          Development Tools
 Group:            Development/Tools
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-fuse = %{version}-%{release}
-Requires:         %{name}-server = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 ## thin provisioning support
 Requires:         lvm2 >= 2.02.89
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng
@@ -503,7 +503,7 @@ Group:            System Environment/Base
 Group:            Productivity/Clustering/HA
 %endif
 # for glusterd
-Requires:         %{name}-server
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 # depending on the distribution, we need pacemaker or resource-agents
 Requires:         %{_prefix}/lib/ocf/resource.d
 
@@ -524,13 +524,14 @@ like Pacemaker.
 %package server
 Summary:          Clustered file-system server
 Group:            System Environment/Daemons
-Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-libs = %{version}-%{release}
-Requires:         %{name}-cli = %{version}-%{release}
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-cli%{?_isa} = %{version}-%{release}
+Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 # some daemons (like quota) use a fuse-mount, glusterfsd is part of -fuse
-Requires:         %{name}-fuse = %{version}-%{release}
+Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
-Requires:         %{name}-client-xlators = %{version}-%{release}
+Requires:         %{name}-api%{?_isa} = %{version}-%{release}
+Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
 # psmisc for killall, lvm2 for snapshot, and nfs-utils and
 # rpcbind/portmap for gnfs server
 Requires:         psmisc
@@ -1216,6 +1217,9 @@ fi
 
 
 %changelog
+* Sat Jan 16 2016 Niels de Vos <ndevos@redhat.com>
+- glusterfs-server depends on -api (#1296931)
+
 * Sun Jan 10 2016 Niels de Vos <ndevos@redhat.com>
 - build system got fixed so that special glupy build is not needed anymore
 
@@ -1261,7 +1265,6 @@ fi
 
 * Mon May 18 2015 Milind Changire <mchangir@redhat.com>
 - Move file peer_add_secret_pub to the server RPM to support glusterfind (#1221544)
-
 * Sun May 17 2015 Niels de Vos <ndevos@redhat.com>
 - Fix building on RHEL-5 based distributions (#1222317)
 
@@ -1273,9 +1276,6 @@ fi
 
 * Sat Mar 28 2015 Mohammed Rafi KC <rkavunga@redhat.com>
 - Add dependency for librdmacm version >= 1.0.15 (#1206744)
-
-* Thu Mar 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
-- attr dependency (#1174627)
 
 * Tue Mar 24 2015 Niels de Vos <ndevos@redhat.com>
 - move libgfdb (with sqlite dependency) to -server subpackage (#1194753)
@@ -1364,6 +1364,9 @@ fi
 
 * Wed Apr 02 2014 Arumugam Balamurugan <barumuga@redhat.com>
 - add version/release dynamically (#1074919)
+
+* Thu Mar 26 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- attr dependency (#1184626)
 
 * Wed Mar 26 2014 Poornima G <pgurusid@redhat.com>
 - Include the hook scripts of add-brick, volume start, stop and set
