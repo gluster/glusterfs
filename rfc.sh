@@ -9,7 +9,7 @@ while getopts "v" opt; do
     case $opt in
         v)
             # Verbose mode
-            function git () { >&2 echo "git $@" && `which git` $@; }
+            git () { >&2 echo "git $@" && `which git` $@; }
             ;;
     esac
 done
