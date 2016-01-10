@@ -663,7 +663,8 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 
 
 int
-afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
+afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                       gf_boolean_t *start_heal)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -734,6 +735,13 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		}
 	}
 
+	for (i = 0; i < priv->child_count; i++) {
+                if (start_heal && priv->child_up[i] &&
+                    (!data_readable[i] || !metadata_readable[i])) {
+                        *start_heal = _gf_true;
+                        break;
+                }
+        }
 	afr_inode_read_subvol_set (inode, this, data_readable,
 				   metadata_readable, event_generation);
 	return ret;
@@ -772,36 +780,6 @@ ret:
 	return -err;
 }
 
-
-int
-afr_refresh_selfheal_wrap (void *opaque)
-{
-	call_frame_t *frame = opaque;
-	afr_local_t *local = NULL;
-	xlator_t *this = NULL;
-	int err = 0;
-
-	local = frame->local;
-	this = frame->this;
-
-	afr_selfheal (frame->this, local->refreshinode->gfid);
-
-	afr_selfheal_unlocked_discover (frame, local->refreshinode,
-					local->refreshinode->gfid,
-					local->replies);
-
-	afr_replies_interpret (frame, this, local->refreshinode);
-
-	err = afr_inode_refresh_err (frame, this);
-
-        afr_local_replies_wipe (local, this->private);
-
-	local->refreshfn (frame, this, err);
-
-	return 0;
-}
-
-
 gf_boolean_t
 afr_selfheal_enabled (xlator_t *this)
 {
@@ -817,35 +795,43 @@ afr_selfheal_enabled (xlator_t *this)
 	return data || priv->metadata_self_heal || priv->entry_self_heal;
 }
 
-
 int
 afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 {
-	call_frame_t *heal = NULL;
+	call_frame_t *heal_frame = NULL;
 	afr_local_t *local = NULL;
+        gf_boolean_t start_heal = _gf_false;
+        afr_local_t *heal_local = NULL;
+        int op_errno = ENOMEM;
 	int ret = 0;
 	int err = 0;
 
 	local = frame->local;
 
-	ret = afr_replies_interpret (frame, this, local->refreshinode);
+	ret = afr_replies_interpret (frame, this, local->refreshinode,
+                                     &start_heal);
 
 	err = afr_inode_refresh_err (frame, this);
 
         afr_local_replies_wipe (local, this->private);
 
-	if (ret && afr_selfheal_enabled (this)) {
-		heal = copy_frame (frame);
-		if (heal)
-			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
-		ret = synctask_new (this->ctx->env, afr_refresh_selfheal_wrap,
-				    afr_refresh_selfheal_done, heal, frame);
-		if (ret)
-			goto refresh_done;
-	} else {
-	refresh_done:
-		local->refreshfn (frame, this, err);
-	}
+	if (ret && afr_selfheal_enabled (this) && start_heal) {
+                heal_frame = copy_frame (frame);
+                if (!heal_frame)
+                        goto refresh_done;
+                heal_frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
+                heal_local = AFR_FRAME_INIT (heal_frame, op_errno);
+                if (!heal_local) {
+                        AFR_STACK_DESTROY (heal_frame);
+                        goto refresh_done;
+                }
+                heal_local->refreshinode = inode_ref (local->refreshinode);
+                heal_local->heal_frame = heal_frame;
+                afr_throttled_selfheal (heal_frame, this);
+        }
+
+refresh_done:
+        local->refreshfn (frame, this, err);
 
 	return 0;
 }
@@ -1758,7 +1744,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		*/
                 gf_uuid_copy (args.gfid, read_gfid);
                 args.ia_type = ia_type;
-		if (afr_replies_interpret (frame, this, local->inode)) {
+		if (afr_replies_interpret (frame, this, local->inode, NULL)) {
                         read_subvol = afr_read_subvol_decide (local->inode,
                                                               this, &args);
 			afr_inode_read_subvol_reset (local->inode, this);
@@ -2214,7 +2200,7 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
                 goto unwind;
 	}
 
-	afr_replies_interpret (frame, this, local->inode);
+	afr_replies_interpret (frame, this, local->inode, NULL);
 
 	read_subvol = afr_read_subvol_decide (local->inode, this, NULL);
 	if (read_subvol == -1) {
@@ -3863,6 +3849,12 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
         gf_proc_dump_write("quorum-reads", "%d", priv->quorum_reads);
+        gf_proc_dump_write("heal-wait-queue-length", "%d",
+                           priv->heal_wait_qlen);
+        gf_proc_dump_write("heal-waiters", "%d", priv->heal_waiters);
+        gf_proc_dump_write("background-self-heal-count", "%d",
+                           priv->background_self_heal_count);
+        gf_proc_dump_write("healers", "%d", priv->healers);
 
         return 0;
 }
@@ -4169,6 +4161,7 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 		goto out;
 	}
 
+        INIT_LIST_HEAD (&local->healer);
 	return 0;
 out:
         return -1;

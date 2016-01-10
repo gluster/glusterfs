@@ -124,6 +124,10 @@ reconfigure (xlator_t *this, dict_t *options)
                           priv->background_self_heal_count, options, uint32,
                           out);
 
+        GF_OPTION_RECONF ("heal-wait-queue-length",
+                          priv->heal_wait_qlen, options, uint32, out);
+
+
         GF_OPTION_RECONF ("metadata-self-heal",
                           priv->metadata_self_heal, options, bool, out);
 
@@ -275,6 +279,8 @@ init (xlator_t *this)
         priv->read_child = -1;
 
         GF_OPTION_INIT ("arbiter-count", priv->arbiter_count, uint32, out);
+        INIT_LIST_HEAD (&priv->healing);
+        INIT_LIST_HEAD (&priv->heal_waiting);
 
         priv->spb_choice_timeout = AFR_DEFAULT_SPB_CHOICE_TIMEOUT;
 
@@ -326,6 +332,9 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("background-self-heal-count",
                         priv->background_self_heal_count, uint32, out);
+
+        GF_OPTION_INIT ("heal-wait-queue-length",
+                        priv->heal_wait_qlen, uint32, out);
 
         GF_OPTION_INIT ("data-self-heal", priv->data_self_heal, str, out);
 
@@ -599,10 +608,21 @@ struct volume_options options[] = {
         { .key  = {"background-self-heal-count"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
-          .default_value = "16",
+          .max  = 256,
+          .default_value = "8",
           .validate = GF_OPT_VALIDATE_MIN,
-          .description = "This specifies the number of self-heals that can be "
-                         " performed in background without blocking the fop"
+          .description = "This specifies the number of per client self-heal "
+                         "jobs that can perform parallel heals in the "
+                         "background."
+        },
+        { .key  = {"heal-wait-queue-length"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .max  = 10000, /*Around 100MB with sizeof(afr_local_t)= 10496 bytes*/
+          .default_value = "128",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "This specifies the number of heals that can be queued"
+                         " for the parallel background self heal jobs."
         },
         { .key  = {"data-self-heal"},
           .type = GF_OPTION_TYPE_STR,

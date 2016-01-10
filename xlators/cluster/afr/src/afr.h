@@ -69,8 +69,17 @@ typedef struct _afr_private {
         unsigned int data_self_heal_window_size;  /* max number of pipelined
                                                      read/writes */
 
-        unsigned int background_self_heal_count;
-        unsigned int background_self_heals_started;
+        struct list_head heal_waiting; /*queue for files that need heal*/
+        uint32_t  heal_wait_qlen; /*configurable queue length for heal_waiting*/
+        int32_t  heal_waiters; /* No. of elements currently in wait queue.*/
+
+        struct list_head healing;/* queue for files that are undergoing
+                                    background heal*/
+        uint32_t  background_self_heal_count;/*configurable queue length for
+                                               healing queue*/
+        int32_t  healers;/* No. of elements currently undergoing background
+                          heal*/
+
         gf_boolean_t metadata_self_heal;   /* on/off */
         gf_boolean_t entry_self_heal;      /* on/off */
 
@@ -122,12 +131,14 @@ typedef struct _afr_private {
 
 	afr_self_heald_t       shd;
 
-	/* pump dependencies */
-	void                   *pump_private;
-	gf_boolean_t           use_afr_in_pump;
         gf_boolean_t           consistent_metadata;
         uint64_t               spb_choice_timeout;
         gf_boolean_t           need_heal;
+
+	/* pump dependencies */
+	void                   *pump_private;
+	gf_boolean_t           use_afr_in_pump;
+
 } afr_private_t;
 
 
@@ -740,6 +751,10 @@ typedef struct _afr_local {
         int             xflag;
         gf_boolean_t    do_discovery;
 	struct afr_reply *replies;
+
+        /* For  client side background heals. */
+        struct list_head healer;
+        call_frame_t *heal_frame;
 } afr_local_t;
 
 
@@ -891,7 +906,8 @@ int
 afr_locked_nodes_count (unsigned char *locked_nodes, int child_count);
 
 int
-afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode);
+afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                       gf_boolean_t *start_heal);
 
 void
 afr_local_replies_wipe (afr_local_t *local, afr_private_t *priv);
