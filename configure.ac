@@ -1206,7 +1206,7 @@ case $host_os in
 esac
 
 if test "x$BUILD_GLUPY" = "xyes"; then
-   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'`
+   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix='$prefix'))"`
    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
    BUILD_PYTHON_LIB=python$PYTHON_VERSION
    GLUPY_SUBDIR=glupy
