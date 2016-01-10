@@ -15,6 +15,9 @@
 #include "protocol-common.h"
 #include "afr-messages.h"
 
+void
+afr_heal_synctask (xlator_t *this, afr_local_t *local);
+
 int
 afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			  int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
@@ -1421,4 +1424,111 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 		AFR_STACK_DESTROY (frame);
 
 	return ret;
+}
+
+afr_local_t*
+__afr_dequeue_heals (afr_private_t *priv)
+{
+        afr_local_t *local = NULL;
+
+        if (list_empty (&priv->heal_waiting))
+                goto none;
+        if ((priv->background_self_heal_count > 0) &&
+            (priv->healers >= priv->background_self_heal_count))
+                goto none;
+
+        local = list_entry (priv->heal_waiting.next, afr_local_t, healer);
+        priv->heal_waiters--;
+        GF_ASSERT (priv->heal_waiters >= 0);
+        list_del_init(&local->healer);
+        list_add(&local->healer, &priv->healing);
+        priv->healers++;
+        return local;
+none:
+        gf_msg_debug (THIS->name, 0, "Nothing dequeued. "
+                      "Num healers: %d, Num Waiters: %d",
+                      priv->healers, priv->heal_waiters);
+        return NULL;
+}
+
+int
+afr_refresh_selfheal_wrap (void *opaque)
+{
+        call_frame_t *heal_frame = opaque;
+        afr_local_t *local = heal_frame->local;
+        int ret = 0;
+
+        ret = afr_selfheal (heal_frame->this, local->refreshinode->gfid);
+        return ret;
+}
+
+int
+afr_refresh_heal_done (int ret, call_frame_t *frame, void *opaque)
+{
+        call_frame_t *heal_frame = opaque;
+        xlator_t *this = heal_frame->this;
+        afr_private_t *priv = this->private;
+        afr_local_t *local = heal_frame->local;
+
+        LOCK (&priv->lock);
+        {
+                list_del_init(&local->healer);
+                priv->healers--;
+                GF_ASSERT (priv->healers >= 0);
+                local = __afr_dequeue_heals (priv);
+        }
+        UNLOCK (&priv->lock);
+
+        if (heal_frame)
+                AFR_STACK_DESTROY (heal_frame);
+
+        if (local)
+                afr_heal_synctask (this, local);
+        return 0;
+
+}
+
+void
+afr_heal_synctask (xlator_t *this, afr_local_t *local)
+{
+        int ret = 0;
+        call_frame_t *heal_frame = NULL;
+
+        heal_frame = local->heal_frame;
+        ret = synctask_new (this->ctx->env, afr_refresh_selfheal_wrap,
+                            afr_refresh_heal_done, heal_frame, heal_frame);
+        if (ret < 0)
+                /* Heal not launched. Will be queued when the next inode
+                 * refresh happens and shd hasn't healed it yet. */
+                afr_refresh_heal_done (ret, heal_frame, heal_frame);
+}
+
+void
+afr_throttled_selfheal (call_frame_t *frame, xlator_t *this)
+{
+        gf_boolean_t can_heal = _gf_true;
+        afr_private_t *priv = this->private;
+        afr_local_t *local = frame->local;
+
+        LOCK (&priv->lock);
+        {
+                if ((priv->background_self_heal_count > 0) &&
+                    (priv->heal_wait_qlen + priv->background_self_heal_count) >
+                    (priv->heal_waiters + priv->healers)) {
+                        list_add_tail(&local->healer, &priv->heal_waiting);
+                        priv->heal_waiters++;
+                        local = __afr_dequeue_heals (priv);
+                } else {
+                        can_heal = _gf_false;
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (can_heal) {
+                if (local)
+                        afr_heal_synctask (this, local);
+                else
+                        gf_msg_debug (this->name, 0, "Max number of heals are "
+                                      "pending, background self-heal rejected.");
+        }
 }

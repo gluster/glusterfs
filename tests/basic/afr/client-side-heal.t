@@ -70,6 +70,7 @@ EXPECT 7 get_pending_heal_count $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 TEST cat $M0/datafile
+EXPECT_WITHIN $HEAL_TIMEOUT 6 get_pending_heal_count $V0
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;

@@ -26,7 +26,6 @@ TEST $CLI volume set $V0 quick-read off
 TEST $CLI volume set $V0 read-ahead off
 TEST $CLI volume set $V0 write-behind off
 TEST $CLI volume set $V0 io-cache off
-TEST $CLI volume set $V0 background-self-heal-count 0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 
@@ -56,34 +55,29 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1;
 
 TEST dd if=$M0/a/file of=/dev/null bs=1024k
 
-b1c0dir=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a \
-          trusted.afr.$V0-client-0 "entry")
-b1c1dir=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a \
-          trusted.afr.$V0-client-1 "entry")
-b2c0dir=$(afr_get_specific_changelog_xattr \
-          $B0/$V0"2"/a trusted.afr.$V0-client-0 "entry")
-b2c1dir=$(afr_get_specific_changelog_xattr \
-          $B0/$V0"2"/a trusted.afr.$V0-client-1 "entry")
+EXPECT_WITHIN $HEAL_TIMEOUT "00000000"  \
+afr_get_specific_changelog_xattr $B0/$V0"1"/a/file trusted.afr.$V0-client-0 "data"
 
+EXPECT_WITHIN $HEAL_TIMEOUT "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"1"/a/file trusted.afr.$V0-client-1 "data"
 
-b1c0f=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a/file \
-        trusted.afr.$V0-client-0 "data")
-b1c1f=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a/file \
-        trusted.afr.$V0-client-1 "data")
-b2c0f=$(afr_get_specific_changelog_xattr $B0/$V0"2"/a/file \
-        trusted.afr.$V0-client-0 "data")
-b2c1f=$(afr_get_specific_changelog_xattr $B0/$V0"2"/a/file \
-        trusted.afr.$V0-client-1 "data")
+EXPECT_WITHIN $HEAL_TIMEOUT "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"2"/a/file trusted.afr.$V0-client-0 "data"
 
-EXPECT "00000000|^$" echo $b1c0f
-EXPECT "00000000|^$" echo $b1c1f
-EXPECT "00000000|^$" echo $b2c0f
-EXPECT "00000000|^$" echo $b2c1f
+EXPECT_WITHIN $HEAL_TIMEOUT  "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"2"/a/file trusted.afr.$V0-client-1 "data"
 
-EXPECT "00000000|^$" echo $b1c0dir
-EXPECT "00000000|^$" echo $b1c1dir
-EXPECT "00000000|^$" echo $b2c0dir
-EXPECT "00000000|^$" echo $b2c1dir
+EXPECT_WITHIN $HEAL_TIMEOUT "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"1"/a trusted.afr.$V0-client-0 "entry"
+
+EXPECT_WITHIN HEAL_TIMEOUT "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"1"/a trusted.afr.$V0-client-1 "entry"
+
+EXPECT_WITHIN $HEAL_TIMEOUT "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"2"/a trusted.afr.$V0-client-0 "entry"
+
+EXPECT_WITHIN $HEAL_TIMEOUT  "00000000" \
+afr_get_specific_changelog_xattr $B0/$V0"2"/a trusted.afr.$V0-client-1 "entry"
 
 ## Finish up
 TEST $CLI volume stop $V0;

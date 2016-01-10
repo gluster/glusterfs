@@ -18,7 +18,6 @@ TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
-TEST $CLI volume set $V0 background-self-heal-count 0
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $CLI volume quota $V0 enable
 

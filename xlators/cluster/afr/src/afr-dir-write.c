@@ -88,7 +88,7 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	if (local->inode) {
-		afr_replies_interpret (frame, this, local->inode);
+		afr_replies_interpret (frame, this, local->inode, NULL);
 		inode_read_subvol = afr_data_subvol_get (local->inode, this,
 							 NULL, NULL, NULL);
 	}

@@ -1119,6 +1119,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.heal-wait-queue-length",
+          .voltype    = "cluster/replicate",
+          .type       = DOC,
+          .op_version = GD_OP_VERSION_3_7_9,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
+        /* stripe xlator options */
         { .key         = "cluster.stripe-block-size",
           .voltype     = "cluster/stripe",
           .option      = "block-size",
