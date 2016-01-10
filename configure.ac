@@ -1269,7 +1269,7 @@ AC_ARG_ENABLE([experimental],
                              [Disable building experimental xlators]))
 
 BUILD_EXPERIMENTAL="yes"
-if test "x$enable_experimental" == "xno"; then
+if test "x$enable_experimental" = "xno"; then
   BUILD_EXPERIMENTAL="no"
 fi
 AM_CONDITIONAL([ENABLE_EXPERIMENTAL], [test x$BUILD_EXPERIMENTAL = xyes])
