@@ -1062,7 +1062,7 @@ gf_cli_create_auxiliary_mount (char *volname)
         }
 
         GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
-        ret = mkdir (mountdir, 0777);
+        ret = mkdir_p (mountdir, 0700, _gf_true);
         if (ret && errno != EEXIST) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to create auxiliary mount "
                         "directory %s. Reason : %s", mountdir,
