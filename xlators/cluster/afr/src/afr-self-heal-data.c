@@ -366,15 +366,22 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int type = AFR_SELFHEAL_DATA_FULL;
 	int ret = -1;
 	call_frame_t *iter_frame = NULL;
+        unsigned char arbiter_sink_status = 0;
 
 	priv = this->private;
+        if (priv->arbiter_count) {
+                arbiter_sink_status = healed_sinks[ARBITER_BRICK_INDEX];
+                healed_sinks[ARBITER_BRICK_INDEX] = 0;
+        }
 
         type = afr_data_self_heal_type_get (priv, healed_sinks, source,
                                             replies);
 
 	iter_frame = afr_copy_frame (frame);
-	if (!iter_frame)
-		return -ENOMEM;
+	if (!iter_frame) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
 	for (off = 0; off < replies[source].poststat.ia_size; off += block) {
                 if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
@@ -395,12 +402,12 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
 	}
 
-	afr_selfheal_data_restore_time (frame, this, fd->inode, source,
-					healed_sinks, replies);
-
 	ret = afr_selfheal_data_fsync (frame, this, fd, healed_sinks);
 
 out:
+        if (arbiter_sink_status)
+                healed_sinks[ARBITER_BRICK_INDEX] = arbiter_sink_status;
+
 	if (iter_frame)
 		AFR_STACK_DESTROY (iter_frame);
 	return ret;
@@ -414,10 +421,16 @@ __afr_selfheal_truncate_sinks (call_frame_t *frame, xlator_t *this,
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+        unsigned char arbiter_sink_status = 0;
 	int i = 0;
 
 	local = frame->local;
 	priv = this->private;
+
+        if (priv->arbiter_count) {
+                arbiter_sink_status = healed_sinks[ARBITER_BRICK_INDEX];
+                healed_sinks[ARBITER_BRICK_INDEX] = 0;
+        }
 
 	AFR_ONLIST (healed_sinks, frame, attr_cbk, ftruncate, fd, size, NULL);
 
@@ -427,6 +440,9 @@ __afr_selfheal_truncate_sinks (call_frame_t *frame, xlator_t *this,
 			   as successfully healed. Mark it so.
 			*/
 			healed_sinks[i] = 0;
+
+        if (arbiter_sink_status)
+                healed_sinks[ARBITER_BRICK_INDEX] = arbiter_sink_status;
 	return 0;
 }
 
@@ -673,6 +689,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	struct afr_reply *locked_replies = NULL;
 	int source = -1;
         gf_boolean_t did_sh = _gf_true;
+        gf_boolean_t is_arbiter_the_only_sink = _gf_false;
 
 	priv = this->private;
 
@@ -718,6 +735,13 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         goto unlock;
                 }
 
+                if (priv->arbiter_count &&
+                    AFR_COUNT (healed_sinks, priv->child_count) == 1 &&
+                    healed_sinks[ARBITER_BRICK_INDEX]) {
+                        is_arbiter_the_only_sink = _gf_true;
+                        goto restore_time;
+                }
+
 		ret = __afr_selfheal_truncate_sinks (frame, this, fd, healed_sinks,
 						     locked_replies[source].poststat.ia_size);
 		if (ret < 0)
@@ -738,11 +762,27 @@ unlock:
 	ret = afr_selfheal_data_do (frame, this, fd, source, healed_sinks,
 				    locked_replies);
 	if (ret)
-		goto out;
+                goto out;
+restore_time:
+	afr_selfheal_data_restore_time (frame, this, fd->inode, source,
+					healed_sinks, locked_replies);
 
-	ret = afr_selfheal_undo_pending (frame, this, fd->inode, sources, sinks,
-					 healed_sinks, AFR_DATA_TRANSACTION,
-					 locked_replies, data_lock);
+        if (!is_arbiter_the_only_sink) {
+                ret = afr_selfheal_inodelk (frame, this, fd->inode, this->name,
+                                            0, 0, data_lock);
+                if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        ret = -ENOTCONN;
+                        did_sh = _gf_false;
+                        goto skip_undo_pending;
+                }
+        }
+        ret = afr_selfheal_undo_pending (frame, this, fd->inode,
+                                         sources, sinks, healed_sinks,
+                                         AFR_DATA_TRANSACTION,
+                                         locked_replies, data_lock);
+skip_undo_pending:
+	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
+				data_lock);
 out:
 
         if (did_sh)
