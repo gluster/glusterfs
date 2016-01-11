@@ -837,7 +837,7 @@ out:
 }
 
 int
-__wb_fulfill_short_write (wb_request_t *req, int size)
+__wb_fulfill_short_write (wb_request_t *req, int size, gf_boolean_t *fulfilled)
 {
         int accounted_size = 0;
 
@@ -847,6 +847,7 @@ __wb_fulfill_short_write (wb_request_t *req, int size)
         if (req->write_size <= size) {
                 accounted_size = req->write_size;
                 __wb_fulfill_request (req);
+                *fulfilled = 1;
         } else {
                 accounted_size = size;
                 __wb_modify_write_request (req, size);
@@ -859,9 +860,10 @@ out:
 void
 wb_fulfill_short_write (wb_request_t *head, int size)
 {
-        wb_inode_t   *wb_inode       = NULL;
-        wb_request_t *req            = NULL, *tmp = NULL;
-        int           accounted_size = 0;
+        wb_inode_t       *wb_inode       = NULL;
+        wb_request_t     *req            = NULL, *next = NULL;
+        int               accounted_size = 0;
+        gf_boolean_t      fulfilled      = _gf_false;
 
         if (!head)
                 goto out;
@@ -872,24 +874,47 @@ wb_fulfill_short_write (wb_request_t *head, int size)
 
         LOCK (&wb_inode->lock);
         {
-                accounted_size = __wb_fulfill_short_write (head, size);
+                /* hold a reference to head so that __wb_fulfill_short_write
+                 * won't free it. We need head for a cleaner list traversal as
+                 * list_for_each_entry_safe doesn't iterate over "head" member.
+                 * So, if we pass "next->winds" as head to list_for_each_entry,
+                 * "next" is skipped. For a simpler logic we need to traverse
+                 * the list in the order. So, we start traversal from
+                 * "head->winds" and hence we want head to be alive.
+                 */
+                __wb_request_ref (head);
+
+                next = list_entry (head->winds.next, wb_request_t, winds);
+
+                accounted_size = __wb_fulfill_short_write (head, size,
+                                                           &fulfilled);
 
                 size -= accounted_size;
 
-                if (size == 0)
-                        goto done;
+                if (size == 0) {
+                        if (fulfilled)
+                                req = next;
 
-                list_for_each_entry_safe (req, tmp, &head->winds, winds) {
-                        accounted_size = __wb_fulfill_short_write (req, size);
+                        goto done;
+                }
+
+                list_for_each_entry_safe (req, next, &head->winds, winds) {
+                        accounted_size = __wb_fulfill_short_write (req, size,
+                                                                   &fulfilled);
                         size -= accounted_size;
 
-                        if (size == 0)
+                        if (size == 0) {
+                                if (fulfilled)
+                                        req = next;
                                 break;
+                        }
 
                 }
         }
 done:
         UNLOCK (&wb_inode->lock);
+
+        __wb_request_unref (head);
 
         wb_fulfill_err (req, EIO);
 out:
@@ -1314,6 +1339,16 @@ __wb_handle_failed_conflict (wb_request_t *req, wb_request_t *conflict,
 
                         list_del_init (&req->todo);
                         list_add_tail (&req->winds, tasks);
+
+                        if (req->ordering.tempted) {
+                                /* make sure that it won't be unwound in
+                                 * wb_do_unwinds too. Otherwise there'll be
+                                 * a double wind.
+                                 */
+                                list_del_init (&req->lie);
+                                __wb_fulfill_request (req);
+                        }
+
                 }
         } else {
                 /* flush and fsync (without conf->resync_after_fsync) act as
@@ -1421,6 +1456,7 @@ wb_do_winds (wb_inode_t *wb_inode, list_head_t *tasks)
                         call_resume (req->stub);
                 }
 
+                req->stub = NULL;
 		wb_request_unref (req);
 	}
 }
