@@ -374,7 +374,7 @@ Group:            Applications/File
 
 Requires:         %{name}-server = %{version}-%{release}
 Requires:         nfs-ganesha-gluster
-Requires:         pcs
+Requires:         pcs, /usr/bin/dbus-send
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
@@ -1268,6 +1268,9 @@ fi
 
 
 %changelog
+* Mon Dec 28 2015 Niels de Vos <ndevos@redhat.com>
+- hook scripts in glusterfs-ganesha use dbus-send, add dependency (#1294446)
+
 * Tue Sep 15 2015 Anand Nekkunti <anekkunt@redhat.com>
 - adding glusterfs-firewalld service (#1057295)
 

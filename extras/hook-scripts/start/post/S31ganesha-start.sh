@@ -103,23 +103,43 @@ function start_ganesha()
 
 }
 
-        parse_args $@
-        is_exported="no"
-        if showmount -e localhost | cut -d "" -f1 | grep -q "/$VOL[[:space:]]"
-        then
-              is_exported="yes"
-        fi
-        ganesha_value=$(grep $ganesha_key  $GLUSTERD_WORKDIR/vols/$VOL/info |\
-                        cut -d"=" -f2)
-        if [ "$ganesha_value" = "on" -a "$is_exported" = "no" ]
-        then
-                if [ ! -e $GANESHA_DIR/exports/export.$VOL.conf ]
-                then
-                        write_conf $VOL > $GANESHA_DIR/exports/export.$VOL.conf
-                fi
-                start_ganesha $VOL
-        else
-                exit 0
-        fi
+# based on src/scripts/ganeshactl/Ganesha/export_mgr.py
+function is_exported()
+{
+        local volume="${1}"
 
+        dbus-send --type=method_call --print-reply --system \
+                  --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+                  org.ganesha.nfsd.exportmgr.ShowExports \
+            | grep -w -q "/${volume}"
 
+        return $?
+}
+
+# Check the info file (contains the volume options) to see if Ganesha is
+# enabled for this volume.
+function ganesha_enabled()
+{
+        local volume="${1}"
+        local info_file="${GLUSTERD_WORKDIR}/vols/${VOL}/info"
+        local enabled="off"
+
+        enabled=$(grep -w ${ganesha_key} ${info_file} | cut -d"=" -f2)
+
+        [ "${enabled}" == "on" ]
+
+        return $?
+}
+
+parse_args $@
+
+if ganesha_enabled ${VOL} && ! is_exported ${VOL}
+then
+        if [ ! -e ${GANESHA_DIR}/exports/export.${VOL}.conf ]
+        then
+                write_conf ${VOL} > ${GANESHA_DIR}/exports/export.${VOL}.conf
+        fi
+        start_ganesha ${VOL}
+fi
+
+exit 0
