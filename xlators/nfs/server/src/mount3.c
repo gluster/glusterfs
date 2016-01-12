@@ -1057,8 +1057,9 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         /* Wipe the contents of the previous component */
         gf_uuid_copy (gfid, mres->resolveloc.inode->gfid);
         nfs_loc_wipe (&mres->resolveloc);
-        ret = nfs_entry_loc_fill (mres->exp->vol->itable, gfid, nextcomp,
-                                  &mres->resolveloc, NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (mres->mstate->nfsx, mres->exp->vol->itable,
+                                  gfid, nextcomp, &mres->resolveloc,
+                                  NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
                         NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "
@@ -1118,6 +1119,7 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                     authcode = 0;
         char                    *authorized_host = NULL;
         char                    *authorized_path = NULL;
+        inode_t                 *linked_inode = NULL;
 
         mres = frame->local;
         ms = mres->mstate;
@@ -1134,8 +1136,12 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        inode_link (mres->resolveloc.inode, mres->resolveloc.parent,
-                    mres->resolveloc.name, buf);
+        linked_inode = inode_link (mres->resolveloc.inode,
+                                   mres->resolveloc.parent,
+                                   mres->resolveloc.name, buf);
+
+        if (linked_inode)
+                nfs_fix_generation (this, linked_inode);
 
         nfs3_fh_build_child_fh (&mres->parentfh, buf, &fh);
         if (strlen (mres->remainingdir) <= 0) {
@@ -1366,8 +1372,9 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
                 goto err;
 
         rootgfid[15] = 1;
-        ret = nfs_entry_loc_fill (mres->exp->vol->itable, rootgfid, firstcomp,
-                                  &mres->resolveloc, NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (mres->mstate->nfsx, mres->exp->vol->itable,
+                                  rootgfid, firstcomp, &mres->resolveloc,
+                                  NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
                         NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "

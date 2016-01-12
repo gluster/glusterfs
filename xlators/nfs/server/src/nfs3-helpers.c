@@ -3655,6 +3655,7 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
         linked_inode = inode_link (inode, cs->resolvedloc.parent,
                         cs->resolvedloc.name, buf);
         if (linked_inode) {
+                nfs_fix_generation (this, linked_inode);
                 inode_lookup (linked_inode);
                 inode_unref (cs->resolvedloc.inode);
                 cs->resolvedloc.inode = linked_inode;
@@ -3697,6 +3698,7 @@ nfs3_fh_resolve_inode_lookup_cbk (call_frame_t *frame, void *cookie,
         linked_inode = inode_link (inode, cs->resolvedloc.parent,
                                    cs->resolvedloc.name, buf);
         if (linked_inode) {
+                nfs_fix_generation (this, linked_inode);
                 inode_lookup (linked_inode);
 		inode_unref (cs->resolvedloc.inode);
 		cs->resolvedloc.inode = linked_inode;
@@ -3766,7 +3768,7 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
                       ", entry: %s", uuid_utoa (cs->resolvefh.gfid),
                       cs->resolventry);
 
-        ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
+        ret = nfs_entry_loc_fill (cs->nfsx, cs->vol->itable, cs->resolvefh.gfid,
                                   cs->resolventry, &cs->resolvedloc,
                                   NFS_RESOLVE_CREATE);
 
@@ -3807,14 +3809,17 @@ nfs3_fh_resolve_inode (nfs3_call_state_t *cs)
 {
         inode_t         *inode = NULL;
         int             ret = -EFAULT;
+        xlator_t        *this = NULL;
 
         if (!cs)
                 return ret;
 
+        this = cs->nfsx;
         gf_msg_trace (GF_NFS3, 0, "FH needs inode resolution");
         gf_uuid_copy (cs->resolvedloc.gfid, cs->resolvefh.gfid);
+
         inode = inode_find (cs->vol->itable, cs->resolvefh.gfid);
-        if (!inode)
+        if (!inode || inode_ctx_get (inode, this, NULL))
                 ret = nfs3_fh_resolve_inode_hard (cs);
         else
                 ret = nfs3_fh_resolve_inode_done (cs, inode);
