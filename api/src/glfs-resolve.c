@@ -86,6 +86,7 @@ glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode,
 	struct iatt  iatt = {0, };
 	inode_t     *newinode = NULL;
         gf_boolean_t lookup_needed = _gf_false;
+        uint64_t     ctx_value = LOOKUP_NOT_NEEDED;
 
 
 	if (!oldinode)
@@ -124,8 +125,11 @@ glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode,
 	}
 
 	newinode = inode_link (loc.inode, 0, 0, &iatt);
-	if (newinode)
-		inode_lookup (newinode);
+        if (newinode) {
+                if (newinode == loc.inode)
+                        inode_ctx_set (newinode, THIS, &ctx_value);
+                inode_lookup (newinode);
+        }
 
 	loc_wipe (&loc);
 
@@ -235,6 +239,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	struct iatt  ciatt = {0, };
 	uuid_t       gfid;
 	dict_t      *xattr_req = NULL;
+        uint64_t     ctx_value = LOOKUP_NOT_NEEDED;
 
 	loc.name = component;
 
@@ -265,7 +270,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		gf_uuid_copy (loc.gfid, loc.inode->gfid);
 		reval = 1;
 
-		if (!force_lookup) {
+                if (!(force_lookup || inode_needs_lookup (loc.inode, THIS))) {
 			inode = inode_ref (loc.inode);
 			ciatt.ia_type = inode->ia_type;
 			goto found;
@@ -336,6 +341,8 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		goto out;
 
 	inode = inode_link (loc.inode, loc.parent, component, &ciatt);
+        if (inode == loc.inode)
+                inode_ctx_set (inode, THIS, &ctx_value);
 found:
 	if (inode)
 		inode_lookup (inode);

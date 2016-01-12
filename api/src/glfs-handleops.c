@@ -1269,6 +1269,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         inode_t            *newinode = NULL;
         xlator_t           *subvol = NULL;
         struct glfs_object *object = NULL;
+        uint64_t            ctx_value = LOOKUP_NOT_NEEDED;
 
         /* validate in args */
         if ((fs == NULL) || (handle == NULL) || (len != GFAPI_HANDLE_LENGTH)) {
@@ -1317,9 +1318,12 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         }
 
         newinode = inode_link (loc.inode, 0, 0, &iatt);
-        if (newinode)
+        if (newinode) {
+                if (newinode == loc.inode) {
+                        inode_ctx_set (newinode, THIS, &ctx_value);
+                }
                 inode_lookup (newinode);
-        else {
+        } else {
                 gf_msg (subvol->name, GF_LOG_WARNING, EINVAL,
                         API_MSG_INVALID_ENTRY,
                         "inode linking of %s failed: %s",
