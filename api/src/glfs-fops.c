@@ -77,6 +77,7 @@ glfs_loc_link (loc_t *loc, struct iatt *iatt)
 {
 	int ret = -1;
         inode_t *old_inode = NULL;
+        uint64_t ctx_value = LOOKUP_NOT_NEEDED;
 
 	if (!loc->inode) {
 		errno = EINVAL;
@@ -91,6 +92,7 @@ glfs_loc_link (loc_t *loc, struct iatt *iatt)
          */
 	loc->inode = inode_link (loc->inode, loc->parent, loc->name, iatt);
 	if (loc->inode) {
+                inode_ctx_set (loc->inode, THIS, &ctx_value);
 		inode_lookup (loc->inode);
                 inode_unref (old_inode);
 		ret = 0;
