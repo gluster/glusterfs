@@ -31,12 +31,20 @@ TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 TEST mkdir -p $M0/test_dir/in_test_dir
 
-## ------------------------------
-## Verify quota commands
-## ------------------------------
+## --------------------------------------------------------------------------
+## Verify quota commands and check if quota-deem-statfs is enabled by default
+## --------------------------------------------------------------------------
 TEST $CLI volume quota $V0 enable
+EXPECT 'on' volinfo_field $V0 'features.quota'
+EXPECT 'on' volinfo_field $V0 'features.inode-quota'
+EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+
+#Wait for the auxiliarymount to come up
+sleep 3
 
 TEST $CLI volume quota $V0 limit-usage /test_dir 100MB
+# Checking for auxiliary mount
+EXPECT "0"  get_aux
 
 TEST $CLI volume quota $V0 limit-usage /test_dir/in_test_dir 150MB
 
@@ -67,6 +75,19 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test_dir"
 
 TEST $QDD $M0/test_dir/2.txt 256 32
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quotausage "/test_dir"
+
+# Checking internal xattr
+# This confirms that pgfid is also filtered
+TEST ! "getfattr -d -e hex -m . $M0/test_dir/2.txt | grep pgfid ";
+# just check for quota xattr are visible or not
+TEST ! "getfattr -d -e hex -m . $M0/test_dir | grep quota";
+
+# setfattr should fail
+TEST ! setfattr -n trusted.glusterfs.quota.limit-set -v 10 $M0/test_dir;
+
+# remove xattr should fail
+TEST ! setfattr -x trusted.glusterfs.quota.limit-set $M0/test_dir;
+
 TEST rm $M0/test_dir/2.txt
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test_dir"
 
@@ -77,6 +98,19 @@ TEST mv $M0/test_dir/2 $M0/test_dir/0
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quotausage "/test_dir"
 TEST rm $M0/test_dir/0
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test_dir"
+
+## rename tests under different directories
+TEST mkdir -p $M0/1/2;
+TEST $CLI volume quota $V0 limit-usage /1/2 100MB 70%;
+
+# The corresponding write(3) should fail with EDQUOT ("Disk quota exceeded")
+TEST ! $QDD $M0/1/2/file 256 408
+
+TEST mkdir -p $M0/1/3;
+TEST $QDD $M0/1/3/file 256 408
+
+#The corresponding rename(3) should fail with EDQUOT ("Disk quota exceeded")
+TEST ! mv $M0/1/3/ $M0/1/2/3_mvd;
 
 ## ---------------------------
 
@@ -169,13 +203,36 @@ TEST getfattr -d -m "trusted.glusterfs.quota.limit-set" -e hex \
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
+## ---------------------------
+## Test quota volume options
+## ---------------------------
+TEST $CLI volume reset $V0
+EXPECT 'on' volinfo_field $V0 'features.quota'
+EXPECT 'on' volinfo_field $V0 'features.inode-quota'
+EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+
+TEST $CLI volume reset $V0 force
+EXPECT 'on' volinfo_field $V0 'features.quota'
+EXPECT 'on' volinfo_field $V0 'features.inode-quota'
+EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+
+TEST $CLI volume reset $V0 features.quota-deem-statfs
+EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+
+TEST $CLI volume set $V0 features.quota-deem-statfs off
+EXPECT 'off' volinfo_field $V0 'features.quota-deem-statfs'
+
+TEST $CLI volume set $V0 features.quota-deem-statfs on
+EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+
 TEST $CLI volume quota $V0 disable
+EXPECT 'off' volinfo_field $V0 'features.quota'
+EXPECT 'off' volinfo_field $V0 'features.inode-quota'
+EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
+
+# aux mount should be removed
 TEST $CLI volume stop $V0;
 EXPECT "1" get_aux
-EXPECT 'Stopped' volinfo_field $V0 'Status';
-
-TEST $CLI volume delete $V0;
-TEST ! $CLI volume info $V0;
 
 rm -f $QDD
 cleanup;

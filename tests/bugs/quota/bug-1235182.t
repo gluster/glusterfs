@@ -14,7 +14,6 @@ QDD=$(dirname $0)/quota
 build_tester $(dirname $0)/../../basic/quota.c -o $QDD
 
 TEST glusterd
-TEST pidof glusterd;
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/${V0};
@@ -54,10 +53,6 @@ echo "Process with pid $PID finished"
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/51/f51
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "100.0MB" quotausage "/"
-
-TEST $CLI volume stop $V0
-TEST $CLI volume delete $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

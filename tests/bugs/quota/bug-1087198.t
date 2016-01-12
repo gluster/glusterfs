@@ -26,18 +26,13 @@ build_tester $(dirname $0)/../../basic/quota.c -o $QDD
 #1
 ## Step 1
 TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/brick{1..4};
-EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume start $V0;
-EXPECT 'Started' volinfo_field $V0 'Status';
 
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 noac,nolock
-
 
 QUOTA_LIMIT_DIR="quota_limit_dir"
 BRICK_LOG_DIR="`gluster --print-logdir`/bricks"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 function get_quota_value()
 {
@@ -14,7 +14,6 @@ function get_quota_value()
 cleanup;
 
 TEST glusterd;
-TEST pidof glusterd;
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume start $V0;
@@ -37,7 +36,5 @@ EXPECT "" get_quota_value "list" "/dir"
 
 TEST $CLI volume quota $V0 remove-objects /dir;
 EXPECT "" get_quota_value "list-objects" "/dir"
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 cleanup;

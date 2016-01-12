@@ -9,7 +9,6 @@
 cleanup;
 
 TEST glusterd
-TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume start $V0
 #Lets disable perf-xls so that lookup would reach afr
@@ -48,6 +47,4 @@ TEST cat $M0/a/f
 #Now that data self-heal is done quota size value should be same
 quota_size_val0=$(get_hex_xattr trusted.glusterfs.quota.size $B0/${V0}0/a)
 TEST [ $quota_size_val0 == $quota_size_val1 ]
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 cleanup
