@@ -550,7 +550,7 @@ function num_graphs
 function get_aux()
 {
 ##Check if a auxiliary mount is there
-df -h 2>&1 | grep -e "[[:space:]]/run/gluster/${V0}$" -e "[[:space:]]/var/run/gluster/${V0}$" -
+df -h 2>&1 | sed 's#/build/install##' | grep -e "[[:space:]]/run/gluster/${V0}$" -e "[[:space:]]/var/run/gluster/${V0}$" -
 
 if [ $? -eq 0 ]
 then

@@ -9,8 +9,6 @@ QDD=$(dirname $0)/quota
 build_tester $(dirname $0)/../../basic/quota.c -o $QDD
 
 TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2  $H0:$B0/${V0}{1,2};
 
@@ -19,7 +17,6 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 EXPECT '2' brick_count $V0
 
 TEST $CLI volume start $V0;
-EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST $CLI volume quota $V0 enable
 sleep 5
@@ -49,8 +46,6 @@ TEST $CLI volume set $V0 features.soft-timeout 0
 TEST ! $QDD $M0/test_dir/file1.txt 256 60
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT 'Yes' quota_sl_exceeded "/test_dir";
 EXPECT 'Yes' quota_hl_exceeded "/test_dir";
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

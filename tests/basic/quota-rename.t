@@ -4,14 +4,12 @@
 # no limit set, is accounted properly, when moved into a directory with quota
 # limit set.
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
 TEST glusterd
-TEST pidof glusterd;
-TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}
 TEST $CLI volume start $V0;
@@ -35,9 +33,5 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "5" quota_object_list_field "/dir" 4
 
 #Number of directories under /dir is 7
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "7" quota_object_list_field "/dir" 5
-
-TEST $CLI volume stop $V0
-TEST $CLI volume delete $V0
-EXPECT "1" get_aux
 
 cleanup;

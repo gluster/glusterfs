@@ -7,14 +7,10 @@
 cleanup;
 
 TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/$V0
-EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume start $V0;
-EXPECT 'Started' volinfo_field $V0 'Status';
 
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 noac,nolock
@@ -44,7 +40,5 @@ echo Hello > $N0/dir1/dir2/file
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "2" quota_object_list_field "/dir1" 5
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 cleanup;

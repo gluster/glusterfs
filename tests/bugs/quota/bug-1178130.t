@@ -14,8 +14,6 @@ QDD=$(dirname $0)/quota
 build_tester $(dirname $0)/../../basic/quota.c -o $QDD
 
 TEST glusterd
-TEST pidof glusterd;
-TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume start $V0;
@@ -40,10 +38,6 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" STAT "$B0/${V0}2/file2"
 
 #usage should remain same after rename and self-heal operation
 EXPECT "10.0MB" quotausage "/"
-
-TEST $CLI volume stop $V0
-TEST $CLI volume delete $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

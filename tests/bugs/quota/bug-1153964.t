@@ -41,12 +41,9 @@ function createFile_and_checkLimit()
 cleanup;
 
 TEST glusterd
-TEST pidof glusterd
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}2
-EXPECT 'Created' volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
 
 TEST $CLI volume quota $V0 enable
 EXPECT 'on' volinfo_field $V0 'features.quota'
@@ -78,6 +75,4 @@ TEST rm -rf $N0/test_dir/
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 cleanup;
