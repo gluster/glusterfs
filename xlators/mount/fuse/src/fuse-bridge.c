@@ -382,6 +382,7 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct fuse_entry_out  feo          = {0, };
         fuse_private_t        *priv         = NULL;
         inode_t               *linked_inode = NULL;
+        uint64_t               ctx_value    = LOOKUP_NOT_NEEDED;
 
         priv = this->private;
         state = frame->root->state;
@@ -430,6 +431,10 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 linked_inode = inode_link (inode, state->loc.parent,
                                            state->loc.name, buf);
+
+                if (linked_inode == inode) {
+                        inode_ctx_set (linked_inode, this, &ctx_value);
+                }
 
                 inode_lookup (linked_inode);
 
@@ -1914,6 +1919,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct fuse_open_out    foo          = {0, };
         struct iovec            iov_out[3];
         inode_t                *linked_inode = NULL;
+        uint64_t                ctx_value    = LOOKUP_NOT_NEEDED;
 
         state    = frame->root->state;
         priv     = this->private;
@@ -1949,6 +1955,8 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         */
                         inode_unref (fd->inode);
                         fd->inode = inode_ref (linked_inode);
+                } else {
+                        inode_ctx_set (linked_inode, this, &ctx_value);
                 }
 
                 inode_lookup (linked_inode);
@@ -4195,12 +4203,13 @@ out:
 
 
 int
-fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
+fuse_nameless_lookup (xlator_t *this, xlator_t *xl, uuid_t gfid, loc_t *loc)
 {
         int          ret          = -1;
         dict_t      *xattr_req    = NULL;
         struct iatt  iatt         = {0, };
         inode_t     *linked_inode = NULL;
+        uint64_t     ctx_value    = LOOKUP_NOT_NEEDED;
 
         if ((loc == NULL) || (xl == NULL)) {
                 ret = -EINVAL;
@@ -4228,6 +4237,9 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
                 goto out;
 
         linked_inode = inode_link (loc->inode, NULL, NULL, &iatt);
+        if (linked_inode == loc->inode)
+                inode_ctx_set (linked_inode, this, &ctx_value);
+
         inode_unref (loc->inode);
         loc->inode = linked_inode;
 
@@ -4267,8 +4279,8 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
         loc.inode = inode_find (new_subvol->itable, basefd->inode->gfid);
 
         if (loc.inode == NULL) {
-                ret = fuse_nameless_lookup (new_subvol, basefd->inode->gfid,
-                                            &loc);
+                ret = fuse_nameless_lookup (this, new_subvol,
+                                            basefd->inode->gfid, &loc);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "name-less lookup of gfid (%s) failed (%s)"

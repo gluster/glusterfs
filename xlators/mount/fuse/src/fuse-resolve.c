@@ -50,6 +50,7 @@ fuse_resolve_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_resolve_t *resolve    = NULL;
         inode_t        *link_inode = NULL;
         loc_t          *resolve_loc   = NULL;
+        uint64_t        ctx_value  = LOOKUP_NOT_NEEDED;
 
         state = frame->root->state;
         resolve = state->resolve_now;
@@ -70,7 +71,8 @@ fuse_resolve_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         link_inode = inode_link (inode, resolve_loc->parent,
                                  resolve_loc->name, buf);
-
+        if (link_inode == inode)
+                inode_ctx_set (link_inode, this, &ctx_value);
 	state->loc_now->inode = link_inode;
 
 out:
@@ -119,6 +121,7 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_t        *link_inode = NULL;
         loc_t          *loc_now    = NULL;
         inode_t        *tmp_inode  = NULL;
+        uint64_t        ctx_value  = LOOKUP_NOT_NEEDED;
 
         state = frame->root->state;
         resolve = state->resolve_now;
@@ -151,6 +154,8 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         link_inode = inode_link (inode, NULL, NULL, buf);
+        if (link_inode == inode)
+                inode_ctx_set (link_inode, this, &ctx_value);
 
         loc_wipe (&resolve->resolve_loc);
 
@@ -231,9 +236,11 @@ fuse_resolve_parent_simple (fuse_state_t *state)
 	loc_t          *loc       = NULL;
         inode_t        *parent    = NULL;
         inode_t        *inode     = NULL;
+        xlator_t       *this      = NULL;
 
         resolve = state->resolve_now;
 	loc = state->loc_now;
+        this = state->this;
 
 	loc->name = resolve->bname;
 
@@ -281,7 +288,7 @@ fuse_resolve_parent_simple (fuse_state_t *state)
         gf_uuid_copy (loc->pargfid, resolve->pargfid);
 
 	inode = inode_grep (state->itable, parent, loc->name);
-	if (inode) {
+	if (inode && !inode_needs_lookup (inode, this)) {
 		loc->inode = inode;
 		/* decisive result - resolution success */
 		return 0;
