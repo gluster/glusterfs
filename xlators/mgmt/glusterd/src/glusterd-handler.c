@@ -4602,6 +4602,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
         char                      *orig_key = NULL;
         char                      *key_fixed = NULL;
         char                      *volname = NULL;
+        char                      *value = NULL;
         char                      err_str[2048] = {0,};
         char                      dict_key[50] = {0,};
         xlator_t                  *this = NULL;
@@ -4649,69 +4650,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                 goto out;
         }
         if (strcmp(key, "all")) {
-                exists = glusterd_check_option_exists (key, &key_fixed);
-                if (!exists) {
-                        snprintf (err_str, sizeof (err_str), "Option "
-                                  "with name: %s does not exist", key);
-                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                                GD_MSG_UNKNOWN_KEY, "%s",
-                                err_str);
-                        if (key_fixed)
-                                snprintf (err_str + ret,
-                                          sizeof (err_str) - ret,
-                                          "Did you mean %s?",
-                                          key_fixed);
-                        ret = -1;
-                        goto out;
-                }
-                if (key_fixed) {
-                        orig_key = key;
-                        key = key_fixed;
-                }
-                if (strcmp (key, "cluster.op-version") == 0) {
-                        sprintf (dict_key, "key%d", count);
-                        ret = dict_set_str(dict, dict_key, key);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_DICT_SET_FAILED, "Failed to "
-                                       "set %s in dictionary", key);
-                                goto out;
-                        }
-                        sprintf (dict_key, "value%d", count);
-                        sprintf (op_version_buff, "%d", priv->op_version);
-                        ret = dict_set_str (dict, dict_key, op_version_buff);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_DICT_SET_FAILED, "Failed to "
-                                        "set value for key %s in dictionary",
-                                        key);
-                                goto out;
-                        }
-                }
-                else if (strcmp (key, "config.memory-accounting") == 0) {
-                        sprintf (dict_key, "key%d", count);
-                        ret = dict_set_str(dict, dict_key, key);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_DICT_SET_FAILED, "Failed to "
-                                       "set %s in dictionary", key);
-                                goto out;
-                        }
-                        sprintf (dict_key, "value%d", count);
-
-                        if (volinfo->memory_accounting)
-                                ret = dict_set_str(dict, dict_key,"Enabled");
-                        else
-                                ret = dict_set_str(dict, dict_key,"Disabled");
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_DICT_SET_FAILED, "Failed to "
-                                        "set value for key %s in dictionary",
-                                        key);
-                                goto out;
-                        }
-                }
-                else if (strcmp (key, "config.transport") == 0) {
+                if (fnmatch (GD_HOOKS_SPECIFIC_KEY, key, FNM_NOESCAPE) == 0) {
                         sprintf (dict_key, "key%d", count);
                         ret = dict_set_str(dict, dict_key, key);
                         if (ret) {
@@ -4721,39 +4660,136 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                 goto out;
                         }
                         sprintf (dict_key, "value%d", count);
-
-                        if (volinfo->transport_type == GF_TRANSPORT_RDMA)
-                                ret = dict_set_str(dict, dict_key,"rdma");
-                        else if (volinfo->transport_type == GF_TRANSPORT_TCP)
-                                ret = dict_set_str(dict, dict_key,"tcp");
-                        else if (volinfo->transport_type ==
-                                 GF_TRANSPORT_BOTH_TCP_RDMA)
-                                ret = dict_set_str(dict, dict_key,"tcp,rdma");
-                        else
-                                ret = dict_set_str(dict, dict_key,"none");
-
+                        ret = dict_get_str (volinfo->dict, key, &value);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED, "Failed to "
+                                        "get %s in dictionary", key);
+                                goto out;
+                        }
+                        ret = dict_set_str(dict, dict_key, value);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED, "Failed to "
-                                        "set value for key %s in dictionary",
-                                        key);
+                                        "set %s in dictionary", key);
                                 goto out;
                         }
-                }
-                else {
-                        ret = glusterd_get_default_val_for_volopt (dict,
-                                                                  _gf_false,
-                                                                  key, orig_key,
-                                                                  volinfo->dict,
-                                                                  &rsp.op_errstr);
-                        if (ret && !rsp.op_errstr) {
-                                snprintf (err_str, sizeof(err_str),
-                                          "Failed to fetch the value of"
-                                          " %s, check log file for more"
-                                          " details", key);
+                } else {
+                        exists = glusterd_check_option_exists (key, &key_fixed);
+                        if (!exists) {
+                                snprintf (err_str, sizeof (err_str), "Option "
+                                          "with name: %s does not exist", key);
+                                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                        GD_MSG_UNKNOWN_KEY, "%s",
+                                        err_str);
+                                if (key_fixed)
+                                        snprintf (err_str + ret,
+                                                  sizeof (err_str) - ret,
+                                                  "Did you mean %s?",
+                                                  key_fixed);
+                                ret = -1;
+                                goto out;
+                        }
+                        if (key_fixed) {
+                                orig_key = key;
+                                key = key_fixed;
+                        }
+                        if (strcmp (key, "cluster.op-version") == 0) {
+                                sprintf (dict_key, "key%d", count);
+                                ret = dict_set_str(dict, dict_key, key);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                "to set %s in dictionary", key);
+                                        goto out;
+                                }
+                                sprintf (dict_key, "value%d", count);
+                                sprintf (op_version_buff, "%d",
+                                         priv->op_version);
+                                ret = dict_set_str (dict, dict_key,
+                                                    op_version_buff);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                " to set value for key %s in "
+                                                "dictionary", key);
+                                        goto out;
+                                }
+                        } else if (strcmp (key,
+                                         "config.memory-accounting") == 0) {
+                                sprintf (dict_key, "key%d", count);
+                                ret = dict_set_str(dict, dict_key, key);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                " to set %s in dictionary",
+                                                key);
+                                        goto out;
+                                }
+                                sprintf (dict_key, "value%d", count);
+
+                                if (volinfo->memory_accounting)
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "Enabled");
+                                else
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "Disabled");
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                " to set value for key %s in "
+                                                "dictionary", key);
+                                        goto out;
+                                }
+                        } else if (strcmp (key, "config.transport") == 0) {
+                                sprintf (dict_key, "key%d", count);
+                                ret = dict_set_str(dict, dict_key, key);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                "to set %s in dictionary", key);
+                                        goto out;
+                                }
+                                sprintf (dict_key, "value%d", count);
+
+                                if (volinfo->transport_type
+                                                == GF_TRANSPORT_RDMA)
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "rdma");
+                                else if (volinfo->transport_type
+                                                == GF_TRANSPORT_TCP)
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "tcp");
+                                else if (volinfo->transport_type ==
+                                         GF_TRANSPORT_BOTH_TCP_RDMA)
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "tcp,rdma");
+                                else
+                                        ret = dict_set_str(dict, dict_key,
+                                                           "none");
+
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                " to set value for key %s in "
+                                                "dictionary", key);
+                                        goto out;
+                                }
+                        } else {
+                                ret = glusterd_get_default_val_for_volopt
+                                                               (dict,
+                                                                _gf_false,
+                                                                key, orig_key,
+                                                                volinfo->dict,
+                                                                &rsp.op_errstr);
+                                if (ret && !rsp.op_errstr) {
+                                        snprintf (err_str, sizeof(err_str),
+                                                  "Failed to fetch the value of"
+                                                  " %s, check log file for more"
+                                                  " details", key);
+                                }
                         }
                 }
-
                 /* Request is for a single option, explicitly set count to 1
                  * in the dictionary.
                  */
