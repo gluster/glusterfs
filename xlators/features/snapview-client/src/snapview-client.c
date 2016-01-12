@@ -264,11 +264,9 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
         svc_local_t     *local       = NULL;
-        inode_t         *parent      = NULL;
         xlator_t        *subvolume   = NULL;
         gf_boolean_t     do_unwind   = _gf_true;
         int              inode_type  = -1;
-        int              parent_type = -1;
         int              ret         = -1;
 
         local = frame->local;
@@ -330,27 +328,6 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (local->loc.parent)
-                parent = inode_ref (local->loc.parent);
-        else {
-                parent = inode_parent (inode, NULL, NULL);
-                if (!parent && !gf_uuid_is_null (local->loc.pargfid)) {
-                        parent = inode_find (inode->table,
-                                             local->loc.pargfid);
-                }
-        }
-
-        if (!__is_root_gfid (buf->ia_gfid) && parent) {
-                ret = svc_inode_ctx_get (this, parent, &parent_type);
-                if (ret < 0) {
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Error fetching parent context");
-                        goto out;
-                }
-        }
-
         if (subvolume == FIRST_CHILD (this))
                 inode_type = NORMAL_INODE;
         else
@@ -366,9 +343,6 @@ out:
                 SVC_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
                                   xdata, postparent);
         }
-
-        if (parent)
-                inode_unref (parent);
 
         return 0;
 }
