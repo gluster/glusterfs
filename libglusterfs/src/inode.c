@@ -1845,7 +1845,7 @@ out:
 void
 inode_set_need_lookup (inode_t *inode, xlator_t *this)
 {
-        uint64_t  need_lookup = 1;
+        uint64_t  need_lookup = LOOKUP_NEEDED;
 
         if (!inode | !this)
                 return;
@@ -1855,19 +1855,29 @@ inode_set_need_lookup (inode_t *inode, xlator_t *this)
         return;
 }
 
+/* Function behaviour:
+ * Function return true if inode_ctx is not present,
+ * or value stored in inode_ctx is LOOKUP_NEEDED.
+ * If inode_ctx value is LOOKUP_NOT_NEEDED, which means
+ * inode_ctx is present for xlator this, but no lookup
+ * needed.
+ */
 gf_boolean_t
 inode_needs_lookup (inode_t *inode, xlator_t *this)
 {
         uint64_t     need_lookup = 0;
         gf_boolean_t ret         = _gf_false;
+        int          op_ret      = -1;
 
         if (!inode || !this)
                 return ret;
 
-        inode_ctx_get (inode, this, &need_lookup);
-        if (need_lookup) {
+        op_ret = inode_ctx_get (inode, this, &need_lookup);
+        if (op_ret == -1) {
                 ret = _gf_true;
-                need_lookup = 0;
+        } else if (need_lookup == LOOKUP_NEEDED) {
+                ret = _gf_true;
+                need_lookup = LOOKUP_NOT_NEEDED;
                 inode_ctx_set (inode, this, &need_lookup);
         }
 

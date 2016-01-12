@@ -14,6 +14,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define LOOKUP_NEEDED 1
+#define LOOKUP_NOT_NEEDED 2
+
 #define DEFAULT_INODE_MEMPOOL_ENTRIES   32 * 1024
 #define INODE_PATH_FMT "<gfid:%s>"
 struct _inode_table;
