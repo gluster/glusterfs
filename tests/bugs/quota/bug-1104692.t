@@ -5,7 +5,6 @@
 cleanup;
 
 TEST glusterd
-TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1 $H0:$B0/${V0}2 $H0:$B0/${V0}3
 TEST $CLI volume start $V0
@@ -23,11 +22,5 @@ TEST $CLI volume quota $V0 limit-usage /limit_one/limit_two 1GB
 TEST $CLI volume quota $V0 limit-usage /limit_one/limit_two/limit_three 1GB
 TEST $CLI volume quota $V0 limit-usage /limit_four 1GB
 TEST $CLI volume quota $V0 limit-usage /limit_one/limit_five 1GB
-
-#Cleanup
-EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
-TEST $CLI volume stop $V0
-EXPECT "1" get_aux
-TEST $CLI volume delete $V0
 
 cleanup;

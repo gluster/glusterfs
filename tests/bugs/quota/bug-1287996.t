@@ -18,7 +18,4 @@ TEST $CLI_1 volume quota $V0 enable
 TEST $CLI_1 peer probe $H2;
 EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers
 
-
-TEST $CLI_1 volume stop $V0
-TEST $CLI_1 volume delete $V0
 cleanup;

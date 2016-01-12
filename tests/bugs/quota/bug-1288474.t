@@ -18,8 +18,6 @@ cleanup;
 
 #Basic checks
 TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info
 
 #Create and start a tiered volume
 create_dist_tier_vol $NUM_BRICKS
@@ -40,9 +38,6 @@ rm -rf $B0/hot
 mkdir $B0/hot
 TEST $CLI volume tier $V0 attach $H0:$B0/hot/${V0}{0..$1}
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10.0MB" quota_list_field "/" 5
-
-TEST $CLI volume stop $V0
-TEST $CLI volume delete $V0
 
 cleanup;
 
