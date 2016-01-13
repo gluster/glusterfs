@@ -85,11 +85,17 @@ EXPECT "1" has_holes $B0/${V0}0/big2bigger
 USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
 TEST [ $USED_KB -lt 1000000 ]
 
-#Check that the non-sparse file consumes the same disk space in both bricks post
-#self-heal
-USED_KB1=`du -s $B0/${V0}0/zeroedfile|cut -f1`
-USED_KB2=`du -s $B0/${V0}1/zeroedfile|cut -f1`
-TEST [ $USED_KB1 -eq $USED_KB2 ]
+#Check that the non-sparse file has the same file size on both bricks and that
+#the disk usage is greater than or equal to the file size. We could have checked
+#that the disk usage is just equal to the file size but XFS does speculative
+#preallocation due to which disk usage can be more than the file size.
+STAT_SIZE1=$(stat -c "%s" $B0/${V0}0/zeroedfile)
+STAT_SIZE2=$(stat -c "%s" $B0/${V0}1/zeroedfile)
+TEST [ $STAT_SIZE1 -eq $STAT_SIZE2 ]
+USED_KB1="$((`stat -c  %b $B0/${V0}0/zeroedfile` * `stat -c %B $B0/${V0}0/zeroedfile`))"
+TEST [ $USED_KB1 -ge $STAT_SIZE1 ]
+USED_KB2="$((`stat -c  %b $B0/${V0}1/zeroedfile` * `stat -c %B $B0/${V0}1/zeroedfile`))"
+TEST [ $USED_KB2 -ge $STAT_SIZE2 ]
 
 TEST rm -f $M0/*
 
@@ -160,10 +166,16 @@ EXPECT "0" has_holes $B0/${V0}0/small
 USED_KB=`du -s $B0/${V0}0/FILE|cut -f1`
 TEST [ $USED_KB -lt 1000000 ]
 
-#Check that the non-sparse file consumes the same disk space in both bricks post
-#self-heal.
-USED_KB1=`du -s $B0/${V0}0/zeroedfile|cut -f1`
-USED_KB2=`du -s $B0/${V0}1/zeroedfile|cut -f1`
-TEST [ $USED_KB1 -eq $USED_KB2 ]
+#Check that the non-sparse file has the same file size on both bricks and that
+#the disk usage is greater than or equal to the file size. We could have checked
+#that the disk usage is just equal to the file size but XFS does speculative
+#preallocation due to which disk usage can be more than the file size.
+STAT_SIZE1=$(stat -c "%s" $B0/${V0}0/zeroedfile)
+STAT_SIZE2=$(stat -c "%s" $B0/${V0}1/zeroedfile)
+TEST [ $STAT_SIZE1 -eq $STAT_SIZE2 ]
+USED_KB1="$((`stat -c  %b $B0/${V0}0/zeroedfile` * `stat -c %B $B0/${V0}0/zeroedfile`))"
+TEST [ $USED_KB1 -ge $STAT_SIZE1 ]
+USED_KB2="$((`stat -c  %b $B0/${V0}1/zeroedfile` * `stat -c %B $B0/${V0}1/zeroedfile`))"
+TEST [ $USED_KB2 -ge $STAT_SIZE2 ]
 
 cleanup
