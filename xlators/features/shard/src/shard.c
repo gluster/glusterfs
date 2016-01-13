@@ -498,6 +498,10 @@ shard_common_inode_write_failure_unwind (glusterfs_fop_t fop,
                 SHARD_STACK_UNWIND (fallocate, frame, op_ret, op_errno,
                                     NULL, NULL, NULL);
                 break;
+        case GF_FOP_ZEROFILL:
+                SHARD_STACK_UNWIND (zerofill, frame, op_ret, op_errno,
+                                    NULL, NULL, NULL);
+                break;
         default:
                 gf_msg (THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                         "Invalid fop id = %d", fop);
@@ -521,6 +525,10 @@ shard_common_inode_write_success_unwind (glusterfs_fop_t fop,
                 break;
         case GF_FOP_FALLOCATE:
                 SHARD_STACK_UNWIND (fallocate, frame, op_ret, 0, &local->prebuf,
+                                    &local->postbuf, local->xattr_rsp);
+                break;
+        case GF_FOP_ZEROFILL:
+                SHARD_STACK_UNWIND (zerofill, frame, op_ret, 0, &local->prebuf,
                                     &local->postbuf, local->xattr_rsp);
                 break;
         default:
@@ -3520,7 +3528,7 @@ shard_common_inode_write_do_cbk (call_frame_t *frame, void *cookie,
 
 int
 shard_common_inode_write_wind (call_frame_t *frame, xlator_t *this,
-                               fd_t *anon_fd, struct iovec *vec, int count,
+                               fd_t *fd, struct iovec *vec, int count,
                                off_t shard_offset, size_t size)
 {
         shard_local_t *local = NULL;
@@ -3529,18 +3537,24 @@ shard_common_inode_write_wind (call_frame_t *frame, xlator_t *this,
 
         switch (local->fop) {
         case GF_FOP_WRITE:
-                STACK_WIND_COOKIE (frame, shard_common_inode_write_do_cbk,
-                                   anon_fd, FIRST_CHILD(this),
-                                   FIRST_CHILD(this)->fops->writev, anon_fd,
-                                   vec, count, shard_offset, local->flags,
+                STACK_WIND_COOKIE (frame, shard_common_inode_write_do_cbk, fd,
+                                   FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->writev, fd, vec,
+                                   count, shard_offset, local->flags,
                                    local->iobref, local->xattr_req);
                 break;
         case GF_FOP_FALLOCATE:
-                STACK_WIND_COOKIE (frame, shard_common_inode_write_do_cbk,
-                                   anon_fd, FIRST_CHILD(this),
-                                   FIRST_CHILD(this)->fops->fallocate, anon_fd,
+                STACK_WIND_COOKIE (frame, shard_common_inode_write_do_cbk, fd,
+                                   FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->fallocate, fd,
                                    local->flags, shard_offset, size,
                                    local->xattr_req);
+                break;
+        case GF_FOP_ZEROFILL:
+                STACK_WIND_COOKIE (frame, shard_common_inode_write_do_cbk, fd,
+                                   FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->zerofill, fd,
+                                   shard_offset, size, local->xattr_req);
                 break;
         default:
                 gf_msg (this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
@@ -4479,6 +4493,11 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
                                          FIRST_CHILD(this)->fops->fallocate, fd,
                                          flags, offset, len, xdata);
                         break;
+                case GF_FOP_ZEROFILL:
+                        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                                         FIRST_CHILD(this)->fops->zerofill,
+                                         fd, offset, len, xdata);
+                        break;
                 default:
                 gf_msg (this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                         "Invalid fop id = %d", fop);
@@ -4573,6 +4592,15 @@ shard_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 }
 
 int
+shard_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                off_t len, dict_t *xdata)
+{
+        shard_common_inode_write_begin (frame, this, GF_FOP_ZEROFILL, fd, NULL,
+                                        0, offset, 0, len, NULL, xdata);
+        return 0;
+}
+
+int
 shard_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
               size_t len, dict_t *xdata)
 {
@@ -4580,17 +4608,6 @@ shard_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
                 "discard called on %s.", uuid_utoa (fd->inode->gfid));
         SHARD_STACK_UNWIND (discard, frame, -1, ENOTSUP, NULL, NULL, NULL);
-        return 0;
-}
-
-int
-shard_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-                off_t len, dict_t *xdata)
-{
-        /* TBD */
-        gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
-                "zerofill called on %s.", uuid_utoa (fd->inode->gfid));
-        SHARD_STACK_UNWIND (zerofill, frame, -1, ENOTSUP, NULL, NULL, NULL);
         return 0;
 }
 

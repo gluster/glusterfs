@@ -814,12 +814,13 @@ err:
 }
 
 static int32_t
-posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
-                  off_t offset, off_t len, struct iatt *statpre,
-                  struct iatt *statpost)
+posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                   off_t len, struct iatt *statpre, struct iatt *statpost,
+                   dict_t *xdata)
 {
-        struct posix_fd *pfd       = NULL;
-        int32_t          ret       = -1;
+        int32_t            ret       = -1;
+        struct posix_fd   *pfd       = NULL;
+        gf_boolean_t       locked    = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -835,6 +836,11 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
+        if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
+                locked = _gf_true;
+                LOCK(&fd->inode->lock);
+        }
+
         ret = posix_fdstat (this, pfd->fd, statpre);
         if (ret == -1) {
                 ret = -errno;
@@ -842,7 +848,8 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                         "pre-operation fstat failed on fd = %p", fd);
                 goto out;
         }
-        ret = _posix_do_zerofill(pfd->fd, offset, len, pfd->flags & O_DIRECT);
+
+        ret = _posix_do_zerofill (pfd->fd, offset, len, pfd->flags & O_DIRECT);
         if (ret < 0) {
                 ret = -errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_ZEROFILL_FAILED,
@@ -850,6 +857,7 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                         pfd->fd, len);
                 goto out;
         }
+
         if (pfd->flags & (O_SYNC|O_DSYNC)) {
                 ret = fsync (pfd->fd);
                 if (ret) {
@@ -870,6 +878,10 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 out:
+	if (locked) {
+		UNLOCK (&fd->inode->lock);
+		locked = _gf_false;
+	}
         SET_TO_OLD_FS_ID ();
 
         return ret;
@@ -937,8 +949,8 @@ posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         struct  iatt statpre             = {0,};
         struct  iatt statpost            = {0,};
 
-        ret = posix_do_zerofill(frame, this, fd, offset, len,
-                                 &statpre, &statpost);
+        ret = posix_do_zerofill (frame, this, fd, offset, len,
+                                 &statpre, &statpost, xdata);
         if (ret < 0)
                 goto err;
 
