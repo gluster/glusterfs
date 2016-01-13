@@ -72,6 +72,12 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 
 out:
+        if (ca_req.gfid)
+                free (ca_req.gfid);
+
+        if (ca_req.xdata.xdata_val)
+                free (ca_req.xdata.xdata_val);
+
         return 0;
 }
 
