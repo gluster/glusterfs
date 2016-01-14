@@ -22,15 +22,15 @@ branch="master";
 set_hooks_commit_msg()
 {
     f=".git/hooks/commit-msg";
-    u="http://review.gluster.com/tools/hooks/commit-msg";
+    u="http://review.gluster.org/tools/hooks/commit-msg";
 
     if [ -x "$f" ]; then
         return;
     fi
 
-    curl -o $f $u || wget -O $f $u;
+    curl -L -o $f $u || wget -O $f $u;
 
-    chmod +x .git/hooks/commit-msg;
+    chmod +x $f
 
     # Let the 'Change-Id: ' header get assigned on first run of rfc.sh
     GIT_EDITOR=true git commit --amend;
