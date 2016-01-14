@@ -897,7 +897,6 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ec_lock_link_t *link = fop->data;
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
-    ec_config_t config = {0,};
 
     lock = link->lock;
     parent = link->fop;
@@ -941,37 +940,40 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         lock->loc.inode->ia_type == IA_INVAL) {
         op_errno = -ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size);
         if (op_errno != 0) {
-            gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                    EC_MSG_SIZE_XATTR_GET_FAIL, "Unable to get size xattr");
+            if (lock->loc.inode->ia_type == IA_IFREG) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        EC_MSG_SIZE_XATTR_GET_FAIL,
+                        "Unable to get size xattr");
 
-            goto unlock;
+                goto unlock;
+            }
+        } else {
+            ctx->post_size = ctx->pre_size;
+
+            ctx->have_size = _gf_true;
         }
-        ctx->post_size = ctx->pre_size;
-
-        ctx->have_size = _gf_true;
 
         op_errno = -ec_dict_del_config(dict, EC_XATTR_CONFIG, &ctx->config);
         if (op_errno != 0) {
-            gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                    EC_MSG_CONFIG_XATTR_GET_FAIL,
-                    "Unable to get config xattr");
+            if (lock->loc.inode->ia_type == IA_IFREG) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        EC_MSG_CONFIG_XATTR_GET_FAIL,
+                        "Unable to get config xattr");
 
-            goto unlock;
-        }
-        if (!(lock->loc.inode->ia_type == IA_INVAL &&
-            !memcmp(&config, &ctx->config, sizeof(config)))) {
+                goto unlock;
+            }
+        } else {
+            if (!ec_config_check(parent, &ctx->config)) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        EC_MSG_CONFIG_XATTR_INVALID,
+                        "Invalid config xattr");
 
-                if (!ec_config_check(parent, &ctx->config)) {
-                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                                EC_MSG_CONFIG_XATTR_INVALID,
-                                "Invalid config xattr");
+                op_errno = EINVAL;
 
-                        op_errno = EINVAL;
+                goto unlock;
+            }
 
-                        goto unlock;
-                }
-                ctx->have_config = _gf_true;
-
+            ctx->have_config = _gf_true;
         }
     }
 
