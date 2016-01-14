@@ -184,8 +184,8 @@ _is_contributing_to_quorum (gd_quorum_contrib_t contrib)
         return _gf_false;
 }
 
-static gf_boolean_t
-_does_quorum_meet (int active_count, int quorum_count)
+gf_boolean_t
+does_quorum_meet (int active_count, int quorum_count)
 {
         return (active_count >= quorum_count);
 }
@@ -286,7 +286,7 @@ does_gd_meet_server_quorum (xlator_t *this)
         if (ret)
                 goto out;
 
-        if (!_does_quorum_meet (active_count, quorum_count)) {
+        if (!does_quorum_meet (active_count, quorum_count)) {
                 goto out;
         }
 
@@ -384,7 +384,7 @@ glusterd_do_quorum_action ()
                 if (ret)
                         goto unlock;
 
-                if (_does_quorum_meet (active_count, quorum_count))
+                if (does_quorum_meet (active_count, quorum_count))
                         meets = _gf_true;
                 list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                         glusterd_do_volume_quorum_action (this, volinfo, meets);
@@ -396,3 +396,24 @@ unlock:
 out:
         return ret;
 }
+
+/* ret = 1 represents quorum is met or quorum not applicable,
+   ret = 0 represents quorum is not met
+*/
+int
+check_quorum_for_brick_start (glusterd_volinfo_t *volinfo,
+                              gf_boolean_t node_quorum)
+{
+        gf_boolean_t        volume_quorum  =  _gf_false;
+        int                 ret            = 0;
+
+        volume_quorum = glusterd_is_volume_in_server_quorum (volinfo);
+        if (volume_quorum) {
+                if (node_quorum)
+                        ret = 1;
+        } else {
+                ret = 1;
+        }
+        return ret;
+}
+

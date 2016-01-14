@@ -57,6 +57,7 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-bitd-svc.h"
+#include "glusterd-server-quorum.h"
 #include "quota-common-utils.h"
 
 #include "xdr-generic.h"
@@ -4680,9 +4681,23 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_snap_t      *snap           = NULL;
         gf_boolean_t          start_svcs     = _gf_false;
         xlator_t             *this           = NULL;
+        int                   active_count   = 0;
+        int                   quorum_count   = 0;
+        gf_boolean_t          node_quorum    = _gf_false;
 
         this = THIS;
-        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        ret = glusterd_get_quorum_cluster_counts (this, &active_count,
+                                                  &quorum_count);
+        if (ret)
+                goto out;
+
+        if (does_quorum_meet (active_count, quorum_count))
+                node_quorum = _gf_true;
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
@@ -4693,6 +4708,18 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
+
+                /* Check the quorum, if quorum is not met, don't start the
+                   bricks
+                */
+                ret = check_quorum_for_brick_start (volinfo, node_quorum);
+                if (ret == 0) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_SERVER_QUORUM_NOT_MET, "Skipping brick "
+                                "restart for volume %s as quorum is not met",
+                                volinfo->volname);
+                        continue;
+                }
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         glusterd_brick_start (volinfo, brickinfo, _gf_false);
@@ -4703,6 +4730,18 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         if (volinfo->status != GLUSTERD_STATUS_STARTED)
                                 continue;
+                        /* Check the quorum, if quorum is not met, don't start the
+                           bricks
+                        */
+                        ret = check_quorum_for_brick_start (volinfo,
+                                                            node_quorum);
+                        if (ret == 0) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        GD_MSG_SERVER_QUORUM_NOT_MET, "Skipping"
+                                        " brick restart for volume %s as "
+                                        "quorum is not met", volinfo->volname);
+                                continue;
+                        }
                         if (start_svcs == _gf_false) {
                                 start_svcs = _gf_true;
                                 glusterd_svcs_manager (volinfo);
@@ -4718,6 +4757,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 }
         }
 
+out:
         return ret;
 }
 
