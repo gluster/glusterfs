@@ -4097,6 +4097,14 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         priv = this->private;
 
+        /* Allow access to stime xattr only to geo-rep worker */
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD && name &&
+            fnmatch ("*.glusterfs.*.stime", name, FNM_PERIOD) == 0) {
+                op_ret = -1;
+                op_errno = ENOATTR;
+                goto out;
+        }
+
         if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
             ZR_FILE_CONTENT_REQUEST(name)) {
                 ret = posix_get_file_contents (this, loc->gfid, &name[15],
@@ -4406,6 +4414,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         list_offset = 0;
         while (remaining_size > 0) {
                 strcpy (keybuffer, list + list_offset);
+                if (frame->root->pid != GF_CLIENT_PID_GSYNCD &&
+                    fnmatch ("*.glusterfs.*.stime", keybuffer, FNM_PERIOD) == 0)
+                        goto ignore;
+
                 size = sys_lgetxattr (real_path, keybuffer, NULL, 0);
                 if (size == -1) {
                         op_ret = -1;
@@ -4453,6 +4465,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
+ignore:
                 remaining_size -= strlen (keybuffer) + 1;
                 list_offset += strlen (keybuffer) + 1;
 
