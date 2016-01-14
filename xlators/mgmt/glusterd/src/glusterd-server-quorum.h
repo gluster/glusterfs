@@ -35,4 +35,12 @@ glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 
 gf_boolean_t
 does_gd_meet_server_quorum (xlator_t *this);
+
+int
+check_quorum_for_brick_start (glusterd_volinfo_t *volinfo,
+                              gf_boolean_t node_quorum);
+
+gf_boolean_t
+does_quorum_meet (int active_count, int quorum_count);
+
 #endif /* _GLUSTERD_SERVER_QUORUM_H */
