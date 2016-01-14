@@ -412,6 +412,21 @@ marker_filter_internal_xattrs (xlator_t *this, dict_t *xattrs)
 
         dict_foreach_match (xattrs, _is_quota_internal_xattr, ext,
                             dict_remove_foreach_fn, NULL);
+}
+
+static void
+marker_filter_gsyncd_xattrs (call_frame_t *frame,
+                               xlator_t *this, dict_t *xattrs)
+{
+        marker_conf_t *priv   = NULL;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD &&
+            dict_get(xattrs, priv->marker_xattr)) {
+                dict_del (xattrs, priv->marker_xattr);
+        }
         return;
 }
 
@@ -421,7 +436,6 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      dict_t *xdata)
 {
         int32_t     ret  = -1;
-
         if (op_ret < 0)
                 goto unwind;
 
@@ -456,6 +470,9 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 marker_filter_internal_xattrs (frame->this, dict);
         }
+
+        /* Filter gsyncd xtime xattr for non gsyncd clients */
+        marker_filter_gsyncd_xattrs (frame, frame->this, dict);
 
 unwind:
         MARKER_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, xdata);
