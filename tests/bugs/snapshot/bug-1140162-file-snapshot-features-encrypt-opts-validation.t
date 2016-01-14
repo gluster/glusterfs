@@ -28,6 +28,14 @@ TEST $CLI volume set $V0 ping-timeout 60
 ## Set features.file-snapshot and features.encryption option with valid boolean
 ## value. These options should succeed.
 TEST $CLI volume set $V0 features.file-snapshot on
+
+## Before setting the crypt xlator on, it is required to create master key
+## Otherwise glusterfs client process will fail to start
+echo "0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff" > $GLUSTERD_WORKDIR/$V0-master-key
+
+## Specify location of master key
+TEST $CLI volume set $V0 encryption.master-key $GLUSTERD_WORKDIR/$V0-master-key
+
 TEST $CLI volume set $V0 features.encryption on
 
 cleanup;
