@@ -23,16 +23,16 @@ EXPECT 'off' volinfo_field $V0 'performance.write-behind'
 TEST $CLI volume set $V0 performance.open-behind off
 EXPECT 'off' volinfo_field $V0 'performance.open-behind'
 
+## Create a file with master key
+
+echo "0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff" > $GLUSTERD_WORKDIR/$V0-master-key
+
+## Specify location of master key
+TEST $CLI volume set $V0 encryption.master-key $GLUSTERD_WORKDIR/$V0-master-key
+
 ## Turn on crypt xlator by setting features.encryption to on
 TEST $CLI volume set $V0 encryption on
 EXPECT 'on' volinfo_field $V0 'features.encryption'
-
-## Specify location of master key
-TEST $CLI volume set $V0 encryption.master-key /tmp/$V0-master-key
-
-## Create a file with master key
-
-echo "0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff" > /tmp/$V0-master-key
 
 ## Start the volume
 TEST $CLI volume start $V0;
