@@ -265,6 +265,7 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                                 errno = result;
                                 goto unlock;
                         }
+                        cliententry = &clienttable->cliententries[client->tbl_index];
                         cliententry->next_free = clienttable->first_free;
                 }
                 cliententry->client = client;
