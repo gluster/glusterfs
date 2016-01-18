@@ -482,6 +482,12 @@ function cleanup()
                 done
                 ;;
         NetBSD)
+                # cleanup loopback device with unmounted backing store
+                for vnd in /dev/vnd* ; do
+                        vnconfig -l ${vnd} 2>&1 | \
+                            grep -q 'Bad file descriptor' && vnconfig -u ${vnd}
+                done
+
                 vnd=`vnconfig -l | \
                      awk '!/not in use/{printf("%s%s:%d ", $1, $2, $5);}'`
                 for l in ${vnd} ; do
