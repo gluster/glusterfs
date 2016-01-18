@@ -405,6 +405,53 @@ out:
 }
 
 int
+glusterd_add_arbiter_info_to_bricks (glusterd_volinfo_t *volinfo,
+                                     dict_t *volumes, int count)
+{
+        char                    key[256]    = {0, };
+        int                     i           = 0;
+        int                     start_index = 0;
+        int                     ret         = 0;
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                /*TODO: Add info for hot tier once attach tier of arbiter
+                 * volumes is supported. */
+
+                /* cold tier */
+                if (volinfo->tier_info.cold_replica_count == 1 ||
+                    volinfo->arbiter_count != 1)
+                        return 0;
+
+                i = start_index = volinfo->tier_info.hot_brick_count + 1;
+                for (; i <= volinfo->brick_count; i++) {
+                        if ((i - start_index + 1) %
+                            volinfo->tier_info.cold_replica_count != 0)
+                                continue;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, 256, "volume%d.brick%d.isArbiter",
+                                  count, i);
+                        ret = dict_set_int32 (volumes, key, 1);
+                        if (ret)
+                                return ret;
+                }
+        } else {
+                if (volinfo->replica_count == 1 || volinfo->arbiter_count != 1)
+                        return 0;
+                for (i = 1; i <= volinfo->brick_count; i++) {
+                        if (i % volinfo->replica_count != 0)
+                                continue;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, 256, "volume%d.brick%d.isArbiter",
+                                  count, i);
+                        ret = dict_set_int32 (volumes, key, 1);
+                        if (ret)
+                                return ret;
+                }
+        }
+        return 0;
+}
+
+int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int count)
 {
@@ -625,6 +672,9 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 #endif
                 i++;
         }
+        ret = glusterd_add_arbiter_info_to_bricks (volinfo, volumes, count);
+        if (ret)
+                goto out;
 
         dict = volinfo->dict;
         if (!dict) {

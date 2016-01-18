@@ -2551,6 +2551,8 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     dist_count = 0;
         int                     stripe_count = 0;
         int                     replica_count = 0;
+        int                     arbiter_count = 0;
+        int                     isArbiter = 0;
         int                     disperse_count = 0;
         int                     redundancy_count = 0;
         int                     transport = 0;
@@ -2561,6 +2563,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         char                    *caps = NULL;
         int                     k __attribute__((unused)) = 0;
         int                     index = 1;
+        int                     start_index = 1;
         int                     vol_type               = -1;
         int                     tier_vol_type          = 0;
         /*hot disperse count, redundancy count and dist count are always
@@ -2569,17 +2572,18 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     hot_dist_count         = 0;
         int                     hot_redundancy_count   = 0;
         values                  c                      = 0;
-        char                    *keys[30]              = {
+        char                    *keys[MAX]              = {
                 [COLD_BRICK_COUNT]      = "volume%d.cold_brick_count",
                 [COLD_TYPE]             = "volume%d.cold_type",
                 [COLD_DIST_COUNT]       = "volume%d.cold_dist_count",
                 [COLD_REPLICA_COUNT]    = "volume%d.cold_replica_count",
+                [COLD_ARBITER_COUNT]    = "volume%d.cold_arbiter_count",
                 [COLD_DISPERSE_COUNT]   = "volume%d.cold_disperse_count",
                 [COLD_REDUNDANCY_COUNT] = "volume%d.cold_redundancy_count",
                 [HOT_BRICK_COUNT]       = "volume%d.hot_brick_count",
                 [HOT_TYPE]              = "volume%d.hot_type",
                 [HOT_REPLICA_COUNT]     = "volume%d.hot_replica_count"};
-        int                     value[9]             = {};
+        int                     value[MAX]             = {};
 
 
         ret = dict_get_int32 (dict, "count", &count);
@@ -2665,6 +2669,16 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"replicaCount",
                                                        "%d", replica_count);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.arbiter_count", i);
+                ret = dict_get_int32 (dict, key, &arbiter_count);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                      (xmlChar *)"arbiterCount",
+                                                      "%d", arbiter_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
@@ -2910,6 +2924,11 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                         XML_RET_CHECK_AND_GOTO (ret, out);
 
                         ret = xmlTextWriterWriteFormatElement (local->writer,
+                                        (xmlChar *)"coldarbiterCount",
+                                        "%d", value[COLD_ARBITER_COUNT]);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterWriteFormatElement (local->writer,
                                                    (xmlChar *)"coldbrickCount",
                                                     "%d",
                                                     value[COLD_BRICK_COUNT]);
@@ -2952,7 +2971,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                          value[COLD_BRICK_COUNT]);
                         }
 
-                        index = value[HOT_BRICK_COUNT] + 1;
+                        start_index = index = value[HOT_BRICK_COUNT] + 1;
 
                         while (index <= brick_count) {
                                 snprintf (key, 1024, "volume%d.brick%d", i,
@@ -2988,6 +3007,19 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                 ret = xmlTextWriterWriteFormatElement
                                         (local->writer, (xmlChar *)"hostUuid",
                                          "%s", uuid);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "volume%d.brick%d.isArbiter", i,
+                                          index);
+                                if (dict_get (dict, key))
+                                        isArbiter = 1;
+                                else
+                                        isArbiter = 0;
+                                ret = xmlTextWriterWriteFormatElement
+                                        (local->writer, (xmlChar *)"isArbiter",
+                                         "%d", isArbiter);
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                                 ret = xmlTextWriterEndElement (local->writer);
@@ -3033,6 +3065,18 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                 ret = xmlTextWriterWriteFormatElement
                                         (local->writer, (xmlChar *)"hostUuid",
                                          "%s", uuid);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "volume%d.brick%d.isArbiter", i, j);
+                                if (dict_get (dict, key))
+                                        isArbiter = 1;
+                                else
+                                        isArbiter = 0;
+                                ret = xmlTextWriterWriteFormatElement
+                                        (local->writer, (xmlChar *)"isArbiter",
+                                         "%d", isArbiter);
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                                 /* </brick> */
