@@ -3,7 +3,8 @@
 
 Vagrant.configure("2") do |config|
     config.vm.define "vagrant-testVM" do |testvm|
-      testvm.vm.box = "fedora/23-cloud-base"
+      testvm.vm.box = "gluster-dev-fedora"
+      testvm.vm.box_url = "http://download.gluster.org/pub/gluster/glusterfs/vagrant/gluster-dev-fedora/boxes/gluster-dev-fedora.json"
       testvm.vm.hostname = "vagrant-testVM"
       #testvm.ssh.insert_key = false
       testvm.vm.synced_folder ".", "/vagrant", disabled: true
@@ -32,14 +33,6 @@ Vagrant.configure("2") do |config|
       end
 
       # Let's provision
-
-      # Some packages are required for ansible dnf module to work
-      # so install them using shell inline
-      testvm.vm.provision "shell", inline: "sudo dnf install -y python-dnf", run: "always"
-      testvm.vm.provision "shell", inline: "sudo dnf install -y libselinux-python", run: "always"
-      testvm.vm.provision "shell", inline: "sudo dnf install -y libsemanage-python", run: "always"
-
-      # Now onto the main provisioning
       testvm.vm.provision "ansible", run: "always" do |setup|
         setup.verbose = "v"
         setup.playbook = "setup.yml"
