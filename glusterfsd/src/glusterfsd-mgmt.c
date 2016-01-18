@@ -559,6 +559,7 @@ int
 glusterfs_handle_translator_op (rpcsvc_request_t *req)
 {
         int32_t                  ret     = -1;
+        int32_t                  op_ret  = 0;
         gd1_mgmt_brick_op_req    xlator_req = {0,};
         dict_t                   *input    = NULL;
         xlator_t                 *xlator = NULL;
@@ -628,9 +629,12 @@ glusterfs_handle_translator_op (rpcsvc_request_t *req)
                 ret = dict_get_str (input, key, &xname);
                 xlator = xlator_search_by_name (any, xname);
                 XLATOR_NOTIFY (xlator, GF_EVENT_TRANSLATOR_OP, input, output);
+                /* If notify fails for an xlator we need to capture it but
+                 * continue with the loop. */
                 if (ret)
-                        break;
+                        op_ret = -1;
         }
+        ret = op_ret;
 out:
         glusterfs_xlator_op_response_send (req, ret, "", output);
         if (input)
