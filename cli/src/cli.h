@@ -66,11 +66,6 @@ typedef enum {
         snprintf (abspath, sizeof (abspath)-1,                          \
                   DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
 
-#define GLUSTERFS_GET_AUX_MOUNT_PIDFILE(pidfile,volname) {               \
-                snprintf (pidfile, PATH_MAX-1,                             \
-                          DEFAULT_VAR_RUN_DIRECTORY"/%s.pid", volname);  \
-        }
-
 struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
