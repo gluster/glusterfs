@@ -5024,10 +5024,11 @@ fuse_itable_dump (xlator_t  *this)
 
         priv = this->private;
 
-        gf_proc_dump_add_section("xlator.mount.fuse.itable");
-        inode_table_dump(priv->active_subvol->itable,
-                         "xlator.mount.fuse.itable");
-
+        if (priv && priv->active_subvol) {
+                gf_proc_dump_add_section("xlator.mount.fuse.itable");
+                inode_table_dump(priv->active_subvol->itable,
+                                 "xlator.mount.fuse.itable");
+        }
         return 0;
 }
 
