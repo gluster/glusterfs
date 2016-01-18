@@ -1,10 +1,28 @@
 #!/bin/bash
 
 ###############################################################################
-# TODO: Provide an option parser; may be getopts.                             #
 # TODO: Allow subset of tests to be executed when VM starts.                  #
 # TODO: Provide option to destroy the VM.                                     #
 ###############################################################################
+
+ORIGIN_DIR=$PWD
+autostart="no"
+
+function parse_args () {
+    args=`getopt \
+              --options a \
+              --long autostart \
+              -n 'run-tests-in-vagrant.sh' \
+              --  "$@"`
+    eval set -- "$args"
+    while true; do
+        case "$1" in
+            -a|--autostart) autostart="yes"; shift ;;
+            --) shift ; break ;;
+            *) echo "Internal error!" ; exit 1;;
+        esac
+    done
+}
 
 function force_location()
 {
@@ -51,7 +69,7 @@ function ansible_check()
     fi
 }
 
-ORIGIN_DIR=$PWD
+parse_args "$@"
 
 echo "Checking current dir...."
 force_location
@@ -96,6 +114,12 @@ echo
 echo
 
 
+if [ "x$autostart" == "xyes" ] ; then
+    echo "autostart option enabled, calling virsh autostart"
+    virsh autostart ${BRANCHNAME}_vagrant-testVM
+    echo
+    echo
+fi
 
 echo "Copying source code from host machine to VM"
 cd tests/vagrant/$BRANCHNAME
