@@ -1053,7 +1053,7 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
                 goto out;
         switch (op) {
         case GF_SHD_OP_HEAL_INDEX:
-		op_ret = -1;
+		op_ret = 0;
 
 		for (i = 0; i < priv->child_count; i++) {
 			healer = &shd->index_healers[i];
@@ -1062,10 +1062,12 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 			if (!priv->child_up[i]) {
 				ret = dict_set_str (output, key,
 						    "Brick is not connected");
+                                op_ret = -1;
 			} else if (AFR_COUNT (priv->child_up,
 					      priv->child_count) < 2) {
 				ret = dict_set_str (output, key,
 						    "< 2 bricks in replica are up");
+                                op_ret = -1;
 			} else if (!afr_shd_is_subvol_local (this, healer->subvol)) {
 				ret = dict_set_str (output, key,
 						    "Brick is remote");
@@ -1073,7 +1075,6 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 				ret = dict_set_str (output, key,
 						    "Started self-heal");
 				afr_shd_index_healer_spawn (this, i);
-				op_ret = 0;
 			}
 		}
                 break;

@@ -57,7 +57,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
-TEST $CLI volume heal $V0
+$CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT '1' echo $(count_sh_entries $B0/$V0"1")
 EXPECT_WITHIN $HEAL_TIMEOUT '1' echo $(count_sh_entries $B0/$V0"2")
 

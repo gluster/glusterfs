@@ -8469,13 +8469,10 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret) {
-                if (strcmp (rsp.op_errstr, "")) {
-                        cli_err ("%s", rsp.op_errstr);
-                } else {
-                        cli_err ("%s%s on volume %s has been unsuccessful",
-                                 operation, heal_op_str, volname);
-                }
-
+                cli_err ("%s%s on volume %s has been unsuccessful on "
+                         "bricks that are down. Please check if all brick "
+                         "processes are running.",
+                         operation, heal_op_str, volname);
                 ret = rsp.op_ret;
                 goto out;
         } else {
