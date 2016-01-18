@@ -47,6 +47,7 @@ typedef enum {
         COLD_TYPE,
         COLD_DIST_COUNT,
         COLD_REPLICA_COUNT,
+        COLD_ARBITER_COUNT,
         COLD_DISPERSE_COUNT,
         COLD_REDUNDANCY_COUNT,
         HOT_BRICK_COUNT,

@@ -547,10 +547,11 @@ out:
 
 static int
 print_brick_details (dict_t *dict, int volcount, int start_index,
-                     int end_index, int replica_count, int arbiter_count)
+                     int end_index, int replica_count)
 {
         char           key[1024]   = {0,};
         int            index       = start_index;
+        int            isArbiter   = 0;
         int            ret         = -1;
         char          *brick       = NULL;
 #ifdef HAVE_BD_XLATOR
@@ -558,12 +559,20 @@ print_brick_details (dict_t *dict, int volcount, int start_index,
 #endif
 
         while (index <= end_index) {
+                memset (key, 0, sizeof (key));
                 snprintf (key, 1024, "volume%d.brick%d", volcount, index);
                 ret = dict_get_str (dict, key, &brick);
                 if (ret)
                         goto out;
+                memset (key, 0, sizeof(key));
+                snprintf (key, sizeof (key), "volume%d.brick%d.isArbiter",
+                          volcount, index);
+                if (dict_get (dict, key))
+                        isArbiter = 1;
+                else
+                        isArbiter = 0;
 
-                if (arbiter_count && index % replica_count == 0)
+                if (isArbiter)
                         cli_out ("Brick%d: %s (arbiter)", index, brick);
                 else
                         cli_out ("Brick%d: %s", index, brick);
@@ -721,7 +730,7 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
                         hot_replica_count, 0, 0, 0);
 
         ret = print_brick_details (dict, i, 1, hot_brick_count,
-                                   hot_replica_count, 0);
+                                   hot_replica_count);
         if (ret)
                 goto out;
 
@@ -740,8 +749,7 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
                 cold_disperse_count, cold_redundancy_count, cold_arbiter_count);
 
         ret = print_brick_details (dict, i, hot_brick_count+1,
-                                   brick_count, cold_replica_count,
-                                   cold_arbiter_count);
+                                   brick_count, cold_replica_count);
         if (ret)
                 goto out;
 out:
@@ -1010,7 +1018,7 @@ next:
                 } else {
                         cli_out ("Bricks:");
                         ret = print_brick_details (dict, i, j, brick_count,
-                                                  replica_count, arbiter_count);
+                                                  replica_count);
                         if (ret)
                                 goto out;
                 }
