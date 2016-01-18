@@ -3290,12 +3290,6 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
                 goto out;
         }
 
-        /* Check if the mount is online before doing any listing */
-        if (!_quota_aux_mount_online (volname)) {
-                ret = -1;
-                goto out;
-        }
-
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_quota_limit_list_begin
                                 (local, op_ret, op_errno, op_errstr);
