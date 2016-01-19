@@ -2239,7 +2239,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        ret = dict_get_uint32 (xdata, "lkmode", &lk_flags);
+        ret = dict_get_uint32 (xdata, GF_LOCK_MODE, &lk_flags);
         if (ret == 0) {
                 if (priv->mandatory_mode == MLK_NONE)
                         gf_log (this->name, GF_LOG_DEBUG, "Lock flags received "
