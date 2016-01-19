@@ -2248,6 +2248,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         char                    tmpkey[4096] = {0,};
         gf_store_iter_t         *tmpiter = NULL;
         char                    *tmpvalue = NULL;
+        char                     abspath[PATH_MAX] = {0};
         struct pmap_registry    *pmap = NULL;
         xlator_t                *this = NULL;
         int                      brickid = 0;
@@ -2401,7 +2402,22 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                        GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
                                                              brickid++);
                 }
-
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret)
+                        goto out;
+                if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+                        if (!realpath (brickinfo->path, abspath)) {
+                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_BRICKINFO_CREATE_FAIL, "realpath"
+                                        " () failed for brick %s. The "
+                                        "underlying file system may be in bad"
+                                        " state", brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
+                        strncpy (brickinfo->real_path, abspath,
+                                 strlen(abspath));
+                }
                 cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick_count++;
         }

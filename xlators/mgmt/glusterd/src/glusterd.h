@@ -189,6 +189,7 @@ typedef enum gf_brick_status {
 struct glusterd_brickinfo {
         char               hostname[1024];
         char               path[PATH_MAX];
+        char               real_path[PATH_MAX];
         char               device_path[PATH_MAX];
         char               mount_dir[PATH_MAX];
         char               brick_id[1024];/*Client xlator name, AFR changelog name*/
