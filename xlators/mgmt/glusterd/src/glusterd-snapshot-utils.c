@@ -2750,6 +2750,9 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                 *op_errstr = gf_strdup (err_str);
                 *op_errno = EG_BRCKDWN;
                 goto out;
+        } else {
+                quorum_met = _gf_true;
+                goto out;
         }
 
         up_count = volinfo->dist_leaf_count - down_count;
