@@ -301,8 +301,9 @@
 #define GF_BACKTRACE_LEN        4096
 #define GF_BACKTRACE_FRAME_COUNT 7
 
-#define GF_LK_ADVISORY 0
-#define GF_LK_MANDATORY 1
+#define GF_LK_ADVISORY 0 /* maps to GLFS_LK_ADVISORY from libgfapi*/
+#define GF_LK_MANDATORY 1 /* maps to GLFS_LK_MANDATORY from libgfapi*/
+#define GF_LOCK_MODE "glusterfs.lk.lkmode"
 
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 

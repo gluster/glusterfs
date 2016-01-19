@@ -4250,36 +4250,46 @@ gf_flock_from_flock (struct gf_flock *gf_flock, struct flock *flock)
 	gf_flock->l_pid    = flock->l_pid;
 }
 
-
-int
-pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
+static int
+glfs_lock_common (struct glfs_fd *glfd, int cmd, struct flock *flock,
+                  dict_t *xdata)
 {
-	int              ret = -1;
-	xlator_t        *subvol = NULL;
-	struct gf_flock  gf_flock = {0, };
-	struct gf_flock  saved_flock = {0, };
-	fd_t            *fd = NULL;
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        struct gf_flock  gf_flock = {0, };
+        struct gf_flock  saved_flock = {0, };
+        fd_t            *fd = NULL;
 
         DECLARE_OLD_THIS;
-	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+        __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        if (!flock) {
+                errno = EINVAL;
+                goto out;
+        }
 
         GF_REF_GET (glfd);
-	subvol = glfs_active_subvol (glfd->fs);
-	if (!subvol) {
-		ret = -1;
-		errno = EIO;
-		goto out;
-	}
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
 
-	fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
-	if (!fd) {
-		ret = -1;
-		errno = EBADFD;
-		goto out;
-	}
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                ret = -1;
+                errno = EBADFD;
+                goto out;
+        }
 
-	gf_flock_from_flock (&gf_flock, flock);
-	gf_flock_from_flock (&saved_flock, flock);
+        /* Generate glusterfs flock structure from client flock
+         * structure to be processed by server */
+        gf_flock_from_flock (&gf_flock, flock);
+
+        /* Keep another copy of flock for split/merge of locks
+         * at client side */
+        gf_flock_from_flock (&saved_flock, flock);
 
         if (glfd->lk_owner.len != 0) {
                 ret = syncopctx_setfslkowner (&glfd->lk_owner);
@@ -4288,24 +4298,80 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
                         goto out;
         }
 
-	ret = syncop_lk (subvol, fd, cmd, &gf_flock, NULL, NULL);
+        ret = syncop_lk (subvol, fd, cmd, &gf_flock, xdata, NULL);
         DECODE_SYNCOP_ERR (ret);
-	gf_flock_to_flock (&gf_flock, flock);
 
-	if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW))
-		fd_lk_insert_and_merge (fd, cmd, &saved_flock);
+        /* Convert back from gf_flock to flock as expected by application */
+        gf_flock_to_flock (&gf_flock, flock);
+
+        if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW)) {
+                ret = fd_lk_insert_and_merge (fd, cmd, &saved_flock);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                API_MSG_LOCK_INSERT_MERGE_FAILED,
+                                "Lock insertion and splitting/merging failed "
+                                "on gfid %s", uuid_utoa (fd->inode->gfid));
+                        ret = 0;
+                }
+        }
+
 out:
-	if (fd)
-		fd_unref (fd);
+        if (fd)
+                fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
 
-	glfs_subvol_done (glfd->fs, subvol);
+        glfs_subvol_done (glfd->fs, subvol);
 
         __GLFS_EXIT_FS;
 
 invalid_fs:
-	return ret;
+        return ret;
+}
+
+int
+pub_glfs_file_lock (struct glfs_fd *glfd, int cmd, struct flock *flock,
+                    enum glfs_lock_mode_t lk_mode)
+{
+        int              ret            = -1;
+        dict_t          *xdata_in       = NULL;
+
+        if (lk_mode == GLFS_LK_MANDATORY) {
+                /* Create a new dictionary */
+                xdata_in = dict_new ();
+                if (xdata_in == NULL) {
+                        ret = -1;
+                        errno = ENOMEM;
+                        goto out;
+                }
+
+                /* Set GF_LK_MANDATORY internally within dictionary to map
+                 * GLFS_LK_MANDATORY */
+                ret = dict_set_uint32 (xdata_in, GF_LOCK_MODE, GF_LK_MANDATORY);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                API_MSG_SETTING_LOCK_TYPE_FAILED,
+                                "Setting lock type failed");
+                        ret = -1;
+                        errno = ENOMEM;
+                        goto out;
+                }
+        }
+
+        ret = glfs_lock_common (glfd, cmd, flock, xdata_in);
+out:
+        if (xdata_in)
+                dict_unref (xdata_in);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_file_lock, 4.0.0);
+
+int
+pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
+{
+        return glfs_lock_common (glfd, cmd, flock, NULL);
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_posix_lock, 3.4.0);

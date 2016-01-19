@@ -774,6 +774,50 @@ char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW
 int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW
         GFAPI_PUBLIC(glfs_posix_lock, 3.4.0);
 
+/*
+  SYNOPSIS
+
+  glfs_file_lock: Request extended byte range lock on a file
+
+  DESCRIPTION
+
+  This function is capable of requesting either advisory or mandatory type
+  byte range locks on a file.
+
+  Note: To set a unique owner key for locks based on a particular file
+  descriptor, make use of glfs_fd_set_lkowner() api to do so before
+  requesting lock via this api. This owner key will be further consumed
+  by other incoming data modifying file operations via the same file
+  descriptor.
+
+  PARAMETERS
+
+  @fd: File descriptor
+
+  @cmd: As specified in man fcntl(2).
+
+  @flock: As specified in man fcntl(2).
+
+  @lk_mode: Required lock type from options available with the
+            enum glfs_lock_mode_t defined below.
+
+  RETURN VALUES
+
+  0   : Success. Lock has been granted.
+  -1  : Failure. @errno will be set indicating the type of failure.
+
+ */
+
+/* Lock modes used by glfs_file_lock() */
+enum glfs_lock_mode_t {
+        GLFS_LK_ADVISORY = 0,
+        GLFS_LK_MANDATORY
+};
+
+int glfs_file_lock (glfs_fd_t *fd, int cmd, struct flock *flock,
+                    enum glfs_lock_mode_t lk_mode) __THROW
+        GFAPI_PUBLIC(glfs_file_lock, 3.13.0);
+
 glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_dup, 3.4.0);
 

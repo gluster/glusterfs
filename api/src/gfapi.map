@@ -222,5 +222,7 @@ GFAPI_3.13.0 {
 } GFAPI_PRIVATE_3.12.0;
 
 GFAPI_4.0.0 {
+        global:
                 glfs_setfsleaseid;
+                glfs_file_lock;
 } GFAPI_3.13.0;
