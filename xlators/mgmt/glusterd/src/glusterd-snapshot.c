@@ -4819,6 +4819,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         gf_boolean_t            add_missed_snap                 = _gf_false;
         int32_t                 ret                             = -1;
         xlator_t               *this                            = NULL;
+        char                    abspath[PATH_MAX]               = {0};
 
         this = THIS;
         GF_ASSERT (this);
@@ -4956,6 +4957,21 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         strcpy (snap_brickinfo->hostname, original_brickinfo->hostname);
         strcpy (snap_brickinfo->path, snap_brick_path);
+
+        if (!realpath (snap_brick_path, abspath)) {
+                /* ENOENT indicates that brick path has not been created which
+                 * is a valid scenario */
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_BRICKINFO_CREATE_FAIL, "realpath () "
+                                "failed for brick %s. The underlying filesystem"
+                                " may be in bad state", snap_brick_path);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        strncpy (snap_brickinfo->real_path, abspath, strlen(abspath));
+
         strcpy (snap_brickinfo->mount_dir, original_brickinfo->mount_dir);
         gf_uuid_copy (snap_brickinfo->uuid, original_brickinfo->uuid);
         /* AFR changelog names are based on brick_id and hence the snap

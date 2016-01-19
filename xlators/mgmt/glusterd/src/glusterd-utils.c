@@ -675,6 +675,7 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
 
         strcpy (dup_brickinfo->hostname, brickinfo->hostname);
         strcpy (dup_brickinfo->path, brickinfo->path);
+        strcpy (dup_brickinfo->real_path, brickinfo->real_path);
         strcpy (dup_brickinfo->device_path, brickinfo->device_path);
         strcpy (dup_brickinfo->fstype, brickinfo->fstype);
         strcpy (dup_brickinfo->mnt_opts, brickinfo->mnt_opts);
@@ -1068,6 +1069,7 @@ glusterd_brickinfo_new_from_brick (char *brick,
         int32_t                 ret           = -1;
         glusterd_brickinfo_t   *new_brickinfo = NULL;
         xlator_t               *this          = NULL;
+        char                    abspath[PATH_MAX] = {0};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1102,9 +1104,22 @@ glusterd_brickinfo_new_from_brick (char *brick,
         ret = gf_canonicalize_path (path);
         if (ret)
                 goto out;
-
         strncpy (new_brickinfo->hostname, hostname, 1024);
         strncpy (new_brickinfo->path, path, 1024);
+
+        if (!realpath (new_brickinfo->path, abspath)) {
+                /* ENOENT indicates that brick path has not been created which
+                 * is a valid scenario */
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_BRICKINFO_CREATE_FAIL, "realpath () failed for "
+                                "brick %s. The underlying filesystem may be in bad "
+                                "state", new_brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        strncpy (new_brickinfo->real_path, abspath, strlen(abspath));
 
         *brickinfo = new_brickinfo;
 
@@ -1167,7 +1182,6 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
         glusterd_conf_t         *priv      = NULL;
         gf_boolean_t            available  = _gf_false;
         char                    tmp_path[PATH_MAX+1] = {0};
-        char                    tmp_brickpath[PATH_MAX+1] = {0};
 
         priv = THIS->private;
 
@@ -1186,16 +1200,7 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
                                          brick_list) {
                         if (gf_uuid_compare (uuid, brickinfo->uuid))
                                 continue;
-
-                        if (!realpath (brickinfo->path, tmp_brickpath)) {
-                            if (errno == ENOENT)
-                                strncpy (tmp_brickpath, brickinfo->path,
-                                         PATH_MAX);
-                            else
-                                goto out;
-                        }
-
-                        if (_is_prefix (tmp_brickpath, tmp_path))
+                        if (_is_prefix (brickinfo->real_path, tmp_path))
                                 goto out;
                 }
         }
