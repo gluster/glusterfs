@@ -1841,7 +1841,7 @@ tier_init (xlator_t *this)
                 freq = DEFAULT_TIER_MAX_MIGRATE_MB;
         }
 
-        defrag->tier_conf.max_migrate_bytes = freq * 1024 * 1024;
+        defrag->tier_conf.max_migrate_bytes = (uint64_t) freq * 1024 * 1024;
 
         ret = dict_get_int32 (this->options,
                               "tier-max-files", &freq);
@@ -2018,7 +2018,8 @@ tier_reconfigure (xlator_t *this, dict_t *options)
                 GF_OPTION_RECONF ("tier-max-mb",
                                   migrate_mb, options,
                                   int32, out);
-                defrag->tier_conf.max_migrate_bytes = migrate_mb*1024*1024;
+                defrag->tier_conf.max_migrate_bytes = (uint64_t) migrate_mb *
+                                                        1024 * 1024;
 
                 GF_OPTION_RECONF ("tier-max-files",
                                   defrag->tier_conf.max_migrate_files, options,

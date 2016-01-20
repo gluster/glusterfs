@@ -1003,7 +1003,7 @@ struct volume_options options[] = {
 
         { .key  = {"tier-demote-frequency"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "120",
+          .default_value = "3600",
           .description = "Frequency to demote files to slow tier"
         },
 
@@ -1030,11 +1030,11 @@ struct volume_options options[] = {
         },
         { .key         = {"tier-max-mb"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "1000",
+          .default_value = "4000",
         },
         { .key         = {"tier-max-files"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "5000",
+          .default_value = "10000",
         },
         /* switch option */
         { .key  = {"pattern.switch.case"},
