@@ -860,7 +860,7 @@ int32_t ec_combine_check(ec_cbk_data_t * dst, ec_cbk_data_t * src,
 
     if (!ec_dict_compare(dst->xdata, src->xdata))
     {
-        gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
+        gf_msg (fop->xl->name, GF_LOG_DEBUG, 0,
                 EC_MSG_XDATA_MISMATCH,
                 "Mismatching xdata in answers "
                 "of '%s'", ec_fop_name(fop->id));

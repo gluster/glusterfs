@@ -1125,7 +1125,7 @@ int32_t ec_combine_xattrop(ec_fop_data_t *fop, ec_cbk_data_t *dst,
 {
     if (!ec_dict_compare(dst->dict, src->dict))
     {
-        gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+        gf_msg (fop->xl->name, GF_LOG_DEBUG, 0,
                 EC_MSG_DICT_MISMATCH, "Mismatching dictionary in "
                                              "answers of 'GF_FOP_XATTROP'");
 

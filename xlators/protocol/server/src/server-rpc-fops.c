@@ -1707,8 +1707,8 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
-                        PS_MSG_XATTROP_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_XATTROP, op_errno),
+                        op_errno, PS_MSG_XATTROP_INFO,
                         "%"PRId64": XATTROP %s (%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
