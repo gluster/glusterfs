@@ -1758,7 +1758,7 @@ client3_3_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 out:
         if (rsp.op_ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, fop_log_level (GF_FOP_XATTROP, op_errno),
                         gf_error_to_errno (rsp.op_errno),
                         PC_MSG_REMOTE_OP_FAILED, "remote operation failed. "
                         "Path: %s (%s)",

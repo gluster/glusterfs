@@ -5444,8 +5444,8 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                    !posix_special_xattr (marker_xattrs,
                                                          k)) {
                                 if (filler->real_path)
-                                        gf_msg (this->name, GF_LOG_ERROR,
-                                                op_errno, P_MSG_XATTR_FAILED,
+                                        gf_msg (this->name, fop_log_level (GF_FOP_XATTROP,
+                                                op_errno),  op_errno, P_MSG_XATTR_FAILED,
                                                 "getxattr failed on %s while "
                                                 "doing xattrop: Key:%s ",
                                                 filler->real_path, k);
