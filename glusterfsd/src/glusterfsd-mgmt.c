@@ -1834,6 +1834,11 @@ glusterfs_rebalance_event_notify_cbk (struct rpc_req *req, struct iovec *iov,
         }
 out:
         free (rsp.dict.dict_val); //malloced by xdr
+
+        if (frame) {
+                STACK_DESTROY (frame->root);
+        }
+
         return ret;
 
 }
@@ -1870,9 +1875,6 @@ glusterfs_rebalance_event_notify (dict_t *dict)
 
         GF_FREE (req.dict.dict_val);
 
-        if (frame) {
-              STACK_DESTROY (frame->root);
-        }
         return ret;
 }
 
