@@ -822,6 +822,18 @@ reconfigure (xlator_t *this, dict_t *options)
                 {
                         list_for_each_entry (xprt, &conf->xprt_list, list) {
                                 /* check for client authorization */
+                                if (!xprt->clnt_options) {
+                                        /* If clnt_options dictionary is null,
+                                         * which means for this transport
+                                         * server_setvolume was not called.
+                                         *
+                                         * So here we can skip authentication
+                                         * because server_setvolume will do
+                                         * gf_authenticate.
+                                         *
+                                         */
+                                        continue;
+                                }
                                 ret = gf_authenticate (xprt->clnt_options,
                                                 options, conf->auth_modules);
                                 if (ret == AUTH_ACCEPT) {
