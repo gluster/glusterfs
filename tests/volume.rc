@@ -6,6 +6,13 @@ function volinfo_field()
     $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
 
+function volume_get_field()
+{
+    local vol=$1
+    local field=$2
+    $CLI volume get $vol $field | tail -1 | awk '{print $2}'
+}
+
 
 function brick_count()
 {
