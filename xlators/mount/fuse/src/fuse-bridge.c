@@ -3844,12 +3844,13 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static void *
 notify_kernel_loop (void *data)
 {
+        uint32_t                 len = 0;
+        ssize_t                   rv = 0;
         xlator_t               *this = NULL;
         fuse_private_t         *priv = NULL;
-        struct fuse_out_header *fouh = NULL;
-        ssize_t                 rv   = 0;
-        ssize_t                 len  = 0;
         fuse_invalidate_node_t *node = NULL;
+        fuse_invalidate_node_t  *tmp = NULL;
+        struct fuse_out_header *pfoh = NULL;
 
         this = data;
         priv = this->private;
@@ -3864,29 +3865,51 @@ notify_kernel_loop (void *data)
                         node = list_entry (priv->invalidate_list.next,
                                            fuse_invalidate_node_t, next);
 
-                        if (node == NULL)
-                                continue;
-
                         list_del_init (&node->next);
                 }
                 pthread_mutex_unlock (&priv->invalidate_mutex);
 
+                pfoh = (struct fuse_out_header *)node->inval_buf;
+                memcpy (&len, &pfoh->len, sizeof(len));
+                /*
+                 * a simple
+                 *         len = pfoh->len;
+                 * works on x86, but takes a multiple insn cycle hit
+                 * when pfoh->len is not correctly aligned, possibly
+                 * even stalling the insn pipeline.
+                 * Other architectures will not be so forgiving. If
+                 * we're lucky the memcpy will be inlined by the
+                 * compiler, and might be as fast or faster without
+                 * the risk of stalling the insn pipeline.
+                 */
 
-                fouh = (struct fuse_out_header *)node->inval_buf;
+                rv = sys_write (priv->fd, node->inval_buf, len);
 
-                len = fouh->len;
-                rv = sys_write (priv->fd, node->inval_buf, fouh->len);
-
-
-                if (rv != len && !(rv == -1 && errno == ENOENT))
-                        break;
                 GF_FREE (node);
+
+                if (rv == -1 && errno == EBADF)
+                        break;
+
+                if (rv != len && !(rv == -1 && errno == ENOENT)) {
+                        gf_log ("glusterfs-fuse", GF_LOG_INFO,
+                                "len: %u, rv: %zd, errno: %d", len, rv, errno);
+                }
         }
 
-        gf_log ("glusterfs-fuse", GF_LOG_INFO,
+        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                 "kernel notifier loop terminated");
 
-        GF_FREE (node);
+        pthread_mutex_lock (&priv->invalidate_mutex);
+        {
+                priv->reverse_fuse_thread_started = _gf_false;
+                list_for_each_entry_safe (node, tmp, &priv->invalidate_list,
+                                          next) {
+                        list_del_init (&node->next);
+                        GF_FREE (node);
+                }
+        }
+        pthread_mutex_unlock (&priv->invalidate_mutex);
+
         return NULL;
 }
 #endif
