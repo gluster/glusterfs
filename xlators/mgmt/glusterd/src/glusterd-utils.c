@@ -10657,9 +10657,13 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         char                    *def_val = NULL;
         char                     dict_key[50] = {0,};
         gf_boolean_t             key_found = _gf_false;
+        glusterd_conf_t         *priv = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         GF_VALIDATE_OR_GOTO (this->name, vol_dict, out);
 
@@ -10675,19 +10679,23 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                 if (!all_opts && strcmp (vme->key, input_key))
                         continue;
                 key_found = _gf_true;
-                /* First look for the key in the vol_dict, if its not
-                 * present then look for translator default value */
-                ret = dict_get_str (vol_dict, vme->key, &def_val);
+                /* First look for the key in the priv->opts for global option
+                 * and then into vol_dict, if its not present then look for
+                 * translator default value */
+                ret = dict_get_str (priv->opts, vme->key, &def_val);
                 if (!def_val) {
-                        if (vme->value) {
-                                def_val = vme->value;
-                        } else {
-                                ret = glusterd_get_value_for_vme_entry
-                                         (vme, &def_val);
-                                if (!all_opts && ret)
-                                        goto out;
-                                else if (ret == -2)
-                                        continue;
+                        ret = dict_get_str (vol_dict, vme->key, &def_val);
+                        if (!def_val) {
+                                if (vme->value) {
+                                        def_val = vme->value;
+                                } else {
+                                        ret = glusterd_get_value_for_vme_entry
+                                                 (vme, &def_val);
+                                        if (!all_opts && ret)
+                                                goto out;
+                                        else if (ret == -2)
+                                                continue;
+                                }
                         }
                 }
                 count++;

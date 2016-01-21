@@ -4778,17 +4778,43 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                         goto out;
                                 }
                         } else {
-                                ret = glusterd_get_default_val_for_volopt
+                                sprintf (dict_key, "key%d", count);
+                                ret = dict_set_str(dict, dict_key, key);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED, "Failed"
+                                                " to set %s in dictionary",
+                                                key);
+                                        goto out;
+                                }
+                                sprintf (dict_key, "value%d", count);
+                                ret = dict_get_str (priv->opts, key, &value);
+                                if (!ret) {
+                                        ret = dict_set_str(dict, dict_key,
+                                                           value);
+                                        if (ret) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        GD_MSG_DICT_SET_FAILED,
+                                                        "Failed to set %s in "
+                                                        " dictionary", key);
+                                                goto out;
+                                        }
+                                } else {
+                                        ret = glusterd_get_default_val_for_volopt
                                                                (dict,
                                                                 _gf_false,
                                                                 key, orig_key,
                                                                 volinfo->dict,
                                                                 &rsp.op_errstr);
-                                if (ret && !rsp.op_errstr) {
-                                        snprintf (err_str, sizeof(err_str),
-                                                  "Failed to fetch the value of"
-                                                  " %s, check log file for more"
-                                                  " details", key);
+                                        if (ret && !rsp.op_errstr) {
+                                                snprintf (err_str,
+                                                          sizeof(err_str),
+                                                          "Failed to fetch the "
+                                                          "value of %s, check "
+                                                          "log file for more"
+                                                          " details", key);
+                                        }
                                 }
                         }
                 }
