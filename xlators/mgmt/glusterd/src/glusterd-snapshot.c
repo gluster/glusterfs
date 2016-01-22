@@ -848,17 +848,6 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                /* Take backup of the volinfo folder */
-                ret = glusterd_snapshot_backup_vol (parent_volinfo);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_VOL_OP_FAILED,
-                                "Failed to backup "
-                                "volume backend files for %s volume",
-                                parent_volinfo->volname);
-                        goto out;
-                }
-
                 if (is_origin_glusterd (dict) == _gf_true) {
                         /* From origin glusterd check if      *
                          * any peers with snap bricks is down */
@@ -897,7 +886,6 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_LVM_REMOVE_FAILED,
                                         "Failed to remove LVM backend");
-                                goto out;
                         }
                 }
 
@@ -906,6 +894,9 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  */
                 cds_list_del_init (&parent_volinfo->vol_list);
                 glusterd_volinfo_unref (parent_volinfo);
+
+                if (ret)
+                        goto out;
         }
 
         ret = 0;
@@ -1043,6 +1034,17 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                         ret = -1;
                         goto out;
                 }
+
+                /* Take backup of the volinfo folder */
+                ret = glusterd_snapshot_backup_vol (volinfo);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_OP_FAILED,
+                                "Failed to backup "
+                                "volume backend files for %s volume",
+                                volinfo->volname);
+                        goto out;
+                }
         }
 
         /* Get brickinfo for snap_volumes */
@@ -1050,6 +1052,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
         cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                 volcount++;
                 brick_count = 0;
+
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         brick_count++;
@@ -8488,6 +8491,64 @@ out:
         return ret;
 }
 
+/* This function is called to remove the trashpath, in cases
+ * when the restore operation is successful and we don't need
+ * the backup, and incases when the restore op is failed before
+ * commit, and we don't need to revert the backup.
+ *
+ * @param volname  name of the volume which is being restored
+ *
+ * @return 0 on success or -1 on failure
+ */
+int
+glusterd_remove_trashpath (char *volname)
+{
+        int                     ret                     = -1;
+        char                    delete_path[PATH_MAX]   = {0,};
+        xlator_t               *this                    = NULL;
+        glusterd_conf_t        *priv                    = NULL;
+        struct stat             stbuf                   = {0, };
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (volname);
+
+        snprintf (delete_path, sizeof (delete_path),
+                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                  volname);
+
+        ret = lstat (delete_path, &stbuf);
+        if (ret) {
+                /* If the trash dir does not exist, return *
+                 * without failure                         *
+                 */
+                if (errno == ENOENT) {
+                        ret = 0;
+                        goto out;
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DIR_OP_FAILED, "Failed to lstat "
+                                "backup dir (%s)", delete_path);
+                        goto out;
+                }
+        }
+
+        /* Delete the backup copy of volume folder */
+        ret = recursive_rmdir (delete_path);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED, "Failed to remove "
+                        "backup dir (%s)", delete_path);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 /* This function is called if snapshot restore operation
  * is successful. It will cleanup the backup files created
  * during the restore operation.
@@ -8504,7 +8565,6 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
                                    glusterd_snap_t *snap)
 {
         int                     ret                     = -1;
-        char                    delete_path[PATH_MAX]   = {0,};
         xlator_t               *this                    = NULL;
         glusterd_conf_t        *priv                    = NULL;
 
@@ -8515,10 +8575,6 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
         GF_ASSERT (rsp_dict);
         GF_ASSERT (volname);
         GF_ASSERT (snap);
-
-        snprintf (delete_path, sizeof (delete_path),
-                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
-                  volname);
 
         /* Now delete the snap entry. */
         ret = glusterd_snap_remove (rsp_dict, snap, _gf_false, _gf_true,
@@ -8531,11 +8587,11 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
         }
 
         /* Delete the backup copy of volume folder */
-        ret = recursive_rmdir (delete_path);
+        ret = glusterd_remove_trashpath(volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DIR_OP_FAILED, "Failed to remove "
-                        "backup dir (%s)", delete_path);
+                        "backup dir");
                 goto out;
         }
 
@@ -8765,6 +8821,14 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
                 ret = dict_get_int32 (dict, "cleanup", &cleanup);
                 /* Perform cleanup only when required */
                 if (ret || (0 == cleanup)) {
+                        /* Delete the backup copy of volume folder */
+                        ret = glusterd_remove_trashpath(volinfo->volname);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_DIR_OP_FAILED,
+                                        "Failed to remove backup dir");
+                                goto out;
+                        }
                         ret = 0;
                         goto out;
                 }
