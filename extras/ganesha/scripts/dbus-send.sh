@@ -63,30 +63,37 @@ function dynamic_export_add()
 
                  EXPORT_ID=`cat $GANESHA_DIR/.export_added`
                  check_cmd_status `echo $?`
-                 EXPORT_ID=EXPORT_ID+1
         #fi
         fi
+        for entry in `grep -n Export_Id  $GANESHA_DIR/exports/export.$VOL.conf \
+        | awk -F":" '{print$1}'`
+        do
+                sed -e "$entry s/Export_Id.*/Export_Id=$EXPORT_ID ;/" -i \
+                $GANESHA_DIR/exports/export.$VOL.conf
+                check_cmd_status `echo $?`
+                dbus-send  --system \
+                --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+                org.ganesha.nfsd.exportmgr.AddExport  \
+                string:$GANESHA_DIR/exports/export.$VOL.conf \
+                string:"EXPORT(Export_Id=$EXPORT_ID)"
+                EXPORT_ID=EXPORT_ID+1
+        done
         echo $EXPORT_ID > $GANESHA_DIR/.export_added
         check_cmd_status `echo $?`
-        sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
-$GANESHA_DIR/exports/export.$VOL.conf
-        check_cmd_status `echo $?`
-        dbus-send  --system \
---dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.AddExport  string:$GANESHA_DIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)"
 }
 
 #This function removes an export dynamically(uses the export_id of the export)
 function dynamic_export_remove()
 {
-        removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d " " -f8`
-        check_cmd_status `echo $?`
-        dbus-send --print-reply --system \
---dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
-        check_cmd_status `echo $?`
+        grep Export_Id $GANESHA_DIR/exports/export.$VOL.conf | \
+        while read entry;
+        do
+                dbus-send --print-reply --system \
+                --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+                org.ganesha.nfsd.exportmgr.RemoveExport \
+                uint16:$(echo $entry | awk -F"[=,;]" '{print$2}')
+                check_cmd_status `echo $?`
+        done
         sed -i /$VOL.conf/d $CONF
         rm -rf $GANESHA_DIR/exports/export.$VOL.conf
 
