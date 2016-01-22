@@ -24,7 +24,7 @@ from datetime import datetime
 from gconf import gconf
 from syncdutils import Thread, GsyncdError, boolify, escape
 from syncdutils import unescape, gauxpfx, md5hex, selfkill
-from syncdutils import lstat, errno_wrap
+from syncdutils import lstat, errno_wrap, FreeObject
 from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
 
 URXTIME = (-1, 0)
@@ -865,19 +865,34 @@ class GMasterChangelogMixin(GMasterCommon):
                         entries.append(edct(ty, gfid=gfid, entry=en))
                 elif ty in ['CREATE', 'MKDIR', 'MKNOD']:
                     entry_update()
-                    # stat information present in the changelog itself
-                    entries.append(edct(ty, gfid=gfid, entry=en,
-                                        mode=int(ec[2]),
-                                        uid=int(ec[3]), gid=int(ec[4])))
 
-                    # Special case: add DATA in case of tier linkto file,
-                    # Here, we have the assumption that only tier-gfid.linkto
-                    # causes this mknod
+                    # Special case: record mknod as link
                     if ty in ['MKNOD']:
                         mode = int(ec[2])
                         if mode & 01000:
-                            datas.add(os.path.join(pfx, ec[0]))
+                                # Avoid stat'ing the file as it
+                                # may be deleted in the interim
+                                st = FreeObject(st_mode=int(ec[2]),
+                                                st_uid=int(ec[3]),
+                                                st_gid=int(ec[4]),
+                                                st_atime=0,
+                                                st_mtime=0)
 
+                                # So, it may be deleted, but still we are
+                                # append LINK? Because, the file will be
+                                # CREATED if source not exists.
+                                entries.append(edct('LINK', stat=st, entry=en,
+                                               gfid=gfid))
+
+                                # Here, we have the assumption that only
+                                # tier-gfid.linkto causes this mknod. Add data
+                                datas.add(os.path.join(pfx, ec[0]))
+                                continue
+
+                    # stat info. present in the changelog itself
+                    entries.append(edct(ty, gfid=gfid, entry=en,
+                                   mode=int(ec[2]),
+                                   uid=int(ec[3]), gid=int(ec[4])))
                 elif ty == "RENAME":
                     go = os.path.join(pfx, gfid)
                     st = lstat(go)
