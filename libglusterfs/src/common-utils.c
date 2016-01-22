@@ -3669,6 +3669,27 @@ out:
         return running;
 }
 
+/* Check if the pid is > 0 */
+gf_boolean_t
+gf_valid_pid (const char *pid, int length)
+{
+        gf_boolean_t    ret = _gf_true;
+        pid_t           value = 0;
+        char           *end_ptr = NULL;
+
+        if (length <= 0) {
+                ret = _gf_false;
+                goto out;
+        }
+
+        value = strtol (pid, &end_ptr, 10);
+        if (value <= 0) {
+                ret = _gf_false;
+        }
+out:
+        return ret;
+}
+
 static int
 dht_is_linkfile_key (dict_t *this, char *key, data_t *value, void *data)
 {

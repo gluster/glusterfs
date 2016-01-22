@@ -7044,6 +7044,49 @@ out:
 }
 
 int
+glusterd_client_statedump (char *volname, char *options, int option_cnt,
+                           char **op_errstr)
+{
+        int                      ret                = 0;
+        char                    *dup_options        = NULL;
+        char                    *option             = NULL;
+        char                    *tmpptr             = NULL;
+        char                     msg[256]           = {0,};
+        char                    *target_ip          = NULL;
+        char                    *pid                = NULL;
+
+        dup_options = gf_strdup (options);
+        option = strtok_r (dup_options, " ", &tmpptr);
+        if (strcmp (option, "client")) {
+                snprintf (msg, sizeof (msg), "for gluster client statedump, options "
+                          "should be after the key 'client'");
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+        target_ip = strtok_r (NULL, " ", &tmpptr);
+        if (target_ip == NULL) {
+                snprintf (msg, sizeof (msg), "ip address not specified");
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        pid = strtok_r (NULL, " ", &tmpptr);
+        if (pid == NULL) {
+                snprintf (msg, sizeof (msg), "pid not specified");
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_client_statedump_submit_req (volname, target_ip, pid);
+out:
+        GF_FREE (dup_options);
+        return ret;
+}
+
+int
 glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
 {
         int                     ret = -1;

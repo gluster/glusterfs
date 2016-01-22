@@ -3541,19 +3541,44 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         dict_t  *dict = NULL;
         int     option_cnt = 0;
         char    *option = NULL;
-        char    option_str[100] = {0,};
+        char    option_str[_POSIX_HOST_NAME_MAX + 100] = {0,};
+        char    *tmp = NULL;
+        char    *ip_addr = NULL;
+        char    *pid = NULL;
 
-        for (i = 3; i < wordcount; i++, option_cnt++) {
-                if (!cli_cmd_validate_dumpoption (words[i], &option)) {
+        if ((wordcount >= 5) && ((strcmp (words[3], "client")) == 0)) {
+                tmp = gf_strdup(words[4]);
+                if (!tmp) {
                         ret = -1;
                         goto out;
                 }
-                strncat (option_str, option, strlen (option));
-                strncat (option_str, " ", 1);
-        }
-        if((strstr (option_str, "nfs")) && strstr (option_str, "quotad")) {
-                ret = -1;
-                goto out;
+                ip_addr = strtok(tmp, ":");
+                pid = strtok(NULL, ":");
+                if (valid_internet_address (ip_addr, _gf_true)
+                   && pid && gf_valid_pid (pid, strlen(pid))) {
+                        strncat (option_str, words[3], strlen (words[3]));
+                        strncat (option_str, " ", 1);
+                        strncat (option_str, ip_addr, strlen (ip_addr));
+                        strncat (option_str, " ", 1);
+                        strncat (option_str, pid, strlen (pid));
+                        option_cnt = 3;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                for (i = 3; i < wordcount; i++, option_cnt++) {
+                        if (!cli_cmd_validate_dumpoption (words[i], &option)) {
+                                ret = -1;
+                                goto out;
+                        }
+                        strncat (option_str, option, strlen (option));
+                        strncat (option_str, " ", 1);
+                }
+                if ((strstr (option_str, "nfs")) && strstr (option_str, "quotad")) {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         dict = dict_new ();
@@ -3570,6 +3595,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
 
         *options = dict;
 out:
+        GF_FREE (tmp);
         if (ret && dict)
                 dict_unref (dict);
         if (ret)

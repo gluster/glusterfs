@@ -1000,6 +1000,10 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
                                 char *hostname, dict_t *dict);
 
 int
+glusterd_client_statedump_submit_req (char *volname, char *target_ip,
+                                      char *pid);
+
+int
 glusterd_fetchspec_notify (xlator_t *this);
 
 int

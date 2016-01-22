@@ -1457,6 +1457,7 @@ rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
         [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
                                  mgmt_cbk_event},
+        [GF_CBK_STATEDUMP] = {"STATEDUMP", GF_CBK_STATEDUMP, mgmt_cbk_event},
 };
 
 

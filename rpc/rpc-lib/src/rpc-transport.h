@@ -70,7 +70,7 @@ struct peer_info {
         uint32_t max_op_version;
         uint32_t min_op_version;
         //Volume mounted by client
-        char volname[1024];
+        char volname[NAME_MAX];
 };
 typedef struct peer_info peer_info_t;
 

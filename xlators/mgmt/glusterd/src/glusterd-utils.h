@@ -390,6 +390,10 @@ int
 glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr);
 
 int
+glusterd_client_statedump (char *volname, char *options, int option_cnt,
+                           char **op_errstr);
+
+int
 glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr);
 
 gf_boolean_t

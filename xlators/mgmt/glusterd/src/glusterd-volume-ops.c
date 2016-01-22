@@ -2867,6 +2867,13 @@ glusterd_op_statedump_volume (dict_t *dict, char **op_errstr)
                                                  op_errstr);
                 if (ret)
                         goto out;
+
+        } else if (strstr (options, "client")) {
+                ret = glusterd_client_statedump (volname, options, option_cnt,
+                                                op_errstr);
+                if (ret)
+                        goto out;
+
         } else {
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {

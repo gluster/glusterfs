@@ -3285,8 +3285,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},
 
-        {"volume statedump <VOLNAME> [nfs|quotad] [all|mem|iobuf|callpool|priv|fd|"
-         "inode|history]...",
+        {"volume statedump <VOLNAME> [[nfs|quotad] [all|mem|iobuf|callpool|"
+         "priv|fd|inode|history]... | [client <hostname:process-id>]]",
          cli_cmd_volume_statedump_cbk,
          "perform statedump on bricks"},
 
