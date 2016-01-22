@@ -248,19 +248,26 @@ grep Export_Id | cut -d " " -f8`
                 scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} ${HA_CONFDIR}/exports/export.$VOL.conf \
 ${current_host}:${HA_CONFDIR}/exports/
-                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} root@${current_host} "dbus-send --print-reply --system \
---dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id"
-                 sleep 1
-                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} root@${current_host} "dbus-send  --system \
---dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\""
-               if [ $? -ne 0 ]; then
-                    echo "warning: refresh-config failed on ${current_host}"
-               fi
+                grep Export_Id $HA_CONFDIR/exports/export.$VOL.conf | \
+                while read entry;
+                do
+                        export_id=$(echo $entry | awk -F"[=,;]" '{print$2}')
+                        ssh -oPasswordAuthentication=no \
+-oStrictHostKeyChecking=no -i  ${SECRET_PEM} root@${current_host} \
+"dbus-send --print-reply --system --dest=org.ganesha.nfsd \
+/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
+uint16:$export_id"
+                        sleep 1
+                        ssh -oPasswordAuthentication=no \
+-oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
+"dbus-send  --system --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+org.ganesha.nfsd.exportmgr.AddExport string:$HA_CONFDIR/exports/export.$VOL.conf \
+string:\"EXPORT(Export_Id=$export_id)\""
+                        if [ $? -ne 0 ]; then
+                                echo "warning: refresh-config failed on" \
+                                     " ${current_host}"
+                        fi
+                done
             fi
             shift
         done
@@ -269,14 +276,20 @@ string:\"EXPORT(Path=/$VOL)\""
     fi
 
 #Run the same command on the localhost,
-        dbus-send --print-reply --system \
---dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
-        sleep 1
-        dbus-send  --system \
---dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.AddExport  string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)"
+        grep Export_Id $HA_CONFDIR/exports/export.$VOL.conf | \
+        while read entry;
+        do
+                export_id=$(echo $entry | awk -F"[=,;]" '{print$2}')
+                dbus-send --print-reply --system \
+                --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+                org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
+                sleep 1
+                dbus-send  --system \
+                --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
+                org.ganesha.nfsd.exportmgr.AddExport  \
+                string:$HA_CONFDIR/exports/export.$VOL.conf \
+                string:"EXPORT(Export_Id=$export_id)"
+        done
 }
 
 copy_export_config ()
