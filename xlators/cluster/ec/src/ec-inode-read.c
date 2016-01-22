@@ -109,7 +109,7 @@ ec_manager_access(ec_fop_data_t *fop, int32_t state)
                 fop->cbks.access(fop->req_frame, fop, fop->xl, -1,
                                  fop->error, NULL);
             }
-            return -EC_STATE_LOCK_REUSE;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
