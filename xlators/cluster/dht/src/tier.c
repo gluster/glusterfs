@@ -281,6 +281,10 @@ tier_migrate_using_query_file (void *_args)
         uint64_t total_migrated_bytes           = 0;
         int total_files                         = 0;
         loc_t root_loc                          = { 0 };
+        gfdb_time_t  start_time                 = { 0 };
+        gfdb_time_t  current_time               = { 0 };
+        int total_time                          = 0;
+        int max_time                            = 0;
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
@@ -318,6 +322,13 @@ tier_migrate_using_query_file (void *_args)
 
         dht_build_root_loc (defrag->root_inode, &root_loc);
 
+        ret = gettimeofday (&start_time, NULL);
+        if (query_cbk_args->is_promotion) {
+                max_time = defrag->tier_conf.tier_promote_frequency;
+        } else {
+                max_time = defrag->tier_conf.tier_demote_frequency;
+        }
+
         /* Per file */
         while ((ret = gfdb_methods.gfdb_read_query_record
                         (query_fd, &query_record)) != 0) {
@@ -327,6 +338,22 @@ tier_migrate_using_query_file (void *_args)
                                 DHT_MSG_LOG_TIER_ERROR,
                                 "Failed to fetch query record "
                                 "from query file");
+                        goto out;
+                }
+
+                ret = gettimeofday (&current_time, NULL);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_ERROR,
+                                "Could not get current time.");
+                        goto out;
+                }
+
+                total_time = current_time.tv_sec - start_time.tv_sec;
+                if (total_time > max_time) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_STATUS,
+                                "Max cycle time reached. Exiting migration.");
                         goto out;
                 }
 
