@@ -796,6 +796,8 @@ int gf_thread_create_detached (pthread_t *thread,
 
 gf_boolean_t
 gf_is_service_running (char *pidfile, int *pid);
+gf_boolean_t
+gf_valid_pid (const char *pid, int length);
 int
 gf_skip_header_section (int fd, int header_len);
 

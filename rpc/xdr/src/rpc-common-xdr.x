@@ -39,6 +39,9 @@ struct gf_dump_req {
 	u_quad_t gfs_id;
 };
 
+struct gf_statedump {
+	unsigned int pid;
+};
 
 struct gf_prog_detail {
 	string progname<>;
