@@ -38,6 +38,7 @@
     - man-db
     - mock
     - net-tools
+    - nfs-ganesha-gluster
     - nfs-utils
     - openssh-server
     - openssl-devel
@@ -69,3 +70,15 @@
     - xfsprogs
     - yajl-devel
 
+- name: install dev help packages, not required by Gluster
+  dnf:  name={{ item }} state=present
+  with_items:
+    - cgdb
+    - clang
+    - lsof
+    - perf
+    - sysstat
+    - systemtap
+    - systemtap-runtime
+    - tcpdump
+    - valgrind
