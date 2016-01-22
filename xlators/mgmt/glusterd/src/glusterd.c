@@ -47,6 +47,7 @@
 #include "glusterd-geo-rep.h"
 #include "run.h"
 #include "rpc-clnt-ping.h"
+#include "rpc-common-xdr.h"
 
 #include "syncop.h"
 
@@ -230,6 +231,72 @@ glusterd_options_init (xlator_t *this)
         }
 out:
         return 0;
+}
+
+int
+glusterd_client_statedump_submit_req (char *volname, char *target_ip,
+                                      char *pid)
+{
+        gf_statedump             statedump_req      = {0, };
+        glusterd_conf_t         *conf               = NULL;
+        int                      ret                = 0;
+        char                    *end_ptr            = NULL;
+        rpc_transport_t         *trans              = NULL;
+        char                    *ip_addr            = NULL;
+        xlator_t                *this               = NULL;
+        char                     tmp[UNIX_PATH_MAX] = {0, };
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (target_ip == NULL || pid == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        statedump_req.pid = strtol (pid, &end_ptr, 10);
+
+        gf_msg_debug (this->name, 0, "Performing statedump on volume %s "
+                      "client with pid:%d host:%s", volname, statedump_req.pid,
+                      target_ip);
+
+        pthread_mutex_lock (&conf->xprt_lock);
+        {
+                list_for_each_entry (trans, &conf->xprt_list, list) {
+                        /* check if this connection matches "all" or the
+                         * volname */
+                        if (strncmp (volname, "all", NAME_MAX) &&
+                            strncmp (trans->peerinfo.volname, volname,
+                                     NAME_MAX)) {
+                                /* no match, try next trans */
+                                continue;
+                        }
+
+                        strcpy (tmp, trans->peerinfo.identifier);
+                        ip_addr = strtok (tmp, ":");
+                        if (gf_is_same_address (ip_addr, target_ip)) {
+                                /* Every gluster client would have
+                                 * connected to glusterd(volfile server). This
+                                 * connection is used to send the statedump
+                                 * request rpc to the application.
+                                 */
+                                gf_msg_trace (this->name, 0, "Submitting "
+                                        "statedump rpc request for %s",
+                                        trans->peerinfo.identifier);
+                                rpcsvc_request_submit (conf->rpc, trans,
+                                                       &glusterd_cbk_prog,
+                                                       GF_CBK_STATEDUMP,
+                                                       &statedump_req, this->ctx,
+                                                       (xdrproc_t)xdr_gf_statedump);
+                        }
+                }
+        }
+        pthread_mutex_unlock (&conf->xprt_lock);
+out:
+        return ret;
+
 }
 
 int

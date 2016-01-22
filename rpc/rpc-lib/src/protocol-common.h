@@ -146,6 +146,7 @@ enum gf_cbk_procnum {
         GF_CBK_CHILD_UP,
         GF_CBK_CHILD_DOWN,
         GF_CBK_RECALL_LEASE,
+        GF_CBK_STATEDUMP,
         GF_CBK_MAXVALUE,
 };
 

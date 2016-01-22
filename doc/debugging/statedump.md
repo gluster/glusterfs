@@ -19,6 +19,19 @@ For quotad:     `gluster volume statedump <volname> quotad`
 
 For brick-processes files will be created in `statedump-directory` with name of the file as `hyphenated-brick-path.<pid>.dump.timestamp`. For all other processes it will be `glusterdump.<pid>.dump.timestamp`.
 
+For applications using libgfapi, `SIGUSR1` cannot be used, eg: smbd/libvirtd
+processes could have used the `SIGUSR1` signal already for other purposes.
+To generate statedump for the processes, using libgfapi, below command can be
+executed from one of the nodes in the gluster cluster to which the libgfapi
+application is connected to.
+
+    gluster volume statedump <volname> client <hostname>:<process id>
+
+The statedumps can be found in the `statedump-directory`, the name of the
+statedumps being `glusterdump.<pid>.dump.timestamp`. For a process there can be
+multiple such files created depending on the number of times the volume is
+accessed by the process (related to the number of `glfs_init()` calls).
+
 ##How to read statedump
 We shall see snippets of each type of statedump.
 
