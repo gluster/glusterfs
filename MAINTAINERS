@@ -271,6 +271,7 @@ T: https://github.com/gluster/gluster-swift.git
 GlusterFS Hadoop HCFS plugin
 M: Jay Vyas <jvyas@redhat.com>
 S: Maintained
+W: https://github.com/gluster/glusterfs-hadoop/wiki
 T: https://github.com/gluster/glusterfs-hadoop.git
 
 NFS-Ganesha FSAL plugin

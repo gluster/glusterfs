@@ -612,7 +612,6 @@ sub top_of_glusterfs_tree {
         "geo-replication",
         "glusterfs-api.pc.in",
         "glusterfsd",
-        "glusterfs-hadoop",
         "glusterfs.spec.in",
         "heal",
         "INSTALL",
