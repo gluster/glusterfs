@@ -1,0 +1,84 @@
+
+#
+# gdb_macros is a gdb script file which can assist
+# developer in debugging. This script provides
+# following functions for debugging gluster processes
+# effectively:
+#
+# pdict : This function will iterate through all the
+#         dictionary (dict_t) members and print the
+#         key-value pair.
+#
+# plist : This function will print address of each member
+#         of gluster list (list_head).
+#
+# gdb script should be loaded in gdb before using these
+# functions. gdb script can be loaded on-demand or on gdb
+# start-up. Use the following command on gdb prompt for
+# loading it on-demand.
+#       source <script filename>
+# e.g.
+# (gdb) source /mnt/gdb_macros
+#
+# To automatically load gdb script on startup use .gdbinit
+# file. This file is automatically loaded by gdb on start.
+# Edit (or create) ~/.gdbinit file and add the following
+# entry:
+# source /mnt/gdb_macros
+#
+
+
+
+# This is an internal helper function
+define _print_dict_data
+        set $data = ($arg0)
+        set $len = $data->len - 1
+        set $i = 0
+        set $ishex = 0
+        while ($i < $len)
+                set $ch = $data->data [$i]
+
+                # Print only alpha-numeric values as char
+                # and remaining as hex value. This is done
+                # in this way because using %s screws up
+                # the display if the string has non-displayable
+                # characters
+                if ($ishex == 0) && ($ch > 31) && ($ch < 127)
+                        printf "%c", $ch
+                else
+                        printf "%x", ($ch & 0xFF)
+                        set $ishex = 1
+                end
+                set $i = $i + 1
+        end
+end
+
+
+define pdict
+        set $cnt = 1
+        set $temp = *($arg0->members)
+        while ($temp)
+                printf "[%d](%s::",$cnt, $temp->key
+                _print_dict_data ($temp)->value
+                printf ")\n"
+                set $temp = $temp->next
+                set $cnt = $cnt + 1
+        end
+        printf "Done\n"
+end
+
+
+define plist
+        set $node = &($arg0)
+        set $head = $node
+
+        printf "[0x%lx]", $node
+        set $node = $node->next
+
+        while ($node != $head)
+                printf "--> [0x%lx]", $node
+                set $node = $node->next
+        end
+        printf "\n"
+end
+
