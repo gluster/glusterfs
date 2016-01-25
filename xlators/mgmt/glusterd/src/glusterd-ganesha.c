@@ -159,6 +159,11 @@ manage_service (char *action)
                   .service = "nfs-ganesha",
                   .action  = sc_service_action
                 },
+                /* Ubuntu compatibility */
+                { .binary  = "/usr/sbin/service",
+                  .service = "nfs-ganesha",
+                  .action  = sc_service_action
+                },
                 { .binary  = NULL
                 }
         };
