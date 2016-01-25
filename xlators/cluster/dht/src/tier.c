@@ -104,6 +104,25 @@ tier_check_watermark (xlator_t *this, loc_t *root_loc)
                 goto exit;
         }
 
+        xdata = dict_new ();
+        if (!xdata) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_NO_MEMORY,
+                        "failed to allocate dictionary");
+                ret = -1;
+                goto exit;
+        }
+
+        ret = dict_set_int8 (xdata, GF_INTERNAL_IGNORE_DEEM_STATFS, 1);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set "
+                        GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
+                ret = -1;
+                goto exit;
+        }
+
         /* Find how much free space is on the hot subvolume. Then see if that value */
         /* is less than or greater than user defined watermarks. Stash results in */
         /* the tier_conf data structure. */
@@ -145,6 +164,8 @@ tier_check_watermark (xlator_t *this, loc_t *root_loc)
         }
 
 exit:
+        if (xdata)
+                dict_unref (xdata);
         return ret;
 }
 
