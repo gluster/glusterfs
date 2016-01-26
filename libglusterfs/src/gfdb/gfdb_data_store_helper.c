@@ -1,6 +1,12 @@
 #include "gfdb_data_store_helper.h"
 
 
+/******************************************************************************
+ *
+ *                       Query record related functions
+ *
+ * ****************************************************************************/
+
 /*Create a single link info structure*/
 gfdb_link_info_t*
 gfdb_link_info_new ()
