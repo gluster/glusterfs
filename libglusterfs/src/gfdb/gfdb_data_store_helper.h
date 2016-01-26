@@ -13,6 +13,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "common-utils.h"
 #include "compat-uuid.h"
@@ -44,6 +45,14 @@ typedef struct gfdb_link_info {
 } gfdb_link_info_t;
 
 
+/*Structure used for querying purpose*/
+typedef struct gfdb_query_record {
+        uuid_t                          gfid;
+        /*This is the hardlink list*/
+        struct list_head                link_list;
+        int                             link_count;
+} gfdb_query_record_t;
+
 /*Create a single link info structure*/
 gfdb_link_info_t *gfdb_link_info_new ();
 typedef gfdb_link_info_t *(*gfdb_link_info_new_t) ();
@@ -53,20 +62,6 @@ void
 gfdb_link_info_free (gfdb_link_info_t *gfdb_link_info);
 typedef void
 (*gfdb_link_info_free_t) (gfdb_link_info_t *gfdb_link_info);
-
-
-
-
-
-/*Structure used for querying purpose*/
-typedef struct gfdb_query_record {
-        uuid_t                          gfid;
-        /*This is the hardlink list*/
-        struct list_head                link_list;
-        int                             link_count;
-} gfdb_query_record_t;
-
-
 
 /* Function to create the query_record */
 gfdb_query_record_t *
