@@ -39,25 +39,39 @@
 #define GET_QFILE_PATH(is_promotion)\
         (is_promotion) ? promotion_qfile : demotion_qfile
 
+typedef struct tier_qfile_array {
+        int             *fd_array;
+        ssize_t         array_size;
+        ssize_t         next_index;
+        /* Indicate the number of exhuasted FDs*/
+        ssize_t         exhausted_count;
+} tier_qfile_array_t;
+
+
 typedef struct _query_cbk_args {
-        xlator_t *this;
-        gf_defrag_info_t *defrag;
-        int query_fd;
-        int is_promotion;
+        xlator_t                *this;
+        gf_defrag_info_t        *defrag;
+        /* This is write */
+        int                     query_fd;
+        int                     is_promotion;
+        /* This is for read */
+        tier_qfile_array_t       *qfile_array;
 } query_cbk_args_t;
 
 int
 gf_run_tier(xlator_t *this, gf_defrag_info_t *defrag);
 
 typedef struct gfdb_brick_info {
-        gfdb_time_t           *time_stamp;
+        gfdb_time_t             *time_stamp;
         gf_boolean_t            _gfdb_promote;
-        query_cbk_args_t       *_query_cbk_args;
+        query_cbk_args_t        *_query_cbk_args;
 } gfdb_brick_info_t;
 
 typedef struct brick_list {
         xlator_t          *xlator;
         char              *brick_db_path;
+        char              brick_name[NAME_MAX];
+        char              qfile_path[PATH_MAX];
         struct list_head  list;
 } tier_brick_list_t;
 
