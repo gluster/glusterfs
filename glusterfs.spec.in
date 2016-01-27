@@ -969,6 +969,10 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+%dir %{_localstatedir}/run/gluster
+%if 0%{?_tmpfilesdir:1}
+%{_tmpfilesdir}/gluster.conf
+%endif
 
 
 %files api
@@ -1107,10 +1111,6 @@ fi
 %doc extras/clear_xattrs.sh
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
-%dir %{_localstatedir}/run/gluster
-%if 0%{?_tmpfilesdir:1}
-%{_tmpfilesdir}/gluster.conf
-%endif
 %dir %{_sharedstatedir}/glusterd
 %dir %{_sharedstatedir}/glusterd/groups
 %config(noreplace) %{_sharedstatedir}/glusterd/groups/virt
