@@ -1039,7 +1039,7 @@ _br_scrubber_find_scrubbable_entry (struct br_scrubber *fsscrub,
         br_child_t *firstchild = NULL;
 
         while (1) {
-                if (list_empty (&fsscrub->scrublist))
+                while (list_empty (&fsscrub->scrublist))
                         pthread_cond_wait (&fsscrub->cond, &fsscrub->mutex);
 
                 firstchild = NULL;
