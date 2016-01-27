@@ -730,6 +730,17 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                                         loc->path, QUOTA_LIMIT_KEY);
                         }
                 }
+                data = dict_get (local->xattr, QUOTA_LIMIT_OBJECTS_KEY);
+                if (data) {
+                        ret = dict_add (xattr, QUOTA_LIMIT_OBJECTS_KEY, data);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "%s: Failed to set dictionary value:"
+                                        " key = %s",
+                                        loc->path, QUOTA_LIMIT_OBJECTS_KEY);
+                        }
+                }
         }
 
         if (!gf_uuid_is_null (local->gfid))
