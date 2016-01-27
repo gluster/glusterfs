@@ -4612,17 +4612,6 @@ shard_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 int32_t
-shard_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
-            gf_seek_what_t what, dict_t *xdata)
-{
-        /* TBD */
-        gf_msg (this->name, GF_LOG_INFO, ENOTSUP, SHARD_MSG_FOP_NOT_SUPPORTED,
-                "seek called on %s.", uuid_utoa (fd->inode->gfid));
-        SHARD_STACK_UNWIND (seek, frame, -1, ENOTSUP, 0, NULL);
-        return 0;
-}
-
-int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -4812,7 +4801,6 @@ struct xlator_fops fops = {
         .link        = shard_link,
         .unlink      = shard_unlink,
         .rename      = shard_rename,
-        .seek        = shard_seek,
 };
 
 struct xlator_cbks cbks = {
