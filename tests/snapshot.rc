@@ -3,7 +3,7 @@
 LVM_DEFINED=0
 LVM_PREFIX="patchy_snap"
 LVM_COUNT=0
-VHD_SIZE="1G"
+VHD_SIZE="300M"
 
 #This function will init B# bricks
 #This is used when launch_cluster is
@@ -158,8 +158,8 @@ function _create_lv() {
     local dir=$1
     local num=$2
     local vg="VG$num"
-    local thinpoolsize="0.8G"
-    local virtualsize="0.6G"
+    local thinpoolsize="200M"
+    local virtualsize="150M"
 
     /sbin/pvcreate $dir/${LVM_PREFIX}_loop
     /sbin/vgcreate ${!vg} $dir/${LVM_PREFIX}_loop
