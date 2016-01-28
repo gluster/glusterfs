@@ -32,6 +32,8 @@
 #include <errno.h>
 #include <pwd.h>
 
+//include "run.h"
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -75,6 +77,8 @@
 
 #include "daemon.h"
 #include "tw.h"
+
+#include "run.h"
 
 /* process mode definitions */
 #define GF_SERVER_PROCESS   0
