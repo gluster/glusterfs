@@ -1085,12 +1085,14 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
                         ret = gf_string2bytesize_int64 (words[5], &value);
-                        if (ret != 0 || value < 0) {
-                                if (errno == ERANGE || value < 0)
-                                        cli_err ("Value out of range "
-                                                 "(0 - %"PRId64 "): %s",
-                                                 INT64_MAX, words[5]);
-                                else
+                        if (ret != 0 || value <= 0) {
+                                if (errno == ERANGE || value <= 0) {
+                                        ret = -1;
+                                        cli_err ("Please enter an integer "
+                                                 "value in the range of "
+                                                 "(1 - %"PRId64 ")",
+                                                 INT64_MAX);
+                                } else
                                         cli_err ("Please enter a correct "
                                                  "value");
                                 goto out;
@@ -1101,7 +1103,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         if (errno == ERANGE || errno == EINVAL || limit <= 0
                                             || strcmp (end_ptr, "") != 0) {
                                 ret = -1;
-                                cli_err ("Please enter an interger value in "
+                                cli_err ("Please enter an integer value in "
                                          "the range 1 - %"PRId64, INT64_MAX);
                                 goto out;
                         }
