@@ -906,6 +906,8 @@ dht_do_rename (call_frame_t *frame)
         STACK_WIND (frame, dht_rename_cbk,
                     rename_subvol, rename_subvol->fops->rename,
                     &local->loc, &local->loc2, dict);
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
