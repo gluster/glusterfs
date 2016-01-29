@@ -326,6 +326,40 @@ out:
         return ret;
 }
 
+int
+glusterd_rebalance_defrag_init (glusterd_volinfo_t *volinfo,
+                                defrag_cbk_fn_t cbk)
+
+{
+        glusterd_defrag_info_t  *defrag         = NULL;
+        int                      ret            = -1;
+
+        if (!volinfo->rebal.defrag) {
+                volinfo->rebal.defrag =
+                        GF_CALLOC (1, sizeof (*volinfo->rebal.defrag),
+                                   gf_gld_mt_defrag_info);
+        } else {
+                /*
+                 * if defrag variable is already initialized,
+                 * we skip the initialization.
+                 */
+                ret = 0;
+                goto out;
+        }
+
+        if (!volinfo->rebal.defrag)
+                goto out;
+        defrag = volinfo->rebal.defrag;
+
+        defrag->cmd = volinfo->rebal.defrag_cmd;
+        LOCK_INIT (&defrag->lock);
+        if (cbk)
+                defrag->cbk_fn = cbk;
+        ret = 0;
+out:
+        return ret;
+
+}
 
 int
 glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,

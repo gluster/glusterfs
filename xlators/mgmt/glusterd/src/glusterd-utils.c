@@ -7136,6 +7136,15 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         case GF_DEFRAG_STATUS_STARTED:
                 GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
                 if (gf_is_service_running (pidfile, &pid)) {
+                        ret = glusterd_rebalance_defrag_init (volinfo, cbk);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_REBALANCE_START_FAIL,
+                                        "Failed to initialize  defrag."
+                                        "Not starting rebalance process for "
+                                        "%s.", volinfo->volname);
+                                goto out;
+                        }
                         ret = glusterd_rebalance_rpc_create (volinfo, _gf_true);
                         break;
                 }
@@ -7151,7 +7160,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                         volinfo->rebal.defrag_status, volinfo->volname);
                 break;
         }
-
+out:
         return ret;
 }
 
