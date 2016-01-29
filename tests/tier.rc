@@ -113,3 +113,14 @@ function sleep_until_mid_cycle {
     mod=$(( $mod + $1 / 2 ))
     sleep $mod
 }
+
+function tier_deamon_check () {
+    pgrep -f "rebalance/$V0"
+    echo "$?"
+}
+
+function rebalance_run_time () {
+    local time=$($CLI volume rebalance $1  status | awk '{print $9}' | sed -n 3p);
+    time=$(printf "%.0f\n" "$time");
+    echo $time
+}
