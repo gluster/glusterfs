@@ -694,11 +694,19 @@ class Server(object):
                         logging.warn("Failed to remove %s => %s/%s. %s" %
                                      (gfid, pg, bname, os.strerror(er)))
             elif op in ['CREATE', 'MKNOD']:
-                blob = entry_pack_reg(
-                    gfid, bname, e['mode'], e['uid'], e['gid'])
+                slink = os.path.join(pfx, gfid)
+                st = lstat(slink)
+                # don't create multiple entries with same gfid
+                if isinstance(st, int):
+                    blob = entry_pack_reg(
+                        gfid, bname, e['mode'], e['uid'], e['gid'])
             elif op == 'MKDIR':
-                blob = entry_pack_mkdir(
-                    gfid, bname, e['mode'], e['uid'], e['gid'])
+                slink = os.path.join(pfx, gfid)
+                st = lstat(slink)
+                # don't create multiple entries with same gfid
+                if isinstance(st, int):
+                    blob = entry_pack_mkdir(
+                        gfid, bname, e['mode'], e['uid'], e['gid'])
             elif op == 'LINK':
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
