@@ -999,6 +999,9 @@ int
 glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                                gf_boolean_t reconnect);
 
+int glusterd_rebalance_defrag_init (glusterd_volinfo_t *volinfo,
+                                    defrag_cbk_fn_t cbk);
+
 int glusterd_handle_cli_heal_volume (rpcsvc_request_t *req);
 
 int glusterd_handle_cli_list_volume (rpcsvc_request_t *req);

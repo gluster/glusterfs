@@ -13,6 +13,10 @@ MIGRATION_TIMEOUT=10
 DEMOTE_FREQ=4
 PROMOTE_FREQ=12
 
+function detach_start {
+        $CLI volume tier $1 detach start
+        echo $?;
+}
 
 function file_on_slow_tier {
     found=0
@@ -191,8 +195,7 @@ EXPECT "0" file_on_slow_tier d1/data.txt $md5data
 EXPECT "0" file_on_slow_tier d1/data2.txt $md5data2
 EXPECT "0" file_on_slow_tier "./d1/$SPACE_FILE" $md5space
 
-TEST $CLI volume tier $V0 detach start
-
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" detach_start $V0
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}${CACHE_BRICK_FIRST}"
 
 TEST $CLI volume tier $V0 detach commit
