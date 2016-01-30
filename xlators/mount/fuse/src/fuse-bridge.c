@@ -224,11 +224,16 @@ fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
         if (!priv->reverse_fuse_thread_started)
                 return;
 
+        inode = fuse_ino_to_inode(fuse_ino, this);
+        if (inode == NULL) {
+                return;
+        }
+
         list_for_each_entry (dentry, &inode->dentry_list, inode_list) {
                 node = GF_CALLOC (1, sizeof (*node),
                                   gf_fuse_mt_invalidate_node_t);
                 if (node == NULL)
-                        return;
+                        break;
 
                 INIT_LIST_HEAD (&node->next);
 
@@ -237,8 +242,6 @@ fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
 
                 fouh->unique = 0;
                 fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
-
-                inode = fuse_ino_to_inode (fuse_ino, this);
 
                 nlen = strlen (dentry->name);
                 fouh->len = sizeof (*fouh) + sizeof (*fnieo) + nlen + 1;
@@ -2810,13 +2813,13 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!linked_inode)
 			goto next_entry;
 
-		inode_lookup (linked_inode);
-
 		feo->nodeid = inode_to_fuse_nodeid (linked_inode);
 
                 if (!((strcmp (entry->d_name, ".") == 0) ||
-                        (strcmp (entry->d_name, "..") == 0)))
+                      (strcmp (entry->d_name, "..") == 0))) {
+                        inode_lookup (linked_inode);
                         inode_set_need_lookup (linked_inode, this);
+                }
 
 		inode_unref (linked_inode);
 
@@ -4140,7 +4143,7 @@ fuse_first_lookup (xlator_t *this)
         dict_t                    *dict = NULL;
         struct fuse_first_lookup   stub;
         uuid_t                     gfid;
-        int                        ret;
+        int                        ret = -1;
 
         priv = this->private;
 
@@ -4154,7 +4157,7 @@ fuse_first_lookup (xlator_t *this)
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
                 gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
-                return -1;
+                goto out;
         }
 
         frame->root->type = GF_OP_TYPE_FOP;
@@ -4170,20 +4173,22 @@ fuse_first_lookup (xlator_t *this)
         memset (gfid, 0, 16);
         gfid[15] = 1;
         ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
-        if (ret)
+        if (ret) {
                 gf_log (xl->name, GF_LOG_ERROR, "failed to set 'gfid-req'");
+        } else {
+                STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
+                            &loc, dict);
 
-        STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
-                    &loc, dict);
-        dict_unref (dict);
-
-        pthread_mutex_lock (&stub.mutex);
-        {
-                while (!stub.fin) {
-                        pthread_cond_wait (&stub.cond, &stub.mutex);
+                pthread_mutex_lock (&stub.mutex);
+                {
+                        while (!stub.fin) {
+                                pthread_cond_wait (&stub.cond, &stub.mutex);
+                        }
                 }
+                pthread_mutex_unlock (&stub.mutex);
         }
-        pthread_mutex_unlock (&stub.mutex);
+
+        dict_unref (dict);
 
         pthread_mutex_destroy (&stub.mutex);
         pthread_cond_destroy (&stub.cond);
@@ -4191,7 +4196,10 @@ fuse_first_lookup (xlator_t *this)
         frame->local = NULL;
         STACK_DESTROY (frame->root);
 
-        return 0;
+out:
+        inode_unref(loc.inode);
+
+        return ret;
 }
 
 
