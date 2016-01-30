@@ -1168,4 +1168,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
 gf_boolean_t
 glusterd_should_i_stop_bitd ();
 
+int
+glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
+                                   gf_defrag_status_t status);
+
 #endif
