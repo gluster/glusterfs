@@ -7225,6 +7225,7 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
 
         if (!volinfo->rebal.defrag_cmd)
                 return -1;
+
         if (!gd_should_i_start_rebalance (volinfo)) {
 
                 /* Store the rebalance-id and rebalance command even if
@@ -7241,7 +7242,20 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
                 return 0;
         }
         ret = glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
-                                volinfo->rebal.defrag_cmd, NULL);
+                                volinfo->rebal.defrag_cmd,
+                                volinfo->rebal.op == GD_OP_REMOVE_BRICK ?
+                                glusterd_remove_brick_migrate_cbk : NULL);
+        if (!ret) {
+                /* If remove brick is started then ensure that on a glusterd
+                 * restart decommission_is_in_progress is set to avoid remove
+                 * brick commit to happen when rebalance is not completed.
+                 */
+                if (volinfo->rebal.op == GD_OP_REMOVE_BRICK &&
+                    volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED) {
+                        volinfo->decommission_in_progress = 1;
+                }
+        }
+
         return ret;
 }
 int
