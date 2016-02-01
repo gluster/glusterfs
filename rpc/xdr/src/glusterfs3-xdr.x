@@ -16,6 +16,7 @@ struct gf_statfs {
 	u_quad_t namemax;
 };
 
+
 struct gf_proto_flock {
 	unsigned int   type;
 	unsigned int   whence;
@@ -816,4 +817,122 @@ struct gf_getsnap_name_uuid_rsp {
         int op_errno;
         string op_errstr<>;
         opaque dict<>;
+};
+
+union compound_req switch (glusterfs_fop_t fop_enum) {
+        case GF_FOP_STAT:         gfs3_stat_req compound_stat_req;
+        case GF_FOP_READLINK:     gfs3_readlink_req compound_readlink_req;
+        case GF_FOP_MKNOD:        gfs3_mknod_req compound_mknod_req;
+        case GF_FOP_MKDIR:        gfs3_mkdir_req compound_mkdir_req;
+        case GF_FOP_UNLINK:       gfs3_unlink_req compound_unlink_req;
+        case GF_FOP_RMDIR:        gfs3_rmdir_req compound_rmdir_req;
+        case GF_FOP_SYMLINK:      gfs3_symlink_req compound_symlink_req;
+        case GF_FOP_RENAME:       gfs3_rename_req compound_rename_req;
+        case GF_FOP_LINK:         gfs3_link_req compound_link_req;
+        case GF_FOP_TRUNCATE:     gfs3_truncate_req compound_truncate_req;
+        case GF_FOP_OPEN:         gfs3_open_req compound_open_req;
+        case GF_FOP_READ:         gfs3_read_req compound_read_req;
+        case GF_FOP_WRITE:        gfs3_write_req compound_write_req;
+        case GF_FOP_STATFS:       gfs3_statfs_req compound_statfs_req;
+        case GF_FOP_FLUSH:        gfs3_flush_req compound_flush_req;
+        case GF_FOP_FSYNC:        gfs3_fsync_req compound_fsync_req;
+        case GF_FOP_GETXATTR:     gfs3_getxattr_req compound_getxattr_req;
+        case GF_FOP_SETXATTR:     gfs3_setxattr_req compound_setxattr_req;
+        case GF_FOP_REMOVEXATTR:  gfs3_removexattr_req compound_removexattr_req;
+        case GF_FOP_OPENDIR:      gfs3_opendir_req compound_opendir_req;
+        case GF_FOP_FSYNCDIR:     gfs3_fsyncdir_req compound_fsyncdir_req;
+        case GF_FOP_ACCESS:       gfs3_access_req compound_access_req;
+        case GF_FOP_CREATE:       gfs3_create_req compound_create_req;
+        case GF_FOP_FTRUNCATE:    gfs3_ftruncate_req compound_ftruncate_req;
+        case GF_FOP_FSTAT:        gfs3_fstat_req compound_fstat_req;
+        case GF_FOP_LK:           gfs3_lk_req compound_lk_req;
+        case GF_FOP_LOOKUP:       gfs3_lookup_req compound_lookup_req;
+        case GF_FOP_READDIR:      gfs3_readdir_req compound_readdir_req;
+        case GF_FOP_INODELK:      gfs3_inodelk_req compound_inodelk_req;
+        case GF_FOP_FINODELK:     gfs3_finodelk_req compound_finodelk_req;
+        case GF_FOP_ENTRYLK:      gfs3_entrylk_req compound_entrylk_req;
+        case GF_FOP_FENTRYLK:     gfs3_fentrylk_req compound_fentrylk_req;
+        case GF_FOP_XATTROP:      gfs3_xattrop_req compound_xattrop_req;
+        case GF_FOP_FXATTROP:     gfs3_fxattrop_req compound_fxattrop_req;
+        case GF_FOP_FGETXATTR:    gfs3_fgetxattr_req compound_fgetxattr_req;
+        case GF_FOP_FSETXATTR:    gfs3_fsetxattr_req compound_fsetxattr_req;
+        case GF_FOP_RCHECKSUM:    gfs3_rchecksum_req compound_rchecksum_req;
+        case GF_FOP_SETATTR:      gfs3_setattr_req compound_setattr_req;
+        case GF_FOP_FSETATTR:     gfs3_fsetattr_req compound_fsetattr_req;
+        case GF_FOP_READDIRP:     gfs3_readdirp_req compound_readdirp_req;
+        case GF_FOP_RELEASE:      gfs3_release_req compound_release_req;
+        case GF_FOP_RELEASEDIR:   gfs3_releasedir_req compound_releasedir_req;
+        case GF_FOP_FREMOVEXATTR: gfs3_fremovexattr_req compound_fremovexattr_req;
+        case GF_FOP_FALLOCATE:    gfs3_fallocate_req compound_fallocate_req;
+        case GF_FOP_DISCARD:      gfs3_discard_req compound_discard_req;
+        case GF_FOP_ZEROFILL:     gfs3_zerofill_req compound_zerofill_req;
+        case GF_FOP_IPC:          gfs3_ipc_req compound_ipc_req;
+        case GF_FOP_SEEK:         gfs3_seek_req compound_seek_req;
+        default:                  void;
+};
+
+struct gfs3_compound_req {
+        int                       compound_version;
+        glusterfs_compound_fop_t  compound_fop_enum;
+        compound_req              compound_req_array<>;
+        opaque                    xdata<>;
+};
+
+union compound_rsp switch (glusterfs_fop_t fop_enum) {
+        case GF_FOP_STAT:         gfs3_stat_rsp compound_stat_rsp;
+        case GF_FOP_READLINK:     gfs3_readlink_rsp compound_readlink_rsp;
+        case GF_FOP_MKNOD:        gfs3_mknod_rsp compound_mknod_rsp;
+        case GF_FOP_MKDIR:        gfs3_mkdir_rsp compound_mkdir_rsp;
+        case GF_FOP_UNLINK:       gfs3_unlink_rsp compound_unlink_rsp;
+        case GF_FOP_RMDIR:        gfs3_rmdir_rsp compound_rmdir_rsp;
+        case GF_FOP_SYMLINK:      gfs3_symlink_rsp compound_symlink_rsp;
+        case GF_FOP_RENAME:       gfs3_rename_rsp compound_rename_rsp;
+        case GF_FOP_LINK:         gfs3_link_rsp compound_link_rsp;
+        case GF_FOP_TRUNCATE:     gfs3_truncate_rsp compound_truncate_rsp;
+        case GF_FOP_OPEN:         gfs3_open_rsp compound_open_rsp;
+        case GF_FOP_READ:         gfs3_read_rsp compound_read_rsp;
+        case GF_FOP_WRITE:        gfs3_write_rsp compound_write_rsp;
+        case GF_FOP_STATFS:       gfs3_statfs_rsp compound_statfs_rsp;
+        case GF_FOP_FLUSH:        gf_common_rsp compound_flush_rsp;
+        case GF_FOP_FSYNC:        gfs3_fsync_rsp compound_fsync_rsp;
+        case GF_FOP_GETXATTR:     gfs3_getxattr_rsp compound_getxattr_rsp;
+        case GF_FOP_SETXATTR:     gf_common_rsp compound_setxattr_rsp;
+        case GF_FOP_REMOVEXATTR:  gf_common_rsp compound_removexattr_rsp;
+        case GF_FOP_OPENDIR:      gfs3_opendir_rsp compound_opendir_rsp;
+        case GF_FOP_FSYNCDIR:     gf_common_rsp compound_fsyncdir_rsp;
+        case GF_FOP_ACCESS:       gf_common_rsp compound_access_rsp;
+        case GF_FOP_CREATE:       gfs3_create_rsp compound_create_rsp;
+        case GF_FOP_FTRUNCATE:    gfs3_ftruncate_rsp compound_ftruncate_rsp;
+        case GF_FOP_FSTAT:        gfs3_fstat_rsp compound_fstat_rsp;
+        case GF_FOP_LK:           gfs3_lk_rsp compound_lk_rsp;
+        case GF_FOP_LOOKUP:       gfs3_lookup_rsp compound_lookup_rsp;
+        case GF_FOP_READDIR:      gfs3_readdir_rsp compound_readdir_rsp;
+        case GF_FOP_INODELK:      gf_common_rsp compound_inodelk_rsp;
+        case GF_FOP_FINODELK:     gf_common_rsp compound_finodelk_rsp;
+        case GF_FOP_ENTRYLK:      gf_common_rsp compound_entrylk_rsp;
+        case GF_FOP_FENTRYLK:     gf_common_rsp compound_fentrylk_rsp;
+        case GF_FOP_XATTROP:      gfs3_xattrop_rsp compound_xattrop_rsp;
+        case GF_FOP_FXATTROP:     gfs3_fxattrop_rsp compound_fxattrop_rsp;
+        case GF_FOP_FGETXATTR:    gfs3_fgetxattr_rsp compound_fgetxattr_rsp;
+        case GF_FOP_FSETXATTR:    gf_common_rsp compound_fsetxattr_rsp;
+        case GF_FOP_RCHECKSUM:    gfs3_rchecksum_rsp compound_rchecksum_rsp;
+        case GF_FOP_SETATTR:      gfs3_setattr_rsp compound_setattr_rsp;
+        case GF_FOP_FSETATTR:     gfs3_fsetattr_rsp compound_fsetattr_rsp;
+        case GF_FOP_READDIRP:     gfs3_readdirp_rsp compound_readdirp_rsp;
+        case GF_FOP_RELEASE:      gf_common_rsp compound_release_rsp;
+        case GF_FOP_RELEASEDIR:   gf_common_rsp compound_releasedir_rsp;
+        case GF_FOP_FREMOVEXATTR: gf_common_rsp compound_fremovexattr_rsp;
+        case GF_FOP_FALLOCATE:    gfs3_fallocate_rsp compound_fallocate_rsp;
+        case GF_FOP_DISCARD:      gfs3_discard_rsp compound_discard_rsp;
+        case GF_FOP_ZEROFILL:     gfs3_zerofill_rsp compound_zerofill_rsp;
+        case GF_FOP_IPC:          gfs3_ipc_rsp compound_ipc_rsp;
+        case GF_FOP_SEEK:         gfs3_seek_rsp compound_seek_rsp;
+        default:                  void;
+};
+
+struct gfs3_compound_rsp {
+        int           op_ret;
+        int           op_errno;
+        compound_rsp  compound_rsp_array<>;
+        opaque        xdata<>;
 };
