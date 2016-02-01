@@ -3,6 +3,10 @@
 #
 
 export TZ=UTC
+force="no"
+retry="no"
+tests=""
+
 function check_dependencies()
 {
     ## Check all dependencies are present
@@ -165,7 +169,7 @@ function run_tests()
     }
     RES=0
     for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
-        if match $t "$@" ; then
+        if match $t "$tests" ; then
             if [ -d $t ] ; then
                 echo "Running tests in directory $t"
                 prove -rf --timer $t
@@ -257,19 +261,19 @@ function run_all ()
 
 function main()
 {
-    if [ $# -lt 1 ]; then
+    if [ "x$tests" = "x" ]; then
         echo "Running all the regression test cases (new way)"
         #prove -rf --timer ${regression_testsdir}/tests;
         run_all
     else
-        run_tests "$@"
+        run_tests "$tests"
     fi
 }
 
 function main_and_retry()
 {
     RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
-    main "$@" | tee ${RESFILE}
+    main "$tests" | tee ${RESFILE}
     RET=$?
 
     FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
@@ -289,22 +293,27 @@ function main_and_retry()
     return ${RET}
 }
 
+function parse_args () {
+    args=`getopt fr $*`
+    set -- $args
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        -f)    force="yes" ;;
+        -r)    retry="yes" ;;
+        --)    shift; break;;
+        esac
+        shift
+    done
+    tests="$@"
+}
+
+
 echo
 echo ... GlusterFS Test Framework ...
 echo
 
-force="no"
-retry="no"
-args=`getopt fr $*`
-set -- $args
-while [ $# -gt 0 ]; do
-    case "$1" in
-    -f)    force="yes" ;;
-    -r)    retry="yes" ;;
-    --)    shift; break;;
-    esac
-    shift
-done
+# Get user options
+parse_args $@
 
 # Make sure we're running as the root user
 check_user
@@ -317,7 +326,7 @@ check_location
 
 # Run the tests
 if [ "x${retry}" = "xyes" ] ; then
-    main_and_retry $@
+    main_and_retry "$tests"
 else
-    main "$@"
+    main "$tests"
 fi
