@@ -541,6 +541,32 @@ pub_glfs_from_glfd (struct glfs_fd *glfd)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_from_glfd, 3.4.0);
 
+void
+glfs_fd_destroy (void *data)
+{
+        struct glfs_fd  *glfd = NULL;
+
+        if (!data)
+                return;
+
+        glfd = (struct glfs_fd *)data;
+
+        glfs_lock (glfd->fs);
+        {
+                list_del_init (&glfd->openfds);
+        }
+        glfs_unlock (glfd->fs);
+
+        if (glfd->fd) {
+                fd_unref (glfd->fd);
+                glfd->fd = NULL;
+        }
+
+        GF_FREE (glfd->readdirbuf);
+
+        GF_FREE (glfd);
+}
+
 
 struct glfs_fd *
 glfs_fd_new (struct glfs *fs)
@@ -554,6 +580,8 @@ glfs_fd_new (struct glfs *fs)
 	glfd->fs = fs;
 
 	INIT_LIST_HEAD (&glfd->openfds);
+
+        GF_REF_INIT (glfd, glfs_fd_destroy);
 
 	return glfd;
 }
@@ -571,28 +599,6 @@ glfs_fd_bind (struct glfs_fd *glfd)
 		list_add_tail (&glfd->openfds, &fs->openfds);
 	}
 	glfs_unlock (fs);
-}
-
-void
-glfs_fd_destroy (struct glfs_fd *glfd)
-{
-	if (!glfd)
-		return;
-
-	glfs_lock (glfd->fs);
-	{
-		list_del_init (&glfd->openfds);
-	}
-	glfs_unlock (glfd->fs);
-
-        if (glfd->fd) {
-                fd_unref (glfd->fd);
-                glfd->fd = NULL;
-        }
-
-	GF_FREE (glfd->readdirbuf);
-
-	GF_FREE (glfd);
 }
 
 
