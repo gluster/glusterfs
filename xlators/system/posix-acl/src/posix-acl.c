@@ -1947,9 +1947,11 @@ handling_other_acl_related_xattr (xlator_t *this, inode_t *inode, dict_t *xattr)
         data_t                 *data     = NULL;
         int                     ret      = 0;
 
+        if (!this || !xattr || !inode)
+                goto out;
+
         data = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
         if (data) {
-
 
                 acl = posix_acl_from_xattr (this, data->data, data->len);
                 if (!acl) {
