@@ -16,6 +16,7 @@
 #include "glusterfs.h"
 #include "upcall-utils.h"
 #include "glfs-handles.h"
+#include "refcount.h"
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 
@@ -208,9 +209,20 @@ struct glfs {
         uint32_t            pthread_flags; /* GLFS_INIT_* # defines set this flag */
 };
 
+/* This enum is used to maintain the state of glfd. In case of async fops
+ * fd might be closed before the actual fop is complete. Therefore we need
+ * to track whether the fd is closed or not, instead actually closing it.*/
+enum glfs_fd_state {
+        GLFD_INIT,
+        GLFD_OPEN,
+        GLFD_CLOSE
+};
+
 struct glfs_fd {
 	struct list_head   openfds;
+        GF_REF_DECL;
 	struct glfs       *fs;
+        enum glfs_fd_state state;
 	off_t              offset;
 	fd_t              *fd; /* Currently guared by @fs->mutex. TODO: per-glfd lock */
 	struct list_head   entries;
@@ -269,7 +281,8 @@ do {                                                                \
 
 #define __GLFS_ENTRY_VALIDATE_FD(glfd, label)                       \
 do {                                                                \
-        if (!glfd || !glfd->fd || !glfd->fd->inode) {               \
+        if (!glfd || !glfd->fd || !glfd->fd->inode ||               \
+             glfd->state != GLFD_OPEN) {                           \
                 errno = EBADF;                                      \
                 goto label;                                         \
         }                                                           \
@@ -307,9 +320,6 @@ glfs_unlock (struct glfs *fs)
 {
 	pthread_mutex_unlock (&fs->mutex);
 }
-
-
-void glfs_fd_destroy (struct glfs_fd *glfd);
 
 struct glfs_fd *glfs_fd_new (struct glfs *fs);
 void glfs_fd_bind (struct glfs_fd *glfd);

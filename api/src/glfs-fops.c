@@ -34,6 +34,35 @@
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
 
 /*
+ * This function will mark glfd for deletion and decrement its refcount.
+ */
+int
+glfs_mark_glfd_for_deletion (struct glfs_fd *glfd)
+{
+        glfd->state = GLFD_CLOSE;
+
+        GF_REF_PUT (glfd);
+
+        return 0;
+}
+
+/* This function is usefull for all async fops. There is chance that glfd is
+ * closed before async fop is completed. When glfd is closed we change the
+ * state to GLFD_CLOSE.
+ *
+ * This function will return _gf_true if the glfd is still valid else return
+ * _gf_false.
+ */
+gf_boolean_t
+glfs_is_glfd_still_valid (struct glfs_fd *glfd)
+{
+        if (glfd->state != GLFD_CLOSE)
+                return _gf_true;
+
+        return _gf_false;
+}
+
+/*
  * This routine is called when an upcall event of type
  * 'GF_UPCALL_CACHE_INVALIDATION' is received.
  * It makes a copy of the contents of the upcall cache-invalidation
@@ -196,9 +225,10 @@ out:
 	loc_wipe (&loc);
 
 	if (ret && glfd) {
-		glfs_fd_destroy (glfd);
+                GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
+                glfd->state = GLFD_OPEN;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -212,7 +242,6 @@ invalid_fs:
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_open, 3.4.0);
-
 
 int
 pub_glfs_close (struct glfs_fd *glfd)
@@ -243,11 +272,11 @@ pub_glfs_close (struct glfs_fd *glfd)
         DECODE_SYNCOP_ERR (ret);
 out:
 	fs = glfd->fs;
-	glfs_fd_destroy (glfd);
 
-	if (fd)
-		fd_unref (fd);
+        if (fd)
+                fd_unref (fd);
 
+        glfs_mark_glfd_for_deletion (glfd);
 	glfs_subvol_done (fs, subvol);
 
         __GLFS_EXIT_FS;
@@ -348,6 +377,8 @@ pub_glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -370,6 +401,8 @@ pub_glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -508,9 +541,10 @@ out:
 		dict_unref (xattr_req);
 
 	if (ret && glfd) {
-		glfs_fd_destroy (glfd);
+                GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
+                glfd->state = GLFD_OPEN;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -585,6 +619,8 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	switch (whence) {
 	case SEEK_SET:
 		glfd->offset = offset;
@@ -609,6 +645,9 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
         default:
                 errno = EINVAL;
 	}
+
+        if (glfd)
+                GF_REF_PUT (glfd);
 
         __GLFS_EXIT_FS;
 
@@ -638,6 +677,8 @@ pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        GF_REF_GET (glfd);
 
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
@@ -674,6 +715,8 @@ out:
 
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -752,7 +795,18 @@ glfs_io_async_cbk (int ret, call_frame_t *frame, void *data)
 {
 	struct glfs_io  *gio = data;
 
-	gio->fn (gio->glfd, ret, gio->data);
+        /* If the fd is already closed then
+         * no need to do the callback */
+        if (glfs_is_glfd_still_valid (gio->glfd)) {
+                gio->fn (gio->glfd, ret, gio->data);
+        }
+
+        /* Since the async operation is complete
+         * release the ref taken during the start
+         * of async operation
+         */
+        if (gio->glfd)
+                GF_REF_PUT (gio->glfd);
 
 	GF_FREE (gio->iov);
 	GF_FREE (gio);
@@ -828,6 +882,9 @@ glfs_preadv_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	glfd = gio->glfd;
 	fs = glfd->fs;
 
+        if (!glfs_is_glfd_still_valid (glfd))
+                goto err;
+
 	if (op_ret <= 0)
 		goto out;
 
@@ -837,6 +894,13 @@ glfs_preadv_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
 	errno = op_errno;
 	gio->fn (gio->glfd, op_ret, gio->data);
+
+err:
+        /* Since the async operation is complete
+         * release the ref taken during the start
+         * of async operation
+         */
+        GF_REF_PUT (glfd);
 
 	GF_FREE (gio->iov);
 	GF_FREE (gio);
@@ -861,6 +925,8 @@ pub_glfs_preadv_async (struct glfs_fd *glfd, const struct iovec *iovec,
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        GF_REF_GET (glfd);
 
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
@@ -915,6 +981,8 @@ pub_glfs_preadv_async (struct glfs_fd *glfd, const struct iovec *iovec,
 
 out:
         if (ret) {
+                if (glfd)
+                        GF_REF_PUT (glfd);
                 if (gio) {
                         GF_FREE (gio->iov);
                         GF_FREE (gio);
@@ -1004,6 +1072,8 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -1064,6 +1134,8 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1159,11 +1231,17 @@ pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
 	gio->fn     = fn;
 	gio->data   = data;
 
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
 	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
 			    glfs_io_async_task, glfs_io_async_cbk,
 			    NULL, gio);
 
 	if (ret) {
+                GF_REF_PUT (glfd);
 		GF_FREE (gio->iov);
 		GF_FREE (gio);
 	}
@@ -1238,6 +1316,8 @@ pub_glfs_fsync (struct glfs_fd *glfd)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -1257,6 +1337,8 @@ pub_glfs_fsync (struct glfs_fd *glfd)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1282,6 +1364,11 @@ glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
 		return -1;
 	}
 
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
 	gio->op     = GF_FOP_FSYNC;
 	gio->glfd   = glfd;
 	gio->flags  = dataonly;
@@ -1293,6 +1380,7 @@ glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
 			    NULL, gio);
 
 	if (ret) {
+                GF_REF_PUT (glfd);
 		GF_FREE (gio->iov);
 		GF_FREE (gio);
 	}
@@ -1331,6 +1419,8 @@ pub_glfs_fdatasync (struct glfs_fd *glfd)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -1350,6 +1440,8 @@ pub_glfs_fdatasync (struct glfs_fd *glfd)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1391,6 +1483,8 @@ pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -1410,6 +1504,8 @@ pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1444,11 +1540,17 @@ pub_glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
 	gio->fn     = fn;
 	gio->data   = data;
 
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
 	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
 			    glfs_io_async_task, glfs_io_async_cbk,
 			    NULL, gio);
 
 	if (ret) {
+                GF_REF_PUT (glfd);
 		GF_FREE (gio->iov);
 		GF_FREE (gio);
 	}
@@ -2154,9 +2256,10 @@ out:
 	loc_wipe (&loc);
 
 	if (ret && glfd) {
-		glfs_fd_destroy (glfd);
+		GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
+                glfd->state = GLFD_OPEN;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -2182,7 +2285,7 @@ pub_glfs_closedir (struct glfs_fd *glfd)
 
 	gf_dirent_free (list_entry (&glfd->entries, gf_dirent_t, list));
 
-	glfs_fd_destroy (glfd);
+        glfs_mark_glfd_for_deletion (glfd);
 
         __GLFS_EXIT_FS;
 
@@ -2244,6 +2347,11 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
 	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
 	if (!gio) {
 		errno = ENOMEM;
@@ -2262,6 +2370,7 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 			    NULL, gio);
 
 	if (ret) {
+                GF_REF_PUT (glfd);
 		GF_FREE (gio->iov);
 		GF_FREE (gio);
 	}
@@ -2286,6 +2395,11 @@ pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
         gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
         if (!gio) {
                 errno = ENOMEM;
@@ -2304,6 +2418,7 @@ pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
                             NULL, gio);
 
         if (ret) {
+                GF_REF_PUT (glfd);
                 GF_FREE (gio->iov);
                 GF_FREE (gio);
         }
@@ -2484,6 +2599,8 @@ pub_glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat,
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	errno = 0;
 
 	if (ext)
@@ -2515,6 +2632,9 @@ pub_glfs_readdirplus_r (struct glfs_fd *glfd, struct stat *stat,
 	}
 
 out:
+        if (glfd)
+                GF_REF_PUT (glfd);
+
         __GLFS_EXIT_FS;
 
 	return ret;
@@ -2661,6 +2781,8 @@ glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -2680,6 +2802,8 @@ glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -2999,6 +3123,8 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
@@ -3034,6 +3160,8 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3156,6 +3284,8 @@ pub_glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3179,6 +3309,8 @@ pub_glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3292,6 +3424,8 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
         if (!name || *name == '\0') {
                 ret = -1;
                 errno = EINVAL;
@@ -3333,6 +3467,8 @@ out:
 
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3420,6 +3556,8 @@ pub_glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3439,6 +3577,8 @@ pub_glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3461,6 +3601,8 @@ pub_glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t le
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3480,6 +3622,8 @@ pub_glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t le
 out:
 	if (fd)
 		fd_unref(fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3502,6 +3646,8 @@ pub_glfs_discard (struct glfs_fd *glfd, off_t offset, size_t len)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3521,6 +3667,8 @@ pub_glfs_discard (struct glfs_fd *glfd, off_t offset, size_t len)
 out:
 	if (fd)
 		fd_unref(fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3543,6 +3691,8 @@ pub_glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
         subvol = glfs_active_subvol (glfd->fs);
         if (!subvol) {
                 errno = EIO;
@@ -3560,6 +3710,8 @@ pub_glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
 out:
         if (fd)
                 fd_unref(fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
         glfs_subvol_done (glfd->fs, subvol);
 
@@ -3631,6 +3783,8 @@ pub_glfs_fchdir (struct glfs_fd *glfd)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
+
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3658,6 +3812,8 @@ pub_glfs_fchdir (struct glfs_fd *glfd)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3819,6 +3975,7 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
 
+        GF_REF_GET (glfd);
 	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
@@ -3844,6 +4001,8 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
 out:
 	if (fd)
 		fd_unref (fd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3866,6 +4025,8 @@ pub_glfs_dup (struct glfs_fd *glfd)
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        GF_REF_GET (glfd);
 
 	fs = glfd->fs;
 	subvol = glfs_active_subvol (fs);
@@ -3892,6 +4053,8 @@ out:
 		fd_unref (fd);
 	if (dupfd)
 		glfs_fd_bind (dupfd);
+        if (glfd)
+                GF_REF_PUT (glfd);
 
 	glfs_subvol_done (fs, subvol);
 

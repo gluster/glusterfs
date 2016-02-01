@@ -683,8 +683,10 @@ out:
                 inode_unref (inode);
 
         if (ret && glfd) {
-                glfs_fd_destroy (glfd);
+                GF_REF_PUT (glfd);
                 glfd = NULL;
+        } else if (glfd) {
+                glfd->state = GLFD_OPEN;
         }
 
         glfs_subvol_done (fs, subvol);
@@ -805,9 +807,11 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
 
-        if (glfd) {
-                glfs_fd_destroy (glfd);
+        if (ret && glfd) {
+                GF_REF_PUT (glfd);
                 glfd = NULL;
+        } else if (glfd) {
+                glfd->state = GLFD_OPEN;
         }
 
         glfs_subvol_done (fs, subvol);
@@ -1148,9 +1152,10 @@ out:
                 inode_unref (inode);
 
         if (ret && glfd) {
-                glfs_fd_destroy (glfd);
+                GF_REF_PUT (glfd);
                 glfd = NULL;
-        } else {
+        } else if (glfd) {
+                glfd->state = GLFD_OPEN;
                 fd_bind (glfd->fd);
                 glfs_fd_bind (glfd);
         }
