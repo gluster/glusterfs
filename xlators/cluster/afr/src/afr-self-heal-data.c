@@ -798,31 +798,32 @@ out:
 }
 
 
-static fd_t *
-afr_selfheal_data_open (xlator_t *this, inode_t *inode)
+int
+afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
 {
-	loc_t loc = {0,};
-	int ret = 0;
-	fd_t *fd = NULL;
+	int         ret    = 0;
+        fd_t       *fd_tmp = NULL;
+	loc_t       loc    = {0,};
 
-	fd = fd_create (inode, 0);
-	if (!fd)
-		return NULL;
+	fd_tmp = fd_create (inode, 0);
+	if (!fd_tmp)
+		return -ENOMEM;
 
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd, NULL, NULL);
-	if (ret) {
-		fd_unref (fd);
-		fd = NULL;
+	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd_tmp, NULL, NULL);
+	if (ret < 0) {
+		fd_unref (fd_tmp);
+                loc_wipe (&loc);
+                goto out;
 	} else {
-		fd_bind (fd);
+		fd_bind (fd_tmp);
 	}
 
-	loc_wipe (&loc);
-
-	return fd;
+        *fd = fd_tmp;
+out:
+	return ret;
 }
 
 int
@@ -835,9 +836,9 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
 	priv = this->private;
 
-	fd = afr_selfheal_data_open (this, inode);
+	ret = afr_selfheal_data_open (this, inode, &fd);
 	if (!fd) {
-                gf_msg_debug (this->name, 0, "%s: Failed to open",
+                gf_msg_debug (this->name, -ret, "%s: Failed to open",
                               uuid_utoa (inode->gfid));
                 return -EIO;
         }

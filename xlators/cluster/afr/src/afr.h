@@ -1092,4 +1092,8 @@ afr_get_need_heal (xlator_t *this);
 
 void
 afr_set_need_heal (xlator_t *this, afr_local_t *local);
+
+int
+afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd);
+
 #endif /* __AFR_H__ */

@@ -4513,12 +4513,13 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                                   gf_boolean_t *pflag)
 {
         int ret = -1;
-        afr_private_t   *priv = NULL;
         unsigned char *locked_on = NULL;
         unsigned char *data_lock = NULL;
         unsigned char *sources = NULL;
         unsigned char *sinks = NULL;
         unsigned char *healed_sinks = NULL;
+        afr_private_t   *priv = NULL;
+        fd_t          *fd = NULL;
         struct afr_reply *locked_replies = NULL;
 
         priv = this->private;
@@ -4527,6 +4528,18 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         sources = alloca0 (priv->child_count);
         sinks = alloca0 (priv->child_count);
         healed_sinks = alloca0 (priv->child_count);
+
+        /* Heal-info does an open() on the file being examined so that the
+         * current eager-lock holding client, if present, at some point sees
+         * open-fd count being > 1 and releases the eager-lock so that heal-info
+         * doesn't remain blocked forever until IO completes.
+         */
+        ret = afr_selfheal_data_open (this, inode, &fd);
+        if (ret < 0) {
+                gf_msg_debug (this->name, -ret, "%s: Failed to open",
+                              uuid_utoa (inode->gfid));
+                goto out;
+        }
 
         locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -4565,6 +4578,8 @@ unlock:
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
+        if (fd)
+                fd_unref (fd);
         return ret;
 }
 
