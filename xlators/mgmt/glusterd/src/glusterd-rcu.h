@@ -17,7 +17,7 @@
 #include <urcu/uatomic.h>
 #include <urcu-call-rcu.h>
 
-#ifdef URCU_0_7
+#ifdef URCU_OLD
 #include "rculist-extra.h"
 #endif
 

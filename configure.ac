@@ -1225,11 +1225,17 @@ fi
 # end glupy section
 
 dnl Check for userspace-rcu
-PKG_CHECK_MODULES([URCU], [liburcu-bp])
+PKG_CHECK_MODULES([URCU], [liburcu-bp], [],
+  [AC_CHECK_HEADERS([urcu-bp.h],
+     [URCU_LIBS='-lurcu-bp'],
+     AC_MSG_ERROR([liburcu-bp not found]))])
 PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.8], [],
   [PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.7],
-    [AC_DEFINE(URCU_0_7, 1, [Define if liburcu 0.7 is found])],
-    [AC_MSG_ERROR([liburcu >= 0.7 required])])])
+    [AC_DEFINE(URCU_OLD, 1, [Define if liburcu 0.6 or 0.7 is found])],
+    [AC_CHECK_HEADERS([urcu/cds.h],
+      [AC_DEFINE(URCU_OLD, 1, [Define if liburcu 0.6 or 0.7 is found])
+       URCU_CDS_LIBS='-lurcu-cds'],
+      [AC_MSG_ERROR([liburcu-cds not found])])])])
 
 BUILD_UNITTEST="no"
 AC_ARG_ENABLE([cmocka],
