@@ -294,7 +294,7 @@ function main_and_retry()
 }
 
 function parse_args () {
-    args=`getopt fr $*`
+    args=`getopt fr "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -313,7 +313,7 @@ echo ... GlusterFS Test Framework ...
 echo
 
 # Get user options
-parse_args $@
+parse_args "$@"
 
 # Make sure we're running as the root user
 check_user
