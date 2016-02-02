@@ -31,6 +31,9 @@ static gfdb_methods_t gfdb_methods;
 #define DB_QUERY_RECORD_SIZE 4096
 
 
+/* Check and update the watermark every WM_INTERVAL seconds */
+#define WM_INTERVAL            5
+
 static int
 tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
 {
@@ -376,6 +379,21 @@ tier_migrate_using_query_file (void *_args)
                 if (!tier_do_migration (this, query_cbk_args->is_promotion, &root_loc)) {
                         gfdb_methods.gfdb_query_record_free (query_record);
                         query_record = NULL;
+
+                        /* We have crossed the high watermark. Stop processing
+                         * files if this is a promotion cycle so demotion gets
+                         * a chance to start if not already running*/
+
+                        if (query_cbk_args->is_promotion &&
+                            defrag->tier_conf.mode == TIER_WM_HI) {
+
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "High watermark crossed during "
+                                        "promotion. Exiting "
+                                        "tier_migrate_using_query_file");
+                                break;
+                        }
                         continue;
                 }
 
@@ -464,8 +482,6 @@ tier_migrate_using_query_file (void *_args)
                                                         &par_stbuf);
                         inode_unref (p_loc.inode);
                         p_loc.inode = linked_inode;
-
-
 
 
                         /* Preparing File Inode */
@@ -1428,6 +1444,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         xlator_t *xlator                        = NULL;
         gf_tier_conf_t *tier_conf               = NULL;
         loc_t root_loc                          = { 0 };
+        int check_watermark                     = 0;
+
 
         conf   = this->private;
 
@@ -1507,6 +1525,19 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
+                check_watermark++;
+
+                if (check_watermark >= WM_INTERVAL) {
+                        check_watermark = 0;
+                        ret = tier_check_watermark (this, &root_loc);
+                        if (ret != 0) {
+                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                        DHT_MSG_LOG_TIER_ERROR,
+                                        "Failed to get watermark");
+                                continue;
+                        }
+                }
+
                 freq_demote = tier_get_freq_demote (tier_conf);
 
                 is_demotion_triggered = (is_hot_list_empty) ? _gf_false :
@@ -1523,13 +1554,9 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                 if (!is_promotion_triggered && !is_demotion_triggered)
                         continue;
 
-                ret = tier_check_watermark (this, &root_loc);
-                if (ret != 0) {
-                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                DHT_MSG_LOG_TIER_ERROR,
-                                "Failed to get watermark");
-                        goto out;
-                }
+                /* Check the statfs immediately after the processing threads
+                   return */
+                check_watermark = WM_INTERVAL;
 
                 ret_promotion = -1;
                 ret_demotion = -1;
