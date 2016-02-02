@@ -1509,6 +1509,42 @@ out:
         return 0;
 }
 
+int32_t
+svc_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
+{
+        gf_dirent_t   *entry      = NULL;
+        gf_dirent_t   *tmpentry  = NULL;
+        svc_local_t   *local      = NULL;
+        svc_private_t *priv       = NULL;
+
+        if (op_ret < 0)
+                goto out;
+
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        priv = this->private;
+        local = frame->local;
+
+        /* If .snaps pre-exists, then it should not be listed
+         * in the NORMAL INODE directory when USS is enabled,
+         * so filter the .snaps entry if exists.
+         * However it is OK to list .snaps in VIRTUAL world
+         */
+        if (local->subvolume != FIRST_CHILD (this))
+                goto out;
+
+        list_for_each_entry_safe (entry, tmpentry, &entries->list, list) {
+                if (strcmp(priv->path, entry->d_name) == 0)
+                        gf_dirent_entry_free (entry);
+        }
+
+out:
+        SVC_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, xdata);
+        return 0;
+}
+
 static int32_t
 svc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
              size_t size, off_t off,
@@ -1516,6 +1552,7 @@ svc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         int           inode_type = -1;
         xlator_t     *subvolume  = NULL;
+        svc_local_t  *local      = NULL;
         int           ret        = -1;
         int           op_ret     = -1;
         int           op_errno   = EINVAL;
@@ -1546,8 +1583,16 @@ svc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  fd->inode, subvolume, out);
 
-        STACK_WIND_TAIL (frame, subvolume, subvolume->fops->readdir, fd, size,
-                         off, xdata);
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate local");
+                goto out;
+        }
+        local->subvolume = subvolume;
+        frame->local = local;
+
+        STACK_WIND (frame, svc_readdir_cbk, subvolume, subvolume->fops->readdir,
+                    fd, size, off, xdata);
 
         wind = _gf_true;
 
@@ -1764,18 +1809,20 @@ svc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   gf_dirent_t *entries, dict_t *xdata)
 {
         gf_dirent_t   *entry      = NULL;
+        gf_dirent_t   *tmpentry   = NULL;
         svc_local_t   *local      = NULL;
-        gf_boolean_t   real       = _gf_true;
         int            inode_type = -1;
         int            ret        = -1;
         svc_fd_t      *svc_fd     = NULL;
         gf_boolean_t   unwind     = _gf_true;
-
-        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        svc_private_t *priv       = NULL;
 
         if (op_ret < 0)
                 goto out;
 
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        priv = this->private;
         local = frame->local;
 
         svc_fd = svc_fd_ctx_get (this, local->fd);
@@ -1786,18 +1833,24 @@ svc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (local->subvolume == FIRST_CHILD (this))
-                real = _gf_true;
+                inode_type = NORMAL_INODE;
         else
-                real = _gf_false;
+                inode_type = VIRTUAL_INODE;
 
-        list_for_each_entry (entry, &entries->list, list) {
+        list_for_each_entry_safe (entry, tmpentry, &entries->list, list) {
+                /* If .snaps pre-exists, then it should not be listed
+                 * in the NORMAL INODE directory when USS is enabled,
+                 * so filter the .snaps entry if exists.
+                 * However it is OK to list .snaps in VIRTUAL world
+                 */
+                if (inode_type == NORMAL_INODE &&
+                    !strcmp(priv->path, entry->d_name)) {
+                        gf_dirent_entry_free (entry);
+                        continue;
+                }
+
                 if (!entry->inode)
                         continue;
-
-                if (real)
-                        inode_type = NORMAL_INODE;
-                else
-                        inode_type = VIRTUAL_INODE;
 
                 ret = svc_inode_ctx_set (this, entry->inode, inode_type);
                 if (ret)
