@@ -184,7 +184,6 @@ function is_bad_test ()
     return 1				  # bash: non-zero means false/failure
 }
 
-
 function run_tests()
 {
     RES=0
@@ -238,40 +237,6 @@ function run_tests()
     return ${RES}
 }
 
-function main()
-{
-    if [ "x$tests" = "x" ]; then
-        echo "Running all the regression test cases (new way)"
-        #prove -rf --timer ${regression_testsdir}/tests;
-        run_tests
-    else
-        run_tests "$tests"
-    fi
-}
-
-function main_and_retry()
-{
-    RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
-    main "$tests" | tee ${RESFILE}
-    RET=$?
-
-    FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
-    if [ "x${FAILED}" != "x" ] ; then
-       echo ""
-       echo "       *********************************"
-       echo "       *       REGRESSION FAILED       *"
-       echo "       * Retrying failed tests in case *"
-       echo "       * we got some spurous failures  *"
-       echo "       *********************************"
-       echo ""
-       main ${FAILED}
-       RET=$?
-    fi
-
-    rm -f ${RESFILE}
-    return ${RET}
-}
-
 function parse_args () {
     args=`getopt fr "$@"`
     set -- $args
@@ -304,8 +269,4 @@ check_dependencies
 check_location
 
 # Run the tests
-if [ "x${retry}" = "xyes" ] ; then
-    main_and_retry "$tests"
-else
-    main "$tests"
-fi
+run_tests "$tests"
