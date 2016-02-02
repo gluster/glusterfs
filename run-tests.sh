@@ -118,12 +118,11 @@ function check_user()
     fi
 }
 
-function run_tests()
+function match()
 {
-    declare -A DONE
-    match()
-    {
         # Patterns considered valid:
+        # 0. Empty means everything
+        #    ""           matches ** i.e all
         # 1. full or partial file/directory names
         #   basic         matches tests/basic
         #   basic/afr     matches tests/basic/afr
@@ -136,37 +135,25 @@ function run_tests()
         #   1015990       matches /bugs/bug-1015990-rep.t, bug-1015990.t
         # ...lots of other cases accepted as well, since globbing is tricky.
         local t=$1
-        local mt=$1
         shift
         local a
         local match=1
-        if [ -d $t ] ; then
-            # Allow matching on globs like 'basic/*/'
-            mt=$t/
+        if [ -z "$@" ]; then
+            match=0
+            return $match
         fi
-        for a in "$@" ; do
-            case "$mt" in
-                *$a|*/bugs/$a/|*/bugs/$a.t|*/bugs/bug-$a.t|*/bugs/bug-$a-*.t)
+        for a in $@ ; do
+            case "$t" in
+                *$a*)
                     match=0
                     ;;
             esac
         done
-        if [ "${DONE[$(dirname $t)]}" != "" ] ; then
-            # Parentdir is already matched
-            match=1
-            if [ -d $t ] ; then
-                # Ignore subdirectory as well
-                DONE[$t]=$t
-            fi
-       elif [ $match -eq 0 -a -d $t ] ; then
-            # Make sure children of this matched directory will be ignored
-            DONE[$t]=$t
-        elif [[ -f $t && ! $t =~ .*\.t ]] ; then
-            # Ignore files not ending in .t
-            match=1
-        fi
         return $match
-    }
+}
+
+function run_tests()
+{
     RES=0
     for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
         if match $t "$tests" ; then
