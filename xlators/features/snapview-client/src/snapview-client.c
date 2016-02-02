@@ -526,6 +526,30 @@ out:
         return 0;
 }
 
+int32_t
+svc_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  dict_t *xdata)
+{
+        /* Consider a testcase:
+         * #mount -t nfs host1:/vol1 /mnt
+         * #ls /mnt
+         * #ls /mnt/.snaps (As expected this fails)
+         * #gluster volume set vol1 features.uss enable
+         * Now `ls /mnt/.snaps` should work,
+         * but fails with No such file or directory.
+         * This is because NFS client caches the list of files in
+         * a directory. This cache is updated if there are any changes
+         * in the directory attributes. To solve this problem change
+         * a attribute 'ctime' when USS is enabled
+         */
+        if (op_ret == 0 && IA_ISDIR(buf->ia_type))
+                buf->ia_ctime_nsec++;
+
+        SVC_STACK_UNWIND (stat, frame, op_ret, op_errno, buf, xdata);
+        return 0;
+}
+
 /* should all the fops be handled like lookup is supposed to be
    handled? i.e just based on inode type decide where the call should
    be sent and in the call back update the contexts.
@@ -549,7 +573,8 @@ svc_stat (call_frame_t *frame, xlator_t *this, loc_t *loc,
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  loc->inode, subvolume, out);
 
-        STACK_WIND_TAIL (frame,subvolume, subvolume->fops->stat, loc, xdata);
+        STACK_WIND (frame, svc_stat_cbk, subvolume,
+                    subvolume->fops->stat, loc, xdata);
 
         wind = _gf_true;
 
