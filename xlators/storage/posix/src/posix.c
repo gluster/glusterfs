@@ -180,8 +180,15 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         op_ret = dict_get_int32 (xdata, GF_GFIDLESS_LOOKUP, &gfidless);
         op_ret = -1;
         if (gf_uuid_is_null (loc->pargfid) || (loc->name == NULL)) {
-                /* nameless lookup */
-                MAKE_INODE_HANDLE (real_path, this, loc, &buf);
+                if (gf_uuid_is_null (loc->gfid)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "OOPS: Namless lookup with null gfid!");
+                        op_errno = EINVAL;
+                        op_ret = -1;
+                        goto out;
+                } else {
+                        MAKE_INODE_HANDLE (real_path, this, loc, &buf);
+                }
         } else {
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
@@ -4355,6 +4362,12 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                                                         op_errno, xdata);
         }
 
+        if (ret == 0 && path && !*path) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                                "Failed to resolve ancestry path, pgfid "
+                                "attribute isn't set (yet).");
+                ret = -1;
+        }
 out:
         if (ret && path && *path) {
                 GF_FREE (*path);
@@ -4576,7 +4589,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
-        if (loc->inode && name
+        if (loc->inode && !gf_uuid_is_null(loc->inode->gfid) && name
             && (strcmp (name, GET_ANCESTRY_PATH_KEY) == 0)) {
                 int type = POSIX_ANCESTRY_PATH;
 

@@ -24,6 +24,7 @@ if [ $REDHAT_MAJOR -ge 7 ]; then
 fi
 export GF_CONF_OPTS
 
+ASAN_ENABLED=0
 # Check if ASAN is enabled
 if [ "$ASAN_ENABLED" -eq "1" ]; then
     GF_CONF_OPTS="$GF_CONF_OPTS --with-asan"

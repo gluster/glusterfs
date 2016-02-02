@@ -210,6 +210,12 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 goto out;
         }
 
+        if (!inode && path) {
+                gf_log (this->name, GF_LOG_WARNING, "OOPS: Failed to resolve"
+                        "path (%s), inode is null. Bailing!", path);
+                goto out;
+        }
+
         ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
                                          dir_name, &iabuf, inode, type, xdata);
         if (*parent != NULL) {

@@ -434,18 +434,21 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                                         "Failed to set dictionary value for %s",
                                         key);
                 }
-        } else if (!strcmp (key, GET_ANCESTRY_PATH_KEY)) {
+        } else if (!strcmp (key, GET_ANCESTRY_PATH_KEY) &&
+                   filler->loc && filler->loc->inode &&
+                   !gf_uuid_is_null (filler->loc->inode->gfid)) {
                 /* As of now, the only consumers of POSIX_ANCESTRY_PATH attempt
                  * fetching it via path-based fops. Hence, leaving it as it is
                  * for now.
                  */
                 if (!filler->real_path)
                         goto out;
+
                 char *path = NULL;
                 ret = posix_get_ancestry (filler->this, filler->loc->inode,
                                           NULL, &path, POSIX_ANCESTRY_PATH,
                                           &filler->op_errno, xattr_req);
-                if (ret < 0) {
+                if (ret < 0 || !path) {
                         goto out;
                 }
 
