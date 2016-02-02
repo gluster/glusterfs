@@ -152,32 +152,6 @@ function match()
         return $match
 }
 
-function run_tests()
-{
-    RES=0
-    for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
-        if match $t "$tests" ; then
-            if [ -d $t ] ; then
-                echo "Running tests in directory $t"
-                prove -rf --timer $t
-            elif  [ -f $t ] ; then
-                echo "Running tests in file $t"
-                prove -f --timer $t
-            fi
-            TMP_RES=$?
-            if [ ${TMP_RES} -ne 0 ] ; then
-                RES=${TMP_RES}
-                FAILED="$FAILED $t"
-            fi
-        fi
-    done
-    if [ ${RES} -ne 0 ] ; then
-        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
-        echo "Failed tests ${FAILED}"
-    fi
-    return ${RES}
-}
-
 # If you're submitting a fix related to one of these tests and want its result
 # to be considered, you'll need to remove it from the list as part of your
 # patch.
@@ -210,40 +184,58 @@ function is_bad_test ()
     return 1				  # bash: non-zero means false/failure
 }
 
-function run_all ()
+
+function run_tests()
 {
-    find ${regression_testsdir}/tests -name '*.t' \
-    | LC_COLLATE=C sort \
-    | while read t; do
+    RES=0
+    FAILED=''
+    GENERATED_CORE=''
+
+    for t in $(find ${regression_testsdir}/tests -name '*.t' \
+               | LC_COLLATE=C sort) ; do
 	old_cores=$(ls /core.* 2> /dev/null | wc -l)
-        retval=0
-        prove -mf --timer $t
-        TMP_RES=$?
-        if [ ${TMP_RES} -ne 0 ] ; then
-            echo "$t: bad status $TMP_RES"
-            retval=$((retval+1))
-        fi
-        new_cores=$(ls /core.* 2> /dev/null | wc -l)
-        if [ x"$new_cores" != x"$old_cores" ]; then
-            core_diff=$((new_cores-old_cores))
-            echo "$t: $core_diff new core files"
-            retval=$((retval+2))
-        fi
-        if [ $retval -ne 0 ]; then
+        if match $t "$@" ; then
 	    if is_bad_test $t; then
-		echo  "Ignoring failure from known-bad test $t"
-	        retval=0
-            else
-                echo
-                echo "Running failed test $t in debug mode"
-                echo "Just for debug data, does not change test result"
-                echo
-                bash -x $t
-                echo
-		return $retval
-	    fi
+                echo "Skipping bad test file $t"
+                continue
+            fi
+            echo "Running tests in file $t"
+            prove -mf --timer $t
+            TMP_RES=$?
+            if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
+                echo "$t: bad status $TMP_RES"
+                echo ""
+                echo "       *********************************"
+                echo "       *       REGRESSION FAILED       *"
+                echo "       * Retrying failed tests in case *"
+                echo "       * we got some spurous failures  *"
+                echo "       *********************************"
+                echo ""
+                prove -mf --timer $t
+                TMP_RES=$?
+            fi
+            if [ ${TMP_RES} -ne 0 ] ; then
+                RES=${TMP_RES}
+                FAILED="${FAILED}${t} "
+            fi
+            new_cores=$(ls /core.* 2> /dev/null | wc -l)
+            if [ x"$new_cores" != x"$old_cores" ]; then
+                core_diff=$((new_cores-old_cores))
+                echo "$t: $core_diff new core files"
+                RES=1
+                GENERATED_CORE="${GENERATED_CORE}${t} "
+            fi
         fi
     done
+    if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
+        FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
+        echo -e "$FAILED_COUNT test(s) failed \n${FAILED}"
+        GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
+        GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
+        echo -e "$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
+    fi
+    return ${RES}
 }
 
 function main()
@@ -251,7 +243,7 @@ function main()
     if [ "x$tests" = "x" ]; then
         echo "Running all the regression test cases (new way)"
         #prove -rf --timer ${regression_testsdir}/tests;
-        run_all
+        run_tests
     else
         run_tests "$tests"
     fi
