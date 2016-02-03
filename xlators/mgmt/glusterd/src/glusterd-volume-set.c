@@ -629,6 +629,57 @@ out:
 }
 
 static int
+validate_uss_dir (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                  char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = -1;
+        int                  i             = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        i = strlen (value);
+        if (i > NAME_MAX) {
+                snprintf (errstr, sizeof (errstr), "value of %s exceedes %d "
+                          "characters", key, NAME_MAX);
+                goto out;
+        } else if (i < 2) {
+                snprintf (errstr, sizeof (errstr), "value of %s too short, "
+                          "expects atleast two characters", key);
+                goto out;
+        }
+
+        if (value[0] != '.') {
+                snprintf (errstr, sizeof (errstr), "%s expects value starting "
+                          "with '.' ", key);
+                goto out;
+        }
+
+        for (i = 1; value[i]; i++) {
+                if (isalnum (value[i]) || value[i] == '_' || value[i] == '-')
+                        continue;
+
+                snprintf (errstr, sizeof (errstr), "%s expects value to"
+                          " contain only '0-9a-z-_'", key);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_stripe (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                  char *value, char **op_errstr)
 {
@@ -1738,7 +1789,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_6_0,
           .value       = ".snaps",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
-          .description = "Entry point directory for entering snapshot world"
+          .validate_fn = validate_uss_dir,
+          .description = "Entry point directory for entering snapshot world. "
+                         "Value can have only [0-9a-z-_] and starts with "
+                         "dot (.) and cannot exceed 255 character"
         },
 
         { .key         = "features.show-snapshot-directory",
