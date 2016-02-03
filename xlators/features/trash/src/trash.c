@@ -873,14 +873,14 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 ctr_out:
                         TRASH_STACK_UNWIND (unlink, frame, 0, op_errno,
-                                            &local->preparent,
-                                            &local->postparent, new_xdata);
+                                            preoldparent, postoldparent,
+                                            new_xdata);
                         goto out;
                 }
          }
         /* All other cases, unlink should return success */
-        TRASH_STACK_UNWIND (unlink, frame, 0, op_errno, &local->preparent,
-                            &local->postparent, xdata);
+        TRASH_STACK_UNWIND (unlink, frame, 0, op_errno, preoldparent,
+                            postoldparent, xdata);
 out:
 
         if (tmp_str)
