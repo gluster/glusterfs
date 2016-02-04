@@ -609,7 +609,9 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         xlator_t     *subvol = NULL;
+        struct iatt  *stbuf = NULL;
         int           i = 0;
+        int           ret = 0;
         dht_layout_t *layout = NULL;
         int           err = 0;
         int           this_call_cnt = 0;
@@ -624,6 +626,12 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         else
                 err = op_errno;
 
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
+        if (ret < 0) {
+                gf_msg_debug (this->name, 0, "key = %s not present in dict",
+                              DHT_IATT_IN_XDATA_KEY);
+        }
+
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].xlator == subvol) {
                         layout->list[i].err = err;
@@ -631,6 +639,7 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
+        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
@@ -687,6 +696,15 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                         "%s: Failed to set dictionary value: key = %s,"
                         " gfid = %s", loc->path,
                         GLUSTERFS_INTERNAL_FOP_KEY, gfid);
+                goto err;
+        }
+
+        ret = dict_set_dynstr_with_alloc (xdata, DHT_IATT_IN_XDATA_KEY, "yes");
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                        "%s: Failed to set dictionary value: key = %s,"
+                        " gfid = %s", loc->path,
+                        DHT_IATT_IN_XDATA_KEY, gfid);
                 goto err;
         }
 
