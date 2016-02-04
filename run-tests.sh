@@ -6,6 +6,7 @@ export TZ=UTC
 force="no"
 retry="no"
 tests=""
+exit_on_failure="yes"
 
 function check_dependencies()
 {
@@ -224,6 +225,9 @@ function run_tests()
                 RES=1
                 GENERATED_CORE="${GENERATED_CORE}${t} "
             fi
+            if [ $RES -ne 0 ] && [ x"$exit_on_failure" = "xyes" ] ; then
+                break;
+            fi
         fi
     done
     if [ ${RES} -ne 0 ] ; then
@@ -238,12 +242,13 @@ function run_tests()
 }
 
 function parse_args () {
-    args=`getopt fr "$@"`
+    args=`getopt frc "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
         -f)    force="yes" ;;
         -r)    retry="yes" ;;
+        -c)    exit_on_failure="no" ;;
         --)    shift; break;;
         esac
         shift
