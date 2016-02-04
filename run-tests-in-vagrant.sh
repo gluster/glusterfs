@@ -100,7 +100,7 @@ echo
 echo "Copying source code from host machine to VM"
 cd tests/vagrant/$BRANCHNAME
 vagrant ssh-config > ssh_config
-rsync -az -e "ssh -F ssh_config" --rsync-path="sudo rsync" "../../../." vagrant-testVM:/home/vagrant/glusterfs
+rsync -az -e "ssh -F ssh_config" --rsync-path="sudo rsync" "$ORIGIN_DIR/." vagrant-testVM:/home/vagrant/glusterfs
 if [ $? -eq 0 ]
 then
         echo "Copied."
