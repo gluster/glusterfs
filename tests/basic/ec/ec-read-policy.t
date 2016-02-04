@@ -37,7 +37,7 @@ TEST dd if=/dev/zero of=$M0/1 bs=1M count=4
 #Perform reads now from file on the mount, this only tests dispatch_min
 TEST dd if=$M0/1 of=/dev/null bs=1M count=4
 #TEST that reads are executed on all bricks
-rr_reads=$($CLI volume profile $V0 info cumulative| grep READ | wc -l)
+rr_reads=$($CLI volume profile $V0 info cumulative| grep -w READ | wc -l)
 EXPECT "^6$" echo $rr_reads
 TEST $CLI volume profile $V0 info clear
 

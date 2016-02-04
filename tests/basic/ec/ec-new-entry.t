@@ -23,16 +23,6 @@ touch $M0/11
 for i in {1..10}; do dd if=/dev/zero of=$M0/$i bs=1M count=1; done
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}5 $H0:$B0/${V0}6 commit force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
-TEST kill_brick $V0 $H0 $B0/${V0}6
-#simulate pending heal on just the root directory
-TEST touch $M0/a
-TEST rm -f $M0/a
-EXPECT_WITHIN $HEAL_TIMEOUT "^5$" get_pending_heal_count $V0
-TEST $CLI volume start $V0 force
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count_shd $V0 0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
-TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 #ls -l gives "Total" line so number of lines will be 1 more
 EXPECT "^12$" num_entries $B0/${V0}6
