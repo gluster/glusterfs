@@ -2554,3 +2554,63 @@ fail:
     if (func)
             func (frame, NULL, this, -1, err, 0, 0, 0, NULL);
 }
+
+int
+ec_replace_heal_done (int ret, call_frame_t *heal, void *opaque)
+{
+        ec_t *ec = opaque;
+
+        gf_msg_debug (ec->xl->name, 0,
+                "getxattr on bricks is done ret %d", ret);
+        return 0;
+}
+
+int32_t
+ec_replace_heal (ec_t *ec, inode_t *inode)
+{
+        loc_t        loc = {0};
+        int          ret = 0;
+
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+        ret = syncop_getxattr (ec->xl, &loc, NULL, EC_XATTR_HEAL,
+                               NULL, NULL);
+        if (ret < 0)
+                gf_msg_debug (ec->xl->name, 0,
+                        "Heal failed for replace brick ret = %d", ret);
+
+        loc_wipe (&loc);
+        return ret;
+}
+
+int32_t
+ec_replace_brick_heal_wrap (void  *opaque)
+{
+         ec_t *ec = opaque;
+         inode_table_t   *itable = NULL;
+         int32_t         ret     = -1;
+
+         if (ec->xl->itable)
+                 itable = ec->xl->itable;
+         else
+                 goto out;
+         ret = ec_replace_heal (ec, itable->root);
+out:
+         return ret;
+}
+
+int32_t
+ec_launch_replace_heal (ec_t *ec)
+{
+	int ret = -1;
+
+        if (!ec)
+                return ret;
+        ret = synctask_new (ec->xl->ctx->env, ec_replace_brick_heal_wrap,
+                            ec_replace_heal_done, NULL, ec);
+        if (ret < 0) {
+                gf_msg_debug (ec->xl->name, 0,
+                        "Heal failed for replace brick ret = %d", ret);
+        }
+        return ret;
+}

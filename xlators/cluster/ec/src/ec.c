@@ -515,6 +515,11 @@ unlock:
         if (propagate) {
                 error = default_notify (this, event, data);
         }
+
+        if (ec->shd.iamshd &&
+            ec->xl_notify_count == ec->nodes) {
+                ec_launch_replace_heal (ec);
+        }
 out:
         return error;
 }
