@@ -195,8 +195,12 @@ function run_tests()
                | LC_COLLATE=C sort) ; do
 	old_cores=$(ls /core.* 2> /dev/null | wc -l)
         if match $t "$@" ; then
+            echo
+            echo "=================================================="
 	    if is_bad_test $t; then
                 echo "Skipping bad test file $t"
+                echo "=================================================="
+                echo
                 continue
             fi
             echo "Running tests in file $t"
@@ -225,11 +229,16 @@ function run_tests()
                 RES=1
                 GENERATED_CORE="${GENERATED_CORE}${t} "
             fi
+            echo "End of test $t"
+            echo "=================================================="
+            echo
             if [ $RES -ne 0 ] && [ x"$exit_on_failure" = "xyes" ] ; then
                 break;
             fi
         fi
     done
+    echo
+    echo "Run complete"
     if [ ${RES} -ne 0 ] ; then
         FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
         FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
@@ -238,6 +247,7 @@ function run_tests()
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
         echo -e "$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
     fi
+    echo "Result is $RES"
     return ${RES}
 }
 
