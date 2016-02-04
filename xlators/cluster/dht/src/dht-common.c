@@ -203,6 +203,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
                 ret = dht_layout_set (this, local->inode, layout);
         }
 
+        dht_inode_ctx_time_update (local->inode, this, &local->stbuf, 1);
         if (local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            &local->postparent, 1);
@@ -710,6 +711,8 @@ unlock:
                         dht_layout_set (this, local->inode, layout);
                 }
 
+                dht_inode_ctx_time_update (local->inode, this,
+                                           &local->stbuf, 1);
                 if (local->loc.parent) {
                         dht_inode_ctx_time_update (local->loc.parent, this,
                                                    &local->postparent, 1);
@@ -6490,6 +6493,9 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
+
+                dht_inode_ctx_time_update (local->inode, this,
+                                           &local->stbuf, 1);
                 if (local->loc.parent) {
                         dht_inode_ctx_time_update (local->loc.parent, this,
                                                    &local->preparent, 0);
