@@ -332,6 +332,17 @@ exit:
         return ret;
 }
 
+
+static gf_boolean_t
+is_hot_tier_full (gf_tier_conf_t *tier_conf)
+{
+        if (tier_conf && (tier_conf->mode == TIER_MODE_WM) &&
+           (tier_conf->watermark_last == TIER_WM_HI))
+                return _gf_true;
+
+        return _gf_false;
+}
+
 int
 tier_do_migration (xlator_t *this, int promote, loc_t *root_loc)
 {
@@ -448,6 +459,7 @@ tier_migrate_using_query_file (void *_args)
         int total_time                          = 0;
         int max_time                            = 0;
 
+
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
         this = query_cbk_args->this;
@@ -458,7 +470,6 @@ tier_migrate_using_query_file (void *_args)
         conf = this->private;
 
         defrag = query_cbk_args->defrag;
-
         migrate_data = dict_new ();
         if (!migrate_data)
                 goto out;
@@ -542,7 +553,7 @@ tier_migrate_using_query_file (void *_args)
                          * a chance to start if not already running*/
 
                         if (query_cbk_args->is_promotion &&
-                            defrag->tier_conf.mode == TIER_WM_HI) {
+                            is_hot_tier_full (&defrag->tier_conf)) {
 
                                 gf_msg (this->name, GF_LOG_INFO, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
@@ -553,7 +564,6 @@ tier_migrate_using_query_file (void *_args)
                         }
                         continue;
                 }
-
 
                 if (!list_empty (&query_record->link_list)) {
                         per_file_status =
@@ -1612,6 +1622,8 @@ tier_check_promote (gf_tier_conf_t   *tier_conf,
                 return ((current_time.tv_sec % freq_promote) == 0) ?
                         _gf_true : _gf_false;
 }
+
+
 
 
 void
