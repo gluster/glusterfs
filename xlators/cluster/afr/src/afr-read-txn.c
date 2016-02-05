@@ -83,7 +83,7 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 			              &event_generation,
 				      local->transaction.type);
 
-	if (ret == -1 || !event_generation)
+	if (ret == -EIO || !event_generation)
 		/* Even after refresh, we don't have a good
 		   read subvolume. Time to bail */
                 AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
@@ -218,18 +218,12 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
         }
 
 	local->transaction.type = type;
-        if (local->op == GF_FOP_FSTAT || local->op == GF_FOP_STAT) {
-                ret = afr_inode_read_subvol_get (inode, this, data, metadata,
-                                                 &event_generation);
-                AFR_INTERSECT (local->readable, data, metadata,
-                               priv->child_count);
-        } else {
-                ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
-                                                      &event_generation, type);
-        }
+        ret = afr_inode_read_subvol_get (inode, this, data, metadata,
+                                         &event_generation);
 	if (ret == -1)
 		/* very first transaction on this inode */
 		goto refresh;
+        AFR_INTERSECT (local->readable, data, metadata, priv->child_count);
 
         gf_msg_debug (this->name, 0, "%s: generation now vs cached: %d, "
                       "%d", uuid_utoa (inode->gfid), local->event_generation,

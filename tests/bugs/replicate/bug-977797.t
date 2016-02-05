@@ -53,7 +53,9 @@ TEST chmod 757 $M0/a/file
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1;
 
-TEST dd if=$M0/a/file of=/dev/null bs=1024k
+dd if=$M0/a/file of=/dev/null bs=1024k
+#read fails, but heal is triggered.
+TEST [ $? -ne 0 ]
 
 EXPECT_WITHIN $HEAL_TIMEOUT "00000000"  \
 afr_get_specific_changelog_xattr $B0/$V0"1"/a/file trusted.afr.$V0-client-0 "data"
