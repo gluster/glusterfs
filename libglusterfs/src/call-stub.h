@@ -125,37 +125,7 @@ typedef struct _call_stub {
                 fop_seek_cbk_t seek;
 	} fn_cbk;
 
-	struct {
-		loc_t loc; // @old in rename(), link()
-		loc_t loc2; // @new in rename(), link()
-		fd_t *fd;
-		off_t offset;
-		int mask;
-		size_t size;
-		mode_t mode;
-		dev_t rdev;
-		mode_t umask;
-		int xflag;
-		int flags;
-		const char *linkname;
-		struct iovec *vector;
-		int count;
-		struct iobref *iobref;
-		int datasync;
-		dict_t *xattr;
-		const char *name;
-		int cmd;
-		struct gf_flock lock;
-		const char *volume;
-		entrylk_cmd entrylkcmd;
-		entrylk_type entrylktype;
-		gf_xattrop_flags_t optype;
-		int valid;
-		struct iatt stat;
-                gf_seek_what_t what;
-		dict_t *xdata;
-	} args;
-
+        default_args_t args;
         default_args_cbk_t args_cbk;
 } call_stub_t;
 

@@ -17,6 +17,17 @@
 #include "defaults.h"
 
 int
+args_lookup_store (default_args_t *args, loc_t *loc,
+                   dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_lookup_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno,
                      inode_t *inode, struct iatt *buf,
@@ -38,6 +49,16 @@ args_lookup_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_stat_store (default_args_t *args, loc_t *loc, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_stat_cbk_store (default_args_cbk_t *args,
                    int32_t op_ret, int32_t op_errno,
                    struct iatt *buf, dict_t *xdata)
@@ -53,6 +74,17 @@ args_stat_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_fstat_store (default_args_t *args, fd_t *fd, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_fstat_cbk_store (default_args_cbk_t *args,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *buf, dict_t *xdata)
@@ -61,6 +93,18 @@ args_fstat_cbk_store (default_args_cbk_t *args,
         args->op_errno = op_errno;
         if (buf)
                 args->stat = *buf;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_truncate_store (default_args_t *args, loc_t *loc, off_t off,
+                     dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->offset = off;
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -84,6 +128,19 @@ args_truncate_cbk_store (default_args_cbk_t *args,
         return 0;
 }
 
+int
+args_ftruncate_store (default_args_t *args, fd_t *fd, off_t off,
+                      dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+        args->offset = off;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
 
 int
 args_ftruncate_cbk_store (default_args_cbk_t *args,
@@ -104,6 +161,18 @@ args_ftruncate_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_access_store (default_args_t *args, loc_t *loc, int32_t mask,
+                   dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->mask = mask;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_access_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -117,6 +186,18 @@ args_access_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_readlink_store (default_args_t *args, loc_t *loc, size_t size,
+                     dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->size = size;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_readlink_cbk_store (default_args_cbk_t *args,
                        int32_t op_ret, int32_t op_errno,
                        const char *path, struct iatt *stbuf, dict_t *xdata)
@@ -127,6 +208,20 @@ args_readlink_cbk_store (default_args_cbk_t *args,
                 args->buf = gf_strdup (path);
         if (stbuf)
                 args->stat = *stbuf;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_mknod_store (default_args_t *args, loc_t *loc, mode_t mode,
+                  dev_t rdev, mode_t umask, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->mode = mode;
+        args->rdev = rdev;
+        args->umask = umask;
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -156,6 +251,20 @@ args_mknod_cbk_store (default_args_cbk_t *args, int op_ret,
 }
 
 int
+args_mkdir_store (default_args_t *args, loc_t *loc, mode_t mode,
+                  mode_t umask, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->mode  = mode;
+        args->umask = umask;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_mkdir_cbk_store (default_args_cbk_t *args,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
@@ -171,6 +280,17 @@ args_mkdir_cbk_store (default_args_cbk_t *args,
                 args->preparent = *preparent;
         if (postparent)
                 args->postparent = *postparent;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_unlink_store (default_args_t *args, loc_t *loc, int xflag, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->xflag = xflag;
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -196,6 +316,16 @@ args_unlink_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_rmdir_store (default_args_t *args, loc_t *loc, int flags, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->flags = flags;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_rmdir_cbk_store (default_args_cbk_t *args,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *preparent, struct iatt *postparent,
@@ -207,6 +337,19 @@ args_rmdir_cbk_store (default_args_cbk_t *args,
                 args->preparent = *preparent;
         if (postparent)
                 args->postparent = *postparent;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_symlink_store (default_args_t *args, const char *linkname, loc_t *loc,
+                   mode_t umask, dict_t *xdata)
+{
+        args->linkname = gf_strdup (linkname);
+        args->umask = umask;
+        loc_copy (&args->loc, loc);
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -238,6 +381,18 @@ args_symlink_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_rename_store (default_args_t *args, loc_t *oldloc, loc_t *newloc,
+                   dict_t *xdata)
+{
+        loc_copy (&args->loc, oldloc);
+        loc_copy (&args->loc2, newloc);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_rename_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno, struct iatt *buf,
                      struct iatt *preoldparent, struct iatt *postoldparent,
@@ -256,6 +411,19 @@ args_rename_cbk_store (default_args_cbk_t *args,
                 args->preparent2 = *prenewparent;
         if (postnewparent)
                 args->postparent2 = *postnewparent;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_link_store (default_args_t *args, loc_t *oldloc, loc_t *newloc,
+                 dict_t *xdata)
+{
+        loc_copy (&args->loc, oldloc);
+        loc_copy (&args->loc2, newloc);
+
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -286,6 +454,22 @@ args_link_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_create_store (default_args_t *args,
+                  loc_t *loc, int32_t flags, mode_t mode,
+                  mode_t umask, fd_t *fd, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->flags = flags;
+        args->mode = mode;
+        args->umask = umask;
+        if (fd)
+                args->fd = fd_ref (fd);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_create_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno,
                      fd_t *fd, inode_t *inode, struct iatt *buf,
@@ -311,6 +495,20 @@ args_create_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_open_store (default_args_t *args, loc_t *loc, int32_t flags,
+                 fd_t *fd, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->flags = flags;
+        if (fd)
+                args->fd = fd_ref (fd);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
 args_open_cbk_store (default_args_cbk_t *args,
                    int32_t op_ret, int32_t op_errno,
                    fd_t *fd, dict_t *xdata)
@@ -319,6 +517,22 @@ args_open_cbk_store (default_args_cbk_t *args,
         args->op_errno = op_errno;
         if (fd)
                 args->fd = fd_ref (fd);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_readv_store (default_args_t *args, fd_t *fd, size_t size, off_t off,
+                  uint32_t flags, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->size  = size;
+        args->offset  = off;
+        args->flags = flags;
+
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -346,6 +560,23 @@ args_readv_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_writev_store (default_args_t *args, fd_t *fd, struct iovec *vector,
+                   int32_t count, off_t off, uint32_t flags,
+                   struct iobref *iobref, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->vector = iov_dup (vector, count);
+        args->count  = count;
+        args->offset = off;
+        args->flags  = flags;
+        args->iobref = iobref_ref (iobref);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_writev_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
@@ -362,6 +593,15 @@ args_writev_cbk_store (default_args_cbk_t *args,
         return 0;
 }
 
+int
+args_flush_store (default_args_t *args, fd_t *fd, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
 
 int
 args_flush_cbk_store (default_args_cbk_t *args,
@@ -375,6 +615,17 @@ args_flush_cbk_store (default_args_cbk_t *args,
         return 0;
 }
 
+int
+args_fsync_store (default_args_t *args, fd_t *fd, int32_t datasync,
+                  dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->datasync = datasync;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
 
 int
 args_fsync_cbk_store (default_args_cbk_t *args,
@@ -387,6 +638,18 @@ args_fsync_cbk_store (default_args_cbk_t *args,
                 args->prestat = *prebuf;
         if (postbuf)
                 args->poststat = *postbuf;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+
+int
+args_opendir_store (default_args_t *args, loc_t *loc, fd_t *fd, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        if (fd)
+                args->fd = fd_ref (fd);
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
@@ -409,6 +672,17 @@ args_opendir_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_fsyncdir_store (default_args_t *args, fd_t *fd, int32_t datasync,
+                     dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->datasync = datasync;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+int
 args_fsyncdir_cbk_store (default_args_cbk_t *args,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -417,6 +691,15 @@ args_fsyncdir_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_statfs_store (default_args_t *args, loc_t *loc, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -436,6 +719,21 @@ args_statfs_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_setxattr_store (default_args_t *args,
+                     loc_t *loc, dict_t *dict,
+                     int32_t flags, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        /* TODO */
+        if (dict)
+                args->xattr = dict_ref (dict);
+        args->flags = flags;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_setxattr_cbk_store (default_args_cbk_t *args,
                        int32_t op_ret,
                        int32_t op_errno, dict_t *xdata)
@@ -445,6 +743,19 @@ args_setxattr_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_getxattr_store (default_args_t *args,
+                     loc_t *loc, const char *name, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+
+        if (name)
+                args->name = gf_strdup (name);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -464,6 +775,20 @@ args_getxattr_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_fsetxattr_store (default_args_t *args,
+                      fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+
+        if (dict)
+                args->xattr = dict_ref (dict);
+        args->flags = flags;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_fsetxattr_cbk_store (default_args_cbk_t *args,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -472,6 +797,19 @@ args_fsetxattr_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_fgetxattr_store (default_args_t *args,
+                      fd_t *fd, const char *name, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+
+        if (name)
+                args->name = gf_strdup (name);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -491,6 +829,17 @@ args_fgetxattr_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_removexattr_store (default_args_t *args,
+                        loc_t *loc, const char *name, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->name = gf_strdup (name);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_removexattr_cbk_store (default_args_cbk_t *args,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -503,6 +852,17 @@ args_removexattr_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_fremovexattr_store (default_args_t *args,
+                         fd_t *fd, const char *name, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+        args->name = gf_strdup (name);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_fremovexattr_cbk_store (default_args_cbk_t *args,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -511,6 +871,20 @@ args_fremovexattr_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_lk_store (default_args_t *args,
+               fd_t *fd, int32_t cmd,
+                struct gf_flock *lock, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->cmd = cmd;
+        args->lock = *lock;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -531,6 +905,22 @@ args_lk_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_inodelk_store (default_args_t *args,
+                    const char *volume, loc_t *loc, int32_t cmd,
+                    struct gf_flock *lock, dict_t *xdata)
+{
+        if (volume)
+                args->volume = gf_strdup (volume);
+
+        loc_copy (&args->loc, loc);
+        args->cmd  = cmd;
+        args->lock = *lock;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_inodelk_cbk_store (default_args_cbk_t *args,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -539,6 +929,25 @@ args_inodelk_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_finodelk_store (default_args_t *args,
+                     const char *volume, fd_t *fd, int32_t cmd,
+                     struct gf_flock *lock, dict_t *xdata)
+{
+        if (fd)
+                args->fd   = fd_ref (fd);
+
+        if (volume)
+                args->volume = gf_strdup (volume);
+
+        args->cmd  = cmd;
+        args->lock = *lock;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -555,6 +964,27 @@ args_finodelk_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_entrylk_store (default_args_t *args,
+                    const char *volume, loc_t *loc, const char *name,
+                    entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
+{
+        if (volume)
+                args->volume = gf_strdup (volume);
+
+        loc_copy (&args->loc, loc);
+
+        args->entrylkcmd = cmd;
+        args->entrylktype = type;
+
+        if (name)
+                args->name = gf_strdup (name);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_entrylk_cbk_store (default_args_cbk_t *args,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -563,6 +993,26 @@ args_entrylk_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_fentrylk_store (default_args_t *args,
+                     const char *volume, fd_t *fd, const char *name,
+                     entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
+{
+        if (volume)
+                args->volume = gf_strdup (volume);
+
+        if (fd)
+                args->fd = fd_ref (fd);
+        args->entrylkcmd = cmd;
+        args->entrylktype = type;
+        if (name)
+                args->name = gf_strdup (name);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -578,6 +1028,18 @@ args_fentrylk_cbk_store (default_args_cbk_t *args,
         return 0;
 }
 
+
+int
+args_readdirp_store (default_args_t *args,
+                     fd_t *fd, size_t size, off_t off, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+        args->size = size;
+        args->offset = off;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
 
 int
 args_readdirp_cbk_store (default_args_cbk_t *args,
@@ -613,6 +1075,20 @@ out:
 
 
 int
+args_readdir_store (default_args_t *args,
+                    fd_t *fd, size_t size,
+                    off_t off, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+        args->size = size;
+        args->offset = off;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_readdir_cbk_store (default_args_cbk_t *args,
                       int32_t op_ret, int32_t op_errno,
                       gf_dirent_t *entries, dict_t *xdata)
@@ -641,6 +1117,18 @@ out:
 
 
 int
+args_rchecksum_store (default_args_t *args,
+                      fd_t *fd, off_t offset, int32_t len, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+        args->offset = offset;
+        args->size    = len;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_rchecksum_cbk_store (default_args_cbk_t *args,
                         int32_t op_ret, int32_t op_errno,
                         uint32_t weak_checksum, uint8_t *strong_checksum,
@@ -657,6 +1145,21 @@ args_rchecksum_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_xattrop_store (default_args_t *args,
+                    loc_t *loc, gf_xattrop_flags_t optype,
+                    dict_t *xattr, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+
+        args->optype = optype;
+        args->xattr = dict_ref (xattr);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -677,6 +1180,21 @@ args_xattrop_cbk_store (default_args_cbk_t *args, int32_t op_ret,
 
 
 int
+args_fxattrop_store (default_args_t *args,
+                     fd_t *fd, gf_xattrop_flags_t optype,
+                     dict_t *xattr, dict_t *xdata)
+{
+        args->fd = fd_ref (fd);
+
+        args->optype = optype;
+        args->xattr = dict_ref (xattr);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_fxattrop_cbk_store (default_args_cbk_t *args,
                        int32_t op_ret, int32_t op_errno,
                        dict_t *xattr, dict_t *xdata)
@@ -688,6 +1206,23 @@ args_fxattrop_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_setattr_store (default_args_t *args,
+                    loc_t *loc, struct iatt *stbuf,
+                    int32_t valid, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+
+        if (stbuf)
+                args->stat = *stbuf;
+
+        args->valid = valid;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -711,6 +1246,23 @@ args_setattr_cbk_store (default_args_cbk_t *args,
 
 
 int
+args_fsetattr_store (default_args_t *args,
+                     fd_t *fd, struct iatt *stbuf,
+                     int32_t valid, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+        if (stbuf)
+                args->stat = *stbuf;
+
+        args->valid = valid;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+int
 args_fsetattr_cbk_store (default_args_cbk_t *args,
                        int32_t op_ret, int32_t op_errno,
                        struct iatt *statpre, struct iatt *statpost,
@@ -725,6 +1277,22 @@ args_fsetattr_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_fallocate_store (default_args_t *args, fd_t *fd,
+                      int32_t mode, off_t offset, size_t len, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+	args->flags = mode;
+	args->offset = offset;
+	args->size = len;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -747,6 +1315,21 @@ args_fallocate_cbk_store(default_args_cbk_t *args,
 }
 
 int
+args_discard_store (default_args_t *args, fd_t *fd,
+		    off_t offset, size_t len, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+	args->offset = offset;
+	args->size = len;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_discard_cbk_store(default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *statpre, struct iatt *statpost,
@@ -761,6 +1344,21 @@ args_discard_cbk_store(default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_zerofill_store (default_args_t *args, fd_t *fd,
+                     off_t offset, off_t len, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+        args->offset = offset;
+        args->size = len;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
@@ -783,6 +1381,17 @@ args_zerofill_cbk_store(default_args_cbk_t *args,
 }
 
 int
+args_ipc_store (default_args_t *args,
+                int32_t op, dict_t *xdata)
+{
+        args->cmd = op;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
 args_ipc_cbk_store (default_args_cbk_t *args,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -791,6 +1400,21 @@ args_ipc_cbk_store (default_args_cbk_t *args,
         if (xdata)
                 args->xdata = dict_ref (xdata);
 
+        return 0;
+}
+
+int
+args_seek_store (default_args_t *args, fd_t *fd,
+                 off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+        if (fd)
+                args->fd = fd_ref (fd);
+
+        args->offset = offset;
+        args->what = what;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
         return 0;
 }
 
