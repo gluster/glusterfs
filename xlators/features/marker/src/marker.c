@@ -1736,8 +1736,23 @@ marker_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc, postbuf);
+        if (priv->feature_enabled & GF_QUOTA) {
+                /* DHT Rebalance process, at the end of migration will
+                 * first make the src file as a linkto file and then
+                 * truncate the file. By doing a truncate after making the
+                 * src file as linkto file, the contri which is already
+                 * accounted is left over.
+                 * So, we need to account for the linkto file when a truncate
+                 * happens, thereby updating the contri properly.
+                 * By passing NULL for postbuf, mq_prevalidate does not check
+                 * for linkto file.
+                 * Same happens with ftruncate as well.
+                 */
+                if (postbuf && IS_DHT_LINKFILE_MODE (postbuf))
+                        mq_initiate_quota_txn (this, &local->loc, NULL);
+                else
+                        mq_initiate_quota_txn (this, &local->loc, postbuf);
+        }
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1805,8 +1820,12 @@ marker_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_QUOTA)
-                mq_initiate_quota_txn (this, &local->loc, postbuf);
+        if (priv->feature_enabled & GF_QUOTA) {
+                if (postbuf && IS_DHT_LINKFILE_MODE (postbuf))
+                        mq_initiate_quota_txn (this, &local->loc, NULL);
+                else
+                        mq_initiate_quota_txn (this, &local->loc, postbuf);
+        }
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
