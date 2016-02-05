@@ -1185,7 +1185,7 @@ dht_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (is_last_call (call_cnt)) {
                 if (local->is_linkfile) {
                         local->op_ret = -1;
-                        local->op_errno = EBUSY;
+                        local->op_errno = op_errno;
                         goto fail;
                 }
 
@@ -1221,13 +1221,13 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_INODE_LK_ERROR,
                         "acquiring inodelk failed "
-                        "rename (%s:%s:%s %s:%s:%s), returning EBUSY",
+                        "rename (%s:%s:%s %s:%s:%s)",
                         local->loc.path, src_gfid, local->src_cached->name,
                         local->loc2.path, dst_gfid,
                         local->dst_cached ? local->dst_cached->name : NULL);
 
                 local->op_ret = -1;
-                local->op_errno = (op_errno == EAGAIN) ? EBUSY : op_errno;
+                local->op_errno = op_errno;
 
                 goto done;
         }
@@ -1303,8 +1303,8 @@ dht_rename_lock (call_frame_t *frame)
         local->lock.locks = lk_array;
         local->lock.lk_count = count;
 
-        ret = dht_nonblocking_inodelk (frame, lk_array, count,
-                                       dht_rename_lock_cbk);
+        ret = dht_blocking_inodelk (frame, lk_array, count,
+                                    dht_rename_lock_cbk);
         if (ret < 0) {
                 local->lock.locks = NULL;
                 local->lock.lk_count = 0;
