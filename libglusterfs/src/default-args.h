@@ -271,4 +271,192 @@ args_seek_cbk_store (default_args_cbk_t *args, int32_t op_ret,
 void
 args_cbk_wipe (default_args_cbk_t *args_cbk);
 
+int
+args_lookup_store (default_args_t *args, loc_t *loc,
+                   dict_t *xdata);
+
+int
+args_stat_store (default_args_t *args, loc_t *loc, dict_t *xdata);
+
+int
+args_fstat_store (default_args_t *args, fd_t *fd, dict_t *xdata);
+
+int
+args_truncate_store (default_args_t *args, loc_t *loc, off_t off,
+                     dict_t *xdata);
+int
+args_ftruncate_store (default_args_t *args, fd_t *fd, off_t off,
+                      dict_t *xdata);
+
+int
+args_access_store (default_args_t *args, loc_t *loc, int32_t mask,
+                   dict_t *xdata);
+
+int
+args_readlink_store (default_args_t *args, loc_t *loc, size_t size,
+                     dict_t *xdata);
+
+int
+args_mknod_store (default_args_t *args, loc_t *loc, mode_t mode,
+                  dev_t rdev, mode_t umask, dict_t *xdata);
+
+int
+args_mkdir_store (default_args_t *args, loc_t *loc, mode_t mode,
+                  mode_t umask, dict_t *xdata);
+
+int
+args_unlink_store (default_args_t *args, loc_t *loc, int xflag, dict_t *xdata);
+
+int
+args_rmdir_store (default_args_t *args, loc_t *loc, int flags, dict_t *xdata);
+
+int
+args_symlink_store (default_args_t *args, const char *linkname, loc_t *loc,
+                   mode_t umask, dict_t *xdata);
+
+int
+args_rename_store (default_args_t *args, loc_t *oldloc, loc_t *newloc,
+                   dict_t *xdata);
+
+int
+args_link_store (default_args_t *args, loc_t *oldloc, loc_t *newloc,
+                 dict_t *xdata);
+
+int
+args_create_store (default_args_t *args,
+                  loc_t *loc, int32_t flags, mode_t mode,
+                  mode_t umask, fd_t *fd, dict_t *xdata);
+
+int
+args_open_store (default_args_t *args, loc_t *loc, int32_t flags,
+                 fd_t *fd, dict_t *xdata);
+
+int
+args_readv_store (default_args_t *args, fd_t *fd, size_t size, off_t off,
+                  uint32_t flags, dict_t *xdata);
+
+int
+args_writev_store (default_args_t *args, fd_t *fd, struct iovec *vector,
+                   int32_t count, off_t off, uint32_t flags,
+                   struct iobref *iobref, dict_t *xdata);
+
+int
+args_flush_store (default_args_t *args, fd_t *fd, dict_t *xdata);
+
+int
+args_fsync_store (default_args_t *args, fd_t *fd, int32_t datasync,
+                  dict_t *xdata);
+
+int
+args_opendir_store (default_args_t *args, loc_t *loc, fd_t *fd, dict_t *xdata);
+
+int
+args_fsyncdir_store (default_args_t *args, fd_t *fd, int32_t datasync,
+                     dict_t *xdata);
+
+int
+args_statfs_store (default_args_t *args, loc_t *loc, dict_t *xdata);
+
+int
+args_setxattr_store (default_args_t *args,
+                     loc_t *loc, dict_t *dict,
+                     int32_t flags, dict_t *xdata);
+
+int
+args_getxattr_store (default_args_t *args,
+                     loc_t *loc, const char *name, dict_t *xdata);
+
+int
+args_fsetxattr_store (default_args_t *args,
+                      fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata);
+
+int
+args_fgetxattr_store (default_args_t *args,
+                      fd_t *fd, const char *name, dict_t *xdata);
+
+int
+args_removexattr_store (default_args_t *args,
+                        loc_t *loc, const char *name, dict_t *xdata);
+
+int
+args_fremovexattr_store (default_args_t *args,
+                         fd_t *fd, const char *name, dict_t *xdata);
+
+int
+args_lk_store (default_args_t *args,
+               fd_t *fd, int32_t cmd,
+                struct gf_flock *lock, dict_t *xdata);
+
+int
+args_inodelk_store (default_args_t *args,
+                    const char *volume, loc_t *loc, int32_t cmd,
+                    struct gf_flock *lock, dict_t *xdata);
+
+int
+args_finodelk_store (default_args_t *args,
+                     const char *volume, fd_t *fd, int32_t cmd,
+                     struct gf_flock *lock, dict_t *xdata);
+
+int
+args_entrylk_store (default_args_t *args,
+                    const char *volume, loc_t *loc, const char *name,
+                    entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
+
+int
+args_fentrylk_store (default_args_t *args,
+                     const char *volume, fd_t *fd, const char *name,
+                     entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
+int
+args_readdirp_store (default_args_t *args,
+                     fd_t *fd, size_t size, off_t off, dict_t *xdata);
+
+int
+args_readdir_store (default_args_t *args,
+                    fd_t *fd, size_t size,
+                    off_t off, dict_t *xdata);
+
+int
+args_rchecksum_store (default_args_t *args,
+                      fd_t *fd, off_t offset, int32_t len, dict_t *xdata);
+
+int
+args_xattrop_store (default_args_t *args,
+                    loc_t *loc, gf_xattrop_flags_t optype,
+                    dict_t *xattr, dict_t *xdata);
+
+int
+args_fxattrop_store (default_args_t *args,
+                     fd_t *fd, gf_xattrop_flags_t optype,
+                     dict_t *xattr, dict_t *xdata);
+
+int
+args_setattr_store (default_args_t *args,
+                    loc_t *loc, struct iatt *stbuf,
+                    int32_t valid, dict_t *xdata);
+
+int
+args_fsetattr_store (default_args_t *args,
+                     fd_t *fd, struct iatt *stbuf,
+                     int32_t valid, dict_t *xdata);
+
+int
+args_fallocate_store (default_args_t *args, fd_t *fd,
+                      int32_t mode, off_t offset, size_t len, dict_t *xdata);
+
+int
+args_discard_store (default_args_t *args, fd_t *fd,
+		    off_t offset, size_t len, dict_t *xdata);
+
+int
+args_zerofill_store (default_args_t *args, fd_t *fd,
+                     off_t offset, off_t len, dict_t *xdata);
+
+int
+args_ipc_store (default_args_t *args,
+                int32_t op, dict_t *xdata);
+
+int
+args_seek_store (default_args_t *args, fd_t *fd,
+                 off_t offset, gf_seek_what_t what, dict_t *xdata);
+
 #endif /* _DEFAULT_ARGS_H */
