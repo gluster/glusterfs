@@ -17,6 +17,132 @@
 #include "tier.h"
 
 int
+dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+              int op_ret, int op_errno,
+              inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata);
+
+
+int
+tier_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+              int op_ret, int op_errno,
+              inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf   = NULL;
+        loc_t        *oldloc = NULL;
+        loc_t        *newloc = NULL;
+
+        local = frame->local;
+        conf = this->private;
+
+        oldloc = &local->loc;
+        newloc = &local->loc2;
+
+        if (op_ret == -1) {
+                /* No continuation on DHT inode missing errors, as we should
+                 * then have a good stbuf that states P2 happened. We would
+                 * get inode missing if, the file completed migrated between
+                 * the lookup and the link call */
+                goto out;
+        }
+
+        if (local->call_cnt != 1) {
+                goto out;
+        }
+
+        local->call_cnt = 2;
+
+        /* Do this on the hot tier now */
+
+        STACK_WIND (frame, tier_link_cbk, local->cached_subvol,
+                    local->cached_subvol->fops->link,
+                    oldloc, newloc, xdata);
+
+        return 0;
+
+out:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
+
+        DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf,
+                          preparent, postparent, NULL);
+
+        return 0;
+}
+
+
+int
+tier_link (call_frame_t *frame, xlator_t *this,
+          loc_t *oldloc, loc_t *newloc, dict_t *xdata)
+{
+        xlator_t    *cached_subvol = NULL;
+        xlator_t    *hashed_subvol = NULL;
+        int          op_errno = -1;
+        int          ret = -1;
+        dht_local_t *local = NULL;
+        dht_conf_t   *conf           = NULL;
+
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (oldloc, err);
+        VALIDATE_OR_GOTO (newloc, err);
+
+        conf = this->private;
+
+        local = dht_local_init (frame, oldloc, NULL, GF_FOP_LINK);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->call_cnt = 1;
+
+        cached_subvol = local->cached_subvol;
+
+        if (!cached_subvol) {
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", oldloc->path);
+                op_errno = ENOENT;
+                goto err;
+        }
+
+        hashed_subvol = TIER_HASHED_SUBVOL;
+
+        ret = loc_copy (&local->loc2, newloc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        if (hashed_subvol == cached_subvol) {
+                STACK_WIND (frame, dht_link_cbk,
+                            cached_subvol, cached_subvol->fops->link,
+                            oldloc, newloc, xdata);
+                return 0;
+        }
+
+
+        /* Create hardlinks to both the data file on the hot tier
+           and the linkto file on the cold tier */
+
+        gf_uuid_copy (local->gfid, oldloc->inode->gfid);
+
+        STACK_WIND (frame, tier_link_cbk,
+                    hashed_subvol, hashed_subvol->fops->link,
+                    oldloc, newloc, xdata);
+
+        return 0;
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+                          NULL);
+        return 0;
+}
+
+
+
+int
 tier_create_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
                                      xlator_t *this, int op_ret, int op_errno,
                                      struct iatt *preparent,
