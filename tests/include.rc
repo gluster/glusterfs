@@ -156,12 +156,13 @@ function test_header()
 function test_footer()
 {
         RET=$?
-        local err=$1
+        local lineno=$1
+        local err=$2
 
         if [ $RET -eq 0 ]; then
-                echo "ok $t";
+                echo "ok $t, LINENUM:$lineno";
         else
-                echo "not ok $t $err";
+                echo "not ok $t $err, LINENUM:$lineno";
                 # With DEBUG, this was already printed out, so skip it.
                 if [ x"$DEBUG" = x"0" ]; then
                         echo "FAILED COMMAND: $saved_cmd"
@@ -178,8 +179,9 @@ function test_footer()
 
 function test_expect_footer()
 {
-        local e=$1
-        local a=$2
+        local lineno=$1
+        local e=$2
+        local a=$3
         local err=""
 
         if ! [[ "$a" =~ $e ]]; then
@@ -187,7 +189,7 @@ function test_expect_footer()
         fi
         [[ "$a" =~ $e ]];
 
-        test_footer "$err";
+        test_footer "$lineno" "$err";
 }
 
 function _EXPECT()
@@ -204,16 +206,17 @@ function _EXPECT()
         a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
-                test_expect_footer "x$e" "x$a";
+                test_expect_footer "$TESTLINE" "x$e" "x$a";
         else
-                test_expect_footer "$e" "$a";
+                test_expect_footer "$TESTLINE" "$e" "$a";
         fi
 }
 
 function test_expect_not_footer()
 {
-        local e=$1
-        local a=$2
+        local lineno=$1
+        local e=$2
+        local a=$3
         local err=""
 
         if [[ "$a" =~ $e ]]; then
@@ -221,7 +224,7 @@ function test_expect_not_footer()
         fi
 
         ! [[ "$a" =~ "$e" ]];
-        test_footer "$err";
+        test_footer "$lineno" "$err";
 }
 
 function _EXPECT_NOT()
@@ -238,9 +241,9 @@ function _EXPECT_NOT()
         a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
-               test_expect_not_footer "x$e" "x$a";
+               test_expect_not_footer "$TESTLINE" "x$e" "x$a";
         else
-               test_expect_not_footer "$e" "$a";
+               test_expect_not_footer "$TESTLINE" "$e" "$a";
         fi
 }
 
@@ -255,7 +258,7 @@ function _EXPECT_KEYWORD()
         shift;
         "$@" | tail -1 | grep -q "$e"
 
-        test_footer;
+        test_footer "$TESTLINE";
 }
 
 function _TEST()
@@ -273,7 +276,7 @@ function _TEST()
 
         eval "$@" >/dev/null $redirect
 
-        test_footer;
+        test_footer "$TESTLINE";
 }
 
 function _EXPECT_WITHIN()
@@ -308,9 +311,9 @@ function _EXPECT_WITHIN()
         done
 
         if [ "x$e" = "x" ] ; then
-               test_expect_footer "x$e" "x$a";
+               test_expect_footer "$TESTLINE" "x$e" "x$a";
         else
-               test_expect_footer "$e" "$a";
+               test_expect_footer "$TESTLINE" "$e" "$a";
         fi
 }
 

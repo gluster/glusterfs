@@ -90,3 +90,4 @@ EXPECT 1 echo $(ls -l $M0 | grep $DST_FILE | wc -l)
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

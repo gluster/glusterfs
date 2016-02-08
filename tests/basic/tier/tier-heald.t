@@ -95,3 +95,4 @@ TEST ! $CLI volume set dist disperse-self-heal-daemon off
 TEST ! $CLI volume set dist cluster.disperse-self-heal-daemon on
 
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
