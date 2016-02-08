@@ -2711,6 +2711,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_4_0_0,
           .description = "percent of rep_count-1 bricks that must be up"
         },
+        /* Full Data Logging */
+        {
+          .key         = "features.fdl",
+          .voltype     = "features/fdl",
+          .option      = "!fdl",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .flags       = OPT_FLAG_XLATOR_OPT,
+          .type        = NO_DOC,
+        },
         { .key         = NULL
         }
 };

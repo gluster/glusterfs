@@ -167,3 +167,8 @@ GFAPI_3.7.4 {
 	global:
 		glfs_h_lookupat;
 } GFAPI_PRIVATE_3.7.0;
+
+GFAPI_4.0.0 {
+	global:
+		glfs_ipc_xd;
+} GFAPI_3.7.4;

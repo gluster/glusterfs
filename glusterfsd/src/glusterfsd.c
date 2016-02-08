@@ -1199,6 +1199,26 @@ parse_opts (int key, char *arg, struct argp_state *state)
         return 0;
 }
 
+gf_boolean_t
+should_call_fini (glusterfs_ctx_t *ctx, xlator_t *trav)
+{
+        /* There's nothing to call, so the other checks don't matter. */
+        if (!trav->fini) {
+                return _gf_false;
+        }
+
+        /* This preserves previous behavior in glusterd. */
+        if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
+                return _gf_true;
+        }
+
+        /* This is the only one known to be safe in glusterfsd. */
+        if (!strcmp(trav->type,"experimental/fdl")) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
 
 void
 cleanup_and_exit (int signum)
@@ -1271,20 +1291,17 @@ cleanup_and_exit (int signum)
 
         /*call fini for glusterd xlator */
         /* TODO : Invoke fini for rest of the xlators */
-        if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
-
-                trav = NULL;
-                if (ctx->active)
-                        trav = ctx->active->top;
-                while (trav) {
-                        if (trav->fini) {
-                                THIS = trav;
-                                trav->fini (trav);
-                        }
-                        trav = trav->next;
+        trav = NULL;
+        if (ctx->active)
+                trav = ctx->active->top;
+        while (trav) {
+                if (should_call_fini(ctx,trav)) {
+                        THIS = trav;
+                        trav->fini (trav);
                 }
-
+                trav = trav->next;
         }
+
         exit(0);
 }
 

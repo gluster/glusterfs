@@ -83,7 +83,7 @@ y.tab.h: graph.y
 defaults.c: defaults-tmpl.c generator.py gen-defaults.py
 	$(PYTHON) $(srcdir)/gen-defaults.py $(srcdir)/defaults-tmpl.c > $@
 
-CLEANFILES = graph.lex.c y.tab.c y.tab.h defaults.c
+CLEANFILES = $(nodist_libglusterfs_la_SOURCES)
 
 if UNITTEST
 CLEANFILES += *.gcda *.gcno *_xunit.xml

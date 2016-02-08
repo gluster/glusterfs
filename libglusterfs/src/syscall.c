@@ -588,7 +588,7 @@ sys_fallocate(int fd, int mode, off_t offset, off_t len)
         return posix_fallocate(fd, offset, len);
 #endif
 
-#if defined(F_ALLOCATECONFIG) && defined(GF_DARWIN_HOST_OS)
+#if defined(F_ALLOCATECONTIG) && defined(GF_DARWIN_HOST_OS)
         /* C conversion from C++ implementation for OSX by Mozilla Foundation */
         if (mode) {
                 /* keep size not supported */

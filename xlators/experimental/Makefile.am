@@ -1,3 +1,3 @@
-SUBDIRS = nsr-client nsr-server
+SUBDIRS = nsr-client nsr-server fdl
 
 CLEANFILES =

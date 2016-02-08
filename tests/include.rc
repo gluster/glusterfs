@@ -136,7 +136,7 @@ function G_LOG()
         return
      fi
      local g_log_string;
-     g_log_string="++++++++++ G_LOG:$0: TEST: $1 $@ ++++++++++"
+     g_log_string="++++++++++ G_LOG:$0: TEST: $@ ++++++++++"
      g_log_string="`date -u +["%F %T.%6N"]`:$g_log_string"
      local g_log_filename
      for  g_log_filename in `find $g_log_logdir/ -type f -name \*.log`;
@@ -541,10 +541,10 @@ function cleanup()
         fi >&2
 
         # tar logs at the start and end of every test
-        if [ -n $LOGDIR ]
+        if [ -n "$LOGDIR" -a -z "$STOP_WASTING_SPACE" ]
         then
                 tarname=$(basename $0 .t)
-                tar -rvf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
+                tar -rf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
                         --exclude="*.tar" \
                         && \
                 find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
