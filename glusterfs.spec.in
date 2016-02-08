@@ -970,6 +970,7 @@ exit 0
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
 %files extra-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
@@ -1099,6 +1100,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/nsrc.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/nsr.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
 %endif
