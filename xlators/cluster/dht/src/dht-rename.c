@@ -366,6 +366,7 @@ dht_rename_track_for_changelog (xlator_t *this, dict_t *xattr,
                         " path = %s", DHT_CHANGELOG_RENAME_OP_KEY,
                         oldloc->name);
         }
+
         return ret;
 }
 
@@ -1091,6 +1092,9 @@ dht_rename_create_links (call_frame_t *frame)
 			    &local->loc2, 0, xattr_new);
 
                 dict_unref (xattr_new);
+                if (xattr)
+                        dict_unref (xattr);
+
                 return 0;
         }
 
