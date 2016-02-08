@@ -46,3 +46,5 @@ TEST $CLI snapshot create snap4 $V0 no-timestamp;
 TEST $CLI snapshot delete all;
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000

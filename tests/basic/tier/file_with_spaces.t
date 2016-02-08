@@ -68,3 +68,4 @@ EXPECT "yes" exists_and_regular_file $CPATH
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

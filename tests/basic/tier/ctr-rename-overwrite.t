@@ -47,3 +47,4 @@ ENTRY_COUNT=$(echo "select * from gf_file_tb; select * from gf_flink_tb;" | \
 TEST [ $ENTRY_COUNT -eq 2 ]
 
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

@@ -63,3 +63,4 @@ EXPECT "Tier command failed" $CLI volume tier $V0 detach status
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
