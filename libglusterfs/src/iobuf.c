@@ -1014,7 +1014,7 @@ int
 iobref_merge (struct iobref *to, struct iobref *from)
 {
         int           i = 0;
-        int           ret = -1;
+        int           ret = 0;
         struct iobuf *iobuf = NULL;
 
         GF_VALIDATE_OR_GOTO ("iobuf", to, out);

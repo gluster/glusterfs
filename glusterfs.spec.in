@@ -952,6 +952,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/fdl.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
@@ -1217,6 +1218,8 @@ fi
 /usr/lib/firewalld/services/glusterfs.xml
 %endif
 
+%{_sbindir}/gf_logdump
+%{_sbindir}/gf_recon
 
 %changelog
 * Sat Jan 16 2016 Niels de Vos <ndevos@redhat.com>

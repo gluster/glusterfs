@@ -1783,6 +1783,30 @@ out:
         return ret;
 }
 
+/* Add this before (above) io-threads because it's not thread-safe yet. */
+static int
+brick_graph_add_fdl (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        if (dict_get_str_boolean (set_dict, "features.fdl", 0)) {
+                xl = volgen_graph_add (graph, "experimental/fdl",
+                                       volinfo->volname);
+                if (!xl)
+                        goto out;
+        }
+        ret = 0;
+
+out:
+        return ret;
+}
+
 static int
 brick_graph_add_iot (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
@@ -2359,6 +2383,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
         {brick_graph_add_marker, "marker"},
+        {brick_graph_add_fdl, "fdl"},
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
         {brick_graph_add_pump, NULL},

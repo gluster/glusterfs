@@ -2,6 +2,65 @@
 
 import string
 
+# ops format: 'fop-arg' name type stub-field [nosync]
+#             'cbk-arg' name type
+#             'extra'   name type arg-str
+#             'journal' fop-type
+#             'link'    inode iatt
+#
+# 'role' indicates the significance of this line to the code generator (sort of
+# our own type).
+#
+# For fop-arg, we first need to know the name and the type of the arg so that
+# we can generate SHORT_ARGS (for function calls) and LONG_ARGS (for
+# declarations).  For code that uses stubs, we also need to know the name of
+# the stub field, which might be different than the argument itself.  Lastly,
+# for code that uses syncops, we need to know whether whoever wrote the syncop
+# for this fop "forgot" to include this argument.  (Editorial: this kind of
+# creeping inconsistency is why we should have used code generation for stubs
+# and syncops as well as defaults all along.)  To address this need, we use the
+# optional 'nosync' field for arguments (e.g. mkdir.umask) that we should skip
+# in generated syncop code.
+#
+# 'cbk-arg' is like fop-arg but simpler and used for generating callbacks
+# instead of fop functions.
+#
+# 'extra' is also like fop-arg, but it's another hack for syncops.  This time
+# the problem is that some of what would normally be *callback* arguments are
+# instead created in the caller and passed to the syncop.  We handle that by
+# adding an entry at the appropriate place in the fop-arg list, with the name
+# and type to generate a declaration and an argument string to generate the
+# actual syncop call.
+#
+# The mere presence of a 'journal' item is sufficient for most of the journal
+# code to recognize that it should do something.  However, reconciliation also
+# needs to decide how reconciliation builds the arguments it needs to call down
+# to the syncop layer, based on what's in the journal.  To do that, we divide
+# ops into three types and store those types in the ops table.  In general,
+# these three types work as follows.
+#
+#    For an fd-op, the GFID in the journal is used (in loc.gfid) field to
+#    look up an inode, then an anonymous fd is found/created for that inode.
+#
+#    For an inode-op, the GFID in the journal is used the same way, but no fd
+#    is needed.
+#
+#    For an entry-op, the *parent* GFID and name from the journal are used to
+#    look up an inode (via loc.pargfid and par.name respectively).
+#
+# The only places this seems to fall down is for link and create.  In link,
+# which is generally an entry-op, the source is looked up as though it's an
+# inode-op.  In create, we have an fd argument but it's really a return
+# argument so we get a fresh inode instead of looking one up.  Those two cases
+# need to be handled as special cases in the reconciliation code.
+#
+# 'link' is (hopefully) the last of the journal/syncop hacks.  Much like
+# 'extra', some values that are returned as callback arguments in the normal
+# case are handled differently for syncops.  For syncops that create objects
+# (e.g. mkdir) we need to link those objects into our inode table.  The 'inode'
+# and 'iatt' fields here give us the information we need to construct the
+# proper inode_link call(s).
+
 ops = {}
 
 ops['fgetxattr'] = (
@@ -13,19 +72,21 @@ ops['fgetxattr'] = (
 )
 
 ops['fsetxattr'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'dict',			'dict_t *'),
-	('fop-arg',	'flags',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'dict',			'dict_t *',			'xattr'),
+	('fop-arg',	'flags',		'int32_t',			'flags'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['setxattr'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'dict',			'dict_t *'),
-	('fop-arg',	'flags',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'dict',			'dict_t *',			'xattr'),
+	('fop-arg',	'flags',		'int32_t',			'flags'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'inode-op'),
 )
 
 ops['statfs'] = (
@@ -73,16 +134,17 @@ ops['flush'] = (
 )
 
 ops['writev'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'vector',		'struct iovec *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'vector',		'struct iovec *',	'vector'),
 	('fop-arg',	'count',		'int32_t'),
-	('fop-arg',	'off',			'off_t'),
-	('fop-arg',	'flags',		'uint32_t'),
+	('fop-arg',	'off',			'off_t',			'offset'),
+	('fop-arg',	'flags',		'uint32_t',			'flags'),
 	('fop-arg',	'iobref',		'struct iobref *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'prebuf',		'struct iatt *'),
 	('cbk-arg',	'postbuf',		'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['readv'] = (
@@ -108,96 +170,111 @@ ops['open'] = (
 )
 
 ops['create'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'flags',		'int32_t'),
-	('fop-arg',	'mode',			'mode_t'),
-	('fop-arg',	'umask',		'mode_t'),
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'flags',		'int32_t',			'flags'),
+	('fop-arg',	'mode',			'mode_t',			'mode'),
+	('fop-arg',	'umask',		'mode_t',			'umask',	'nosync'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('extra',	'iatt',			'struct iatt',		'&iatt'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'fd',			'fd_t *'),
 	('cbk-arg',	'inode',		'inode_t *'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
+	('link',	'loc.inode',	'&iatt'),
 )
 
 ops['link'] = (
-	('fop-arg',	'oldloc',		'loc_t *'),
-	('fop-arg',	'newloc',		'loc_t *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'oldloc',		'loc_t *',			'loc'),
+	('fop-arg',	'newloc',		'loc_t *',			'loc2'),
+	('extra',	'iatt',			'struct iatt',		'&iatt'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'inode',		'inode_t *'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['rename'] = (
-	('fop-arg',	'oldloc',		'loc_t *'),
-	('fop-arg',	'newloc',		'loc_t *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'oldloc',		'loc_t *',			'loc'),
+	('fop-arg',	'newloc',		'loc_t *',			'loc2'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preoldparent',	'struct iatt *'),
 	('cbk-arg',	'postoldparent','struct iatt *'),
 	('cbk-arg',	'prenewparent',	'struct iatt *'),
 	('cbk-arg',	'postnewparent','struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['symlink'] = (
-	('fop-arg',	'linkpath',		'const char *'),
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'umask',		'mode_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'linkpath',		'const char *',		'linkname'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'umask',		'mode_t',			'mode',		'nosync'),
+	('extra',	'iatt',			'struct iatt',		'&iatt'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'inode',		'inode_t *'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['rmdir'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'flags',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'flags',		'int32_t',			'flags'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['unlink'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'flags',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'flags',		'int32_t',			'flags',	'nosync'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['mkdir'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'mode',			'mode_t'),
-	('fop-arg',	'umask',		'mode_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'mode',			'mode_t',			'mode'),
+	('fop-arg',	'umask',		'mode_t',			'umask',	'nosync'),
+	('extra',	'iatt',			'struct iatt',		'&iatt'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'inode',		'inode_t *'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
+	('link',	'loc.inode',	'&iatt'),
 )
 
 ops['mknod'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'mode',			'mode_t'),
-	('fop-arg',	'rdev',			'dev_t'),
-	('fop-arg',	'umask',		'mode_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'mode',			'mode_t',			'mode'),
+	('fop-arg',	'rdev',			'dev_t',			'rdev'),
+	('fop-arg',	'umask',		'mode_t',			'umask',	'nosync'),
+	('extra',	'iatt',			'struct iatt',		'&iatt'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'inode',		'inode_t *'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preparent',	'struct iatt *'),
 	('cbk-arg',	'postparent',	'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'entry-op'),
 )
 
 ops['readlink'] = (
@@ -217,12 +294,13 @@ ops['access'] = (
 )
 
 ops['ftruncate'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'offset',		'off_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',				'fd'),
+	('fop-arg',	'offset',		'off_t',				'offset'),
+	('fop-arg',	'xdata',		'dict_t *',				'xdata'),
 	('cbk-arg',	'prebuf',		'struct iatt *'),
 	('cbk-arg',	'postbuf',		'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['getxattr'] = (
@@ -234,35 +312,39 @@ ops['getxattr'] = (
 )
 
 ops['xattrop'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'flags',		'gf_xattrop_flags_t'),
-	('fop-arg',	'dict',			'dict_t *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',				'loc'),
+	('fop-arg',	'flags',		'gf_xattrop_flags_t',	'optype'),
+	('fop-arg',	'dict',			'dict_t *',				'xattr'),
+	('fop-arg',	'xdata',		'dict_t *',				'xdata'),
 	('cbk-arg',	'dict',			'dict_t *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'inode-op'),
 )
 
 ops['fxattrop'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'flags',		'gf_xattrop_flags_t'),
-	('fop-arg',	'dict',			'dict_t *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',				'fd'),
+	('fop-arg',	'flags',		'gf_xattrop_flags_t',	'optype'),
+	('fop-arg',	'dict',			'dict_t *',				'xattr'),
+	('fop-arg',	'xdata',		'dict_t *',				'xdata'),
 	('cbk-arg',	'dict',			'dict_t *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['removexattr'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'name',			'const char *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'name',			'const char *',		'name'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'inode-op'),
 )
 
 ops['fremovexattr'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'name',			'const char *'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'name',			'const char *',		'name'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['lk'] = (
@@ -341,22 +423,26 @@ ops['readdirp'] = (
 )
 
 ops['setattr'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'stbuf',		'struct iatt *'),
-	('fop-arg',	'valid',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'stbuf',		'struct iatt *',	'stat'),
+	('fop-arg',	'valid',		'int32_t',			'valid'),
+	('extra',	'preop',		'struct iatt',		'&preop'),
+	('extra',	'postop',		'struct iatt',		'&postop'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'statpre',		'struct iatt *'),
 	('cbk-arg',	'statpost',		'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'inode-op'),
 )
 
 ops['truncate'] = (
-	('fop-arg',	'loc',			'loc_t *'),
-	('fop-arg',	'offset',		'off_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'loc',			'loc_t *',			'loc'),
+	('fop-arg',	'offset',		'off_t',			'offset'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'prebuf',		'struct iatt *'),
 	('cbk-arg',	'postbuf',		'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'inode-op'),
 )
 
 ops['stat'] = (
@@ -378,45 +464,51 @@ ops['lookup'] = (
 )
 
 ops['fsetattr'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'stbuf',		'struct iatt *'),
-	('fop-arg',	'valid',		'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'stbuf',		'struct iatt *',	'stat'),
+	('fop-arg',	'valid',		'int32_t',			'valid'),
+	('extra',	'preop',		'struct iatt',		'&preop'),
+	('extra',	'postop',		'struct iatt',		'&postop'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'statpre',		'struct iatt *'),
 	('cbk-arg',	'statpost',		'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['fallocate'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'keep_size',	'int32_t'),
-	('fop-arg',	'offset',		'off_t'),
-	('fop-arg',	'len',			'size_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'keep_size',	'int32_t',			'mode'),
+	('fop-arg',	'offset',		'off_t',			'offset'),
+	('fop-arg',	'len',			'size_t',			'size'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'pre',			'struct iatt *'),
 	('cbk-arg',	'post',			'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['discard'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'offset',		'off_t'),
-	('fop-arg',	'len',			'size_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'offset',		'off_t',			'offset'),
+	('fop-arg',	'len',			'size_t',			'size'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'pre',			'struct iatt *'),
 	('cbk-arg',	'post',			'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['zerofill'] = (
-	('fop-arg',	'fd',			'fd_t *'),
-	('fop-arg',	'offset',		'off_t'),
+	('fop-arg',	'fd',			'fd_t *',			'fd'),
+	('fop-arg',	'offset',		'off_t',			'offset'),
 	# As e.g. fallocate/discard (above) "len" should really be a size_t.
-	('fop-arg',	'len',			'off_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'len',			'off_t',			'size'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'pre',			'struct iatt *'),
 	('cbk-arg',	'post',			'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['ipc'] = (
@@ -460,6 +552,11 @@ def get_subs (names, types):
 
 def generate (tmpl, name, subs):
 	text = tmpl.replace("@NAME@",name)
+	if name == "writev":
+		# More spurious inconsistency.
+		text = text.replace("@UPNAME@","WRITE")
+	else:
+		text = text.replace("@UPNAME@",name.upper())
 	for old, new in subs[name].iteritems():
 		text = text.replace(old,new)
 	# TBD: reindent/reformat the result for maximum readability.

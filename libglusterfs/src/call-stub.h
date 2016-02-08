@@ -17,12 +17,15 @@
 #include "stack.h"
 #include "list.h"
 
-typedef struct {
+typedef struct _call_stub {
 	struct list_head list;
 	char wind;
 	call_frame_t *frame;
 	glusterfs_fop_t fop;
         struct mem_pool *stub_mem_pool; /* pointer to stub mempool in ctx_t */
+        uint32_t jnl_meta_len;
+        uint32_t jnl_data_len;
+        void (*serialize) (struct _call_stub *, char *, char *);
 
 	union {
 		fop_lookup_t lookup;

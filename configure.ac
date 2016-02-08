@@ -117,6 +117,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/Makefile
                 xlators/features/arbiter/Makefile
                 xlators/features/arbiter/src/Makefile
+                xlators/experimental/fdl/Makefile
+                xlators/experimental/fdl/src/Makefile
                 xlators/features/changelog/Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
