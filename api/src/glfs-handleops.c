@@ -1375,6 +1375,9 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2);
 int
 pub_glfs_h_close (struct glfs_object *object)
 {
+        /* since glfs_h_* objects hold a reference to inode
+         * it is safe to keep lookup count to '0' */
+        inode_forget (object->inode, 0);
         inode_unref (object->inode);
         GF_FREE (object);
 
