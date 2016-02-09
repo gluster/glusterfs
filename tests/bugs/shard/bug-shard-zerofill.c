@@ -49,11 +49,11 @@ main (int argc, char *argv[])
                 goto out;
         }
 
-        glfs_close(fd);
-
         ret = 0;
 
 out:
+        if (fd)
+                glfs_close(fd);
         glfs_fini (fs);
         return ret;
 }
