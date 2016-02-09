@@ -81,7 +81,8 @@ typedef struct _dm_thread_args {
         struct list_head        *brick_list;
         int                     freq_time;
         int                     return_value;
-} promotion_args_t, demotion_args_t;
+        int                     is_promotion;
+} migration_args_t;
 
 typedef enum tier_watermark_op_ {
         TIER_WM_NONE = 0,

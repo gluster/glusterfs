@@ -1280,7 +1280,7 @@ out:
 
 
 static int
-tier_build_migration_qfile (demotion_args_t *args,
+tier_build_migration_qfile (migration_args_t *args,
                             query_cbk_args_t *query_cbk_args,
                             gf_boolean_t is_promotion)
 {
@@ -1345,7 +1345,7 @@ out:
 }
 
 static int
-tier_migrate_files_using_qfile (demotion_args_t *comp,
+tier_migrate_files_using_qfile (migration_args_t *comp,
                                 query_cbk_args_t *query_cbk_args)
 {
         int ret                                 = -1;
@@ -1420,13 +1420,11 @@ out:
 
 
 
-/*Demotion Thread*/
-static void *
-tier_demote (void *args)
+int
+tier_demote (migration_args_t *demotion_args)
 {
-        int ret = -1;
         query_cbk_args_t query_cbk_args;
-        demotion_args_t *demotion_args = args;
+        int ret = -1;
 
         GF_VALIDATE_OR_GOTO ("tier", demotion_args, out);
         GF_VALIDATE_OR_GOTO ("tier", demotion_args->this, out);
@@ -1448,24 +1446,22 @@ tier_demote (void *args)
                 goto out;
 
         /* Migrate files using the query file */
-        ret = tier_migrate_files_using_qfile (args,
+        ret = tier_migrate_files_using_qfile (demotion_args,
                                               &query_cbk_args);
         if (ret)
                 goto out;
 
 out:
         demotion_args->return_value = ret;
-        return NULL;
+        return ret;
 }
 
 
-/*Promotion Thread*/
-static void
-*tier_promote (void *args)
+int
+tier_promote (migration_args_t *promotion_args)
 {
         int ret = -1;
         query_cbk_args_t query_cbk_args;
-        promotion_args_t *promotion_args = args;
 
         GF_VALIDATE_OR_GOTO ("tier", promotion_args->this, out);
         GF_VALIDATE_OR_GOTO (promotion_args->this->name,
@@ -1486,13 +1482,13 @@ static void
                 goto out;
 
         /* Migrate files using the query file */
-        ret = tier_migrate_files_using_qfile (args, &query_cbk_args);
+        ret = tier_migrate_files_using_qfile (promotion_args, &query_cbk_args);
         if (ret)
                 goto out;
 
 out:
         promotion_args->return_value = ret;
-        return NULL;
+        return ret;
 }
 
 static int
@@ -1602,24 +1598,23 @@ tier_get_freq_promote (gf_tier_conf_t *tier_conf)
 }
 
 static int
-tier_check_demote (gfdb_time_t  current_time,
-                   int freq_demote)
+tier_check_demote (gfdb_time_t  current_time, int freq)
 {
-        return ((current_time.tv_sec % freq_demote) == 0) ?
+        return ((current_time.tv_sec % freq) == 0) ?
                 _gf_true : _gf_false;
 }
 
 static gf_boolean_t
 tier_check_promote (gf_tier_conf_t   *tier_conf,
                     gfdb_time_t  current_time,
-                    int freq_promote)
+                    int freq)
 {
         if ((tier_conf->mode == TIER_MODE_WM) &&
             (tier_conf->watermark_last == TIER_WM_HI))
                 return _gf_false;
 
         else
-                return ((current_time.tv_sec % freq_promote) == 0) ?
+                return ((current_time.tv_sec % freq) == 0) ?
                         _gf_true : _gf_false;
 }
 
@@ -1671,50 +1666,48 @@ out:
         return;
 }
 
-
-int
-tier_start (xlator_t *this, gf_defrag_info_t *defrag)
+/*
+ * Main tiering loop. This is called from the promotion and the
+ * demotion threads spawned in tier_start().
+ *
+ * Every second, wake from sleep to perform tasks.
+ * 1. Check trigger to migrate data.
+ * 2. Check for state changes (pause, unpause, stop).
+ */
+static void
+*tier_run (void *in_args)
 {
-        struct list_head bricklist_hot          = { 0 };
-        struct list_head bricklist_cold         = { 0 };
-        gf_boolean_t is_hot_list_empty          = _gf_false;
-        gf_boolean_t is_cold_list_empty         = _gf_false;
         dht_conf_t *conf                        = NULL;
         gfdb_time_t  current_time               = { 0 };
-        int freq_promote                        = 0;
-        int freq_demote                         = 0;
-        promotion_args_t promotion_args         = { 0 };
-        demotion_args_t demotion_args           = { 0 };
-        int ret_promotion                       = 0;
-        int ret_demotion                        = 0;
+        int freq                                = 0;
         int ret                                 = 0;
-        pthread_t promote_thread;
-        pthread_t demote_thread;
-        gf_boolean_t  is_promotion_triggered    = _gf_false;
-        gf_boolean_t  is_demotion_triggered     = _gf_false;
         xlator_t *any                           = NULL;
         xlator_t *xlator                        = NULL;
         gf_tier_conf_t *tier_conf               = NULL;
         loc_t root_loc                          = { 0 };
         int check_watermark                     = 0;
+        gf_defrag_info_t *defrag                = NULL;
+        xlator_t  *this                         = NULL;
+        migration_args_t *args = in_args;
 
+        GF_VALIDATE_OR_GOTO ("tier", args, out);
+        GF_VALIDATE_OR_GOTO ("tier", args->brick_list, out);
+
+        this = args->this;
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
 
         conf   = this->private;
+        GF_VALIDATE_OR_GOTO ("tier", conf, out);
 
-        INIT_LIST_HEAD ((&bricklist_hot));
-        INIT_LIST_HEAD ((&bricklist_cold));
+        defrag = conf->defrag;
+        GF_VALIDATE_OR_GOTO ("tier", defrag, out);
 
-        tier_get_bricklist (conf->subvolumes[0], &bricklist_cold);
-        set_brick_list_qpath (&bricklist_cold, _gf_true);
-        tier_get_bricklist (conf->subvolumes[1], &bricklist_hot);
-        set_brick_list_qpath (&bricklist_hot, _gf_false);
-
-        is_hot_list_empty = list_empty(&bricklist_hot);
-        is_cold_list_empty = list_empty(&bricklist_cold);
-
-        gf_msg (this->name, GF_LOG_INFO, 0,
-                DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d"
-                " demote %d", freq_promote, freq_demote);
+        if (list_empty (args->brick_list)) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Brick list for tier is empty. Exiting.");
+                goto out;
+        }
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
         tier_conf = &defrag->tier_conf;
@@ -1792,99 +1785,106 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         }
                 }
 
-                freq_demote = tier_get_freq_demote (tier_conf);
+                if (args->is_promotion) {
 
-                is_demotion_triggered = (is_hot_list_empty) ? _gf_false :
-                        tier_check_demote (current_time, freq_demote);
+                        freq = tier_get_freq_promote (tier_conf);
 
-                freq_promote = tier_get_freq_promote(tier_conf);
+                        if (tier_check_promote (tier_conf, current_time, freq)) {
+                                args->freq_time = freq;
+                                ret = tier_promote (args);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_LOG_TIER_ERROR,
+                                                "Promotion failed");
+                                }
+                        }
 
-                is_promotion_triggered = (is_cold_list_empty) ? _gf_false :
-                        tier_check_promote (tier_conf, current_time,
-                                            freq_promote);
+                } else {
 
-                /* If no promotion and no demotion is
-                 * scheduled/triggered skip an iteration */
-                if (!is_promotion_triggered && !is_demotion_triggered)
-                        continue;
+                        freq = tier_get_freq_demote (tier_conf);
+
+                        if (tier_check_demote (current_time, freq)) {
+                                args->freq_time = freq;
+                                ret = tier_demote (args);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_LOG_TIER_ERROR,
+                                                "Demotion failed");
+                                }
+                        }
+
+                }
 
                 /* Check the statfs immediately after the processing threads
                    return */
                 check_watermark = WM_INTERVAL;
-
-                ret_promotion = -1;
-                ret_demotion = -1;
-
-                /* Spawn demotion thread if demotion is triggered */
-                if (is_demotion_triggered) {
-                        demotion_args.this = this;
-                        demotion_args.brick_list = &bricklist_hot;
-                        demotion_args.defrag = defrag;
-                        demotion_args.freq_time = freq_demote;
-                        ret_demotion = pthread_create (&demote_thread,
-                                                NULL, &tier_demote,
-                                                &demotion_args);
-                        if (ret_demotion) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed starting Demotion "
-                                        "thread");
-                        }
-                }
-
-                /* Spawn promotion thread if promotion is triggered */
-                if (is_promotion_triggered) {
-                        promotion_args.this = this;
-                        promotion_args.brick_list = &bricklist_cold;
-                        promotion_args.defrag = defrag;
-                        promotion_args.freq_time = freq_promote;
-                        ret_promotion = pthread_create (&promote_thread,
-                                                NULL, &tier_promote,
-                                                &promotion_args);
-                        if (ret_promotion) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed starting Promotion "
-                                        "thread");
-                        }
-                }
-
-                if (ret_demotion == 0) {
-                        pthread_join (demote_thread, NULL);
-                        if (demotion_args.return_value) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Demotion failed");
-                        }
-                        ret_demotion = demotion_args.return_value;
-                }
-
-                if (ret_promotion == 0) {
-                        pthread_join (promote_thread, NULL);
-                        if (promotion_args.return_value) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Promotion failed");
-                        }
-                        ret_promotion = promotion_args.return_value;
-                }
-
-                /* Collect previous and current cummulative status */
-                /* If demotion was not triggered just pass 0 to ret */
-                ret = (is_demotion_triggered) ? ret_demotion : 0;
-                /* If promotion was not triggered just pass 0 to ret */
-                ret = ret | (is_promotion_triggered) ?
-                                ret_promotion : 0;
-
-                /* reseting promotion and demotion arguments for
-                 * next iteration*/
-                memset (&demotion_args, 0, sizeof(demotion_args_t));
-                memset (&promotion_args, 0, sizeof(promotion_args_t));
-
         }
 
         ret = 0;
 out:
+
+        args->return_value = ret;
+
+        return NULL;
+}
+
+int
+tier_start (xlator_t *this, gf_defrag_info_t *defrag)
+{
+        pthread_t promote_thread;
+        pthread_t demote_thread;
+        int ret = -1;
+        struct list_head bricklist_hot          = { 0 };
+        struct list_head bricklist_cold         = { 0 };
+        migration_args_t promotion_args         = { 0 };
+        migration_args_t demotion_args          = { 0 };
+        dht_conf_t *conf                        = NULL;
+
+        INIT_LIST_HEAD ((&bricklist_hot));
+        INIT_LIST_HEAD ((&bricklist_cold));
+
+        conf   = this->private;
+
+        tier_get_bricklist (conf->subvolumes[1], &bricklist_hot);
+        set_brick_list_qpath (&bricklist_hot, _gf_false);
+
+        demotion_args.this = this;
+        demotion_args.brick_list = &bricklist_hot;
+        demotion_args.defrag = defrag;
+        demotion_args.is_promotion = _gf_false;
+
+        ret = pthread_create (&demote_thread,
+                              NULL, &tier_run,
+                              &demotion_args);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to start demotion thread.");
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                goto out;
+        }
+
+        tier_get_bricklist (conf->subvolumes[0], &bricklist_cold);
+        set_brick_list_qpath (&bricklist_cold, _gf_true);
+
+        promotion_args.this = this;
+        promotion_args.brick_list = &bricklist_cold;
+        promotion_args.defrag = defrag;
+        promotion_args.is_promotion = _gf_true;
+
+        ret = pthread_create (&promote_thread,
+                              NULL, &tier_run,
+                              &promotion_args);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to start promotion thread.");
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+        }
+
+out:
+        pthread_join (promote_thread, NULL);
+        pthread_join (demote_thread, NULL);
 
         clear_bricklist (&bricklist_cold);
         clear_bricklist (&bricklist_hot);
