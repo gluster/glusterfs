@@ -60,9 +60,9 @@ function disk_usage()
     esac
 
     if [[ "X$os" = "XNetBSD" ]]; then
-        echo $(df -P "$1")
+        echo $(df -P "$1" | tail -1)
     else
-        echo $(df -P -B1 "$1")
+        echo $(df -P -B1 "$1" | tail -1)
     fi;
 
 }
@@ -100,8 +100,8 @@ function master_stats()
         exit 1;
     fi;
     cd $d;
-    disk_size=$(disk_usage $d | tail -1 | awk "{print \$2}");
-    used_size=$(disk_usage $d | tail -1 | awk "{print \$3}");
+    disk_size=$(disk_usage $d | awk "{print \$2}");
+    used_size=$(disk_usage $d | awk "{print \$3}");
     umount_lazy $d;
     rmdir $d;
     ver=$(gluster --version | head -1 | cut -f2 -d " ");
@@ -127,8 +127,8 @@ function slave_stats()
         exit 1;
     fi;
     cd $d;
-    disk_size=$(disk_usage $d | tail -1 | awk "{print \$2}");
-    used_size=$(disk_usage $d | tail -1 | awk "{print \$3}");
+    disk_size=$(disk_usage $d | awk "{print \$2}");
+    used_size=$(disk_usage $d | awk "{print \$3}");
     no_of_files=$(find $d -maxdepth 1 -path "$d/.trashcan" -prune -o -path "$d" -o -print0 -quit);
     umount_lazy $d;
     rmdir $d;
@@ -222,7 +222,7 @@ function main()
         ERRORS=$(($ERRORS + 1));
     fi;
 
-    if [[ $master_version > $slave_version ]]; then
+    if [[ $master_version != $slave_version ]]; then
         echo "Gluster version mismatch between master and slave." >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi;
