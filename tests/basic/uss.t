@@ -68,6 +68,18 @@ for i in {1..10}; do
         TEST_IN_LOOP ! $CLI volume set $V0 features.uss $RANDOM_STRING
 done
 
+## Test that features.snapshot-directory:
+##   contains only '0-9a-z-_'
+#    starts with dot (.)
+#    value cannot exceed 255 characters
+## and throws error for any other argument.
+TEST ! $CLI volume set $V0 features.snapshot-directory a/b
+TEST ! $CLI volume set $V0 features.snapshot-directory snaps
+TEST ! $CLI volume set $V0 features.snapshot-directory -a
+TEST ! $CLI volume set $V0 features.snapshot-directory .
+TEST ! $CLI volume set $V0 features.snapshot-directory ..
+TEST ! $CLI volume set $V0 features.snapshot-directory .123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345
+
 TEST $CLI volume set $V0 features.uss enable;
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
