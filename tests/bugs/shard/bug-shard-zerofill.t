@@ -20,8 +20,7 @@ TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 # Create a file.
 TEST touch $M0/foo
 
-gfid_foo=`getfattr -n glusterfs.gfid.string $M0/foo 2>/dev/null \
-          | grep glusterfs.gfid.string | cut -d '"' -f 2`
+gfid_foo=$(get_gfid_string $M0/foo)
 
 TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/bug-shard-zerofill $(dirname $0)/bug-shard-zerofill.c -lgfapi
 TEST $(dirname $0)/bug-shard-zerofill $H0 $V0 /foo
