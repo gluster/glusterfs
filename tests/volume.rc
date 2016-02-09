@@ -649,3 +649,9 @@ function scrub_status()
 
         $CLI volume bitrot $vol scrub status | grep "^$field: " | sed 's/.*: //';
 }
+
+function get_gfid_string {
+        local path=$1;
+        getfattr -n glusterfs.gfid.string $1 2>/dev/null \
+                    | grep glusterfs.gfid.string | cut -d '"' -f 2
+}

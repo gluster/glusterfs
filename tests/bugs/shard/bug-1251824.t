@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../common-utils.rc
 
 cleanup;
@@ -29,8 +30,7 @@ TEST chown test_user:test_user $M0/bar
 TEST run_cmd_as_user test_user "dd if=/dev/zero of=$M0/foo bs=1M count=6"
 
 # Ensure owner and group are root on the block-1 shard.
-gfid_foo=`getfattr -n glusterfs.gfid.string $M0/foo 2>/dev/null \
-          | grep glusterfs.gfid.string | cut -d '"' -f 2`
+gfid_foo=$(get_gfid_string $M0/foo)
 
 EXPECT "root" echo `find $B0 -name $gfid_foo.1 | xargs stat -c %U`
 EXPECT "root" echo `find $B0 -name $gfid_foo.1 | xargs stat -c %G`
@@ -49,8 +49,7 @@ EXPECT "root" echo `find $B0/${V0}3 -name .shard | xargs stat -c %G`
 TEST dd if=/dev/zero of=$M0/bar bs=1M count=6
 
 # Ensure owner and group are root on the block-1 shard.
-gfid_bar=`getfattr -n glusterfs.gfid.string $M0/bar 2>/dev/null \
-          | grep glusterfs.gfid.string | cut -d '"' -f 2`
+gfid_bar=$(get_gfid_string $M0/bar)
 
 EXPECT "root" echo `find $B0 -name $gfid_bar.1 | xargs stat -c %U`
 EXPECT "root" echo `find $B0 -name $gfid_bar.1 | xargs stat -c %G`
@@ -58,8 +57,7 @@ EXPECT "root" echo `find $B0 -name $gfid_bar.1 | xargs stat -c %G`
 # Write 6M of data on baz as root.
 TEST dd if=/dev/zero of=$M0/baz bs=1M count=6
 
-gfid_baz=`getfattr -n glusterfs.gfid.string $M0/baz 2>/dev/null \
-          | grep glusterfs.gfid.string | cut -d '"' -f 2`
+gfid_baz=$(get_gfid_string $M0/baz)
 
 # Ensure owner and group are root on the block-1 shard.
 EXPECT "root" echo `find $B0 -name $gfid_baz.1 | xargs stat -c %U`
