@@ -38,7 +38,6 @@
 #include "glusterd-rcu.h"
 
 #define GLUSTERD_TR_LOG_SIZE            50
-#define GLUSTERD_NAME                   "glusterd"
 #define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
 #define GLUSTERD_QUORUM_TYPE_KEY        "cluster.server-quorum-type"
 #define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"

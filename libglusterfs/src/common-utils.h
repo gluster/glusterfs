@@ -68,6 +68,7 @@ void trap (void);
 
 #define GEOREP "geo-replication"
 #define GHADOOP "glusterfs-hadoop"
+#define GLUSTERD_NAME "glusterd"
 
 #define GF_SELINUX_XATTR_KEY "security.selinux"
 
@@ -77,6 +78,11 @@ void trap (void);
         (!strcmp (fs_name, "ext2") || \
          !strcmp (fs_name, "ext3") || \
          !strcmp (fs_name, "ext4"))
+
+/* process mode definitions */
+#define GF_SERVER_PROCESS   0
+#define GF_CLIENT_PROCESS   1
+#define GF_GLUSTERD_PROCESS 2
 
 /* Defining this here as it is needed by glusterd for setting
  * nfs port in volume status.
@@ -216,7 +222,7 @@ int32_t gf_resolve_ip6 (const char *hostname, uint16_t port, int family,
 
 void gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph);
 void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
-int  gf_set_log_file_path (cmd_args_t *cmd_args);
+int  gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx);
 int  gf_set_log_ident (cmd_args_t *cmd_args);
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))

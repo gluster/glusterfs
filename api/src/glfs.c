@@ -869,7 +869,7 @@ pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
         THIS->ctx = fs->ctx;
 
         if (!logfile) {
-                ret = gf_set_log_file_path (&fs->ctx->cmd_args);
+                ret = gf_set_log_file_path (&fs->ctx->cmd_args, fs->ctx);
                 if (ret)
                         goto out;
                 tmplog = fs->ctx->cmd_args.log_file;
