@@ -256,9 +256,23 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
         memcpy (&inode_ctx->buf, buf, sizeof (*buf));
         svs_iatt_fill (parent->gfid, postparent);
 
+        SVS_STRDUP (inode_ctx->snapname, loc->name);
+        if (!inode_ctx->snapname) {
+                op_ret = -1;
+                *op_errno = ENOMEM;
+                goto out;
+        }
         op_ret = 0;
 
 out:
+        if (op_ret) {
+                if (object)
+                        glfs_h_close (object);
+
+                if (inode_ctx)
+                        inode_ctx->object = NULL;
+        }
+
         return op_ret;
 }
 
@@ -274,7 +288,7 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         struct stat     statbuf                         = {0, };
         svs_inode_t    *inode_ctx                       = NULL;
         glfs_object_t  *parent_object                   = NULL;
-        uuid_t          gfid;
+        uuid_t          gfid                            = {0, };
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
@@ -298,6 +312,14 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
                 goto out;
         }
 
+        if (gf_uuid_is_null(object->gfid)) {
+                gf_log (this->name, GF_LOG_DEBUG, "gfid from glfs handle is "
+                        "NULL for entry %s (path: %s)", loc->name, loc->path);
+                op_ret = -1;
+                *op_errno = errno;
+                goto out;
+        }
+
         inode_ctx = svs_inode_ctx_get_or_new (this, loc->inode);
         if (!inode_ctx) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to "
@@ -309,7 +331,7 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
 
         if (gf_uuid_is_null (loc->gfid) &&
             gf_uuid_is_null (loc->inode->gfid))
-                gf_uuid_generate (gfid);
+                svs_uuid_generate (gfid, parent_ctx->snapname, object->gfid);
         else {
                 if (!gf_uuid_is_null (loc->inode->gfid))
                         gf_uuid_copy (gfid, loc->inode->gfid);
@@ -326,9 +348,26 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         memcpy (&inode_ctx->buf, buf, sizeof (*buf));
         svs_iatt_fill (parent->gfid, postparent);
 
+        if (IA_ISDIR (buf->ia_type)) {
+                SVS_STRDUP (inode_ctx->snapname, parent_ctx->snapname);
+                if (!inode_ctx->snapname) {
+                        op_ret = -1;
+                        *op_errno = ENOMEM;
+                        goto out;
+                }
+        }
+
         op_ret = 0;
 
 out:
+        if (op_ret) {
+                if (object)
+                        glfs_h_close (object);
+
+                if (inode_ctx)
+                        inode_ctx->object = NULL;
+        }
+
         return op_ret;
 }
 
@@ -807,9 +846,10 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
                 size = glfs_h_getxattrs (fs, object, name, NULL, 0);
                 if (size == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "getxattr "
-                                "on %s failed (key: %s)", loc->name,
-                                name);
+                        gf_log (this->name,
+                                errno == ENODATA?GF_LOG_DEBUG:GF_LOG_ERROR,
+                                "getxattr on %s failed (key: %s) with %s",
+                                loc->path, name, strerror(errno));
                         op_ret = -1;
                         op_errno = errno;
                         goto out;
@@ -1153,9 +1193,11 @@ svs_forget  (xlator_t *this, inode_t *inode)
         }
 
         inode_ctx = (svs_inode_t *)value;
+        if (!inode_ctx)
+                goto out;
 
-        if (inode_ctx->object)
-                glfs_h_close (inode_ctx->object);
+        if (inode_ctx->snapname)
+                GF_FREE (inode_ctx->snapname);
 
         GF_FREE (inode_ctx);
 
@@ -1353,38 +1395,51 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                         gf_uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
                 }
         } else {
-                inode = inode_new (parent->table);
-                entry->inode = inode;
-                gf_uuid_generate (random_gfid);
-                gf_uuid_copy (buf.ia_gfid, random_gfid);
-                svs_fill_ino_from_gfid (&buf);
-                entry->d_ino = buf.ia_ino;
-
-                /* If inode context allocation fails, then do not send the
-                   inode for that particular entry as part of readdirp
-                   response. Fuse and protocol/server will link the inodes
-                   in readdirp only if the entry contains inode in it.
-                */
-                inode_ctx = svs_inode_ctx_get_or_new (this, inode);
-                if (!inode_ctx) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "inode context for %s", entry->d_name);
-                        inode_unref (entry->inode);
-                        entry->inode = NULL;
-                        goto out;
-                }
-
 
                 if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+                        inode = inode_new (parent->table);
+                        entry->inode = inode;
+
+                        /* If inode context allocation fails, then do not send
+                         * the inode for that particular entry as part of
+                         * readdirp response. Fuse and protocol/server will link
+                         * the inodes in readdirp only if the entry contains
+                         * inode in it.
+                         */
+                        inode_ctx = svs_inode_ctx_get_or_new (this, inode);
+                        if (!inode_ctx) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "allocate inode context for %s",
+                                        entry->d_name);
+                                inode_unref (entry->inode);
+                                entry->inode = NULL;
+                                goto out;
+                        }
+
+                        /* Generate virtual gfid for SNAPSHOT dir and
+                         * update the statbuf
+                         */
+                        gf_uuid_generate (random_gfid);
+                        gf_uuid_copy (buf.ia_gfid, random_gfid);
+                        svs_fill_ino_from_gfid (&buf);
                         buf.ia_type = IA_IFDIR;
-                        inode_ctx->buf = buf;
+                        entry->d_ino = buf.ia_ino;
                         entry->d_stat = buf;
+                        inode_ctx->buf = buf;
                         inode_ctx->type = SNAP_VIEW_SNAPSHOT_INODE;
                 } else {
-                        gf_uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
-                        entry->d_stat.ia_ino = buf.ia_ino;
-                        inode_ctx->buf = entry->d_stat;
-                        inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
+                        /* For files under snapshot world do not set
+                         * entry->inode and reset statbuf (except ia_ino),
+                         * so that FUSE/Kernel will send an explicit lookup.
+                         * entry->d_stat contains the statbuf information
+                         * of original file, so for NFS not to cache this
+                         * information and to send explicit lookup, it is
+                         * required to reset the statbuf.
+                         * Virtual gfid for these files will be generated in the
+                         * first lookup.
+                         */
+                        buf.ia_ino = entry->d_ino;
+                        entry->d_stat = buf;
                 }
         }
 

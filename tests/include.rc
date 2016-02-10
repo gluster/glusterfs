@@ -1137,3 +1137,13 @@ function STAT()
         stat $1
         echo $?
 }
+
+function STAT_INO()
+{
+        local ino=$(stat -c '%i' $1)
+        if [ $? -eq 0 ]; then
+                echo $ino
+        else
+                echo 0
+        fi
+}
