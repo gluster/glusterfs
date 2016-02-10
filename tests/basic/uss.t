@@ -41,13 +41,43 @@ TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
+# Create file and hard-links
+TEST touch $M0/f1
+TEST mkdir $M0/dir
+TEST ln $M0/f1 $M0/f2
+TEST ln $M0/f1 $M0/dir/f3
+
 TEST $CLI snapshot config activate-on-create enable
+TEST $CLI volume set $V0 features.uss enable;
 
 TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
 
 TEST $CLI snapshot create snap2 $V0 no-timestamp;
+
+########### Test inode numbers ###########
+s1_f1_ino=$(STAT_INO $M0/.snaps/snap1/f1)
+TEST [ $s1_f1_ino != 0 ]
+
+# Inode number of f1 should be same as f2 f3 within snapshot
+EXPECT $s1_f1_ino STAT_INO $M0/.snaps/snap1/f2
+EXPECT $s1_f1_ino STAT_INO $M0/.snaps/snap1/dir/f3
+EXPECT $s1_f1_ino STAT_INO $M0/dir/.snaps/snap1/f3
+
+# Inode number of f1 in snap1 should be different from f1 in snap2
+tmp_ino=$(STAT_INO $M0/.snaps/snap2/f1)
+TEST [ $s1_f1_ino != $tmp_ino ]
+
+# Inode number of f1 in snap1 should be different from f1 in regular volume
+tmp_ino=$(STAT_INO $M0/f1)
+TEST [ $s1_f1_ino != $tmp_ino ]
+
+# Directory inode of snap1 should be different in each sub-dir
+s1_ino=$(STAT_INO $M0/.snaps/snap1)
+tmp_ino=$(STAT_INO $M0/dir/.snaps/snap1)
+TEST [ $s1_ino != $tmp_ino ]
+##########################################
 
 mkdir $M0/dir1;
 mkdir $M0/dir2;
@@ -79,8 +109,6 @@ TEST ! $CLI volume set $V0 features.snapshot-directory -a
 TEST ! $CLI volume set $V0 features.snapshot-directory .
 TEST ! $CLI volume set $V0 features.snapshot-directory ..
 TEST ! $CLI volume set $V0 features.snapshot-directory .123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345
-
-TEST $CLI volume set $V0 features.uss enable;
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 

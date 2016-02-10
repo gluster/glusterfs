@@ -100,6 +100,17 @@
                 }                                                       \
         } while(0);
 
+#define SVS_STRDUP(dst, src)                                            \
+        do {                                                            \
+                if (dst && strcmp (src, dst)) {                         \
+                        GF_FREE (dst);                                  \
+                        dst = NULL;                                     \
+                }                                                       \
+                                                                        \
+                if (!dst)                                               \
+                        dst = gf_strdup (src);                          \
+        } while (0)
+
 int
 svs_mgmt_submit_request (void *req, call_frame_t *frame,
                          glusterfs_ctx_t *ctx,
@@ -128,6 +139,11 @@ struct svs_inode {
            from where the entry point was entered is saved.
         */
         uuid_t pargfid;
+
+        /* This is used to generate gfid for all sub files/dirs under this
+         * snapshot
+         */
+        char *snapname;
         struct iatt buf;
 };
 typedef struct svs_inode svs_inode_t;
@@ -187,6 +203,9 @@ __svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
 
 svs_fd_t *
 svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
+
+void
+svs_uuid_generate (uuid_t gfid, char *snapname, uuid_t origin_gfid);
 
 void
 svs_fill_ino_from_gfid (struct iatt *buf);
