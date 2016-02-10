@@ -624,9 +624,11 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
 	switch (whence) {
 	case SEEK_SET:
 		glfd->offset = offset;
+                ret = 0;
 		break;
 	case SEEK_CUR:
 		glfd->offset += offset;
+                ret = 0;
 		break;
 	case SEEK_END:
 		ret = pub_glfs_fstat (glfd, &sb);
