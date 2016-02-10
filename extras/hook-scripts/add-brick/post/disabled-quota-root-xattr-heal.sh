@@ -11,7 +11,8 @@
 ## 4. Disable itself
 ##---------------------------------------------------------------------------
 
-QUOTA_CONFIG_XATTR="trusted.glusterfs.quota.limit-set";
+QUOTA_LIMIT_XATTR="trusted.glusterfs.quota.limit-set"
+QUOTA_OBJECT_LIMIT_XATTR="trusted.glusterfs.quota.limit-objects"
 MOUNT_DIR=`mktemp -d -t ${0##*/}.XXXXXX`;
 OPTSPEC="volname:,version:,gd-workdir:,volume-op:"
 PROGNAME="Quota-xattr-heal-add-brick"
@@ -45,6 +46,26 @@ disable_and_exit ()
         fi
 
         exit 0
+}
+
+get_and_set_xattr ()
+{
+        XATTR=$1
+
+        VALUE=$(getfattr -n $XATTR -e hex --absolute-names $MOUNT_DIR 2>&1)
+        RET=$?
+        if [ 0 -eq $RET ]; then
+                VALUE=$(echo $VALUE | grep $XATTR | awk -F'=' '{print $NF}')
+                setfattr -n $XATTR -v $VALUE $MOUNT_DIR;
+                RET=$?
+        else
+                echo $VALUE | grep -iq "No such attribute"
+                if [ 0 -eq $? ]; then
+                        RET=0
+                fi
+        fi
+
+        return $RET;
 }
 
 ##------------------------------------------
@@ -101,40 +122,14 @@ then
 fi
 ## -----------------------------------
 
-## ------------------
-## Getfattr the value
-## ------------------
-VALUE=$(getfattr -n $QUOTA_CONFIG_XATTR -e hex --absolute-names $MOUNT_DIR 2>&1)
-RET=$?
-if [ 0 -ne $RET ]
-then
-        ## Clean up and exit
-        cleanup_mountpoint;
+RET1=$(get_and_set_xattr $QUOTA_LIMIT_XATTR)
+RET2=$(get_and_set_xattr $QUOTA_OBJECT_LIMIT_XATTR)
 
-        echo $VALUE | grep -iq "No such attribute"
-        if [ 0 -eq $? ]; then
-                disable_and_exit
-        fi
-
-        exit $RET;
-fi
-
-VALUE=$(echo $VALUE | grep $QUOTA_CONFIG_XATTR | awk -F'=' '{print $NF}')
-## ------------------
-
-## ---------
-## Set xattr
-## ---------
-setfattr -n "$QUOTA_CONFIG_XATTR" -v $VALUE $MOUNT_DIR;
-RET=$?
-if [ 0 -ne $RET ]
-then
-        ## Clean up and exit
-        cleanup_mountpoint;
-
-        exit $RET;
-fi
-## ---------
-
+## Clean up and exit
 cleanup_mountpoint;
+
+if [ $RET1 -ne 0 -o $RET2 -ne 0 ]; then
+        exit 1
+fi
+
 disable_and_exit;
