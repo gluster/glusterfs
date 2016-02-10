@@ -39,8 +39,8 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_in_shd $V0 1
 
 TEST $CLI volume heal $V0
-EXPECT_WITHIN $HEAL_TIMEOUT '2' echo $(count_sh_entries $B0/$V0"0")
-EXPECT_WITHIN $HEAL_TIMEOUT '2' echo $(count_sh_entries $B0/$V0"1")
+EXPECT_WITHIN $HEAL_TIMEOUT '2' count_sh_entries $B0/$V0"0"
+EXPECT_WITHIN $HEAL_TIMEOUT '2' count_sh_entries $B0/$V0"1"
 
 #Reset xattrs and trigger heal.
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000000 $B0/${V0}0/datafile
@@ -51,7 +51,7 @@ TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000000 $B0/${V0
 
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
-EXPECT_WITHIN $HEAL_TIMEOUT '0' echo $(count_sh_entries $B0/$V0"0")
-EXPECT_WITHIN $HEAL_TIMEOUT '0' echo $(count_sh_entries $B0/$V0"1")
+EXPECT_WITHIN $HEAL_TIMEOUT '0' count_sh_entries $B0/$V0"0"
+EXPECT_WITHIN $HEAL_TIMEOUT '0' count_sh_entries $B0/$V0"1"
 
 cleanup

@@ -937,7 +937,6 @@ main (int argc, char **argv)
                 goto out;
         }
 
-        sleep (2);
         top_subvol = glfs_active_subvol (fs);
         if (!top_subvol) {
                 ret = -1;
