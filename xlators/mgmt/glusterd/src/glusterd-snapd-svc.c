@@ -295,6 +295,17 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                          "--brick-name", snapd_id,
                          "-S", svc->conn.sockpath, NULL);
 
+        /* Do a pmap registry remove on the older connected port */
+        if (volinfo->snapd.port) {
+                ret = pmap_registry_remove (this, volinfo->snapd.port,
+                                            snapd_id, GF_PMAP_PORT_BRICKSERVER,
+                                            NULL);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Failed to remove pmap "
+                                  "registry for older signin");
+                        goto out;
+                }
+        }
 
         snapd_port = pmap_registry_alloc (THIS);
         if (!snapd_port) {
