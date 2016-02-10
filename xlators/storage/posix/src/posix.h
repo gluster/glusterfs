@@ -174,7 +174,14 @@ struct posix_private {
                 XATTR_BOTH,
         } xattr_user_namespace;
 #endif
-
+        /* freespace_check_lock protects access to following three fields. */
+        pthread_mutex_t freespace_check_lock;
+        struct timespec freespace_check_last;
+        struct statvfs freespace_stats;
+        double min_free_disk;
+        /* mutex protection ends. */
+        uint32_t freespace_check_interval;
+        gf_boolean_t freespace_check_passed;
 };
 
 typedef struct {
@@ -262,6 +269,9 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
 
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
+
+gf_boolean_t
+posix_write_ok (xlator_t *this, struct posix_private *priv);
 
 int
 posix_pacl_set (const char *path, const char *key, const char *acl_s);

@@ -658,6 +658,81 @@ out:
         return 0;
 }
 
+static gf_boolean_t freespace_ok (xlator_t *this, const struct statvfs *stats,
+                                 double min_free_disk,
+                                 gf_boolean_t previously_ok)
+{
+        gf_boolean_t currently_ok;
+
+        if (min_free_disk < 100.0) {
+                double free_percent = 100.0 * stats->f_bavail / stats->f_blocks;
+
+                currently_ok =
+                    free_percent >= min_free_disk ? _gf_true : _gf_false;
+                if (previously_ok && !currently_ok) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                               "min-free-disk limit exceeded: free percent "
+                               "%f%% < %f%%. Writes disabled.",
+                               free_percent, min_free_disk);
+                }
+        } else {
+                double free_bytes = stats->f_bavail * stats->f_frsize;
+
+                currently_ok =
+                    free_bytes >= min_free_disk ? _gf_true : _gf_false;
+                if (previously_ok && !currently_ok) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                               "min-free-disk limit exceeded: free bytes %f "
+                               "< %f. Writes disabled.",
+                               free_bytes, min_free_disk);
+                }
+        }
+
+        if (currently_ok && !previously_ok) {
+                gf_log (this->name, GF_LOG_INFO, "Free space has risen above "
+                                                "min-free-disk limit, writes "
+                                                "re-enabled.");
+        }
+
+        return currently_ok;
+}
+
+gf_boolean_t
+posix_write_ok (xlator_t *this, struct posix_private *priv)
+{
+        /* Check if there is sufficient free space to allow writes.
+         *
+         * This is called in the write path, so performance matters. We
+         * periodically sample free space by calling statvfs().
+         * freespace_check_lock is used to ensure only one process at a
+         * time makes the call; if the lock is contended, the previous
+         * status (reflected in freespace_check_passed) is used while
+         * the process that holds the mutex updates the current status.
+         */
+        if (!priv->freespace_check_interval) {
+                return _gf_true;
+        }
+
+        if (!pthread_mutex_trylock (&priv->freespace_check_lock)) {
+                struct timespec now;
+
+                clock_gettime (CLOCK_MONOTONIC, &now);
+                if (now.tv_sec >= priv->freespace_check_last.tv_sec +
+                                      priv->freespace_check_interval) {
+                        sys_statvfs (priv->base_path, &priv->freespace_stats);
+                        priv->freespace_check_last.tv_sec = now.tv_sec;
+
+                        priv->freespace_check_passed = freespace_ok (
+                            this, &priv->freespace_stats, priv->min_free_disk,
+                            priv->freespace_check_passed);
+                }
+
+                pthread_mutex_unlock (&priv->freespace_check_lock);
+        }
+
+        return priv->freespace_check_passed;
+}
+
 static int32_t
 posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                     int32_t flags, off_t offset, size_t len,
@@ -667,6 +742,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int32_t             op_errno = 0;
         struct posix_fd    *pfd    = NULL;
         gf_boolean_t        locked = _gf_false;
+        struct posix_private *priv = this->private;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -675,6 +751,12 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
+        VALIDATE_OR_GOTO (priv, out);
+
+        if (!posix_write_ok (this, priv)) {
+                ret = -ENOSPC;
+                goto out;
+        }
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -3306,6 +3388,12 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
 
         VALIDATE_OR_GOTO (priv, out);
+
+        if (!posix_write_ok (this, priv)) {
+                op_errno = ENOSPC;
+                op_ret = -1;
+                goto out;
+        }
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -6671,6 +6759,16 @@ struct posix_private *priv = NULL;
                           options, uint32, out);
         posix_spawn_health_check_thread (this);
 
+        pthread_mutex_lock (&priv->freespace_check_lock);
+        {
+                GF_OPTION_RECONF ("freespace-check-interval",
+                                   priv->freespace_check_interval,
+                                   options, uint32, out);
+                GF_OPTION_RECONF ("min-free-disk", priv->min_free_disk, options,
+                                  percent_or_size, out);
+        }
+        pthread_mutex_unlock (&priv->freespace_check_lock);
+
 	ret = 0;
 out:
 	return ret;
@@ -7285,6 +7383,19 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
                         uint32, out);
+
+        GF_OPTION_INIT ("freespace-check-interval",
+                        _private->freespace_check_interval, uint32, out);
+
+        GF_OPTION_INIT ("min-free-disk", _private->min_free_disk,
+                        percent_or_size, out);
+
+        pthread_mutex_init (&_private->freespace_check_lock, NULL);
+        sys_statvfs (_private->base_path, &_private->freespace_stats);
+        clock_gettime (CLOCK_MONOTONIC, &_private->freespace_check_last);
+        _private->freespace_check_passed = freespace_ok (
+                this, &_private->freespace_stats, _private->min_free_disk,
+                _gf_true);
 out:
         return ret;
 }
@@ -7462,5 +7573,22 @@ struct volume_options options[] = {
 	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n"
         },
 #endif
+        { .key  = {"min-free-disk"},
+          .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
+          .default_value = "2%",
+          .description = "Minimum percentage/size of disk space, after which we"
+                         "start failing writes with ENOSPC."
+        },
+        {
+          .key = {"freespace-check-interval"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .default_value = "5",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "Interval in seconds between freespace measurements "
+                         "used for the min-free-disk determination. "
+                         "Set to 0 to disable."
+        },
+
         { .key  = {NULL} }
 };

@@ -331,6 +331,11 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
+        if (!posix_write_ok (this, priv)) {
+                op_errno = ENOSPC;
+                goto err;
+        }
+
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,

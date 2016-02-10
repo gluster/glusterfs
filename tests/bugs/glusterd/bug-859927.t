@@ -44,12 +44,12 @@ TEST ! $CLI volume set $V0 min-free-inodes "     "
 TEST   $CLI volume set $V0 min-free-inodes 60%
 EXPECT "60%" volume_option $V0 cluster.min-free-inodes
 
-TEST ! $CLI volume set $V0 min-free-disk ""
-TEST ! $CLI volume set $V0 min-free-disk "     "
-TEST   $CLI volume set $V0 min-free-disk 60%
+TEST ! $CLI volume set $V0 cluster.min-free-disk ""
+TEST ! $CLI volume set $V0 cluster.min-free-disk "     "
+TEST   $CLI volume set $V0 cluster.min-free-disk 60%
 EXPECT "60%" volume_option $V0 cluster.min-free-disk
 
-TEST   $CLI volume set $V0 min-free-disk 120
+TEST   $CLI volume set $V0 cluster.min-free-disk 120
 EXPECT "120" volume_option $V0 cluster.min-free-disk
 
 TEST ! $CLI volume set $V0 frame-timeout ""
