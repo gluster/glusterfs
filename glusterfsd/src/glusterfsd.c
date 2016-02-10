@@ -75,10 +75,6 @@
 #include "daemon.h"
 #include "tw.h"
 
-/* process mode definitions */
-#define GF_SERVER_PROCESS   0
-#define GF_CLIENT_PROCESS   1
-#define GF_GLUSTERD_PROCESS 2
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -1561,7 +1557,7 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
         cmd_args = &ctx->cmd_args;
 
         if (cmd_args->log_file == NULL) {
-                ret = gf_set_log_file_path (cmd_args);
+                ret = gf_set_log_file_path (cmd_args, ctx);
                 if (ret == -1) {
                         fprintf (stderr, "ERROR: failed to set the log file "
                                          "path\n");

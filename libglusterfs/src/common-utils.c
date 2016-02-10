@@ -3409,7 +3409,7 @@ out:
 
 /* Sets log file path from user provided arguments */
 int
-gf_set_log_file_path (cmd_args_t *cmd_args)
+gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)
 {
         int   i = 0;
         int   j = 0;
@@ -3435,6 +3435,16 @@ gf_set_log_file_path (cmd_args_t *cmd_args)
                                    tmp_str);
                 if (ret > 0)
                         ret = 0;
+                goto done;
+        }
+
+        if (ctx && GF_GLUSTERD_PROCESS == ctx->process_mode) {
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                   GLUSTERD_NAME);
+                if (ret > 0)
+                        ret = 0;
+
                 goto done;
         }
 
