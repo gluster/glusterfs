@@ -192,6 +192,9 @@ function run_tests()
     FAILED=''
     GENERATED_CORE=''
 
+    # key = path of .t file; value = time taken to run the .t file
+    declare -A ELAPSEDTIMEMAP
+
     for t in $(find ${regression_testsdir}/tests -name '*.t' \
                | LC_COLLATE=C sort) ; do
 	old_cores=$(ls /core.* 2> /dev/null | wc -l)
@@ -205,8 +208,10 @@ function run_tests()
                 continue
             fi
             echo "Running tests in file $t"
+            starttime="$(date +%s)"
             prove -mf --timer $t
             TMP_RES=$?
+            ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
             if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
                 echo "$t: bad status $TMP_RES"
                 echo ""
@@ -248,6 +253,13 @@ function run_tests()
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
         echo -e "$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
     fi
+
+    echo "Slowest 10 tests: "
+    for key in "${!ELAPSEDTIMEMAP[@]}"
+    do
+        echo $key ' - ' ${ELAPSEDTIMEMAP["$key"]}
+    done | sort -rn -k3 | head
+
     echo "Result is $RES"
     return ${RES}
 }
