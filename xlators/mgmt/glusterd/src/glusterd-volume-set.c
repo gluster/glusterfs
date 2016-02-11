@@ -863,6 +863,82 @@ out:
         return ret;
 }
 
+
+static int
+validate_worm (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+               char *value, char **op_errstr)
+{
+        xlator_t *this      =       NULL;
+        gf_boolean_t b      =       _gf_false;
+        int ret             =       -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        ret = gf_string2boolean (value, &b);
+        if (ret) {
+                gf_asprintf (op_errstr, "%s is not a valid boolean value. %s "
+                             "expects a valid boolean value.", value, key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
+        }
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
+
+
+static int
+validate_worm_period (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+               char *value, char **op_errstr)
+{
+        xlator_t *this      =       NULL;
+        uint64_t period     =       -1;
+        int ret             =       -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        ret = gf_string2uint64 (value, &period);
+        if (ret) {
+                gf_asprintf (op_errstr, "%s is not a valid uint64_t value."
+                          " %s expects a valid uint64_t value.", value, key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
+        }
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
+
+
+static int
+validate_reten_mode (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+               char *value, char **op_errstr)
+{
+        xlator_t *this      =       NULL;
+        int ret             =       -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        if ((strcmp (value, "relax") &&
+            strcmp (value, "enterprise"))) {
+                gf_asprintf (op_errstr, "The value of retention mode should be "
+                             "either relax or enterprise. But the value"
+                             " of %s is %s", key, value);
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+                        "%s", *op_errstr);
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
+
+
 /* dispatch table for VOLUME SET
  * -----------------------------
  *
@@ -2314,12 +2390,39 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key        = "features.worm",
-          .voltype    = "features/worm",
-          .option     = "worm",
-          .value      = "off",
-          .op_version = 2,
+        { .key         = "features.worm",
+          .voltype     = "features/worm",
+          .option      = "worm",
+          .value       = "off",
+          .validate_fn = validate_worm,
+          .op_version  = 2,
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
+        { .key         = "features.worm-file-level",
+          .voltype     = "features/worm",
+          .option      = "worm-file-level",
+          .value       = "off",
+          .validate_fn = validate_worm,
+          .op_version  = GD_OP_VERSION_3_8_0,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
+        { .key         = "features.default-retention-period",
+          .voltype     = "features/worm",
+          .option      = "default-retention-period",
+          .validate_fn = validate_worm_period,
+          .op_version  = GD_OP_VERSION_3_8_0,
+        },
+        { .key         = "features.retention-mode",
+          .voltype     = "features/worm",
+          .option      = "retention-mode",
+          .validate_fn = validate_reten_mode,
+          .op_version  = GD_OP_VERSION_3_8_0,
+        },
+        { .key         = "features.auto-commit-period",
+          .voltype     = "features/worm",
+          .option      = "auto-commit-period",
+          .validate_fn = validate_worm_period,
+          .op_version  = GD_OP_VERSION_3_8_0,
         },
         { .key         = "storage.linux-aio",
           .voltype     = "storage/posix",

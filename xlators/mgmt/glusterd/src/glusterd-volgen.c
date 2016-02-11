@@ -2075,7 +2075,8 @@ brick_graph_add_ro (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
-            dict_get_str_boolean (set_dict, "features.worm", 0)) {
+            (dict_get_str_boolean (set_dict, "features.worm", 0) ||
+             dict_get_str_boolean (set_dict, "features.worm-file-level", 0))) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_GET_FAILED,
                         "read-only and worm cannot be set together");
@@ -2107,7 +2108,8 @@ brick_graph_add_worm (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
-            dict_get_str_boolean (set_dict, "features.worm", 0)) {
+            (dict_get_str_boolean (set_dict, "features.worm", 0) ||
+             dict_get_str_boolean (set_dict, "features.worm-file-level", 0))) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_INCOMPATIBLE_VALUE,
                         "read-only and worm cannot be set together");
@@ -2402,8 +2404,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_server, NULL},
         {brick_graph_add_io_stats, NULL},
         {brick_graph_add_cdc, NULL},
-        {brick_graph_add_ro, NULL},
-        {brick_graph_add_worm, NULL},
         {brick_graph_add_quota, "quota"},
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
@@ -2412,6 +2412,8 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
         {brick_graph_add_pump, NULL},
+        {brick_graph_add_ro, NULL},
+        {brick_graph_add_worm, NULL},
         {brick_graph_add_locks, "locks"},
         {brick_graph_add_acl, "acl"},
         {brick_graph_add_bitrot_stub, "bitrot-stub"},
