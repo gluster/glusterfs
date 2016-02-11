@@ -1904,21 +1904,28 @@ build_prog_details (rpcsvc_request_t *req, gf_dump_rsp *rsp)
         if (!req || !req->trans || !req->svc)
                 goto out;
 
-        list_for_each_entry (program, &req->svc->programs, program) {
-                prog = GF_CALLOC (1, sizeof (*prog), 0);
-                if (!prog)
-                        goto out;
-                prog->progname = program->progname;
-                prog->prognum  = program->prognum;
-                prog->progver  = program->progver;
-                if (!rsp->prog)
-                        rsp->prog = prog;
+        pthread_mutex_lock (&req->svc->rpclock);
+        {
+                list_for_each_entry (program, &req->svc->programs, program) {
+                        prog = GF_CALLOC (1, sizeof (*prog), 0);
+                        if (!prog)
+                                goto unlock;
+
+                        prog->progname = program->progname;
+                        prog->prognum  = program->prognum;
+                        prog->progver  = program->progver;
+
+                        if (!rsp->prog)
+                                rsp->prog = prog;
+                        if (prev)
+                                prev->next = prog;
+                        prev = prog;
+                }
                 if (prev)
-                        prev->next = prog;
-                prev = prog;
+                        ret = 0;
         }
-        if (prev)
-                ret = 0;
+unlock:
+        pthread_mutex_unlock (&req->svc->rpclock);
 out:
         return ret;
 }
