@@ -31,7 +31,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c default-args.c
+	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c default-args.c locking.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 nodist_libglusterfs_la_HEADERS = y.tab.h
