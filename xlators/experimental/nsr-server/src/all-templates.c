@@ -83,6 +83,9 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
 
                 if (result == _gf_false) {
                         /* Emulate the AFR client-side-quorum behavior. */
+                        gf_msg (this->name, GF_LOG_ERROR, EROFS,
+                                N_MSG_QUORUM_NOT_MET, "Sufficient number of "
+                                "subvolumes are not up to meet quorum.");
                         op_errno = EROFS;
                         goto err;
                 }
@@ -309,6 +312,10 @@ nsr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
         result = fop_quorum_check (this, (double)priv->n_children,
                                    (double)local->successful_acks + 1);
         if (result == _gf_false) {
+                gf_msg (this->name, GF_LOG_ERROR, EROFS,
+                        N_MSG_QUORUM_NOT_MET, "Didn't receive enough acks "
+                        "to meet quorum. Failing the operation without trying "
+                        "it on the leader.");
                 STACK_UNWIND_STRICT (@NAME@, frame, -1, EROFS,
                                      @ERROR_ARGS@);
         } else {
@@ -406,8 +413,9 @@ nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (result == _gf_false) {
                         op_ret = -1;
                         op_errno = EROFS;
-                        gf_msg_debug (this->name, 0,
-                                      "Quorum is not met. The operation has failed.");
+                        gf_msg (this->name, GF_LOG_ERROR, EROFS,
+                                N_MSG_QUORUM_NOT_MET, "Quorum is not met. "
+                                "The operation has failed.");
                 } else {
 #if defined(NSR_CG_NEED_FD)
                         op_ret = local->successful_op_ret;

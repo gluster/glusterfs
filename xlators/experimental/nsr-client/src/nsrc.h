@@ -13,6 +13,9 @@
 
 typedef struct {
         xlator_t        *active;
+        uint8_t          up_children;
+        uint8_t          n_children;
+        uint32_t         kid_state;
 } nsrc_private_t;
 
 typedef struct {

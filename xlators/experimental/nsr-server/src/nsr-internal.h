@@ -74,6 +74,8 @@ typedef struct {
          * TBD: re-evaluate how to manage this
          */
         char                    term_buf[CHANGELOG_ENTRY_SIZE];
+        gf_boolean_t            child_up; /* To maintain the state of *
+                                           * the translator */
 } nsr_private_t;
 
 typedef struct {

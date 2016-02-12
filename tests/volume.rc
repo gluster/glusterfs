@@ -110,6 +110,24 @@ function snap_client_connected_status {
          echo "$up"
 }
 
+function _nsrc_child_up_status {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        local gen_state_dump=$3
+        local fpath=$($gen_state_dump $vol)
+        up=$(grep -a -B1 child_$brick_id=$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        rm -f $fpath
+        echo "$up"
+}
+
+function nsrc_child_up_status {
+        local vol=$1
+        #brick_id is (brick-num in volume info - 1)
+        local brick_id=$2
+        _nsrc_child_up_status $vol $brick_id generate_mount_statedump
+}
+
 function _afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)

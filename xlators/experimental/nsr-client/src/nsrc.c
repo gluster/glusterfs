@@ -18,6 +18,7 @@
 #include "xlator.h"
 #include "nsr-messages.h"
 #include "nsrc.h"
+#include "statedump.h"
 
 #define SCAR_LIMIT      20
 #define HILITE(x)       ("[1;33m"x"[0m")
@@ -168,6 +169,7 @@ int32_t
 nsrc_init (xlator_t *this)
 {
         nsrc_private_t  *priv   = NULL;
+        xlator_list_t   *trav   = NULL;
 
         this->local_pool = mem_pool_new (nsrc_local_t, 128);
         if (!this->local_pool) {
@@ -179,6 +181,10 @@ nsrc_init (xlator_t *this)
         priv = GF_CALLOC (1, sizeof (*priv), gf_mt_nsrc_private_t);
         if (!priv) {
                 goto err;
+        }
+
+        for (trav = this->children; trav; trav = trav->next) {
+                ++(priv->n_children);
         }
 
         priv->active = FIRST_CHILD(this);
@@ -198,32 +204,110 @@ nsrc_fini (xlator_t *this)
         GF_FREE(this->private);
 }
 
+int
+nsrc_get_child_index (xlator_t *this, xlator_t *kid)
+{
+        xlator_list_t   *trav;
+        int             retval = -1;
+
+        for (trav = this->children; trav; trav = trav->next) {
+                ++retval;
+                if (trav->xlator == kid) {
+                        return retval;
+                }
+        }
+
+        return -1;
+}
+
+uint8_t
+nsrc_count_up_kids (nsrc_private_t *priv)
+{
+        uint8_t         retval  = 0;
+        uint8_t         i;
+
+        for (i = 0; i < priv->n_children; ++i) {
+                if (priv->kid_state & (1 << i)) {
+                        ++retval;
+                }
+        }
+
+        return retval;
+}
+
 int32_t
 nsrc_notify (xlator_t *this, int32_t event, void *data, ...)
 {
-        int32_t         ret     = 0;
+        int32_t           ret        = 0;
+        int32_t           index      = 0;
+        nsrc_private_t   *priv       = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         switch (event) {
+        case GF_EVENT_CHILD_UP:
+                index = nsrc_get_child_index(this, data);
+                if (index >= 0) {
+                        priv->kid_state |= (1 << index);
+                        priv->up_children = nsrc_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                                "got CHILD_UP for %s, now %u kids",
+                                ((xlator_t *)data)->name,
+                                priv->up_children);
+                }
+                ret = default_notify (this, event, data);
+                break;
         case GF_EVENT_CHILD_DOWN:
-                /*
-                 * TBD: handle this properly
-                 *
-                 * What we really should do is propagate this only if it caused
-                 * us to lose quorum, and likewise for GF_EVENT_CHILD_UP only
-                 * if it caused us to gain quorum.  However, that requires
-                 * tracking child states and for now it's easier to swallow
-                 * these unconditionally.  The consequence of failing to do
-                 * this is that DHT sees the first GF_EVENT_CHILD_DOWN and gets
-                 * confused, so it doesn't call us and doesn't get up-to-date
-                 * directory listings etc.
-                 */
+                index = nsrc_get_child_index(this, data);
+                if (index >= 0) {
+                        priv->kid_state &= ~(1 << index);
+                        priv->up_children = nsrc_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                                "got CHILD_DOWN for %s, now %u kids",
+                                ((xlator_t *)data)->name,
+                                priv->up_children);
+                }
                 break;
         default:
                 ret = default_notify (this, event, data);
         }
 
+out:
         return ret;
 }
+
+int
+nsrc_priv_dump (xlator_t *this)
+{
+        nsrc_private_t     *priv = NULL;
+        char                key_prefix[GF_DUMP_MAX_BUF_LEN];
+        xlator_list_t      *trav = NULL;
+        int32_t             i    = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s",
+                 this->type, this->name);
+        gf_proc_dump_add_section(key_prefix);
+
+        gf_proc_dump_write("up_children", "%u", priv->up_children);
+
+        for (trav = this->children, i = 0; trav; trav = trav->next, i++) {
+                snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "child_%d", i);
+                gf_proc_dump_write(key_prefix, "%s", trav->xlator->name);
+        }
+
+out:
+        return 0;
+}
+
+struct xlator_dumpops dumpops = {
+        .priv       = nsrc_priv_dump,
+};
 
 class_methods_t class_methods = {
         .init           = nsrc_init,
