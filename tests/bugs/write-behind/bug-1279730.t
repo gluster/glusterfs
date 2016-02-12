@@ -7,7 +7,7 @@
 cleanup;
 
 ## Start and create a volume
-TEST glusterd;
+TEST glusterd
 TEST pidof glusterd;
 TEST $CLI volume info;
 
@@ -15,6 +15,8 @@ TEST $CLI volume create $V0 $H0:$B0/$V0;
 TEST $CLI volume start $V0;
 TEST $CLI volume quota $V0 enable
 TEST $CLI volume quota $V0 limit-usage / 4
+TEST $CLI volume quota $V0 hard-timeout 0
+TEST $CLI volume quota $V0 soft-timeout 0
 
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 
