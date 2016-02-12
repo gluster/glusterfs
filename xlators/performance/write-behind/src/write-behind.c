@@ -695,6 +695,74 @@ __wb_request_waiting_on (wb_request_t *req)
 
 
 void
+__wb_add_request_for_retry (wb_request_t *req)
+{
+        wb_inode_t *wb_inode = NULL;
+
+        if (!req)
+                goto out;
+
+        wb_inode = req->wb_inode;
+
+        /* response was unwound and no waiter waiting on this request, retry
+           till a flush or fsync (subject to conf->resync_after_fsync).
+        */
+	wb_inode->transit -= req->total_size;
+
+        req->total_size = 0;
+
+        list_del_init (&req->winds);
+        list_del_init (&req->todo);
+        list_del_init (&req->wip);
+
+        /* sanitize ordering flags to retry */
+        req->ordering.go = 0;
+
+        /* Add back to todo list to retry */
+        list_add (&req->todo, &wb_inode->todo);
+
+out:
+        return;
+}
+
+void
+__wb_add_head_for_retry (wb_request_t *head)
+{
+	wb_request_t *req      = NULL, *tmp = NULL;
+
+        if (!head)
+                goto out;
+
+        list_for_each_entry_safe_reverse (req, tmp, &head->winds,
+                                          winds) {
+                __wb_add_request_for_retry (req);
+        }
+
+        __wb_add_request_for_retry (head);
+
+out:
+        return;
+}
+
+
+void
+wb_add_head_for_retry (wb_request_t *head)
+{
+        if (!head)
+                goto out;
+
+        LOCK (&head->wb_inode->lock);
+        {
+                __wb_add_head_for_retry (head);
+        }
+        UNLOCK (&head->wb_inode->lock);
+
+out:
+        return;
+}
+
+
+void
 __wb_fulfill_request_err (wb_request_t *req, int32_t op_errno)
 {
 	wb_inode_t   *wb_inode = NULL;
@@ -734,22 +802,7 @@ __wb_fulfill_request_err (wb_request_t *req, int32_t op_errno)
                 }
         }
 
-        /* response was unwound and no waiter waiting on this request, retry
-           till a flush or fsync (subject to conf->resync_after_fsync).
-        */
-	wb_inode->transit -= req->total_size;
-
-        req->total_size = 0;
-
-        list_del_init (&req->winds);
-        list_del_init (&req->todo);
-        list_del_init (&req->wip);
-
-        /* sanitize ordering flags to retry */
-        req->ordering.go = 0;
-
-        /* Add back to todo list to retry */
-        list_add (&req->todo, &wb_inode->todo);
+        __wb_add_request_for_retry (req);
 
         return;
 }
@@ -916,7 +969,7 @@ done:
 
         __wb_request_unref (head);
 
-        wb_fulfill_err (req, EIO);
+        wb_add_head_for_retry (req);
 out:
         return;
 }
