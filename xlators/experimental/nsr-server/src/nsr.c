@@ -860,13 +860,23 @@ nsr_get_child_index (xlator_t *this, xlator_t *kid)
 int
 nsr_notify (xlator_t *this, int event, void *data, ...)
 {
-        nsr_private_t   *priv   = this->private;
-        int             index;
+        nsr_private_t   *priv         = this->private;
+        int             index         = -1;
+        int             ret           = -1;
+        gf_boolean_t    result        = _gf_false;
+        gf_boolean_t    relevant      = _gf_false;
 
         switch (event) {
         case GF_EVENT_CHILD_UP:
                 index = nsr_get_child_index(this, data);
                 if (index >= 0) {
+                        /* Check if the child was previously down
+                         * and it's not a false CHILD_UP
+                         */
+                        if (!(priv->kid_state & (1 << index))) {
+                                relevant = _gf_true;
+                        }
+
                         priv->kid_state |= (1 << index);
                         priv->up_children = nsr_count_up_kids(priv);
                         gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
@@ -876,27 +886,96 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                         if (!priv->config_leader && (priv->up_children > 1)) {
                                 priv->leader = _gf_false;
                         }
+
+                        /* If it's not relevant, or we have already *
+                         * sent CHILD_UP just break */
+                        if (!relevant || priv->child_up)
+                                break;
+
+                        /* If it's not a leader, just send the notify up */
+                        if (!priv->leader) {
+                                ret = default_notify(this, event, data);
+                                if (!ret)
+                                        priv->child_up = _gf_true;
+                                break;
+                        }
+
+                        result = fop_quorum_check (this,
+                                                (double)(priv->n_children - 1),
+                                               (double)(priv->up_children - 1));
+                        if (result == _gf_false) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        N_MSG_GENERIC, "Not enough children "
+                                        "are up to meet quorum. Waiting to "
+                                        "send CHILD_UP from leader");
+                        } else {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        N_MSG_GENERIC, "Enough children are up "
+                                        "to meet quorum. Sending CHILD_UP "
+                                        "from leader");
+                                ret = default_notify(this, event, data);
+                                if (!ret)
+                                        priv->child_up = _gf_true;
+                        }
                 }
                 break;
         case GF_EVENT_CHILD_DOWN:
                 index = nsr_get_child_index(this, data);
                 if (index >= 0) {
+                        /* Check if the child was previously up
+                         * and it's not a false CHILD_DOWN
+                         */
+                        if (priv->kid_state & (1 << index)) {
+                                relevant = _gf_true;
+                        }
                         priv->kid_state &= ~(1 << index);
                         priv->up_children = nsr_count_up_kids(priv);
                         gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
                                 "got CHILD_DOWN for %s, now %u kids",
                                 ((xlator_t *)data)->name,
                                 priv->up_children);
-                        if (!priv->config_leader && (priv->up_children < 2)) {
+                        if (!priv->config_leader && (priv->up_children < 2)
+                            && relevant) {
                                 priv->leader = _gf_true;
+                        }
+
+                        /* If it's not relevant, or we have already *
+                         * sent CHILD_DOWN just break */
+                        if (!relevant || !priv->child_up)
+                                break;
+
+                        /* If it's not a leader, just break coz we shouldn't  *
+                         * propagate the failure from the failure till it     *
+                         * itself goes down                                   *
+                         */
+                        if (!priv->leader) {
+                                break;
+                        }
+
+                        result = fop_quorum_check (this,
+                                           (double)(priv->n_children - 1),
+                                           (double)(priv->up_children - 1));
+                        if (result == _gf_false) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        N_MSG_GENERIC, "Enough children are "
+                                        "to down to fail quorum. "
+                                        "Sending CHILD_DOWN from leader");
+                                ret = default_notify(this, event, data);
+                                if (!ret)
+                                        priv->child_up = _gf_false;
+                        } else {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        N_MSG_GENERIC, "Not enough children "
+                                        "are down to fail quorum. Waiting to "
+                                        "send CHILD_DOWN from leader");
                         }
                 }
                 break;
         default:
-                ;
+                ret = default_notify(this, event, data);
         }
 
-        return default_notify(this, event, data);
+        return ret;
 }
 
 
@@ -995,6 +1074,7 @@ nsr_init (xlator_t *this)
         GF_OPTION_INIT ("quorum-percent", priv->quorum_pct, percent, err);
 
         priv->leader = priv->config_leader;
+        priv->child_up = _gf_false;
 
         if (pthread_create(&kid, NULL, nsr_flush_thread,
                            this) != 0) {
