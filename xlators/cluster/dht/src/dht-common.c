@@ -4619,6 +4619,14 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         layout = local->layout;
 
+        /* We have seen crashes in while running "rm -rf" on tier volumes
+           when the layout was NULL on the hot tier. This will skip the
+           entries on the subvol without a layout, hence preventing the crash
+           but rmdir might fail with "directory not empty" errors*/
+
+        if (layout == NULL)
+                goto done;
+
         if (conf->readdir_optimize == _gf_true)
                  readdir_optimize = 1;
 
