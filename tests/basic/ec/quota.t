@@ -15,7 +15,7 @@ EXPECT 'Created' volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "$DISPERSE" ec_child_up_count $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 
 TEST mkdir -p $M0/test
 

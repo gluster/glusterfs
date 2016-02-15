@@ -321,6 +321,19 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
     }
 
     data = ntoh64(*(uint64_t *)ptr);
+    /* Currently we need to get the config xattr for entries of type IA_INVAL.
+     * These entries can later become IA_DIR entries (after inode_link()),
+     * which don't have a config xattr. However, since the xattr is requested
+     * using an xattrop() fop, it will always return a config full of 0's
+     * instead of saying that it doesn't exist.
+     *
+     * We need to filter out this case and consider that a config xattr == 0 is
+     * the same than a non-existant xattr. Otherwise ec_config_check() will
+     * fail.
+     */
+    if (data == 0) {
+        return -ENODATA;
+    }
 
     config->version = (data >> 56) & 0xff;
     if (config->version > EC_CONFIG_VERSION)
