@@ -3735,7 +3735,8 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         return 0;
 
 err:
-        DHT_STACK_UNWIND (setxattr, frame, local ? local->op_ret : -1, op_errno, NULL);
+        DHT_STACK_UNWIND (setxattr, frame, (local ? local->op_ret : -1),
+                          op_errno, NULL);
         return 0;
 }
 

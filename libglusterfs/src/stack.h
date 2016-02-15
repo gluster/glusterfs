@@ -259,6 +259,11 @@ STACK_RESET (call_stack_t *stack)
                 UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                gf_msg_trace ("stack-trace", 0,                         \
+                              "stack-address: %p, "                     \
+                              "winding from %s to %s",                  \
+                              frame->root, old_THIS->name,              \
+                              THIS->name);                              \
                 if (frame->this->ctx->measure_latency)                  \
                         gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
@@ -275,6 +280,11 @@ STACK_RESET (call_stack_t *stack)
                 frame->wind_to = #fn;                                   \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                gf_msg_trace ("stack-trace", 0,                         \
+                              "stack-address: %p, "                     \
+                              "winding from %s to %s",                  \
+                              frame->root, old_THIS->name,              \
+                              THIS->name);                              \
                 fn (frame, obj, params);                                \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -309,6 +319,11 @@ STACK_RESET (call_stack_t *stack)
                 fn##_cbk = rfn;                                         \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
+                gf_msg_trace ("stack-trace", 0,                         \
+                              "stack-address: %p, "                     \
+                              "winding from %s to %s",                  \
+                              frame->root, old_THIS->name,              \
+                              THIS->name);                              \
                 if (obj->ctx->measure_latency)                          \
                         gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
@@ -317,7 +332,7 @@ STACK_RESET (call_stack_t *stack)
 
 
 /* return from function */
-#define STACK_UNWIND(frame, params ...)                                 \
+#define STACK_UNWIND(frame, op_ret, op_errno, params ...)               \
         do {                                                            \
                 ret_fn_t      fn = NULL;                                \
                 call_frame_t *_parent = NULL;                           \
@@ -326,6 +341,20 @@ STACK_RESET (call_stack_t *stack)
                         gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
                                 LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
+                }                                                       \
+                if (op_ret < 0) {                                       \
+                        gf_msg_debug ("stack-trace", op_errno,          \
+                                      "stack-address: %p, "             \
+                                      "%s returned %d error: %s",       \
+                                      frame->root, THIS->name,          \
+                                      (int32_t)op_ret,                  \
+                                      strerror(op_errno));              \
+                } else {                                                \
+                        gf_msg_trace ("stack-trace", 0,                 \
+                                      "stack-address: %p, "             \
+                                      "%s returned %d",                 \
+                                      frame->root, THIS->name,          \
+                                      (int32_t)op_ret);                 \
                 }                                                       \
                 fn = frame->ret;                                        \
                 _parent = frame->parent;                                \
@@ -340,13 +369,14 @@ STACK_RESET (call_stack_t *stack)
                 frame->unwind_from = __FUNCTION__;                      \
                 if (frame->this->ctx->measure_latency)                  \
                         gf_latency_end (frame);                         \
-                fn (_parent, frame->cookie, _parent->this, params);     \
+                fn (_parent, frame->cookie, _parent->this, op_ret,      \
+                    op_errno, params);                                  \
                 THIS = old_THIS;                                        \
         } while (0)
 
 
 /* return from function in type-safe way */
-#define STACK_UNWIND_STRICT(op, frame, params ...)                      \
+#define STACK_UNWIND_STRICT(op, frame, op_ret, op_errno, params ...)    \
         do {                                                            \
                 fop_##op##_cbk_t      fn = NULL;                        \
                 call_frame_t *_parent = NULL;                           \
@@ -356,6 +386,20 @@ STACK_RESET (call_stack_t *stack)
                         gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
                                 LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
+                }                                                       \
+                if (op_ret < 0) {                                       \
+                        gf_msg_debug ("stack-trace", op_errno,          \
+                                      "stack-address: %p, "             \
+                                      "%s returned %d error: %s",       \
+                                      frame->root, THIS->name,          \
+                                      (int32_t)op_ret,                  \
+                                      strerror(op_errno));              \
+                } else {                                                \
+                        gf_msg_trace ("stack-trace", 0,                 \
+                                      "stack-address: %p, "             \
+                                      "%s returned %d",                 \
+                                      frame->root, THIS->name,          \
+                                      (int32_t)op_ret);                 \
                 }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
                 _parent = frame->parent;                                \
@@ -370,7 +414,8 @@ STACK_RESET (call_stack_t *stack)
                 frame->unwind_from = __FUNCTION__;                      \
                 if (frame->this->ctx->measure_latency)                  \
                         gf_latency_end (frame);                         \
-                fn (_parent, frame->cookie, _parent->this, params);     \
+                fn (_parent, frame->cookie, _parent->this, op_ret,      \
+                    op_errno, params);                                  \
                 THIS = old_THIS;                                        \
         } while (0)
 
