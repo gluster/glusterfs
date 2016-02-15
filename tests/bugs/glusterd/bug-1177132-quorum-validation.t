@@ -58,6 +58,24 @@ TEST  $CLI_1 volume remove-brick $V0 $H2:$B2/${V0}2 start
 TEST  $CLI_1 volume set $V0 barrier enable
 TEST  $CLI_1 volume remove-brick $V0 $H2:$B2/${V0}2 stop
 
+## Stop the volume
+TEST $CLI_1 volume stop $V0
+
+## Bring down 2nd glusterd
+TEST kill_glusterd 2
+
+## Now quorum is not meet. Starting volume on 1st node should not success
+TEST ! $CLI_1 volume start $V0
+
+## Bring back 2nd glusterd
+TEST $glusterd_2
+
+# After 2nd glusterd come back, there will be 2 nodes in a clusater
+EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count;
+
+## Now quorum is meet. Starting volume on 1st node should be success.
+TEST $CLI_1 volume start $V0
+
 # Now re-execute the same profile command and this time it should succeed
 TEST $CLI_1 volume profile $V0 start
 

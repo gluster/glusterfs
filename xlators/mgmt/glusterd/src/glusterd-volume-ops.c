@@ -29,6 +29,7 @@
 #include "glusterd-shd-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-mgmt.h"
+#include "glusterd-server-quorum.h"
 
 #include <stdint.h>
 #include <sys/socket.h>
@@ -1472,6 +1473,18 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         volname);
                 goto out;
         }
+
+        if (priv->op_version > GD_OP_VERSION_3_7_5) {
+                ret = glusterd_validate_quorum (this, GD_OP_START_VOLUME, dict,
+                                                op_errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_SERVER_QUORUM_NOT_MET,
+                                "Server quorum not met. Rejecting operation.");
+                        goto out;
+                }
+        }
+
         /* This is an incremental approach to have all the volinfo objects ref
          * count. The first attempt is made in volume start transaction to
          * ensure it doesn't race with import volume where stale volume is
@@ -2511,6 +2524,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                         volname);
                 goto out;
         }
+
         /* This is an incremental approach to have all the volinfo objects ref
          * count. The first attempt is made in volume start transaction to
          * ensure it doesn't race with import volume where stale volume is
