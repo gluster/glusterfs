@@ -34,6 +34,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c default-args.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
+nodist_libglusterfs_la_HEADERS = y.tab.h
 
 BUILT_SOURCES = graph.lex.c defaults.c
 
@@ -83,7 +84,7 @@ y.tab.h: graph.y
 defaults.c: defaults-tmpl.c generator.py gen-defaults.py
 	$(PYTHON) $(srcdir)/gen-defaults.py $(srcdir)/defaults-tmpl.c > $@
 
-CLEANFILES = $(nodist_libglusterfs_la_SOURCES)
+CLEANFILES = $(nodist_libglusterfs_la_SOURCES) $(nodist_libglusterfs_la_HEADERS)
 
 if UNITTEST
 CLEANFILES += *.gcda *.gcno *_xunit.xml
