@@ -203,6 +203,9 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_POSIX2_END              (GLFS_MSGID_COMP_POSIX2 +\
                                                 GLFS_MSGID_SEGMENT)
 
+#define GLFS_MSGID_COMP_SDFS                  GLFS_MSGID_COMP_POSIX2_END
+#define GLFS_MSGID_COMP_SDFS_END              (GLFS_MSGID_COMP_SDFS +\
+                                               GLFS_MSGID_SEGMENT)
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */
