@@ -1678,8 +1678,10 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
 
         /* This is to account for rpc_clnt_disable that might have been called
          * before rpc_clnt_unref */
-        if (trans)
+        if (trans) {
                 rpc_transport_unref (trans);
+                conn->trans = NULL;
+        }
 }
 
 static void
@@ -1774,7 +1776,6 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
 
                 unref = rpc_clnt_remove_ping_timer_locked (rpc);
                 trans = conn->trans;
-                conn->trans = NULL;
 
         }
         pthread_mutex_unlock (&conn->lock);
