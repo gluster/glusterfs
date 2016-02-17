@@ -2841,19 +2841,46 @@ unwind:
 
 /** {{{ */
 
-/* forget() */
+/* unlink() */
 
 int
-br_stub_forget (xlator_t *this, inode_t *inode)
+br_stub_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   struct iatt *postparent, dict_t *xdata)
 {
-        uint64_t ctx_addr = 0;
-        br_stub_inode_ctx_t *ctx = NULL;
+        br_stub_local_t     *local    = NULL;
+        inode_t             *inode    = NULL;
+        uint64_t             ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx      = NULL;
+        int32_t              ret      = -1;
 
-        inode_ctx_del (inode, this, &ctx_addr);
-        if (!ctx_addr)
-                return 0;
+        if (op_ret < 0)
+                goto unwind;
 
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
+        local = frame->local;
+        frame->local = NULL;
+
+        inode = local->u.context.inode;
+
+        ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
+        if (ret) {
+                /**
+                 * If the inode is bad AND context is not there, then there
+                 * is a possibility of the gfid of the object being listed
+                 * in the quarantine directory and will be shown in the
+                 * bad objects list. So continuing with the fop with a
+                 * warning log. The entry from the quarantine directory
+                 * has to be removed manually. Its not a good idea to fail
+                 * the fop, as the object has already been deleted.
+                 */
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                        "failed to get the context for the inode %s",
+                        uuid_utoa (inode->gfid));
+                goto unwind;
+        }
+
+        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
 
         LOCK (&inode->lock);
         {
@@ -2867,6 +2894,66 @@ br_stub_forget (xlator_t *this, inode_t *inode)
                         (void) br_stub_del (this, inode->gfid);
         }
         UNLOCK (&inode->lock);
+
+unwind:
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
+                             postparent, xdata);
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+        return 0;
+}
+
+int
+br_stub_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
+                dict_t *xdata)
+{
+        br_stub_local_t *local = NULL;
+        int32_t          op_ret = -1;
+        int32_t          op_errno = 0;
+
+        local = br_stub_alloc_local (this);
+        if (!local) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_NO_MEMORY,
+                        "failed to allocate memory for local (path: %s, gfid: %s)",
+                        loc->path, uuid_utoa (loc->inode->gfid));
+                goto unwind;
+        }
+
+        br_stub_fill_local (local, NULL, NULL, loc->inode,
+                            loc->inode->gfid,
+                            BR_STUB_NO_VERSIONING, 0);
+
+        frame->local = local;
+
+        STACK_WIND (frame, br_stub_unlink_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->unlink, loc, flag, xdata);
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+/** }}} */
+
+/** {{{ */
+
+/* forget() */
+
+int
+br_stub_forget (xlator_t *this, inode_t *inode)
+{
+        uint64_t ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx = NULL;
+
+        inode_ctx_del (inode, this, &ctx_addr);
+        if (!ctx_addr)
+                return 0;
+
+        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
 
         GF_FREE (ctx);
 
@@ -3133,6 +3220,7 @@ struct xlator_fops fops = {
         .setxattr  = br_stub_setxattr,
         .opendir   = br_stub_opendir,
         .readdir   = br_stub_readdir,
+        .unlink    = br_stub_unlink,
 };
 
 struct xlator_cbks cbks = {
