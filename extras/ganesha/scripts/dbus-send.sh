@@ -84,13 +84,14 @@ $GANESHA_DIR/exports/export.$VOL.conf
 --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.AddExport  string:$GANESHA_DIR/exports/export.$VOL.conf \
 string:"EXPORT(Path=/$VOL)"
+        check_cmd_status `echo $?`
 }
 
 #This function removes an export dynamically(uses the export_id of the export)
 function dynamic_export_remove()
 {
         removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d " " -f8`
+grep Export_Id | cut -d ' ' -f8`
         check_cmd_status `echo $?`
         dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
