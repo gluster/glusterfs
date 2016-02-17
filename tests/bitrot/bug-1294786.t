@@ -13,7 +13,11 @@ function get_bitd_count_2 {
 }
 
 function get_node_uuid {
-        getfattr -n trusted.glusterfs.node-uuid --only-values $M0/FILE 2>/dev/null
+        getfattr -n trusted.glusterfs.node-uuid --only-values $M0/FILE1 2>/dev/null
+}
+
+function get_quarantine_count {
+        ls -l "$B1/.glusterfs/quanrantine" | wc -l
 }
 
 cleanup;
@@ -41,15 +45,26 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count_1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count_2
 
 #Create sample file
-TEST `echo "1234" > $M0/FILE`
+TEST `echo "1234" > $M0/FILE1`
+TEST `echo "5678" > $M0/FILE2`
+gfid1=$(getfattr -n glusterfs.gfid.string --only-values $M0/FILE1)
+gfid2=$(getfattr -n glusterfs.gfid.string --only-values $M0/FILE2)
 
 EXPECT "$uuid1" get_node_uuid;
 
 #Corrupt file from back-end
-TEST stat $B1/FILE
-echo "Corrupted data" >> $B1/FILE
+TEST stat $B1/FILE1
+TEST stat $B1/FILE2
+echo "Corrupted data" >> $B1/FILE1
+echo "Corrupted data" >> $B1/FILE2
 #Manually set bad-file xattr since we can't wait for an hour for scrubber.
-TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B1/FILE
+TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B1/FILE1
+TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B1/FILE2
+TEST touch "$B1/.glusterfs/quanrantine/$gfid1"
+TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid1"
+TEST touch "$B1/.glusterfs/quanrantine/$gfid2"
+TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid2"
+EXPECT "4" get_quarantine_count;
 
 TEST $CLI_1 volume stop $V0
 TEST $CLI_1 volume start $V0
@@ -61,8 +76,24 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count_1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count_2
 #Trigger lookup so that bitrot xlator marks file as bad in its inode context.
-TEST stat $M0/FILE
+TEST stat $M0/FILE1
+TEST stat $M0/FILE2
 
 EXPECT "$uuid2" get_node_uuid;
+
+#BUG 1308961
+#Remove bad files from  mount, it should be removed from quarantine directory.
+TEST rm -f $M0/FILE1
+TEST ! stat "$B1/.glusterfs/quanrantine/$gfid1"
+
+#BUG 1308961
+#Set network.inode-lru-limit to 5 and exceed the limit by creating 10 other files.
+#The bad entry from quarantine directory should not be removed.
+TEST $CLI_1 volume set $V0 network.inode-lru-limit 5
+for i in {1..10}
+do
+     echo "1234" > $M0/file_$i
+done
+TEST stat "$B1/.glusterfs/quanrantine/$gfid2"
 
 cleanup;
