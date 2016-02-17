@@ -1070,7 +1070,6 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
         loc_copy (&local->loc, loc);
 
         /* rename new location of file as starting from trash directory */
-        strcpy (local->origpath, pathbuf);
         copy_trash_path (priv->newtrash_dir, (frame->root->pid < 0),
                                                         local->newpath);
         strcat (local->newpath, pathbuf);
@@ -1722,6 +1721,8 @@ trash_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
+        strcpy (local->origpath, pathbuf);
+
         loc_copy (&local->loc, loc);
         local->loc.path = pathbuf;
         local->fop_offset = offset;
@@ -1815,6 +1816,8 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 ret     = -1;
                 goto out;
         }
+
+        strcpy (local->origpath, pathbuf);
 
         /* To convert fd to location */
         frame->local=local;
