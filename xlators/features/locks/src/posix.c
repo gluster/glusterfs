@@ -25,6 +25,7 @@
 #include "clear.h"
 #include "defaults.h"
 #include "syncop.h"
+#include "pl-messages.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
@@ -46,7 +47,7 @@ static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                 inode_t *__inode = NULL;                                \
                 char    *__name = NULL;                                 \
                 dict_t  *__unref = NULL;                                \
-                                                                        \
+                int __i = 0 ;                                           \
                 __local = frame->local;                                 \
                 if (op_ret >= 0 && pl_needs_xdata_response (frame->local)) {\
                         if (xdata)                                      \
@@ -55,12 +56,17 @@ static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                                 xdata = dict_new();                     \
                         if (xdata) {                                    \
                                 __unref = xdata;                        \
-                                pl_get_xdata_rsp_args (__local,         \
-                                      #fop, &__parent, &__inode,        \
-                                      &__name);                         \
-                                pl_set_xdata_response (frame->this,     \
-                                    __local, __parent, __inode, __name, \
-                                    xdata);                             \
+                                while (__local->fd || __local->loc[__i].inode) {  \
+                                        pl_get_xdata_rsp_args (__local,            \
+                                              #fop, &__parent, &__inode,           \
+                                              &__name, __i);                       \
+                                        pl_set_xdata_response (frame->this,        \
+                                               __local, __parent, __inode, __name, \
+                                               xdata, __i > 0);                    \
+                                        if (__local->fd || __i == 1)               \
+                                                break;                  \
+                                        __i++;                          \
+                                }                                       \
                         }                                               \
                 }                                                       \
                 frame->local = NULL;                                    \
@@ -68,7 +74,8 @@ static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                 if (__local) {                                          \
                         if (__local->inodelk_dom_count_req)             \
                                 data_unref (__local->inodelk_dom_count_req);\
-                        loc_wipe (&__local->loc);                       \
+                        loc_wipe (&__local->loc[0]);                    \
+                        loc_wipe (&__local->loc[1]);                    \
                         if (__local->fd)                                \
                                 fd_unref (__local->fd);                 \
                         mem_put (__local);                              \
@@ -77,16 +84,22 @@ static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                         dict_unref (__unref);                           \
         } while (0)
 
-#define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc)          \
+#define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc, __newloc)\
         do {                                                            \
                 if (pl_has_xdata_requests (xdata)) {                    \
                         frame->local = mem_get0 (this->local_pool);     \
                         pl_local_t *__local = frame->local;             \
                         if (__local) {                                  \
-                                if (__fd)                               \
+                                if (__fd) {                             \
                                         __local->fd = fd_ref (__fd);    \
-                                else                                    \
-                                        loc_copy (&__local->loc, __loc);\
+                                } else {                                \
+                                        if (__loc)                      \
+                                                loc_copy (&__local->loc[0],\
+                                                           __loc);      \
+                                        if (__newloc)                   \
+                                                 loc_copy (&__local->loc[1],\
+                                                            __newloc);  \
+                                }                                       \
                                 pl_get_xdata_requests (__local, xdata); \
                         }                                               \
                 }                                                       \
@@ -167,17 +180,17 @@ pl_needs_xdata_response (pl_local_t *local)
 
 void
 pl_get_xdata_rsp_args (pl_local_t *local, char *fop, inode_t **parent,
-                       inode_t **inode, char **name)
+                       inode_t **inode, char **name, int i)
 {
         if (strcmp (fop, "lookup") == 0) {
-                *parent = local->loc.parent;
-                *inode = local->loc.inode;
-                *name = (char *)local->loc.name;
+                *parent = local->loc[0].parent;
+                *inode = local->loc[0].inode;
+                *name = (char *)local->loc[0].name;
         } else {
                 if (local->fd) {
                         *inode = local->fd->inode;
                 } else {
-                        *inode = local->loc.parent;
+                        *inode = local->loc[i].parent;
                 }
         }
 }
@@ -223,16 +236,22 @@ out:
 
 void
 pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
-                              char *basename, dict_t *dict)
+                              char *basename, dict_t *dict, gf_boolean_t keep_max)
 {
-        uint32_t         entrylk = 0;
-        int             ret     = -1;
+        int32_t         entrylk  = 0;
+        int32_t         maxcount = -1;
+        int             ret      = -1;
 
         if (!parent || !basename || !strlen (basename))
                 goto out;
+        if (keep_max) {
+                ret = dict_get_int32 (dict, GLUSTERFS_PARENT_ENTRYLK, &maxcount);
+        }
         entrylk = check_entrylk_on_basename (this, parent, basename);
+        if (maxcount >= entrylk)
+                return;
 out:
-        ret = dict_set_uint32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
+        ret = dict_set_int32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
@@ -241,12 +260,19 @@ out:
 
 void
 pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
-                       dict_t *dict)
+                       dict_t *dict, gf_boolean_t keep_max)
 {
         int32_t     count = 0;
+        int32_t     maxcount = -1;
         int         ret   = -1;
 
+        if (keep_max) {
+                ret = dict_get_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, &maxcount);
+        }
         count = get_entrylk_count (this, inode);
+        if (maxcount >= count)
+                return;
+
         ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, count);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -257,13 +283,18 @@ pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 
 void
 pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
-                       char *domname)
+                       char *domname, gf_boolean_t keep_max)
 {
         int32_t     count = 0;
+        int32_t     maxcount = -1;
         int         ret   = -1;
 
-
+        if (keep_max) {
+                ret = dict_get_int32 (dict, GLUSTERFS_INODELK_COUNT, &maxcount);
+        }
         count = get_inodelk_count (this, inode, domname);
+        if (maxcount >= count)
+                return;
 
         ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
         if (ret < 0) {
@@ -276,12 +307,19 @@ pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
 
 void
 pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
-                       dict_t *dict)
+                       dict_t *dict, gf_boolean_t keep_max)
 {
         int32_t     count = 0;
+        int32_t     maxcount = -1;
         int         ret   = -1;
 
+        if (keep_max) {
+                ret = dict_get_int32 (dict, GLUSTERFS_POSIXLK_COUNT, &maxcount);
+        }
         count = get_posixlk_count (this, inode);
+        if (maxcount >= count)
+                return;
+
         ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, count);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -292,26 +330,26 @@ pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
 
 void
 pl_set_xdata_response (xlator_t *this, pl_local_t *local, inode_t *parent,
-                       inode_t *inode, char *name, dict_t *xdata)
+                       inode_t *inode, char *name, dict_t *xdata, gf_boolean_t max_lock)
 {
         if (!xdata || !local)
                 return;
 
         if (local->parent_entrylk_req && parent && name && strlen (name))
-                pl_parent_entrylk_xattr_fill (this, parent, name, xdata);
+                pl_parent_entrylk_xattr_fill (this, parent, name, xdata, max_lock);
 
         if (local->entrylk_count_req && inode)
-                pl_entrylk_xattr_fill (this, inode, xdata);
+                pl_entrylk_xattr_fill (this, inode, xdata, max_lock);
 
         if (local->inodelk_dom_count_req && inode)
                 pl_inodelk_xattr_fill (this, inode, xdata,
-                                    data_to_str (local->inodelk_dom_count_req));
+                                    data_to_str (local->inodelk_dom_count_req), max_lock);
 
         if (local->inodelk_count_req && inode)
-                pl_inodelk_xattr_fill (this, inode, xdata, NULL);
+                pl_inodelk_xattr_fill (this, inode, xdata, NULL, max_lock);
 
         if (local->posixlk_count_req && inode)
-                pl_posixlk_xattr_fill (this, inode, xdata);
+                pl_posixlk_xattr_fill (this, inode, xdata, max_lock);
 }
 
 static pl_fdctx_t *
@@ -374,7 +412,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if (local->op == TRUNCATE)
-                loc_wipe (&local->loc);
+                loc_wipe (&local->loc[0]);
 
         if (local->xdata)
                 dict_unref (local->xdata);
@@ -443,7 +481,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (local->op == TRUNCATE)
-                inode = local->loc.inode;
+                inode = local->loc[0].inode;
         else
                 inode = local->fd->inode;
 
@@ -468,7 +506,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         case TRUNCATE:
                 STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->truncate,
-                            &local->loc, local->offset, local->xdata);
+                            &local->loc[0], local->offset, local->xdata);
                 break;
         case FTRUNCATE:
                 STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
@@ -483,7 +521,7 @@ unwind:
         gf_log (this->name, GF_LOG_ERROR, "truncate failed with ret: %d, "
                 "error: %s", op_ret, strerror (op_errno));
         if (local->op == TRUNCATE)
-                loc_wipe (&local->loc);
+                loc_wipe (&local->loc[0]);
         if (local->xdata)
                 dict_unref (local->xdata);
         if (local->fd)
@@ -505,7 +543,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 
         local->op         = TRUNCATE;
         local->offset     = offset;
-        loc_copy (&local->loc, loc);
+        loc_copy (&local->loc[0], loc);
         if (xdata)
                 local->xdata = dict_ref (xdata);
 
@@ -1200,7 +1238,7 @@ int32_t
 pl_opendir (call_frame_t *frame, xlator_t *this,
             loc_t *loc, fd_t *fd, dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
         STACK_WIND (frame, pl_opendir_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
         return 0;
@@ -1326,7 +1364,7 @@ pl_create (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int32_t flags, mode_t mode, mode_t umask, fd_t *fd,
            dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc, NULL);
         STACK_WIND (frame, pl_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
@@ -1347,7 +1385,7 @@ int32_t
 pl_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
            dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc, NULL);
         STACK_WIND (frame, pl_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
@@ -1455,7 +1493,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
 
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
 
         if (priv->mandatory && pl_inode->mandatory) {
                 region.fl_start   = offset;
@@ -1551,7 +1589,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
 
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
 
         if (priv->mandatory && pl_inode->mandatory) {
                 region.fl_start   = offset;
@@ -2178,7 +2216,7 @@ pl_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 pl_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc, NULL);
         STACK_WIND (frame, pl_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xdata);
         return 0;
@@ -2195,7 +2233,7 @@ pl_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 pl_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
         STACK_WIND (frame, pl_fstat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fstat, fd, xdata);
         return 0;
@@ -2218,7 +2256,7 @@ pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry (entry, &entries->list, list) {
                 pl_set_xdata_response (this, local, local->fd->inode,
                                        entry->inode, entry->d_name,
-                                       entry->dict);
+                                       entry->dict, 0);
         }
 
 unwind:
@@ -2232,7 +2270,7 @@ int
 pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *xdata)
 {
-        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
         STACK_WIND (frame, pl_readdirp_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
                     fd, size, offset, xdata);
@@ -2785,6 +2823,31 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, fd_t *fd, const char *basename,
              entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
 
+int32_t
+pl_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct iatt *buf,
+               struct iatt *preoldparent, struct iatt *postoldparent,
+               struct iatt *prenewparent, struct iatt *postnewparent,
+               dict_t *xdata)
+{
+        PL_STACK_UNWIND (rename, xdata, frame, op_ret, op_errno,
+                         buf, preoldparent, postoldparent, prenewparent,
+                         postnewparent, xdata);
+        return 0;
+}
+
+int32_t
+pl_rename (call_frame_t *frame, xlator_t *this,
+           loc_t *oldloc, loc_t *newloc, dict_t *xdata)
+{
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, oldloc,  newloc);
+
+        STACK_WIND (frame, pl_rename_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD(this)->fops->rename, oldloc,
+                    newloc, xdata);
+        return 0;
+}
+
 struct xlator_fops fops = {
         .lookup      = pl_lookup,
         .create      = pl_create,
@@ -2805,6 +2868,7 @@ struct xlator_fops fops = {
         .getxattr    = pl_getxattr,
         .fgetxattr   = pl_fgetxattr,
         .fsetxattr   = pl_fsetxattr,
+        .rename      = pl_rename,
 };
 
 struct xlator_dumpops dumpops = {

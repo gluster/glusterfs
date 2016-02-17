@@ -432,10 +432,10 @@ __unlock_entrylk (pl_dom_list_t *dom, pl_entry_lock_t *lock)
         return ret_lock;
 }
 
-uint32_t
+int32_t
 check_entrylk_on_basename (xlator_t *this, inode_t *parent, char *basename)
 {
-        uint32_t        entrylk = 0;
+        int32_t         entrylk = 0;
         pl_inode_t      *pinode = 0;
         pl_dom_list_t   *dom = NULL;
         pl_entry_lock_t *conf       = NULL;
