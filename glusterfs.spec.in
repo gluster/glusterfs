@@ -67,15 +67,6 @@
 %global _without_bd --disable-bd-xlator
 %endif
 
-# if you wish to compile an rpm without the qemu-block support...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without qemu-block
-%{?_without_qemu_block:%global _without_qemu_block --disable-qemu-block}
-
-%if ( 0%{?rhel} && 0%{?rhel} < 6 )
-# xlators/features/qemu-block fails to build on RHEL5, disable it
-%global _without_qemu_block --disable-qemu-block
-%endif
-
 # Disable data-tiering on EL5, sqlite is too old
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
 %global _without_tiering --disable-tiering
@@ -980,9 +971,6 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
-%if ( 0%{!?_without_qemu_block:1} )
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/qemu-block.so
-%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 
 %files extra-xlators
