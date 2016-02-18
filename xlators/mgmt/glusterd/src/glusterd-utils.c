@@ -10479,6 +10479,22 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                         }
                 }
 
+                if (!option || !strcmp ("features.ctr-enabled", option)) {
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                            "features.ctr-enabled", "on");
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                GD_MSG_DICT_SET_FAILED,
+                                                "Failed to set option "
+                                                "'features.ctr-enabled' "
+                                                "on volume %s",
+                                                volinfo->volname);
+                                        goto out;
+                                }
+                        }
+                }
+
         }
 out:
         return ret;
