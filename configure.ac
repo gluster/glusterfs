@@ -177,8 +177,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/encryption/rot-13/src/Makefile
                 xlators/encryption/crypt/Makefile
                 xlators/encryption/crypt/src/Makefile
-                xlators/features/qemu-block/Makefile
-                xlators/features/qemu-block/src/Makefile
                 xlators/system/Makefile
                 xlators/system/posix-acl/Makefile
                 xlators/system/posix-acl/src/Makefile
@@ -590,33 +588,6 @@ fi
 
 AC_SUBST(FUSERMOUNT_SUBDIR)
 #end FUSERMOUNT section
-
-# QEMU_BLOCK section
-
-AC_ARG_ENABLE([qemu-block],
-                AC_HELP_STRING([--enable-qemu-block],
-                        [Build QEMU Block formats translator]))
-
-if test "x$enable_qemu_block" != "xno"; then
-  PKG_CHECK_MODULES([GLIB], [glib-2.0],
-                    [HAVE_GLIB_2="yes"],
-                      [HAVE_GLIB_2="no"])
-fi
-
-if test "x$enable_qemu_block" = "xyes" -a "x$HAVE_GLIB_2" = "xno"; then
-   echo "QEMU Block formats translator requires libglib-2.0, but missing."
-   exit 1
-fi
-
-BUILD_QEMU_BLOCK=no
-if test "x${enable_qemu_block}" != "xno" -a "x${HAVE_GLIB_2}" = "xyes"; then
-  BUILD_QEMU_BLOCK=yes
-  AC_DEFINE(HAVE_QEMU_BLOCK, 1, [define if libglib-2.0 library found and QEMU
-                               Block translator enabled])
-fi
-
-
-# end QEMU_BLOCK section
 
 # EPOLL section
 AC_ARG_ENABLE([epoll],
@@ -1104,9 +1075,6 @@ if test "x${GF_HOST_OS}" != "xGF_LINUX_HOST_OS" ; then
 fi
 AC_SUBST(UMOUNTD_SUBDIR)
 
-# enable/disable QEMU
-AM_CONDITIONAL([ENABLE_QEMU_BLOCK], [test x$BUILD_QEMU_BLOCK = xyes])
-
 
 # enable debug section
 AC_ARG_ENABLE([debug],
@@ -1369,7 +1337,6 @@ echo "Block Device xlator  : $BUILD_BD_XLATOR"
 echo "glupy                : $BUILD_GLUPY"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
-echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
