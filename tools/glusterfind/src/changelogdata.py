@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
 # This file is part of GlusterFS.
@@ -82,13 +83,15 @@ class OutputMerger(object):
 
 
 class ChangelogData(object):
-    def __init__(self, dbpath):
+    def __init__(self, dbpath, args):
         self.conn = sqlite3.connect(dbpath)
         self.cursor = self.conn.cursor()
         self.cursor_reader = self.conn.cursor()
         self._create_table_gfidpath()
         self._create_table_pgfid()
         self._create_table_inodegfid()
+        self.args = args
+        self.path_sep = "/" if args.no_encode else "%2F"
 
     def _create_table_gfidpath(self):
         drop_table = "DROP TABLE IF EXISTS gfidpath"
@@ -143,7 +146,10 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         return self.cursor_reader.execute(query, params)
 
@@ -155,7 +161,10 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         return self.cursor_reader.execute(query, params)
 
@@ -166,7 +175,10 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         self.cursor.execute(query, params)
 
@@ -177,7 +189,10 @@ class ChangelogData(object):
         params = []
         for key, value in data.items():
             fields.append(key)
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         values_substitute = len(fields)*["?"]
         query += "%s) VALUES(%s)" % (",".join(fields),
@@ -190,14 +205,20 @@ class ChangelogData(object):
         update_fields = []
         for key, value in data.items():
             update_fields.append("%s = ?" % key)
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         query = "UPDATE %s SET %s WHERE 1 = 1" % (tablename,
                                                   ", ".join(update_fields))
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         self.cursor.execute(query, params)
 
@@ -209,8 +230,12 @@ class ChangelogData(object):
         params = []
 
         for key, value in filters.items():
+            print value
             query += " AND %s = ?" % key
-            params.append(value)
+            if isinstance(value, int):
+                params.append(value)
+            else:
+                params.append(unicode(value, "utf8"))
 
         self.cursor.execute(query, params)
         row = self.cursor.fetchone()
@@ -293,8 +318,8 @@ class ChangelogData(object):
             update_str1 = "? || bn1"
             update_str2 = "? || bn2"
         else:
-            update_str1 = "? || '%2F' || bn1"
-            update_str2 = "? || '%2F' || bn2"
+            update_str1 = "? || '{0}' || bn1".format(self.path_sep)
+            update_str2 = "? || '{0}' || bn2".format(self.path_sep)
 
         query = """UPDATE gfidpath SET path1 = %s
         WHERE pgfid1 = ?""" % update_str1
@@ -310,7 +335,7 @@ class ChangelogData(object):
         if path2 == "":
             update_str = "? || bn2"
         else:
-            update_str = "? || '%2F' || bn2"
+            update_str = "? || '{0}' || bn2".format(self.path_sep)
 
         query = """UPDATE gfidpath SET path2 = %s
         WHERE pgfid2 = ?""" % update_str
@@ -321,8 +346,11 @@ class ChangelogData(object):
         # Add the Entry to DB
         pgfid1, bn1 = urllib.unquote_plus(data[6]).split("/", 1)
 
-        # Quote again the basename
-        bn1 = urllib.quote_plus(bn1.strip())
+        if self.args.no_encode:
+            bn1 = bn1.strip()
+        else:
+            # Quote again the basename
+            bn1 = urllib.quote_plus(bn1.strip())
 
         self.gfidpath_add(changelogfile, RecordType.NEW, data[1], pgfid1, bn1)
 
@@ -331,9 +359,14 @@ class ChangelogData(object):
         pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
         pgfid2, bn2 = urllib.unquote_plus(data[4]).split("/", 1)
 
-        # Quote again the basename
-        bn1 = urllib.quote_plus(bn1.strip())
-        bn2 = urllib.quote_plus(bn2.strip())
+        if self.args.no_encode:
+            # Quote again the basename
+            bn1 = bn1.strip()
+            bn2 = bn2.strip()
+        else:
+            # Quote again the basename
+            bn1 = urllib.quote_plus(bn1.strip())
+            bn2 = urllib.quote_plus(bn2.strip())
 
         if self.gfidpath_exists({"gfid": data[1], "type": "NEW",
                                  "pgfid1": pgfid1, "bn1": bn1}):
@@ -374,9 +407,12 @@ class ChangelogData(object):
         # E <GFID> <LINK|SYMLINK> <PGFID>/<BASENAME>
         # Add as New record in Db as Type NEW
         pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
-
-        # Quote again the basename
-        bn1 = urllib.quote_plus(bn1.strip())
+        if self.args.no_encode:
+            # Quote again the basename
+            bn1 = bn1.strip()
+        else:
+            # Quote again the basename
+            bn1 = urllib.quote_plus(bn1.strip())
 
         self.gfidpath_add(changelogfile, RecordType.NEW, data[1], pgfid1, bn1)
 
@@ -386,16 +422,20 @@ class ChangelogData(object):
            not self.gfidpath_exists({"gfid": data[1], "type": "MODIFY"}):
             self.gfidpath_add(changelogfile, RecordType.MODIFY, data[1])
 
-    def when_unlink_rmdir(self, changelogfile, data, args):
+    def when_unlink_rmdir(self, changelogfile, data):
         # E <GFID> <UNLINK|RMDIR> <PGFID>/<BASENAME>
         pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
-        # Quote again the basename
-        bn1 = urllib.quote_plus(bn1.strip())
+
+        if self.args.no_encode:
+            bn1 = bn1.strip()
+        else:
+            # Quote again the basename
+            bn1 = urllib.quote_plus(bn1.strip())
 
         deleted_path = data[4] if len(data) == 5 else ""
         if deleted_path != "":
                 deleted_path = output_path_prepare(deleted_path,
-                                                args.output_prefix)
+                                                   self.args)
 
         if self.gfidpath_exists({"gfid": data[1], "type": "NEW",
                                  "pgfid1": pgfid1, "bn1": bn1}):
@@ -421,12 +461,12 @@ class ChangelogData(object):
             "bn2": bn1})
 
         # If deleted directory is parent for somebody
-        query1 = """UPDATE gfidpath SET path1 = ? || '%2F' || bn1
-        WHERE pgfid1 = ? AND path1 != ''"""
+        query1 = """UPDATE gfidpath SET path1 = ? || '{0}' || bn1
+        WHERE pgfid1 = ? AND path1 != ''""".format(self.path_sep)
         self.cursor.execute(query1, (deleted_path, data[1]))
 
-        query1 = """UPDATE gfidpath SET path2 = ? || '%2F' || bn1
-        WHERE pgfid2 = ? AND path2 != ''"""
+        query1 = """UPDATE gfidpath SET path2 = ? || '{0}' || bn1
+        WHERE pgfid2 = ? AND path2 != ''""".format(self.path_sep)
         self.cursor.execute(query1, (deleted_path, data[1]))
 
     def commit(self):

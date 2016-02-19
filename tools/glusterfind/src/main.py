@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
 # This file is part of GlusterFS.
@@ -121,6 +122,7 @@ def run_cmd_nodes(task, args, **kwargs):
                    "--output-prefix",
                    args.output_prefix] + \
                 (["--debug"] if args.debug else []) + \
+                (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"] if args.only_namespace_changes
                  else [])
 
@@ -140,6 +142,7 @@ def run_cmd_nodes(task, args, **kwargs):
                 ["--only-query"] + \
                 ["--output-prefix", args.output_prefix] + \
                 (["--debug"] if args.debug else []) + \
+                (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"]
                     if args.only_namespace_changes else [])
 
@@ -277,6 +280,9 @@ def _get_args():
     parser_pre.add_argument("volume", help="Volume Name")
     parser_pre.add_argument("outfile", help="Output File", action=StoreAbsPath)
     parser_pre.add_argument("--debug", help="Debug", action="store_true")
+    parser_pre.add_argument("--no-encode",
+                            help="Do not encode path in output file",
+                            action="store_true")
     parser_pre.add_argument("--full", help="Full find", action="store_true")
     parser_pre.add_argument("--disable-partial", help="Disable Partial find, "
                             "Fail when one node fails", action="store_true")
@@ -400,12 +406,19 @@ def write_output(args, outfilemerger):
             for p in paths:
                 if p == "":
                     continue
-                p_rep = p.replace("%2F%2F", "%2F")
+                p_rep = p.replace("%2F%2F", "%2F").replace("//", "/")
                 if not row_2_rep:
-                    row_2_rep = row[2].replace("%2F%2F", "%2F")
+                    row_2_rep = row[2].replace("%2F%2F", "%2F").replace("//",
+                                                                        "/")
                 if p_rep == row_2_rep:
                     continue
-                f.write("%s %s %s\n" % (row[0], p_rep, row_2_rep))
+
+                p_rep = p_rep.encode('utf8', 'replace')
+                row_2_rep = row_2_rep.encode('utf8', 'replace')
+
+                f.write("{0} {1} {2}\n".format(row[0],
+                                               p_rep,
+                                               row_2_rep))
 
 
 def mode_create(session_dir, args):

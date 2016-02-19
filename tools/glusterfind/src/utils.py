@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
 # This file is part of GlusterFS.
@@ -228,14 +229,17 @@ def get_changelog_rollover_time(volumename):
         return DEFAULT_CHANGELOG_INTERVAL
 
 
-def output_path_prepare(path, output_prefix):
+def output_path_prepare(path, args):
     """
     If Prefix is set, joins to Path, removes ending slash
     and encodes it.
     """
-    if output_prefix != ".":
-        path = os.path.join(output_prefix, path)
+    if args.output_prefix != ".":
+        path = os.path.join(args.output_prefix, path)
         if path.endswith("/"):
             path = path[0:len(path)-1]
 
-    return urllib.quote_plus(path)
+    if args.no_encode:
+        return path
+    else:
+        return urllib.quote_plus(path)

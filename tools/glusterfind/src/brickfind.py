@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
 # This file is part of GlusterFS.
@@ -40,7 +41,8 @@ def brickfind_crawl(brick, args):
         def output_callback(path, filter_result):
             path = path.strip()
             path = path[brick_path_len+1:]
-            output_write(fout, path, args.output_prefix, encode=True)
+            output_write(fout, path, args.output_prefix,
+                         encode=(not args.no_encode))
 
         ignore_dirs = [os.path.join(brick, dirname)
                        for dirname in
@@ -63,6 +65,9 @@ def _get_args():
     parser.add_argument("outfile", help="Output File")
     parser.add_argument("start", help="Start Time", type=float)
     parser.add_argument("--debug", help="Debug", action="store_true")
+    parser.add_argument("--no-encode",
+                        help="Do not encode path in outfile",
+                        action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
 
