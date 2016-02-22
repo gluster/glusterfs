@@ -313,7 +313,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2);
 
 int
 glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
-                         dict_t **xattr, const char *name)
+                         dict_t **xattr, const char *name,
+                         gf_boolean_t is_listxattr)
 {
         int                 ret = 0;
         xlator_t        *subvol = NULL;
@@ -326,16 +327,17 @@ glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        if (!name || *name == '\0') {
-                errno = EINVAL;
-                return -1;
-        }
+        if (!is_listxattr) {
+                if (!name || *name == '\0') {
+                        errno = EINVAL;
+                        return -1;
+                }
 
-        if (strlen(name) > GF_XATTR_NAME_MAX) {
-                errno = ENAMETOOLONG;
-                return -1;
+                if (strlen(name) > GF_XATTR_NAME_MAX) {
+                        errno = ENAMETOOLONG;
+                        return -1;
+                }
         }
-
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
         if (!subvol) {
@@ -385,7 +387,8 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
-        ret = glfs_h_getxattrs_common (fs, object, &xattr, name);
+        ret = glfs_h_getxattrs_common (fs, object, &xattr, name,
+                                       (name == NULL));
         if (ret)
                 goto out;
 
@@ -2092,7 +2095,8 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
         } else
                 new_object = object;
 
-        ret = glfs_h_getxattrs_common (fs, new_object, &xattr, acl_key);
+        ret = glfs_h_getxattrs_common (fs, new_object, &xattr, acl_key,
+                                       _gf_false);
         if (ret)
                 goto out;
 
