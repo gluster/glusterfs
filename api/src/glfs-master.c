@@ -155,6 +155,24 @@ fini (xlator_t *this)
 
 }
 
+/* place-holder fops */
+int
+glfs_forget (xlator_t *this, inode_t *inode)
+{
+	return 0;
+}
+
+int
+glfs_release (xlator_t *this, fd_t *fd)
+{
+	return 0;
+}
+
+int
+glfs_releasedir (xlator_t *this, fd_t *fd)
+{
+	return 0;
+}
 
 struct xlator_dumpops dumpops;
 
@@ -162,4 +180,8 @@ struct xlator_dumpops dumpops;
 struct xlator_fops fops;
 
 
-struct xlator_cbks cbks;
+struct xlator_cbks cbks = {
+	.forget	    = glfs_forget,
+	.release    = glfs_release,
+	.releasedir = glfs_releasedir
+};
