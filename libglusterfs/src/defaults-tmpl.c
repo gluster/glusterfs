@@ -91,7 +91,7 @@ struct xlator_fops *default_fops = &_default_fops;
 int32_t
 default_forget (xlator_t *this, inode_t *inode)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_log_callingfn (this->name, GF_LOG_DEBUG, "xlator does not "
                           "implement forget_cbk");
         return 0;
 }
@@ -100,7 +100,7 @@ default_forget (xlator_t *this, inode_t *inode)
 int32_t
 default_releasedir (xlator_t *this, fd_t *fd)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_log_callingfn (this->name, GF_LOG_DEBUG, "xlator does not "
                           "implement releasedir_cbk");
         return 0;
 }
@@ -108,7 +108,7 @@ default_releasedir (xlator_t *this, fd_t *fd)
 int32_t
 default_release (xlator_t *this, fd_t *fd)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_log_callingfn (this->name, GF_LOG_DEBUG, "xlator does not "
                           "implement release_cbk");
         return 0;
 }
