@@ -625,7 +625,19 @@ tier_migrate_using_query_file (void *_args)
 
                         ret = syncop_lookup (this, &p_loc, &par_stbuf, NULL,
                                              xdata_request, &xdata_response);
-                        if (ret) {
+                        /* When the parent gfid is a stale entry, the lookup
+                         * will fail and stop the demotion process.
+                         * The parent gfid can be stale when a huge folder is
+                         * deleted while the files within it are being migrated
+                         */
+                        if (ret == -ESTALE) {
+                                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                        DHT_MSG_STALE_LOOKUP,
+                                        "Stale entry in parent lookup for %s",
+                                        uuid_utoa (p_loc.gfid));
+                                per_link_status = 1;
+                                goto abort;
+                        } else if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR,
                                         "Error in parent lookup for %s",
@@ -683,7 +695,20 @@ tier_migrate_using_query_file (void *_args)
                         /* lookup file inode */
                         ret = syncop_lookup (this, &loc, &current, NULL,
                                              NULL, NULL);
-                        if (ret) {
+                        /* The file may be deleted even when the parent
+                         * is available and the lookup will
+                         * return a stale entry which would stop the
+                         * migration. so if its a stale entry, then skip
+                         * the file and keep migrating.
+                         */
+                        if (ret == -ESTALE) {
+                                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                        DHT_MSG_STALE_LOOKUP,
+                                        "Stale lookup for %s",
+                                        uuid_utoa (p_loc.gfid));
+                                per_link_status = 1;
+                                goto abort;
+                        } else if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR, "Failed to "
                                         "lookup file %s\n", loc.name);
