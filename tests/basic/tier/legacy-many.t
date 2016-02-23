@@ -58,6 +58,11 @@ TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 # wait a little for lookup heal to finish
 sleep 10
 
+# make sure fix layout completed
+CPATH=$B0/${V0}0
+echo $CPATH > /tmp/out
+TEST getfattr -n "trusted.tier.fix.layout.complete" $CPATH
+
 # Read "legacy" files
 drop_cache $M0
 
@@ -68,6 +73,14 @@ TEST read_all
 # Test to make sure files were promoted as expected
 sleep $PROMOTE_TIMEOUT
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" check_counters $NUM_FILES 0
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" detach_start $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}${CACHE_BRICK_FIRST}"
+
+TEST $CLI volume tier $V0 detach commit
+
+# fix layout flag should be cleared
+TEST ! getfattr -n "trusted.tier.fix.layout.complete" $CPATH
 
 cd;
 cleanup

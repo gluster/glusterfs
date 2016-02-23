@@ -21,15 +21,16 @@
 #ifndef _DHT_H
 #define _DHT_H
 
-#define GF_XATTR_FIX_LAYOUT_KEY     "distribute.fix.layout"
-#define GF_XATTR_FILE_MIGRATE_KEY   "trusted.distribute.migrate-data"
-#define GF_DHT_LOOKUP_UNHASHED_ON   1
-#define GF_DHT_LOOKUP_UNHASHED_AUTO 2
-#define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
-#define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
-#define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
-#define TIERING_MIGRATION_KEY       "tiering.migration"
-#define DHT_LAYOUT_HASH_INVALID     1
+#define GF_XATTR_FIX_LAYOUT_KEY         "distribute.fix.layout"
+#define GF_XATTR_TIER_LAYOUT_FIXED_KEY  "trusted.tier.fix.layout.complete"
+#define GF_XATTR_FILE_MIGRATE_KEY       "trusted.distribute.migrate-data"
+#define GF_DHT_LOOKUP_UNHASHED_ON       1
+#define GF_DHT_LOOKUP_UNHASHED_AUTO     2
+#define DHT_PATHINFO_HEADER             "DISTRIBUTE:"
+#define DHT_FILE_MIGRATE_DOMAIN         "dht.file.migrate"
+#define DHT_LAYOUT_HEAL_DOMAIN          "dht.layout.heal"
+#define TIERING_MIGRATION_KEY           "tiering.migration"
+#define DHT_LAYOUT_HASH_INVALID         1
 
 #define DHT_DIR_STAT_BLOCKS          8
 #define DHT_DIR_STAT_SIZE            4096
@@ -349,6 +350,13 @@ typedef enum tier_pause_state_ {
         TIER_PAUSED
 } tier_pause_state_t;
 
+/* This Structure is only used in tiering fixlayout */
+typedef struct gf_tier_fix_layout_arg {
+        xlator_t                *this;
+        dict_t                  *fix_layout;
+        pthread_t               thread_id;
+} gf_tier_fix_layout_arg_t;
+
 typedef struct gf_tier_conf {
         int                          is_tier;
         int                          watermark_hi;
@@ -371,6 +379,8 @@ typedef struct gf_tier_conf {
         pthread_mutex_t              pause_mutex;
         int                          promote_in_progress;
         int                          demote_in_progress;
+        /* This Structure is only used in tiering fixlayout */
+        gf_tier_fix_layout_arg_t     tier_fix_layout_arg;
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {

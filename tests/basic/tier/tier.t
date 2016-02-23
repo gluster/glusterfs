@@ -13,11 +13,6 @@ MIGRATION_TIMEOUT=10
 DEMOTE_FREQ=4
 PROMOTE_FREQ=12
 
-function detach_start {
-        $CLI volume tier $1 detach start
-        echo $?;
-}
-
 function file_on_slow_tier {
     found=0
 

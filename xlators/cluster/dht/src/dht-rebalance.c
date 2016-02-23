@@ -3174,6 +3174,189 @@ out:
 
 }
 
+
+
+/******************************************************************************
+ *                      Tier background Fix layout functions
+ ******************************************************************************/
+/* This is the background tier fixlayout thread */
+void *
+gf_tier_do_fix_layout (void *args)
+{
+        gf_tier_fix_layout_arg_t *tier_fix_layout_arg   =  args;
+        int                 ret                         = -1;
+        xlator_t            *this                       = NULL;
+        dht_conf_t          *conf                       = NULL;
+        gf_defrag_info_t    *defrag                     = NULL;
+        dict_t              *dict                       = NULL;
+        loc_t               loc                         = {0,};
+        struct iatt         iatt                        = {0,};
+        struct iatt         parent                      = {0,};
+
+        GF_VALIDATE_OR_GOTO ("tier", tier_fix_layout_arg, out);
+        GF_VALIDATE_OR_GOTO ("tier", tier_fix_layout_arg->this, out);
+        this = tier_fix_layout_arg->this;
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        defrag = conf->defrag;
+        GF_VALIDATE_OR_GOTO (this->name, defrag, out);
+        GF_VALIDATE_OR_GOTO (this->name, defrag->root_inode, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, tier_fix_layout_arg->fix_layout, out);
+
+
+        /* Get Root loc_t */
+        dht_build_root_loc (defrag->root_inode, &loc);
+        ret = syncop_lookup (this, &loc, &iatt, &parent, NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_REBALANCE_START_FAILED,
+                        "Lookup on root failed.");
+                ret = -1;
+                goto out;
+        }
+
+
+        /* Start the crawl */
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS, "Tiering Fixlayout started");
+
+        ret = gf_defrag_fix_layout (this, defrag, &loc,
+                                    tier_fix_layout_arg->fix_layout, NULL);
+        if (ret && ret != 2) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_REBALANCE_FAILED,
+                        "Tiering fixlayout failed.");
+                ret = -1;
+                goto out;
+        }
+
+        if (ret != 2 && gf_defrag_settle_hash
+                        (this, defrag, &loc,
+                                tier_fix_layout_arg->fix_layout) != 0) {
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (dict, GF_XATTR_TIER_LAYOUT_FIXED_KEY, "yes");
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_REBALANCE_FAILED,
+                        "Failed to set dictionary value: key = %s",
+                        GF_XATTR_TIER_LAYOUT_FIXED_KEY);
+                ret = -1;
+                goto out;
+        }
+
+        /* Marking the completion of tiering fix layout via a xattr on root */
+        ret = syncop_setxattr (this, &loc, dict, 0, NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set tiering fix "
+                        "layout completed xattr on %s", loc.path);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (ret)
+                defrag->total_failures++;
+
+        if (dict)
+                dict_unref (dict);
+
+        return NULL;
+}
+
+int
+gf_tier_start_fix_layout (xlator_t *this,
+                         loc_t *loc,
+                         gf_defrag_info_t *defrag,
+                         dict_t *fix_layout)
+{
+        int ret                                       = -1;
+        dict_t  *tier_dict                            = NULL;
+        gf_tier_fix_layout_arg_t *tier_fix_layout_arg = NULL;
+
+        tier_dict = dict_new ();
+        if (!tier_dict) {
+                gf_log ("tier", GF_LOG_ERROR, "Tier fix layout failed :"
+                        "Creation of tier_dict failed");
+                ret = -1;
+                goto out;
+        }
+
+        /* Check if layout is fixed already */
+        ret = syncop_getxattr (this, loc, &tier_dict,
+                                GF_XATTR_TIER_LAYOUT_FIXED_KEY,
+                                NULL, NULL);
+        if (ret != 0) {
+
+                tier_fix_layout_arg = &defrag->tier_conf.tier_fix_layout_arg;
+
+                /*Fill crawl arguments */
+                tier_fix_layout_arg->this = this;
+                tier_fix_layout_arg->fix_layout = fix_layout;
+
+                /* Spawn the fix layout thread so that its done in the
+                 * background */
+                ret = pthread_create (&tier_fix_layout_arg->thread_id, NULL,
+                                gf_tier_do_fix_layout, tier_fix_layout_arg);
+                if (ret) {
+                        gf_log ("tier", GF_LOG_ERROR, "Thread creation failed. "
+                                "Background fix layout for tiering will not "
+                                "work.");
+                        defrag->total_failures++;
+                        goto out;
+                }
+        }
+        ret = 0;
+out:
+        if (tier_dict)
+                dict_unref (tier_dict);
+
+        return ret;
+}
+
+int
+gf_tier_clear_fix_layout (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
+{
+        int ret = -1;
+
+        ret = syncop_removexattr (this, loc, GF_XATTR_TIER_LAYOUT_FIXED_KEY,
+                                  NULL, NULL);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed removing tier fix layout "
+                        "xattr from %s", loc->path);
+                defrag->total_failures++;
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+void
+gf_tier_wait_fix_lookup (gf_defrag_info_t *defrag) {
+        if (defrag->tier_conf.tier_fix_layout_arg.thread_id) {
+                pthread_join (defrag->tier_conf.tier_fix_layout_arg.thread_id,
+                        NULL);
+        }
+}
+/******************Tier background Fix layout functions END********************/
+
+
+
 int
 gf_defrag_start_crawl (void *data)
 {
@@ -3363,24 +3546,16 @@ gf_defrag_start_crawl (void *data)
                 }
         }
 
-        ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
-                                    migrate_data);
-        if (ret && ret != 2) {
-                defrag->total_failures++;
-                ret = -1;
-                goto out;
-        }
-
-        if (ret != 2 &&
-            gf_defrag_settle_hash (this, defrag, &loc, fix_layout) != 0) {
-                defrag->total_failures++;
-                ret = -1;
-                goto out;
-        }
-
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                /* Fix layout for attach tier */
+                ret = gf_tier_start_fix_layout (this, &loc, defrag, fix_layout);
+                if (ret) {
+                        goto out;
+                }
+
                 methods = &(conf->methods);
 
+                /* Calling tier_start of tier.c */
                 methods->migration_other(this, defrag);
                 if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
 
@@ -3391,9 +3566,35 @@ gf_defrag_start_crawl (void *data)
                                 goto out;
 
                 }
+        } else {
+                ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
+                                    migrate_data);
+                if (ret && ret != 2) {
+                        defrag->total_failures++;
+                        ret = -1;
+                        goto out;
+                }
+
+                if (ret != 2 && gf_defrag_settle_hash
+                        (this, defrag, &loc, fix_layout) != 0) {
+                        defrag->total_failures++;
+                        ret = -1;
+                        goto out;
+                }
+
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                        /* If its was a detach remove the tier fix-layout
+                         * xattr on root */
+                         ret = gf_tier_clear_fix_layout (this, &loc, defrag);
+                         if (ret) {
+                                goto out;
+                         }
+                }
         }
+
         gf_log ("DHT", GF_LOG_INFO, "crawling file-system completed");
 out:
+
         /* We are here means crawling the entire file system is done
            or something failed. Set defrag->crawl_done flag to intimate
            the migrator threads to exhaust the defrag->queue and terminate*/
@@ -3417,6 +3618,13 @@ out:
         for (i = 0; i < thread_index; i++) {
                 pthread_join (tid[i], NULL);
         }
+
+        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                /* Wait for the tier fixlayout to
+                 * complete if its was started.*/
+                 gf_tier_wait_fix_lookup (defrag);
+        }
+
 
         if (defrag->queue) {
                 gf_dirent_free (defrag->queue[0].df_entry);
@@ -3446,7 +3654,11 @@ out:
         conf->defrag = NULL;
 
         if (dict)
-                dict_unref(dict);
+                dict_unref (dict);
+
+        if (migrate_data)
+                dict_unref (migrate_data);
+
 exit:
         return ret;
 }
