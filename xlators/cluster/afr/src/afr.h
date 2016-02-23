@@ -778,11 +778,12 @@ typedef struct afr_spb_status {
         loc_t        *loc;
 } afr_spb_status_t;
 
-typedef struct afr_replace_brick_args {
+typedef struct afr_empty_brick_args {
         call_frame_t *frame;
         loc_t loc;
-        int rb_index;
-} afr_replace_brick_args_t;
+        int empty_index;
+        char *op_type;
+} afr_empty_brick_args_t;
 
 typedef struct afr_read_subvol_args {
         ia_type_t ia_type;
@@ -1118,4 +1119,6 @@ afr_set_need_heal (xlator_t *this, afr_local_t *local);
 int
 afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd);
 
+int
+afr_get_msg_id (char *op_type);
 #endif /* __AFR_H__ */

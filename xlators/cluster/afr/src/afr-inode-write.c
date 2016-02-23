@@ -1009,14 +1009,15 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this, int subvol)
 }
 
 int
-afr_rb_set_pending_changelog_cbk (call_frame_t *frame, void *cookie,
+afr_emptyb_set_pending_changelog_cbk (call_frame_t *frame, void *cookie,
                                   xlator_t *this, int op_ret, int op_errno,
                                   dict_t *xattr, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        int i = 0;
+        int i, ret = 0;
+        char *op_type = NULL;
 
         local = frame->local;
         priv = this->private;
@@ -1025,19 +1026,26 @@ afr_rb_set_pending_changelog_cbk (call_frame_t *frame, void *cookie,
         local->replies[i].valid = 1;
         local->replies[i].op_ret = op_ret;
         local->replies[i].op_errno = op_errno;
+
+        ret = dict_get_str (local->xdata_req, "replicate-brick-op", &op_type);
+        if (ret)
+                goto out;
+
         gf_msg (this->name, op_ret ? GF_LOG_ERROR : GF_LOG_INFO,
                 op_ret ? op_errno : 0,
-                AFR_MSG_REPLACE_BRICK_STATUS, "Set of pending xattr %s on"
+                afr_get_msg_id (op_type),
+                "Set of pending xattr %s on"
                 " %s.", op_ret ? "failed" : "succeeded",
                 priv->children[i]->name);
 
+out:
         syncbarrier_wake (&local->barrier);
         return 0;
 }
 
 int
-afr_rb_set_pending_changelog (call_frame_t *frame, xlator_t *this,
-                              unsigned char *locked_nodes)
+afr_emptyb_set_pending_changelog (call_frame_t *frame, xlator_t *this,
+                                unsigned char *locked_nodes)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
@@ -1046,9 +1054,9 @@ afr_rb_set_pending_changelog (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         priv = this->private;
 
-        AFR_ONLIST (locked_nodes, frame, afr_rb_set_pending_changelog_cbk,
+        AFR_ONLIST (locked_nodes, frame, afr_emptyb_set_pending_changelog_cbk,
                     xattrop, &local->loc, GF_XATTROP_ADD_ARRAY,
-                    local->xdata_req, NULL);
+                    local->xattr_req, NULL);
 
         /* It is sufficient if xattrop was successful on one child */
         for (i = 0; i < priv->child_count; i++) {
@@ -1068,9 +1076,10 @@ out:
 }
 
 int
-_afr_handle_replace_brick_type (xlator_t *this, call_frame_t *frame,
-                                loc_t *loc, int rb_index,
-                                afr_transaction_type type)
+_afr_handle_empty_brick_type (xlator_t *this, call_frame_t *frame,
+                            loc_t *loc, int empty_index,
+                            afr_transaction_type type,
+                            char *op_type)
 {
         afr_local_t     *local            = NULL;
         afr_private_t   *priv             = NULL;
@@ -1091,13 +1100,21 @@ _afr_handle_replace_brick_type (xlator_t *this, call_frame_t *frame,
         if (!local->pending)
                 goto out;
 
-        local->pending[rb_index][idx] = hton32 (1);
+        local->pending[empty_index][idx] = hton32 (1);
 
         local->xdata_req = dict_new ();
         if (!local->xdata_req)
                 goto out;
 
-        ret = afr_set_pending_dict (priv, local->xdata_req, local->pending);
+        ret = dict_set_str (local->xdata_req, "replicate-brick-op", op_type);
+        if (ret)
+                goto out;
+
+        local->xattr_req = dict_new ();
+        if (!local->xattr_req)
+                goto out;
+
+        ret = afr_set_pending_dict (priv, local->xattr_req, local->pending);
         if (ret < 0)
                 goto out;
 
@@ -1118,7 +1135,7 @@ _afr_handle_replace_brick_type (xlator_t *this, call_frame_t *frame,
                 goto unlock;
         }
 
-        ret = afr_rb_set_pending_changelog (frame, this, locked_nodes);
+        ret = afr_emptyb_set_pending_changelog (frame, this, locked_nodes);
         if (ret)
                 goto unlock;
         ret = 0;
@@ -1134,33 +1151,41 @@ out:
         return ret;
 }
 
-int
-_afr_handle_replace_brick_cbk (int ret, call_frame_t *frame, void *opaque)
+void
+afr_brick_args_cleanup (void *opaque)
 {
-        afr_replace_brick_args_t *data = NULL;
+        afr_empty_brick_args_t *data = NULL;
 
         data = opaque;
         loc_wipe (&data->loc);
         GF_FREE (data);
+}
+
+int
+_afr_handle_empty_brick_cbk (int ret, call_frame_t *frame, void *opaque)
+{
+        afr_brick_args_cleanup (opaque);
         return 0;
 }
 
 int
-_afr_handle_replace_brick (void *opaque)
+_afr_handle_empty_brick (void *opaque)
 {
 
         afr_local_t     *local          = NULL;
         afr_private_t   *priv           = NULL;
-        int              rb_index       = -1;
+        int              empty_index       = -1;
         int              ret            = -1;
         int              op_errno       = ENOMEM;
         call_frame_t    *frame          = NULL;
         xlator_t        *this           = NULL;
-        afr_replace_brick_args_t *data  = NULL;
+        char            *op_type        = NULL;
+        afr_empty_brick_args_t *data  = NULL;
 
         data = opaque;
         frame = data->frame;
-        rb_index = data->rb_index;
+        empty_index = data->empty_index;
+        op_type = data->op_type;
         this = frame->this;
         priv = this->private;
 
@@ -1170,11 +1195,11 @@ _afr_handle_replace_brick (void *opaque)
 
         loc_copy (&local->loc, &data->loc);
 
-        gf_msg_debug (this->name, 0, "Child being replaced is : %s",
-                      priv->children[rb_index]->name);
+        gf_msg_debug (this->name, 0, "New brick is : %s",
+                      priv->children[empty_index]->name);
 
-        ret = _afr_handle_replace_brick_type (this, frame, &local->loc, rb_index,
-                                              AFR_METADATA_TRANSACTION);
+        ret = _afr_handle_empty_brick_type (this, frame, &local->loc, empty_index,
+                                          AFR_METADATA_TRANSACTION, op_type);
         if (ret) {
                 op_errno = -ret;
                 ret = -1;
@@ -1182,12 +1207,14 @@ _afr_handle_replace_brick (void *opaque)
         }
 
         dict_unref (local->xdata_req);
+        dict_unref (local->xattr_req);
         afr_matrix_cleanup (local->pending, priv->child_count);
         local->pending = NULL;
+        local->xattr_req = NULL;
         local->xdata_req = NULL;
 
-        ret = _afr_handle_replace_brick_type (this, frame, &local->loc, rb_index,
-                                              AFR_ENTRY_TRANSACTION);
+        ret = _afr_handle_empty_brick_type (this, frame, &local->loc, empty_index,
+                                          AFR_ENTRY_TRANSACTION, op_type);
         if (ret) {
                 op_errno = -ret;
                 ret = -1;
@@ -1408,63 +1435,71 @@ afr_handle_spb_choice_timeout (xlator_t *this, call_frame_t *frame,
 }
 
 int
-afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
-                          dict_t *dict)
+afr_handle_empty_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
+                        dict_t *dict)
 {
         int             ret               = -1;
-        int             rb_index          = -1;
+        int             ab_ret            = -1;
+        int             empty_index        = -1;
         int             op_errno          = EPERM;
-        char           *replace_brick     = NULL;
-        afr_replace_brick_args_t *data    = NULL;
+        char           *empty_brick         = NULL;
+        char           *op_type           = NULL;
+        afr_empty_brick_args_t *data        = NULL;
 
-        ret =  dict_get_str (dict, GF_AFR_REPLACE_BRICK, &replace_brick);
+        ret =  dict_get_str (dict, GF_AFR_REPLACE_BRICK, &empty_brick);
+        if (!ret)
+                op_type = GF_AFR_REPLACE_BRICK;
 
-        if (!ret) {
-                if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
-                        gf_msg (this->name, GF_LOG_ERROR, EPERM,
-                                AFR_MSG_REPLACE_BRICK_STATUS, "'%s' is an "
-                                "internal extended attribute",
-                                GF_AFR_REPLACE_BRICK);
+        ab_ret = dict_get_str (dict, GF_AFR_ADD_BRICK, &empty_brick);
+        if (!ab_ret)
+                op_type = GF_AFR_ADD_BRICK;
+
+        if (ret && ab_ret)
+                goto out;
+
+        if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
+                gf_msg (this->name, GF_LOG_ERROR, EPERM,
+                        afr_get_msg_id (op_type),
+                        "'%s' is an internal extended attribute.",
+                        op_type);
+                ret = 1;
+                goto out;
+        }
+        empty_index = afr_get_child_index_from_name (this, empty_brick);
+
+        if (empty_index < 0) {
+                 /* Didn't belong to this replica pair
+                  * Just do a no-op
+                  */
+                AFR_STACK_UNWIND (setxattr, frame, 0, 0, NULL);
+                return 0;
+        } else {
+                data = GF_CALLOC (1, sizeof (*data),
+                                  gf_afr_mt_empty_brick_t);
+                if (!data) {
                         ret = 1;
+                        op_errno = ENOMEM;
                         goto out;
                 }
-                rb_index = afr_get_child_index_from_name (this, replace_brick);
-
-                if (rb_index < 0) {
-                         /* Didn't belong to this replica pair
-                          * Just do a no-op
-                          */
-                        AFR_STACK_UNWIND (setxattr, frame, 0, 0, NULL);
-                        return 0;
-                } else {
-                        data = GF_CALLOC (1, sizeof (*data),
-                                          gf_afr_mt_replace_brick_t);
-                        if (!data) {
-                                ret = 1;
-                                op_errno = ENOMEM;
-                                goto out;
-                        }
-                        data->frame = frame;
-                        loc_copy (&data->loc, loc);
-                        data->rb_index = rb_index;
-                        ret = synctask_new (this->ctx->env,
-                                            _afr_handle_replace_brick,
-                                            _afr_handle_replace_brick_cbk,
-                                            NULL, data);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        AFR_MSG_REPLACE_BRICK_FAILED,
-                                        "Failed to create synctask. Unable to "
-                                        "perform replace-brick.");
-                                ret = 1;
-                                op_errno = ENOMEM;
-                                loc_wipe (&data->loc);
-                                GF_FREE (data);
-                                goto out;
-                        }
+                data->frame = frame;
+                loc_copy (&data->loc, loc);
+                data->empty_index = empty_index;
+                data->op_type = op_type;
+                ret = synctask_new (this->ctx->env,
+                                    _afr_handle_empty_brick,
+                                    _afr_handle_empty_brick_cbk,
+                                    NULL, data);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                afr_get_msg_id (op_type),
+                                "Failed to create synctask.");
+                        ret = 1;
+                        op_errno = ENOMEM;
+                        afr_brick_args_cleanup (data);
+                        goto out;
                 }
-                ret = 0;
         }
+        ret = 0;
 out:
         if (ret == 1) {
                 AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
@@ -1487,7 +1522,8 @@ afr_handle_special_xattr (xlator_t *this, call_frame_t *frame, loc_t *loc,
         if (ret == 0)
                 goto out;
 
-        ret = afr_handle_replace_brick (this, frame, loc, dict);
+        /* Applicable for replace-brick and add-brick commands */
+        ret = afr_handle_empty_brick (this, frame, loc, dict);
 out:
         return ret;
 }

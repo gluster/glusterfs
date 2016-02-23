@@ -336,14 +336,16 @@
 
 /*!
  * @messageid 108039
- * @diagnosis
- * @recommendedaction
+ * @diagnosis Setting of pending xattrs succeeded/failed during add-brick
+ * operation.
+ * @recommendedaction In case of failure, error number in the log should give
+ * the reason why it failed. Also observe brick logs for more information.
 */
-#define AFR_MSG_REPLACE_BRICK_FAILED                (GLFS_COMP_BASE_AFR + 39)
+#define AFR_MSG_ADD_BRICK_STATUS        (GLFS_COMP_BASE_AFR + 39)
 
 
 /*!
- * @messageid 108039
+ * @messageid 108040
  * @diagnosis AFR was unable to be loaded because the pending-changelog xattrs
  * were not found in the volfile.
  * @recommendedaction Please ensure cluster op-version is atleast 30707 and the
