@@ -60,6 +60,12 @@ function check_counters {
 }
 
 
+function detach_start {
+        $CLI volume tier $1 detach start
+        echo $?;
+}
+
+
 # Grab md5sum without file path (failed attempt notifications are discarded)
 function fingerprint {
     md5sum $1 2> /dev/null | grep --only-matching -m 1 '^[0-9a-f]*'
