@@ -300,7 +300,7 @@ int32_t crypt_readv_cbk(call_frame_t *frame,
 		local->op_ret = 0;
 		goto put_one_call;
 	}
-	/* 
+	/*
 	 * correct config params with real file size
 	 * and actual amount of bytes read
 	 */
@@ -384,7 +384,7 @@ static int32_t do_readv(call_frame_t *frame,
 	crypt_local_t *local = frame->local;
 
 	if (op_ret < 0)
-		goto error;	
+		goto error;
 	/*
 	 * extract regular file size
 	 */
@@ -395,7 +395,7 @@ static int32_t do_readv(call_frame_t *frame,
 		goto error;
 	}
 	local->cur_file_size = data_to_uint64(data);
-	
+
 	get_one_call(frame);
 	STACK_WIND(frame,
 		   crypt_readv_cbk,
@@ -484,7 +484,7 @@ static int32_t readv_trivial_completion(call_frame_t *frame,
 		   local->loc,
 		   FSIZE_XATTR_PREFIX,
 		   NULL);
-	return 0;	
+	return 0;
  error:
 	STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno,
 			    NULL, 0, NULL, NULL, NULL);
@@ -508,7 +508,7 @@ int32_t crypt_readv(call_frame_t *frame,
 	       (int)size, (long long)offset);
 	if (parent_is_crypt_xlator(frame, this))
 		gf_log("crypt", GF_LOG_DEBUG, "parent is crypt");
-#endif	
+#endif
 	local = crypt_alloc_local(frame, this, GF_FOP_READ);
 	if (!local) {
 		ret = ENOMEM;
@@ -676,8 +676,7 @@ void set_local_io_params_ftruncate(call_frame_t *frame,
 		 * in the ->writev() stack,
 		 * when submitting file tail
 		 */
-	}
-	else {	
+	} else {
 		local->eof_padding_size = 0;
 		local->new_file_size = conf->orig_offset;
 		local->update_disk_file_size = 1;
@@ -782,7 +781,7 @@ static void update_local_file_params(call_frame_t *frame,
 	local->prebuf.ia_size  = local->cur_file_size;
 	local->postbuf.ia_size = local->new_file_size;
 
-	local->cur_file_size = local->new_file_size;	
+	local->cur_file_size = local->new_file_size;
 }
 
 static int32_t end_writeback_writev(call_frame_t *frame,
@@ -1004,7 +1003,7 @@ static int32_t do_writev(call_frame_t *frame,
 	}
 	if (should_submit_hole(local))
 		submit_hole(frame, this);
-	else 
+	else
 		submit_data(frame, this);
 	return 0;
  error:
@@ -1042,7 +1041,7 @@ static int32_t crypt_writev_finodelk_cbk(call_frame_t *frame,
  error:
 	get_one_call_nolock(frame);
 	put_one_call_writev(frame, this);
-	return 0;	
+	return 0;
 }
 
 static int32_t writev_trivial_completion(call_frame_t *frame,
@@ -1054,7 +1053,7 @@ static int32_t writev_trivial_completion(call_frame_t *frame,
 					 dict_t *dict)
 {
 	crypt_local_t *local = frame->local;
-	
+
 	local->op_ret = op_ret;
 	local->op_errno = op_errno;
 	local->prebuf = *buf;
@@ -1487,15 +1486,15 @@ int32_t read_prune_write(call_frame_t *frame, xlator_t *this)
 	}
 	gf_log("crypt", GF_LOG_DEBUG,
 	       "prune with RMW (at offset %llu",
-	       (unsigned long long)conf->orig_offset);	
+	       (unsigned long long)conf->orig_offset);
 	/*
 	 * We are about to perform the "read" component of the
 	 * read-prune-write sequence. It means that we need to
 	 * read encrypted data from disk and decrypt it.
 	 * So, the crypt translator does STACK_WIND to itself.
-	 * 
+	 *
 	 * Pass current file size to crypt_readv()
-	 
+
 	 */
 	dict = dict_new();
 	if (!dict) {
@@ -1599,7 +1598,7 @@ static int32_t do_ftruncate(call_frame_t *frame,
 	crypt_local_t *local = frame->local;
 
 	if (op_ret)
-		goto error;	
+		goto error;
 	/*
 	 * extract regular file size
 	 */
@@ -2035,7 +2034,7 @@ static int load_mtd_open(call_frame_t *frame,
 	}
 	/*
 	 * authenticate metadata against the path
-	 */	
+	 */
 	ret = open_format((unsigned char *)mtd->data,
 			  mtd->len,
 			  local->loc,
@@ -2053,7 +2052,7 @@ static int load_mtd_open(call_frame_t *frame,
 		if (ret) {
 			local->op_ret = -1;
 			local->op_errno = ret;
-			goto exit;	
+			goto exit;
 		}
 		ret = inode_ctx_put(local->fd->inode,
 				    this, (uint64_t)(long)info);
@@ -2406,7 +2405,7 @@ static int32_t crypt_create_finodelk_cbk(call_frame_t *frame,
 		   0,
 		   NULL);
 	return 0;
- error: 
+ error:
 	free_inode_info(info);
 	free_format(local);
 	fd_unref(local->fd);
@@ -2450,7 +2449,7 @@ static int32_t crypt_create_cbk(call_frame_t *frame,
 	if (op_ret < 0)
 		goto error;
 	if (xdata)
-		local->xdata = dict_ref(xdata);	
+		local->xdata = dict_ref(xdata);
 	local->inode = inode_ref(inode);
 	local->buf = *buf;
 	local->prebuf = *preparent;
@@ -2469,7 +2468,7 @@ static int32_t crypt_create_cbk(call_frame_t *frame,
 		   local->fd,
 		   F_SETLKW,
 		   &lock,
-		   NULL);	
+		   NULL);
 	return 0;
  error:
 	free_inode_info(info);
@@ -2559,12 +2558,12 @@ static int32_t crypt_create(call_frame_t *frame,
 			    master);
 	if (ret) {
 		free_inode_info(info);
-		goto error;		
+		goto error;
 	}
 	local->xattr = dict_new();
 	if (!local->xattr) {
 		free_inode_info(info);
-		free_format(local);	
+		free_format(local);
 		goto error;
 	}
 	ret = dict_set_static_bin(local->xattr,
@@ -2903,13 +2902,13 @@ void rename_unwind(call_frame_t *frame)
 				    NULL,
 				    NULL,
 				    NULL,
-				    NULL);	
+				    NULL);
 		return;
 	}
 	xdata = local->xdata;
 	xattr = local->xattr;
 	prenewparent = local->prenewparent;
-	postnewparent = local->postnewparent;	
+	postnewparent = local->postnewparent;
 
 	if (local->loc){
 		loc_wipe(local->loc);
@@ -3143,7 +3142,7 @@ static int32_t linkop_begin(call_frame_t *frame,
 	if (op_errno)
 		goto error;
 	/*
-	 * check for cached info 
+	 * check for cached info
 	 */
 	op_ret = inode_ctx_get(fd->inode, this, &value);
 	if (op_ret != -1) {
@@ -3801,7 +3800,7 @@ static int32_t load_file_size(call_frame_t *frame,
 	       "FOP %d: Translate regular file to %llu",
 	       local->fop,
 	       (unsigned long long)local->buf.ia_size);
- unwind:	
+ unwind:
 	if (local->fd)
 		fd_unref(local->fd);
 	if (local->loc) {
@@ -3831,7 +3830,7 @@ static int32_t load_file_size(call_frame_t *frame,
 				    op_ret,
 				    op_errno,
 				    op_ret >= 0 ? local->inode : NULL,
-				    op_ret >= 0 ? &local->buf : NULL,				    
+				    op_ret >= 0 ? &local->buf : NULL,
 				    local->xdata,
 				    op_ret >= 0 ? &local->postbuf : NULL);
 		break;
@@ -3945,7 +3944,7 @@ static int32_t crypt_fstat(call_frame_t *frame,
 		   FIRST_CHILD(this),
 		   FIRST_CHILD(this)->fops->fstat,
 		   fd,
-		   xdata);	
+		   xdata);
 	return 0;
  error:
 	STACK_UNWIND_STRICT(fstat,
@@ -3981,7 +3980,7 @@ static int32_t crypt_stat(call_frame_t *frame,
 		   FIRST_CHILD(this),
 		   FIRST_CHILD(this)->fops->stat,
 		   loc,
-		   xdata);	
+		   xdata);
 	return 0;
  error:
 	STACK_UNWIND_STRICT(stat,
@@ -4344,7 +4343,7 @@ int32_t master_set_nmtd_vol_key(xlator_t *this, crypt_private_t *priv)
 int32_t crypt_init_xlator(xlator_t *this)
 {
 	int32_t ret;
-	crypt_private_t *priv = this->private; 
+	crypt_private_t *priv = this->private;
 
 	ret = master_set_alg(this, priv);
 	if (ret)
@@ -4485,7 +4484,7 @@ struct xlator_fops fops = {
 	.fstat        = crypt_fstat,
 	.lookup       = crypt_lookup,
 	.readdirp     = crypt_readdirp,
-	.access       = crypt_access   
+	.access       = crypt_access
 };
 
 struct xlator_cbks cbks = {
