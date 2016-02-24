@@ -70,7 +70,7 @@ static int32_t check_file_metadata(struct crypt_inode_info *info)
 
 static size_t format_size_v1(mtd_op_t op, size_t old_size)
 {
-	
+
 	switch (op) {
 	case MTD_CREATE:
 		return sizeof(struct mtd_format_v1);
@@ -121,7 +121,7 @@ static int32_t calc_link_mac_v1(struct mtd_format_v1 *fmt,
 				struct crypt_inode_info *info,
 				struct master_cipher_info *master)
 {
-	int32_t ret;	
+	int32_t ret;
 	unsigned char nmtd_link_key[16];
 	CMAC_CTX *cctx;
 	size_t len;
@@ -134,7 +134,7 @@ static int32_t calc_link_mac_v1(struct mtd_format_v1 *fmt,
 	cctx = CMAC_CTX_new();
 	if (!cctx) {
 		gf_log("crypt", GF_LOG_ERROR, "CMAC_CTX_new failed");
-		return -1; 
+		return -1;
 	}
 	ret = CMAC_Init(cctx, nmtd_link_key, sizeof(nmtd_link_key),
 			EVP_aes_128_cbc(), 0);
@@ -209,7 +209,7 @@ static int32_t create_format_v1(unsigned char *wire,
 	ret = get_nmtd_link_key(loc, master, nmtd_link_key);
 	if (ret)
 		return ret;
-	
+
 	AES_set_encrypt_key(mtd_key, sizeof(mtd_key)*8, &EMTD_KEY);
 
 	gctx = CRYPTO_gcm128_new(&EMTD_KEY, (block128_f)AES_encrypt);
@@ -240,7 +240,7 @@ static int32_t create_format_v1(unsigned char *wire,
 	CRYPTO_gcm128_tag(gctx, get_EMTD_V1_MAC(fmt), SIZE_OF_EMTD_V1_MAC);
 	CRYPTO_gcm128_release(gctx);
 	/*
-	 * set the first MAC of non-encrypted part of metadata 
+	 * set the first MAC of non-encrypted part of metadata
 	 */
 	return create_link_mac_v1(fmt, 0, loc, info, master);
 }
@@ -289,7 +289,7 @@ int32_t appov_link_mac_v1(unsigned char *new,
  * Cut per-link mac of @mac_idx index
  */
 static int32_t cut_link_mac_v1(unsigned char *new,
-			       unsigned char *old,			       
+			       unsigned char *old,
 			       uint32_t old_size,
 			       int32_t mac_idx,
 			       loc_t *loc,
@@ -594,7 +594,7 @@ int32_t open_format(unsigned char *str,
 }
 
 struct crypt_mtd_loader mtd_loaders [LAST_MTD_LOADER] = {
-	[MTD_LOADER_V1] = 
+	[MTD_LOADER_V1] =
 	{.format_size = format_size_v1,
 	 .create_format = create_format_v1,
 	 .open_format = open_format_v1,

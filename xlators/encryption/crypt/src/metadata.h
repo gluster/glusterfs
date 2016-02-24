@@ -20,7 +20,7 @@ typedef uint8_t emtd_8_mac_t[EMTD_8_MAC_SIZE] ;
 /*
  * Version "v1" of file's metadata.
  * Metadata of this version has 4 components:
- * 
+ *
  * 1) EMTD (Encrypted part of MeTaData);
  * 2) NMTD (Non-encrypted part of MeTaData);
  * 3) EMTD_MAC; (EMTD Message Authentication Code);
