@@ -1072,6 +1072,7 @@ fi
 %{_datadir}/glusterfs/scripts/gsync-upgrade.sh
 %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
 %{_datadir}/glusterfs/scripts/gsync-sync-gfid
+%{_datadir}/glusterfs/scripts/schedule_georep.py*
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
 %{_libexecdir}/glusterfs/gfind_missing_files
 %{_sbindir}/gfind_missing_files
@@ -1218,6 +1219,9 @@ fi
 
 
 %changelog
+* Wed Feb 24 2016 Aravinda VK <avishwan@redhat.com>
+- Added schedule_georep.py script to glusterfs-georep rpm (#1309191)
+
 * Sun Jan 17 2016 Niels de Vos <ndevos@redhat.com>
 - glusterfs-server depends on -api (#1296931)
 
