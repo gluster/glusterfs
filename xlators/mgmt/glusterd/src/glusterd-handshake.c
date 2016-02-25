@@ -1028,8 +1028,25 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
         if (ret)
                 return _gf_false;
 
+        /* If peer object is not found it indicates that request is from an
+         * unknown peer, if its found, validate whether its uuid is also
+         * available in the peerinfo list. There could be a case where hostname
+         * is available in the peerinfo list but the uuid has changed of the
+         * node due to a reinstall, in that case the validation should fail!
+         */
         rcu_read_lock ();
-        ret = (glusterd_peerinfo_find (NULL, hostname) == NULL);
+        peer = glusterd_peerinfo_find (NULL, hostname);
+        if (!peer) {
+                ret = -1;
+        } else if (peer && glusterd_peerinfo_find (peer_uuid, NULL) != NULL) {
+                ret = 0;
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_HANDSHAKE_REQ_REJECTED, "Request from peer %s "
+                        "has an entry in peerinfo, but uuid does not match",
+                        req->trans->peerinfo.identifier);
+                ret = -1;
+        }
         rcu_read_unlock ();
 
         if (ret) {

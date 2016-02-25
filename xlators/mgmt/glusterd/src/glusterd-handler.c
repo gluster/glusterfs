@@ -3837,7 +3837,8 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
 
         gf_msg ("glusterd", GF_LOG_INFO, 0,
                 GD_MSG_RESPONSE_INFO,
-                "Responded to %s (%d), ret: %d", remote_hostname, port, ret);
+                "Responded to %s (%d), ret: %d, op_ret: %d", remote_hostname,
+                port, ret, op_ret);
         GF_FREE (rsp.hostname);
         return ret;
 }
