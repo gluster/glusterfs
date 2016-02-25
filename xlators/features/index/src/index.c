@@ -11,9 +11,15 @@
 #include "options.h"
 #include "glusterfs3-xdr.h"
 #include "syscall.h"
+#include "syncop.h"
 
 #define XATTROP_SUBDIR "xattrop"
 #define DIRTY_SUBDIR "dirty"
+
+struct index_syncop_args {
+        inode_t *parent;
+        gf_dirent_t *entries;
+};
 
 call_stub_t *
 __index_dequeue (struct list_head *callstubs)
@@ -1175,6 +1181,38 @@ done:
         return 0;
 }
 
+int
+index_get_gfid_type (void *opaque)
+{
+        gf_dirent_t              *entry = NULL;
+        inode_t                  *inode = NULL;
+        xlator_t                 *this  = THIS;
+        struct index_syncop_args *args  = opaque;
+        loc_t                    loc    = {0};
+        struct iatt              iatt   = {0};
+        int                      ret    = 0;
+
+        list_for_each_entry (entry, &args->entries->list, list) {
+                loc_wipe (&loc);
+                gf_uuid_parse (entry->d_name, loc.gfid);
+                entry->d_type = IA_INVAL;
+                loc.inode = inode_find (args->parent->table, loc.gfid);
+                if (loc.inode) {
+                        entry->d_type = loc.inode->ia_type;
+                        continue;
+                }
+                loc.inode = inode_new (args->parent->table);
+                if (!loc.inode)
+                        continue;
+                ret = syncop_lookup (FIRST_CHILD (this), &loc, &iatt, 0, 0, 0);
+                if (ret == 0)
+                        entry->d_type = iatt.ia_type;
+        }
+        loc_wipe (&loc);
+
+        return 0;
+}
+
 int32_t
 index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
                        fd_t *fd, size_t size, off_t off, dict_t *xdata)
@@ -1186,6 +1224,7 @@ index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno       = 0;
         int                   count          = 0;
         gf_dirent_t           entries;
+        struct index_syncop_args args = {0};
 
         INIT_LIST_HEAD (&entries.list);
 
@@ -1211,8 +1250,14 @@ index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
         op_ret = count;
+        if (xdata && dict_get (xdata, "get-gfid-type")) {
+                args.parent = fd->inode;
+                args.entries = &entries;
+                ret = synctask_new (this->ctx->env, index_get_gfid_type,
+                                    NULL, NULL, &args);
+        }
 done:
-        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, xdata);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, NULL);
         gf_dirent_free (&entries);
         return 0;
 }
