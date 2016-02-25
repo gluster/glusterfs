@@ -229,8 +229,8 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         }
 
         if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
-                 gf_msg_trace (this->name, 0,
-                        "%s does not belong to this node", loc->path);
+                gf_msg_debug (this->name, 0,
+                              "%s does not belong to this node", loc->path);
                 ret = 1;
                 goto out;
         }
@@ -554,7 +554,7 @@ tier_migrate_using_query_file (void *_args)
 
                         /* Flag to suggest the xattr call is from migrator */
                         per_file_status = dict_set_str (migrate_data,
-                                "from.migrator", "yes");
+                                                        "from.migrator", "yes");
                         if (per_file_status) {
                                 goto per_file_out;
                         }
@@ -583,9 +583,8 @@ tier_migrate_using_query_file (void *_args)
                  * ignore other hard links in the link info list of query record
                  * TODO: Multiple hard links migration */
                 if (!list_empty (&query_record->link_list)) {
-                        link_info = list_first_entry
-                                        (&query_record->link_list,
-                                        gfdb_link_info_t, list);
+                        link_info = list_first_entry (&query_record->link_list,
+                                                      gfdb_link_info_t, list);
                 }
                 if (link_info != NULL) {
 
@@ -595,7 +594,9 @@ tier_migrate_using_query_file (void *_args)
                         if (!p_loc.inode) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed to create reference to inode");
+                                        "Failed to create reference to inode"
+                                        " for %s", uuid_utoa (p_loc.gfid));
+
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -605,7 +606,8 @@ tier_migrate_using_query_file (void *_args)
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        " Error in parent lookup\n");
+                                        "Error in parent lookup for %s",
+                                        uuid_utoa (p_loc.gfid));
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -615,7 +617,8 @@ tier_migrate_using_query_file (void *_args)
                         if (ret || !parent_path) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed to get parent path\n");
+                                        "Failed to get parent path for %s",
+                                        uuid_utoa (p_loc.gfid));
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -637,7 +640,8 @@ tier_migrate_using_query_file (void *_args)
                         if (!loc.name) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR, "Memory "
-                                        "allocation failed.\n");
+                                        "allocation failed for %s",
+                                        uuid_utoa (query_record->gfid));
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -659,8 +663,8 @@ tier_migrate_using_query_file (void *_args)
                                              NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                        DHT_MSG_LOG_TIER_ERROR, "Failed to do "
-                                        "lookup on file %s\n", loc.name);
+                                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
+                                        "lookup file %s\n", loc.name);
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -695,11 +699,11 @@ tier_migrate_using_query_file (void *_args)
                         }
 
                         gf_msg_debug (this->name, 0,
-                                "Tier %d"
-                                " src_subvol %s file %s",
-                                query_cbk_args->is_promotion,
-                                src_subvol->name,
-                                loc.name);
+                                      "Tier %s: src_subvol %s file %s",
+                                      (query_cbk_args->is_promotion ?
+                                      "promote" : "demote"),
+                                      src_subvol->name,
+                                      loc.path);
 
 
                         ret = tier_check_same_node (this, &loc, defrag);
@@ -734,7 +738,7 @@ tier_migrate_using_query_file (void *_args)
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                                         DHT_MSG_LOG_TIER_ERROR, "Failed to "
-                                        "migrate %s \n", loc.name);
+                                        "migrate %s ", loc.path);
                                 per_link_status = -1;
                                 goto abort;
                         }
@@ -801,7 +805,7 @@ per_file_out:
                 } else if (per_file_status == 1) {/* Ignore */
                         per_file_status = 0;
                         /* Since this attempt was ignored we
-                         * decreement the lookup count*/
+                         * decrement the lookup count*/
                         pthread_mutex_lock (&dm_stat_mutex);
                         defrag->num_files_lookedup--;
                         pthread_mutex_unlock (&dm_stat_mutex);
@@ -1167,29 +1171,29 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                 }
 
                 ret = dict_set_str (ctr_ipc_in_dict, GFDB_IPC_CTR_KEY,
-                                                GFDB_IPC_CTR_GET_DB_PARAM_OPS);
+                                    GFDB_IPC_CTR_GET_DB_PARAM_OPS);
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
+                                LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
                                 "to params dictionary", GFDB_IPC_CTR_KEY);
                         goto out;
                 }
 
                 ret = dict_set_str (ctr_ipc_in_dict,
-                                GFDB_IPC_CTR_GET_DB_PARAM_OPS, "");
+                                    GFDB_IPC_CTR_GET_DB_PARAM_OPS, "");
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,\
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
+                                LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
                                 "to params dictionary",
                                 GFDB_IPC_CTR_GET_DB_PARAM_OPS);
                         goto out;
                 }
 
                 ret = dict_set_str (ctr_ipc_in_dict,
-                                GFDB_IPC_CTR_GET_DB_KEY, "journal_mode");
+                                    GFDB_IPC_CTR_GET_DB_KEY, "journal_mode");
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,
-                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "
+                                LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
                                 "to params dictionary",
                                 GFDB_IPC_CTR_GET_DB_KEY);\
                         goto out;
@@ -1201,7 +1205,7 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                                 ctr_ipc_in_dict, &ctr_ipc_out_dict);
                 if (ret || ctr_ipc_out_dict == NULL) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,
-                                DHT_MSG_LOG_TIER_ERROR, "Failed getting"
+                                DHT_MSG_LOG_TIER_ERROR, "Failed to get "
                                 "journal_mode of sql db %s",
                                 local_brick->brick_db_path);
                         goto out;
@@ -1210,8 +1214,8 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                 ret = dict_get_str (ctr_ipc_out_dict, "journal_mode", &strval);
                 if (ret) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,
-                                LG_MSG_GET_PARAM_FAILED, "Failed getting %s "
-                                "to params dictionary"
+                                LG_MSG_GET_PARAM_FAILED, "Failed to get %s "
+                                "from params dictionary"
                                 "journal_mode", strval);
                         goto out;
                 }
@@ -1255,7 +1259,7 @@ tier_build_migration_qfile (demotion_args_t *args,
                             query_cbk_args_t *query_cbk_args,
                             gf_boolean_t is_promotion)
 {
-        gfdb_time_t                     current_time;
+        gfdb_time_t               current_time;
         gfdb_brick_info_t         gfdb_brick_info;
         gfdb_time_t               time_in_past;
         int                       ret = -1;
@@ -1269,7 +1273,7 @@ tier_build_migration_qfile (demotion_args_t *args,
         if (ret == -1) {
                 gf_msg (args->this->name, GF_LOG_ERROR, errno,
                         DHT_MSG_SYS_CALL_GET_TIME_FAILED,
-                        "Failed to get current time\n");
+                        "Failed to get current time");
                 goto out;
         }
         time_in_past.tv_sec = current_time.tv_sec - time_in_past.tv_sec;
@@ -1686,7 +1690,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d"
-                        " demote %d", freq_promote, freq_demote);
+                " demote %d", freq_promote, freq_demote);
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
         tier_conf = &defrag->tier_conf;
@@ -2026,8 +2030,8 @@ tier_init (xlator_t *this)
         ret = dht_init (this);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                       DHT_MSG_LOG_TIER_ERROR,
-                       "tier_init failed");
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "tier_init failed");
                 goto out;
         }
 
@@ -2036,15 +2040,15 @@ tier_init (xlator_t *this)
         ret = tier_init_methods (this);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                       DHT_MSG_LOG_TIER_ERROR,
-                       "tier_init_methods failed");
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "tier_init_methods failed");
                 goto out;
         }
 
         if (conf->subvolume_cnt != 2) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                       DHT_MSG_LOG_TIER_ERROR,
-                       "Invalid number of subvolumes %d", conf->subvolume_cnt);
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Invalid number of subvolumes %d", conf->subvolume_cnt);
                 goto out;
         }
 
