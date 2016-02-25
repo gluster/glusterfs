@@ -57,7 +57,9 @@
 #ifndef FALLOC_FL_PUNCH_HOLE
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
 #endif
-
+#ifndef FALLOC_FL_ZERO_RANGE
+#define FALLOC_FL_ZERO_RANGE    0x10 /* zeroes out range */
+#endif
 
 #ifndef HAVE_LLISTXATTR
 
@@ -171,6 +173,7 @@ enum {
 #define F_SETLKW64      F_SETLKW
 #define FALLOC_FL_KEEP_SIZE     0x01 /* default is extend size */
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
+#define FALLOC_FL_ZERO_RANGE    0x10 /* zeroes out range */
 
 #ifndef _PATH_UMOUNT
   #define _PATH_UMOUNT "/sbin/umount"

@@ -4590,8 +4590,16 @@ int
 shard_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
 {
+        if ((keep_size != 0) && (keep_size != FALLOC_FL_ZERO_RANGE) &&
+            (keep_size != (FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE)))
+                goto out;
+
         shard_common_inode_write_begin (frame, this, GF_FOP_FALLOCATE, fd, NULL,
                                         0, offset, keep_size, len, NULL, xdata);
+        return 0;
+
+out:
+        SHARD_STACK_UNWIND (fallocate, frame, -1, ENOTSUP, NULL, NULL, NULL);
         return 0;
 }
 
