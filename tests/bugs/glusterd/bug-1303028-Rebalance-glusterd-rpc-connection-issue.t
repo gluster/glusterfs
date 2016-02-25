@@ -39,7 +39,7 @@ TEST $CLI volume status
 
 #Create and start a tiered volume
 create_dist_tier_vol
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_deamon_check
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_daemon_check
 sleep 2   #wait for some time to run tier daemon
 time_before_restarting=$(rebalance_run_time $V0);
 
@@ -51,7 +51,7 @@ EXPECT "0" non_zero_check $time_before_restarting;
 kill -9 $(pidof glusterd);
 TEST glusterd;
 sleep 2;
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_check;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check;
 time1=$(rebalance_run_time $V0);
 EXPECT "0" non_zero_check $time1;
 sleep 4;
