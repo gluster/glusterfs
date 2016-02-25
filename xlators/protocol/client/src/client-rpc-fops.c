@@ -2638,7 +2638,7 @@ client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, xdata,
                                       (rsp.xdata.xdata_val),
-                                      (rsp.xdata.xdata_len), rsp.op_ret,
+                                      (rsp.xdata.xdata_len), ret,
                                       rsp.op_errno, out);
 
 out:
