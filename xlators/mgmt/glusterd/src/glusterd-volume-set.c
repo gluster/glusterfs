@@ -2592,7 +2592,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "changelog.changelog",
           .voltype     = "features/changelog",
           .type        = NO_DOC,
-          .op_version  = 3
+          .op_version  = 2
         },
         { .key         = "changelog.changelog-dir",
           .voltype     = "features/changelog",
