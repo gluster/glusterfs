@@ -155,7 +155,9 @@ static struct argp_option gf_options[] = {
         {"acl", ARGP_ACL_KEY, 0, 0,
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
-         "Enable SELinux label (extened attributes) support on inodes"},
+         "Enable SELinux label (extended attributes) support on inodes"},
+        {"capability", ARGP_CAPABILITY_KEY, 0, 0,
+         "Enable file capability setting and retrival"},
 
         {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
          "Validate the netgroups file and print it out"},
@@ -367,6 +369,15 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 if (ret < 0) {
                         gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                                 "selinux");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->capability) {
+                ret = dict_set_static_ptr (options, "capability", "on");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "capability");
                         goto err;
                 }
         }
@@ -797,6 +808,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_SELINUX_KEY:
                 cmd_args->selinux = 1;
                 gf_remember_xlator_option ("*-md-cache.cache-selinux=true");
+                break;
+
+        case ARGP_CAPABILITY_KEY:
+                cmd_args->capability = 1;
                 break;
 
         case ARGP_AUX_GFID_MOUNT_KEY:

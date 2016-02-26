@@ -136,6 +136,9 @@ struct fuse_private {
 
         /* resolve gid with getgrouplist() instead of /proc/%d/status */
         gf_boolean_t resolve_gids;
+
+        /* Enable or disable capability support */
+        gf_boolean_t         capability;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -424,4 +427,5 @@ int fuse_resolve_fd_init (fuse_state_t *state, fuse_resolve_t *resolve,
 int fuse_ignore_xattr_set (fuse_private_t *priv, char *key);
 void fuse_fop_resume (fuse_state_t *state);
 int dump_history_fuse (circular_buffer_t *cb, void *data);
+int fuse_check_selinux_cap_xattr (fuse_private_t *priv, char *name);
 #endif /* _GF_FUSE_BRIDGE_H_ */
