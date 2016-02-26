@@ -92,6 +92,7 @@ enum argp_option_keys {
         ARGP_SECURE_MGMT_KEY              = 172,
         ARGP_GLOBAL_TIMER_WHEEL           = 173,
         ARGP_RESOLVE_GIDS_KEY             = 174,
+        ARGP_CAPABILITY_KEY               = 175,
 };
 
 struct _gfd_vol_top_priv_t {

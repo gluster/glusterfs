@@ -173,6 +173,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --no-root-squash");
     fi
 
+    if [ -n "$capability" ]; then
+         cmd_line=$(echo "$cmd_line --capability");
+    fi
+
 #options with values start here
     if [ -n "$log_level" ]; then
         cmd_line=$(echo "$cmd_line --log-level=$log_level");
@@ -439,6 +443,9 @@ without_options()
         "noauto")
             ;;
         "_netdev")
+            ;;
+        "capability")
+            capability=1
             ;;
         *)
             warn "Invalid option $option";

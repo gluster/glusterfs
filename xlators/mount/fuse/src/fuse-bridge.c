@@ -3244,6 +3244,14 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
+        if ((!priv->capability) && (!priv->selinux)) {
+                if (strcmp (name, "security.capability") == 0) {
+                        send_fuse_err (this, finh, EOPNOTSUPP);
+                        GF_FREE (finh);
+                        return;
+                }
+        }
+
         /* Check if the command is for changing the log
            level of process or specific xlator */
         ret = is_gf_log_command (this, name, value);
@@ -3568,6 +3576,13 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         if (!priv->selinux) {
                 if (strcmp (name, "security.selinux") == 0) {
+                        op_errno = ENODATA;
+                        goto err;
+                }
+        }
+
+        if ((!priv->capability) && (!priv->selinux)) {
+                if (strcmp (name, "security.capability") == 0) {
                         op_errno = ENODATA;
                         goto err;
                 }
@@ -5558,6 +5573,8 @@ init (xlator_t *this_xl)
 
         GF_OPTION_INIT ("selinux", priv->selinux, bool, cleanup_exit);
 
+        GF_OPTION_INIT ("capability", priv->capability, bool, cleanup_exit);
+
         GF_OPTION_INIT ("read-only", priv->read_only, bool, cleanup_exit);
 
         GF_OPTION_INIT ("enable-ino32", priv->enable_ino32, bool, cleanup_exit);
@@ -5891,6 +5908,10 @@ struct volume_options options[] = {
           "only for the trusted clients. For non trusted clients this value "
           "does not have any affect and the volume option for root-squash is "
           "honoured.",
+        },
+        { .key = {"capability"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false"
         },
         { .key = {NULL} },
 };
