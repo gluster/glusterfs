@@ -126,9 +126,9 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
  cleanup_connector:
         (void) pthread_cancel (priv->connector);
  cleanup_wait_lock:
-        (void) LOCK_DESTROY (&conn->wait_lock);
+        LOCK_DESTROY (&conn->wait_lock);
  cleanup_active_lock:
-        (void) LOCK_DESTROY (&conn->active_lock);
+        LOCK_DESTROY (&conn->active_lock);
  cleanup_pending_cond:
         (void) pthread_cond_destroy (&conn->pending_cond);
  cleanup_pending_lock:
@@ -183,7 +183,7 @@ changelog_rpc_clnt_cleanup (changelog_rpc_clnt_t *crpc)
         if (!crpc)
                 return;
         crpc->c_clnt = NULL;
-        (void) LOCK_DESTROY (&crpc->lock);
+        LOCK_DESTROY (&crpc->lock);
         GF_FREE (crpc);
 }
 
