@@ -149,7 +149,7 @@ struct mount3_state {
         dict_t                  *mountdict;
 
         /* Used to protect the mountlist & the mount dict */
-        pthread_spinlock_t       mountlock;
+        gf_lock_t               mountlock;
 
         /* Used to insert additional authentication parameters */
         struct mnt3_auth_params      *auth_params;
