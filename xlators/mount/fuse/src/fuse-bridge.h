@@ -131,6 +131,9 @@ struct fuse_private {
 
         /* resolve gid with getgrouplist() instead of /proc/%d/status */
         gf_boolean_t resolve_gids;
+
+        /* Enable or disable capability support */
+        gf_boolean_t         capability;
 };
 typedef struct fuse_private fuse_private_t;
 
