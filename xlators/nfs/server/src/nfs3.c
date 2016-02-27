@@ -413,6 +413,28 @@ out:
 }
 
 
+/*
+ * This macro checks if the volume is started or not.
+ * If it is not started, it closes the client connection & logs it.
+ *
+ * Why do we do this?
+ *
+ * There is a "race condition" where gNFSd may start listening for RPC requests
+ * prior to the volume being started. Presumably, that is why this macro exists
+ * in the first place. In the NFS kernel client (specifically Linux's NFS
+ * kernel client), they establish a TCP connection to our endpoint and
+ * (re-)send requests. If we ignore the request, and return nothing back,
+ * the NFS kernel client waits forever for our response. If for some reason,
+ * the TCP connection were to die, and re-establish, the requests are
+ * retransmitted and everything begins working as expected
+ *
+ * Now, this is clearly bad behavior on the client side,
+ * but in order to make every user's life easier,
+ * gNFSd should simply disconnect the TCP connection if it sees requests
+ * before it is ready to accept them.
+ *
+ */
+
 #define nfs3_volume_started_check(nf3stt, vlm, rtval, erlbl)            \
         do {                                                            \
               if ((!nfs_subvolume_started (nfs_state (nf3stt->nfsx), vlm))){\
@@ -420,11 +442,32 @@ out:
                                 NFS_MSG_VOL_DISABLE,                    \
                                 "Volume is disabled: %s",               \
                                 vlm->name);                             \
+                      nfs3_disconnect_transport (req->trans);           \
                       rtval = RPCSVC_ACTOR_IGNORE;                      \
                       goto erlbl;                                       \
               }                                                         \
         } while (0)                                                     \
 
+void
+nfs3_disconnect_transport (rpc_transport_t *transport)
+{
+        int ret = 0;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS3, transport, out);
+
+        ret = rpc_transport_disconnect (transport, _gf_false);
+        if (ret != 0) {
+                gf_log (GF_NFS3, GF_LOG_WARNING,
+                        "Unable to close client connection to %s.",
+                        transport->peerinfo.identifier);
+        } else {
+                gf_log (GF_NFS3, GF_LOG_WARNING,
+                        "Closed client connection to %s.",
+                        transport->peerinfo.identifier);
+        }
+out:
+        return;
+}
 
 int
 nfs3_export_sync_trusted (struct nfs3_state *nfs3, uuid_t exportid)
