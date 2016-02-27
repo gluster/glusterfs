@@ -39,5 +39,5 @@ write_to_file &
 #Test if the MAX [F]INODELK fop latency is of the order of seconds.
 EXPECT "^1$" get_pending_heal_count $V0
 inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
-TEST [ -z $inodelk_max_latency ]
+EXPECT "^$" echo $inodelk_max_latency
 cleanup
