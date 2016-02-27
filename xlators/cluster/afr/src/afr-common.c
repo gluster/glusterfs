@@ -2511,12 +2511,16 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 	if (xattr_req) {
 		/* If xattr_req was null, afr_lookup_xattr_req_prepare() will
 		   allocate one for us */
-                ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
+		local->xattr_req = dict_copy_with_ref (xattr_req, NULL);
+		if (!local->xattr_req) {
+		        op_errno = ENOMEM;
+		        goto out;
+                }
+                ret = dict_get_ptr (local->xattr_req, "gfid-req", &gfid_req);
                 if (ret == 0) {
                         gf_uuid_copy (local->cont.lookup.gfid_req, gfid_req);
-                        dict_del (xattr_req, "gfid-req");
+                        dict_del (local->xattr_req, "gfid-req");
                 }
-		local->xattr_req = dict_ref (xattr_req);
         }
 
 	afr_read_subvol_get (loc->parent, this, NULL, &event,

@@ -83,10 +83,10 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
          *      __afr_selfheal_name_impunge().
          */
 
-        afr_replies_wipe (replies, priv->child_count);
-
         AFR_ONLIST (locked_on, new_frame, afr_selfheal_discover_cbk, lookup,
                     &loc, xdata);
+
+        afr_replies_wipe (replies, priv->child_count);
 
         afr_replies_copy (replies, new_local->replies, priv->child_count);
 
