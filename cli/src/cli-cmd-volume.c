@@ -2519,6 +2519,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
+#if !defined(__NetBSD__)
         { "volume tier <VOLNAME> status\n"
         "volume tier <VOLNAME> start [force]\n"
         "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>...\n"
@@ -2538,6 +2539,7 @@ struct cli_cmd volume_cmds[] = {
           "NOTE: this is old syntax, will be depreciated in next release. "
           "Please use gluster volume tier <vol> detach "
           "{start|stop|commit} [force]"},
+#endif
 
         { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,
