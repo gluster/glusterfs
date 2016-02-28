@@ -8,6 +8,8 @@ retry="no"
 tests=""
 exit_on_failure="yes"
 
+OSTYPE=$(uname -s)
+
 function check_dependencies()
 {
     ## Check all dependencies are present
@@ -166,7 +168,7 @@ function is_bad_test ()
               ./tests/basic/tier/bug-1214222-directories_missing_after_attach_tier.t \
               ./tests/basic/tier/fops-during-migration.t \
               ./tests/basic/tier/record-metadata-heat.t \
-	      ./tests/basic/tier/tier-snapshot.t \
+              ./tests/basic/tier/tier-snapshot.t \
               ./tests/bugs/snapshot/bug-1109889.t \
               ./tests/bugs/distribute/bug-1066798.t \
               ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
@@ -183,7 +185,16 @@ function is_bad_test ()
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
-    return 1				  # bash: non-zero means false/failure
+    return 1                              # bash: non-zero means false/failure
+}
+
+function is_unsupported_test()
+{
+        if [ x"$OSTYPE" != x"NetBSD" ]; then
+                return 1
+        fi
+
+        grep -iqs tier $1
 }
 
 function run_tests()
@@ -197,12 +208,18 @@ function run_tests()
 
     for t in $(find ${regression_testsdir}/tests -name '*.t' \
                | LC_COLLATE=C sort) ; do
-	old_cores=$(ls /core.* 2> /dev/null | wc -l)
+        old_cores=$(ls /core.* 2> /dev/null | wc -l)
         if match $t "$@" ; then
             echo
             echo "=================================================="
-	    if is_bad_test $t; then
+            if is_bad_test $t; then
                 echo "Skipping bad test file $t"
+                echo "=================================================="
+                echo
+                continue
+            fi
+            if is_unsupported_test $t; then
+                echo "Skipping test file $t (feature unsupported on platform)"
                 echo "=================================================="
                 echo
                 continue
