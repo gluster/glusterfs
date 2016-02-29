@@ -691,6 +691,10 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		data_readable[i] = 1;
 		metadata_readable[i] = 1;
 	}
+        if (AFR_IS_ARBITER_BRICK (priv, ARBITER_BRICK_INDEX)) {
+                data_readable[ARBITER_BRICK_INDEX] =  0;
+                metadata_readable[ARBITER_BRICK_INDEX] = 0;
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid) {
@@ -1773,9 +1777,14 @@ unwind:
                         read_subvol = spb_choice;
                 else
                         read_subvol = afr_first_up_child (frame, this);
+
         }
         par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
                                                       readable);
+        if (AFR_IS_ARBITER_BRICK (priv, read_subvol) && local->op_ret == 0) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOTCONN;
+        }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
@@ -2221,6 +2230,10 @@ unwind:
                         read_subvol = spb_choice;
                 else
                         read_subvol = afr_first_up_child (frame, this);
+        }
+        if (AFR_IS_ARBITER_BRICK (priv, read_subvol) && local->op_ret == 0) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOTCONN;
         }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
