@@ -690,6 +690,16 @@ class Server(object):
             op = e['op']
             gfid = e['gfid']
             entry = e['entry']
+            uid = 0
+            gid = 0
+            if e.get("stat", {}):
+                # Copy UID/GID value and then reset to zero. Copied UID/GID
+                # will be used to run chown once entry is created.
+                uid = e['stat']['uid']
+                gid = e['stat']['gid']
+                e['stat']['uid'] = 0
+                e['stat']['gid'] = 0
+
             (pg, bname) = entry2pb(entry)
             if op in ['RMDIR', 'UNLINK']:
                 # Try once, if rmdir failed with ENOTEMPTY
@@ -768,6 +778,16 @@ class Server(object):
                                      [EEXIST, ENOENT],
                                      [ESTALE, EINVAL])
                 collect_failure(e, cmd_ret)
+
+                # If UID/GID is different than zero that means we are trying
+                # create Entry with different UID/GID. Create Entry with
+                # UID:0 and GID:0, and then call chown to set UID/GID
+                if uid != 0 or gid != 0:
+                    path = os.path.join(pfx, gfid)
+                    cmd_ret = errno_wrap(os.chown, [path, uid, gid], [ENOENT],
+                                         [ESTALE, EINVAL])
+                collect_failure(e, cmd_ret)
+
         return failures
 
     @classmethod
