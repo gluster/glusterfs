@@ -617,6 +617,7 @@
  * @recommendedaction
  *
  */
+#define PC_MSG_CHILD_STATUS                     (GLFS_PC_BASE + 64)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

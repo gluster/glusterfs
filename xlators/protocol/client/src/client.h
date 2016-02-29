@@ -133,6 +133,9 @@ typedef struct clnt_conf {
 
         gf_boolean_t           destroy; /* if enabled implies fini was called
                                          * on @this xlator instance */
+
+        gf_boolean_t           child_up; /* Set to true, when child is up, and
+                                          * false, when child is down */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

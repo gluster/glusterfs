@@ -385,6 +385,12 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        ret = dict_set_int32 (reply, "child_up", conf->child_up);
+        if (ret < 0)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_DICT_GET_FAILED, "Failed to set 'child_up' "
+                        "in the reply dict");
+
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
                 op_ret = -1;

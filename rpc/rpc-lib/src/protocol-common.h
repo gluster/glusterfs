@@ -134,6 +134,8 @@ enum gf_cbk_procnum {
         GF_CBK_EVENT_NOTIFY,
         GF_CBK_GET_SNAPS,
         GF_CBK_CACHE_INVALIDATION,
+        GF_CBK_CHILD_UP,
+        GF_CBK_CHILD_DOWN,
         GF_CBK_MAXVALUE,
 };
 

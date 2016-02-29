@@ -2467,6 +2467,8 @@ init (xlator_t *this)
         pthread_mutex_init (&conf->lock, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
 
+        conf->child_up = _gf_false;
+
         /* Initialize parameters for lock self healing*/
         conf->lk_version         = 1;
         conf->grace_timer        = NULL;
