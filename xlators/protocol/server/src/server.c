@@ -958,6 +958,8 @@ init (xlator_t *this)
         if (ret)
                 conf->conf_dir = CONFDIR;
 
+        conf->child_up = _gf_false;
+
         /*ret = dict_get_str (this->options, "statedump-path", &statedump_path);
         if (!ret) {
                 gf_path_strip_trailing_slashes (statedump_path);
@@ -1237,6 +1239,35 @@ out:
 }
 
 int
+server_process_child_event (xlator_t *this, int32_t event, void *data,
+                            enum gf_cbk_procnum cbk_procnum)
+{
+        int              ret          = -1;
+        server_conf_t    *conf        = NULL;
+        rpc_transport_t  *xprt        = NULL;
+
+        GF_VALIDATE_OR_GOTO(this->name, data, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO(this->name, conf, out);
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        rpcsvc_callback_submit (conf->rpc, xprt,
+                                                &server_cbk_prog,
+                                                cbk_procnum,
+                                                NULL, 0);
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int              ret          = -1;
@@ -1245,6 +1276,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         dict_t           *output      = NULL;
         server_conf_t    *conf        = NULL;
         va_list          ap;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
         dict = data;
         va_start (ap, data);
@@ -1272,7 +1307,41 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 conf->parent_up = _gf_true;
 
-                /* fall through and notify the event to children */
+                default_notify (this, event, data);
+                break;
+        }
+
+        case GF_EVENT_CHILD_UP:
+        {
+                conf->child_up = _gf_true;
+                ret = server_process_child_event (this, event, data,
+                                                  GF_CBK_CHILD_UP);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_SERVER_EVENT_UPCALL_FAILED,
+                                "server_process_child_event failed");
+                        goto out;
+                }
+
+                default_notify (this, event, data);
+                break;
+        }
+
+        case GF_EVENT_CHILD_DOWN:
+        {
+                conf->child_up = _gf_false;
+                ret = server_process_child_event (this, event, data,
+                                                  GF_CBK_CHILD_DOWN);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_SERVER_EVENT_UPCALL_FAILED,
+                                "server_process_child_event failed");
+                        goto out;
+                }
+
+                default_notify (this, event, data);
+                break;
+
         }
 
         default:

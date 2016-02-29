@@ -129,13 +129,26 @@ client_notify_parents_child_up (xlator_t *this)
         clnt_conf_t *conf = NULL;
         int          ret  = 0;
 
+        GF_VALIDATE_OR_GOTO("client", this, out);
         conf = this->private;
-        ret = client_notify_dispatch_uniq (this, GF_EVENT_CHILD_UP, NULL);
-        if (ret)
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PC_MSG_CHILD_UP_NOTIFY_FAILED, "notify of CHILD_UP "
-                        "failed");
+        GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
+        if (conf->child_up) {
+                ret = client_notify_dispatch_uniq (this, GF_EVENT_CHILD_UP,
+                                                   NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                PC_MSG_CHILD_UP_NOTIFY_FAILED,
+                                "notify of CHILD_UP failed");
+                        goto out;
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_CHILD_STATUS,
+                        "Defering sending CHILD_UP message as the client "
+                        "translators are not yet ready to serve.");
+        }
+
+out:
         return 0;
 }
 
@@ -1154,6 +1167,13 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         if (ret || !remote_subvol) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
                         "failed to find key 'remote-subvolume' in the options");
+                goto out;
+        }
+
+        ret = dict_get_uint32 (reply, "child_up", &conf->child_up);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
+                        "failed to find key 'child_up' in the options");
                 goto out;
         }
 

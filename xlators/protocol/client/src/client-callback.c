@@ -81,13 +81,53 @@ out:
         return 0;
 }
 
+int
+client_cbk_child_up (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        clnt_conf_t   *conf  = NULL;
+        xlator_t      *this  = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, rpc, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        gf_msg_debug (this->name, 0, "Received CHILD_UP");
+        conf->child_up = _gf_true;
+
+        this->notify (this, GF_EVENT_CHILD_UP, NULL);
+out:
+        return 0;
+}
+
+int
+client_cbk_child_down (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        clnt_conf_t   *conf  = NULL;
+        xlator_t      *this  = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, rpc, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        gf_msg_debug (this->name, 0, "Received CHILD_DOWN");
+        conf->child_up = _gf_false;
+
+        this->notify (this, GF_EVENT_CHILD_DOWN, NULL);
+out:
+        return 0;
+}
+
 rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
-        [GF_CBK_NULL]      = {"NULL",      GF_CBK_NULL,      client_cbk_null },
-        [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, client_cbk_fetchspec },
-        [GF_CBK_INO_FLUSH] = {"INO_FLUSH", GF_CBK_INO_FLUSH, client_cbk_ino_flush },
-        [GF_CBK_CACHE_INVALIDATION] = {"CACHE_INVALIDATION",
-                                       GF_CBK_CACHE_INVALIDATION,
-                                       client_cbk_cache_invalidation },
+        [GF_CBK_NULL]               = {"NULL",               GF_CBK_NULL,               client_cbk_null },
+        [GF_CBK_FETCHSPEC]          = {"FETCHSPEC",          GF_CBK_FETCHSPEC,          client_cbk_fetchspec },
+        [GF_CBK_INO_FLUSH]          = {"INO_FLUSH",          GF_CBK_INO_FLUSH,          client_cbk_ino_flush },
+        [GF_CBK_CACHE_INVALIDATION] = {"CACHE_INVALIDATION", GF_CBK_CACHE_INVALIDATION, client_cbk_cache_invalidation },
+        [GF_CBK_CHILD_UP]           = {"CHILD_UP",           GF_CBK_CHILD_UP,           client_cbk_child_up },
+        [GF_CBK_CHILD_DOWN]         = {"CHILD_DOWN",         GF_CBK_CHILD_DOWN,         client_cbk_child_down },
 };
 
 
