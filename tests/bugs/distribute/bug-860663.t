@@ -29,10 +29,10 @@ TEST $CLI volume start $V0
 ## Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
-TEST $(dirname $0)/bug-860663 $M0/files 10000
+TEST $(dirname $0)/bug-860663 $M0/files 1000
 
 ORIG_FILE_COUNT=`ls -l $M0 | wc -l`;
-TEST [ $ORIG_FILE_COUNT -ge 10000 ]
+TEST [ $ORIG_FILE_COUNT -ge 1000 ]
 
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
@@ -46,10 +46,9 @@ TEST $CLI volume rebalance $V0 fix-layout start
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" rebalance_status_field $V0;
 
-TEST ! $(dirname $0)/bug-860663 $M0/files 10000
-
-
-sleep 5;
+# Unmount and remount to make sure we're doing fresh lookups.
+TEST umount $M0
+TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 NEW_FILE_COUNT=`ls -l $M0 | wc -l`;
 
