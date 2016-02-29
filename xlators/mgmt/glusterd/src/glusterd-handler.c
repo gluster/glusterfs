@@ -3695,6 +3695,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
         } else {
                 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND, NULL,
                                               (char*)hoststr, port, dict);
+                ret = 0;
         }
 
 out:
