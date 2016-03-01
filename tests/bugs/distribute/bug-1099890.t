@@ -44,6 +44,8 @@ TEST   $CLI volume set $V0 features.quota-deem-statfs on
 
 TEST   $CLI volume quota $V0 limit-usage / 150MB;
 
+TEST   $CLI volume set $V0 cluster.du-refresh-interval-sec 1
+
 TEST   $CLI volume set $V0 cluster.min-free-disk 50%
 
 TEST   glusterfs -s $H0 --volfile-id=$V0 $M0

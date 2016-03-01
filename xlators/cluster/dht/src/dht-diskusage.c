@@ -153,19 +153,25 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	call_frame_t  *statfs_frame = NULL;
 	dht_local_t   *statfs_local = NULL;
 	struct timeval tv           = {0,};
+	struct timeval cmp_tv       = {0,};
         loc_t          tmp_loc      = {0,};
 
 	conf  = this->private;
 
+        /* Somebody else is already refreshing the statfs info */
+        if (TRY_LOCK (&conf->du_refresh_lock) != 0)
+                return 0;
+
 	gettimeofday (&tv, NULL);
+
+        cmp_tv = conf->last_stat_fetch;
+        cmp_tv.tv_sec += conf->du_refresh_interval_sec;
 
         /* make it root gfid, should be enough to get the proper
            info back */
         tmp_loc.gfid[15] = 1;
 
-	if (tv.tv_sec > (conf->refresh_interval
-			 + conf->last_stat_fetch.tv_sec)) {
-
+	if (timercmp (&tv, &cmp_tv, >)) {
 		statfs_frame = copy_frame (frame);
 		if (!statfs_frame) {
 			goto err;
@@ -200,14 +206,18 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 				    &tmp_loc, statfs_local->params);
 		}
 
-		conf->last_stat_fetch.tv_sec = tv.tv_sec;
+		conf->last_stat_fetch = tv;
 	}
-	return 0;
+        ret = 0;
+        goto out;
 err:
 	if (statfs_frame)
 		DHT_STACK_DESTROY (statfs_frame);
 
-	return -1;
+        ret = -1;
+out:
+        UNLOCK (&conf->du_refresh_lock);
+        return ret;
 }
 
 
@@ -223,8 +233,13 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 	conf = this->private;
 
 	/* Check for values above specified percent or free disk */
-	LOCK (&conf->subvolume_lock);
-	{
+	if (TRY_LOCK (&conf->subvolume_lock) != 0) {
+		for (i = 0; i < conf->subvolume_cnt; i++) {
+			if (subvol == conf->subvolumes[i]) {
+                                return conf->du_stats[i].is_full;
+                        }
+                }
+        } else {
 		for (i = 0; i < conf->subvolume_cnt; i++) {
 			if (subvol == conf->subvolumes[i]) {
 				if (conf->disk_unit == 'p') {
@@ -248,7 +263,15 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 				}
 			}
 		}
-	}
+
+	        /* i will be less than subvolume_cnt if either of
+                 * these booleans are true */
+                is_subvol_filled = (
+                    subvol_filled_space || subvol_filled_inodes);
+                if (is_subvol_filled) {
+                        conf->du_stats[i].is_full = is_subvol_filled;
+                }
+        }
 	UNLOCK (&conf->subvolume_lock);
 
 	if (subvol_filled_space && conf->subvolume_status[i]) {
@@ -272,8 +295,6 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 				(100 - conf->du_stats[i].avail_inodes));
 		}
 	}
-
-	is_subvol_filled = (subvol_filled_space || subvol_filled_inodes);
 
 	return is_subvol_filled;
 }
@@ -309,15 +330,8 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol,
 
         LOCK (&conf->subvolume_lock);
 	{
-                avail_subvol = dht_subvol_with_free_space_inodes(this, subvol,
+                avail_subvol = dht_subvol_maxspace_nonzeroinode(this, subvol,
                                                                  layout);
-                if(!avail_subvol)
-                {
-                        avail_subvol = dht_subvol_maxspace_nonzeroinode(this,
-                                                                        subvol,
-                                                                        layout);
-                }
-
 	}
 	UNLOCK (&conf->subvolume_lock);
 out:
@@ -325,7 +339,6 @@ out:
 		gf_msg_debug (this->name, 0,
 		              "No subvolume has enough free space \
                               and/or inodes to create");
-                avail_subvol = subvol;
 	}
 
         if (layout)

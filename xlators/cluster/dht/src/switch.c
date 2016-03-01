@@ -440,7 +440,10 @@ switch_create (call_frame_t *frame, xlator_t *this,
                                                         local);
         }
 
-        if (subvol != avail_subvol) {
+        if (!avail_subvol) {
+                op_errno = ENOSPC;
+                goto err;
+        } else if (subvol != avail_subvol) {
                 /* create a link file instead of actual file */
                 local->mode = mode;
                 local->flags = flags;
@@ -540,7 +543,10 @@ switch_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                                                         local);
         }
 
-        if (avail_subvol != subvol) {
+        if (!avail_subvol) {
+                op_errno = ENOSPC;
+                goto err;
+        } else if (avail_subvol != subvol) {
                 /* Create linkfile first */
 
                 local->params = dict_ref (params);

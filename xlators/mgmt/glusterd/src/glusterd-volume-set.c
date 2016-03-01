@@ -1048,6 +1048,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.min-free-strict-mode",
+          .voltype    = "cluster/distribute",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "cluster.min-free-inodes",
           .voltype    = "cluster/distribute",
           .op_version = 1,
@@ -1111,6 +1116,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_8_0,
           .validate_fn = validate_lock_migration_option,
           .flags       = OPT_FLAG_CLIENT_OPT,
+        },
+
+        { .key = "cluster.du-refresh-interval-sec",
+          .voltype = "cluster/distribute",
+          .option = "du-refresh-interval-sec",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
 
         /* NUFA xlator options (Distribute special case) */

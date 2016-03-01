@@ -439,6 +439,8 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         conf->disk_unit = 0;
         if (conf->min_free_disk < 100.0)
                 conf->disk_unit = 'p';
+	GF_OPTION_RECONF ("min-free-strict-mode", conf->min_free_strict_mode,
+                          options, bool, out);
 
 	GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
                           percent, out);
@@ -495,6 +497,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("use-readdirp", conf->use_readdirp, options,
                           bool, out);
+
+        GF_OPTION_RECONF ("du-refresh-interval-sec",
+                           conf->du_refresh_interval_sec, options, uint32, out);
         ret = 0;
 out:
         return ret;
@@ -712,7 +717,10 @@ dht_init (xlator_t *this)
         GF_OPTION_INIT ("use-readdirp", conf->use_readdirp, bool, err);
 
 	GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
-			err);
+                        err);
+
+	GF_OPTION_INIT ("min-free-strict-mode", conf->min_free_strict_mode,
+                        bool, err);
 
         GF_OPTION_INIT ("min-free-inodes", conf->min_free_inodes, percent,
                         err);
@@ -729,6 +737,11 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("lock-migration", conf->lock_migration_enabled,
                          bool, err);
+
+        GF_OPTION_INIT ("du-refresh-interval-sec",
+                        conf->du_refresh_interval_sec, uint32, err);
+
+        LOCK_INIT (&conf->du_refresh_lock);
 
         if (defrag) {
               defrag->lock_migration_enabled = conf->lock_migration_enabled;
@@ -900,6 +913,14 @@ struct volume_options options[] = {
           .description = "Percentage/Size of disk space, after which the "
           "process starts balancing out the cluster, and logs will appear "
           "in log files",
+        },
+        { .key  = {"min-free-strict-mode"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "When enabled, will reject in-flight writes or "
+          "append operations to files when the target subvolume falls "
+          "below min-free-(disk|inodes).  When disabled, these are allowed  "
+          "through and only new files will be affected.",
         },
 	{ .key  = {"min-free-inodes"},
           .type = GF_OPTION_TYPE_PERCENT,
@@ -1081,6 +1102,15 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = " If enabled this feature will migrate the posix locks"
                          " associated with a file during rebalance"
+        },
+
+        { .key  = {"du-refresh-interval-sec"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 0,
+          .default_value = "60",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "Specifies how many seconds before subvolume statfs "
+                         "info is re-validated."
         },
 
         { .key  = {NULL} },

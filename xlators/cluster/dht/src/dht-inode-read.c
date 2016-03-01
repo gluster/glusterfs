@@ -104,10 +104,15 @@ dht_open (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
+        dht_conf_t      *conf = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+        conf = this->private;
+
+        if (conf->min_free_strict_mode == _gf_true)
+                dht_get_du_info (frame, this, loc);
 
         local = dht_local_init (frame, loc, fd, GF_FOP_OPEN);
         if (!local) {
@@ -120,6 +125,11 @@ dht_open (call_frame_t *frame, xlator_t *this,
                 gf_msg_debug (this->name, 0,
                               "no cached subvolume for fd=%p", fd);
                 op_errno = EINVAL;
+                goto err;
+        } else if (conf->min_free_strict_mode == _gf_true &&
+                   dht_is_subvol_filled (this, subvol) == _gf_true &&
+                   flags & O_APPEND) {
+                op_errno = ENOSPC;
                 goto err;
         }
 

@@ -62,7 +62,7 @@ TEST [ "$(md5sum $M0/testfile1 | awk '{print $1}')" == "$md5" ]
 
 rm /tmp/testfile1
 
-dd if=/dev/zero of=$N0/bigfile bs=1M count=10240 &
+dd if=/dev/zero of=$N0/bigfile bs=1M count=3072 &
 BG_STRESS_PID=$!
 
 sleep 3

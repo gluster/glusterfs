@@ -5550,6 +5550,7 @@ dht_mknod_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
 {
         dht_local_t     *local          = NULL;
         xlator_t        *avail_subvol   = NULL;
+        int             op_errno        = 0;
 
         local = frame->local;
 
@@ -5562,9 +5563,15 @@ dht_mknod_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
                                    subvol, subvol->fops->mknod, loc, mode,
                                    rdev, umask, params);
         } else {
-                avail_subvol = dht_free_disk_available_subvol (this, subvol, local);
-
-                if (avail_subvol != subvol) {
+                /* This will return NULL if all subvolumes are full
+                 * and/or no subvolume needs the min_free_disk limit
+                 */
+                avail_subvol = dht_free_disk_available_subvol (this, subvol,
+                                                                local);
+                if (!avail_subvol) {
+                        op_errno = ENOSPC;
+                        goto err;
+                } else if (avail_subvol != subvol) {
                         local->params = dict_ref (params);
                         local->rdev = rdev;
                         local->mode = mode;
@@ -5594,6 +5601,8 @@ dht_mknod_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
         }
 out:
         return 0;
+err:
+        return op_errno;
 }
 
 int32_t
@@ -6233,8 +6242,12 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
             }
         }
 
-        dht_mknod_wind_to_avail_subvol (frame, this, subvol, loc, rdev, mode,
-                                        umask, params);
+        op_errno = dht_mknod_wind_to_avail_subvol (frame, this, subvol, loc,
+                                                        rdev, mode, umask,
+                                                        params);
+        if (op_errno != 0) {
+                goto err;
+        }
 
 done:
         return 0;
@@ -6729,6 +6742,7 @@ dht_create_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
 {
         dht_local_t     *local          = NULL;
         xlator_t        *avail_subvol   = NULL;
+        int             op_errno        = 0;
 
         local = frame->local;
 
@@ -6743,8 +6757,10 @@ dht_create_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
 
         } else {
                 avail_subvol = dht_free_disk_available_subvol (this, subvol, local);
-
-                if (avail_subvol != subvol) {
+                if (!avail_subvol) {
+                        op_errno = ENOSPC;
+                        goto err;
+                } else if (avail_subvol != subvol) {
                         local->params = dict_ref (params);
                         local->flags = flags;
                         local->mode = mode;
@@ -6771,6 +6787,10 @@ dht_create_wind_to_avail_subvol (call_frame_t *frame, xlator_t *this,
         }
 out:
         return 0;
+err:
+        DHT_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL, NULL, NULL);
+        return op_errno;
 }
 
 int
@@ -6873,9 +6893,10 @@ dht_create_do (call_frame_t *frame)
                 goto err;
         }
 
-        dht_create_wind_to_avail_subvol (frame, this, subvol, &local->loc,
-                                         local->flags, local->mode,
-                                         local->umask, local->fd, local->params);
+        dht_create_wind_to_avail_subvol (frame, this, subvol,
+                                                &local->loc, local->flags,
+                                                local->mode, local->umask,
+                                                local->fd, local->params);
         return 0;
 err:
         local->refresh_layout_unlock (frame, this, -1, 1);

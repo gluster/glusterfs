@@ -300,6 +300,7 @@ struct dht_du {
         uint64_t avail_space;
         uint32_t log;
         uint32_t chunks;
+        gf_boolean_t is_full;
 };
 typedef struct dht_du dht_du_t;
 
@@ -484,6 +485,7 @@ struct dht_conf {
         dht_du_t      *du_stats;
         double         min_free_disk;
         double         min_free_inodes;
+        gf_boolean_t   min_free_strict_mode;
         char           disk_unit;
         int32_t        refresh_interval;
         gf_boolean_t   unhashed_sticky_bit;
@@ -548,6 +550,10 @@ struct dht_conf {
         /* lock migration */
 
         gf_boolean_t    lock_migration_enabled;
+
+        /* du stats */
+        uint32_t       du_refresh_interval_sec;
+        gf_lock_t      du_refresh_lock;
 };
 typedef struct dht_conf dht_conf_t;
 

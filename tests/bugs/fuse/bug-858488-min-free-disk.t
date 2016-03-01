@@ -23,6 +23,7 @@ TEST MOUNT_LOOP $LO2 $B0/${V0}2
 
 ## Lets create volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
+TEST $CLI volume set $V0 cluster.du-refresh-interval-sec 1
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
