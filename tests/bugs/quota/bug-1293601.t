@@ -4,7 +4,7 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup;
-TESTS_EXPECTED_IN_LOOP=1044
+TESTS_EXPECTED_IN_LOOP=1024
 
 TEST glusterd
 
@@ -21,10 +21,8 @@ done
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "1.0MB" quotausage "/"
 
-for i in {1..10}; do
-    TEST_IN_LOOP $CLI volume quota $V0 disable
-    TEST_IN_LOOP $CLI volume quota $V0 enable
-done
+TEST $CLI volume quota $V0 disable
+TEST $CLI volume quota $V0 enable
 
 TEST $CLI volume quota $V0 limit-usage / 2MB
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "1.0MB" quotausage "/"
