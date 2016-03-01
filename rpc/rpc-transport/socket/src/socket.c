@@ -3074,7 +3074,7 @@ handler:
                 rpc_transport_ref (this);
                 refd = _gf_true;
 
-                if (priv->own_thread) {
+                if (!ret && priv->own_thread) {
                         if (pipe(priv->pipe) < 0) {
                                 gf_log(this->name,GF_LOG_ERROR,
                                 "could not create pipe");
