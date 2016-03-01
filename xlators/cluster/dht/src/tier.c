@@ -724,6 +724,17 @@ tier_migrate_using_query_file (void *_args)
                                 per_link_status = -1;
                                 goto abort;
                         }
+
+                        if (query_cbk_args->is_promotion &&
+                            defrag->tier_conf.tier_max_promote_size &&
+                            (current.ia_size > defrag->tier_conf.tier_max_promote_size)) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "File size exceeds maxsize for promotion. ");
+                                per_link_status = 1;
+                                goto abort;
+                        }
+
                         linked_inode = inode_link (loc.inode, NULL, NULL,
                                                         &current);
                         inode_unref (loc.inode);
@@ -2079,6 +2090,7 @@ tier_init (xlator_t *this)
 {
         int               ret            = -1;
         int               freq           = 0;
+        int               maxsize        = 0;
         dht_conf_t       *conf           = NULL;
         gf_defrag_info_t *defrag         = NULL;
         char             *voldir         = NULL;
@@ -2128,6 +2140,14 @@ tier_init (xlator_t *this)
         defrag = conf->defrag;
 
         defrag->tier_conf.is_tier = 1;
+
+        ret = dict_get_int32 (this->options,
+                              "tier-max-promote-file-size", &maxsize);
+        if (ret) {
+                maxsize = 0;
+        }
+
+        defrag->tier_conf.tier_max_promote_size = maxsize;
 
         ret = dict_get_int32 (this->options,
                               "tier-promote-frequency", &freq);
@@ -2316,6 +2336,10 @@ tier_reconfigure (xlator_t *this, dict_t *options)
 
         if (conf->defrag) {
                 defrag = conf->defrag;
+                GF_OPTION_RECONF ("tier-max-promote-file-size",
+                                  defrag->tier_conf.tier_max_promote_size,
+                                  options, int32, out);
+
                 GF_OPTION_RECONF ("tier-promote-frequency",
                                   defrag->tier_conf.tier_promote_frequency,
                                   options, int32, out);
