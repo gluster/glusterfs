@@ -2639,7 +2639,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value      = "off",
           .option     = "!shard",
           .op_version = GD_OP_VERSION_3_7_0,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .description = "enable/disable sharding translator on the volume.",
+          .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
         { .key        = "features.shard-block-size",
           .voltype    = "features/shard",
