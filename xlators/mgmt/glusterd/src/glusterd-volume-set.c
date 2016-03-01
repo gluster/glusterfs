@@ -452,6 +452,7 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 }
         } else if (strstr (key, "tier-promote-frequency") ||
                    strstr (key, "tier-max-mb") ||
+                   strstr (key, "tier-max-promote-file-size") ||
                    strstr (key, "tier-max-files") ||
                    strstr (key, "tier-demote-frequency")) {
                 if (origin_val < 1) {
@@ -2495,6 +2496,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           " demotes or promotes files automatically based on access."
           " Cache mode does so based on whether the cache is full or not,"
           " as specified with watermarks."
+        },
+        { .key         = "cluster.tier-max-promote-file-size",
+          .voltype     = "cluster/tier",
+          .option      = "tier-max-promote-file-size",
+          .value       = "0",
+          .op_version  = GD_OP_VERSION_3_7_10,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "The maximum file size in bytes that is promoted. If 0, there"
+          " is no maximum size (default)."
         },
         { .key         = "cluster.tier-max-mb",
           .voltype     = "cluster/tier",

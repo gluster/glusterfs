@@ -357,6 +357,7 @@ typedef struct gf_tier_conf {
         uint64_t                     max_migrate_bytes;
         int                          max_migrate_files;
         tier_mode_t                  mode;
+        int                          tier_max_promote_size;
         int                          tier_promote_frequency;
         int                          tier_demote_frequency;
         uint64_t                     st_last_promoted_size;
