@@ -19,9 +19,8 @@ glusterd_svc_build_snapd_rundir (glusterd_volinfo_t *volinfo,
         char                    workdir[PATH_MAX]      = {0,};
         glusterd_conf_t        *priv                   = THIS->private;
 
-        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
-
-        snprintf (path, path_len, "%s/run", workdir);
+        GLUSTERD_GET_VOLUME_PID_DIR (workdir, volinfo, priv);
+        snprintf (path, path_len, "%s", workdir);
 }
 
 void

@@ -86,8 +86,9 @@ glusterd_svc_init_common (glusterd_svc_t *svc,
                 goto out;
 
         /* Initialize the process mgmt */
-        glusterd_svc_build_pidfile_path (svc_name, workdir, pidfile,
-                                         sizeof(pidfile));
+        glusterd_svc_build_pidfile_path (svc_name, priv->rundir,
+                                         pidfile, sizeof(pidfile));
+
         glusterd_svc_build_volfile_path (svc_name, workdir, volfile,
                                          sizeof (volfile));
 
@@ -133,7 +134,7 @@ int glusterd_svc_init (glusterd_svc_t *svc, char *svc_name)
         priv = this->private;
         GF_ASSERT (priv);
 
-        glusterd_svc_build_rundir (svc_name, priv->workdir, rundir,
+        glusterd_svc_build_rundir (svc_name, priv->rundir, rundir,
                                    sizeof (rundir));
         ret = glusterd_svc_init_common (svc, svc_name, priv->workdir, rundir,
                                         DEFAULT_LOG_FILE_DIRECTORY, NULL);
@@ -276,7 +277,7 @@ glusterd_svc_build_rundir (char *server, char *workdir, char *path, size_t len)
         GF_ASSERT (len == PATH_MAX);
 
         glusterd_svc_build_svcdir (server, workdir, dir, sizeof (dir));
-        snprintf (path, len, "%s/run", dir);
+        snprintf (path, len, "%s", dir);
 }
 
 int

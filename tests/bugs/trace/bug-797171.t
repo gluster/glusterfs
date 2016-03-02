@@ -21,8 +21,8 @@ $M0;
 touch $M0/{1..22};
 rm -f $M0/*;
 
-pid_file=$(ls $GLUSTERD_WORKDIR/vols/$V0/run);
-brick_pid=$(cat $GLUSTERD_WORKDIR/vols/$V0/run/$pid_file);
+pid_file=$(ls $GLUSTERD_PIDFILEDIR/vols/$V0/);
+brick_pid=$(cat $GLUSTERD_PIDFILEDIR/vols/$V0/$pid_file);
 
 mkdir $statedumpdir/statedump_tmp/;
 echo "path=$statedumpdir/statedump_tmp" > $statedumpdir/glusterdump.options;

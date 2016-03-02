@@ -1390,6 +1390,7 @@ init (xlator_t *this)
         struct stat        buf                        = {0,};
         char               storedir[PATH_MAX]         = {0,};
         char               workdir[PATH_MAX]          = {0,};
+        char               rundir[PATH_MAX]           = {0,};
         char               cmd_log_filename[PATH_MAX] = {0,};
         char              *mountbroker_root           = NULL;
         int                i                          = 0;
@@ -1422,6 +1423,17 @@ init (xlator_t *this)
                 }
         }
 #endif
+
+        dir_data = dict_get (this->options, "run-directory");
+
+        if (!dir_data) {
+                /* Use default working dir */
+                strncpy (rundir, DEFAULT_VAR_RUN_DIRECTORY, PATH_MAX);
+        } else {
+                strncpy (rundir, dir_data->data, PATH_MAX);
+        }
+
+        dir_data = NULL;
 
         dir_data = dict_get (this->options, "working-directory");
 
@@ -1467,6 +1479,11 @@ init (xlator_t *this)
                 GD_MSG_CURR_WORK_DIR_INFO, "Using %s as working directory",
                 workdir);
 
+        setenv ("DEFAULT_VAR_RUN_DIRECTORY", rundir, 1);
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_CURR_WORK_DIR_INFO, "Using %s as pid file working "
+                "directory", rundir);
+
         ret = glusterd_find_correct_var_run_dir (this, var_run_dir);
         if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
@@ -1477,6 +1494,7 @@ init (xlator_t *this)
 
         ret = glusterd_init_var_run_dirs (this, var_run_dir,
                                       GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+
         if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_CREATE_DIR_FAILED, "Unable to create "
@@ -1496,6 +1514,51 @@ init (xlator_t *this)
                 exit (1);
         }
 
+        ret = glusterd_init_var_run_dirs (this, rundir,
+                                          GLUSTERD_BITD_RUN_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
+                        "bitd running directory");
+                exit (1);
+        }
+
+        ret = glusterd_init_var_run_dirs (this, rundir,
+                                          GLUSTERD_SCRUB_RUN_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
+                        "scrub running directory");
+                exit (1);
+        }
+
+        ret = glusterd_init_var_run_dirs (this, rundir,
+                                          GLUSTERD_GLUSTERSHD_RUN_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
+                        "glustershd running directory");
+                exit (1);
+        }
+
+        ret = glusterd_init_var_run_dirs (this, rundir,
+                                          GLUSTERD_NFS_RUN_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
+                        "nfs running directory");
+                exit (1);
+        }
+
+        ret = glusterd_init_var_run_dirs (this, rundir,
+                                          GLUSTERD_QUOTAD_RUN_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create "
+                        "quota running directory");
+                exit (1);
+        }
+
         snprintf (cmd_log_filename, PATH_MAX, "%s/cmd_history.log",
                   DEFAULT_LOG_FILE_DIRECTORY);
         ret = gf_cmd_log_init (cmd_log_filename);
@@ -1508,6 +1571,19 @@ init (xlator_t *this)
         }
 
         snprintf (storedir, PATH_MAX, "%s/vols", workdir);
+
+        ret = sys_mkdir (storedir, 0777);
+
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        GD_MSG_CREATE_DIR_FAILED,
+                        "Unable to create volume directory %s"
+                        " ,errno = %d", storedir, errno);
+                exit (1);
+        }
+
+        /*keeping individual volume pid file information in /var/run/gluster* */
+        snprintf (storedir, PATH_MAX, "%s/vols", rundir);
 
         ret = sys_mkdir (storedir, 0777);
 
@@ -1731,6 +1807,7 @@ init (xlator_t *this)
         conf->uds_rpc = uds_rpc;
         conf->gfs_mgmt = &gd_brick_prog;
         strncpy (conf->workdir, workdir, PATH_MAX);
+        strncpy (conf->rundir, rundir, PATH_MAX);
 
         synclock_init (&conf->big_lock, SYNC_LOCK_RECURSIVE);
         pthread_mutex_init (&conf->xprt_lock, NULL);
