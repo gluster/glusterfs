@@ -47,7 +47,7 @@ EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "gfid-hash" mount_get_option_value $M0 $V0-
 #Perform reads now from file on the mount, this only tests dispatch_min
 TEST dd if=$M0/1 of=/dev/null bs=1M count=4
 #TEST that reads are executed on all bricks
-gh_reads=$($CLI volume profile $V0 info cumulative| grep READ |  wc -l)
+gh_reads=$($CLI volume profile $V0 info cumulative| grep -w READ |  wc -l)
 EXPECT "^4$" echo $gh_reads
 
 cleanup;
