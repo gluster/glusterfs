@@ -1073,6 +1073,19 @@ glusterd_store_voldirpath_set (glusterd_volinfo_t *volinfo, char *voldirpath,
         GLUSTERD_GET_VOLUME_DIR (voldirpath, volinfo, priv);
 }
 
+static void
+glusterd_store_piddirpath_set (glusterd_volinfo_t *volinfo, char *piddirpath,
+                               size_t len)
+{
+        glusterd_conf_t         *priv = NULL;
+
+        GF_ASSERT (volinfo);
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        GLUSTERD_GET_VOLUME_PID_DIR (piddirpath, volinfo, priv);
+}
+
 static int32_t
 glusterd_store_create_volume_dir (glusterd_volinfo_t *volinfo)
 {
@@ -1084,6 +1097,23 @@ glusterd_store_create_volume_dir (glusterd_volinfo_t *volinfo)
         glusterd_store_voldirpath_set (volinfo, voldirpath,
                                        sizeof (voldirpath));
         ret = gf_store_mkdir (voldirpath);
+
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
+        return ret;
+}
+
+static int32_t
+glusterd_store_create_volume_run_dir (glusterd_volinfo_t *volinfo)
+{
+        int32_t                 ret = -1;
+        char                    piddirpath[PATH_MAX] = {0,};
+
+        GF_ASSERT (volinfo);
+
+        glusterd_store_piddirpath_set (volinfo, piddirpath,
+                                       sizeof (piddirpath));
+
+        ret = gf_store_mkdir (piddirpath);
 
         gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
         return ret;
@@ -1763,6 +1793,10 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
 
         glusterd_perform_volinfo_version_action (volinfo, ac);
         ret = glusterd_store_create_volume_dir (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_create_volume_run_dir (volinfo);
         if (ret)
                 goto out;
 

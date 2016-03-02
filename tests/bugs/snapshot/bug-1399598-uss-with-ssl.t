@@ -20,7 +20,7 @@ function total_online_bricks
 {
         # This will count snapd, which isn't really a brick, but callers can
         # account for that so it's OK.
-        find $GLUSTERD_WORKDIR -name '*.pid' | wc -l
+        find $GLUSTERD_PIDFILEDIR -name '*.pid' | wc -l
 }
 
 cleanup;

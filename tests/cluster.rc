@@ -27,6 +27,7 @@ function define_backends() {
     for i in `seq 1 $count`; do
         b="B$i";
         mkdir -p ${!b}/glusterd;
+        mkdir -p ${!b}/run;
     done
 }
 
@@ -43,6 +44,7 @@ function define_glusterds() {
         b="B$i";
         h="H$i";
         wopt="management.working-directory=${!b}/glusterd";
+        ropt="management.run-directory=${!b}/run/gluster";
         bopt="management.transport.socket.bind-address=${!h}";
         popt="--pid-file=${!b}/glusterd.pid";
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
@@ -52,11 +54,11 @@ function define_glusterds() {
         logfile=`echo ${0##*/}`_glusterd$i.log
         lopt="--log-file=$logdir/$logfile"
         if [ "$2" == "-LDEBUG" ]; then
-            eval "glusterd_$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
-            eval "glusterd$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd_$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
         else
-            eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
-            eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
         fi
     done
 }

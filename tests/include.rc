@@ -577,6 +577,7 @@ function cleanup()
         # Complete cleanup time
         rm -rf "$B0/*" "/etc/glusterd/*";
         rm -rf $WORKDIRS
+        find $GLUSTERD_PIDFILEDIR -name "*.pid" | xargs rm -rf
         leftover=""
         for d in $WORKDIRS ; do
                 if test -d $d ; then

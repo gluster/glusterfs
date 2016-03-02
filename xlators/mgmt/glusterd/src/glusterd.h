@@ -148,6 +148,7 @@ typedef struct {
         gf_boolean_t             trace;
         uuid_t                   uuid;
         char                     workdir[PATH_MAX];
+        char                     rundir[PATH_MAX];
         rpcsvc_t                *rpc;
         glusterd_svc_t           shd_svc;
         glusterd_svc_t           nfs_svc;
@@ -578,6 +579,11 @@ typedef enum {
 #define GLUSTERD_VOL_SNAP_DIR_PREFIX "snaps"
 
 #define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR     "/gluster/snaps"
+#define GLUSTERD_BITD_RUN_DIR                "/bitd"
+#define GLUSTERD_SCRUB_RUN_DIR               "/scrub"
+#define GLUSTERD_GLUSTERSHD_RUN_DIR          "/glustershd"
+#define GLUSTERD_NFS_RUN_DIR                 "/nfs"
+#define GLUSTERD_QUOTAD_RUN_DIR              "/quotad"
 #define GLUSTER_SHARED_STORAGE_BRICK_DIR     GLUSTERD_DEFAULT_WORKDIR"/ss_brick"
 #define GLUSTERD_VAR_RUN_DIR                 "/var/run"
 #define GLUSTERD_RUN_DIR                     "/run"
@@ -612,6 +618,19 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 snprintf (path, PATH_MAX, "%s/run/%s-tierd.pid", tier_path,\
                           volinfo->volname);                            \
         } while (0)
+
+#define GLUSTERD_GET_VOLUME_PID_DIR(path, volinfo, priv)                   \
+do {                                                                       \
+        if (volinfo->is_snap_volume) {                                     \
+                snprintf (path, PATH_MAX, "%s/snaps/%s/%s",                \
+                          priv->rundir,                                    \
+                          volinfo->snapshot->snapname, volinfo->volname);  \
+        } else {                                                           \
+                snprintf (path, PATH_MAX, "%s/vols/%s",                    \
+                          priv->rundir,                                    \
+                          volinfo->volname);                               \
+        }                                                                  \
+} while (0)
 
 #define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                           \
                 snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,   \
@@ -665,20 +684,20 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volinfo,brickinfo, priv) do {      \
                 char exp_path[PATH_MAX] = {0,};                               \
                 char volpath[PATH_MAX]  = {0,};                               \
-                GLUSTERD_GET_VOLUME_DIR (volpath, volinfo, priv);             \
+                GLUSTERD_GET_VOLUME_PID_DIR (volpath, volinfo, priv);         \
                 GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);  \
-                snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",              \
-                          volpath, brickinfo->hostname, exp_path);      \
+                snprintf (pidfile, PATH_MAX, "%s/%s-%s.pid",                  \
+                          volpath, brickinfo->hostname, exp_path);            \
         } while (0)
 
-#define GLUSTERD_GET_NFS_PIDFILE(pidfile,nfspath) {                     \
-                snprintf (pidfile, PATH_MAX, "%s/run/nfs.pid",          \
-                          nfspath);                                     \
+#define GLUSTERD_GET_NFS_PIDFILE(pidfile, nfspath, priv) {            \
+                snprintf (pidfile, PATH_MAX, "%s/nfs/nfs.pid",        \
+                          priv->rundir);                              \
         }
 
-#define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile,quotadpath) {                     \
-                snprintf (pidfile, PATH_MAX, "%s/run/quotad.pid",          \
-                          quotadpath);                                     \
+#define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile, quotadpath, priv) {         \
+                snprintf (pidfile, PATH_MAX, "%s/quotad/quotad.pid",     \
+                           priv->rundir);                                \
         }
 
 #define GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(piddir, volinfo, type) do {           \

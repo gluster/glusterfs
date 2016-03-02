@@ -139,7 +139,7 @@ function stat_nfs () {
 
 # Restarts the NFS server
 function restart_nfs () {
-        local NFS_PID=$(cat ${GLUSTERD_WORKDIR}/nfs/run/nfs.pid)
+        local NFS_PID=$(cat $GLUSTERD_PIDFILEDIR/nfs/nfs.pid)
 
         # kill the NFS-server if it is running
         while ps -q ${NFS_PID} 2>&1 > /dev/null; do
