@@ -1558,7 +1558,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
         pthread_mutex_lock (&conn->lock);
         {
-                if (conn->connected == 0) {
+                if (conn->connected == 0 && !rpc->disabled) {
                         ret = rpc_transport_connect (conn->trans,
                                                      conn->config.remote_port);
                 }
