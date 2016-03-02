@@ -572,7 +572,6 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
 				     struct afr_reply *replies,
                                      uint64_t *witness)
 {
-	int i = 0;
 	afr_private_t *priv = NULL;
 	int source = -1;
 	int sources_count = 0;
@@ -609,13 +608,9 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
 
 out:
         afr_mark_active_sinks (this, sources, locked_on, healed_sinks);
+        source = afr_choose_source_by_policy (priv, sources,
+                                              AFR_DATA_TRANSACTION);
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (sources[i]) {
-                        source = i;
-                        break;
-                }
-        }
 	return source;
 }
 
@@ -729,8 +724,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		source = ret;
 
-                if (AFR_IS_ARBITER_BRICK(priv, source) &&
-                    AFR_COUNT (sources, priv->child_count) == 1) {
+                if (AFR_IS_ARBITER_BRICK(priv, source)) {
                         did_sh = _gf_false;
                         goto unlock;
                 }

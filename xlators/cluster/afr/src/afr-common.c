@@ -1886,6 +1886,7 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * the slowest local subvolume is far preferable to a remote one.
          */
         if (is_local) {
+                priv->local[child_index] = 1;
                 /* Don't set arbiter as read child. */
                 if (AFR_IS_ARBITER_BRICK(priv, child_index))
                         goto out;

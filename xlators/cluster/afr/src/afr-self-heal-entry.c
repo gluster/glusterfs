@@ -356,7 +356,6 @@ __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
                                       struct afr_reply *replies,
                                       uint64_t *witness)
 {
-	int i = 0;
 	afr_private_t *priv = NULL;
 	int source = -1;
 	int sources_count = 0;
@@ -373,13 +372,8 @@ __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 		return -1;
 	}
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (sources[i]) {
-			source = i;
-			break;
-		}
-	}
-
+        source = afr_choose_source_by_policy (priv, sources,
+                                              AFR_ENTRY_TRANSACTION);
 	return source;
 }
 

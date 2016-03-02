@@ -266,4 +266,7 @@ afr_selfheal_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_locked_fill (call_frame_t *frame, xlator_t *this,
                  unsigned char *locked_on);
+int
+afr_choose_source_by_policy (afr_private_t *priv, unsigned char *sources,
+                             afr_transaction_type type);
 #endif /* !_AFR_SELFHEAL_H */
