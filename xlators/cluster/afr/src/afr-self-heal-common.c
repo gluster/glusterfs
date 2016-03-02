@@ -1532,3 +1532,32 @@ afr_throttled_selfheal (call_frame_t *frame, xlator_t *this)
                                       "pending, background self-heal rejected.");
         }
 }
+
+int
+afr_choose_source_by_policy (afr_private_t *priv, unsigned char *sources,
+                             afr_transaction_type type)
+{
+        int source = -1;
+        int i      = 0;
+
+        /* Give preference to local child to save on bandwidth */
+        for (i = 0; i < priv->child_count; i++) {
+                if (priv->local[i] && sources[i]) {
+                        if ((type == AFR_DATA_TRANSACTION) &&
+                            AFR_IS_ARBITER_BRICK (priv, i))
+                                continue;
+
+                        source = i;
+                        goto out;
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i]) {
+                        source = i;
+                        goto out;
+                }
+        }
+out:
+        return source;
+}

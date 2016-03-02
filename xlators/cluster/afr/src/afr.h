@@ -61,6 +61,7 @@ typedef struct _afr_private {
         inode_t *root_inode;
 
         unsigned char *child_up;
+        unsigned char *local;
 
         char **pending_key;
 

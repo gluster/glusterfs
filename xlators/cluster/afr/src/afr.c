@@ -387,6 +387,13 @@ init (xlator_t *this)
 
         priv->wait_count = 1;
 
+        priv->local = GF_CALLOC (sizeof (unsigned char), child_count,
+                                 gf_afr_mt_char);
+        if (!priv->local) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
         if (!priv->child_up) {

@@ -204,7 +204,7 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
-	struct iatt first = {0, };
+	struct iatt srcstat = {0, };
 	int source = -1;
 	int sources_count = 0;
 
@@ -257,23 +257,17 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
         if (afr_dict_contains_heal_op(frame))
                 return -EIO;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
-			continue;
-		if (source == -1) {
-			source = i;
-			first = replies[i].poststat;
-                        break;
-		}
-	}
+        source = afr_choose_source_by_policy (priv, sources,
+                                              AFR_METADATA_TRANSACTION);
+        srcstat = replies[source].poststat;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!sources[i] || i == source)
 			continue;
-		if (!IA_EQUAL (first, replies[i].poststat, type) ||
-		    !IA_EQUAL (first, replies[i].poststat, uid) ||
-		    !IA_EQUAL (first, replies[i].poststat, gid) ||
-		    !IA_EQUAL (first, replies[i].poststat, prot)) {
+		if (!IA_EQUAL (srcstat, replies[i].poststat, type) ||
+		    !IA_EQUAL (srcstat, replies[i].poststat, uid) ||
+		    !IA_EQUAL (srcstat, replies[i].poststat, gid) ||
+		    !IA_EQUAL (srcstat, replies[i].poststat, prot)) {
                         gf_msg_debug (this->name, 0, "%s: iatt mismatch "
                                       "for source(%d) vs (%d)",
                                       uuid_utoa

@@ -516,14 +516,17 @@ afr_shd_index_healer (void *data)
 	struct subvol_healer *healer = NULL;
 	xlator_t *this = NULL;
 	int ret = 0;
+	afr_private_t *priv = NULL;
 
 	healer = data;
 	THIS = this = healer->this;
+	priv = this->private;
 
 	for (;;) {
 		afr_shd_healer_wait (healer);
 
 		ASSERT_LOCAL(this, healer);
+		priv->local[healer->subvol] = healer->local;
 
 		do {
 		        gf_msg_debug (this->name, 0,
