@@ -1852,7 +1852,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
 
         priv = this->private;
 
-        GLUSTERD_GET_VOLUME_DIR (volume_dir, volinfo, priv);
+        GLUSTERD_GET_VOLUME_PID_DIR (volume_dir, volinfo, priv);
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
         snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
                   volume_dir, brickinfo->hostname, export_path);
@@ -1911,7 +1911,6 @@ out:
 static int
 _mk_rundir_p (glusterd_volinfo_t *volinfo)
 {
-        char voldir[PATH_MAX]   = {0,};
         char rundir[PATH_MAX]   = {0,};
         glusterd_conf_t *priv   = NULL;
         xlator_t        *this   = NULL;
@@ -1919,8 +1918,7 @@ _mk_rundir_p (glusterd_volinfo_t *volinfo)
 
         this = THIS;
         priv = this->private;
-        GLUSTERD_GET_VOLUME_DIR (voldir, volinfo, priv);
-        snprintf (rundir, sizeof (rundir)-1, "%s/run", voldir);
+        GLUSTERD_GET_VOLUME_PID_DIR (rundir, volinfo, priv);
         ret =  mkdir_p (rundir, 0777, _gf_true);
         if (ret)
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -5006,8 +5004,8 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
         priv = this->private;
         GF_ASSERT (priv);
 
-        glusterd_svc_build_pidfile_path (server, priv->workdir, pidfile,
-                                         sizeof (pidfile));
+        glusterd_svc_build_pidfile_path (server, priv->rundir,
+                                         pidfile, sizeof (pidfile));
 
         if (strcmp(server, priv->shd_svc.name) == 0)
                 svc = &(priv->shd_svc);
@@ -8108,7 +8106,7 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
         }
 
         GLUSTERD_GET_NFS_DIR (path, conf);
-        GLUSTERD_GET_NFS_PIDFILE (pidfile_path, path);
+        GLUSTERD_GET_NFS_PIDFILE (pidfile_path, path, conf);
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
@@ -8233,7 +8231,7 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
         }
 
         GLUSTERD_GET_QUOTAD_DIR (path, conf);
-        GLUSTERD_GET_QUOTAD_PIDFILE (pidfile_path, path);
+        GLUSTERD_GET_QUOTAD_PIDFILE (pidfile_path, path, conf);
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
