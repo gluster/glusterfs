@@ -28,7 +28,6 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field
 
 #kill a brick process
 kill_brick $V0 $H0 $B0/${V0}1
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status $V0 $H0 $B0/${V0}1
 
 #remove-brick commit should pass even if the brick is down
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 commit
