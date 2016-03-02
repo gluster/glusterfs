@@ -3731,8 +3731,8 @@ glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
 }
 
 int32_t
-glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
-                                      glusterd_volinfo_t *old_volinfo)
+glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *old_volinfo,
+                                      glusterd_volinfo_t *new_volinfo)
 {
         char                    pidfile[PATH_MAX+1] = {0,};
         glusterd_brickinfo_t   *new_brickinfo       = NULL;
@@ -3748,9 +3748,6 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
         priv = this->private;
         GF_ASSERT (priv);
 
-        if (_gf_false == glusterd_is_volume_started (new_volinfo))
-                goto out;
-
         cds_list_for_each_entry (new_brickinfo, &new_volinfo->bricks,
                                  brick_list) {
                 ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
@@ -3759,15 +3756,11 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
                                                      old_volinfo,
                                                      &old_brickinfo);
                 if (ret == 0) {
-                        GLUSTERD_GET_BRICK_PIDFILE (pidfile, old_volinfo,
-                                                    old_brickinfo, priv);
-                        if (gf_is_service_running (pidfile, NULL))
-                                new_brickinfo->port = old_brickinfo->port;
-
+                        new_brickinfo->port = old_brickinfo->port;
                 }
         }
-out:
         ret = 0;
+
         return ret;
 }
 
@@ -3850,21 +3843,16 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                 }
         }
 
-        /* If stale volume is in started state, copy the port numbers of the
-         * local bricks if they exist in the valid volume information.
-         * stop stale bricks. Stale volume information is going to be deleted.
-         * Which deletes the valid brick information inside stale volinfo.
-         * We dont want brick_rpc_notify to access already deleted brickinfo.
-         * Disconnect all bricks from stale_volinfo (unconditionally), since
+        /* If stale volume is in started state, stop the stale bricks if the new
+         * volume is started else, stop all bricks.
+         * We dont want brick_rpc_notify to access already deleted brickinfo,
+         * so disconnect all bricks from stale_volinfo (unconditionally), since
          * they are being deleted subsequently.
          */
         if (glusterd_is_volume_started (stale_volinfo)) {
                 if (glusterd_is_volume_started (valid_volinfo)) {
                         (void) glusterd_volinfo_stop_stale_bricks (valid_volinfo,
                                                                    stale_volinfo);
-                        //Only valid bricks will be running now.
-                        (void) glusterd_volinfo_copy_brick_portinfo (valid_volinfo,
-                                                                     stale_volinfo);
 
                 } else {
                         (void) glusterd_stop_bricks (stale_volinfo);
@@ -3982,6 +3970,13 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 glusterd_volinfo_ref (old_volinfo);
                 (void) gd_check_and_update_rebalance_info (old_volinfo,
                                                            new_volinfo);
+
+                /* Copy brick ports from the old volinfo always. The old_volinfo
+                 * will be cleaned up and this information could be lost
+                 */
+                (void) glusterd_volinfo_copy_brick_portinfo (old_volinfo,
+                                                             new_volinfo);
+
                 (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
                 glusterd_volinfo_unref (old_volinfo);
         }
