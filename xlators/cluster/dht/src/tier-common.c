@@ -30,12 +30,10 @@ tier_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        dht_conf_t   *conf   = NULL;
         loc_t        *oldloc = NULL;
         loc_t        *newloc = NULL;
 
         local = frame->local;
-        conf = this->private;
 
         oldloc = &local->loc;
         newloc = &local->loc2;
