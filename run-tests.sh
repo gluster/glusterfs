@@ -176,7 +176,6 @@ function is_bad_test ()
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
               ./tests/bugs/fuse/bug-924726.t \
               ./tests/basic/afr/split-brain-healing.t \
-              ./tests/basic/afr/replace-brick-self-heal.t \
               ./tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t \
               ./tests/bugs/tier/bug-1286974.t \
               ./tests/features/weighted-rebalance.t \
