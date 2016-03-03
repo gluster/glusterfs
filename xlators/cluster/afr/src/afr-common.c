@@ -62,6 +62,37 @@ afr_copy_frame (call_frame_t *base)
 	return frame;
 }
 
+/* Check if an entry or inode could be undergoing a transaction. */
+gf_boolean_t
+afr_is_possibly_under_txn (afr_transaction_type type, afr_local_t *local,
+                           xlator_t *this)
+{
+        int i = 0;
+        int tmp = 0;
+	afr_private_t *priv = NULL;
+        GF_UNUSED char *key = NULL;
+
+        priv = this->private;
+
+        if (type == AFR_ENTRY_TRANSACTION)
+                key = GLUSTERFS_PARENT_ENTRYLK;
+        else if (type == AFR_DATA_TRANSACTION)
+                /*FIXME: Use GLUSTERFS_INODELK_DOM_COUNT etc. once
+                 * pl_inodelk_xattr_fill supports separate keys for different
+                 * domains.*/
+                key = GLUSTERFS_INODELK_COUNT;
+
+        for (i = 0; i < priv->child_count; i++) {
+		if (!local->replies[i].xdata)
+			continue;
+		if (dict_get_int32 (local->replies[i].xdata, key, &tmp) == 0)
+			if (tmp)
+				return _gf_true;
+	}
+
+        return _gf_false;
+}
+
 int
 __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
 {
@@ -628,7 +659,6 @@ afr_accused_fill (xlator_t *this, dict_t *xdata, unsigned char *accused,
 	return 0;
 }
 
-
 int
 afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 		       unsigned char *data_accused)
@@ -660,7 +690,6 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 
 	return 0;
 }
-
 
 int
 afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -725,7 +754,12 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	}
 
-	if (inode->ia_type != IA_IFDIR)
+	if ((inode->ia_type != IA_IFDIR) &&
+            /* We want to accuse small files only when we know for sure that
+             * there is no IO happening. Otherwise, the ia_sizes obtained in
+             * post-refresh replies may  mismatch due to a race between inode-
+             * refresh and ongoing writes, causing spurious heal launches*/
+            !afr_is_possibly_under_txn (AFR_DATA_TRANSACTION, local, this))
 		afr_accuse_smallfiles (this, replies, data_accused);
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -977,6 +1011,13 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
         if (ret) {
                 gf_msg_debug (this->name, -ret,
                               "Unable to set link-count in dict ");
+        }
+
+        ret = dict_set_str (xdata, GLUSTERFS_INODELK_DOM_COUNT, this->name);
+        if (ret) {
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set inodelk-dom-count in dict ");
+
         }
 
         if (local->fd) {
@@ -1492,30 +1533,6 @@ afr_frame_return (call_frame_t *frame)
         return call_count;
 }
 
-
-gf_boolean_t
-afr_is_entry_possibly_under_txn (afr_local_t *local, xlator_t *this)
-{
-	int i = 0;
-	int tmp = 0;
-	afr_private_t *priv = NULL;
-
-	priv = this->private;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!local->replies[i].xdata)
-			continue;
-		if (dict_get_int32 (local->replies[i].xdata,
-				    GLUSTERFS_PARENT_ENTRYLK,
-				    &tmp) == 0)
-			if (tmp)
-				return _gf_true;
-	}
-
-	return _gf_false;
-}
-
-
 static char *afr_ignore_xattrs[] = {
         GLUSTERFS_OPEN_FD_COUNT,
         GLUSTERFS_PARENT_ENTRYLK,
@@ -1659,7 +1676,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	replies = local->replies;
         parent = local->loc.parent;
 
-	locked_entry = afr_is_entry_possibly_under_txn (local, this);
+	locked_entry = afr_is_possibly_under_txn (AFR_ENTRY_TRANSACTION, local,
+                                                  this);
 
 	readable = alloca0 (priv->child_count);
 

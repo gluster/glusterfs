@@ -2184,6 +2184,23 @@ pl_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         return 0;
 }
 
+int32_t
+pl_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, struct iatt *buf, dict_t *xdata)
+{
+        PL_STACK_UNWIND (fstat, xdata, frame, op_ret, op_errno, buf, xdata);
+        return 0;
+}
+
+int32_t
+pl_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        STACK_WIND (frame, pl_fstat_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
+        return 0;
+}
+
 int
 pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
@@ -2771,6 +2788,7 @@ pl_fentrylk (call_frame_t *frame, xlator_t *this,
 struct xlator_fops fops = {
         .lookup      = pl_lookup,
         .create      = pl_create,
+        .fstat       = pl_fstat,
         .truncate    = pl_truncate,
         .ftruncate   = pl_ftruncate,
         .open        = pl_open,
