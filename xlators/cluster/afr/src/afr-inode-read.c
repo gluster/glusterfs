@@ -472,7 +472,16 @@ afr_filter_xattrs (dict_t *dict)
         }
 }
 
+static
+gf_boolean_t
+afr_getxattr_ignorable_errnos (int32_t op_errno)
+{
+        if (op_errno == ENODATA || op_errno == ENOTSUP || op_errno == ERANGE ||
+            op_errno == ENAMETOOLONG)
+                return _gf_true;
 
+        return _gf_false;
+}
 int
 afr_getxattr_cbk (call_frame_t *frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -482,7 +491,7 @@ afr_getxattr_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
 
-	if (op_ret < 0) {
+	if (op_ret < 0 && !afr_getxattr_ignorable_errnos(op_errno)) {
 		local->op_ret = op_ret;
 		local->op_errno = op_errno;
 
