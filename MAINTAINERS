@@ -107,7 +107,7 @@ S: Maintained
 F: xlators/features/locks/
 
 Marker
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
 S: Maintained
 F: xlators/features/marker/
 
@@ -128,8 +128,7 @@ S: Maintained
 F: xlators/storage/posix/
 
 Quota
-M: Krishnan Parthasarathi <kparthas@redhat.com>
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
 S: Maintained
 F: xlators/features/quota/
 
