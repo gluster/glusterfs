@@ -170,8 +170,7 @@ setup_cluster()
     logger "setting up cluster ${name} with the following ${servers}"
 
     pcs cluster auth ${servers}
-    # fedora    pcs cluster setup ${name} ${servers}
-    # rhel6     pcs cluster setup --name ${name} ${servers}
+    # pcs cluster setup --name ${name} ${servers}
     pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers}
     if [ $? -ne 0 ]; then
         logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
@@ -842,12 +841,6 @@ main()
         eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
         cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
         eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
-
-        # we'll pretend that nobody ever edits /etc/os-release
-        if [ -e /etc/os-release ]; then
-            eval $(grep -F "REDHAT_SUPPORT_PRODUCT=" /etc/os-release)
-            [ "$REDHAT_SUPPORT_PRODUCT" == "Fedora" ] && RHEL6_PCS_CNAME_OPTION=""
-        fi
     fi
 
     case "${cmd}" in
