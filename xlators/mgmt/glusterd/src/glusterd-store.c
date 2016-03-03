@@ -2402,9 +2402,12 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                        GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
                                                              brickid++);
                 }
-                ret = glusterd_resolve_brick (brickinfo);
-                if (ret)
-                        goto out;
+                /* By now if the brick is a local brick then it will be able to
+                 * resolve which is the only thing we want now for checking
+                 * whether the brickinfo->uuid matches with MY_UUID for realpath
+                 * check. Hence do not handle error
+                 */
+                (void)glusterd_resolve_brick (brickinfo);
                 if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
                         if (!realpath (brickinfo->path, abspath)) {
                                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
