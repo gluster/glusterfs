@@ -2034,11 +2034,13 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 void ec_lock_reuse(ec_fop_data_t *fop)
 {
     ec_cbk_data_t *cbk;
+    ec_t *ec = NULL;
     int32_t i, count;
     gf_boolean_t release = _gf_false;
-
+    ec = fop->xl->private;
     cbk = fop->answer;
-    if (cbk != NULL) {
+
+    if (ec->eager_lock && cbk != NULL) {
         if (cbk->xdata != NULL) {
             if ((dict_get_int32(cbk->xdata, GLUSTERFS_INODELK_COUNT,
                                 &count) == 0) && (count > 1)) {
@@ -2050,7 +2052,8 @@ void ec_lock_reuse(ec_fop_data_t *fop)
             }
         }
     } else {
-        /* If we haven't get an answer with enough quorum, we always release
+        /* If eager lock is disabled or If we haven't get
+         * an answer with enough quorum, we always release
          * the lock. */
         release = _gf_true;
     }

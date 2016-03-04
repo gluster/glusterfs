@@ -4,7 +4,7 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
-#This tests if eager-lock blocks metadata operations on nfs/fuse mounts.
+#This tests if cluster.eager-lock blocks metadata operations on nfs/fuse mounts.
 #If it is not woken up, INODELK from the next command waits
 #for post-op-delay secs.
 

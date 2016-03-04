@@ -3,7 +3,7 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
-# This test writes to same file with 2 fds and tests that eager-lock is not
+# This test writes to same file with 2 fds and tests that cluster.eager-lock is not
 # causing extra delay because of post-op-delay-secs
 cleanup;
 
@@ -14,7 +14,7 @@ function write_to_file {
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1
-TEST $CLI volume set $V0 eager-lock on
+TEST $CLI volume set $V0 cluster.eager-lock on
 TEST $CLI volume set $V0 post-op-delay-secs 3
 TEST $CLI volume set $V0 client-log-level DEBUG
 TEST $CLI volume start $V0
