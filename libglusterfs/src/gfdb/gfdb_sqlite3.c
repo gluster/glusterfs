@@ -707,7 +707,11 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
                 " OR "
                 /*Second condition: For reads*/
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") >= ?) )", base_query_str);
+                GF_COL_TB_RWMSEC ") >= ?) )"
+                /* Order by write wind time in a descending order
+                 * i.e most hot files w.r.t to write */
+                " ORDER BY GF_FILE_TB.W_SEC DESC",
+                base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -803,7 +807,11 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
                 " AND "
                 /*Second condition: For reads*/
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") <= ?) )", base_query_str);
+                GF_COL_TB_RWMSEC ") <= ?) )"
+                /* Order by write wind time in a ascending order
+                 * i.e most cold files w.r.t to write */
+                " ORDER BY GF_FILE_TB.W_SEC ASC",
+                base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -910,7 +918,12 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
                 /*Second condition: For Reads */
                 "( ((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") >= ?)"
-                " AND "" (" GF_COL_TB_RFC " >= ? ) ) )", base_query_str);
+                " AND "" (" GF_COL_TB_RFC " >= ? ) ) )"
+                /* Order by write wind time and write freq in a descending order
+                 * i.e most hot files w.r.t to write */
+                " ORDER BY GF_FILE_TB.W_SEC DESC, "
+                "GF_FILE_TB.WRITE_FREQ_CNTR DESC",
+                base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
@@ -1056,7 +1069,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 GF_COL_TB_WMSEC ") >= ? ) ) )"
                 " AND "
                 /*Second condition: For Reads
-                 * Files that have read wind time smaller than for_time
+                 * Files that have reaASCd wind time smaller than for_time
                  * OR
                  * File that have read wind time greater than for_time,
                  * but write_frequency less than freq_write_cnt*/
@@ -1065,7 +1078,12 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 " OR "
                 "( (" GF_COL_TB_RFC " < ? ) AND"
                 "((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") >= ? ) ) ) )", base_query_str);
+                GF_COL_TB_RWMSEC ") >= ? ) ) ) )"
+                /* Order by write wind time and write freq in ascending order
+                 * i.e most cold files w.r.t to write */
+                " ORDER BY GF_FILE_TB.W_SEC ASC, "
+                "GF_FILE_TB.WRITE_FREQ_CNTR ASC",
+                base_query_str);
 
         if (ret < 0) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
