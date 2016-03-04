@@ -61,6 +61,10 @@
 
 #define GD_OP_VERSION_3_7_7    30707 /* Op-version for GlusterFS 3.7.7 */
 
+/* Op-version was not bumped up for 3.7.8 */
+
+#define GD_OP_VERSION_3_7_10    30710 /* Op-version for GlusterFS 3.7.10 */
+
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
 
 #include "xlator.h"
