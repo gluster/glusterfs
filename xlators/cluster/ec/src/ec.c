@@ -261,6 +261,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           failed);
         GF_OPTION_RECONF ("iam-self-heal-daemon", ec->shd.iamshd, options,
                           bool, failed);
+        GF_OPTION_RECONF ("eager-lock", ec->eager_lock, options,
+                          bool, failed);
         GF_OPTION_RECONF ("background-heals", background_heals, options,
                           uint32, failed);
         GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
@@ -601,6 +603,7 @@ init (xlator_t *this)
     ec_method_initialize();
     GF_OPTION_INIT ("self-heal-daemon", ec->shd.enabled, bool, failed);
     GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
+    GF_OPTION_INIT ("eager-lock", ec->eager_lock, bool, failed);
     GF_OPTION_INIT ("background-heals", ec->background_heals, uint32, failed);
     GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
     ec_configure_background_heal_opts (ec, ec->background_heals,
@@ -1320,6 +1323,12 @@ struct volume_options options[] =
       .description = "This option differentiates if the disperse "
                      "translator is running as part of self-heal-daemon "
                      "or not."
+    },
+    { .key = {"eager-lock"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "on",
+      .description = "This option will enable/diable eager lock for"
+                     "disperse volume "
     },
     { .key = {"background-heals"},
       .type = GF_OPTION_TYPE_INT,

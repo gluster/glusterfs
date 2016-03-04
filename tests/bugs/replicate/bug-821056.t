@@ -8,7 +8,7 @@ TEST glusterd
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
-TEST $CLI volume set $V0 eager-lock off
+TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.open-behind off
