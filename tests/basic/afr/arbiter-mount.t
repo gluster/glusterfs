@@ -23,7 +23,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}1
 # So check that stat <mount> fails instead.
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST ! stat $M0
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 mount_nfs $H0:/$V0 $N0
 TEST [ $? -ne 0 ]
@@ -35,10 +35,10 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST  stat $M0
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 mount_nfs $H0:/$V0 $N0
 TEST [ $? -eq 0 ]
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 cleanup
