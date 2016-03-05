@@ -52,7 +52,7 @@
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
 # disable syslog forcefully as rhel <= 6 doesn't have rsyslog or rsyslog-mmcount
-# Fedora deprecated syslog, see 
+# Fedora deprecated syslog, see
 #  https://fedoraproject.org/wiki/Changes/NoDefaultSyslog
 # (And what about RHEL7?)
 %if ( 0%{?fedora} && 0%{?fedora} >= 20 ) || ( 0%{?rhel} && 0%{?rhel} <= 6 )
@@ -73,7 +73,7 @@
 %endif
 
 ##-----------------------------------------------------------------------------
-## All %global definitions should be placed here and keep them sorted
+## All %%global definitions should be placed here and keep them sorted
 ##
 
 %if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -247,8 +247,6 @@ Summary:          GlusterFS api library
 Group:            System Environment/Daemons
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
-# we provide the Python package/namespace 'gluster'
-#Provides:         python-gluster = %{version}-%{release}
 
 %description api
 GlusterFS is a distributed file-system capable of scaling to several
@@ -733,33 +731,34 @@ install -p -m 0744 -D extras/command-completion/gluster.bash \
 rm -rf %{buildroot}
 
 ##-----------------------------------------------------------------------------
-## All %post should be placed here and keep them sorted
+## All %%post should be placed here and keep them sorted
 ##
 %post
+/sbin/ldconfig
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %_init_restart rsyslog
+exit 0
 %endif
 %endif
 
-%post api
-/sbin/ldconfig
+%post api -p /sbin/ldconfig
 
-%post fuse
 %if ( 0%{?rhel} == 5 )
+%post fuse
 modprobe fuse
+exit 0
 %endif
 
 %if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
-#restart glusterd.
 if [ $1 -ge 1 ]; then
     %_init_restart glusterd
 fi
+exit 0
 %endif
 
-%post libs
-/sbin/ldconfig
+%post libs -p /sbin/ldconfig
 
 %post server
 # Legacy server
@@ -833,9 +832,10 @@ else
     #rpm_script_t context.
     rm -rf /var/run/glusterd.socket
 fi
+exit 0
 
 ##-----------------------------------------------------------------------------
-## All %preun should be placed here and keep them sorted
+## All %%preun should be placed here and keep them sorted
 ##
 %preun server
 if [ $1 -eq 0 ]; then
@@ -854,9 +854,10 @@ if [ $1 -ge 1 ]; then
     fi
     %_init_restart glusterd
 fi
+exit 0
 
 ##-----------------------------------------------------------------------------
-## All %postun should be placed here and keep them sorted
+## All %%postun should be placed here and keep them sorted
 ##
 %postun
 /sbin/ldconfig
@@ -866,23 +867,21 @@ fi
 %endif
 %endif
 
-%postun api
-/sbin/ldconfig
+%postun api -p /sbin/ldconfig
 
-%postun server
+%postun libs -p /sbin/ldconfig
+
 %if (0%{?_with_firewalld:1})
+%postun server
 #reload service files if firewalld running
 if $(systemctl is-active firewalld 1>/dev/null 2>&1); then
     firewall-cmd  --reload
 fi
+exit 0
 %endif
 
-
-%postun libs
-/sbin/ldconfig
-
 ##-----------------------------------------------------------------------------
-## All files should be placed here and keep them grouped
+## All %%files should be placed here and keep them grouped
 ##
 %files
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README.md THANKS
@@ -934,7 +933,6 @@ fi
 %if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
 %endif
-
 
 %files api
 %exclude %{_libdir}/*.so
@@ -1181,6 +1179,9 @@ fi
 %{_sbindir}/gf_recon
 
 %changelog
+* Mon Mar 7 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- %%pre, %%post etc. scriptlet cleanup, ... -p /sbin/ldconfig (#1315024)
+
 * Fri Jan 22 2016 Aravinda VK <avishwan@redhat.com>
 - Added schedule_georep.py script to the glusterfs-geo-replication (#1300956)
 
@@ -1332,7 +1333,7 @@ fi
 * Wed Apr 02 2014 Arumugam Balamurugan <barumuga@redhat.com>
 - add version/release dynamically (#1074919)
 
-* Thu Mar 26 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+* Thu Mar 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - attr dependency (#1184626)
 
 * Wed Mar 26 2014 Poornima G <pgurusid@redhat.com>
