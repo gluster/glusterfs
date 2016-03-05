@@ -3671,10 +3671,10 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
 {
 
         int32_t         ret                     = -1;
-        char            snap_dir[PATH_MAX]      = "";
-        char            src_path[PATH_MAX]      = "";
-        char            dest_path[PATH_MAX]     = "";
-        char            buffer[BUFSIZ]          = "";
+        char            snap_dir[PATH_MAX]      = {0,};
+        char            src_path[PATH_MAX]      = {0,};
+        char            dest_path[PATH_MAX]     = {0,};
+        char            buffer[BUFSIZ]          = {0,};
         char            *find_ptr               = NULL;
         char            *buff_ptr               = NULL;
         char            *tmp_ptr                = NULL;
@@ -3695,18 +3695,16 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
 
         if (src_vol->is_snap_volume) {
                 GLUSTERD_GET_SNAP_DIR (snap_dir, src_vol->snapshot, priv);
-                ret = snprintf (src_path, sizeof (src_path),
-                                "%s/export.%s.conf", snap_dir,
-                                src_vol->snapshot->snapname);
+                ret = snprintf (src_path, PATH_MAX, "%s/export.%s.conf",
+                                snap_dir, src_vol->snapshot->snapname);
         } else {
-                ret = snprintf (src_path, sizeof (src_path),
-                                "%s/export.%s.conf", GANESHA_EXPORT_DIRECTORY,
-                                src_vol->volname);
-                if (ret < 0)
-                        goto out;
+                ret = snprintf (src_path, PATH_MAX, "%s/export.%s.conf",
+                                GANESHA_EXPORT_DIRECTORY, src_vol->volname);
         }
+        if (ret < 0 || ret >= PATH_MAX)
+                goto out;
 
-        ret = lstat (src_path, &stbuf);
+        ret = sys_lstat (src_path, &stbuf);
         if (ret) {
                 /* *
                 * If export file is not present, volume is not exported
