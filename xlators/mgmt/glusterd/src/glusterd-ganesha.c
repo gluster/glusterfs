@@ -38,7 +38,9 @@ typedef struct service_command {
  * return NULL if error or not found */
 static char*
 parsing_ganesha_ha_conf(const char *key) {
-        char *line, *value = NULL, *pointer, *end_pointer;
+#define MAX_LINE 1024
+        char scratch[MAX_LINE * 2] = {0,};
+        char *value = NULL, *pointer = NULL, *end_pointer = NULL;
         FILE *fp;
         struct stat st = {0,};
 
@@ -49,29 +51,15 @@ parsing_ganesha_ha_conf(const char *key) {
                         GANESHA_HA_CONF);
                 goto end_ret;
         }
-        if (sys_fstat (fileno (fp), &st)) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_FILE_OP_FAILED, "stat on opened file %s failed",
-                        GANESHA_HA_CONF);
-                goto end_close;
-        }
-        line = GF_CALLOC (sizeof (char), st.st_size + 1, gf_common_mt_char);
-        if (line == NULL) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_NO_MEMORY, "alloc for reading file failed");
-                goto end_close;
-        }
-
-        while (fgets (line, st.st_size, fp) != NULL) {
+        while ((pointer = fgets (scratch, MAX_LINE, fp)) != NULL) {
                 /* Read config file until we get matching "^[[:space:]]*key" */
-                pointer = line;
                 if (*pointer == '#') {
                         continue;
                 }
                 while (isblank(*pointer)) {
                         pointer++;
                 }
-                if (strncmp (pointer, key, strlen(key))) {
+                if (strncmp (pointer, key, strlen (key))) {
                         continue;
                 }
                 pointer += strlen (key);
@@ -84,7 +72,7 @@ parsing_ganesha_ha_conf(const char *key) {
                                 GD_MSG_GET_CONFIG_INFO_FAILED,
                                 "Parsing %s failed at key %s",
                                 GANESHA_HA_CONF, key);
-                        goto end_free;
+                        goto end_close;
                 }
                 pointer++;  /* jump the '=' */
 
@@ -101,19 +89,10 @@ parsing_ganesha_ha_conf(const char *key) {
                 *end_pointer = '\0';
 
                 /* got it. copy it and return */
-                value = GF_CALLOC (sizeof (char), strlen (pointer)+1,
-                                gf_common_mt_char);
-                if (value == NULL) {
-                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                                GD_MSG_NO_MEMORY, "alloc for value failed");
-                        goto end_free;
-                }
-                strcpy (value, pointer);
+                value = gf_strdup (pointer);
                 break;
         }
 
-end_free:
-        GF_FREE(line);
 end_close:
         fclose(fp);
 end_ret:
