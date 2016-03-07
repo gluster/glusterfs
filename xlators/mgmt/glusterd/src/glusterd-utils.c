@@ -10491,6 +10491,7 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc)
         GF_ASSERT (conf);
         GF_ASSERT (rpc);
         synclock_unlock (&conf->big_lock);
+        (void) rpc_clnt_reconnect_cleanup (&rpc->conn);
         ret = rpc_clnt_unref (rpc);
         synclock_lock (&conf->big_lock);
 
