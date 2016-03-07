@@ -157,6 +157,13 @@ changelog_rpc_notify (struct rpc_clnt *rpc,
                 break;
         case RPC_CLNT_DISCONNECT:
                 rpc_clnt_disable (crpc->rpc);
+
+                /* rpc_clnt_disable doesn't unref the rpc. It just marks
+                 * the rpc as disabled and cancels reconnection timer.
+                 * Hence unref the rpc object to free it.
+                 */
+                rpc_clnt_unref (crpc->rpc);
+
                 selection = &priv->ev_selection;
 
                 LOCK (&crpc->lock);
@@ -170,6 +177,8 @@ changelog_rpc_notify (struct rpc_clnt *rpc,
                 break;
         case RPC_CLNT_MSG:
         case RPC_CLNT_DESTROY:
+                /* Free up mydata */
+                changelog_rpc_clnt_unref (crpc);
                 break;
         }
 
@@ -253,7 +262,9 @@ get_client (changelog_clnt_t *c_clnt, struct list_head **next)
                 if (*next == &c_clnt->active)
                         goto unblock;
                 crpc = list_entry (*next, changelog_rpc_clnt_t, list);
+                /* ref rpc as DISCONNECT might unref the rpc asynchronously */
                 changelog_rpc_clnt_ref (crpc);
+                rpc_clnt_ref (crpc->rpc);
                 *next = (*next)->next;
         }
  unblock:
@@ -267,6 +278,7 @@ put_client (changelog_clnt_t *c_clnt, changelog_rpc_clnt_t *crpc)
 {
         LOCK (&c_clnt->active_lock);
         {
+                rpc_clnt_unref (crpc->rpc);
                 changelog_rpc_clnt_unref (crpc);
         }
         UNLOCK (&c_clnt->active_lock);
