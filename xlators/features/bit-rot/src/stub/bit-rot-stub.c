@@ -2854,13 +2854,15 @@ br_stub_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         br_stub_inode_ctx_t *ctx      = NULL;
         int32_t              ret      = -1;
 
-        if (op_ret < 0)
-                goto unwind;
-
         local = frame->local;
         frame->local = NULL;
 
+        if (op_ret < 0)
+                goto unwind;
+
         inode = local->u.context.inode;
+        if (!IA_ISREG (inode->ia_type))
+           goto unwind;
 
         ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
         if (ret) {
