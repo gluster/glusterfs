@@ -217,6 +217,11 @@
 #define EBADFD EBADRPC
 #endif /* EBADFD */
 
+#if !defined(ENODATA)
+/* This happens on FreeBSD.  Value borrowed from Linux. */
+#define ENODATA 61
+#endif
+
 /* These functions are defined for all the OS flags, but content will
  * be different for each OS flag.
  */

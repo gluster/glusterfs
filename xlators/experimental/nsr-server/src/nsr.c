@@ -23,6 +23,7 @@
 #include "common-utils.h"
 #include "syncop.h"
 #include "syscall.h"
+#include "compat-errno.h"
 
 #include "nsr-internal.h"
 #include "nsr-messages.h"
