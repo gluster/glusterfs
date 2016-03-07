@@ -3,6 +3,13 @@
 #
 
 export TZ=UTC
+force="no"
+retry="no"
+tests=""
+exit_on_failure="yes"
+
+OSTYPE=$(uname -s)
+
 function check_dependencies()
 {
     ## Check all dependencies are present
@@ -114,12 +121,11 @@ function check_user()
     fi
 }
 
-function run_tests()
+function match()
 {
-    declare -A DONE
-    match()
-    {
         # Patterns considered valid:
+        # 0. Empty means everything
+        #    ""           matches ** i.e all
         # 1. full or partial file/directory names
         #   basic         matches tests/basic
         #   basic/afr     matches tests/basic/afr
@@ -132,59 +138,21 @@ function run_tests()
         #   1015990       matches /bugs/bug-1015990-rep.t, bug-1015990.t
         # ...lots of other cases accepted as well, since globbing is tricky.
         local t=$1
-        local mt=$1
         shift
         local a
         local match=1
-        if [ -d $t ] ; then
-            # Allow matching on globs like 'basic/*/'
-            mt=$t/
+        if [ -z "$@" ]; then
+            match=0
+            return $match
         fi
-        for a in "$@" ; do
-            case "$mt" in
-                *$a|*/bugs/$a/|*/bugs/$a.t|*/bugs/bug-$a.t|*/bugs/bug-$a-*.t)
+        for a in $@ ; do
+            case "$t" in
+                *$a*)
                     match=0
                     ;;
             esac
         done
-        if [ "${DONE[$(dirname $t)]}" != "" ] ; then
-            # Parentdir is already matched
-            match=1
-            if [ -d $t ] ; then
-                # Ignore subdirectory as well
-                DONE[$t]=$t
-            fi
-       elif [ $match -eq 0 -a -d $t ] ; then
-            # Make sure children of this matched directory will be ignored
-            DONE[$t]=$t
-        elif [[ -f $t && ! $t =~ .*\.t ]] ; then
-            # Ignore files not ending in .t
-            match=1
-        fi
         return $match
-    }
-    RES=0
-    for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
-        if match $t "$@" ; then
-            if [ -d $t ] ; then
-                echo "Running tests in directory $t"
-                prove -rf --timer $t
-            elif  [ -f $t ] ; then
-                echo "Running tests in file $t"
-                prove -f --timer $t
-            fi
-            TMP_RES=$?
-            if [ ${TMP_RES} -ne 0 ] ; then
-                RES=${TMP_RES}
-                FAILED="$FAILED $t"
-            fi
-        fi
-    done
-    if [ ${RES} -ne 0 ] ; then
-        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
-        echo "Failed tests ${FAILED}"
-    fi
-    return ${RES}
 }
 
 # If you're submitting a fix related to one of these tests and want its result
@@ -194,6 +162,7 @@ function is_bad_test ()
 {
     local name=$1
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
+              ./tests/bugs/quota/bug-1235182.t \
               ./tests/basic/quota-nfs.t \
               ./tests/basic/tier/tier_lookup_heal.t \
               ./tests/basic/tier/bug-1214222-directories_missing_after_attach_tier.t \
@@ -202,101 +171,137 @@ function is_bad_test ()
               ./tests/basic/tier/tier-snapshot.t \
               ./tests/bugs/snapshot/bug-1109889.t \
               ./tests/bugs/distribute/bug-1066798.t \
+              ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
               ./tests/geo-rep/georep-basic-dr-rsync.t \
               ./tests/geo-rep/georep-basic-dr-tarssh.t \
-              ./tests/basic/tier/tier.t \
-              ./tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t \
-              ./tests/bugs/glusterd/bug-948686.t \
               ./tests/bugs/fuse/bug-924726.t \
               ./tests/basic/afr/split-brain-healing.t \
-              ./tests/basic/afr/replace-brick-self-heal.t \
               ./tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t \
+              ./tests/bugs/tier/bug-1286974.t \
               ./tests/features/weighted-rebalance.t \
+              ./tests/performance/open-behind.t \
+              ./tests/basic/afr/self-heald.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
-    return 1				  # bash: non-zero means false/failure
+    return 1                              # bash: non-zero means false/failure
 }
 
-function run_all ()
+function is_unsupported_test()
 {
-    find ${regression_testsdir}/tests -name '*.t' \
-    | LC_COLLATE=C sort \
-    | while read t; do
-	old_cores=$(ls /core.* 2> /dev/null | wc -l)
-        retval=0
-        prove -f --timer $t
-        TMP_RES=$?
-        if [ ${TMP_RES} -ne 0 ] ; then
-            echo "$t: bad status $TMP_RES"
-            retval=$((retval+1))
+        if [ x"$OSTYPE" != x"NetBSD" ]; then
+                return 1
         fi
-        new_cores=$(ls /core.* 2> /dev/null | wc -l)
-        if [ x"$new_cores" != x"$old_cores" ]; then
-            core_diff=$((new_cores-old_cores))
-            echo "$t: $core_diff new core files"
-            retval=$((retval+2))
-        fi
-        if [ $retval -ne 0 ]; then
-	    if is_bad_test $t; then
-		echo  "Ignoring failure from known-bad test $t"
-	    else
-		return $retval
-	    fi
+
+        grep -iqs tier $1
+}
+
+function run_tests()
+{
+    RES=0
+    FAILED=''
+    GENERATED_CORE=''
+
+    # key = path of .t file; value = time taken to run the .t file
+    declare -A ELAPSEDTIMEMAP
+
+    for t in $(find ${regression_testsdir}/tests -name '*.t' \
+               | LC_COLLATE=C sort) ; do
+        old_cores=$(ls /core.* 2> /dev/null | wc -l)
+        if match $t "$@" ; then
+            echo
+            echo "=================================================="
+            if is_bad_test $t; then
+                echo "Skipping bad test file $t"
+                echo "=================================================="
+                echo
+                continue
+            fi
+            if is_unsupported_test $t; then
+                echo "Skipping test file $t (feature unsupported on platform)"
+                echo "=================================================="
+                echo
+                continue
+            fi
+            echo "Running tests in file $t"
+            starttime="$(date +%s)"
+            prove -mf --timer $t
+            TMP_RES=$?
+            ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
+            if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
+                echo "$t: bad status $TMP_RES"
+                echo ""
+                echo "       *********************************"
+                echo "       *       REGRESSION FAILED       *"
+                echo "       * Retrying failed tests in case *"
+                echo "       * we got some spurous failures  *"
+                echo "       *********************************"
+                echo ""
+                prove -mf --timer $t
+                TMP_RES=$?
+            fi
+            if [ ${TMP_RES} -ne 0 ] ; then
+                RES=${TMP_RES}
+                FAILED="${FAILED}${t} "
+            fi
+            new_cores=$(ls /core.* 2> /dev/null | wc -l)
+            if [ x"$new_cores" != x"$old_cores" ]; then
+                core_diff=$((new_cores-old_cores))
+                echo "$t: $core_diff new core files"
+                RES=1
+                GENERATED_CORE="${GENERATED_CORE}${t} "
+            fi
+            echo "End of test $t"
+            echo "=================================================="
+            echo
+            if [ $RES -ne 0 ] && [ x"$exit_on_failure" = "xyes" ] ; then
+                break;
+            fi
         fi
     done
-}
-
-function main()
-{
-    if [ $# -lt 1 ]; then
-        echo "Running all the regression test cases (new way)"
-        #prove -rf --timer ${regression_testsdir}/tests;
-        run_all
-    else
-        run_tests "$@"
-    fi
-}
-
-function main_and_retry()
-{
-    RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
-    main "$@" | tee ${RESFILE}
-    RET=$?
-
-    FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
-    if [ "x${FAILED}" != "x" ] ; then
-       echo ""
-       echo "       *********************************"
-       echo "       *       REGRESSION FAILED       *"
-       echo "       * Retrying failed tests in case *"
-       echo "       * we got some spurous failures  *"
-       echo "       *********************************"
-       echo ""
-       main ${FAILED}
-       RET=$?
+    echo
+    echo "Run complete"
+    if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
+        FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
+        echo -e "$FAILED_COUNT test(s) failed \n${FAILED}"
+        GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
+        GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
+        echo -e "$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
     fi
 
-    rm -f ${RESFILE}
-    return ${RET}
+    echo "Slowest 10 tests: "
+    for key in "${!ELAPSEDTIMEMAP[@]}"
+    do
+        echo $key ' - ' ${ELAPSEDTIMEMAP["$key"]}
+    done | sort -rn -k3 | head
+
+    echo "Result is $RES"
+    return ${RES}
 }
+
+function parse_args () {
+    args=`getopt frc "$@"`
+    set -- $args
+    while [ $# -gt 0 ]; do
+        case "$1" in
+        -f)    force="yes" ;;
+        -r)    retry="yes" ;;
+        -c)    exit_on_failure="no" ;;
+        --)    shift; break;;
+        esac
+        shift
+    done
+    tests="$@"
+}
+
 
 echo
 echo ... GlusterFS Test Framework ...
 echo
 
-force="no"
-retry="no"
-args=`getopt fr $*`
-set -- $args
-while [ $# -gt 0 ]; do
-    case "$1" in
-    -f)    force="yes" ;;
-    -r)    retry="yes" ;;
-    --)    shift; break;;
-    esac
-    shift
-done
+# Get user options
+parse_args "$@"
 
 # Make sure we're running as the root user
 check_user
@@ -308,8 +313,4 @@ check_dependencies
 check_location
 
 # Run the tests
-if [ "x${retry}" = "xyes" ] ; then
-    main_and_retry $@
-else
-    main "$@"
-fi
+run_tests "$tests"
