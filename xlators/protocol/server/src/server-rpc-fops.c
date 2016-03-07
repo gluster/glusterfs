@@ -596,7 +596,7 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FSYNCDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": FSYNCDIR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
@@ -633,7 +633,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_READDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": READDIR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
@@ -771,7 +771,8 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                gf_msg (this->name,
+                        fop_log_level (GF_FOP_FREMOVEXATTR, op_errno), op_errno,
                         PS_MSG_REMOVEXATTR_INFO,
                         "%"PRId64": FREMOVEXATTR %"PRId64" (%s) (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
@@ -1278,7 +1279,8 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_STAT_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FSTAT, op_errno),
+                        op_errno, PS_MSG_STAT_INFO,
                         "%"PRId64": FSTAT %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1314,8 +1316,8 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
-                        PS_MSG_TRUNCATE_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FTRUNCATE, op_errno),
+                        op_errno, PS_MSG_TRUNCATE_INFO,
                         "%"PRId64": FTRUNCATE %"PRId64" (%s)==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1386,7 +1388,8 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_SYNC_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FSYNC, op_errno),
+                        op_errno, PS_MSG_SYNC_INFO,
                         "%"PRId64": FSYNC %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1423,7 +1426,8 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_WRITE_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_WRITE, op_errno),
+                        op_errno, PS_MSG_WRITE_INFO,
                         "%"PRId64": WRITEV %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                          uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1472,7 +1476,8 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_READ_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_READ, op_errno),
+                        op_errno, PS_MSG_READ_INFO,
                         "%"PRId64": READV %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1510,7 +1515,8 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_CHKSUM_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_RCHECKSUM, op_errno),
+                        op_errno, PS_MSG_CHKSUM_INFO,
                         "%"PRId64": RCHECKSUM %"PRId64" (%s)==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
@@ -1808,7 +1814,8 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state  = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_SETATTR_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FSETATTR, op_errno),
+                        op_errno, PS_MSG_SETATTR_INFO,
                         "%"PRId64": FSETATTR %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
@@ -1889,8 +1896,8 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
-                        PS_MSG_XATTROP_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FXATTROP, op_errno),
+                        op_errno, PS_MSG_XATTROP_INFO,
                         "%"PRId64": FXATTROP %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
@@ -1934,7 +1941,8 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 state = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_DIR_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_READDIRP, op_errno),
+                        op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": READDIRP %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
@@ -1983,7 +1991,8 @@ server_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state  = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_ALLOC_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_FALLOCATE, op_errno),
+                        op_errno, PS_MSG_ALLOC_INFO,
                         "%"PRId64": FALLOCATE %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
@@ -2021,7 +2030,8 @@ server_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
                 state  = CALL_STATE (frame);
-                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_DISCARD_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_DISCARD, op_errno),
+                        op_errno, PS_MSG_DISCARD_INFO,
                         "%"PRId64": DISCARD %"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
@@ -2061,8 +2071,8 @@ server_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret) {
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
-                        PS_MSG_ZEROFILL_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_ZEROFILL, op_errno),
+                        op_errno, PS_MSG_ZEROFILL_INFO,
                         "%"PRId64": ZEROFILL%"PRId64" (%s) ==> (%s)",
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
