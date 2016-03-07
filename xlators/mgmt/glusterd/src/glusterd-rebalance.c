@@ -144,6 +144,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
 
                 glusterd_store_perform_node_state_store (volinfo);
 
+                rpc_clnt_reconnect_cleanup (&defrag->rpc->conn);
                 glusterd_defrag_rpc_put (defrag);
                 if (defrag->cbk_fn)
                         defrag->cbk_fn (volinfo,
