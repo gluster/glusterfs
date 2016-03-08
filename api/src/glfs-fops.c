@@ -439,15 +439,18 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
 {
 	struct stat sb = {0, };
 	int         ret = -1;
+        off_t       off = -1;
 
 	__glfs_entry_fd (glfd);
 
 	switch (whence) {
 	case SEEK_SET:
 		glfd->offset = offset;
+                ret = 0;
 		break;
 	case SEEK_CUR:
 		glfd->offset += offset;
+                ret = 0;
 		break;
 	case SEEK_END:
 		ret = pub_glfs_fstat (glfd, &sb);
@@ -457,9 +460,14 @@ pub_glfs_lseek (struct glfs_fd *glfd, off_t offset, int whence)
 		}
 		glfd->offset = sb.st_size + offset;
 		break;
+        default:
+                errno = EINVAL;
 	}
 
-	return glfd->offset;
+        if (ret != -1)
+                off = glfd->offset;
+
+        return off;
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lseek, 3.4.0);
