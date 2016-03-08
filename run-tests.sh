@@ -181,6 +181,7 @@ function is_bad_test ()
               ./tests/features/weighted-rebalance.t \
               ./tests/performance/open-behind.t \
               ./tests/basic/afr/self-heald.t \
+              ./tests/basic/tier/tier-file-create.t \
               ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
