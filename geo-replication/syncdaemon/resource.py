@@ -152,6 +152,9 @@ class Popen(subprocess.Popen):
                     poe, _, _ = select(
                         [po.stderr for po in errstore], [], [], 1)
                 except (ValueError, SelectError):
+                    # stderr is already closed wait for some time before
+                    # checking next error
+                    time.sleep(0.5)
                     continue
                 for po in errstore:
                     if po.stderr not in poe:
@@ -164,6 +167,7 @@ class Popen(subprocess.Popen):
                         try:
                             fd = po.stderr.fileno()
                         except ValueError:  # file is already closed
+                            time.sleep(0.5)
                             continue
                         l = os.read(fd, 1024)
                         if not l:
