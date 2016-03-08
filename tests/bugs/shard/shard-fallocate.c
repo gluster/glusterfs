@@ -45,12 +45,11 @@ main (int argc, char *argv[])
         int        opcode = -1;
         off_t      offset = 0;
         size_t     len = 0;
-        char       logpath[PATH_MAX] = {0,};
         glfs_t    *fs = NULL;
         glfs_fd_t *fd = NULL;
 
-        if (argc != 7) {
-                fprintf (stderr, "Syntax: %s <host> <volname> <opcode> <offset> <len> <file-path>\n", argv[0]);
+        if (argc != 8) {
+                fprintf (stderr, "Syntax: %s <host> <volname> <opcode> <offset> <len> <file-path> <log-file>\n", argv[0]);
                 return 1;
         }
 
@@ -60,16 +59,13 @@ main (int argc, char *argv[])
                 return 1;
         }
 
-        snprintf (logpath, sizeof (logpath), "/var/log/glusterfs/glfs-%s.log",
-                  argv[2]);
-
         ret = glfs_set_volfile_server (fs, "tcp", argv[1], 24007);
         if (ret != 0) {
                 fprintf (stderr, "glfs_set_volfile_server: retuned %d\n", ret);
                 goto out;
         }
 
-        ret = glfs_set_logging (fs, logpath, 7);
+        ret = glfs_set_logging (fs, argv[7], 7);
         if (ret != 0) {
                 fprintf (stderr, "glfs_set_logging: returned %d\n", ret);
                 goto out;
