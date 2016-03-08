@@ -1,16 +1,19 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "glfs.h"
 #include "glfs-handles.h"
 
 int
 main (int argc, char *argv[])
 {
-        glfs_t    *fs = NULL;
-        glfs_fd_t *fd = NULL;
-        int        ret = 1;
+        int        ret = 0;
+        off_t      off = 0;
+        size_t     len = 0;
+        glfs_t    *fs  = NULL;
+        glfs_fd_t *fd  = NULL;
 
-        if (argc != 5) {
-                fprintf (stderr, "Syntax: %s <host> <volname> <file-path> <log-file>\n", argv[0]);
+        if (argc != 7) {
+                fprintf (stderr, "Syntax: %s <host> <volname> <file-path> <off> <len> <log-file>\n", argv[0]);
                 return 1;
         }
 
@@ -25,11 +28,13 @@ main (int argc, char *argv[])
                 fprintf (stderr, "glfs_set_volfile_server: retuned %d\n", ret);
                 goto out;
         }
-        ret = glfs_set_logging (fs, argv[4], 7);
+
+        ret = glfs_set_logging (fs, argv[6], 7);
         if (ret != 0) {
                 fprintf (stderr, "glfs_set_logging: returned %d\n", ret);
                 goto out;
         }
+
         ret = glfs_init (fs);
         if (ret != 0) {
                 fprintf (stderr, "glfs_init: returned %d\n", ret);
@@ -42,10 +47,12 @@ main (int argc, char *argv[])
                 goto out;
         }
 
-        /* Zero-fill "foo" with 10MB of data */
-        ret = glfs_zerofill (fd, 0, 10485760);
+        off = atoi (argv[4]);
+        len = atoi (argv[5]);
+
+        ret = glfs_discard (fd, off, len);
         if (ret <= 0) {
-                fprintf (stderr, "glfs_zerofill: returned %d\n", ret);
+                fprintf (stderr, "glfs_discard: returned %d\n", ret);
                 goto out;
         }
 
@@ -53,7 +60,7 @@ main (int argc, char *argv[])
 
 out:
         if (fd)
-                glfs_close(fd);
+                glfs_close (fd);
         glfs_fini (fs);
         return ret;
 }

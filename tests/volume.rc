@@ -655,3 +655,7 @@ function get_gfid_string {
         getfattr -n glusterfs.gfid.string $1 2>/dev/null \
                     | grep glusterfs.gfid.string | cut -d '"' -f 2
 }
+
+function file_all_zeroes {
+        < $1 tr -d '\0' | read -n 1 || echo 1
+}
