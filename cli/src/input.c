@@ -87,7 +87,7 @@ cli_input_init (struct cli_state *state)
                 cli_rl_enable (state);
         } else {
                 state->prompt = "";
-                state->mode = GLUSTER_MODE_SCRIPT | GLUSTER_MODE_ERR_FATAL;
+                state->mode |= GLUSTER_MODE_SCRIPT | GLUSTER_MODE_ERR_FATAL;
         }
 
         if (!state->rl_enabled)
