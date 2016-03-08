@@ -512,6 +512,15 @@ tier_migrate_using_query_file (void *_args)
                         goto out;
                 }
 
+                if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_ERROR,
+                                "Exiting tier migration as"
+                                "defrag status is not started");
+                        goto out;
+                }
+
                 ret = gettimeofday (&current_time, NULL);
                 if (ret < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
