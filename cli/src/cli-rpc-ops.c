@@ -1699,6 +1699,20 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 promoted = 0;
                 demoted = 0;
 
+                /* Check if status is NOT_STARTED, and continue early */
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_TRACE, "count: %d, %d,"
+                                "failed to get status", count, i);
+                        goto out;
+                }
+
+                if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
+                        continue;
+
                 memset (key, 0, 256);
                 snprintf (key, 256, "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
@@ -1718,13 +1732,6 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get demoted count");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
-                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get status");
 
                 /* Check for array bound */
                 if (status_rcd >= GF_DEFRAG_STATUS_MAX)
