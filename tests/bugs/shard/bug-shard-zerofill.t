@@ -3,10 +3,6 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
-function file_all_zeroes {
-        < $1 tr -d '\0' | read -n 1 || echo 1
-}
-
 cleanup
 
 TEST glusterd
@@ -23,7 +19,7 @@ TEST touch $M0/foo
 gfid_foo=$(get_gfid_string $M0/foo)
 
 TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/bug-shard-zerofill $(dirname $0)/bug-shard-zerofill.c -lgfapi
-TEST $(dirname $0)/bug-shard-zerofill $H0 $V0 /foo
+TEST $(dirname $0)/bug-shard-zerofill $H0 $V0 /foo `gluster --print-logdir`/glfs-$V0.log
 
 # This should ensure /.shard is created on the bricks.
 TEST stat $B0/${V0}0/.shard
@@ -40,7 +36,7 @@ TEST `echo "abc" >> $M0/foo`
 
 EXPECT_NOT "1" file_all_zeroes $M0/foo
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
