@@ -906,14 +906,11 @@ void ec_lookup(call_frame_t * frame, xlator_t * this, uintptr_t target,
         }
     }
     if (xdata != NULL) {
-        fop->xdata = dict_ref(xdata);
-        if (fop->xdata == NULL) {
-            gf_msg (this->name, GF_LOG_ERROR, 0,
-                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
-                                             "dictionary.");
-
+        fop->xdata = dict_copy_with_ref (xdata, NULL);
+        /* Do not log failures here as a memory problem would have already
+         * been logged by the corresponding alloc functions */
+        if (fop->xdata == NULL)
             goto out;
-        }
     }
 
     error = 0;
