@@ -4055,6 +4055,7 @@ pub_glfs_dup (struct glfs_fd *glfd)
 	}
 
 	dupfd->fd = fd_ref (fd);
+        dupfd->state = glfd->state;
 out:
 	if (fd)
 		fd_unref (fd);
