@@ -3236,20 +3236,11 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
-        if (!priv->selinux) {
-                if (strcmp (name, "security.selinux") == 0) {
-                        send_fuse_err (this, finh, EOPNOTSUPP);
-                        GF_FREE (finh);
-                        return;
-                }
-        }
-
-        if ((!priv->capability) && (!priv->selinux)) {
-                if (strcmp (name, "security.capability") == 0) {
-                        send_fuse_err (this, finh, EOPNOTSUPP);
-                        GF_FREE (finh);
-                        return;
-                }
+        ret = fuse_check_selinux_cap_xattr (priv, name);
+        if (ret) {
+                send_fuse_err (this, finh, EOPNOTSUPP);
+                GF_FREE (finh);
+                return;
         }
 
         /* Check if the command is for changing the log
@@ -3543,6 +3534,7 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int                      rv       = 0;
         int                     op_errno  = EINVAL;
         char                    *newkey   = NULL;
+        int                      ret      = 0;
 
         priv = this->private;
         GET_STATE (this, finh, state);
@@ -3574,18 +3566,10 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 }
         }
 
-        if (!priv->selinux) {
-                if (strcmp (name, "security.selinux") == 0) {
-                        op_errno = ENODATA;
-                        goto err;
-                }
-        }
-
-        if ((!priv->capability) && (!priv->selinux)) {
-                if (strcmp (name, "security.capability") == 0) {
-                        op_errno = ENODATA;
-                        goto err;
-                }
+        ret = fuse_check_selinux_cap_xattr (priv, name);
+        if (ret) {
+                op_errno = ENODATA;
+                goto err;
         }
 
         fuse_resolve_inode_init (state, &state->resolve, finh->nodeid);
