@@ -150,9 +150,9 @@ static struct argp_option gf_options[] = {
         {"acl", ARGP_ACL_KEY, 0, 0,
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
-         "Enable SELinux label (extened attributes) support on inodes"},
+         "Enable SELinux label (extended attributes) support on inodes"},
         {"capability", ARGP_CAPABILITY_KEY, 0, 0,
-         "Enable Capability (extened attributes) support on inodes"},
+         "Enable Capability (extended attributes) support on inodes"},
 
         {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
          "Validate the netgroups file and print it out"},
