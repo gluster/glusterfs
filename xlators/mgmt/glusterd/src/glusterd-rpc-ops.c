@@ -1717,7 +1717,7 @@ out:
         GF_FREE (req.friends.friends_val);
 
         if (ret && dummy_frame)
-                STACK_DESTROY (frame->root);
+                STACK_DESTROY (dummy_frame->root);
 
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
@@ -1756,7 +1756,7 @@ out:
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         if (ret && dummy_frame)
-                STACK_DESTROY (frame->root);
+                STACK_DESTROY (dummy_frame->root);
         return ret;
 }
 
@@ -1945,7 +1945,7 @@ out:
         gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d", ret);
 
         if (ret && dummy_frame)
-                STACK_DESTROY (frame->root);
+                STACK_DESTROY (dummy_frame->root);
 
         return ret;
 }
