@@ -360,15 +360,14 @@ glusterd_snapdsvc_restart ()
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 /* Start per volume snapd svc */
-                if (volinfo->status == GLUSTERD_STATUS_STARTED &&
-                    glusterd_is_snapd_enabled (volinfo)) {
+                if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                         svc = &(volinfo->snapd.svc);
-                        ret = svc->start (svc, PROC_START_NO_WAIT);
+                        ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_SNAPD_START_FAIL,
-                                        "Couldn't start snapd for "
-                                        "vol: %s", volinfo->volname);
+                                        "Couldn't resolve snapd for "
+                                        "vol: %s on restart", volinfo->volname);
                                 goto out;
                         }
                 }
