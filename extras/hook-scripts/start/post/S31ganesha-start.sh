@@ -75,22 +75,22 @@ function export_add()
         #               else
 
                  EXPORT_ID=`cat $GANESHA_DIR/.export_added`
+                 EXPORT_ID=EXPORT_ID+1
         #fi
         fi
-        for entry in `grep -n Export_Id  $GANESHA_DIR/exports/export.$VOL.conf \
-        | awk -F":" '{print$1}'`
-        do
-                sed -e "$entry s/Export_Id.*/Export_Id=$EXPORT_ID ;/" -i \
-                $GANESHA_DIR/exports/export.$VOL.conf
-                dbus-send  --system \
-                --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-                org.ganesha.nfsd.exportmgr.AddExport  \
-                string:$GANESHA_DIR/exports/export.$VOL.conf \
-                string:"EXPORT(Export_Id=$EXPORT_ID)"
-                EXPORT_ID=EXPORT_ID+1
-        done
         echo $EXPORT_ID > $GANESHA_DIR/.export_added
+        sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
+$GANESHA_DIR/exports/export.$VOL.conf
         echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
+}
+
+#This function adds a new export dynamically by sending dbus signals
+function dynamic_export_add()
+{
+        dbus-send --print-reply --system --dest=org.ganesha.nfsd \
+/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
+string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Path=/$VOL)"
+
 }
 
 function start_ganesha()
@@ -99,6 +99,8 @@ function start_ganesha()
         sed -i /$VOL.conf/d  $CONF1
         #Create a new export entry
         export_add $VOL
+        dynamic_export_add $VOL
+
 }
 
 # based on src/scripts/ganeshactl/Ganesha/export_mgr.py
