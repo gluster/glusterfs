@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <fnmatch.h>
 
 #include "cli.h"
 #include "cli-cmd.h"
@@ -1510,9 +1511,11 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
 
                 count++;
 
-                ret = gf_strip_whitespace (value, strlen (value));
-                if (ret == -1)
-                        goto out;
+                if (fnmatch ("user.*", key, FNM_NOESCAPE) != 0) {
+                        ret = gf_strip_whitespace (value, strlen (value));
+                        if (ret == -1)
+                                goto out;
+                }
 
                 if (strlen (value) == 0) {
                         ret = -1;
