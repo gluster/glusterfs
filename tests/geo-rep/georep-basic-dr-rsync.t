@@ -119,6 +119,32 @@ TEST unlink_ok ${slave_mnt}/changelog_d2
 TEST data_ok ${slave_mnt}/changelog_f1 "HelloWorld!"                    #55
 TEST chown_file_ok ${slave_mnt}/changelog_chown_f1
 
+# logrotate test
+logrotate_simulate logrotate_test_file 2
+logrotate_simulate logrotate_test_file 2
+logrotate_simulate logrotate_test_file 2
+logrotate_simulate logrotate_test_file 2
+sleep 15
+EXPECT 0 check_status_num_rows "Faulty"
+
+# CREATE + RENAME
+create_rename create_rename_test_file
+sleep 15
+TEST $GEOREP_CLI $master $slave stop
+sleep 5
+TEST $GEOREP_CLI $master $slave start
+sleep 15
+TEST create_rename_ok create_rename_test_file                                #58
+
+# hard-link rename
+hardlink_rename hardlink_rename_test_file
+sleep 15
+TEST $GEOREP_CLI $master $slave stop
+sleep 5
+TEST $GEOREP_CLI $master $slave start
+sleep 15
+TEST hardlink_rename_ok hardlink_rename_test_file
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
