@@ -4,6 +4,7 @@
 
 export TZ=UTC
 force="no"
+head="yes"
 retry="no"
 tests=""
 exit_on_failure="yes"
@@ -332,12 +333,34 @@ function run_tests()
     return ${RES}
 }
 
+function run_head_tests()
+{
+    [ -d ${regression_testsdir}/.git ] || return
+
+    # The git command needs $cwd to be within the repository, but run_tests
+    # needs it to be back where we started.
+    pushd $regression_testsdir
+    git_cmd="git diff-tree --no-commit-id --name-only -r HEAD"
+    htests=$($git_cmd tests | grep '.t$')
+    popd
+    [ -n "$htests" ] || return
+
+    # Perhaps it's not ideal that we'll end up re-running these tests, but the
+    # gains from letting them fail fast in the first round should outweigh the
+    # losses from running them again in the second.  OTOH, with so many of our
+    # tests being non-deterministic, maybe it doesn't hurt to give the newest
+    # tests an extra workout.
+    run_tests "$htests"
+}
+
 function parse_args () {
-    args=`getopt frcbk "$@"`
+    args=`getopt frcbkhH "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
         -f)    force="yes" ;;
+        -h)    head="no" ;;
+        -H)    head="only" ;;
         -r)    retry="yes" ;;
         -c)    exit_on_failure="no" ;;
         -b)    skip_bad_tests="no" ;;
@@ -367,4 +390,9 @@ check_dependencies
 check_location
 
 # Run the tests
-run_tests "$tests"
+if [ x"$head" != x"no" ]; then
+        run_head_tests || exit 1
+fi
+if [ x"$head" != x"only" ]; then
+        run_tests "$tests" || exit 1
+fi
