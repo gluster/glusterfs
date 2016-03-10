@@ -37,7 +37,7 @@ touch $M0/files{1..1000};
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}0.pid`;
 
-( cd $M0 ; umount $M0 ) # fail but drops kernel cache
+drop_cache $M0
 
 ls -l $M0 >/dev/null;
 
@@ -48,7 +48,7 @@ TEST $CLI volume start $V0 force
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
-( cd $M0 ; umount $M0 )
+drop_cache $M0
 
 ls -l $M0 >/dev/null;
 

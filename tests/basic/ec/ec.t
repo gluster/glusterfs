@@ -221,7 +221,7 @@ TEST setup_perm_file $M0
 sleep 2
 
 # Unmount/remount so that create/write and truncate don't see cached data.
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS -s $H0 --volfile-id $V0 $M1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "8" ec_child_up_count $V0 0
 
@@ -235,7 +235,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Unmount/remount again, same reason as before.
-TEST umount $M1
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 

@@ -73,7 +73,7 @@ echo "File path on cold tier: "$CPATH
 
 EXPECT_WITHIN $DEMOTE_TIMEOUT "yes" exists_and_regular_file $CPATH
 
-# We don't want $DST_FILE to get demoted
+#We don't want $DST_FILE to get demoted
 TEST $CLI volume set $V0 cluster.tier-demote-frequency $PROMOTE_FREQ
 
 #This will be created on the hot tier
@@ -90,3 +90,4 @@ EXPECT 1 echo $(ls -l $M0 | grep $DST_FILE | wc -l)
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

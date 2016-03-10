@@ -25,7 +25,7 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 TEST ls $M0
 
-GLFS_MNT_PID=`ps ax | grep -i $M0 | grep glusterfs | grep -v grep | sed -e "s/^ *\([0-9]*\).*/\1/g"`
+GLFS_MNT_PID=`ps ax | grep "glusterfs -s $H0 \-\-volfile\-id $V0 $M0" | sed -e "s/^ *\([0-9]*\).*/\1/g"`
 
 SOCKETS_BEFORE_SWITCH=`netstat -nap | grep $GLFS_MNT_PID | grep ESTABLISHED | wc -l`
 
@@ -43,3 +43,5 @@ SOCKETS_AFTER_SWITCH=`netstat -nap | grep $GLFS_MNT_PID | grep ESTABLISHED | wc 
 TEST [ $SOCKETS_AFTER_SWITCH = `expr $SOCKETS_BEFORE_SWITCH + 1` ]
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000

@@ -42,3 +42,4 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 EXPECT "^2$" echo $($CLI volume profile $V0 info | grep -w FSYNC | wc -l)
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1332797

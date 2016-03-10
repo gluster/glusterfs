@@ -31,5 +31,4 @@ TEST dd if=/dev/zero of=$M0/dir/file bs=1024 seek=7168 count=2048 conv=notrunc
 
 # Ensure that the file size is not greater than 9M.
 EXPECT '9437184' stat -c %s $M0/dir/file
-
 cleanup

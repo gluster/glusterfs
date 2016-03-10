@@ -16,6 +16,9 @@ TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 
+# Clear the profile info uptill now.
+TEST $CLI volume profile $V0 info clear
+
 # Verify 'volume profile info' prints both cumulative and incremental stats
 write_to_file &
 wait

@@ -5,8 +5,8 @@
 . $(dirname $0)/../../tier.rc
 
 NUM_BRICKS=3
-DEMOTE_FREQ=30
-PROMOTE_FREQ=30
+DEMOTE_FREQ=10
+PROMOTE_FREQ=10
 
 TEST_STR="Testing write and truncate fops on tier migration"
 
@@ -59,9 +59,8 @@ TEST mkdir $M0/dir1
 
 # Create a large file (800MB), so that rebalance takes time
 # The file will be created on the hot tier
-
 sleep_until_mid_cycle $DEMOTE_FREQ
-dd if=/dev/zero of=$M0/dir1/FILE1 bs=256k count=4096
+dd if=/dev/zero of=$M0/dir1/FILE1 bs=256k count=5120
 
 # Get the path of the file on the hot tier
 HPATH=`find $B0/hot/ -name  FILE1`
@@ -87,3 +86,4 @@ TEST test -s $HPATH
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

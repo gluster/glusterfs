@@ -25,8 +25,8 @@ TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B0/brick0/FILE
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status';
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" brick_up_status $V0 $H0 $B0/brick0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" brick_up_status $V0 $H0 $B0/brick1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/brick0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/brick1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count

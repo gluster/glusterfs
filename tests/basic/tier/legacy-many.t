@@ -42,7 +42,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 # Create a number of "legacy" files before attaching tier
 mkdir $M0/${TEST_DIR}
 cd $M0/${TEST_DIR}
-TEST create_many_files tfile $NUM_FILES
+TEST create_many_files file $NUM_FILES
 wait
 
 # Attach tier
@@ -84,3 +84,4 @@ TEST ! getfattr -n "trusted.tier.fix.layout.complete" $CPATH
 
 cd;
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

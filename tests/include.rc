@@ -39,6 +39,7 @@ H0=${H0:=`hostname`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
+UMOUNT_F="umount -f"
 
 PATH=$PATH:${PWD}/tests/utils
 
@@ -50,6 +51,7 @@ NetBSD)
   MOUNT_TYPE_FUSE="puffs|perfuse|fuse.glusterfs"
   GREP_MOUNT_OPT_RO="grep (read-only"
   GREP_MOUNT_OPT_RW="grep -v (read-only"
+  UMOUNT_F="umount -f -R"
   ;;
 *)
   ;;
@@ -125,6 +127,23 @@ function dbg()
         [ "x$DEBUG" = "x0" ] || echo "$*" >&2;
 }
 
+function G_LOG()
+{
+     local g_log_logdir;
+     g_log_logdir=`$CLI --print-logdir`
+     test -d $g_log_logdir
+     if [ $? != 0 ]; then
+        return
+     fi
+     local g_log_string;
+     g_log_string="++++++++++ G_LOG:$0: TEST: $@ ++++++++++"
+     g_log_string="`date -u +["%F %T.%6N"]`:$g_log_string"
+     local g_log_filename
+     for  g_log_filename in `find $g_log_logdir/ -type f -name \*.log`;
+        do
+                echo "$g_log_string" >> "$g_log_filename"
+        done
+}
 
 function test_header()
 {
@@ -137,12 +156,13 @@ function test_header()
 function test_footer()
 {
         RET=$?
-        local err=$1
+        local lineno=$1
+        local err=$2
 
         if [ $RET -eq 0 ]; then
-                echo "ok $t";
+                echo "ok $t, LINENUM:$lineno";
         else
-                echo "not ok $t $err";
+                echo "not ok $t $err, LINENUM:$lineno";
                 # With DEBUG, this was already printed out, so skip it.
                 if [ x"$DEBUG" = x"0" ]; then
                         echo "FAILED COMMAND: $saved_cmd"
@@ -159,8 +179,9 @@ function test_footer()
 
 function test_expect_footer()
 {
-        local e=$1
-        local a=$2
+        local lineno=$1
+        local e=$2
+        local a=$3
         local err=""
 
         if ! [[ "$a" =~ $e ]]; then
@@ -168,7 +189,7 @@ function test_expect_footer()
         fi
         [[ "$a" =~ $e ]];
 
-        test_footer "$err";
+        test_footer "$lineno" "$err";
 }
 
 function _EXPECT()
@@ -177,6 +198,7 @@ function _EXPECT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -184,16 +206,17 @@ function _EXPECT()
         a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
-                test_expect_footer "x$e" "x$a";
+                test_expect_footer "$TESTLINE" "x$e" "x$a";
         else
-                test_expect_footer "$e" "$a";
+                test_expect_footer "$TESTLINE" "$e" "$a";
         fi
 }
 
 function test_expect_not_footer()
 {
-        local e=$1
-        local a=$2
+        local lineno=$1
+        local e=$2
+        local a=$3
         local err=""
 
         if [[ "$a" =~ $e ]]; then
@@ -201,7 +224,7 @@ function test_expect_not_footer()
         fi
 
         ! [[ "$a" =~ "$e" ]];
-        test_footer "$err";
+        test_footer "$lineno" "$err";
 }
 
 function _EXPECT_NOT()
@@ -210,6 +233,7 @@ function _EXPECT_NOT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
@@ -217,9 +241,9 @@ function _EXPECT_NOT()
         a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
-               test_expect_not_footer "x$e" "x$a";
+               test_expect_not_footer "$TESTLINE" "x$e" "x$a";
         else
-               test_expect_not_footer "$e" "$a";
+               test_expect_not_footer "$TESTLINE" "$e" "$a";
         fi
 }
 
@@ -227,16 +251,15 @@ function _EXPECT_KEYWORD()
 {
         TESTLINE=$1;
         shift;
-
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         e="$1";
         shift;
         "$@" | tail -1 | grep -q "$e"
 
-        test_footer;
+        test_footer "$TESTLINE";
 }
-
 
 function _TEST()
 {
@@ -244,6 +267,7 @@ function _TEST()
         shift;
         local redirect=""
 
+        G_LOG $TESTLINE "$@";
         test_header "$@";
 
         if [ "$1" = "!" ]; then
@@ -252,7 +276,7 @@ function _TEST()
 
         eval "$@" >/dev/null $redirect
 
-        test_footer;
+        test_footer "$TESTLINE";
 }
 
 function _EXPECT_WITHIN()
@@ -263,6 +287,7 @@ function _EXPECT_WITHIN()
         local timeout=$1
         shift;
 
+        G_LOG $TESTLINE "$@";
         test_header "$@"
 
         e=$1;
@@ -286,9 +311,9 @@ function _EXPECT_WITHIN()
         done
 
         if [ "x$e" = "x" ] ; then
-               test_expect_footer "x$e" "x$a";
+               test_expect_footer "$TESTLINE" "x$e" "x$a";
         else
-               test_expect_footer "$e" "$a";
+               test_expect_footer "$TESTLINE" "$e" "$a";
         fi
 }
 
@@ -306,6 +331,12 @@ function _TEST_IN_LOOP()
 {
         testcnt=`expr $testcnt + 1`;
         _TEST $@
+}
+
+function _EXPECT_WITHIN_TEST_IN_LOOP()
+{
+        testcnt=`expr $testcnt + 1`;
+        _EXPECT_WITHIN $@
 }
 
 which killall > /dev/null || {
@@ -387,20 +418,42 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
-        # unmount filesystems before killing daemons to avoid deadllocks
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
-        for m in $MOUNTPOINTS;
-        do
-                umount $m
+
+        # Prepare flags for umount
+        case `uname -s` in
+        Linux)
+                flag="-l"
+                ;;
+        NetBSD)
+                flag="-f -R"
+                ;;
+        FreeBSD|Darwin)
+                flag="-f"
+                ;;
+        *)
+                flag=""
+                ;;
+        esac
+
+        # Clean up all client mounts
+        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
+                umount $flag $m
         done
 
-        killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
-                umount $m
-        done
-        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
-        # allow completion of signal handlers for SIGTERM before issue SIGKILL
-        sleep 1
+        # Unmount all well known mount points
+        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
+        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
+
+
+        # unmount all stale mounts from /tmp, This is a temporary work around
+        # till the stale mount in /tmp is found.
+        umount $flag /tmp/mnt* 2>/dev/null
+
+
+        # Send SIGKILL to all gluster processes that are still running
         killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
         test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
 
@@ -416,8 +469,18 @@ function cleanup()
         ## nfs_acl
         rpcinfo -d 100227 3 2>/dev/null || true;
 
+        # unmount brick filesystems after killing daemons
+        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        for m in $MOUNTPOINTS;
+        do
+                umount $flag $m
+        done
+
+        # Cleanup lvm
         type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
+        # Destroy loop devices
+        # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
                 LOOPDEVICES=`losetup -a | grep "$B0/" | \
@@ -457,31 +520,16 @@ function cleanup()
 
         # remove contents of "GLUSTERD_WORKDIR" except hooks and groups
         # directories.
-        find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
-        -o -name 'groups' -prune -o -exec rm -rf '{}' ';'
+        if [ -n $GLUSTERD_WORKDIR ]
+        then
+                find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
+                -o -name 'groups' -prune -o -exec rm -rf '{}' ';'
+        else
+                echo "GLUSTERD_WORKDIR is not set"
+        fi
 
-        rm -rf $B0/* /etc/glusterd/*;
-
-        # unmount all stale mounts from /tmp, This is a temporary work around
-        # till the stale mount in /tmp is found.
-        case `uname -s` in
-        Linux)
-                flag="-l"
-                ;;
-        NetBSD|FreeBSD|Darwin)
-                flag="-f"
-                ;;
-        *)
-                flag=""
-                ;;
-        esac
-        umount $flag /tmp/mnt* 2>/dev/null
-        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
-        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
-        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
-        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
-        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
-
+        # Complete cleanup time
+        rm -rf "$B0/*" "/etc/glusterd/*";
         rm -rf $WORKDIRS
         leftover=""
         for d in $WORKDIRS ; do
@@ -501,6 +549,20 @@ function cleanup()
                 echo
                 return 1;
         fi >&2
+
+        # tar logs at the start and end of every test
+        if [ -n "$LOGDIR" -a -z "$STOP_WASTING_SPACE" ]
+        then
+                tarname=$(basename $0 .t)
+                tar -rf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
+                        --exclude="*.tar" \
+                        && \
+                find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
+                                        -o -exec rm -rf '{}' ';'
+        else
+                echo "LOGDIR is not set"
+        fi
+
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
 	# value becomes their exit value.  While it's not great for the mkdir
@@ -509,6 +571,16 @@ function cleanup()
 	# sure we return good status anyway.
 	return 0
 }
+
+function force_terminate () {
+        local ret=$?;
+        >&2 echo -e "\nreceived external"\
+                        "signal --`kill -l $ret`--, calling 'cleanup' ...\n";
+        cleanup;
+        exit $ret;
+}
+
+trap force_terminate INT TERM HUP
 
 function volinfo_field()
 {
@@ -734,6 +806,7 @@ alias TEST='_TEST $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
+alias EXPECT_WITHIN_TEST_IN_LOOP='_EXPECT_WITHIN_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
 
 if [ x"$OSTYPE" = x"Linux" ]; then
@@ -832,12 +905,15 @@ log_newer()
         msg=$2
         logdir=`$CLI --print-logdir`
 
+        local x_ifs=$IFS
         IFS="["
-        for date in `grep -hr "$msg" $logdir | awk -F '[\]]' '{print $1}'` ; do
+        for date in `grep -hr "$msg" $logdir | grep -v "G_LOG" | awk -F '[\]]' '{print $1}'` ; do
                 if [ `date -d "$date" +%s` -gt $ts ] ; then
+                        IFS=$x_ifs
                         return 0;
                 fi
         done 2>/dev/null
+        IFS=$x_ifs
         return 1
 }
 

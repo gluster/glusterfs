@@ -77,3 +77,4 @@ rm $(dirname $0)/file_lock
 
 cleanup;
 
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000

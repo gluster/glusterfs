@@ -60,3 +60,4 @@ TEST pkill -f "$B0/hot/$V0"
 TEST ! $CLI volume tier $V0 detach start
 
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
