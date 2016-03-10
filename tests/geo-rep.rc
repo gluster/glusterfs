@@ -160,3 +160,73 @@ function create_georep_session()
 	rc=$?
 	if test $rc != 0; then return $rc; fi
 }
+
+# logrotate_simulate should be called (rotate_count + 1) times to cause
+# an unlink and a gfid re-allocation.
+# remember to keep the file name and rotate_count the same across the
+# calls
+function logrotate_simulate()
+{
+        file_name=$1
+        declare -i rotate_count=$2
+
+        while [ $rotate_count -ge 0 ]; do
+                source_file="${master_mnt}/$file_name.$((rotate_count))"
+                if [ $rotate_count -eq 0 ]; then
+                        source_file="${master_mnt}/$file_name"
+                fi
+                if [ -f "${source_file}" ]; then
+                        mv "${source_file}" "${master_mnt}/$file_name.$((rotate_count+1))"
+                fi
+                ((rotate_count--))
+        done
+
+        # logrotate causes gfid to be rellocated to a new file created
+        # after an unlink and a blind rename later causes georep session
+        # to go Faulty
+        # this should not happen if source basename on slave is tested
+        # to be linked with its own gfid as on master, before invoking
+        # the rename syscall
+        touch ${master_mnt}/$file_name
+        rotate_count=$2
+        unlink_file_name="${master_mnt}/$file_name.$((rotate_count+1))"
+        unlink $unlink_file_name
+}
+
+function create_rename()
+{
+        file_name=$1
+        echo $file_name > ${master_mnt}/$file_name
+        mv ${master_mnt}/$file_name ${master_mnt}/$file_name.bak
+}
+
+function create_rename_ok()
+{
+        file_name=$1
+        # after a log replay, we don't expect the original file
+        # to be recreated i.e. a dangling entry without a corresponding
+        # back-end gfid link should not exist on the slave
+        if [ -f "${slave_mnt}/$file_name" ]; then
+                return 1
+        fi
+        return 0
+}
+
+function hardlink_rename()
+{
+        file_name=$1
+        echo $file_name > ${master_mnt}/$file_name
+        ln ${master_mnt}/$file_name ${master_mnt}/$file_name.hl
+        mv ${master_mnt}/$file_name.hl ${master_mnt}/$file_name
+}
+
+function hardlink_rename_ok()
+{
+        file_name=$1
+        # the hardlink file should not exist on the slave after renaming
+        # to one of its links
+        if [ -f "${slave_mnt}/$file_name.hl" ]; then
+                return 1
+        fi
+        return 0
+}
