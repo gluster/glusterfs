@@ -417,12 +417,7 @@ fdl_init (xlator_t *this)
 
         GF_OPTION_INIT ("log-path", priv->log_dir, path, err);
 
-        if (pthread_create(&priv->worker,NULL,fdl_worker,this) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to start fdl_worker");
-                goto err;
-        }
-
+        this->private = priv;
         /*
          * The rest of the fop table is automatically generated, so this is a
          * bit cleaner than messing with the generation to add a hand-written
@@ -430,7 +425,12 @@ fdl_init (xlator_t *this)
          */
         this->fops->ipc = fdl_ipc;
 
-        this->private = priv;
+        if (pthread_create(&priv->worker,NULL,fdl_worker,this) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to start fdl_worker");
+                goto err;
+        }
+
         return 0;
 
 err:
