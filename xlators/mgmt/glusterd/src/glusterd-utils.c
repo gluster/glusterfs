@@ -5081,32 +5081,37 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         runinit (&runner);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
 
-        for (fs = glusterd_fs ; glusterd_fs->fs_type_name; fs++) {
+        for (fs = glusterd_fs ; fs->fs_type_name; fs++) {
                 if (strcmp (fs_name, fs->fs_type_name) == 0) {
-                        snprintf (fs_tool_name, sizeof fs_tool_name,
+                        snprintf (fs_tool_name, sizeof (fs_tool_name),
                                   "/usr/sbin/%s", fs->fs_tool_name);
-                        if (access (fs_tool_name, R_OK|X_OK) == 0)
+                        if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
                                 runner_add_arg (&runner, fs_tool_name);
                         else {
-                                snprintf (fs_tool_name, sizeof fs_tool_name,
+                                snprintf (fs_tool_name, sizeof (fs_tool_name),
                                           "/sbin/%s", fs->fs_tool_name);
-                                if (access (fs_tool_name, R_OK|X_OK) == 0)
+                                if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
                                         runner_add_arg (&runner, fs_tool_name);
-                        }
-                        if (runner.argv[0]) {
-                                if (fs->fs_tool_arg)
-                                        runner_add_arg (&runner, fs->fs_tool_arg);
                         }
                         break;
                 }
         }
 
+        if (runner.argv[0]) {
+                if (fs->fs_tool_arg)
+                        runner_add_arg (&runner, fs->fs_tool_arg);
+                runner_add_arg (&runner, device);
+        } else {
+                gf_log (THIS->name, GF_LOG_ERROR, "could not find %s to get"
+                        "inode size for %s (%s): %s package missing?",
+                        fs->fs_tool_name, device, fs_name, fs->fs_tool_pkg);
+                goto out;
+        }
+
         ret = runner_start (&runner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "could not get inode "
-                        "size for %s : %s package missing", fs_name,
-                        ((strcmp (fs_name, "xfs")) ?
-                         "e2fsprogs" : "xfsprogs"));
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to execute \"%s\"",
+                        fs->fs_tool_name);
                 /*
                  * Runner_start might return an error after the child has
                  * been forked, e.g. if the program isn't there.  In that
@@ -5114,7 +5119,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                  * child and free resources.  Fortunately, that seems to
                  * be harmless for other kinds of failures.
                  */
-                (void) runner_end(&runner);
+                (void) runner_end (&runner);
                 goto out;
         }
 
@@ -5135,24 +5140,22 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         ret = runner_end (&runner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "%s exited with non-zero exit status",
-                        fs->fs_tool_name);
+                gf_log (THIS->name, GF_LOG_ERROR, "%s exited with non-zero exit"
+                        " status", fs->fs_tool_name);
 
                 goto out;
         }
         if (!cur_word) {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "Unable to retrieve inode size using %s",
-                        fs->fs_tool_name);
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to retrieve inode "
+                        "size using %s", fs->fs_tool_name);
                 goto out;
         }
 
         if (dict_set_dynstr_with_alloc (cached_fs, device, cur_word)) {
                 /* not fatal if not entered into the cache */
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "failed to cache fs inode size for %s", device);
+                gf_log (THIS->name, GF_LOG_DEBUG, "failed to cache fs inode "
+                        "size for %s", device);
         }
 
 cached:
@@ -5161,7 +5164,7 @@ cached:
 
         ret = dict_set_dynstr_with_alloc (dict, key, cur_word);
 
- out:
+out:
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR, "failed to get inode size");
         return ret;
