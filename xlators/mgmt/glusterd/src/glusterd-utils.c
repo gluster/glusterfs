@@ -630,6 +630,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->quota_conf_version = volinfo->quota_conf_version;
         new_volinfo->quota_xattr_version = volinfo->quota_xattr_version;
         new_volinfo->snap_max_hard_limit = volinfo->snap_max_hard_limit;
+        new_volinfo->quota_conf_cksum = volinfo->quota_conf_cksum;
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);

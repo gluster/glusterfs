@@ -4633,6 +4633,14 @@
  */
 #define GD_MSG_SNAP_RESUME_TIER_FAIL                (GLUSTERD_COMP_BASE + 573)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_FILE_NOT_FOUND                       (GLUSTERD_COMP_BASE + 574)
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */
