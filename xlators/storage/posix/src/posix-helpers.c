@@ -744,6 +744,9 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                 if (posix_special_xattr (marker_xattrs, key))
                         goto next;
 
+                if (!fnmatch (GF_XATTR_STIME_PATTERN, key, 0))
+                        goto next;
+
                 if (dict_get (filler->xattr, key))
                         goto next;
 
