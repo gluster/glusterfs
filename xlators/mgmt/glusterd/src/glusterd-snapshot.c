@@ -9730,6 +9730,9 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
+        /* Need not save cksum, as we will copy cksum file in *
+         * this function                                           *
+         */
         ret = glusterd_copy_quota_files (snap_vol, orig_vol, &conf_present);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -9737,27 +9740,6 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         "quota files for snap %s",
                         snap_vol->snapshot->snapname);
                 goto out;
-        }
-
-        if (conf_present) {
-                /* TO calculate checksum of quota conf we need to send
-                 * second argument as _gf_true
-                 */
-                ret = glusterd_compute_cksum (new_volinfo, _gf_true);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_CKSUM_COMPUTE_FAIL, "Failed to compute "
-                                "checksum for quota conf file");
-                        goto out;
-                }
-
-                ret = glusterd_store_save_quota_version_and_cksum (new_volinfo);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_QUOTA_CKSUM_VER_STORE_FAIL, "Failed to "
-                                "store quota version and cksum");
-                        goto out;
-                }
         }
 
         /* New volinfo always shows the status as created. Therefore

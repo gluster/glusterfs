@@ -3649,6 +3649,34 @@ glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
                 goto out;
         }
 
+        ret = snprintf (src_path, sizeof (src_path), "%s/quota.cksum",
+                        src_dir);
+        if (ret < 0)
+                goto out;
+
+        /* if quota.conf is present, quota.cksum has to be present. *
+         * Fail snapshot operation if file is absent                *
+         */
+        ret = sys_lstat (src_path, &stbuf);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_FILE_NOT_FOUND, "%s not found", src_path);
+                goto out;
+        }
+
+        ret = snprintf (dest_path, sizeof (dest_path), "%s/quota.cksum",
+                       dest_dir);
+        if (ret < 0)
+                goto out;
+
+        ret = glusterd_copy_file (src_path, dest_path);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Failed to copy %s in %s",
+                        src_path, dest_path);
+                goto out;
+        }
+
         *conf_present = _gf_true;
 out:
         return ret;
