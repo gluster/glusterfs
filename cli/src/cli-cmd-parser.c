@@ -4182,7 +4182,7 @@ cli_snap_info_parse (dict_t *dict, const char **words, int wordcount)
         cmd = GF_SNAP_INFO_TYPE_VOL;
 out:
         if (ret == 0) {
-                ret = dict_set_int32 (dict, "cmd", cmd);
+                ret = dict_set_int32 (dict, "sub-cmd", cmd);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Could not save "
                                 "type of snapshot info");
