@@ -335,15 +335,15 @@ function run_tests()
 
 function run_head_tests()
 {
-    [ -d ${regression_testsdir}/.git ] || return
+    [ -d ${regression_testsdir}/.git ] || return 0
 
     # The git command needs $cwd to be within the repository, but run_tests
     # needs it to be back where we started.
     pushd $regression_testsdir
-    git_cmd="git diff-tree --no-commit-id --name-only -r HEAD"
-    htests=$($git_cmd tests | grep '.t$')
+    git_cmd="git diff-tree --no-commit-id --name-only --diff-filter=ACMRTUXB"
+    htests=$($git_cmd -r HEAD tests | grep '.t$')
     popd
-    [ -n "$htests" ] || return
+    [ -n "$htests" ] || return 0
 
     # Perhaps it's not ideal that we'll end up re-running these tests, but the
     # gains from letting them fail fast in the first round should outweigh the
