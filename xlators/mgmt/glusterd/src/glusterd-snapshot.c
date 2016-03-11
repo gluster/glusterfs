@@ -3683,7 +3683,7 @@ glusterd_handle_snapshot_info (rpcsvc_request_t *req, glusterd_op_t op,
         GF_VALIDATE_OR_GOTO (this->name, dict, out);
 
 
-        ret = dict_get_int32 (dict, "cmd", &cmd);
+        ret = dict_get_int32 (dict, "sub-cmd", &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "Failed to get type "
