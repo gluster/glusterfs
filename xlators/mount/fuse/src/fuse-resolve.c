@@ -256,8 +256,11 @@ fuse_resolve_parent_simple (fuse_state_t *state)
                  * have been there even though it need not have (bug #804592).
                  */
 
-                if (loc->inode && inode_needs_lookup (loc->inode, THIS))
+                if (loc->inode && inode_needs_lookup (loc->inode, THIS)) {
+                        inode_unref (loc->inode);
+                        loc->inode = NULL;
                         return -1;
+                }
 
                 if ((loc->inode == NULL)
                     && __is_root_gfid (parent->gfid)) {
