@@ -732,13 +732,19 @@ afr_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         local->cont.mkdir.mode  = mode;
         local->umask = umask;
 
-        if (xdata)
-                local->xdata_req = dict_copy_with_ref (xdata, NULL);
-	else
-		local->xdata_req = dict_new ();
+        if (!xdata || !dict_get (xdata, "gfid-req")) {
+                op_errno = EPERM;
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, op_errno,
+                                  AFR_MSG_GFID_NULL, "mkdir: %s is received "
+                                  "without gfid-req %p", loc->path, xdata);
+	        goto out;
+        }
 
-	if (!local->xdata_req)
-		goto out;
+        local->xdata_req = dict_copy_with_ref (xdata, NULL);
+        if (!local->xdata_req) {
+                op_errno = ENOMEM;
+                goto out;
+        }
 
         local->op = GF_FOP_MKDIR;
         local->transaction.wind   = afr_mkdir_wind;

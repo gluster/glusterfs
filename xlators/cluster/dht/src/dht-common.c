@@ -7346,6 +7346,14 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
+        if (!params || !dict_get (params, "gfid-req")) {
+                op_errno = EPERM;
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, op_errno,
+                                  DHT_MSG_GFID_NULL, "mkdir: %s is received "
+                                  "without gfid-req %p", loc->path, params);
+                goto err;
+        }
+
         dht_get_du_info (frame, this, loc);
 
         local = dht_local_init (frame, loc, NULL, GF_FOP_MKDIR);

@@ -1449,7 +1449,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, gid);
 
-        op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        if (xdata)
+                op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (uuid_req && !gf_uuid_is_null (uuid_req)) {
                 op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
                 if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
@@ -1470,6 +1471,13 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                 loc->path, uuid_utoa (uuid_req),
                                 gfid_path ? gfid_path : "<NULL>");
                 }
+        } else if (!uuid_req && frame->root->pid != GF_SERVER_PID_TRASH) {
+                op_ret = -1;
+                op_errno = EPERM;
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, op_errno,
+                        P_MSG_NULL_GFID, "mkdir (%s): is issued without "
+                        "gfid-req %p", loc->path, xdata);
+                goto out;
         }
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
