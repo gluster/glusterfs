@@ -193,8 +193,12 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
         conf = frame->this->private;
 
         ctx = posix_acl_ctx_get (inode, frame->this);
-        if (!ctx)
+        if (!ctx) {
+                gf_log_callingfn (frame->this->name, GF_LOG_ERROR,
+                                  "inode ctx is NULL for %s",
+                                  uuid_utoa (inode->gfid));
                 goto red;
+        }
 
         if (frame_is_super_user (frame))
                 goto green;
@@ -287,21 +291,52 @@ out:
 
 
 struct posix_acl_ctx *
-posix_acl_ctx_get (inode_t *inode, xlator_t *this)
+__posix_acl_ctx_get (inode_t *inode, xlator_t *this, gf_boolean_t create)
 {
         struct posix_acl_ctx *ctx = NULL;
         uint64_t              int_ctx = 0;
         int                   ret = 0;
 
-        ret = inode_ctx_get (inode, this, &int_ctx);
+        ret = __inode_ctx_get (inode, this, &int_ctx);
         if ((ret == 0) && (int_ctx))
                 return PTR(int_ctx);
+
+        if (create == _gf_false)
+                return NULL;
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_posix_acl_mt_ctx_t);
         if (!ctx)
                 return NULL;
 
-        ret = inode_ctx_put (inode, this, UINT64 (ctx));
+        ret = __inode_ctx_put (inode, this, UINT64 (ctx));
+
+        return ctx;
+}
+
+struct posix_acl_ctx *
+posix_acl_ctx_new (inode_t *inode, xlator_t *this)
+{
+        struct posix_acl_ctx *ctx = NULL;
+
+        LOCK (&inode->lock);
+        {
+                ctx = __posix_acl_ctx_get (inode, this, _gf_true);
+        }
+        UNLOCK (&inode->lock);
+
+        return ctx;
+}
+
+struct posix_acl_ctx *
+posix_acl_ctx_get (inode_t *inode, xlator_t *this)
+{
+        struct posix_acl_ctx *ctx = NULL;
+
+        LOCK (&inode->lock);
+        {
+                ctx = __posix_acl_ctx_get (inode, this, _gf_false);
+        }
+        UNLOCK (&inode->lock);
 
         return ctx;
 }
@@ -636,7 +671,7 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         if (!par_default)
                 goto out;
 
-        ctx = posix_acl_ctx_get (loc->inode, this);
+        ctx = posix_acl_ctx_new (loc->inode, this);
 
         acl_access = posix_acl_dup (this, par_default);
         if (!acl_access)
@@ -742,14 +777,14 @@ posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
         int                   ret = 0;
 	int                   i = 0;
 
-        ctx = posix_acl_ctx_get (inode, this);
-        if (!ctx) {
-                ret = -1;
-                goto out;
-        }
-
         LOCK(&inode->lock);
         {
+                ctx = __posix_acl_ctx_get (inode, this, _gf_true);
+                if (!ctx) {
+                        ret = -1;
+                        goto unlock;
+                }
+
                 ctx->uid   = buf->ia_uid;
                 ctx->gid   = buf->ia_gid;
                 ctx->perm  = st_mode_from_ia (buf->ia_prot, buf->ia_type);
@@ -794,7 +829,6 @@ posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
         }
 unlock:
         UNLOCK(&inode->lock);
-out:
         return ret;
 }
 

@@ -737,13 +737,17 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno,
                           gf_dirent_t *entries, dict_t *xdata)
 {
-        inode_t           *parent  = NULL, *tmp_parent = NULL;
-        gf_dirent_t       *entry   = NULL;
-        loc_t              loc     = {0, };
-        quota_dentry_t    *dentry  = NULL, *tmp = NULL;
-        quota_inode_ctx_t *ctx     = NULL;
-        struct list_head   parents = {0, };
-        quota_local_t     *local   = NULL;
+        inode_t           *parent       = NULL;
+        inode_t           *tmp_parent   = NULL;
+        inode_t           *linked_inode = NULL;
+        inode_t           *tmp_inode    = NULL;
+        gf_dirent_t       *entry        = NULL;
+        loc_t              loc          = {0, };
+        quota_dentry_t    *dentry       = NULL;
+        quota_dentry_t    *tmp          = NULL;
+        quota_inode_ctx_t *ctx          = NULL;
+        struct list_head   parents      = {0, };
+        quota_local_t     *local        = NULL;
 
         INIT_LIST_HEAD (&parents);
 
@@ -752,14 +756,6 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0)
                 goto err;
-
-        parent = inode_parent (local->loc.inode, 0, NULL);
-        if (parent == NULL) {
-                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
-                        Q_MSG_PARENT_NULL, "parent is NULL");
-                op_errno = EINVAL;
-                goto err;
-        }
 
         if ((op_ret > 0) && (entries != NULL)) {
                 list_for_each_entry (entry, &entries->list, list) {
@@ -776,6 +772,23 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  */
 
                                 tmp_parent = NULL;
+                        } else {
+                                /* For a non-root entry, link this inode */
+                                linked_inode = inode_link (entry->inode,
+                                                           tmp_parent,
+                                                           entry->d_name,
+                                                           &entry->d_stat);
+                                if (linked_inode) {
+                                        tmp_inode = entry->inode;
+                                        entry->inode = linked_inode;
+                                        inode_unref (tmp_inode);
+                                } else {
+                                        gf_msg (this->name, GF_LOG_WARNING,
+                                                EINVAL, Q_MSG_PARENT_NULL,
+                                                "inode link failed");
+                                                op_errno = EINVAL;
+                                                goto err;
+                                }
                         }
 
                         gf_uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
@@ -791,6 +804,14 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         loc_wipe (&loc);
                 }
+        }
+
+        parent = inode_parent (local->loc.inode, 0, NULL);
+        if (parent == NULL) {
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        Q_MSG_PARENT_NULL, "parent is NULL");
+                op_errno = EINVAL;
+                goto err;
         }
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);

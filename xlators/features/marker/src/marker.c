@@ -2982,38 +2982,17 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, gf_dirent_t *entries,
                            dict_t *xdata)
 {
-        gf_dirent_t *entry = NULL;
-        loc_t        loc    = {0, };
-        inode_t     *parent = NULL;
-        int          ret    = -1;
+        gf_dirent_t        *entry  = NULL;
+        quota_inode_ctx_t  *ctx    = NULL;
+        int                 ret    = -1;
 
         if ((op_ret <= 0) || (entries == NULL)) {
                 goto out;
         }
 
         list_for_each_entry (entry, &entries->list, list) {
-                if (entry->inode == entry->inode->table->root) {
-                        inode_unref (parent);
-                        parent = NULL;
-                }
-
-                if (parent)
-                        _marker_inode_loc_fill (entry->inode, parent,
-                                                entry->d_name, &loc);
-                else
-                        ret = marker_inode_loc_fill (entry->inode, &loc);
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
-                                "loc for %s/%s",
-                                parent? uuid_utoa (parent->gfid): NULL,
-                                entry->d_name);
+                if (entry->inode == NULL)
                         continue;
-                }
-
-                inode_unref (parent);
-                parent = inode_ref (entry->inode);
-                loc_wipe (&loc);
 
                 ret = marker_key_set_ver (this, entry->dict);
                 if (ret < 0) {
@@ -3021,10 +3000,13 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_errno = ENOMEM;
                         break;
                 }
-        }
 
-        if (parent)
-                inode_unref (parent);
+                ctx = mq_inode_ctx_new (entry->inode, this);
+                if (ctx == NULL)
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s",
+                                uuid_utoa (entry->inode->gfid));
+        }
 
 out:
         STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
