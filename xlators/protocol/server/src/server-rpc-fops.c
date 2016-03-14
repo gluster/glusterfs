@@ -491,20 +491,23 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state      = NULL;
         inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
+        client_t            *client     = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         state = CALL_STATE (frame);
+        client = frame->root->client;
 
         if (op_ret < 0) {
                 gf_msg (this->name, fop_log_level (GF_FOP_MKDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
-                        "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
+                        "%"PRId64": MKDIR %s (%s/%s) client: %s",
                         frame->root->unique,
                         (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.pargfid),
-                        state->resolve.bname, strerror (op_errno));
+                        state->resolve.bname,
+                     (!client || !client->client_uid) ? "-":client->client_uid);
                 goto out;
         }
 

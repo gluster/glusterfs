@@ -4110,6 +4110,15 @@ client3_3_mkdir (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
+        if (!args->xdata || !dict_get (args->xdata, "gfid-req")) {
+                op_errno = EPERM;
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, op_errno,
+                                  PC_MSG_GFID_NULL, "mkdir: %s is received "
+                                  "without gfid-req %p", args->loc->path,
+                                  args->xdata);
+                goto unwind;
+        }
+
         local = mem_get0 (this->local_pool);
         if (!local) {
                 op_errno = ENOMEM;
