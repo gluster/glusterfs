@@ -3803,11 +3803,18 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                 if (entry->d_ino != stbuf->st_ino)
                         continue;
 
+                /* Linking an inode here, can cause a race in posix_acl.
+                   Parent inode gets linked here, but before
+                   it reaches posix_acl_readdirp_cbk, create/lookup can
+                   come on a leaf-inode, as parent-inode-ctx not yet updated
+                   in posix_acl_readdirp_cbk, create and lookup can fail
+                   with EACCESS. So do the inode linking in the quota xlator
+
                 linked_inode = inode_link (leaf_inode, parent,
                                            entry->d_name, NULL);
 
                 GF_ASSERT (linked_inode == leaf_inode);
-                inode_unref (linked_inode);
+                inode_unref (linked_inode);*/
 
                 if (type & POSIX_ANCESTRY_DENTRY) {
                         loc_t loc = {0, };

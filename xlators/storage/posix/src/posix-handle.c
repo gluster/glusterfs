@@ -30,24 +30,42 @@ inode_t *
 posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
                char *bname, struct iatt *iabuf)
 {
-        inode_t     *inode = NULL, *linked_inode = NULL;
+        inode_t     *inode = NULL;
         int          ret   = -1;
 
         ret = posix_istat (this, parent->gfid, bname, iabuf);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "gfid: %s, bname: %s "
+                        "failed", uuid_utoa (parent->gfid), bname);
                 goto out;
-
-        inode = inode_find (itable, iabuf->ia_gfid);
-        if (inode == NULL) {
-                inode = inode_new (itable);
         }
 
-        linked_inode = inode_link (inode, parent, bname, iabuf);
+        if (__is_root_gfid (iabuf->ia_gfid) && !strcmp (bname, "/")) {
+                inode = itable->root;
+        } else {
+                inode = inode_find (itable, iabuf->ia_gfid);
+                if (inode == NULL) {
+                        inode = inode_new (itable);
+                        gf_uuid_copy (inode->gfid, iabuf->ia_gfid);
+                }
+        }
 
-        inode_unref (inode);
+        /* Linking an inode here, can cause a race in posix_acl.
+           Parent inode gets linked here, but before
+           it reaches posix_acl_readdirp_cbk, create/lookup can
+           come on a leaf-inode, as parent-inode-ctx not yet updated
+           in posix_acl_readdirp_cbk, create and lookup can fail
+           with EACCESS. So do the inode linking in the quota xlator
+
+        if (__is_root_gfid (iabuf->ia_gfid) && !strcmp (bname, "/"))
+                linked_inode = itable->root;
+        else
+                linked_inode = inode_link (inode, parent, bname, iabuf);
+
+        inode_unref (inode);*/
 
 out:
-        return linked_inode;
+        return inode;
 }
 
 int
@@ -67,6 +85,8 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
         }
 
         strcat (path, dir_name);
+        if (*dir_name != '/')
+                strcat (path, "/");
 
         if (type & POSIX_ANCESTRY_DENTRY) {
                 entry = gf_dirent_for_name (dir_name);
@@ -127,11 +147,16 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                         *parent = inode_ref (itable->root);
                 }
 
-                inode = itable->root;
 
-                memset (&iabuf, 0, sizeof (iabuf));
-                gf_uuid_copy (iabuf.ia_gfid, inode->gfid);
-                iabuf.ia_type = inode->ia_type;
+                inode = posix_resolve (this, itable, *parent, "/", &iabuf);
+                if (!inode) {
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                P_MSG_INODE_RESOLVE_FAILED, 0,
+                                "posix resolve on the root inode %s failed",
+                                uuid_utoa (gfid));
+                        *op_errno = ESTALE;
+                        goto out;
+                }
 
                 ret = posix_make_ancestral_node (priv_base_path, path, pathsize,
                                                  head, "/", &iabuf, inode, type,
@@ -177,12 +202,14 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
         if (inode == NULL) {
+                gf_msg (this->name, GF_LOG_ERROR, P_MSG_INODE_RESOLVE_FAILED,
+                        0, "posix resolve on the root inode %s failed",
+                        uuid_utoa (gfid));
                 *op_errno = ESTALE;
                 ret = -1;
                 goto out;
         }
 
-        strcat (dir_name, "/");
         ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
                                          dir_name, &iabuf, inode, type, xdata);
         if (*parent != NULL) {
