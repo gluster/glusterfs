@@ -72,21 +72,9 @@ function dynamic_export_add()
 
                  EXPORT_ID=`cat $GANESHA_DIR/.export_added`
                  check_cmd_status `echo $?`
+                 EXPORT_ID=EXPORT_ID+1
         #fi
         fi
-        for entry in `grep -n Export_Id  $GANESHA_DIR/exports/export.$VOL.conf \
-        | awk -F":" '{print$1}'`
-        do
-                sed -e "$entry s/Export_Id.*/Export_Id=$EXPORT_ID ;/" -i \
-                $GANESHA_DIR/exports/export.$VOL.conf
-                check_cmd_status `echo $?`
-                dbus-send  --system \
-                --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
-                org.ganesha.nfsd.exportmgr.AddExport  \
-                string:$GANESHA_DIR/exports/export.$VOL.conf \
-                string:"EXPORT(Export_Id=$EXPORT_ID)"
-                EXPORT_ID=EXPORT_ID+1
-        done
         echo $EXPORT_ID > $GANESHA_DIR/.export_added
         check_cmd_status `echo $?`
         sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
