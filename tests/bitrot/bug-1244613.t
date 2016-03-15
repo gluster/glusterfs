@@ -14,7 +14,7 @@ TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/brick1;
 EXPECT 'Created' volinfo_field $V0 'Status';
-
+TEST $CLI volume set $V0 nfs.disable false
 
 # The test makes use of inode-lru-limit to hit a scenario, where we
 # find an inode whose ancestry is not there. Following is the

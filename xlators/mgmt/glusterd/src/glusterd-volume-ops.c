@@ -2577,7 +2577,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 if (option) {
                         gf_msg_debug (this->name, 0, "NFS-Ganesha is enabled");
                         /* Gluster-nfs should not start when NFS-Ganesha is enabled*/
-                        ret = dict_set_str (volinfo->dict, "nfs.disable", "on");
+                        ret = dict_set_str (volinfo->dict, NFS_DISABLE_MAP_KEY, "on");
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED, "Failed to set nfs.disable for"

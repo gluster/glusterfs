@@ -43,6 +43,7 @@ cleanup;
 TEST glusterd
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}2
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0
 
 TEST $CLI volume quota $V0 enable

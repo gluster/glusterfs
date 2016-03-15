@@ -11,7 +11,7 @@ TEST pidof glusterd
 
 TEST $CLI volume info;
 TEST $CLI volume create $V0  $H0:$B0/$V0
-
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0;
 
 ## Wait for volume to register with rpc.mountd

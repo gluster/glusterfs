@@ -62,6 +62,7 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1 \
     $H0:$B0/${V0}2 $H0:$B0/${V0}3 $H0:$B0/${V0}4 $H0:$B0/${V0}5
+TEST $CLI volume set $V0 nfs.disable false
 
 # ------- test 1: AFR, fuse + remove bricks
 
@@ -77,6 +78,7 @@ reset $M0
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}0 $H0:$B0/${V0}1 \
     $H0:$B0/${V0}2 $H0:$B0/${V0}3 $H0:$B0/${V0}4 $H0:$B0/${V0}5
+TEST $CLI volume set $V0 nfs.disable false
 
 TEST start_mount_nfs test2
 EXPECT_WITHIN $FILE_COUNT_TIME $FILE_COUNT get_file_count $N0/test2

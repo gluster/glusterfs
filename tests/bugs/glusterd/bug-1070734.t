@@ -17,6 +17,7 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
+TEST $CLI volume set $V0 nfs.disable false
 
 ## Start volume and verify
 TEST $CLI volume start $V0;

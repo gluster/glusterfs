@@ -14,7 +14,7 @@ TEST $CLI volume set $V0 diagnostics.count-fop-hits on
 TEST $CLI volume set $V0 diagnostics.stats-dump-interval 1
 TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume start $V0
-sleep 1
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 TEST mount_nfs $H0:/$V0 $N0 nolock,soft,intr
 

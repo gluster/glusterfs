@@ -9,6 +9,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 redundancy 2 $H0:$B0/${V0}{0..5}
 EXPECT "Created" volinfo_field $V0 'Status'
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Started" volinfo_field $V0 'Status'
 

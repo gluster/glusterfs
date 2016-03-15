@@ -399,8 +399,6 @@ static char *glusterd_op_sm_event_names[] = {
         "GD_OP_EVENT_INVALID"
 };
 
-extern struct volopt_map_entry glusterd_volopt_map[];
-
 char*
 glusterd_op_sm_state_name_get (int state)
 {
@@ -1661,7 +1659,8 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         vol_opts = volinfo->dict;
 
         if ((cmd & GF_CLI_STATUS_NFS) != 0) {
-                nfs_disabled = dict_get_str_boolean (vol_opts, "nfs.disable",
+                nfs_disabled = dict_get_str_boolean (vol_opts,
+                                                     NFS_DISABLE_MAP_KEY,
                                                      _gf_false);
                 if (nfs_disabled) {
                         ret = -1;
@@ -3295,7 +3294,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         }
 
                         nfs_disabled = dict_get_str_boolean (vol_opts,
-                                                             "nfs.disable",
+                                                             NFS_DISABLE_MAP_KEY,
                                                              _gf_false);
                         if (!nfs_disabled) {
                                 ret = glusterd_add_node_to_dict

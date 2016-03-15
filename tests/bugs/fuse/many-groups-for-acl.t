@@ -43,6 +43,7 @@ TEST useradd -o -M -u ${NEW_UID} -g ${NEW_GID} -G ${NEW_USER}-${NEW_GIDS} ${NEW_
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create ${V0} ${H0}:${B0}/${V0}1
+TEST $CLI volume set $V0 nfs.disable off
 # disable manage-gids on the server-side for now, gets enabled later
 TEST $CLI volume set ${V0} server.manage-gids off
 TEST $CLI volume start ${V0}

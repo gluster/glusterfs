@@ -4953,7 +4953,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
-                if (dict_get_str_boolean (voliter->dict, "nfs.disable", 0))
+                if (dict_get_str_boolean (voliter->dict, NFS_DISABLE_MAP_KEY, 0))
                         continue;
 
                 ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",

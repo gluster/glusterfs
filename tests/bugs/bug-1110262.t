@@ -12,6 +12,7 @@ TEST $CLI volume info;
 
 ## Lets create volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
+TEST $CLI volume set $V0 nfs.disable false
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';

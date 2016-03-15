@@ -20,15 +20,6 @@ int
 glusterd_nfssvc_init (glusterd_svc_t *svc);
 
 int
-glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags);
-
-int
-glusterd_nfssvc_start (glusterd_svc_t *svc, int flags);
-
-int
-glusterd_nfssvc_stop (glusterd_svc_t *svc, int sig);
-
-int
 glusterd_nfssvc_reconfigure ();
 
 #endif

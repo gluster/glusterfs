@@ -42,6 +42,7 @@ TEST useradd -o -M -u ${NEW_UID} -g ${NEW_GID} -G ${NEW_USER}-${NEW_GIDS} ${NEW_
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}1
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume set $V0 nfs.server-aux-gids on
 TEST $CLI volume start $V0
 

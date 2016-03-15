@@ -183,15 +183,11 @@ glusterd_svc_check_volfile_identical (char *svc_name,
 
         need_unlink = 1;
 
-        ret = glusterd_create_global_volfile (builder,
-                                              tmpvol, NULL);
+        ret = glusterd_create_global_volfile (builder, tmpvol, NULL);
         if (ret)
                 goto out;
 
-        ret = glusterd_check_files_identical (orgvol, tmpvol,
-                                              identical);
-        if (ret)
-                goto out;
+        ret = glusterd_check_files_identical (orgvol, tmpvol, identical);
 
 out:
         if (need_unlink)

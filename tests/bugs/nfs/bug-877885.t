@@ -9,6 +9,7 @@ cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick0 $H0:$B0/brick1
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0
 
 ## Mount FUSE with caching disabled

@@ -7,6 +7,7 @@ cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2}
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume start $V0
 
