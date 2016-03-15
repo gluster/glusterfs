@@ -215,6 +215,7 @@ nlookup=13 #Number of times lookups happened from the client or from fuse kernel
 fd-count=4 #Number of fds opened on the inode
 ref=11 #Number of refs taken on the inode
 ia_type=1 #Type of the inode. This should be changed to some string :-(
+Ref by xl:.patchy-md-cache=11 #Further this there will be a list of xlators, and the ref count taken by each of them on this inode at the time of statedump
 
 [conn.1.bound_xl./data/brick01a/homegfs.lru.1] #1st inode in lru list. Note that ref count is zero for these inodes.
 gfid=5114574e-69bc-412b-9e52-f13ff087c6fc
@@ -222,6 +223,8 @@ nlookup=5
 fd-count=0
 ref=0
 ia_type=2
+Ref by xl:.fuse=1
+Ref by xl:.patchy-client-0=-1
 ```
 ###Inode context
 For each inode per xlator some context could be stored. This context can also be printed in the statedump. Here is the inode ctx of locks xlator
