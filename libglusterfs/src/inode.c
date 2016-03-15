@@ -324,7 +324,7 @@ __inode_ctx_free (inode_t *inode)
         }
 
         for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
-                if (inode->_ctx[index].xl_key) {
+                if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
                         xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
                         old_THIS = THIS;
                         THIS = xl;
@@ -447,11 +447,39 @@ __inode_retire (inode_t *inode)
 }
 
 
+static int
+__inode_get_xl_index (inode_t *inode, xlator_t *xlator)
+{
+        int set_idx = -1;
+        int index   = 0;
+
+        for (index = 0; index < inode->table->ctxcount; index++) {
+                if (!inode->_ctx[index].xl_key) {
+                        if (set_idx == -1)
+                                set_idx = index;
+                        /* dont break, to check if key already exists
+                           further on */
+                }
+                if (inode->_ctx[index].xl_key == xlator) {
+                        set_idx = index;
+                        break;
+                }
+        }
+
+        return set_idx;
+}
+
+
 static inode_t *
 __inode_unref (inode_t *inode)
 {
+        int       index = 0;
+        xlator_t *this  = NULL;
+
         if (!inode)
                 return NULL;
+
+        this = THIS;
 
         /*
          * Root inode should always be in active list of inode table. So unrefs
@@ -463,6 +491,12 @@ __inode_unref (inode_t *inode)
         GF_ASSERT (inode->ref);
 
         --inode->ref;
+
+        index = __inode_get_xl_index (inode, this);
+        if (index >= 0) {
+                inode->_ctx[index].xl_key = this;
+                inode->_ctx[index].ref--;
+        }
 
         if (!inode->ref) {
                 inode->table->active_size--;
@@ -480,8 +514,13 @@ __inode_unref (inode_t *inode)
 static inode_t *
 __inode_ref (inode_t *inode)
 {
+        int       index = 0;
+        xlator_t *this  = NULL;
+
         if (!inode)
                 return NULL;
+
+        this = THIS;
 
         if (!inode->ref) {
                 inode->table->lru_size--;
@@ -500,6 +539,12 @@ __inode_ref (inode_t *inode)
                 return inode;
 
         inode->ref++;
+
+        index = __inode_get_xl_index (inode, this);
+        if (index >= 0) {
+                inode->_ctx[index].xl_key = this;
+                inode->_ctx[index].ref++;
+        }
 
         return inode;
 }
@@ -1935,25 +1980,12 @@ __inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
                   uint64_t *value2_p)
 {
         int ret = 0;
-        int index = 0;
         int set_idx = -1;
 
         if (!inode || !xlator || !inode->_ctx)
                 return -1;
 
-        for (index = 0; index < inode->table->ctxcount; index++) {
-                if (!inode->_ctx[index].xl_key) {
-                        if (set_idx == -1)
-                                set_idx = index;
-                        /* dont break, to check if key already exists
-                           further on */
-                }
-                if (inode->_ctx[index].xl_key == xlator) {
-                        set_idx = index;
-                        break;
-                }
-        }
-
+        set_idx = __inode_get_xl_index (inode, xlator);
         if (set_idx == -1) {
                 ret = -1;
                 goto out;;
@@ -2313,11 +2345,14 @@ inode_dump (inode_t *inode, char *prefix)
         int                i         = 0;
         fd_t              *fd        = NULL;
         struct _inode_ctx *inode_ctx = NULL;
-        struct list_head fd_list;
+        struct list_head   fd_list;
+        int                ref       = 0;
+        char               key[GF_DUMP_MAX_BUF_LEN];
 
         if (!inode)
                 return;
 
+        memset(key, 0, sizeof(key));
         INIT_LIST_HEAD (&fd_list);
 
         ret = TRY_LOCK(&inode->lock);
@@ -2342,6 +2377,15 @@ inode_dump (inode_t *inode, char *prefix)
                         for (i = 0; i < inode->table->ctxcount;
                              i++) {
                                 inode_ctx[i] = inode->_ctx[i];
+                                xl = inode_ctx[i].xl_key;
+                                ref = inode_ctx[i].ref;
+                                if (ref != 0 && xl) {
+                                        gf_proc_dump_build_key (key,
+                                                                "ref_by_xl:",
+                                                                "%s",
+                                                                xl->name);
+                                        gf_proc_dump_write (key, "%d", ref);
+                                }
                         }
                 }
 

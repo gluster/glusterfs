@@ -81,6 +81,10 @@ struct _inode_ctx {
                 uint64_t    value2;
                 void       *ptr2;
         };
+        int                 ref; /* This is for debugging inode ref leaks,
+                                    basically helps in identifying the xlator
+                                    causing th ref leak, it is printed in
+                                    statedump */
 };
 
 struct _inode {
