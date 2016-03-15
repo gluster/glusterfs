@@ -36,6 +36,7 @@ struct mdc_conf {
 	gf_boolean_t cache_posix_acl;
 	gf_boolean_t cache_selinux;
 	gf_boolean_t force_readdirp;
+        gf_boolean_t cache_swift_metadata;
 };
 
 
@@ -69,6 +70,11 @@ static struct mdc_key {
 		.load = 0,
 		.check = 1,
 	},
+        {
+                .name = "user.swift.metadata",
+                .load = 0,
+                .check = 1,
+        },
 	{
 		.name = "security.capability",
 		.load = 0,
@@ -2229,6 +2235,12 @@ reconfigure (xlator_t *this, dict_t *options)
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
 	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
 
+        GF_OPTION_RECONF ("cache-swift-metadata", conf->cache_swift_metadata,
+                          options, bool, out);
+        mdc_key_load_set (mdc_keys, "user.swift.metadata",
+                          conf->cache_swift_metadata);
+
+
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
 
 out:
@@ -2264,6 +2276,11 @@ init (xlator_t *this)
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
 	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
+
+        GF_OPTION_INIT ("cache-swift-metadata",
+                        conf->cache_swift_metadata, bool, out);
+        mdc_key_load_set (mdc_keys, "user.swift.metadata",
+                          conf->cache_swift_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 out:
@@ -2322,6 +2339,11 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "false",
 	},
+        { .key = {"cache-swift-metadata"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true",
+          .description = "Cache swift metadata (user.swift.metadata xattr)",
+        },
 	{ .key = {"cache-posix-acl"},
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "false",
