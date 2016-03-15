@@ -1504,7 +1504,7 @@ glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
                                             __glusterd_handle_cli_list_friends);
 }
 
-int
+static int
 __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -1524,9 +1524,7 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_msg ("glusterd", GF_LOG_INFO, 0,
-                GD_MSG_GET_VOL_REQ_RCVD,
-                "Received get vol req");
+        gf_msg_plain (GF_LOG_INFO, "Received get vol req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -1944,7 +1942,7 @@ glusterd_handle_ganesha_cmd (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_ganesha_cmd);
 }
 
-int
+static int
 __glusterd_handle_reset_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -1958,6 +1956,8 @@ __glusterd_handle_reset_volume (rpcsvc_request_t *req)
         GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
+
+        gf_msg_plain (GF_LOG_DEBUG, "Received reset vol req");
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {

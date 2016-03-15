@@ -10484,6 +10484,26 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
         conf = this->private;
         GF_ASSERT (conf);
 
+#ifdef GD_OP_VERSION_3_8_0
+        if (conf->op_version >= GD_OP_VERSION_3_8_0) {
+                /* nfs.disable needs to be enabled for new volumes with
+                 * >= gluster version 3.7 (for now) 3.8 later
+                 */
+                if (!option || !strcmp (NFS_DISABLE_MAP_KEY, option)) {
+                        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                        NFS_DISABLE_MAP_KEY, "on");
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_DICT_SET_FAILED,
+                                        "Failed to set option '"
+                                        NFS_DISABLE_MAP_KEY "' on volume "
+                                        "%s", volinfo->volname);
+                                goto out;
+                        }
+                }
+        }
+#endif
+
         if (conf->op_version >= GD_OP_VERSION_3_7_0) {
                 /* Set needed volume options in volinfo->dict
                  * For ex.,

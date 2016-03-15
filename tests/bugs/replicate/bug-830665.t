@@ -18,6 +18,7 @@ TEST $CLI volume info;
 recreate ${B0}/${V0}-0
 recreate ${B0}/${V0}-1
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}-{0,1}
+TEST $CLI volume set $V0 nfs.disable false
 
 function volinfo_field()
 {

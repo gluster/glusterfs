@@ -132,9 +132,16 @@ function stat_nfs () {
 
 # Restarts the NFS server
 function restart_nfs () {
-	# disabling nfs acces for a volume requires a restart
-	$CLI volume set patchy nfs.disable true
-	$CLI volume reset patchy nfs.disable
+        local NFS_PID=$(cat ${GLUSTERD_WORKDIR}/nfs/run/nfs.pid)
+
+        # kill the NFS-server if it is running
+        while ps -q ${NFS_PID} 2>&1 > /dev/null; do
+                kill ${NFS_PID}
+                sleep 0.5
+        done
+
+        # start-force starts the NFS-server again
+        $CLI vol start patchy force
 }
 
 setup_cluster

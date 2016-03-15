@@ -34,6 +34,8 @@ TEST glusterd;
 TEST pidof glusterd;
 
 TEST $CLI volume create $V0 $H0:$L1 $H0:$L2 $H0:$L3;
+TEST $CLI volume set $V0 nfs.disable false
+
 
 TEST $CLI volume start $V0;
 

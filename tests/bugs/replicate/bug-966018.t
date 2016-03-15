@@ -16,6 +16,7 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/r2_0 $H0:$B0/r2_1
 TEST $CLI volume set $V0 ensure-durability off
 TEST $CLI volume set $V0 cluster.eager-lock on
 TEST $CLI volume set $V0 cluster.post-op-delay-secs 3
+TEST $CLI volume set $V0 nfs.disable false
 
 TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start

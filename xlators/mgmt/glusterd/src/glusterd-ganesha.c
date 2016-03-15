@@ -689,7 +689,7 @@ start_ganesha (char **op_errstr)
                 vol_opts = volinfo->dict;
                 /* Gluster-nfs has to be disabled across the trusted pool */
                 /* before attempting to start nfs-ganesha */
-                ret = dict_set_str (vol_opts, "nfs.disable", "on");
+                ret = dict_set_str (vol_opts, NFS_DISABLE_MAP_KEY, "on");
                 if (ret)
                         goto out;
 

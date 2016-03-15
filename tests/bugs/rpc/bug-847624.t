@@ -10,6 +10,7 @@ TEST glusterd
 TEST pidof glusterd
 #3
 TEST $CLI volume create $V0 $H0:$B0/$V0
+TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume set $V0 nfs.drc on
 TEST $CLI volume start $V0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;

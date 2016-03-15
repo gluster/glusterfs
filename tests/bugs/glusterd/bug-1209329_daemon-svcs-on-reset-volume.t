@@ -39,14 +39,17 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_snapd_count
 TEST $CLI volume reset $V0 force;
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" get_snapd_count
 
-#enable nfs.disable options and verify
-TEST $CLI volume set $V0 nfs.disable on
-EXPECT 'on' volinfo_field $V0 'nfs.disable'
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" get_nfs_count
+##verify initial nfs disabled by default
+EXPECT "0" get_nfs_count
+
+##enable nfs and verify
+TEST $CLI volume set $V0 nfs.disable off
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
+EXPECT "1" get_nfs_count
 
 ##Do reset force which set the nfs.option to default
 TEST $CLI volume reset $V0 force;
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_nfs_count
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" get_nfs_count
 
 ##enable the uss option and verify snapd is running or not
 TEST $CLI volume set $V0 features.uss on

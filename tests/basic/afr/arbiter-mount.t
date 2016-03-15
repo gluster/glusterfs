@@ -12,6 +12,7 @@ TEST glusterd;
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 3 arbiter 1 $H0:$B0/${V0}{0,1,2}
+TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status'
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;

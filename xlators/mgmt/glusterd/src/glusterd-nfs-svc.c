@@ -17,15 +17,7 @@
 #include "glusterd-messages.h"
 #include "glusterd-svc-helper.h"
 
-char *nfs_svc_name = "nfs";
-
-void
-glusterd_nfssvc_build (glusterd_svc_t *svc)
-{
-        svc->manager = glusterd_nfssvc_manager;
-        svc->start = glusterd_nfssvc_start;
-        svc->stop = glusterd_nfssvc_stop;
-}
+static char *nfs_svc_name = "nfs";
 
 static gf_boolean_t
 glusterd_nfssvc_need_start ()
@@ -40,7 +32,7 @@ glusterd_nfssvc_need_start ()
                 if (!glusterd_is_volume_started (volinfo))
                         continue;
 
-                if (dict_get_str_boolean (volinfo->dict, "nfs.disable", 0))
+                if (dict_get_str_boolean (volinfo->dict, NFS_DISABLE_MAP_KEY, 1))
                         continue;
                 start = _gf_true;
                 break;
@@ -67,7 +59,7 @@ glusterd_nfssvc_create_volfile ()
                                                filepath, NULL);
 }
 
-int
+static int
 glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = -1;
@@ -108,15 +100,13 @@ out:
         return ret;
 }
 
-int
+static int
 glusterd_nfssvc_start (glusterd_svc_t *svc, int flags)
 {
         return glusterd_svc_start (svc, flags, NULL);
-
-        return 0;
 }
 
-int
+static int
 glusterd_nfssvc_stop (glusterd_svc_t *svc, int sig)
 {
         int                    ret        = -1;
@@ -135,6 +125,14 @@ out:
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
+}
+
+void
+glusterd_nfssvc_build (glusterd_svc_t *svc)
+{
+        svc->manager = glusterd_nfssvc_manager;
+        svc->start = glusterd_nfssvc_start;
+        svc->stop = glusterd_nfssvc_stop;
 }
 
 int
