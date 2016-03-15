@@ -1,0 +1,152 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# Author: Rajesh Joseph (rjoseph@redhat.com)
+# Author: Christopher Blum (cblum@redhat.com)
+#
+
+
+#Variables
+box_name = "gluster-dev-fedora"
+box_url = "http://download.gluster.org/pub/gluster/glusterfs/vagrant/gluster-dev-fedora/boxes/gluster-dev-fedora.json"
+node_count = 0
+disk_count = -1
+node_name = "Node"
+ipbase="192.168.99."
+
+if ARGV[0] == "up"
+        environment = open('vagrant_env.conf', 'w')
+
+        print "\n\e[1;37mEnter Node (or VM) Count? Default: 1 \e[32m"
+        while node_count < 1 or node_count > 99
+                node_count = $stdin.gets.strip.to_i
+                if node_count == 0 # The user pressed enter without input or we cannot parse the input to a number
+                        node_count = 1
+                elsif node_count < 1
+                        print "\e[31mWe need at least 1 VM ;) Try again \e[32m"
+                elsif node_count > 99
+                        print "\e[31mWe don't support more than 99 VMs - Try again \e[32m"
+                end
+        end
+
+        print "\e[1;37mEnter per Node Disc (Brick) Count? Default: 2 \e[32m"
+
+        while disk_count < 1
+                disk_count = $stdin.gets.strip.to_i
+                if disk_count == 0 # The user pressed enter without input or we cannot parse the input to a number
+                        disk_count = 2
+                elsif disk_count < 1
+                        print "\e[31mWe need at least 1 disk ;) Try again \e[32m"
+                end
+        end
+
+        environment.puts("# BEWARE: Do NOT modify ANY settings in here or your vagrant environment will be messed up")
+        environment.puts(node_count.to_s)
+        environment.puts(disk_count.to_s)
+
+        print "\e[32m\nOK I will provision #{node_count} VMs for you and each one will have #{disk_count} disks for bricks\e[37m\n\n"
+        system "sleep 1"
+else # So that we destroy and can connect to all VMs...
+        environment = open('vagrant_env.conf', 'r')
+
+        environment.readline # Skip the comment on top
+        node_count = environment.readline.to_i
+        disk_count = environment.readline.to_i
+
+        if ARGV[0] != "ssh-config"
+                puts "Detected settings from previous vagrant up:"
+                puts "  We deployed #{node_count} VMs with each #{disk_count} disks"
+                puts ""
+        end
+end
+
+environment.close
+
+$ansivar = Hash.new{ |hash,key| hash[key] = [] }
+$devnamecreated = false
+
+#
+# Function to create and attach disks
+#
+def attachDisks(numDisk, provider)
+        suffix = "bcdefghijklmn".split("")
+        for i in 1..numDisk.to_i
+                devname = "vd" + (suffix[i-1]).to_s
+                if $devnamecreated == false
+                        $ansivar["device"].push "#{devname}"
+                end
+                provider.storage :file,
+                        :size           => '1G',
+                        :device         => "vd" + (suffix[i-1]).to_s,
+                        :type           => "qcow2",
+                        :bus            => "virtio",
+                        :cache          => "default"
+        end
+        $devnamecreated = true
+end
+
+groups = Hash.new{ |hash,key| hash[key] = [] }
+
+groups["origin"].push "#{node_name}1"
+groups["all"].push "#{node_name}1"
+
+(2..node_count).each do |num|
+        groups["group1"].push "#{node_name}#{num}"
+        groups["all"].push "#{node_name}#{num}"
+end
+
+hostsFile = "\n"
+(1..node_count).each do |num|
+        hostsFile += "#{ipbase}#{( 100 + num).to_s} #{node_name}#{num.to_s}\n"
+end
+
+
+Vagrant.configure("2") do |config|
+    (1..node_count).each do |num|
+        config.vm.define "#{node_name}#{num}" do |node|
+            ip_addr = "#{ipbase}#{(100 + num).to_s}"
+            node.vm.network "private_network", ip: "#{ip_addr}"
+            node.vm.box = box_name
+            node.vm.box_url = box_url
+            node.vm.hostname = "#{node_name}#{num}"
+            node.ssh.insert_key = false
+            node.vm.synced_folder "/work/source", "/work/source", type: "nfs"
+
+            # Define basic config for VM, memory, cpu, storage pool
+            node.vm.provider "libvirt" do |virt|
+                virt.storage_pool_name = "default"
+                virt.memory = 1024
+                virt.cpus = 1
+
+                attachDisks( disk_count, virt )
+            end
+
+            node.vm.post_up_message = "\e[37mBuilding of this VM is finished \n"
+                                      "You can access it now with: \n"
+                                      "vagrant ssh #{node_name}#{num.to_s}\n\n"
+                                      "/work/source directory in VM #{node_name}#{num.to_s}"
+                                      "is synced with Host machine. \nSo any changes done in this"
+                                      "directory will be reflected in the host machine as well\n"
+                                      "Beware of this when you delete content from this directory\e[32m"
+
+            node.vm.provision :shell, path: "bootstrap.sh"
+
+            node.vm.provision "shell", inline: <<-SHELL
+                echo '#{hostsFile}' | sudo tee -a /etc/hosts
+            SHELL
+
+            if num == node_count
+                # Let's provision
+                node.vm.provision "ansible" do |setup|
+                    setup.verbose = "v"
+                    setup.playbook = "ansible/setup.yml"
+                    setup.limit = "all"
+                    setup.sudo = "true"
+                    setup.groups = groups
+                    setup.extra_vars = $ansivar
+                end
+            end
+
+        end
+    end
+end

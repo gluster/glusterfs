@@ -1,0 +1,26 @@
+---
+- name: autogen.sh
+  shell: chdir=/work/source/glusterfs ./autogen.sh
+
+- name: configure
+  shell: chdir=/work/source/glusterfs CFLAGS="-g -O0 -Werror -Wall -Wno-error=cpp -Wno-error=maybe-uninitialized" \
+        ./configure \
+        --prefix=/usr \
+        --exec-prefix=/usr \
+        --bindir=/usr/bin \
+        --sbindir=/usr/sbin \
+        --sysconfdir=/etc \
+        --datadir=/usr/share \
+        --includedir=/usr/include \
+        --libdir=/usr/lib64 \
+        --libexecdir=/usr/libexec \
+        --localstatedir=/var \
+        --sharedstatedir=/var/lib \
+        --mandir=/usr/share/man \
+        --infodir=/usr/share/info \
+        --libdir=/usr/lib64 \
+        --enable-debug
+
+- name: make install
+  shell: chdir=/work/source/glusterfs make install
+

@@ -1,0 +1,6 @@
+---
+- name: Gluster peer probe
+  shell: gluster peer probe {{ item }}
+  with_items: groups ['group1']
+
+
