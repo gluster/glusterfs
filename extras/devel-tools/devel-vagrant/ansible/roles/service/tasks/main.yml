@@ -1,0 +1,21 @@
+---
+- name: disable kernel nfs
+  service: name=nfs-server enabled=no
+
+- name: stop kernel nfs
+  service: name=nfs-server state=stopped
+
+- name: enable rpcbind
+  service: name=rpcbind enabled=yes
+
+- name: start rpcbind
+  service: name=rpcbind state=started
+
+- name: enable glusterd
+  service: name=glusterd enabled=yes
+
+- name: start glusterd
+  service: name=glusterd state=started
+
+
+

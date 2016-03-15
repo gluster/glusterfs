@@ -1,0 +1,20 @@
+---
+- hosts: all
+  sudo: true
+  roles:
+    - install-pkgs
+    - prepare-brick
+    - selinux
+    - iptables
+
+- hosts: all
+  sudo: true
+  serial: 1
+  roles:
+    - compile-gluster
+    - service
+
+- hosts: origin
+  sudo: true
+  roles:
+    - cluster

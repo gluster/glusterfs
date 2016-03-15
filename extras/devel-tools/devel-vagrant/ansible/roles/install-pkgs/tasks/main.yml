@@ -1,0 +1,72 @@
+---
+- name: install deltarpm
+  dnf:  name=deltarpm state=present
+
+- name: update system
+  shell: dnf  update -y
+
+- name: install other packages
+  dnf:  name={{ item }} state=present
+  with_items:
+    - attr
+    - autoconf
+    - automake
+    - bison
+    - cifs-utils
+    - cscope
+    - ctags
+    - dbench
+    - dos2unix
+    - e2fsprogs
+    - findutils
+    - flex
+    - fuse-devel
+    - fuse-libs
+    - gcc
+    - gdb
+    - git
+    - glib2-devel
+    - hostname
+    - libacl-devel
+    - libaio-devel
+    - libattr-devel
+    - libibverbs-devel
+    - librdmacm-devel
+    - libtool
+    - libxml2-devel
+    - lvm2-devel
+    - make
+    - man-db
+    - mock
+    - net-tools
+    - nfs-utils
+    - openssh-server
+    - openssl-devel
+    - perl-Test-Harness
+    - pkgconfig
+    - procps-ng
+    - psmisc
+    - python-devel
+    - python-eventlet
+    - python-netifaces
+    - python-paste-deploy
+    - python-setuptools
+    - python-simplejson
+    - python-sphinx
+    - python-webob
+    - pyxattr
+    - readline-devel
+    - rpm-build
+    - screen
+    - strace
+    - supervisor
+    - systemtap-sdt-devel
+    - sqlite-devel
+    - samba*
+    - userspace-rcu-devel
+    - vim
+    - wget
+    - which
+    - xfsprogs
+    - yajl-devel
+

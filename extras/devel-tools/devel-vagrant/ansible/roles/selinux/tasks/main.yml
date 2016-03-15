@@ -1,0 +1,3 @@
+---
+- name: Allow gfapi in Samba to bind to other ports than well known smb ports
+  seboolean: name=samba_load_libgfapi state=yes persistent=yes
