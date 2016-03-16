@@ -864,7 +864,7 @@ __socket_keepalive (int fd, int family, int keepalive_intvl,
                 goto err;
         }
 #else
-        if (family != AF_INET)
+        if (family != AF_INET && family != AF_INET6)
                 goto done;
 
         ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_idle,
