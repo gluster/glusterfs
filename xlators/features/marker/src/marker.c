@@ -715,6 +715,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
+        quota_inode_ctx_t  *ctx     = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "error occurred "
@@ -724,6 +725,17 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+        priv = this->private;
+
+        if (op_ret >= 0 && inode && (priv->feature_enabled & GF_QUOTA)) {
+                ctx = mq_inode_ctx_new (inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
+        }
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode,
                              buf, preparent, postparent, xdata);
@@ -733,8 +745,6 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
-
-        priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
                 mq_create_xattrs_txn (this, &local->loc, NULL);
@@ -790,6 +800,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
+        quota_inode_ctx_t  *ctx     = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "error occurred "
@@ -799,6 +810,17 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+        priv = this->private;
+
+        if (op_ret >= 0 && inode && (priv->feature_enabled & GF_QUOTA)) {
+                ctx = mq_inode_ctx_new (inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
+        }
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent, xdata);
@@ -808,8 +830,6 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
-
-        priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
                 mq_create_xattrs_txn (this, &local->loc, buf);
@@ -1892,6 +1912,7 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
+        quota_inode_ctx_t  *ctx     = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
@@ -1901,6 +1922,17 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+        priv = this->private;
+
+        if (op_ret >= 0 && inode && (priv->feature_enabled & GF_QUOTA)) {
+                ctx = mq_inode_ctx_new (inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
+        }
 
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
@@ -1910,8 +1942,6 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
-
-        priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA) {
                 mq_create_xattrs_txn (this, &local->loc, buf);
@@ -1967,6 +1997,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_local_t     *local   = NULL;
         marker_conf_t      *priv    = NULL;
+        quota_inode_ctx_t  *ctx     = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "%s occurred with "
@@ -1976,6 +2007,17 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
+        priv = this->private;
+
+        if (op_ret >= 0 && inode && (priv->feature_enabled & GF_QUOTA)) {
+                ctx = mq_inode_ctx_new (inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
+        }
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode,
                              buf, preparent, postparent, xdata);
@@ -1985,8 +2027,6 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
-
-        priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
                 mq_create_xattrs_txn (this, &local->loc, buf);
@@ -2813,10 +2853,11 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        marker_conf_t  *priv                       = NULL;
-        marker_local_t *local                      = NULL;
-        dict_t         *xattrs                     = NULL;
-        int32_t         ret                        = -1;
+        marker_conf_t      *priv                       = NULL;
+        marker_local_t     *local                      = NULL;
+        dict_t             *xattrs                     = NULL;
+        quota_inode_ctx_t  *ctx                        = NULL;
+        int32_t             ret                        = -1;
 
         priv = this->private;
         local = (marker_local_t *) frame->local;
@@ -2845,6 +2886,16 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         } else if (dict) {
                 xattrs = dict_ref (dict);
+        }
+
+        if (op_ret >= 0 && inode && (priv->feature_enabled & GF_QUOTA)) {
+                ctx = mq_inode_ctx_new (inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (inode->gfid));
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                }
         }
 
 unwind:
@@ -2985,12 +3036,13 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, gf_dirent_t *entries,
                      dict_t *xdata)
 {
-        gf_dirent_t    *entry = NULL;
-        marker_conf_t  *priv  = NULL;
-        marker_local_t *local = NULL;
-        loc_t           loc   = {0, };
-        int             ret   = -1;
-        char           *resolvedpath = NULL;
+        gf_dirent_t        *entry         = NULL;
+        marker_conf_t      *priv          = NULL;
+        marker_local_t     *local         = NULL;
+        loc_t               loc           = {0, };
+        int                 ret           = -1;
+        char               *resolvedpath  = NULL;
+        quota_inode_ctx_t  *ctx           = NULL;
 
         if (op_ret <= 0)
                 goto unwind;
@@ -3020,6 +3072,11 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 loc.path = resolvedpath;
                 resolvedpath = NULL;
+
+                ctx = mq_inode_ctx_new (loc.inode, this);
+                if (ctx == NULL)
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s", uuid_utoa (loc.inode->gfid));
 
                 mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
                 loc_wipe (&loc);

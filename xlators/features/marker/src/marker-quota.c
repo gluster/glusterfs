@@ -1033,26 +1033,14 @@ mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
                 }
         }
 
-        if (ctx)
-                ret = mq_inode_ctx_get (loc->inode, this, ctx);
-        else
-                ret = mq_inode_ctx_get (loc->inode, this, &ctxtmp);
-
+        ret = mq_inode_ctx_get (loc->inode, this, &ctxtmp);
         if (ret < 0) {
-                if (ctx) {
-                        *ctx = mq_inode_ctx_new (loc->inode, this);
-                        if (*ctx == NULL) {
-                                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                                                  "mq_inode_ctx_new failed for "
-                                                  "%s", loc->path);
-                                ret = -1;
-                                goto out;
-                        }
-                } else {
-                        gf_log_callingfn (this->name, GF_LOG_WARNING, "ctx for "
-                                          "is NULL for %s", loc->path);
-                }
+                gf_log_callingfn (this->name, GF_LOG_WARNING, "inode ctx for "
+                                  "is NULL for %s", loc->path);
+                goto out;
         }
+        if (ctx)
+                *ctx = ctxtmp;
 
         ret = 0;
 out:
