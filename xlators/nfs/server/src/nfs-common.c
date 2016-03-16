@@ -138,8 +138,12 @@ nfs_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
                         gf_uuid_copy (loc->gfid, inode->gfid);
         }
 
-        if (parent)
+        if (parent) {
                 loc->parent = inode_ref (parent);
+                if (!gf_uuid_is_null (parent->gfid)) {
+                        gf_uuid_copy (loc->pargfid, parent->gfid);
+                }
+        }
 
         if (path) {
                 loc->path = gf_strdup (path);
