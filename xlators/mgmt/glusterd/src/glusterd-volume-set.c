@@ -3036,6 +3036,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "The max value is 262144 pages i.e 1 GB and "
                          "the min value is 1000 pages i.e ~4 MB."
         },
+        { .key         = VKEY_FEATURES_SELINUX,
+          .voltype     = "features/selinux",
+          .type        = NO_DOC,
+          .value       = "on",
+          .op_version  = GD_OP_VERSION_3_11_0,
+          .description = "Convert security.selinux xattrs to "
+                         "trusted.gluster.selinux on the bricks. Recommended "
+                         "to have enabled when clients and/or bricks support "
+                         "SELinux."
+        },
+
 #endif /* USE_GFDB */
         { .key         = "locks.trace",
           .voltype     = "features/locks",

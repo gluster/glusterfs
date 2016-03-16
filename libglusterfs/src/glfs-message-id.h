@@ -145,7 +145,7 @@
                                                 GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_SYMLINK_CACHE           \
-GLFS_MSGID_COMP_READDIR_AHEAD_END
+        GLFS_MSGID_COMP_READDIR_AHEAD_END
 #define GLFS_MSGID_COMP_SYMLINK_CACHE_END \
 (GLFS_MSGID_COMP_SYMLINK_CACHE+ \
                                                 GLFS_MSGID_SEGMENT)
@@ -190,6 +190,12 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_NLC                GLFS_MSGID_COMP_POSIX_ACL_END
 #define GLFS_MSGID_COMP_NLC_END            (GLFS_MSGID_COMP_NLC +\
                                            GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_SL                 GLFS_MSGID_COMP_NLC
+#define GLFS_MSGID_COMP_SL_END             (GLFS_MSGID_COMP_SL +\
+                                            GLFS_MSGID_SEGMENT)
+
+
 
 /* --- new segments for messages goes above this line --- */
 

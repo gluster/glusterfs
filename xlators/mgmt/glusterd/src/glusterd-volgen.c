@@ -1441,11 +1441,11 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
         int             ret = -1;
-        gf_boolean_t    quota_enabled = _gf_true;
-        gf_boolean_t    trash_enabled = _gf_false;
-        gf_boolean_t    pgfid_feat    = _gf_false;
-        char            *value = NULL;
-        xlator_t        *xl = NULL;
+        gf_boolean_t    quota_enabled   = _gf_true;
+        gf_boolean_t    trash_enabled   = _gf_false;
+        gf_boolean_t    pgfid_feat      = _gf_false;
+        char            *value          = NULL;
+        xlator_t        *xl             = NULL;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -1491,6 +1491,25 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (quota_enabled || pgfid_feat || trash_enabled)
                 xlator_set_option (xl, "update-link-count-parent",
                                    "on");
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_selinux (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl     = NULL;
+        int             ret     = -1;
+
+        if (!graph || !volinfo)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/selinux", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = 0;
 out:
         return ret;
 }
@@ -2433,6 +2452,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
         {brick_graph_add_marker, "marker"},
+        {brick_graph_add_selinux, "selinux"},
         {brick_graph_add_fdl, "fdl"},
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
