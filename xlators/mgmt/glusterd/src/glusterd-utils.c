@@ -7100,6 +7100,33 @@ void glusterd_update_tier_status (glusterd_volinfo_t *volinfo) {
 }
 
 int
+glusterd_get_dummy_client_filepath (char *filepath,
+                                    glusterd_volinfo_t *volinfo,
+                                    gf_transport_type type)
+{
+        int   ret             = 0;
+        char  path[PATH_MAX]  = {0,};
+
+        switch (type) {
+        case GF_TRANSPORT_TCP:
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                snprintf (filepath, PATH_MAX,
+                          "/tmp/%s.tcp-fuse.vol", volinfo->volname);
+                break;
+
+        case GF_TRANSPORT_RDMA:
+                snprintf (filepath, PATH_MAX,
+                          "/tmp/%s.rdma-fuse.vol", volinfo->volname);
+                break;
+        default:
+                ret = -1;
+                break;
+        }
+
+        return ret;
+}
+
+int
 glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                               size_t len, int cmd, defrag_cbk_fn_t cbk)
 {
@@ -11073,4 +11100,118 @@ gd_get_shd_key (int type)
                 break;
         }
         return key;
+}
+
+int
+glusterd_handle_replicate_brick_ops (glusterd_volinfo_t *volinfo,
+                                     glusterd_brickinfo_t *brickinfo,
+                                     glusterd_op_t op)
+{
+        int32_t                    ret               = -1;
+        char                       tmpmount[]        = "/tmp/mntXXXXXX";
+        char                       logfile[PATH_MAX] = {0,};
+        int                        dirty[3]          = {0,};
+        runner_t                   runner            = {0};
+        glusterd_conf_t           *priv              = NULL;
+        char                      *pid               = NULL;
+        char                       vpath[PATH_MAX]   = {0,};
+        char                      *volfileserver     = NULL;
+
+        priv = THIS->private;
+        GF_VALIDATE_OR_GOTO (THIS->name, priv, out);
+
+        dirty[2] = hton32(1);
+
+        ret = sys_lsetxattr (brickinfo->path, GF_AFR_DIRTY, dirty,
+                             sizeof (dirty), 0);
+        if (ret == -1) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
+                        " attribute %s : %s.", GF_AFR_DIRTY, strerror (errno));
+                goto out;
+        }
+
+        if (mkdtemp (tmpmount) == NULL) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED,
+                        "failed to create a temporary mount directory.");
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_asprintf (&pid, "%d", GF_CLIENT_PID_SELF_HEALD);
+        if (ret < 0)
+                goto out;
+
+        switch (op) {
+        case GD_OP_REPLACE_BRICK:
+        if (dict_get_str (THIS->options, "transport.socket.bind-address",
+                          &volfileserver) != 0)
+                volfileserver = "localhost";
+
+                snprintf (logfile, sizeof (logfile),
+                          DEFAULT_LOG_FILE_DIRECTORY"/%s-replace-brick-mount.log",
+                          volinfo->volname);
+                if (!*logfile) {
+                        ret = -1;
+                        goto out;
+                }
+                runinit (&runner);
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "-s", volfileserver,
+                                 "--volfile-id", volinfo->volname,
+                                 "--client-pid", pid,
+                                 "-l", logfile, tmpmount, NULL);
+                break;
+
+        case GD_OP_ADD_BRICK:
+                snprintf (logfile, sizeof (logfile),
+                          DEFAULT_LOG_FILE_DIRECTORY"/%s-add-brick-mount.log",
+                          volinfo->volname);
+                if (!*logfile) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = glusterd_get_dummy_client_filepath (vpath, volinfo,
+                                                    volinfo->transport_type);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to get "
+                                "volfile path");
+                        goto out;
+                }
+                runinit (&runner);
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "--volfile", vpath,
+                                 "--client-pid", pid,
+                                 "-l", logfile, tmpmount, NULL);
+                break;
+        default:
+                break;
+        }
+        synclock_unlock (&priv->big_lock);
+        ret = runner_run (&runner);
+
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "mount command"
+                        " failed.");
+                goto lock;
+        }
+        ret = sys_lsetxattr (tmpmount, (op == GD_OP_REPLACE_BRICK) ?
+                             GF_AFR_REPLACE_BRICK : GF_AFR_ADD_BRICK,
+                             brickinfo->brick_id, sizeof (brickinfo->brick_id),
+                             0);
+        if (ret == -1)
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
+                        " attribute %s : %s", (op == GD_OP_REPLACE_BRICK) ?
+                        GF_AFR_REPLACE_BRICK : GF_AFR_ADD_BRICK,
+                        strerror (errno));
+        gf_umount_lazy (THIS->name, tmpmount, 1);
+lock:
+        synclock_lock (&priv->big_lock);
+out:
+        if (pid)
+                GF_FREE (pid);
+        gf_msg_debug ("glusterd", 0, "Returning with ret");
+        return ret;
 }
