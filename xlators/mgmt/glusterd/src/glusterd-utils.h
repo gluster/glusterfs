@@ -690,4 +690,14 @@ int
 glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
                int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
                           dict_t *mod_dict, void *));
+
+int
+glusterd_get_dummy_client_filepath (char *filepath,
+                                    glusterd_volinfo_t *volinfo,
+                                    gf_transport_type type);
+
+int
+glusterd_handle_replicate_brick_ops (glusterd_volinfo_t *volinfo,
+                                     glusterd_brickinfo_t *brickinfo,
+                                     glusterd_op_t op);
 #endif

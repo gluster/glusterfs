@@ -5451,6 +5451,58 @@ enumerate_transport_reqs (gf_transport_type type, char **types)
 }
 
 int
+generate_dummy_client_volfiles (glusterd_volinfo_t *volinfo)
+{
+        int                i                  = 0;
+        int                ret                = -1;
+        char               filepath[PATH_MAX] = {0,};
+        char               *types[]           = {NULL, NULL, NULL};
+        dict_t             *dict              = NULL;
+        xlator_t           *this              = NULL;
+        gf_transport_type  type               = GF_TRANSPORT_TCP;
+
+        this = THIS;
+
+        enumerate_transport_reqs (volinfo->transport_type, types);
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+        for (i = 0; types[i]; i++) {
+                memset (filepath, 0, sizeof (filepath));
+                ret = dict_set_str (dict, "client-transport-type", types[i]);
+                if (ret)
+                        goto out;
+                type = transport_str_to_type (types[i]);
+
+                ret = dict_set_uint32 (dict, "trusted-client", GF_CLIENT_OTHER);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_get_dummy_client_filepath (filepath,
+                                                          volinfo, type);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INVALID_ENTRY,
+                                "Received invalid transport-type.");
+                        goto out;
+                }
+
+                ret = generate_single_transport_client_volfile (volinfo,
+                                                                filepath,
+                                                                dict);
+                if (ret)
+                        goto out;
+        }
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        gf_msg_trace ("glusterd", 0, "Returning %d", ret);
+        return ret;
+}
+
+int
 generate_client_volfiles (glusterd_volinfo_t *volinfo,
                           glusterd_client_type_t client_type)
 {

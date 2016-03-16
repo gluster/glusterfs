@@ -21,6 +21,7 @@
 #include "glusterd-messages.h"
 #include "glusterd-server-quorum.h"
 #include "run.h"
+#include "glusterd-volgen.h"
 #include <sys/signal.h>
 
 /* misc */
@@ -1233,6 +1234,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         char                         *brick_mount_dir  = NULL;
         xlator_t                     *this           = NULL;
         glusterd_conf_t              *conf           = NULL;
+        gf_boolean_t                  is_valid_add_brick = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1320,6 +1322,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         /* Gets changed only if the options are given in add-brick cli */
         if (type)
                 volinfo->type = type;
+
         if (replica_count) {
                 volinfo->replica_count = replica_count;
         }
@@ -1355,6 +1358,27 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 #endif
 
+        /* This check needs to be added to distinguish between
+         * attach-tier commands and add-brick commands.
+         * When a tier is attached, adding is done via add-brick
+         * and setting of pending xattrs shouldn't be done for
+         * attach-tiers as they are virtually new volumes.
+         */
+        if (glusterd_is_volume_replicate (volinfo)) {
+                if (replica_count &&
+                    !dict_get (dict, "attach-tier") &&
+                    conf->op_version >= GD_OP_VERSION_3_7_10) {
+                        is_valid_add_brick = _gf_true;
+                        ret = generate_dummy_client_volfiles (volinfo);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOLFILE_CREATE_FAIL,
+                                        "Failed to create volfile.");
+                                goto out;
+                                }
+                        }
+        }
+
         while (i <= count) {
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo);
@@ -1386,6 +1410,16 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         }
                 }
 
+                /* if the volume is a replicate volume, do: */
+                if (is_valid_add_brick) {
+                        if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
+                                ret = glusterd_handle_replicate_brick_ops (
+                                                           volinfo, brickinfo,
+                                                           GD_OP_ADD_BRICK);
+                                if (ret < 0)
+                                        goto out;
+                        }
+                }
                 ret = glusterd_brick_start (volinfo, brickinfo,
                                             _gf_true);
                 if (ret)
@@ -1514,22 +1548,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         conf = this->private;
         GF_ASSERT (conf);
 
-        ret = dict_get_int32 (dict, "replica-count", &replica_count);
-        if (ret) {
-                gf_msg_debug (THIS->name, 0,
-                        "Unable to get replica count");
-        }
-
-        if (replica_count > 0) {
-                ret = op_version_check (this, GD_OP_VER_PERSISTENT_AFR_XATTRS,
-                                        msg, sizeof(msg));
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_OP_VERSION_MISMATCH, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        goto out;
-                }
-        }
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
@@ -1549,6 +1567,42 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;
+
+        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        if (ret) {
+                gf_msg_debug (THIS->name, 0,
+                        "Unable to get replica count");
+        }
+
+        if (replica_count > 0) {
+                ret = op_version_check (this, GD_OP_VER_PERSISTENT_AFR_XATTRS,
+                                        msg, sizeof(msg));
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OP_VERSION_MISMATCH, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+        }
+
+        /* Do not allow add-brick for stopped volumes when replica-count
+         * is being increased.
+         */
+        if (glusterd_is_volume_replicate (volinfo)) {
+                if (conf->op_version >= GD_OP_VERSION_3_7_10 &&
+                    !dict_get (dict, "attach-tier") &&
+                    replica_count &&
+                    GLUSTERD_STATUS_STOPPED == volinfo->status) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), " Volume must not be in"
+                                  " stopped state when replica-count needs to "
+                                  " be increased.");
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_ADD_FAIL, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+        }
 
         if (conf->op_version > GD_OP_VERSION_3_7_5 &&
             is_origin_glusterd (dict)) {

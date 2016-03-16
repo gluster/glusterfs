@@ -39,83 +39,6 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases (rpcsvc_request_t *req,
                                                     glusterd_op_t op,
                                                     dict_t *dict);
 int
-glusterd_handle_replicate_replace_brick (glusterd_volinfo_t *volinfo,
-                                         glusterd_brickinfo_t *brickinfo)
-{
-        int32_t                    ret               = -1;
-        char                       tmpmount[]        = "/tmp/mntXXXXXX";
-        char                       logfile[PATH_MAX] = {0,};
-        int                        dirty[3]          = {0,};
-        runner_t                   runner            = {0};
-        glusterd_conf_t           *priv              = NULL;
-        char                      *pid               = NULL;
-        char                      *volfileserver     = NULL;
-
-        priv = THIS->private;
-
-        dirty[2] = hton32(1);
-
-        ret = sys_lsetxattr (brickinfo->path, GF_AFR_DIRTY, dirty,
-                             sizeof (dirty), 0);
-        if (ret == -1) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
-                        " attribute %s : %s.", GF_AFR_DIRTY, strerror (errno));
-                goto out;
-        }
-
-        if (mkdtemp (tmpmount) == NULL) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_DIR_OP_FAILED,
-                        "failed to create a temporary mount directory.");
-                ret = -1;
-                goto out;
-        }
-        snprintf (logfile, sizeof (logfile),
-                  DEFAULT_LOG_FILE_DIRECTORY"/%s-replace-brick-mount.log",
-                  volinfo->volname);
-
-        ret = gf_asprintf (&pid, "%d", GF_CLIENT_PID_SELF_HEALD);
-        if (ret < 0)
-                goto out;
-
-        if (dict_get_str (THIS->options, "transport.socket.bind-address",
-                          &volfileserver) != 0)
-                volfileserver = "localhost";
-
-        runinit (&runner);
-        runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", volfileserver,
-                         "--volfile-id", volinfo->volname,
-                         "--client-pid", pid,
-                         "-l", logfile, tmpmount, NULL);
-        synclock_unlock (&priv->big_lock);
-        ret = runner_run (&runner);
-
-        if (ret) {
-                runner_log (&runner, THIS->name, GF_LOG_ERROR, "mount command"
-                            "failed.");
-                goto lock;
-        }
-        ret = sys_lsetxattr (tmpmount, GF_AFR_REPLACE_BRICK,
-                             brickinfo->brick_id, sizeof (brickinfo->brick_id),
-                             0);
-        if (ret == -1)
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        GD_MSG_SETXATTR_FAIL, "Failed to set extended"
-                        " attribute %s : %s", GF_AFR_REPLACE_BRICK,
-                        strerror (errno));
-        gf_umount_lazy (THIS->name, tmpmount, 1);
-lock:
-        synclock_lock (&priv->big_lock);
-out:
-        if (pid)
-                GF_FREE (pid);
-        gf_msg_debug ("glusterd", 0, "Returning with ret");
-        return ret;
-}
-
-int
 __glusterd_handle_replace_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -670,8 +593,8 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         /* if the volume is a replicate volume, do: */
         if (glusterd_is_volume_replicate (volinfo)) {
                 if (!gf_uuid_compare (new_brickinfo->uuid, MY_UUID)) {
-                        ret = glusterd_handle_replicate_replace_brick
-                                  (volinfo, new_brickinfo);
+                        ret = glusterd_handle_replicate_brick_ops (volinfo,
+                                        new_brickinfo, GD_OP_REPLACE_BRICK);
                         if (ret < 0)
                                 goto out;
                 }

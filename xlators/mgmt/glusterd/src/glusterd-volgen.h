@@ -288,4 +288,7 @@ glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 gf_boolean_t
 gd_is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict);
 
+int
+generate_dummy_client_volfiles (glusterd_volinfo_t *volinfo);
+
 #endif
