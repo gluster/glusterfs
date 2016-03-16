@@ -60,9 +60,13 @@ out:
 int32_t
 mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
 {
-        char            *resolvedpath = NULL;
-        inode_t         *parent       = NULL;
-        int              ret          = -1;
+        char                *resolvedpath = NULL;
+        inode_t             *parent       = NULL;
+        quota_inode_ctx_t   *ctx          = NULL;
+        xlator_t            *this         = NULL;
+        int                  ret          = -1;
+
+        this = THIS;
 
         if ((!inode) || (!loc))
                 return ret;
@@ -95,6 +99,17 @@ ignore_parent:
         ret = mq_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
                 goto err;
+
+        ret = mq_inode_ctx_get (inode, this, &ctx);
+        if (ret < 0 || ctx == NULL)
+                ctx = mq_inode_ctx_new (inode, this);
+        if (ctx == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                        "failed for %s", uuid_utoa (inode->gfid));
+                ret = -1;
+                goto err;
+        }
+        ret = 0;
 
 err:
         if (parent)
