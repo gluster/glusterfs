@@ -37,7 +37,7 @@
  */
 #define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
                                 should not change */
-#define GD_OP_VERSION_MAX  GD_OP_VERSION_3_7_7 /* MAX VERSION is the maximum
+#define GD_OP_VERSION_MAX  GD_OP_VERSION_3_7_10 /* MAX VERSION is the maximum
                                                   count in VME table, should
                                                   keep changing with
                                                   introduction of newer
