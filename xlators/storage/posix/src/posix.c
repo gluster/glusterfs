@@ -1454,12 +1454,12 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                                    gfid_path, size);
 
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                                P_MSG_DIR_OF_SAME_ID, "mkdir (%s): gfid (%s) is"
-                                "already associated with directory (%s). Hence,"
-                                "both directories will share same gfid and this"
-                                "can lead to inconsistencies.", loc->path,
-                                uuid_utoa (uuid_req), gfid_path ? gfid_path
-                                : "<NULL>");
+                                P_MSG_DIR_OF_SAME_ID, "mkdir (%s): gfid (%s) "
+                                "is already associated with directory (%s). "
+                                "Hence, both directories will share same gfid "
+                                "and this can lead to inconsistencies.",
+                                loc->path, uuid_utoa (uuid_req),
+                                gfid_path ? gfid_path : "<NULL>");
                 }
         }
 
