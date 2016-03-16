@@ -32,6 +32,7 @@
 #define VKEY_FEATURES_TRASH       "features.trash"
 #define VKEY_FEATURES_BITROT      "features.bitrot"
 #define VKEY_FEATURES_SCRUB       "features.scrub"
+#define VKEY_FEATURES_SELINUX     "features.selinux"
 #define VKEY_PARALLEL_READDIR     "performance.parallel-readdir"
 #define VKEY_READDIR_AHEAD        "performance.readdir-ahead"
 #define VKEY_RDA_CACHE_LIMIT      "performance.rda-cache-limit"
