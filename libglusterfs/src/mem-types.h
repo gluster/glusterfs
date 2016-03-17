@@ -157,6 +157,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_synctask,
         gf_common_mt_syncstack,
         gf_common_mt_syncenv,
+        gf_common_mt_scan_data,
         gf_common_mt_end
 };
 #endif
