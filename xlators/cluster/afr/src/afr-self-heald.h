@@ -56,6 +56,8 @@ typedef struct {
 
         eh_t                    *split_brain;
         eh_t                    **statistics;
+        uint32_t                max_threads;
+        uint32_t                wait_qlength;
 } afr_self_heald_t;
 
 
