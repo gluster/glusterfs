@@ -915,6 +915,10 @@ dht_iatt_merge (xlator_t *this, struct iatt *to,
         to->ia_blksize  = from->ia_blksize;
         to->ia_blocks  += from->ia_blocks;
 
+        if (IA_ISDIR (from->ia_type)) {
+                to->ia_blocks = DHT_DIR_STAT_BLOCKS;
+                to->ia_size = DHT_DIR_STAT_SIZE;
+        }
         set_if_greater (to->ia_uid, from->ia_uid);
         set_if_greater (to->ia_gid, from->ia_gid);
 
@@ -2256,6 +2260,8 @@ dht_heal_full_path_done (int op_ret, call_frame_t *heal_frame, void *data)
         local = heal_frame->local;
         main_frame = local->main_frame;
         local->main_frame = NULL;
+
+        dht_set_fixed_dir_stat (&local->postparent);
 
         DHT_STACK_UNWIND (lookup, main_frame, 0, 0,
                           local->inode, &local->stbuf, local->xattr,

@@ -31,6 +31,9 @@
 #define TIERING_MIGRATION_KEY       "tiering.migration"
 #define DHT_LAYOUT_HASH_INVALID     1
 
+#define DHT_DIR_STAT_BLOCKS          8
+#define DHT_DIR_STAT_SIZE            4096
+
 #include <fnmatch.h>
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
@@ -1168,4 +1171,8 @@ dht_fd_ctx_destroy (xlator_t *this, fd_t *fd);
 
 int32_t
 dht_release (xlator_t *this, fd_t *fd);
+
+
+int32_t
+dht_set_fixed_dir_stat (struct iatt *stat);
 #endif/* _DHT_H */
