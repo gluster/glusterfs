@@ -3115,6 +3115,8 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
         struct dirent         *entry            = NULL;
         struct dirent          scratch[2]       = {{0,},};
         glusterd_volinfo_t    *volinfo          = NULL;
+        struct stat            st               = {0,};
+        char                   entry_path[PATH_MAX]   = {0,};
 
         GF_ASSERT (this);
         priv = this->private;
@@ -3142,6 +3144,22 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 if (snap && ((!strcmp (entry->d_name, "geo-replication")) ||
                              (!strcmp (entry->d_name, "info"))))
                         goto next;
+
+                snprintf (entry_path, PATH_MAX, "%s/%s", path, entry->d_name);
+                ret = sys_lstat (entry_path, &st);
+                if (ret == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_INVALID_ENTRY,
+                                        "Failed to stat entry %s : %s", path,
+                                        strerror (errno));
+                        goto next;
+                }
+
+                if (!S_ISDIR (st.st_mode)) {
+                        gf_msg_debug (this->name, 0, "%s is not a vaild volume"
+                                      , entry->d_name);
+                        goto next;
+                }
 
                 volinfo = glusterd_store_retrieve_volume (entry->d_name, snap);
                 if (!volinfo) {
