@@ -157,6 +157,7 @@ unwind:
         WIPE (&local->postparent);
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent,
@@ -422,6 +423,11 @@ dht_rename_unlock_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+        dht_set_fixed_dir_stat (&local->preoldparent);
+        dht_set_fixed_dir_stat (&local->postoldparent);
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
+
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,
