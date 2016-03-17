@@ -3222,8 +3222,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 other_count++;
                 node_count++;
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
-                ret = glusterd_add_node_to_dict ("snapd", rsp_dict, 0,
-                                                 vol_opts);
+                ret = glusterd_add_snapd_to_dict (volinfo, rsp_dict,
+                                                  other_index);
                 if (ret)
                         goto out;
                 other_count++;
