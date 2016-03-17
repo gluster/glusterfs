@@ -11,10 +11,17 @@
 #ifndef _SYNCOP_UTILS_H
 #define _SYNCOP_UTILS_H
 
+typedef int (*syncop_dir_scan_fn_t) (xlator_t *subvol, gf_dirent_t *entry,
+                                     loc_t *parent, void *data);
 int
 syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
             int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                        void *data));
+
+int
+syncop_mt_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
+                    syncop_dir_scan_fn_t fn, dict_t *xdata, uint32_t max_jobs,
+                    uint32_t max_qlen);
 
 int
 syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
