@@ -669,6 +669,17 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
+        if ((op_ret == -1) && (op_errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_ERROR, "Directory creation failed [%s]. "
+                                "Therefore unlinking %s without moving to trash "
+                                "directory", strerror(op_errno), local->loc.name);
+                STACK_WIND (frame, trash_common_unwind_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->unlink, &local->loc, 0,
+                            xdata);
+                goto out;
+        }
+
         LOCK (&frame->lock);
         {
                 loop_count = ++local->loop_count;
@@ -1454,6 +1465,18 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     0022, local->newfd, xdata);
                         goto out;
                 }
+        }
+
+        if ((op_ret == -1) && (op_errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_ERROR, "Directory creation failed [%s]. "
+                                "Therefore truncating %s without moving the "
+                                "original copy to trash directory",
+                                strerror(op_errno), local->loc.name);
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate, &local->loc,
+                            local->fop_offset, xdata);
+                goto out;
         }
 
         LOCK (&frame->lock);
