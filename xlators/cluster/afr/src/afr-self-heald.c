@@ -315,14 +315,18 @@ afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 
 	ret = afr_selfheal (this, gfid);
 
-	if (ret == -EIO) {
-		eh = shd->split_brain;
-		crawl_event->split_brain_count++;
-	} else if (ret < 0) {
-		crawl_event->heal_failed_count++;
-	} else if (ret == 0) {
-		crawl_event->healed_count++;
-	}
+        LOCK (&priv->lock);
+        {
+                if (ret == -EIO) {
+                        eh = shd->split_brain;
+                        crawl_event->split_brain_count++;
+                } else if (ret < 0) {
+                        crawl_event->heal_failed_count++;
+                } else if (ret == 0) {
+                        crawl_event->healed_count++;
+                }
+        }
+        UNLOCK (&priv->lock);
 
 	if (eh) {
 		shd_event = GF_CALLOC (1, sizeof(*shd_event),
@@ -425,6 +429,7 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
 	afr_private_t *priv   = NULL;
 	int           ret     = 0;
 	xlator_t      *subvol = NULL;
+	dict_t        *xdata  = NULL;
 
 	priv = healer->this->private;
 	subvol = priv->children[healer->subvol];
@@ -434,17 +439,28 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
 	        gf_msg (healer->this->name, GF_LOG_WARNING,
                         0, AFR_MSG_INDEX_DIR_GET_FAILED,
 		        "unable to get index-dir on %s", subvol->name);
-		return -errno;
+		ret = -errno;
+	        goto out;
 	}
 
-        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
-                               healer, afr_shd_index_heal);
+        xdata = dict_new ();
+        if (!xdata || dict_set_int32 (xdata, "get-gfid-type", 1)) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
-        loc_wipe (&loc);
+        ret = syncop_mt_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
+                                  healer, afr_shd_index_heal, xdata,
+                                 priv->shd.max_threads, priv->shd.wait_qlength);
 
         if (ret == 0)
                 ret = healer->crawl_event.healed_count;
 
+out:
+        loc_wipe (&loc);
+
+        if (xdata)
+                dict_unref (xdata);
 	return ret;
 }
 

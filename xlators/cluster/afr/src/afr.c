@@ -217,6 +217,12 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("consistent-metadata", priv->consistent_metadata,
                           options, bool, out);
 
+        GF_OPTION_RECONF ("shd-max-threads", priv->shd.max_threads,
+                          options, uint32, out);
+
+        GF_OPTION_RECONF ("shd-wait-qlength", priv->shd.wait_qlength,
+                          options, uint32, out);
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -329,6 +335,11 @@ init (xlator_t *this)
                         fav_child->name, fav_child->name);
         }
 
+        GF_OPTION_INIT ("shd-max-threads", priv->shd.max_threads,
+                         uint32, out);
+
+        GF_OPTION_INIT ("shd-wait-qlength", priv->shd.wait_qlength,
+                         uint32, out);
 
         GF_OPTION_INIT ("background-self-heal-count",
                         priv->background_self_heal_count, uint32, out);
@@ -849,6 +860,24 @@ struct volume_options options[] = {
         { .key = {"arbiter-count"},
           .type = GF_OPTION_TYPE_INT,
           .description = "subset of child_count. Has to be 0 or 1."
+        },
+        { .key   = {"shd-max-threads"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 64,
+          .default_value = "1",
+           .description = "Maximum number of threads SHD can use per local "
+                          "brick.  This can substantially lower heal times, "
+                          "but can also crush your bricks if you don't have "
+                          "the storage hardware to support this."
+        },
+        { .key   = {"shd-wait-qlength"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 655536,
+          .default_value = "1024",
+           .description = "This option can be used to control number of heals"
+                          " that can wait in SHD per subvolume",
         },
         { .key  = {NULL} },
 };

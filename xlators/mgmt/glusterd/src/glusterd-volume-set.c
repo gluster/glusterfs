@@ -2759,6 +2759,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_XLATOR_OPT,
           .type        = NO_DOC,
         },
+        { .key        = "cluster.shd-max-threads",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_7_10,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.shd-wait-qlength",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_7_10,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
         { .key         = NULL
         }
 };
