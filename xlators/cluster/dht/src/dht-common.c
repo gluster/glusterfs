@@ -31,6 +31,8 @@
 
 int run_defrag = 0;
 
+
+
 int dht_link2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame,
                int ret);
 
@@ -41,6 +43,21 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
 int
 dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
                int ret);
+
+
+/* Sets the blocks and size values to fixed values. This is to be called
+ * only for dirs. The caller is responsible for checking the type
+ */
+int32_t dht_set_fixed_dir_stat (struct iatt *stat)
+{
+        if (stat) {
+                stat->ia_blocks = DHT_DIR_STAT_BLOCKS;
+                stat->ia_size = DHT_DIR_STAT_SIZE;
+                return 0;
+        }
+        return -1;
+}
+
 
 int
 dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
@@ -210,6 +227,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
         }
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+        dht_set_fixed_dir_stat (&local->postparent);
 
         DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
                           &local->stbuf, local->xattr, &local->postparent);
@@ -369,6 +387,7 @@ cleanup:
 
         }
 done:
+        dht_set_fixed_dir_stat (&local->postparent);
         DHT_STACK_UNWIND (lookup, main_frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
@@ -719,6 +738,7 @@ unlock:
                 }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                dht_set_fixed_dir_stat (&local->postparent);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -976,6 +996,7 @@ cont:
                 }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                dht_set_fixed_dir_stat (&local->postparent);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -1045,6 +1066,8 @@ unwind:
         if (local->linked == _gf_true)
                 dht_linkfile_attr_heal (frame, this);
 
+
+        dht_set_fixed_dir_stat (&local->postparent);
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -1511,6 +1534,7 @@ preset_layout:
                 }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                dht_set_fixed_dir_stat (&local->postparent);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno, local->inode,
                                   &local->stbuf, local->xattr,
@@ -1547,6 +1571,7 @@ preset_layout:
                 }
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                dht_set_fixed_dir_stat (&local->postparent);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno, local->inode,
                                   &local->stbuf, local->xattr,
@@ -1567,6 +1592,7 @@ preset_layout:
 
 unwind_hashed_and_cached:
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+        dht_set_fixed_dir_stat (&local->postparent);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->loc.inode, &local->stbuf, local->xattr,
                           &local->postparent);
@@ -1912,6 +1938,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 
 unwind:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (postparent);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 
@@ -2158,6 +2185,7 @@ out:
         }
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (postparent);
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 err:
@@ -2473,7 +2501,8 @@ dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
         UNLOCK (&frame->lock);
 
-
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
         DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, xdata);
 
@@ -2539,6 +2568,8 @@ unlock:
                 }
         }
 
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
         DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, xdata);
 
@@ -4712,6 +4743,8 @@ list:
                    currently possible only for non-directories, so for
                    directories don't set entry inodes */
                 if (IA_ISDIR(entry->d_stat.ia_type)) {
+                        entry->d_stat.ia_blocks = DHT_DIR_STAT_BLOCKS;
+                        entry->d_stat.ia_size = DHT_DIR_STAT_SIZE;
                         if (orig_entry->inode) {
                                 dht_inode_ctx_time_update (orig_entry->inode,
                                                            this, &entry->d_stat,
@@ -5164,6 +5197,8 @@ out:
          * See dht_iatt_merge for reference.
          */
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (postparent);
+        dht_set_fixed_dir_stat (preparent);
 
         if (local && local->lock.locks) {
                 /* store op_errno for failure case*/
@@ -5774,6 +5809,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
 
+        dht_set_fixed_dir_stat (preparent);
+        dht_set_fixed_dir_stat (postparent);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf,
                           preparent, postparent, NULL);
 
@@ -5798,6 +5835,9 @@ dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                  * pass on the original mode bits so the higher DHT layer
                  * can handle this.
                  */
+                dht_set_fixed_dir_stat (&local->preparent);
+                dht_set_fixed_dir_stat (&local->postparent);
+
                 DHT_STACK_UNWIND (link, frame, local->op_ret, op_errno,
                                   local->inode,
                                   &local->stbuf, &local->preparent,
@@ -5815,6 +5855,8 @@ dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
          * migrating subvol, which could be the new hashed subvol */
         if (local->link_subvol == subvol) {
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                dht_set_fixed_dir_stat (&local->preparent);
+                dht_set_fixed_dir_stat (&local->postparent);
                 DHT_STACK_UNWIND (link, frame, 0, 0, local->inode,
                                   &local->stbuf, &local->preparent,
                                   &local->postparent, NULL);
@@ -5858,6 +5900,8 @@ dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (preparent);
+        dht_set_fixed_dir_stat (postparent);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent, NULL);
 
@@ -5980,6 +6024,8 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (preparent);
+        dht_set_fixed_dir_stat (postparent);
 
         if (local && local->lock.locks) {
                 /* store op_errno for failure case*/
@@ -6491,6 +6537,9 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
         layout = local->selfheal.layout;
 
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
+
         if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
 
@@ -6739,6 +6788,9 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
+
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);
 
@@ -6815,6 +6867,9 @@ unlock:
                                                            &local->postparent,
                                                            1);
                         }
+
+                        dht_set_fixed_dir_stat (&local->preparent);
+                        dht_set_fixed_dir_stat (&local->postparent);
 
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
                                           local->op_errno, &local->preparent,
@@ -6918,6 +6973,9 @@ unlock:
 
                         }
 
+                        dht_set_fixed_dir_stat (&local->preparent);
+                        dht_set_fixed_dir_stat (&local->postparent);
+
                         DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
                                           local->op_errno, &local->preparent,
                                           &local->postparent, NULL);
@@ -6985,6 +7043,9 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
         return 0;
 
 err:
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
+
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);
         return 0;
