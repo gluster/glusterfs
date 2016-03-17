@@ -781,7 +781,7 @@ out:
 
         if (did_sh)
                 afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
-                                  healed_sinks);
+                                  sources, healed_sinks);
         else
                 ret = 1;
 
@@ -839,8 +839,9 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
 	locked_on = alloca0 (priv->child_count);
 
-	ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain, 0, 0,
-				       locked_on);
+	ret = afr_selfheal_tie_breaker_inodelk (frame, this, inode,
+	                                        priv->sh_domain, 0, 0,
+				                locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
                         gf_msg_debug (this->name, 0, "%s: Skipping "
@@ -859,7 +860,8 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		ret = __afr_selfheal_data (frame, this, fd, locked_on);
 	}
 unlock:
-	afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0, locked_on);
+	afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0,
+	                        locked_on);
 
 	if (fd)
 		fd_unref (fd);

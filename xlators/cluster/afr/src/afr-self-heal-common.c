@@ -726,11 +726,14 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
 
 void
 afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
-                  int source, unsigned char *healed_sinks)
+                  int source, unsigned char *sources,
+                  unsigned char *healed_sinks)
 {
         char *status = NULL;
         char *sinks_str = NULL;
         char *p = NULL;
+        char *sources_str = NULL;
+        char *q = NULL;
         afr_private_t *priv = NULL;
         gf_loglevel_t loglevel = GF_LOG_NONE;
         int i = 0;
@@ -738,10 +741,18 @@ afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
         priv = this->private;
         sinks_str = alloca0 (priv->child_count * 8);
         p = sinks_str;
+        sources_str = alloca0 (priv->child_count * 8);
+        q = sources_str;
         for (i = 0; i < priv->child_count; i++) {
-                if (!healed_sinks[i])
-                        continue;
-                p += sprintf (p, "%d ", i);
+                if (healed_sinks[i])
+                        p += sprintf (p, "%d ", i);
+                if (sources[i]) {
+                        if (source == i) {
+                                q += sprintf (q, "[%d] ", i);
+                        } else {
+                                q += sprintf (q, "%d ", i);
+                        }
+                }
         }
 
         if (ret < 0) {
@@ -754,8 +765,8 @@ afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
 
         gf_msg (this->name, loglevel, 0,
                 AFR_MSG_SELF_HEAL_INFO, "%s %s selfheal on %s. "
-                "source=%d sinks=%s", status, type, uuid_utoa (gfid),
-                source, sinks_str);
+                "sources=%s sinks=%s", status, type, uuid_utoa (gfid),
+                sources_str, sinks_str);
 }
 
 int
@@ -1011,6 +1022,67 @@ afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return afr_locked_fill (frame, this, locked_on);
 }
 
+static void
+afr_get_lock_and_eagain_counts (afr_private_t *priv, struct afr_reply *replies,
+                                int *lock_count, int *eagain_count)
+{
+	int i = 0;
+
+	for (i = 0; i < priv->child_count; i++) {
+	        if (!replies[i].valid)
+	                continue;
+	        if (replies[i].op_ret == 0) {
+	                (*lock_count)++;
+                } else if (replies[i].op_ret == -1 &&
+		         replies[i].op_errno == EAGAIN) {
+		        (*eagain_count)++;
+                }
+	}
+}
+
+/*Do blocking locks if number of locks acquired is majority and there were some
+ * EAGAINs. Useful for odd-way replication*/
+int
+afr_selfheal_tie_breaker_inodelk (call_frame_t *frame, xlator_t *this,
+                                  inode_t *inode, char *dom, off_t off,
+                                  size_t size, unsigned char *locked_on)
+{
+	loc_t loc = {0,};
+	struct gf_flock flock = {0, };
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	int lock_count = 0;
+	int eagain_count = 0;
+
+	priv = this->private;
+	local = frame->local;
+
+	loc.inode = inode_ref (inode);
+	gf_uuid_copy (loc.gfid, inode->gfid);
+
+	flock.l_type = F_WRLCK;
+	flock.l_start = off;
+	flock.l_len = size;
+
+	AFR_ONALL (frame, afr_selfheal_lock_cbk, inodelk, dom,
+		   &loc, F_SETLK, &flock, NULL);
+
+        afr_get_lock_and_eagain_counts (priv, local->replies, &lock_count,
+                                        &eagain_count);
+
+	if (lock_count > priv->child_count/2 && eagain_count) {
+                afr_locked_fill (frame, this, locked_on);
+                afr_selfheal_uninodelk (frame, this, inode, dom, off,
+                                        size, locked_on);
+
+                AFR_SEQ (frame, afr_selfheal_lock_cbk, inodelk, dom,
+                         &loc, F_SETLKW, &flock, NULL);
+        }
+
+	loc_wipe (&loc);
+
+	return afr_locked_fill (frame, this, locked_on);
+}
 
 int
 afr_selfheal_uninodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -1084,6 +1156,43 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				 &loc, name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
 			break;
 		}
+	}
+
+	loc_wipe (&loc);
+
+	return afr_locked_fill (frame, this, locked_on);
+}
+
+int
+afr_selfheal_tie_breaker_entrylk (call_frame_t *frame, xlator_t *this,
+                                  inode_t *inode, char *dom, const char *name,
+                                  unsigned char *locked_on)
+{
+	loc_t loc = {0,};
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+	int lock_count = 0;
+	int eagain_count = 0;
+
+	priv = this->private;
+	local = frame->local;
+
+	loc.inode = inode_ref (inode);
+	gf_uuid_copy (loc.gfid, inode->gfid);
+
+	AFR_ONALL (frame, afr_selfheal_lock_cbk, entrylk, dom, &loc,
+		   name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
+
+        afr_get_lock_and_eagain_counts (priv, local->replies, &lock_count,
+                                        &eagain_count);
+
+	if (lock_count > priv->child_count/2 && eagain_count) {
+                afr_locked_fill (frame, this, locked_on);
+                afr_selfheal_unentrylk (frame, this, inode, dom, name,
+                                        locked_on);
+
+                AFR_SEQ (frame, afr_selfheal_lock_cbk, entrylk, dom,
+                         &loc, name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
 	}
 
 	loc_wipe (&loc);

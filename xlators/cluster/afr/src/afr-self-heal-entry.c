@@ -699,7 +699,7 @@ postop_unlock:
 out:
         if (did_sh)
                 afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
-                                  healed_sinks);
+                                  sources, healed_sinks);
         else
                 ret = 1;
 
@@ -754,8 +754,9 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	locked_on = alloca0 (priv->child_count);
 	long_name_locked = alloca0 (priv->child_count);
 
-	ret = afr_selfheal_tryentrylk (frame, this, inode, priv->sh_domain, NULL,
-				       locked_on);
+	ret = afr_selfheal_tie_breaker_entrylk (frame, this, inode,
+	                                        priv->sh_domain, NULL,
+                                                locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
                         gf_msg_debug (this->name, 0, "%s: Skipping "

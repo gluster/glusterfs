@@ -422,7 +422,7 @@ unlock:
 
         if (did_sh)
                 afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
-                                  healed_sinks);
+                                  sources, healed_sinks);
         else
                 ret = 1;
 
