@@ -113,6 +113,11 @@ afr_selfheal_tryinodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			 unsigned char *locked_on);
 
 int
+afr_selfheal_tie_breaker_inodelk (call_frame_t *frame, xlator_t *this,
+                                  inode_t *inode, char *dom, off_t off,
+                                  size_t size, unsigned char *locked_on);
+
+int
 afr_selfheal_uninodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			char *dom, off_t off, size_t size,
 			const unsigned char *locked_on);
@@ -124,6 +129,11 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 int
 afr_selfheal_tryentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			 char *dom, const char *name, unsigned char *locked_on);
+
+int
+afr_selfheal_tie_breaker_entrylk (call_frame_t *frame, xlator_t *this,
+                                  inode_t *inode, char *dom, const char *name,
+                                  unsigned char *locked_on);
 
 int
 afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -194,7 +204,8 @@ afr_success_count (struct afr_reply *replies, unsigned int count);
 
 void
 afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
-                  int source, unsigned char *healed_sinks);
+                  int source, unsigned char *sources,
+                  unsigned char *healed_sinks);
 
 void
 afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
