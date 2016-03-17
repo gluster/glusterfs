@@ -1897,49 +1897,46 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
         switch (event) {
         case RPC_CLNT_DISCONNECT:
-                if (!ctx->active) {
-                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-                                "failed to connect with remote-host: %s (%s)",
-                                ctx->cmd_args.volfile_server,
-                                strerror (errno));
-                        if (!rpc->disabled) {
-                                /*
-                                 * Check if dnscache is exhausted for current server
-                                 * and continue until cache is exhausted
-                                 */
-                                dnscache = rpc_trans->dnscache;
-                                if (dnscache && dnscache->next) {
-                                        break;
-                                }
-                        }
-                        server = ctx->cmd_args.curr_server;
-                        if (server->list.next == &ctx->cmd_args.volfile_servers) {
-                                need_term = 1;
-                                emval = ENOTCONN;
-                                gf_log("glusterfsd-mgmt", GF_LOG_INFO,
-                                       "Exhausted all volfile servers");
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                        "failed to connect with remote-host: %s (%s)",
+                        ctx->cmd_args.volfile_server, strerror (errno));
+                if (!rpc->disabled) {
+                        /*
+                         * Check if dnscache is exhausted for current server
+                         * and continue until cache is exhausted
+                         */
+                        dnscache = rpc_trans->dnscache;
+                        if (dnscache && dnscache->next) {
                                 break;
                         }
-                        server = list_entry (server->list.next, typeof(*server),
-                                             list);
-                        ctx->cmd_args.curr_server = server;
-                        ctx->cmd_args.volfile_server = server->volfile_server;
-
-                        ret = dict_set_str (rpc_trans->options,
-                                            "remote-host",
-                                            server->volfile_server);
-                        if (ret != 0) {
-                                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-                                        "failed to set remote-host: %s",
-                                        server->volfile_server);
-                                need_term = 1;
-                                emval = ENOTCONN;
-                                break;
-                        }
-                        gf_log ("glusterfsd-mgmt", GF_LOG_INFO,
-                                "connecting to next volfile server %s",
-                                server->volfile_server);
                 }
+                server = ctx->cmd_args.curr_server;
+                if (server->list.next == &ctx->cmd_args.volfile_servers) {
+                        if (!ctx->active)
+                                need_term = 1;
+                        emval = ENOTCONN;
+                        gf_log("glusterfsd-mgmt", GF_LOG_INFO,
+                               "Exhausted all volfile servers");
+                        break;
+                }
+                server = list_entry (server->list.next, typeof(*server), list);
+                ctx->cmd_args.curr_server = server;
+                ctx->cmd_args.volfile_server = server->volfile_server;
+
+                ret = dict_set_str (rpc_trans->options, "remote-host",
+                                    server->volfile_server);
+                if (ret != 0) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                                "failed to set remote-host: %s",
+                                server->volfile_server);
+                        if (!ctx->active)
+                                need_term = 1;
+                        emval = ENOTCONN;
+                        break;
+                }
+                gf_log ("glusterfsd-mgmt", GF_LOG_INFO,
+                        "connecting to next volfile server %s",
+                        server->volfile_server);
                 break;
         case RPC_CLNT_CONNECT:
                 rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
