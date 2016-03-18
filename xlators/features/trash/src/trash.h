@@ -39,10 +39,12 @@ struct trash_struct {
         loc_t    newloc;     /* to store the location for the new file */
         size_t   fsize;      /* for keeping the size of existing file */
         off_t    cur_offset; /* current offset for read and write ops */
-        off_t    fop_offset;
+        off_t    fop_offset; /* original offset received with the fop */
+        pid_t    pid;
         char     origpath[PATH_MAX];
         char     newpath[PATH_MAX];
         int32_t  loop_count;
+        gf_boolean_t is_set_pid;
         struct iatt preparent;
         struct iatt postparent;
         gf_boolean_t ctr_link_count_req;
@@ -67,6 +69,23 @@ struct trash_priv {
         inode_table_t        *trash_itable;
 };
 typedef struct trash_priv trash_private_t;
+
+#define TRASH_SET_PID(frame, local) do {                        \
+                GF_ASSERT (!local->is_set_pid);                 \
+                if (!local->is_set_pid) {                       \
+                        local->pid = frame->root->pid;          \
+                        frame->root->pid = GF_SERVER_PID_TRASH; \
+                        local->is_set_pid = _gf_true;           \
+                }                                               \
+} while (0)
+
+#define TRASH_UNSET_PID(frame, local) do {              \
+                GF_ASSERT (local->is_set_pid);          \
+                if (local->is_set_pid) {                \
+                        frame->root->pid = local->pid;  \
+                        local->is_set_pid = _gf_false;  \
+                }                                       \
+} while (0)
 
 #define TRASH_STACK_UNWIND(op, frame, params ...) do {    \
                 trash_local_t *__local = NULL;            \

@@ -598,6 +598,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local   = frame->local;
         GF_VALIDATE_OR_GOTO ("trash", local, out);
 
+        TRASH_UNSET_PID (frame, local);
+
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -645,6 +647,9 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
+
+                TRASH_SET_PID (frame, local);
+
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
                                    FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
@@ -727,6 +732,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
 
+        TRASH_SET_PID (frame, local);
+
         STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
                            FIRST_CHILD(this),
                            FIRST_CHILD(this)->fops->mkdir, &tmp_loc,
@@ -798,6 +805,9 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 remove_trash_path (tmp_str, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
+
+                TRASH_SET_PID (frame, local);
+
                 /* create the directory with proper permissions */
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_cookie,
                                    FIRST_CHILD(this),
@@ -1317,6 +1327,9 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
+
+                TRASH_SET_PID (frame, local);
+
                 /* create the directory with proper permissions */
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
                                    tmp_path, FIRST_CHILD(this),
@@ -1395,6 +1408,8 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         loop_count = local->loop_count;
 
+        TRASH_UNSET_PID (frame, local);
+
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
@@ -1440,6 +1455,9 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
+
+                TRASH_SET_PID (frame, local);
+
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
                                    tmp_path, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
@@ -1522,6 +1540,8 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
+
+        TRASH_SET_PID (frame, local);
 
         STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk, tmp_path,
                            FIRST_CHILD(this),
