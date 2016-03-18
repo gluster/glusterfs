@@ -366,6 +366,8 @@ client_destroy (client_t *client)
                 }
         }
         GF_FREE (client->auth.data);
+        GF_FREE (client->auth.username);
+        GF_FREE (client->auth.passwd);
         GF_FREE (client->scratch_ctx.ctx);
         GF_FREE (client->client_uid);
         GF_FREE (client);
