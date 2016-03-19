@@ -47,4 +47,4 @@ int _gf_msg_nomem (const char *domain, const char *file,
 }
 
 void
-gf_log_globals_init (void *data) {}
+gf_log_globals_init (void *data, gf_loglevel_t level) {}
