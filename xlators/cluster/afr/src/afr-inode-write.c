@@ -182,7 +182,9 @@ __afr_inode_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t *local = NULL;
         int child_index = (long) cookie;
         int call_count = -1;
+        afr_private_t *priv = NULL;
 
+        priv = this->private;
         local = frame->local;
 
         LOCK (&frame->lock);
@@ -198,8 +200,13 @@ __afr_inode_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
 		__afr_inode_write_finalize (frame, this);
 
-		if (afr_txn_nothing_failed (frame, this))
-			local->transaction.unwind (frame, this);
+		if (afr_txn_nothing_failed (frame, this)) {
+                        /*if it did pre-op, it will do post-op changing ctime*/
+                        if (priv->consistent_metadata &&
+                            afr_needs_changelog_update (local))
+                                afr_zero_fill_stat (local);
+                        local->transaction.unwind (frame, this);
+                }
 
                 local->transaction.resume (frame, this);
         }
@@ -230,7 +237,12 @@ void
 afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *   local = NULL;
+        afr_private_t *priv = this->private;
+
         local = frame->local;
+
+       if (priv->consistent_metadata)
+               afr_zero_fill_stat (local);
 
         AFR_STACK_UNWIND (writev, frame,
                           local->op_ret, local->op_errno,

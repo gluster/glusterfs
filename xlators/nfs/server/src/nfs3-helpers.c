@@ -373,7 +373,7 @@ nfs3_stat_to_post_op_attr (struct iatt *buf)
          * returning these zeroed out attrs.
          */
         attr.attributes_follow = FALSE;
-        if (nfs_zero_filled_stat (buf))
+        if (gf_is_zero_filled_stat (buf))
                 goto out;
 
         nfs3_stat_to_fattr3 (buf, &(attr.post_op_attr_u.attributes));
@@ -394,7 +394,7 @@ nfs3_stat_to_pre_op_attr (struct iatt *pre)
          * returning these zeroed out attrs.
          */
         poa.attributes_follow = FALSE;
-        if (nfs_zero_filled_stat (pre))
+        if (gf_is_zero_filled_stat (pre))
                 goto out;
 
         poa.attributes_follow = TRUE;

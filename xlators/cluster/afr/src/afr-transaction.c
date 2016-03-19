@@ -36,6 +36,37 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 		  afr_changelog_resume_t changelog_resume,
                   afr_xattrop_type_t op);
 
+void
+afr_zero_fill_stat (afr_local_t *local)
+{
+        if (!local)
+                return;
+        if (local->transaction.type == AFR_DATA_TRANSACTION ||
+            local->transaction.type == AFR_METADATA_TRANSACTION) {
+                gf_zero_fill_stat (&local->cont.inode_wfop.prebuf);
+                gf_zero_fill_stat (&local->cont.inode_wfop.postbuf);
+        } else if (local->transaction.type == AFR_ENTRY_TRANSACTION ||
+                   local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                gf_zero_fill_stat (&local->cont.dir_fop.buf);
+                gf_zero_fill_stat (&local->cont.dir_fop.preparent);
+                gf_zero_fill_stat (&local->cont.dir_fop.postparent);
+                if (local->transaction.type == AFR_ENTRY_TRANSACTION)
+                        return;
+                gf_zero_fill_stat (&local->cont.dir_fop.prenewparent);
+                gf_zero_fill_stat (&local->cont.dir_fop.postnewparent);
+        }
+}
+
+gf_boolean_t
+afr_needs_changelog_update (afr_local_t *local)
+{
+        if (local->transaction.type == AFR_DATA_TRANSACTION)
+                return _gf_true;
+        if (!local->optimistic_change_log)
+                return _gf_true;
+        return _gf_false;
+}
+
 static int32_t
 afr_quorum_errno (afr_private_t *priv)
 {
@@ -85,9 +116,21 @@ int
 __afr_txn_write_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        gf_boolean_t unwind = _gf_false;
 
+        priv  = this->private;
         local = frame->local;
 
+        if (priv->consistent_metadata) {
+                LOCK (&frame->lock);
+                {
+                        unwind = (local->transaction.main_frame != NULL);
+                }
+                UNLOCK (&frame->lock);
+                if (unwind)/*It definitely did post-op*/
+                        afr_zero_fill_stat (local);
+        }
         local->transaction.unwind (frame, this);
 
         AFR_STACK_DESTROY (frame);
@@ -1232,8 +1275,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		goto err;
 	}
 
-	if ((local->transaction.type == AFR_DATA_TRANSACTION ||
-	     !local->optimistic_change_log)) {
+	if (afr_needs_changelog_update (local)) {
 
 		local->dirty[idx] = hton32(1);
 
