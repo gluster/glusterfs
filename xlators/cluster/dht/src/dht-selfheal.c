@@ -191,6 +191,8 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_ret = dht_layout_merge (this, layout, prev->this,
                                            op_ret, op_errno, xattr);
 
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
                         gf_msg_debug (this->name, op_errno,
@@ -639,7 +641,12 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        LOCK (&frame->lock);
+        {
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        }
+        UNLOCK (&frame->lock);
+
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
