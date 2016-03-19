@@ -52,5 +52,7 @@ int __afr_txn_write_fop (call_frame_t *frame, xlator_t *this);
 int __afr_txn_write_done (call_frame_t *frame, xlator_t *this);
 call_frame_t *afr_transaction_detach_fop_frame (call_frame_t *frame);
 gf_boolean_t afr_has_quorum (unsigned char *subvols, xlator_t *this);
+gf_boolean_t afr_needs_changelog_update (afr_local_t *local);
+void afr_zero_fill_stat (afr_local_t *local);
 
 #endif /* __TRANSACTION_H__ */
