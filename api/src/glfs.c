@@ -620,6 +620,49 @@ err:
         return NULL;
 }
 
+extern xlator_t global_xlator;
+extern glusterfs_ctx_t *global_ctx;
+extern pthread_mutex_t global_ctx_mutex;
+
+static int
+glfs_init_global_ctx ()
+{
+        int              ret = 0;
+        glusterfs_ctx_t *ctx = NULL;
+
+        pthread_mutex_lock (&global_ctx_mutex);
+        {
+                if (global_xlator.ctx)
+                        goto unlock;
+
+                ctx = glusterfs_ctx_new ();
+                if (!ctx) {
+                        ret = -1;
+                        goto unlock;
+                }
+
+                gf_log_globals_init (ctx, GF_LOG_NONE);
+
+                global_ctx = ctx;
+                global_xlator.ctx = global_ctx;
+
+                ret = glusterfs_ctx_defaults_init (ctx);
+                if (ret) {
+                        global_ctx = NULL;
+                        global_xlator.ctx = NULL;
+                        goto unlock;
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&global_ctx_mutex);
+
+        if (ret)
+                FREE (ctx);
+
+        return ret;
+}
+
+
 struct glfs *
 pub_glfs_new (const char *volname)
 {
@@ -648,11 +691,9 @@ pub_glfs_new (const char *volname)
                 goto fini;
 
         old_THIS = THIS;
-        /* THIS is set to NULL so that we do not modify the caller xlators'
-         * ctx, instead we set the global_xlator->ctx
-         */
-        THIS = NULL;
-        THIS->ctx = ctx;
+        ret = glfs_init_global_ctx ();
+        if (ret)
+                goto fini;
 
         /* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 
@@ -764,11 +805,15 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_volfile, 3.4.0);
 int
 pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
-        int  ret = -1;
-        char *tmplog = NULL;
+        int              ret     = -1;
+        char            *tmplog  = NULL;
+        glusterfs_ctx_t *old_ctx = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        old_ctx = THIS->ctx;
+        THIS->ctx = fs->ctx;
 
         if (!logfile) {
                 ret = gf_set_log_file_path (&fs->ctx->cmd_args);
@@ -792,6 +837,7 @@ pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
                 goto out;
 
 out:
+        THIS->ctx = old_ctx;
         __GLFS_EXIT_FS;
 
 invalid_fs:
