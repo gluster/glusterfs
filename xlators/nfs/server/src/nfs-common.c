@@ -106,25 +106,6 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
 }
 
 
-/* Returns 1 if the stat seems to be filled with zeroes. */
-int
-nfs_zero_filled_stat (struct iatt *buf)
-{
-        if (!buf)
-                return 1;
-
-        /* Do not use st_dev because it is transformed to store the xlator id
-         * in place of the device number. Do not use st_ino because by this time
-         * we've already mapped the root ino to 1 so it is not guaranteed to be
-         * 0.
-         */
-        if ((buf->ia_nlink == 0) && (buf->ia_ctime == 0))
-                return 1;
-
-        return 0;
-}
-
-
 void
 nfs_loc_wipe (loc_t *loc)
 {

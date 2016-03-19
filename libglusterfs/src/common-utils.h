@@ -820,4 +820,10 @@ gf_nwrite (int fd, const void *buf, size_t count);
 void _mask_cancellation (void);
 void _unmask_cancellation (void);
 
+gf_boolean_t
+gf_is_zero_filled_stat (struct iatt *buf);
+
+void
+gf_zero_fill_stat (struct iatt *buf);
+
 #endif /* _COMMON_UTILS_H */

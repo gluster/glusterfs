@@ -37,9 +37,6 @@ nfs_path_to_xlator (xlator_list_t *cl, char *path);
 extern xlator_t *
 nfs_mntpath_to_xlator (xlator_list_t *cl, char *path);
 
-extern int
-nfs_zero_filled_stat (struct iatt *buf);
-
 extern void
 nfs_loc_wipe (loc_t *loc);
 
