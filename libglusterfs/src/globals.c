@@ -72,6 +72,11 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
 };
 /* THIS */
 
+/* This global ctx is a bad hack to prevent some of the libgfapi crashes.
+ * This should be removed once the patch on resource pool is accepted
+ */
+glusterfs_ctx_t *global_ctx = NULL;
+pthread_mutex_t global_ctx_mutex = PTHREAD_MUTEX_INITIALIZER;
 xlator_t global_xlator;
 static pthread_key_t this_xlator_key;
 static pthread_key_t synctask_key;
@@ -383,7 +388,7 @@ glusterfs_globals_init (glusterfs_ctx_t *ctx)
 {
         int ret = 0;
 
-        gf_log_globals_init (ctx);
+        gf_log_globals_init (ctx, GF_LOG_INFO);
 
         ret =  pthread_once (&globals_inited, gf_globals_init_once);
 

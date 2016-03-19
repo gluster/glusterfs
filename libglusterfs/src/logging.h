@@ -134,7 +134,7 @@ typedef struct log_buf_ {
         struct list_head msg_list;
 } log_buf_t;
 
-void gf_log_globals_init (void *ctx);
+void gf_log_globals_init (void *ctx, gf_loglevel_t level);
 int gf_log_init (void *data, const char *filename, const char *ident);
 
 void gf_log_logrotate (int signum);

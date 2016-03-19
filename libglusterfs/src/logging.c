@@ -642,13 +642,13 @@ gf_syslog (int facility_priority, char *format, ...)
 }
 
 void
-gf_log_globals_init (void *data)
+gf_log_globals_init (void *data, gf_loglevel_t level)
 {
         glusterfs_ctx_t *ctx = data;
 
         pthread_mutex_init (&ctx->log.logfile_mutex, NULL);
 
-        ctx->log.loglevel         = GF_LOG_INFO;
+        ctx->log.loglevel         = level;
         ctx->log.gf_log_syslog    = 1;
         ctx->log.sys_log_level    = GF_LOG_CRITICAL;
         ctx->log.logger           = gf_logger_glusterlog;
