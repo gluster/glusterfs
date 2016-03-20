@@ -140,6 +140,7 @@ struct rpc_clnt_connection {
         gf_timer_t              *ping_timer;
         struct rpc_clnt         *rpc_clnt;
         char                     connected;
+        gf_boolean_t             disconnected;
         struct saved_frames     *saved_frames;
         int32_t                  frame_timeout;
 	struct timeval           last_sent;
@@ -234,6 +235,9 @@ int rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn);
 void rpc_clnt_set_connected (rpc_clnt_connection_t *conn);
 
 void rpc_clnt_unset_connected (rpc_clnt_connection_t *conn);
+
+gf_boolean_t is_rpc_clnt_disconnected (rpc_clnt_connection_t *conn);
+
 void rpc_clnt_reconnect (void *trans_ptr);
 
 void rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config);

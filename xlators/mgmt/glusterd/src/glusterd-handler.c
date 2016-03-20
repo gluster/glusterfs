@@ -5184,6 +5184,12 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         case RPC_CLNT_DISCONNECT:
         {
+                /* If DISCONNECT event is already processed, skip the further
+                 * ones
+                 */
+                if (is_rpc_clnt_disconnected (&rpc->conn))
+                        break;
+
                 rpc_clnt_unset_connected (&rpc->conn);
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_PEER_DISCONNECTED,

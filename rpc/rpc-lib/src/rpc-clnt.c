@@ -782,6 +782,7 @@ rpc_clnt_set_connected (rpc_clnt_connection_t *conn)
         pthread_mutex_lock (&conn->lock);
         {
                 conn->connected = 1;
+                conn->disconnected = _gf_false;
         }
         pthread_mutex_unlock (&conn->lock);
 
@@ -800,11 +801,30 @@ rpc_clnt_unset_connected (rpc_clnt_connection_t *conn)
         pthread_mutex_lock (&conn->lock);
         {
                 conn->connected = 0;
+                conn->disconnected = _gf_true;
         }
         pthread_mutex_unlock (&conn->lock);
 
 out:
         return;
+}
+
+gf_boolean_t
+is_rpc_clnt_disconnected (rpc_clnt_connection_t *conn)
+{
+        gf_boolean_t disconnected = _gf_true;
+
+        if (!conn)
+                return disconnected;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                if (conn->disconnected == _gf_false)
+                        disconnected = _gf_false;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        return disconnected;
 }
 
 static void
