@@ -86,7 +86,11 @@ cd $M0
 #_me_ is dir on which missing entry self-heal happens, _heal is where dir self-heal happens
 #spb is split-brain, fool is all fool
 
-TEST mkdir spb_heal spb spb_me_heal spb_me fool_heal fool_me v1_fool_heal v1_fool_me source_creations_heal source_deletions_heal source_creations_me source_deletions_me v1_dirty_me v1_dirty_heal
+#source_self_accusing means there exists source and a sink which self-accuses.
+#This simulates failures where fops failed on the bricks without it going down.
+#Something like EACCESS/EDQUOT etc
+
+TEST mkdir spb_heal spb spb_me_heal spb_me fool_heal fool_me v1_fool_heal v1_fool_me source_creations_heal source_deletions_heal source_creations_me source_deletions_me v1_dirty_me v1_dirty_heal source_self_accusing
 TEST mkfifo source_deletions_heal/fifo
 TEST mknod  source_deletions_heal/block b 0 0
 TEST mknod  source_deletions_heal/char c 0 0
@@ -102,10 +106,21 @@ TEST touch  source_deletions_me/file
 TEST ln -s  source_deletions_me/file source_deletions_me/slink
 TEST mkdir  source_deletions_me/dir1
 TEST mkdir  source_deletions_me/dir1/dir2
+
+TEST mkfifo source_self_accusing/fifo
+TEST mknod  source_self_accusing/block b 0 0
+TEST mknod  source_self_accusing/char c 0 0
+TEST touch  source_self_accusing/file
+TEST ln -s  source_self_accusing/file source_self_accusing/slink
+TEST mkdir  source_self_accusing/dir1
+TEST mkdir  source_self_accusing/dir1/dir2
+
 TEST kill_brick $V0 $H0 $B0/${V0}0
+
 TEST touch spb_heal/0 spb/0 spb_me_heal/0 spb_me/0 fool_heal/0 fool_me/0 v1_fool_heal/0 v1_fool_me/0 v1_dirty_heal/0 v1_dirty_me/0
 TEST rm -rf source_deletions_heal/fifo source_deletions_heal/block source_deletions_heal/char source_deletions_heal/file source_deletions_heal/slink source_deletions_heal/dir1
 TEST rm -rf source_deletions_me/fifo source_deletions_me/block source_deletions_me/char source_deletions_me/file source_deletions_me/slink source_deletions_me/dir1
+TEST rm -rf source_self_accusing/fifo source_self_accusing/block source_self_accusing/char source_self_accusing/file source_self_accusing/slink source_self_accusing/dir1
 
 #Test that the files are deleted
 TEST ! stat $B0/${V0}1/source_deletions_heal/fifo
@@ -120,6 +135,13 @@ TEST ! stat $B0/${V0}1/source_deletions_me/char
 TEST ! stat $B0/${V0}1/source_deletions_me/file
 TEST ! stat $B0/${V0}1/source_deletions_me/slink
 TEST ! stat $B0/${V0}1/source_deletions_me/dir1
+TEST ! stat $B0/${V0}1/source_self_accusing/fifo
+TEST ! stat $B0/${V0}1/source_self_accusing/block
+TEST ! stat $B0/${V0}1/source_self_accusing/char
+TEST ! stat $B0/${V0}1/source_self_accusing/file
+TEST ! stat $B0/${V0}1/source_self_accusing/slink
+TEST ! stat $B0/${V0}1/source_self_accusing/dir1
+
 
 TEST mkfifo source_creations_heal/fifo
 TEST mknod  source_creations_heal/block b 0 0
@@ -161,6 +183,9 @@ $CLI volume stop $V0
 setfattr -x trusted.afr.$V0-client-1 $B0/${V0}0/{fool_heal,fool_me}
 setfattr -n trusted.afr.dirty -v 0x000000000000000000000001 $B0/${V0}1/{fool_heal,fool_me}
 setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000001 $B0/${V0}1/{v1_fool_heal,v1_fool_me}
+
+#simulate self-accusing for source_self_accusing
+TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000006 $B0/${V0}0/source_self_accusing
 
 $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
@@ -272,6 +297,7 @@ TEST stat v1_fool_heal
 TEST stat v1_fool_me
 TEST stat source_deletions_heal
 TEST stat source_deletions_me
+TEST stat source_self_accusing
 TEST stat source_creations_heal
 TEST stat source_creations_me
 TEST stat v1_dirty_heal
@@ -304,7 +330,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 
 TEST $CLI volume heal $V0;
-EXPECT_WITHIN $HEAL_TIMEOUT "~" print_pending_heals spb_heal spb_me_heal fool_heal fool_me v1_fool_heal v1_fool_me source_deletions_heal source_deletions_me source_creations_heal source_creations_me v1_dirty_heal v1_dirty_me
+EXPECT_WITHIN $HEAL_TIMEOUT "~" print_pending_heals spb_heal spb_me_heal fool_heal fool_me v1_fool_heal v1_fool_me source_deletions_heal source_deletions_me source_creations_heal source_creations_me v1_dirty_heal v1_dirty_me source_self_accusing
 
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 spb_heal
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 spb_me_heal
@@ -314,6 +340,7 @@ EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 v1_fool_me
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 source_deletions_heal
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 source_deletions_me
+EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 source_self_accusing
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 source_creations_heal
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 source_creations_me
 EXPECT "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" heal_status $B0/${V0}0 $B0/${V0}1 v1_dirty_heal
@@ -360,6 +387,22 @@ TEST ! stat $B0/${V0}0/source_deletions_heal/dir1/dir2
 TEST ! stat $B0/${V0}1/source_deletions_heal/dir1/dir2
 TEST ! stat $B0/${V0}0/source_deletions_heal/dir1
 TEST ! stat $B0/${V0}1/source_deletions_heal/dir1
+
+#Check if stale files are deleted on access
+TEST ! stat $B0/${V0}0/source_self_accusing/fifo
+TEST ! stat $B0/${V0}1/source_self_accusing/fifo
+TEST ! stat $B0/${V0}0/source_self_accusing/block
+TEST ! stat $B0/${V0}1/source_self_accusing/block
+TEST ! stat $B0/${V0}0/source_self_accusing/char
+TEST ! stat $B0/${V0}1/source_self_accusing/char
+TEST ! stat $B0/${V0}0/source_self_accusing/file
+TEST ! stat $B0/${V0}1/source_self_accusing/file
+TEST ! stat $B0/${V0}0/source_self_accusing/file
+TEST ! stat $B0/${V0}1/source_self_accusing/file
+TEST ! stat $B0/${V0}0/source_self_accusing/dir1/dir2
+TEST ! stat $B0/${V0}1/source_self_accusing/dir1/dir2
+TEST ! stat $B0/${V0}0/source_self_accusing/dir1
+TEST ! stat $B0/${V0}1/source_self_accusing/dir1
 
 #Test if the files created as part of full self-heal correctly
 r=$(get_file_type $B0/${V0}0/source_creations_heal/fifo)
