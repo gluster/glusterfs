@@ -242,4 +242,4 @@ def output_path_prepare(path, args):
     if args.no_encode:
         return path
     else:
-        return urllib.quote_plus(path)
+        return urllib.quote_plus(path.encode("utf-8"))
