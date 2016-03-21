@@ -146,10 +146,7 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         return self.cursor_reader.execute(query, params)
 
@@ -161,10 +158,7 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         return self.cursor_reader.execute(query, params)
 
@@ -175,10 +169,7 @@ class ChangelogData(object):
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         self.cursor.execute(query, params)
 
@@ -189,10 +180,7 @@ class ChangelogData(object):
         params = []
         for key, value in data.items():
             fields.append(key)
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         values_substitute = len(fields)*["?"]
         query += "%s) VALUES(%s)" % (",".join(fields),
@@ -205,20 +193,14 @@ class ChangelogData(object):
         update_fields = []
         for key, value in data.items():
             update_fields.append("%s = ?" % key)
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         query = "UPDATE %s SET %s WHERE 1 = 1" % (tablename,
                                                   ", ".join(update_fields))
 
         for key, value in filters.items():
             query += " AND %s = ?" % key
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         self.cursor.execute(query, params)
 
@@ -230,12 +212,8 @@ class ChangelogData(object):
         params = []
 
         for key, value in filters.items():
-            print value
             query += " AND %s = ?" % key
-            if isinstance(value, int):
-                params.append(value)
-            else:
-                params.append(unicode(value, "utf8"))
+            params.append(value)
 
         self.cursor.execute(query, params)
         row = self.cursor.fetchone()
@@ -344,10 +322,15 @@ class ChangelogData(object):
     def when_create_mknod_mkdir(self, changelogfile, data):
         # E <GFID> <MKNOD|CREATE|MKDIR> <MODE> <USER> <GRP> <PGFID>/<BNAME>
         # Add the Entry to DB
-        pgfid1, bn1 = urllib.unquote_plus(data[6]).split("/", 1)
+        # urllib.unquote_plus will not handle unicode so, encode Unicode to
+        # represent in 8 bit format and then unquote
+        pgfid1, bn1 = urllib.unquote_plus(
+            data[6].encode("utf-8")).split("/", 1)
 
         if self.args.no_encode:
-            bn1 = bn1.strip()
+            # No urlencode since no_encode is set, so convert again to Unicode
+            # format from previously encoded.
+            bn1 = bn1.decode("utf-8").strip()
         else:
             # Quote again the basename
             bn1 = urllib.quote_plus(bn1.strip())
@@ -356,13 +339,15 @@ class ChangelogData(object):
 
     def when_rename(self, changelogfile, data):
         # E <GFID> RENAME <OLD_PGFID>/<BNAME> <PGFID>/<BNAME>
-        pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
-        pgfid2, bn2 = urllib.unquote_plus(data[4]).split("/", 1)
+        pgfid1, bn1 = urllib.unquote_plus(
+            data[3].encode("utf-8")).split("/", 1)
+        pgfid2, bn2 = urllib.unquote_plus(
+            data[4].encode("utf-8")).split("/", 1)
 
         if self.args.no_encode:
             # Quote again the basename
-            bn1 = bn1.strip()
-            bn2 = bn2.strip()
+            bn1 = bn1.decode("utf-8").strip()
+            bn2 = bn2.decode("utf-8").strip()
         else:
             # Quote again the basename
             bn1 = urllib.quote_plus(bn1.strip())
@@ -406,10 +391,11 @@ class ChangelogData(object):
     def when_link_symlink(self, changelogfile, data):
         # E <GFID> <LINK|SYMLINK> <PGFID>/<BASENAME>
         # Add as New record in Db as Type NEW
-        pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
+        pgfid1, bn1 = urllib.unquote_plus(
+            data[3].encode("utf-8")).split("/", 1)
         if self.args.no_encode:
             # Quote again the basename
-            bn1 = bn1.strip()
+            bn1 = bn1.decode("utf-8").strip()
         else:
             # Quote again the basename
             bn1 = urllib.quote_plus(bn1.strip())
@@ -424,10 +410,11 @@ class ChangelogData(object):
 
     def when_unlink_rmdir(self, changelogfile, data):
         # E <GFID> <UNLINK|RMDIR> <PGFID>/<BASENAME>
-        pgfid1, bn1 = urllib.unquote_plus(data[3]).split("/", 1)
+        pgfid1, bn1 = urllib.unquote_plus(
+            data[3].encode("utf-8")).split("/", 1)
 
         if self.args.no_encode:
-            bn1 = bn1.strip()
+            bn1 = bn1.decode("utf-8").strip()
         else:
             # Quote again the basename
             bn1 = urllib.quote_plus(bn1.strip())

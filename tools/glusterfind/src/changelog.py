@@ -17,6 +17,7 @@ import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import hashlib
 import urllib
+import codecs
 
 import libgfchangelog
 from utils import mkdirp, symlink_gfid_to_path
@@ -212,7 +213,7 @@ def parse_changelog_to_db(changelog_data, filename, args):
     """
     Parses a Changelog file and populates data in gfidpath table
     """
-    with open(filename) as f:
+    with codecs.open(filename, encoding="utf-8") as f:
         changelogfile = os.path.basename(filename)
         for line in f:
             data = line.strip().split(" ")

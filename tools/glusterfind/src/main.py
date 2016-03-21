@@ -24,6 +24,7 @@ from utils import setup_logger, human_time, handle_rm_error
 from utils import get_changelog_rollover_time, cache_output, create_file
 import conf
 from changelogdata import OutputMerger
+import codecs
 
 PROG_DESCRIPTION = """
 GlusterFS Incremental API
@@ -398,7 +399,7 @@ def enable_volume_options(args):
 
 
 def write_output(args, outfilemerger):
-    with open(args.outfile, "a") as f:
+    with codecs.open(args.outfile, "a", encoding="utf-8") as f:
         for row in outfilemerger.get():
             # Multiple paths in case of Hardlinks
             paths = row[1].split(",")
@@ -413,12 +414,9 @@ def write_output(args, outfilemerger):
                 if p_rep == row_2_rep:
                     continue
 
-                p_rep = p_rep.encode('utf8', 'replace')
-                row_2_rep = row_2_rep.encode('utf8', 'replace')
-
-                f.write("{0} {1} {2}\n".format(row[0],
-                                               p_rep,
-                                               row_2_rep))
+                f.write(u"{0} {1} {2}\n".format(row[0],
+                                                p_rep,
+                                                row_2_rep))
 
 
 def mode_create(session_dir, args):
