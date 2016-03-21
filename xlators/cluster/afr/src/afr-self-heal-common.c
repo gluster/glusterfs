@@ -696,14 +696,26 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        /* In afr-v1 if a file is self-accused but didn't have any pending
-         * operations on others then it is similar to 'dirty' in afr-v2.
-         * Consider such cases as witness.
-         */
-        for (i = 0; i < priv->child_count; i++) {
-                if (self_accused[i] && !pending[i])
-                        witness[i] += matrix[i][i];
+        /* One more class of witness similar to dirty in v2 is where no pending
+         * exists but we have self-accusing markers. This can happen in afr-v1
+         * if the brick crashes just after doing xattrop on self but
+         * before xattrop on the other xattrs on the brick in pre-op. */
+        if (AFR_COUNT (pending, priv->child_count) == 0) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (self_accused[i])
+                                witness[i] += matrix[i][i];
+                }
+        } else {
+                /* In afr-v1 if a file is self-accused and has pending
+                 * operations on others then it is similar to 'dirty' in afr-v2.
+                 * Consider such cases as witness.
+                 */
+                for (i = 0; i < priv->child_count; i++) {
+                        if (self_accused[i] && pending[i])
+                                witness[i] += matrix[i][i];
+                }
         }
+
 
         /* count the number of dirty fops witnessed */
         for (i = 0; i < priv->child_count; i++)
