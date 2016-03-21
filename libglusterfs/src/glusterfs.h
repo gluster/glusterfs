@@ -151,6 +151,7 @@
 #define GLUSTERFS_INODELK_DOM_COUNT "glusterfs.inodelk-dom-count"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
+#define GF_XATTR_XTIME_PATTERN "trusted.glusterfs.*.xtime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
 
 /* quota xattrs */

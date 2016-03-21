@@ -422,10 +422,10 @@ marker_filter_gsyncd_xattrs (call_frame_t *frame,
 
         priv = this->private;
         GF_ASSERT (priv);
+        GF_ASSERT (frame);
 
-        if (frame->root->pid != GF_CLIENT_PID_GSYNCD &&
-            dict_get(xattrs, priv->marker_xattr)) {
-                dict_del (xattrs, priv->marker_xattr);
+        if (xattrs && frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+                GF_REMOVE_INTERNAL_XATTR (GF_XATTR_XTIME_PATTERN, xattrs);
         }
         return;
 }
