@@ -3680,8 +3680,8 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                                                      _gf_false);
                 if (ret)
                         goto out;
-                //this is just to rename so inject local acc for cluster update
-                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
+                // Injecting a NEW_NAME event to update cluster
+                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_NEW_NAME,
                                                     &event);
                 if (!ret) {
                         event->peername = gf_strdup (peerinfo->hostname);
