@@ -5113,3 +5113,14 @@ afr_get_need_heal (xlator_t *this)
         UNLOCK (&priv->lock);
         return need_heal;
 }
+
+int
+afr_get_msg_id (char *op_type)
+{
+
+        if (!strcmp (op_type, GF_AFR_REPLACE_BRICK))
+                return AFR_MSG_REPLACE_BRICK_STATUS;
+        else if (!strcmp (op_type, GF_AFR_ADD_BRICK))
+                return AFR_MSG_ADD_BRICK_STATUS;
+        return -1;
+}
