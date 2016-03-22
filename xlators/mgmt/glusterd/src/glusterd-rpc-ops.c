@@ -325,8 +325,8 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         goto reply;
                 }
 
-                /* Injecting LOCAL_ACC to send update */
-                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
+                /* Injecting EVENT_NEW_NAME to send update */
+                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_NEW_NAME,
                                                     &event);
                 if (!ret) {
                         event->peername = gf_strdup (peerinfo->hostname);
