@@ -32,7 +32,6 @@ TEST $CLI volume set $V0 performance.stat-prefetch off
 ## Make sure automatic self-heal doesn't perturb our results.
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal on
-TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 
 ## Start volume and verify
 TEST $CLI volume start $V0;
@@ -70,8 +69,8 @@ tgt_xattr_2="trusted.afr.${V0}-client-2"
 actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_0)
 EXPECT "0x000000000000000000000000|^\$" echo $actual
 
-actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_1)
-EXPECT "0x000000000000000000000000|^\$" echo $actual
+EXPECT_WITHIN $HEAL_TIMEOUT "0x000000000000000000000000" \
+afr_get_changelog_xattr $obs_path_0 $tgt_xattr_1
 
 actual=$(afr_get_changelog_xattr $obs_path_0 $tgt_xattr_2)
 EXPECT "0x000000030000000000000000" echo $actual
