@@ -1128,7 +1128,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.heal-wait-queue-length",
           .voltype    = "cluster/replicate",
           .type       = DOC,
-          .op_version = GD_OP_VERSION_3_7_9,
+          .op_version = GD_OP_VERSION_3_7_10,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
