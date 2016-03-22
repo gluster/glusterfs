@@ -3912,7 +3912,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 3600,
-          .default_value = "5",
+          .default_value = "0",
           .description = "Interval (in seconds) at which to auto-dump "
                          "statistics. Zero disables automatic dumping."
         },
