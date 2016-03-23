@@ -15,6 +15,7 @@
 #include "glfs-handles.h"
 #include "glfs-internal.h"
 #include "protocol-common.h"
+#include "syscall.h"
 #include "syncop.h"
 #include "syncop-utils.h"
 #include <string.h>
@@ -909,6 +910,10 @@ main (int argc, char **argv)
                 ret = -1;
                 printf ("Not able to initialize volume '%s'\n", volname);
                 goto out;
+        }
+
+        if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
+                fs->ctx->secure_mgmt = 1;
         }
 
         ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
