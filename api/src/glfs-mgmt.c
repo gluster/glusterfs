@@ -759,32 +759,6 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         ctx->cmd_args.volfile_server = server->volfile_server;
                         ctx->cmd_args.volfile_server_transport = server->transport;
 
-                        ret = dict_set_int32 (rpc_trans->options,
-                                              "remote-port",
-                                              server->port);
-                        if (ret != 0) {
-                                gf_msg ("glfs-mgmt", GF_LOG_ERROR, ENOTCONN,
-                                        API_MSG_DICT_SET_FAILED,
-                                        "failed to set remote-port: %d",
-                                        server->port);
-                                errno = ENOTCONN;
-                                glfs_init_done (fs, -1);
-                                break;
-                        }
-
-                        ret = dict_set_str (rpc_trans->options,
-                                            "remote-host",
-                                            server->volfile_server);
-                        if (ret != 0) {
-                                gf_msg ("glfs-mgmt", GF_LOG_ERROR, ENOTCONN,
-                                        API_MSG_DICT_SET_FAILED,
-                                        "failed to set remote-host: %s",
-                                        server->volfile_server);
-                                errno = ENOTCONN;
-                                glfs_init_done (fs, -1);
-                                break;
-                        }
-
                         ret = dict_set_str (rpc_trans->options,
                                             "transport-type",
                                             server->transport);
@@ -797,6 +771,63 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                 glfs_init_done (fs, -1);
                                 break;
                         }
+
+                        if (strcmp(server->transport, "unix") == 0) {
+                                ret = dict_set_str (rpc_trans->options,
+                                                    "transport.socket.connect-path",
+                                                    server->volfile_server);
+                                if (ret != 0) {
+                                        gf_msg ("glfs-mgmt", GF_LOG_ERROR,
+                                                ENOTCONN,
+                                                API_MSG_DICT_SET_FAILED,
+                                                "failed to set socket.connect-path: %s",
+                                                server->volfile_server);
+                                        errno = ENOTCONN;
+                                        glfs_init_done (fs, -1);
+                                        break;
+                                }
+                                /* delete the remote-host and remote-port keys
+                                 * in case they were set while looping through
+                                 * list of volfile servers previously
+                                 */
+                                dict_del (rpc_trans->options, "remote-host");
+                                dict_del (rpc_trans->options, "remote-port");
+                        } else {
+                                ret = dict_set_int32 (rpc_trans->options,
+                                                      "remote-port",
+                                                      server->port);
+                                if (ret != 0) {
+                                        gf_msg ("glfs-mgmt", GF_LOG_ERROR,
+                                                ENOTCONN,
+                                                API_MSG_DICT_SET_FAILED,
+                                                "failed to set remote-port: %d",
+                                                server->port);
+                                        errno = ENOTCONN;
+                                        glfs_init_done (fs, -1);
+                                        break;
+                                }
+
+                                ret = dict_set_str (rpc_trans->options,
+                                                    "remote-host",
+                                                    server->volfile_server);
+                                if (ret != 0) {
+                                        gf_msg ("glfs-mgmt", GF_LOG_ERROR,
+                                                ENOTCONN,
+                                                API_MSG_DICT_SET_FAILED,
+                                                "failed to set remote-host: %s",
+                                                server->volfile_server);
+                                        errno = ENOTCONN;
+                                        glfs_init_done (fs, -1);
+                                        break;
+                                }
+                                /* delete the "transport.socket.connect-path"
+                                 * key in case if it was set while looping
+                                 * through list of volfile servers previously
+                                 */
+                                dict_del (rpc_trans->options,
+                                          "transport.socket.connect-path");
+                        }
+
                         gf_msg ("glfs-mgmt", GF_LOG_INFO, 0,
                                 API_MSG_VOLFILE_CONNECTING,
                                 "connecting to next volfile server %s"
