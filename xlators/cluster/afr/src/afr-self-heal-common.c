@@ -2240,6 +2240,10 @@ heal_gfid:
                                 pgfid_str,
                                 gfid_str,
                                 ancestry_path);
+                        if (frame) {
+                                AFR_STACK_DESTROY (frame);
+                                frame = NULL;
+                        }
                         goto heal_gfid;
                 }
         }
