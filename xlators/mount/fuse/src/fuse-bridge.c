@@ -349,6 +349,9 @@ send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error)
         struct iovec iov_out;
         inode_t  *inode = NULL;
 
+        if (error == ESTALE)
+                error = ENOENT;
+
         fouh.error = -error;
         iov_out.iov_base = &fouh;
 
