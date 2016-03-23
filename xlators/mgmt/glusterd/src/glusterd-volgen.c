@@ -4554,8 +4554,12 @@ volgen_get_shd_key (int type)
 static gf_boolean_t
 volgen_is_shd_compatible_xl (char *xl_type)
 {
-        char            *shd_xls[] = {"cluster/replicate", "cluster/disperse",
-                                      NULL};
+        char            *shd_xls[] = {
+                "cluster/replicate",
+                "cluster/disperse",
+                "debug/io-stats",
+                 NULL
+        };
         if (gf_get_index_by_elem (shd_xls, xl_type) != -1)
                 return _gf_true;
 

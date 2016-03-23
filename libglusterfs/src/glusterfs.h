@@ -78,6 +78,7 @@
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 #define ZR_DUMP_FUSE            "dump-fuse"
 #define ZR_FUSE_MOUNTOPTS       "fuse-mountopts"
+#define IO_THREADS_QUEUE_SIZE_KEY "io-thread-queue-size"
 
 #define GF_XATTR_CLRLK_CMD      "glusterfs.clrlk"
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
@@ -282,6 +283,51 @@
 
 #define GF_LK_ADVISORY 0
 #define GF_LK_MANDATORY 1
+
+#define GF_CHECK_XATTR_KEY_AND_GOTO(key, cmpkey, errval, lbl)   \
+        do {                                                    \
+                if (key && strcmp (key, cmpkey) == 0) {         \
+                        errval = -EINVAL;                       \
+                        goto lbl;                               \
+                }                                               \
+        } while (0);                                            \
+
+
+typedef enum {
+        GF_FOP_PRI_UNSPEC = -1,         /* Priority not specified */
+        GF_FOP_PRI_HI = 0,              /* low latency */
+        GF_FOP_PRI_NORMAL,              /* normal */
+        GF_FOP_PRI_LO,                  /* bulk */
+        GF_FOP_PRI_LEAST,               /* least */
+        GF_FOP_PRI_MAX,
+} gf_fop_pri_t;
+
+/* For backwards compatibility in io-threads */
+typedef gf_fop_pri_t iot_pri_t;
+#define IOT_PRI_UNSPEC  GF_FOP_PRI_UNSPEC
+#define IOT_PRI_HI      GF_FOP_PRI_HI
+#define IOT_PRI_NORMAL  GF_FOP_PRI_NORMAL
+#define IOT_PRI_LO      GF_FOP_PRI_LO
+#define IOT_PRI_LEAST   GF_FOP_PRI_LEAST
+#define IOT_PRI_MAX     GF_FOP_PRI_MAX
+
+static const char* FOP_PRI_STRINGS[] = {
+        "HIGH",
+        "NORMAL",
+        "LOW",
+        "LEAST"
+};
+
+static inline const char *fop_pri_to_string (gf_fop_pri_t pri)
+{
+        if (pri < 0)
+                return "UNSPEC";
+
+        if (pri >= GF_FOP_PRI_MAX)
+                return "INVALID";
+
+        return FOP_PRI_STRINGS[pri];
+}
 
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 const char *fop_enum_to_string (glusterfs_fop_t fop);

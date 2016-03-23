@@ -42,14 +42,6 @@ struct iot_conf;
 #define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
 
-typedef enum {
-        IOT_PRI_HI = 0, /* low latency */
-        IOT_PRI_NORMAL, /* normal */
-        IOT_PRI_LO,     /* bulk */
-        IOT_PRI_LEAST,  /* least */
-        IOT_PRI_MAX,
-} iot_pri_t;
-
 #define IOT_LEAST_THROTTLE_DELAY 1	/* sample interval in seconds */
 struct iot_least_throttle {
 	struct timeval	sample_time;	/* timestamp of current sample */

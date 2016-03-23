@@ -278,6 +278,9 @@ iot_get_pri_meaning (iot_pri_t pri)
         case IOT_PRI_MAX:
                 name = "invalid";
                 break;
+        case IOT_PRI_UNSPEC:
+                name = "unspecified";
+                break;
         }
         return name;
 }
@@ -610,6 +613,34 @@ int
 iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
               const char *name, dict_t *xdata)
 {
+        iot_conf_t *conf = NULL;
+        dict_t     *depths = NULL;
+        int i = 0;
+
+        conf = this->private;
+
+        if (conf && name && strcmp (name, IO_THREADS_QUEUE_SIZE_KEY) == 0) {
+                // We explicitly do not want a reference count
+                // for this dict in this translator
+                depths = get_new_dict ();
+                if (!depths)
+                        goto unwind_special_getxattr;
+
+                for (i = 0; i < IOT_PRI_MAX; i++) {
+                        if (dict_set_int32 (depths,
+                                            (char *)fop_pri_to_string (i),
+                                            conf->queue_sizes[i]) != 0) {
+                                dict_destroy (depths);
+                                depths = NULL;
+                                goto unwind_special_getxattr;
+                        }
+                }
+
+unwind_special_getxattr:
+                STACK_UNWIND_STRICT (getxattr, frame, 0, 0, depths, xdata);
+                return 0;
+        }
+
         IOT_FOP (getxattr, frame, this, loc, name, xdata);
         return 0;
 }

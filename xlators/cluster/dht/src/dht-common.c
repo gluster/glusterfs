@@ -3464,6 +3464,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         int           cnt           = 0;
         char         *node_uuid_key = NULL;
         int           ret           = -1;
+
+        GF_CHECK_XATTR_KEY_AND_GOTO (key, IO_THREADS_QUEUE_SIZE_KEY, op_errno, err);
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);

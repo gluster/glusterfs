@@ -159,6 +159,8 @@ data_t * data_copy (data_t *old);
 dict_t *get_new_dict_full (uint32_t size_hint);
 dict_t *get_new_dict ();
 
+#define dict_for_each(d, c) for (c = d->members_list; c; c = c->next)
+
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,
                             char *key,
