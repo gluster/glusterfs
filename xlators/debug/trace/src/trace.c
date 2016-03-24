@@ -38,19 +38,19 @@ trace_stat_to_str(struct iatt *buf, char *str, size_t len)
         gf_time_fmt (ctime_buf, sizeof ctime_buf, buf->ia_ctime,
                      gf_timefmt_dirent);
 
-        snprintf (str, len,
-                  "gfid=%s ino=%"PRIu64", mode=%o, "
-                  "nlink=%"GF_PRI_NLINK", uid=%u, "
-                  "gid=%u, size=%"PRIu64", "
-                  "blocks=%"PRIu64", atime=%s, "
-                  "mtime=%s, ctime=%s",
-                  uuid_utoa (buf->ia_gfid),
-                  buf->ia_ino,
-                  st_mode_from_ia (buf->ia_prot, buf->ia_type),
-                  buf->ia_nlink, buf->ia_uid,
-                  buf->ia_gid, buf->ia_size,
-                  buf->ia_blocks, atime_buf,
-                  mtime_buf, ctime_buf);
+        snprintf (str, len, "gfid=%s ino=%"PRIu64", mode=%o, "
+                  "nlink=%"GF_PRI_NLINK", uid=%u, gid=%u, size=%"PRIu64", "
+                  "blocks=%"PRIu64", atime=%s mtime=%s ctime=%s "
+                  "atime_sec=%"PRIu32", atime_nsec=%"PRIu32","
+                  " mtime_sec=%"PRIu32", mtime_nsec=%"PRIu32", "
+                  "ctime_sec=%"PRIu32", ctime_nsec=%"PRIu32"",
+                  uuid_utoa (buf->ia_gfid), buf->ia_ino,
+                  st_mode_from_ia (buf->ia_prot, buf->ia_type), buf->ia_nlink,
+                  buf->ia_uid, buf->ia_gid, buf->ia_size, buf->ia_blocks,
+                  atime_buf, mtime_buf, ctime_buf,
+                  buf->ia_atime, buf->ia_atime_nsec,
+                  buf->ia_mtime, buf->ia_mtime_nsec,
+                  buf->ia_ctime, buf->ia_ctime_nsec);
 }
 
 
