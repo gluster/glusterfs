@@ -3594,6 +3594,16 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                                 goto out;
                         goto done;
                 }
+                if (!strcmp (words[4], "latest-mtime")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                       GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_str (dict, "file", (char *)words[5]);
+                        if (ret)
+                                goto out;
+                        goto done;
+                }
                 if (!strcmp (words[4], "source-brick")) {
                         ret = dict_set_int32 (dict, "heal-op",
                                               GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);

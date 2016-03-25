@@ -148,6 +148,49 @@ fi
 EXPECT "0" echo $?
 EXPECT $SMALLER_FILE_SIZE stat -c %s file4
 
+################ Heal file5 using the latest-mtime option  ##############
+subvolume=$(get_replicate_subvol_number file5)
+if [ $subvolume == 0 ]
+then
+        mtime1=$(stat -c %Y $B0/${V0}1/file5)
+        mtime2=$(stat -c %Y $B0/${V0}2/file5)
+        LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
+elif [ $subvolume == 1 ]
+then
+        mtime1=$(stat -c %Y $B0/${V0}3/file5)
+        mtime2=$(stat -c %Y $B0/${V0}4/file5)
+        LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
+fi
+$CLI volume heal $V0 split-brain latest-mtime /file5
+EXPECT "0" echo $?
+
+#TODO: Uncomment the below after posix_do_utimes() supports utimensat(2) accuracy
+#TEST [ $LATEST_MTIME -eq $mtime1 ]
+#TEST [ $LATEST_MTIME -eq $mtime2 ]
+
+################ Heal file6 using the latest-mtime option and its gfid  ##############
+subvolume=$(get_replicate_subvol_number file6)
+if [ $subvolume == 0 ]
+then
+        GFID=$(gf_get_gfid_xattr $B0/${V0}1/file6)
+        mtime1=$(stat -c %Y $B0/${V0}1/file5)
+        mtime2=$(stat -c %Y $B0/${V0}2/file5)
+        LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
+elif [ $subvolume == 1 ]
+then
+        GFID=$(gf_get_gfid_xattr $B0/${V0}3/file6)
+        mtime1=$(stat -c %Y $B0/${V0}3/file5)
+        mtime2=$(stat -c %Y $B0/${V0}4/file5)
+        LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
+fi
+GFIDSTR="gfid:$(gf_gfid_xattr_to_str $GFID)"
+$CLI volume heal $V0 split-brain latest-mtime $GFIDSTR
+EXPECT "0" echo $?
+
+#TODO: Uncomment the below after posix_do_utimes() supports utimensat(2) accuracy
+#TEST [ $LATEST_MTIME -eq $mtime1 ]
+#TEST [ $LATEST_MTIME -eq $mtime2 ]
+
 ################ Heal remaining SB'ed files of replica_0 using B1 as source ##############
 $CLI volume heal $V0 split-brain source-brick $H0:$B0/${V0}1
 EXPECT "0" echo $?

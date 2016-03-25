@@ -328,6 +328,10 @@ afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
         for (i = 0; i < priv->child_count; i++) {
                 if (!sources[i])
                         continue;
+                if (!replies[i].valid || replies[i].op_ret != 0) {
+                        sources[i] = 0;
+                        continue;
+                }
                 if (size <= replies[i].poststat.ia_size) {
                         size = replies[i].poststat.ia_size;
                 }
@@ -339,6 +343,41 @@ afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
                         continue;
                 if (size > replies[i].poststat.ia_size)
                         sources[i] = 0;
+        }
+}
+
+void
+afr_mark_latest_mtime_file_as_source (xlator_t *this, unsigned char *sources,
+                                 struct afr_reply *replies)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        uint32_t mtime = 0;
+        uint32_t mtime_nsec = 0;
+
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (!replies[i].valid || replies[i].op_ret != 0) {
+                        sources[i] = 0;
+                        continue;
+                }
+                if ((mtime < replies[i].poststat.ia_mtime) ||
+                    ((mtime == replies[i].poststat.ia_mtime) &&
+                     (mtime_nsec < replies[i].poststat.ia_mtime_nsec))) {
+                        mtime = replies[i].poststat.ia_mtime;
+                        mtime_nsec = replies[i].poststat.ia_mtime_nsec;
+                }
+        }
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if ((mtime > replies[i].poststat.ia_mtime) ||
+                    ((mtime == replies[i].poststat.ia_mtime) &&
+                     (mtime_nsec > replies[i].poststat.ia_mtime_nsec))) {
+                        sources[i] = 0;
+                }
         }
 }
 
@@ -432,6 +471,9 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         }
         xdata_rsp = local->xdata_rsp;
 
+        for (i = 0 ; i < priv->child_count; i++)
+                if (locked_on[i])
+                        sources[i] = 1;
         switch (heal_op) {
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 if (type == AFR_METADATA_TRANSACTION) {
@@ -442,9 +484,6 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                 ret = -1;
                         goto out;
                 }
-                for (i = 0 ; i < priv->child_count; i++)
-                        if (locked_on[i])
-                                sources[i] = 1;
                 afr_mark_largest_file_as_source (this, sources, replies);
                 if (AFR_COUNT (sources, priv->child_count) != 1) {
                         ret = dict_set_str (xdata_rsp, "sh-fail-msg",
@@ -453,11 +492,24 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                 ret = -1;
                         goto out;
                 }
-                for (i = 0 ; i < priv->child_count; i++)
-                        if (sources[i])
-                                source = i;
-                sinks[source] = 0;
-                healed_sinks[source] = 0;
+                break;
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
+                if (type == AFR_METADATA_TRANSACTION) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "Use source-brick option to"
+                                            " heal metadata split-brain");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
+                afr_mark_latest_mtime_file_as_source (this, sources, replies);
+                if (AFR_COUNT (sources, priv->child_count) != 1) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "No difference in mtime");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
                 break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = dict_get_str (xdata_req, "child-name", &name);
@@ -478,16 +530,25 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                 ret = -1;
                         goto out;
                 }
+                memset (sources, 0, sizeof (*sources) * priv->child_count);
                 sources[source] = 1;
-                sinks[source] = 0;
-                healed_sinks[source] = 0;
                 break;
         default:
                 ret = -1;
                 goto out;
         }
+        for (i = 0 ; i < priv->child_count; i++) {
+                if (sources[i]) {
+                        source = i;
+                        break;
+                }
+        }
+        sinks[source] = 0;
+        healed_sinks[source] = 0;
         ret = source;
 out:
+        if (ret < 0)
+                memset (sources, 0, sizeof (*sources) * priv->child_count);
         return ret;
 
 }

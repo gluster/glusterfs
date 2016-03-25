@@ -246,6 +246,7 @@ typedef enum {
         GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK,
         GF_SHD_OP_HEAL_ENABLE,
         GF_SHD_OP_HEAL_DISABLE,
+        GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME,
 } gf_xl_afr_op_t ;
 
 struct gf_gsync_detailed_status_ {
