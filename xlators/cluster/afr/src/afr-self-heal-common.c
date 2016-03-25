@@ -2187,6 +2187,8 @@ int
 afr_selfheal (xlator_t *this, uuid_t gfid)
 {
         int           ret   = -1;
+        int           parent_ret   = -1;
+        int           up_count = 0;
         gf_boolean_t  tried_parent = _gf_false;
  	call_frame_t *frame = NULL;
         afr_local_t  *local = NULL;
@@ -2196,7 +2198,7 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
         afr_private_t *priv = NULL;
 
         priv = this->private;
- 
+
 heal_gfid:
  	frame = afr_frame_create (this);
 
@@ -2208,7 +2210,13 @@ heal_gfid:
 
         ret = afr_selfheal_do (frame, this, gfid);
 
-        if (priv->pgfid_self_heal == _gf_true &&
+        /* PGFID is pointless when a child is down as the heal will almost
+         * certainly fail for that reason.  Instead only attempt PGFID
+         * healing when all children are present.
+         */
+        up_count = AFR_COUNT (priv->child_up, priv->child_count);
+        if (up_count == priv->child_count &&
+            priv->pgfid_self_heal == _gf_true &&
             tried_parent == _gf_false && (ret != 0 || ret != 2) &&
             !gf_uuid_is_null (local->heal_pgfid)) {
                 tried_parent = _gf_true;
