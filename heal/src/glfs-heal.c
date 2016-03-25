@@ -24,6 +24,7 @@
 
 #define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 #define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
+                  "latest-mtime <FILE> | "\
                   "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "\
                   "split-brain-info]\n"
 
@@ -803,8 +804,9 @@ out:
 }
 
 int
-glfsh_heal_from_bigger_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
-                            char *file)
+glfsh_heal_from_bigger_file_or_mtime (glfs_t *fs, xlator_t *top_subvol,
+                                      loc_t *rootloc, char *file,
+                                      gf_xl_afr_op_t heal_op)
 {
 
         int ret = -1;
@@ -813,8 +815,7 @@ glfsh_heal_from_bigger_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         xattr_req = dict_new();
         if (!xattr_req)
                 goto out;
-        ret = dict_set_int32 (xattr_req, "heal-op",
-                              GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
+        ret = dict_set_int32 (xattr_req, "heal-op", heal_op);
         if (ret)
                 goto out;
         ret = glfsh_heal_splitbrain_file (fs, top_subvol, rootloc, file,
@@ -876,6 +877,9 @@ main (int argc, char **argv)
         case 4:
                 if (!strcmp (argv[2], "bigger-file")) {
                         heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
+                        file = argv[3];
+                } else if (!strcmp (argv[2], "latest-mtime")) {
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME;
                         file = argv[3];
                 } else if (!strcmp (argv[2], "source-brick")) {
                         heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
@@ -973,8 +977,9 @@ main (int argc, char **argv)
                                               heal_op);
                 break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
-                ret = glfsh_heal_from_bigger_file (fs, top_subvol,
-                                                   &rootloc, file);
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
+                ret = glfsh_heal_from_bigger_file_or_mtime (fs, top_subvol,
+                                                   &rootloc, file, heal_op);
                         break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = glfsh_heal_from_brick (fs, top_subvol, &rootloc,
