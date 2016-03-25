@@ -2112,6 +2112,7 @@ cli_print_brick_status (cli_volume_status_t *status)
 }
 
 #define NEEDS_GLFS_HEAL(op) ((op == GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) || \
+                             (op == GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME) ||\
                              (op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) ||      \
                              (op == GF_SHD_OP_INDEX_SUMMARY) ||               \
                              (op == GF_SHD_OP_SPLIT_BRAIN_FILES))
@@ -2139,6 +2140,10 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 ret = dict_get_str (options, "file", &filename);
                 runner_add_args (&runner, "bigger-file", filename, NULL);
+                break;
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
+                ret = dict_get_str (options, "file", &filename);
+                runner_add_args (&runner, "latest-mtime", filename, NULL);
                 break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = dict_get_str (options, "heal-source-hostname",
@@ -2626,7 +2631,7 @@ struct cli_cmd volume_cmds[] = {
         { "volume heal <VOLNAME> [enable | disable | full |"
           "statistics [heal-count [replica <HOSTNAME:BRICKNAME>]] |"
           "info [healed | heal-failed | split-brain] |"
-          "split-brain {bigger-file <FILE> |"
+          "split-brain {bigger-file <FILE> | latest-mtime <FILE> |"
                        "source-brick <HOSTNAME:BRICKNAME> [<FILE>]}]",
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},

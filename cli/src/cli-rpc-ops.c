@@ -8544,9 +8544,10 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         case    GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                 heal_op_str = "count of entries to be healed per replica";
                 break;
-        /* The below 2 cases are never hit; they're coded only to make
+        /* The below 3 cases are never hit; they're coded only to make
          * compiler warnings go away.*/
         case    GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+        case    GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
         case    GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 break;
 
