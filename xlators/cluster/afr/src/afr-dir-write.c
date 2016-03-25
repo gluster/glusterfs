@@ -83,15 +83,27 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 	int parent_read_subvol = -1;
 	int parent2_read_subvol = -1;
 	int i = 0;
+        afr_read_subvol_args_t args = {0,};
 
 	local = frame->local;
 	priv = this->private;
 
+	for (i = 0; i < priv->child_count; i++) {
+	        if (!local->replies[i].valid)
+	                continue;
+	        if (local->replies[i].op_ret == -1)
+	                continue;
+                gf_uuid_copy (args.gfid, local->replies[i].poststat.ia_gfid);
+                args.ia_type = local->replies[i].poststat.ia_type;
+                break;
+        }
+
 	if (local->inode) {
 		afr_replies_interpret (frame, this, local->inode, NULL);
 		inode_read_subvol = afr_data_subvol_get (local->inode, this,
-							 NULL, NULL, NULL);
+							 NULL, NULL, &args);
 	}
+
 	if (local->parent)
 		parent_read_subvol = afr_data_subvol_get (local->parent, this,
 							  NULL, NULL, NULL);

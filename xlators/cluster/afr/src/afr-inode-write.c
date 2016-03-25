@@ -42,18 +42,49 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 	afr_private_t *priv = NULL;
 	int read_subvol = 0;
 	int i = 0;
+        afr_read_subvol_args_t args = {0,};
+        struct iatt  *stbuf = NULL;
+        int    ret = 0;
 
 	local = frame->local;
 	priv = this->private;
+
+        /*This code needs to stay till DHT sends fops on linked
+         * inodes*/
+        if (local->inode && !inode_is_linked (local->inode)) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->replies[i].valid)
+                                continue;
+                        if (local->replies[i].op_ret == -1)
+                                continue;
+                        if (!gf_uuid_is_null
+                                        (local->replies[i].poststat.ia_gfid)) {
+                                gf_uuid_copy (args.gfid,
+                                            local->replies[i].poststat.ia_gfid);
+                                args.ia_type =
+                                        local->replies[i].poststat.ia_type;
+                                break;
+                        } else {
+                                ret = dict_get_bin (local->replies[i].xdata,
+                                                    DHT_IATT_IN_XDATA_KEY,
+                                                    (void **) &stbuf);
+                                if (ret)
+                                        continue;
+                                gf_uuid_copy (args.gfid, stbuf->ia_gfid);
+                                args.ia_type = stbuf->ia_type;
+                                break;
+                        }
+                }
+        }
 
 	if (local->inode) {
 		if (local->transaction.type == AFR_METADATA_TRANSACTION)
 			read_subvol = afr_metadata_subvol_get (local->inode, this,
 							       NULL, NULL,
-                                                               NULL);
+                                                               &args);
 		else
 			read_subvol = afr_data_subvol_get (local->inode, this,
-							   NULL, NULL, NULL);
+							   NULL, NULL, &args);
 	}
 
 	local->op_ret = -1;
