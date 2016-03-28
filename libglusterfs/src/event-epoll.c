@@ -27,6 +27,9 @@
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
 
+#define EPOLL_TIMEOUT(pool) (pool->max_idle_seconds > 0 ? pool->max_idle_seconds * 1000 : -1)
+#define EPOLL_NEED_CHECK_IDLE_CONNS(pool) (pool->last_idle_check) && ((time (NULL) - pool->last_idle_check) >= pool->idle_conn_check_interval)
+#define EPOLL_DETECT_IDLE_CONNS(pool) pool->max_idle_seconds > 0
 
 struct event_slot_epoll {
 	int fd;
@@ -35,9 +38,12 @@ struct event_slot_epoll {
 	int ref;
 	int do_close;
 	int in_handler;
-	void *data;
+	time_t last_active;
+        time_t idle_time;
+        void *data;
 	event_handler_t handler;
-	gf_lock_t lock;
+	timeout_event_handler_t timeout_handler;
+        gf_lock_t lock;
 };
 
 struct event_thread_data {
@@ -310,7 +316,7 @@ __slot_update_events (struct event_slot_epoll *slot, int poll_in, int poll_out)
 
 int
 event_register_epoll (struct event_pool *event_pool, int fd,
-                      event_handler_t handler,
+                      event_handler_t handler, timeout_event_handler_t timeout_handler,
                       void *data, int poll_in, int poll_out)
 {
         int                 idx = -1;
@@ -365,7 +371,8 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 
 		slot->events = EPOLLPRI | EPOLLONESHOT;
 		slot->handler = handler;
-		slot->data = data;
+	        slot->timeout_handler = timeout_handler;
+                slot->data = data;
 
 		__slot_update_events (slot, poll_in, poll_out);
 
@@ -513,6 +520,24 @@ out:
         return idx;
 }
 
+static void
+__event_dispatch_client_timeout_handler (struct event_pool *pool, struct event_slot_epoll *slot)
+{
+        timeout_event_handler_t handler = NULL;
+        int ret                         = 0;
+        void *data                      = NULL;
+        int fd                          = -1;
+
+        fd = slot->fd;
+        data = slot->data;
+        handler = slot->timeout_handler;
+
+        if (handler)
+                ret = handler (fd, data, slot->idle_time, pool);
+
+        if (ret != 0)
+                gf_log ("event", GF_LOG_ERROR, "Error when invoking timeout handler: %s", strerror (-ret));
+}
 
 static int
 event_dispatch_epoll_handler (struct event_pool *event_pool,
@@ -559,7 +584,7 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 
 		handler = slot->handler;
 		data = slot->data;
-
+                slot->last_active = time (NULL);
 		slot->in_handler++;
 	}
 pre_unlock:
@@ -606,6 +631,81 @@ out:
         return ret;
 }
 
+static void
+__event_epoll_timeout_slot (struct event_pool *event_pool, struct event_slot_epoll *slot)
+{
+        /**
+         * There are 5 cases where we won't timeout a slot.
+         * 1. slot is NULL          : Should never happen.
+         * 2. slot->fd <= 0         : We already closed this FD.
+         * 3. slot->do_close = 1    : Socket has been marked for close.
+         * 4. max_idle_secs = 0     : Volume option to enable feature is not set.
+         * 5. idle <= max_idle_secs : The connection has not been idle for long enough.
+         */
+
+        if (!slot || slot->fd <= 0 || slot->do_close == 1 || slot->last_active == 0 || event_pool->max_idle_seconds == 0)
+                goto out;
+
+        slot->idle_time = time (NULL) - slot->last_active;
+
+        gf_log ("epoll", GF_LOG_DEBUG, "Connection on slot->fd=%d was idle"
+                                       " for %lu seconds!",
+                                       slot->fd, slot->idle_time);
+
+        if (slot->idle_time < event_pool->max_idle_seconds) {
+                goto out;
+        }
+
+        /**
+         * Invoke the timeout handler on the slot.
+         * For now, this is just socket_timeout_handler().
+         */
+        __event_dispatch_client_timeout_handler (event_pool, slot);
+out:
+        return;
+}
+
+static int
+event_epoll_timeout_slot (struct event_pool *event_pool, struct event_slot_epoll *slot)
+{
+        int ret = 0;
+
+        LOCK (&slot->lock);
+        {
+                __event_epoll_timeout_slot (event_pool, slot);
+        }
+        UNLOCK (&slot->lock);
+
+        return ret;
+}
+
+static int
+event_epoll_check_idle_slots (struct event_pool *event_pool)
+{
+        struct event_slot_epoll *slot = NULL;
+        int idx = 0;
+        int ret = 0;
+
+        gf_log ("epoll", GF_LOG_INFO, "Checking epoll slots for idle connections.");
+
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->last_idle_check = time (NULL);
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
+        for (idx = 0; idx < EVENT_EPOLL_TABLES * EVENT_EPOLL_SLOTS; idx++)
+        {
+                slot = event_slot_get (event_pool, idx);
+
+                if (slot) {
+                        event_epoll_timeout_slot (event_pool, slot);
+                        event_slot_unref (event_pool, slot, idx);
+                }
+        }
+
+        return ret;
+}
 
 static void *
 event_dispatch_epoll_worker (void *data)
@@ -661,7 +761,27 @@ event_dispatch_epoll_worker (void *data)
                         }
                 }
 
-                ret = epoll_wait (event_pool->fd, &event, 1, -1);
+                /*
+                 * Invoke epoll_wait() and wait for an event. If a timeout is set on the event pool
+                 * (usually via a vol option), then the timeout is passed to epoll_wait.
+                 */
+                ret = epoll_wait (event_pool->fd, &event, 1, EPOLL_TIMEOUT (event_pool));
+
+                /* Initialize the last idle check for the first time we wake up */
+                if (!event_pool->last_idle_check) event_pool->last_idle_check = time (NULL);
+
+                /*
+                 * If we are asked to detect idle connections (vol option) and we need to check the
+                 * table for idle connections then we can invoke event_epoll_check_idle_slots ().
+                 * We shouldn't fall into this block on *every* epoll event because its fairly expensive,
+                 * (iterating over 2^20 items in the table), so we capture the following cases:
+                 *
+                 * 1. epoll_wait() timed out (Uncommon case, unless all clients are completely stuck)
+                 * 2. Every 10 seconds
+                 */
+                if (ret == 0 || (EPOLL_DETECT_IDLE_CONNS (event_pool) && EPOLL_NEED_CHECK_IDLE_CONNS (event_pool))) {
+                        event_epoll_check_idle_slots (event_pool);
+                }
 
                 if (ret == 0)
                         /* timeout */
@@ -857,6 +977,22 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
         return 0;
 }
 
+int event_configure_idle_conns (struct event_pool *event_pool, time_t max_idle_seconds,
+                                int close_idle_conns, unsigned int idle_conn_check_interval)
+{
+        int ret = 0;
+
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->max_idle_seconds = max_idle_seconds;
+                event_pool->close_idle_conns = close_idle_conns;
+                event_pool->idle_conn_check_interval = idle_conn_check_interval;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
+        return ret;
+}
+
 /* This function is the destructor for the event_pool data structure
  * Should be called only after poller_threads_destroy() is called,
  * else will lead to crashes.
@@ -891,14 +1027,15 @@ event_pool_destroy_epoll (struct event_pool *event_pool)
 }
 
 struct event_ops event_ops_epoll = {
-        .new                       = event_pool_new_epoll,
-        .event_register            = event_register_epoll,
-        .event_select_on           = event_select_on_epoll,
-        .event_unregister          = event_unregister_epoll,
-        .event_unregister_close    = event_unregister_close_epoll,
-        .event_dispatch            = event_dispatch_epoll,
-        .event_reconfigure_threads = event_reconfigure_threads_epoll,
-        .event_pool_destroy        = event_pool_destroy_epoll
+        .new                        = event_pool_new_epoll,
+        .event_register             = event_register_epoll,
+        .event_select_on            = event_select_on_epoll,
+        .event_unregister           = event_unregister_epoll,
+        .event_unregister_close     = event_unregister_close_epoll,
+        .event_dispatch             = event_dispatch_epoll,
+        .event_reconfigure_threads  = event_reconfigure_threads_epoll,
+        .event_configure_idle_conns = event_configure_idle_conns,
+        .event_pool_destroy         = event_pool_destroy_epoll
 };
 
 #endif

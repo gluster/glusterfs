@@ -26,6 +26,8 @@ struct event_data {
 typedef int (*event_handler_t) (int fd, int idx, void *data,
 				int poll_in, int poll_out, int poll_err);
 
+typedef int (*timeout_event_handler_t) (int fd, void *data, time_t idle_time, struct event_pool *event_pool);
+
 #define EVENT_EPOLL_TABLES 1024
 #define EVENT_EPOLL_SLOTS 1024
 #define EVENT_MAX_THREADS  32
@@ -57,6 +59,11 @@ struct event_pool {
                                                      * and live status */
         int destroy;
         int activethreadcount;
+
+        time_t max_idle_seconds;
+        time_t last_idle_check;
+        int close_idle_conns;
+        unsigned int idle_conn_check_interval;
 };
 
 struct event_ops {
@@ -64,6 +71,7 @@ struct event_ops {
 
         int (*event_register) (struct event_pool *event_pool, int fd,
                                event_handler_t handler,
+                               timeout_event_handler_t timeout_handler,
                                void *data, int poll_in, int poll_out);
 
         int (*event_select_on) (struct event_pool *event_pool, int fd, int idx,
@@ -78,6 +86,10 @@ struct event_ops {
 
         int (*event_reconfigure_threads) (struct event_pool *event_pool,
                                           int newcount);
+
+        int (*event_configure_idle_conns) (struct event_pool *event_pool, time_t max_idle_seconds,
+                                           int close_idle_conns, unsigned int idle_conn_check_interval);
+
         int (*event_pool_destroy) (struct event_pool *event_pool);
 };
 
@@ -85,12 +97,14 @@ struct event_pool *event_pool_new (int count, int eventthreadcount);
 int event_select_on (struct event_pool *event_pool, int fd, int idx,
 		     int poll_in, int poll_out);
 int event_register (struct event_pool *event_pool, int fd,
-		    event_handler_t handler,
+		    event_handler_t handler, timeout_event_handler_t timeout_handler,
 		    void *data, int poll_in, int poll_out);
 int event_unregister (struct event_pool *event_pool, int fd, int idx);
 int event_unregister_close (struct event_pool *event_pool, int fd, int idx);
 int event_dispatch (struct event_pool *event_pool);
 int event_reconfigure_threads (struct event_pool *event_pool, int value);
+int event_configure_idle_conns (struct event_pool *event_pool, time_t max_idle_seconds,
+                                int close_idle_conns, unsigned int idle_conn_check_interval);
 int event_pool_destroy (struct event_pool *event_pool);
 int event_dispatch_destroy (struct event_pool *event_pool);
 #endif /* _EVENT_H_ */

@@ -1223,6 +1223,15 @@ nfs_init_state (xlator_t *this)
 
         nfs->register_portmap = rpcsvc_register_portmap_enabled (nfs->rpcsvc);
 
+	GF_OPTION_INIT ("nfs.client-max-idle-seconds", nfs->client_max_idle_seconds, uint32, free_foppool);
+	GF_OPTION_INIT ("nfs.close-idle-clients", nfs->close_idle_clients, bool, free_foppool);
+	GF_OPTION_INIT ("nfs.idle-connection-check-interval", nfs->idle_conn_check_interval, uint32, free_foppool);
+
+        event_configure_idle_conns (this->ctx->event_pool,
+                                    nfs->client_max_idle_seconds,
+                                    (int)nfs->close_idle_clients,
+                                    nfs->idle_conn_check_interval);
+
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
         nfs->generation = 1965;
@@ -1279,6 +1288,7 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                                         "nfs.mem-factor",
                                         NULL};
         char                *exports_auth_enable = NULL;
+        char                *optstr = NULL;
 
         GF_VALIDATE_OR_GOTO (GF_NFS, this, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, this->private, out);
@@ -1464,6 +1474,15 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 nfs->enable_acl = optbool;
                 nfs_reconfigure_acl3 (this);
         }
+
+        GF_OPTION_RECONF ("nfs.client-max-idle-seconds", nfs->client_max_idle_seconds, options, uint32, out);
+        GF_OPTION_RECONF ("nfs.close-idle-clients", nfs->close_idle_clients, options, bool, out);
+	GF_OPTION_RECONF ("nfs.idle-connection-check-interval", nfs->idle_conn_check_interval, options, uint32, out);
+
+        event_configure_idle_conns (this->ctx->event_pool,
+                                    nfs->client_max_idle_seconds,
+                                    (int)nfs->close_idle_clients,
+                                    nfs->idle_conn_check_interval);
 
         ret = 0;
 out:
@@ -2209,6 +2228,34 @@ struct volume_options options[] = {
           .description = "When this option is set to off NFS falls back to "
                          "standard readdir instead of readdirp"
         },
-
+        { .key = {"nfs.idle-connection-check-interval"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min = 10,
+          .max = UINT32_MAX,
+          .default_value = "20",
+          .description = "The amount of time between walks of the event table"
+                         " to figure out which clients are idle."
+        },
+        { .key = {"nfs.client-max-idle-seconds"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min = 0,
+          .max = UINT32_MAX,
+          .default_value = "0",
+          .description = "The maximum amount of time this NFS daemon allows clients"
+                         " to be idle before it treats the clients as idle."
+                         " This option enables *tracking* of idle clients, but does not"
+                         " perform any actions on idle clients. See \"nfs.close-idle-clients\""
+                         " to close idle client connections."
+                         " A value of 0 disables this feature."
+        },
+        { .key = {"nfs.close-idle-clients"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option is used to control whether NFS will close"
+                         " idle client connections. Idle clients are detected "
+                         " and tracked via the option \"nfs.client-max-idle-seconds\"."
+                         " A value of \"off\" means that we won't close idle connections."
+                         " A value of \"on\" means that idle connections will be closed."
+        },
         { .key  = {NULL} },
 };

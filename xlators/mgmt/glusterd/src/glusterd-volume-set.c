@@ -2503,7 +2503,24 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = GD_OP_VERSION_3_7_0
         },
-
+        {  .key        = "nfs.idle-connection-check-interval",
+           .voltype    = "nfs/server",
+           .option     = "nfs.idle-connection-check-interval",
+           .type       = NO_DOC,
+           .op_version = 2
+        },
+        {  .key        = "nfs.client-max-idle-seconds",
+           .voltype    = "nfs/server",
+           .option     = "nfs.client-max-idle-seconds",
+           .type       = NO_DOC,
+           .op_version = 2
+        },
+        {  .key        = "nfs.close-idle-clients",
+           .voltype    = "nfs/server",
+           .option     = "nfs.close-idle-clients",
+           .type       = NO_DOC,
+           .op_version = 2
+        },
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",
           .voltype    = "features/read-only",

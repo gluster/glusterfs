@@ -387,7 +387,7 @@ cli_rl_enable (struct cli_state *state)
                 goto out;
         }
 
-        ret = event_register (state->ctx->event_pool, 0, cli_rl_stdin, state,
+        ret = event_register (state->ctx->event_pool, 0, cli_rl_stdin, NULL, state,
                               1, 0);
         if (ret == -1)
                 goto out;

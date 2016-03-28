@@ -35,7 +35,7 @@ struct event_slot_poll {
 
 static int
 event_register_poll (struct event_pool *event_pool, int fd,
-                     event_handler_t handler,
+                     event_handler_t handler, timeout_event_handler_t timeout_handler,
                      void *data, int poll_in, int poll_out);
 
 
@@ -153,7 +153,7 @@ event_pool_new_poll (int count, int eventthreadcount)
         }
 
         ret = event_register_poll (event_pool, event_pool->breaker[0],
-                                   __flush_fd, NULL, 1, 0);
+                                   __flush_fd, NULL, NULL, 1, 0);
         if (ret == -1) {
                 gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
                         "could not register pipe fd with poll event loop");
@@ -179,7 +179,7 @@ event_pool_new_poll (int count, int eventthreadcount)
 
 static int
 event_register_poll (struct event_pool *event_pool, int fd,
-                     event_handler_t handler,
+                     event_handler_t handler, timeout_event_handler_t time_handler,
                      void *data, int poll_in, int poll_out)
 {
         int idx = -1;

@@ -2353,6 +2353,76 @@ out:
 
 static int socket_disconnect (rpc_transport_t *this);
 
+/**
+ * Special event handler for sockets that are idle-ing.
+ *
+ * @fd:        Socket file descriptor.
+ * @data:      Usually an rpc_transport_t *
+ * @idle_time: How long a fd (connection) has been idle
+ * @event_pool: For almost anything else you'll need to stash
+ */
+static int
+socket_timeout_handler (int fd, void *data, time_t idle_time, struct event_pool *event_pool)
+{
+        int ret = 0;
+        char *colon = NULL;
+        char *peer_addr = NULL;
+        size_t host_len = 0;
+        short port = 0;
+        rpc_transport_t *transport = NULL;
+        int do_idle_close = 0;
+
+        transport = data;
+        do_idle_close = event_pool->close_idle_conns;
+
+        /**
+         * Are we a listener? (aka NFS?) if not, we shouldn't do anything.
+         */
+        if (!transport->listener) {
+                goto out;
+        }
+
+        peer_addr = transport->myinfo.identifier;
+        colon = strrchr (peer_addr, ':');
+        if (!colon) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        port = atoi (colon + 1);
+
+        /*
+         * Restrict this behavior to NFS only!
+         */
+        if (port != GF_NFS3_PORT) {
+                ret = -EPROTONOSUPPORT;
+                goto out;
+        }
+
+        /*
+         * We should only close the client connection if the slot was marked
+         * with 'do_idle_close'.  This is usually set through a vol option that
+         * propagates to the event pool.
+         */
+        if (do_idle_close == 1) {
+                gf_log ("socket", GF_LOG_WARNING,
+                        "Shutting down idle client connection "
+                        "(idle=%lus,fd=%d,conn=[%s]->[%s])!",
+                        idle_time, fd, transport->peerinfo.identifier,
+                        transport->myinfo.identifier);
+                ret = shutdown (fd, SHUT_RDWR);
+        } else {
+                gf_log ("socket", GF_LOG_WARNING,
+                        "Found idle client connection "
+                        "(idle=%lus,fd=%d,conn=[%s]->[%s])!",
+                        idle_time, fd, transport->peerinfo.identifier,
+                        transport->myinfo.identifier);
+        }
+
+out:
+        return ret;
+}
+
 /* reads rpc_requests during pollin */
 static int
 socket_event_handler (int fd, int idx, void *data,
@@ -2803,31 +2873,24 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 new_priv->is_server = _gf_true;
                                 rpc_transport_ref (new_trans);
 
-                                if (new_priv->own_thread) {
-                                        if (pipe(new_priv->pipe) < 0) {
-                                                gf_log(this->name, GF_LOG_ERROR,
-                                                       "could not create pipe");
-                                        }
-                                        ret = socket_spawn(new_trans);
-                                        if (ret) {
-                                                gf_log(this->name, GF_LOG_ERROR,
-                                                       "could not spawn thread");
-                                                sys_close (new_priv->pipe[0]);
-                                                sys_close (new_priv->pipe[1]);
-                                        }
-                                }  else {
-                                        new_priv->idx =
-                                                event_register (ctx->event_pool,
-                                                                new_sock,
-                                                           socket_event_handler,
+				if (new_priv->own_thread) {
+					if (pipe(new_priv->pipe) < 0) {
+						gf_log(this->name,GF_LOG_ERROR,
+						       "could not create pipe");
+					}
+                                        socket_spawn(new_trans);
+				}
+				else {
+					new_priv->idx =
+						event_register (ctx->event_pool,
+								new_sock,
+								socket_event_handler,
+								socket_timeout_handler,
                                                                 new_trans,
-                                                                1, 0);
-                                        if (new_priv->idx == -1) {
-                                                ret = -1;
-                                                gf_log(this->name, GF_LOG_ERROR,
-                                                       "failed to register the socket with event");
-                                        }
-                                }
+								1, 0);
+					if (new_priv->idx == -1)
+						ret = -1;
+				}
 
                         }
                         pthread_mutex_unlock (&new_priv->lock);
@@ -3200,6 +3263,7 @@ handler:
                 else {
                         priv->idx = event_register (ctx->event_pool, priv->sock,
                                                     socket_event_handler,
+                                                    socket_timeout_handler,
                                                     this, 1, 1);
                         if (priv->idx == -1) {
                                 gf_log ("", GF_LOG_WARNING,
@@ -3375,6 +3439,7 @@ socket_listen (rpc_transport_t *this)
 
                 priv->idx = event_register (ctx->event_pool, priv->sock,
                                             socket_server_event_handler,
+                                            NULL,
                                             this, 1, 0);
 
                 if (priv->idx == -1) {
@@ -3491,8 +3556,8 @@ socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
                 if (priv->connected != 1) {
                         if (!priv->submit_log && !priv->connect_finish_log) {
                                 gf_log (this->name, GF_LOG_INFO,
-                                        "not connected (priv->connected = %d)",
-                                        priv->connected);
+                                        "sock %d not connected (priv->connected = %d)",
+                                        priv->sock, priv->connected);
                                 priv->submit_log = 1;
                         }
                         goto unlock;

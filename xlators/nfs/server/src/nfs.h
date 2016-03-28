@@ -102,6 +102,10 @@ struct nfs_state {
         char                    *rpc_statd;
         char                    *rpc_statd_pid_file;
         gf_boolean_t            rdirplus;
+
+        unsigned int            client_max_idle_seconds;
+        unsigned int            idle_conn_check_interval;
+        gf_boolean_t            close_idle_clients;
 };
 
 struct nfs_inode_ctx {
