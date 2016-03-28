@@ -1153,20 +1153,6 @@ afr_is_entry_set (xlator_t *this, dict_t *xdata)
 	return afr_is_pending_set (this, xdata, AFR_ENTRY_TRANSACTION);
 }
 
-
-inode_t*
-afr_inode_link (inode_t *inode, struct iatt *iatt)
-{
-	inode_t *linked_inode = NULL;
-
-	linked_inode = inode_link (inode, NULL, NULL, iatt);
-
-	if (linked_inode)
-		inode_lookup (linked_inode);
-        return linked_inode;
-}
-
-
 /*
  * This function inspects the looked up replies (in an unlocked manner)
  * and decides whether a locked verification and possible healing is
@@ -1293,7 +1279,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 	}
 
 	if (valid_cnt > 0 && link_inode) {
-		*link_inode = afr_inode_link (inode, &first);
+		*link_inode = inode_link (inode, NULL, NULL, &first);
                 if (!*link_inode) {
                         ret = -EINVAL;
                         goto out;
@@ -1454,10 +1440,8 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
                 ret = 0;
 
 out:
-        if (inode) {
-                inode_forget (inode, 1);
+        if (inode)
                 inode_unref (inode);
-        }
         return ret;
 }
 /*

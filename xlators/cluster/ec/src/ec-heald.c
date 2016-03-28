@@ -137,10 +137,8 @@ ec_shd_inode_find (xlator_t *this, xlator_t *subvol,
 	*inode =  NULL;
 
         *inode = inode_find (this->itable, gfid);
-        if (*inode) {
-                inode_lookup (*inode);
+        if (*inode)
                 goto out;
-        }
 
         loc.inode = inode_new (this->itable);
         if (!loc.inode) {
@@ -157,8 +155,6 @@ ec_shd_inode_find (xlator_t *this, xlator_t *subvol,
         if (!*inode) {
                 ret = -ENOMEM;
                 goto out;
-        } else {
-                inode_lookup (*inode);
         }
 out:
         loc_wipe (&loc);
@@ -267,8 +263,6 @@ out:
                         uuid_utoa(loc.gfid));
                 ec_shd_index_purge (subvol, parent->inode, entry->d_name);
         }
-        if (loc.inode)
-                inode_forget (loc.inode, 0);
         loc_wipe (&loc);
 
         return 0;
@@ -296,8 +290,6 @@ ec_shd_index_sweep (struct subvol_healer *healer)
         ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
                                healer, ec_shd_index_heal);
 out:
-        if (loc.inode)
-                inode_forget (loc.inode, 0);
         loc_wipe (&loc);
 
         return ret;
@@ -336,8 +328,6 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         ret = 0;
 
 out:
-        if (loc.inode)
-                inode_forget (loc.inode, 0);
         loc_wipe (&loc);
         return ret;
 }
