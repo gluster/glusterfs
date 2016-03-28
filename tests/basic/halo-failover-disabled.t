@@ -35,6 +35,10 @@ TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume set $V0 cluster.eager-lock off
+TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
+TEST $CLI volume set $V0 diagnostics.brick-log-level DEBUG
+TEST $CLI volume set $V0 nfs.log-level DEBUG
+
 # Use a large ping time here so the spare brick is not marked up
 # based on the ping time.  The only way it can get marked up is
 # by being swapped in via the down event (which is what we are disabling).
@@ -47,8 +51,8 @@ cd $M0
 # Write some data to the mount
 TEST dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
 
-# Kill the first brick, fail-over to 3rd
-TEST kill_brick $V0 $H0 $B0/${V0}0
+UP_IDX=$(cat /var/log/glusterfs/$M0LOG  | grep "halo state: UP" | tail -n1 | grep -Eo "Child [0-9]+" | grep -Eo "[0-9]+")
+TEST kill_brick $V0 $H0 $B0/${V0}${UP_IDX}
 
 # Test that quorum should fail and the mount is RO, the reason here
 # is that although there _is_ another brick running which _could_
@@ -59,7 +63,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST ! dd if=/dev/urandom of=$M0/test_rw bs=1M count=1 conv=fsync
 
 TEST $CLI volume start $V0 force
-sleep 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 $UP_IDX
 
 # Test that quorum should be restored and the file is writable
 TEST dd if=/dev/urandom of=$M0/test_rw bs=1M count=1

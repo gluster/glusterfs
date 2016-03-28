@@ -45,6 +45,10 @@
 
 #define CHILD_UP_STR "UP"
 #define CHILD_DOWN_STR "DOWN"
+#define CHILD_DISCONNECTED_STR "DOWN"
+
+static int32_t
+find_hybrid_children (xlator_t *this, unsigned char *fastest_children);
 
 call_frame_t *
 afr_copy_frame (call_frame_t *base)
@@ -1371,21 +1375,75 @@ afr_hash_child (afr_read_subvol_args_t *args, int32_t child_count, int hashmode)
                              sizeof(gfid_copy)) % child_count;
 }
 
+/*
+ * afr_halo_read_subvol
+ *
+ * Given a array representing the readable children, this function will
+ * return which one of the readable children meet the halo hybrid criteria.
+ * In the event none are found, -1 is returned and another strategy will have
+ * to be used to figure out where the read should come from.
+ */
+int afr_halo_read_subvol (xlator_t *this, unsigned char *readable) {
+	afr_private_t *priv = NULL;
+        unsigned char *hybrid_children;
+        int32_t hybrid_cnt = 0;
+	int read_subvol = -1;
+	int i = 0;
+
+	priv = this->private;
+
+        /* Halo in-active or hybrid mode disabled, bail.... */
+        if (!priv->halo_enabled || !priv->halo_hybrid_mode)
+                return -1;
+
+        /* AFR Discovery edge case, if you are already pinned to a child
+         * which meets the latency threshold then go with this child for
+         * consistency purposes.
+         */
+        if (priv->read_child >= 0 && readable[priv->read_child] &&
+            priv->child_latency[priv->read_child] <=
+             AFR_HALO_HYBRID_LATENCY_MSEC) {
+                return priv->read_child;
+        }
+
+        hybrid_children = alloca0 (priv->child_count);
+        hybrid_cnt = find_hybrid_children (this, hybrid_children);
+        if (hybrid_cnt) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (readable[i] && hybrid_children[i]) {
+                                read_subvol = i;
+                                priv->read_child = read_subvol;
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "Selected hybrid child %d for reads",
+                                        i);
+                                break;
+                        }
+                }
+        }
+
+        return read_subvol;
+}
+
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
 				  unsigned char *readable,
                                   afr_read_subvol_args_t *args)
 {
-	int             i           = 0;
-	int             read_subvol = -1;
-	afr_private_t  *priv        = NULL;
+	    int             i           = 0;
+	    int             read_subvol = -1;
+	    afr_private_t  *priv        = NULL;
         afr_read_subvol_args_t local_args = {0,};
 
-	priv = this->private;
+	    priv = this->private;
 
-	/* first preference - explicitly specified or local subvolume */
-	if (priv->read_child >= 0 && readable[priv->read_child])
+        /* Choose lowest latency child for reads */
+        read_subvol = afr_halo_read_subvol (this, readable);
+        if (read_subvol != -1)
+                return read_subvol;
+
+        /* first preference - explicitly specified or local subvolume */
+	    if (priv->read_child >= 0 && readable[priv->read_child])
                 return priv->read_child;
 
         if (inode_is_linked (inode)) {
@@ -1410,7 +1468,6 @@ afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
 
         return -1;
 }
-
 
 int
 afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
@@ -2071,6 +2128,13 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         priv->children[child_index]->name);
 
                 priv->read_child = child_index;
+        } else if (priv->halo_enabled) {
+                if (priv->read_child < 0) {
+                        priv->read_child = child_index;
+                } else if (priv->child_latency[child_index] <
+                    priv->child_latency[priv->read_child]) {
+                        priv->read_child = child_index;
+                }
         }
 out:
         STACK_DESTROY(frame->root);
@@ -2487,6 +2551,7 @@ afr_discover_do (call_frame_t *frame, xlator_t *this, int err)
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 	int call_count = 0;
+        unsigned char *hybrid_children = NULL;
 
 	local = frame->local;
 	priv = this->private;
@@ -2497,8 +2562,19 @@ afr_discover_do (call_frame_t *frame, xlator_t *this, int err)
 		goto out;
 	}
 
-	call_count = local->call_count = AFR_COUNT (local->child_up,
-						    priv->child_count);
+        hybrid_children = alloca0 (priv->child_count);
+        call_count = find_hybrid_children (this, hybrid_children);
+        if (call_count) {
+                for (i = 0; i < priv->child_count; i++)
+                        local->child_up[i] = hybrid_children[i];
+                gf_log (this->name, GF_LOG_TRACE, "Selected %d hybrid "
+                        "children for LOOKUPs", call_count);
+        } else {
+                hybrid_children = NULL;
+                call_count = AFR_COUNT (local->child_up, priv->child_count);
+        }
+
+        local->call_count = call_count;
 
         ret = afr_lookup_xattr_req_prepare (local, this, local->xattr_req,
 					    &local->loc);
@@ -2731,6 +2807,15 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 	afr_read_subvol_get (loc->parent, this, NULL, NULL, &event,
 			     AFR_DATA_TRANSACTION, NULL);
 
+        /* So this is the "secret" to why "Hybrid" halo works.  Encoded in
+         * the cached inodes, we store what is effectively the "generational"
+         * state of the cluster along with a "packed" version of the extended
+         * attributes which determine which nodes are wise/fools.  We can
+         * consult these cached values to figure out who we can trust, in the
+         * event the state of our cluster changes and we can no longer trust
+         * the cached info we "refresh" the inode (and hit all regions) to
+         * ensure we know which bricks we can safely read from.
+         */
 	if (event != local->event_generation)
 		afr_inode_refresh (frame, this, loc->parent, NULL,
                                    afr_lookup_do);
@@ -4203,6 +4288,97 @@ __get_heard_from_all_status (xlator_t *this)
         return heard_from_all;
 }
 
+/*
+ * afr_cmp_child
+ *
+ * Passed to the qsort function to order a list of children by the latency
+ * and/or up/down states.
+ */
+static int
+_afr_cmp_child (const void *child1, const void *child2)
+{
+        struct afr_child *child11 = (struct afr_child *)child1;
+        struct afr_child *child22 = (struct afr_child *)child2;
+
+        if (child11->latency > child22->latency) {
+                return 1;
+        }
+        if (child11->latency == child22->latency) {
+                return 0;
+        }
+        return -1;
+}
+
+/*
+ * find_hybrid_children
+ *
+ * Given a char array representing our children (aka bricks within our AFR
+ * AFR "subvolume"), we'll mark this array with the children which are
+ * within the halo_hybrid_read_max_latency_sec or if none fit this condition,
+ * we'll pick the fastest two bricks.
+ *
+ * You might ask, why not just pick the quickest brick and be done with it?
+ * Well, being within our set is not suffcient to be chosen for the read,
+ * we must also be marked "readable", we still want to choose as many as
+ * we can within our local region to ensure we have somebody that is readable.
+ *
+ * To illustrate this, consider the case where a 1/2 bricks received a sync
+ * from some other writer, and the 2nd brick although faster wasn't present.
+ * In this case we'll want to use the slower brick to service the read.
+ *
+ * In short, this function just tells the caller which hybrid children,
+ * it gives no signal as to their readability, nor should it since this is
+ * handled later in the various flows (e.g. by afr_halo_read_subvol).
+ */
+static int32_t
+find_hybrid_children (xlator_t *this, unsigned char *hybrid_children)
+{
+        int32_t i = 0;
+        afr_private_t *priv = NULL;
+        struct afr_child   *sorted_list = NULL;
+        uint32_t max_latency;
+        uint32_t limit = AFR_HALO_HYBRID_CHILD_LIMIT;
+
+        priv = this->private;
+
+        if (!priv->halo_enabled || !priv->halo_hybrid_mode)
+                return 0;
+
+        if (limit > priv->child_count)
+                limit = priv->child_count;
+
+        max_latency = priv->halo_hybrid_read_max_latency_msec;
+
+        sorted_list = alloca (sizeof (struct afr_child) * priv->child_count);
+
+        /* Find children meeting the latency threshold */
+        for (i = 0; i < priv->child_count; i++) {
+                sorted_list[i].idx = i;
+                sorted_list[i].child_up = priv->child_up[i];
+                sorted_list[i].latency = priv->child_latency[i];
+        }
+
+        /* QuickSort the children according to latency */
+        qsort (sorted_list, priv->child_count, sizeof (struct afr_child),
+               _afr_cmp_child);
+
+        i = 0;
+        while (i < priv->child_count && sorted_list[i].latency <= max_latency)
+                hybrid_children[sorted_list[i++].idx] = 1;
+
+        /* Found some candidates */
+        if (i != 0)
+                return i;
+
+        /* If no candidates can be found meeting the max_latency threshold
+         * then find the best of those we have to our limit.
+         */
+        for (i = 0; i < limit; i++)
+                hybrid_children[sorted_list[i].idx] = 1;
+
+        return i;
+}
+
 int
 find_best_down_child (xlator_t *this)
 {
@@ -4260,11 +4436,20 @@ static void dump_halo_states (xlator_t *this) {
         priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Child %d halo state: %s (%"PRIi64"ms)",
-                        i,
-                        priv->child_up[i] ? CHILD_UP_STR : CHILD_DOWN_STR,
-                        priv->child_latency[i]);
+                if (priv->child_latency[i] == AFR_CHILD_DOWN_LATENCY) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Child %d halo state: %s (N/A)",
+                                i,
+                                priv->child_up[i] ? CHILD_UP_STR :
+                                                    CHILD_DOWN_STR);
+                 } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Child %d halo state: %s (%"PRIi64" ms)",
+                                i,
+                                priv->child_up[i] ? CHILD_UP_STR :
+                                                    CHILD_DOWN_STR,
+                                priv->child_latency[i]);
+                }
         }
 }
 
@@ -4513,11 +4698,11 @@ _afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
 
         /*
          * If this is an _actual_ CHILD_DOWN event, we
-         * want to set the child_latency to < 0 to indicate
-         * the child is really disconnected.
+         * want to set the child_latency to AFR_CHILD_DOWN_LATENCY to
+         * indicate the child is really disconnected.
          */
-        if (child_latency_msec < 0) {
-                priv->child_latency[idx] = child_latency_msec;
+        if (child_latency_msec == AFR_CHILD_DOWN_LATENCY) {
+                priv->child_latency[idx] = AFR_CHILD_DOWN_LATENCY;
         }
         priv->child_up[idx] = 0;
 
@@ -4620,7 +4805,7 @@ afr_notify (xlator_t *this, int32_t event,
         gf_boolean_t    had_quorum          = _gf_false;
         gf_boolean_t    has_quorum          = _gf_false;
         int64_t         halo_max_latency_msec = 0;
-        int64_t         child_latency_msec   = -1;
+        int64_t         child_latency_msec   = AFR_CHILD_DOWN_LATENCY;
         gf_boolean_t    child_halo_enabled   = _gf_false;
 
         child_xlator = (xlator_t *)data;

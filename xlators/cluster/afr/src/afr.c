@@ -195,6 +195,14 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("halo-max-latency", priv->halo_max_latency_msec,
                           options, uint32, out);
 
+        GF_OPTION_RECONF ("halo-hybrid-mode",
+                          priv->halo_hybrid_mode, options, bool,
+                          out);
+
+        GF_OPTION_RECONF ("halo-hybrid-read-max-latency",
+                          priv->halo_hybrid_read_max_latency_msec, options,
+                          uint32, out);
+
         GF_OPTION_RECONF ("halo-max-replicas", priv->halo_max_replicas, options,
                               uint32, out);
 
@@ -424,6 +432,13 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("entry-self-heal", priv->entry_self_heal, bool, out);
 
+        GF_OPTION_INIT ("halo-hybrid-mode",
+                        priv->halo_hybrid_mode, bool, out);
+
+        GF_OPTION_INIT ("halo-hybrid-read-max-latency",
+                        priv->halo_hybrid_read_max_latency_msec, uint32,
+                        out);
+
         GF_OPTION_INIT ("halo-enabled",
                         priv->halo_enabled, bool, out);
 
@@ -505,12 +520,14 @@ init (xlator_t *this)
                 goto out;
         }
 
-        for (i = 0; i < child_count; i++)
+        for (i = 0; i < child_count; i++) {
+                priv->child_latency[i] = 0.0;
                 priv->child_up[i] = -1; /* start with unknown state.
                                            this initialization needed
                                            for afr_notify() to work
                                            reliably
                                         */
+        }
 
         priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                     gf_afr_mt_xlator_t);
@@ -750,6 +767,27 @@ struct volume_options options[] = {
           .max   = 99999,
           .default_value = "5",
            .description = "Maximum latency for halo replication in msec."
+        },
+        { .key   = {"halo-hybrid-mode"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Enable hybrid sync mounts.  When enabled, halo will "
+                         "do write FOPs synchronously, and read FOPs will be "
+                         "services in-region if the inode is clean/consistent."
+                         "If no bricks can be found below "
+                         "halo-hybrid-max-read-latency then the best 2 shall "
+                         "be selected.  This option can be used in "
+                         "conjunction with all other halo options."
+        },
+        { .key   = {"halo-hybrid-read-max-latency"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "8",
+           .description = "Maximum latency hybrid mode will use to select "
+                          "children for read FOPs.  Don't tune this unless "
+                          "you really know what you are doing (i.e. you've "
+                          "read/understand the associated source code)."
         },
         { .key   = {"halo-max-replicas"},
           .type  = GF_OPTION_TYPE_INT,

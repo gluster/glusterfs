@@ -30,6 +30,9 @@
 #define AFR_DIRTY_DEFAULT AFR_XATTR_PREFIX ".dirty"
 #define AFR_DIRTY (((afr_private_t *) (THIS->private))->afr_dirty)
 
+#define AFR_CHILD_DOWN_LATENCY INT64_MAX  /* Latency for down children */
+#define AFR_HALO_HYBRID_CHILD_LIMIT 2   /* Examine bricks <= 10 msec */
+#define AFR_HALO_HYBRID_LATENCY_MSEC 10.0   /* Examine bricks <= 10 msec */
 #define AFR_LOCKEE_COUNT_MAX    3
 #define AFR_DOM_COUNT_MAX    3
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
@@ -63,6 +66,12 @@ typedef enum {
 struct afr_nfsd {
         gf_boolean_t     iamnfsd;
         uint32_t         halo_max_latency_msec;
+};
+
+struct afr_child {
+        uint32_t idx;
+        int64_t latency;
+        unsigned char child_up;
 };
 
 typedef struct _afr_private {
@@ -149,7 +158,10 @@ typedef struct _afr_private {
 	char                   *afr_dirty;
         gf_boolean_t           halo_enabled;
 
+        /* Halo geo-replication tunables */
         gf_boolean_t           halo_failover_enabled;
+        gf_boolean_t           halo_hybrid_mode;
+        uint32_t               halo_hybrid_read_max_latency_msec;
         uint32_t               halo_max_latency_msec;
         uint32_t               halo_max_replicas;
         uint32_t               halo_min_replicas;
