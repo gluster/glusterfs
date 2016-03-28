@@ -360,8 +360,7 @@ Summary:          NFS-Ganesha configuration
 Group:            Applications/File
 
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         nfs-ganesha-gluster
-Requires:         pcs, /usr/bin/dbus-send
+Requires:         nfs-ganesha-gluster, pcs, dbus
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
