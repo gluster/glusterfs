@@ -2440,7 +2440,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
                 }
 
                 fd = open (ctx->log.cmd_log_filename,
-                           O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+                           O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
                         gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
                                 LG_MSG_FILE_OP_FAILED, "failed to open "
