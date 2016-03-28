@@ -1948,12 +1948,11 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         if (first == -1)
                 goto out;
 
-        inode = afr_inode_link (local->inode,&replies[first].poststat);
+        inode = inode_link (local->inode, NULL, NULL, &replies[first].poststat);
         if(!inode)
                 goto out;
 
         afr_selfheal_metadata (frame, this, inode);
-        inode_forget (inode, 1);
         inode_unref (inode);
 
         afr_local_replies_wipe (local, this->private);
@@ -4834,10 +4833,8 @@ out:
         AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
         if (dict)
                dict_unref (dict);
-        if (inode) {
-                inode_forget (inode, 1);
+        if (inode)
                 inode_unref (inode);
-        }
         GF_FREE (substr);
         return ret;
 }

@@ -159,10 +159,8 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 	struct iatt iatt = {0, };
 
 	inode = inode_find (this->itable, gfid);
-	if (inode) {
-                inode_lookup (inode);
+	if (inode)
 		goto out;
-        }
 
 	loc.inode = inode_new (this->itable);
 	if (!loc.inode)
@@ -174,8 +172,6 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 		goto out;
 
 	inode = inode_link (loc.inode, NULL, NULL, &iatt);
-	if (inode)
-		inode_lookup (inode);
 out:
 	loc_wipe (&loc);
 	return inode;
@@ -444,7 +440,6 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
         ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
                                healer, afr_shd_index_heal);
 
-        inode_forget (loc.inode, 1);
         loc_wipe (&loc);
 
         if (ret == 0)
