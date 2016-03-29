@@ -1740,7 +1740,19 @@ mnt3_check_client_net_udp (struct svc_req *req, char *volname, xlator_t *nfsx)
         if ((!req) || (!volname) || (!nfsx))
                 goto err;
 
+#if !defined(_TIRPC_SVC_H)
         sin = svc_getcaller (req->rq_xprt);
+#else
+        sin = (struct sockaddr_in *)svc_getcaller (req->rq_xprt);
+        /* TIRPC's svc_getcaller() returns a pointer to a sockaddr_in6, even
+         * though it might actually be an IPv4 address. It ought return a
+         * struct sockaddr and make the caller upcast it to the proper
+         * address family. Sigh.
+         */
+#endif
+        /* And let's make sure that it's actually an IPv4 address. */
+        GF_ASSERT (sin->sin_family == AF_INET);
+
         if (!sin)
                 goto err;
 
@@ -2817,7 +2829,21 @@ __mnt3udp_get_export_subdir_inode (struct svc_req *req, char *subdir,
 
         /* AUTH check for subdir i.e. nfs.export-dir */
         if (exp->hostspec) {
-                struct sockaddr_in *sin = svc_getcaller (req->rq_xprt);
+                struct sockaddr_in *sin = NULL;
+
+#if !defined(_TIRPC_SVC_H)
+                sin = svc_getcaller (req->rq_xprt);
+#else
+                sin = (struct sockaddr_in *)svc_getcaller (req->rq_xprt);
+                /* TIRPC's svc_getcaller() returns a pointer to a
+                 * sockaddr_in6, even though it might actually be an
+                 * IPv4 address. It ought return a struct sockaddr and
+                 * make the caller upcast it to the proper address family.
+                 */
+#endif
+                /* And let's make sure that it's actually an IPv4 address. */
+                GF_ASSERT (sin->sin_family == AF_INET);
+
                 ret = mnt3_verify_auth (sin, exp);
                 if (ret) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, EACCES,
