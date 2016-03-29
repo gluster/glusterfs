@@ -133,7 +133,15 @@ mountudp_program_3(struct svc_req *rqstp, register SVCXPRT *transp)
         mountres3               *res = NULL;
         struct sockaddr_in      *sin = NULL;
 
-        sin = svc_getcaller (transp);
+        sin = (struct sockaddr_in *)svc_getcaller (transp);
+        /* svc_getcaller returns a pointer to a sockaddr_in6, even though it
+         * might actually be an IPv4 address. It ought return a struct sockaddr
+         * and make the caller upcast it to the proper address family. Sigh.
+         *
+         * Let's make sure that it's actually an IPv4 address.
+         */
+        GF_ASSERT (sin->sin_family == AF_INET);
+
         inet_ntop (AF_INET, &sin->sin_addr, mnthost, INET_ADDRSTRLEN+1);
 
         switch (rqstp->rq_proc) {
