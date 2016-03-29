@@ -1229,3 +1229,12 @@ out:
 
         return ret;
 }
+
+inode_t *
+server_inode_new (inode_table_t *itable, uuid_t gfid) {
+        if (__is_root_gfid (gfid))
+                return itable->root;
+        else
+                return inode_new (itable);
+}
+

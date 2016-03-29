@@ -323,12 +323,90 @@ fail:
         return 0;
 }
 
+void
+server_first_lookup_done (rpcsvc_request_t *req, gf_setvolume_rsp *rsp) {
+
+        server_submit_reply (NULL, req, rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gf_setvolume_rsp);
+
+        GF_FREE (rsp->dict.dict_val);
+        GF_FREE (rsp);
+}
+
+
+int
+server_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       inode_t *inode, struct iatt *buf, dict_t *xattr,
+                       struct iatt *postparent)
+{
+        rpcsvc_request_t     *req = NULL;
+        gf_setvolume_rsp     *rsp = NULL;
+
+        req = cookie;
+        rsp = frame->local;
+        frame->local = NULL;
+
+        if (op_ret < 0 || buf == NULL)
+                gf_log (this->name, GF_LOG_WARNING, "server first lookup failed"
+                        " on root inode: %s", strerror (op_errno));
+
+        /* Ignore error from lookup, don't set
+         * failure in rsp->op_ret. lookup on a snapview-server
+         * can fail with ESTALE
+         */
+        server_first_lookup_done (req, rsp);
+
+        STACK_DESTROY (frame->root);
+
+        return 0;
+}
+
+int
+server_first_lookup (xlator_t *this, xlator_t *xl, rpcsvc_request_t *req,
+                     gf_setvolume_rsp *rsp)
+{
+        call_frame_t       *frame  = NULL;
+        loc_t               loc    = {0, };
+
+        loc.path = "/";
+        loc.name = "";
+        loc.inode = xl->itable->root;
+        loc.parent = NULL;
+        gf_uuid_copy (loc.gfid, loc.inode->gfid);
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
+                goto err;
+        }
+
+        frame->local = (void *)rsp;
+        frame->root->uid = frame->root->gid = 0;
+        frame->root->pid = -1;
+        frame->root->type = GF_OP_TYPE_FOP;
+
+        STACK_WIND_COOKIE (frame, server_first_lookup_cbk, (void *)req, xl,
+                           xl->fops->lookup, &loc, NULL);
+
+        return 0;
+
+err:
+        rsp->op_ret = -1;
+        rsp->op_errno = ENOMEM;
+        server_first_lookup_done (req, rsp);
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+
+        return -1;
+}
 
 int
 server_setvolume (rpcsvc_request_t *req)
 {
         gf_setvolume_req     args          = {{0,},};
-        gf_setvolume_rsp     rsp           = {0,};
+        gf_setvolume_rsp    *rsp           = NULL;
         client_t            *client        = NULL;
         server_ctx_t        *serv_ctx      = NULL;
         server_conf_t       *conf          = NULL;
@@ -646,21 +724,24 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        if ((client->bound_xl != NULL) &&
-            (ret >= 0)                   &&
-            (client->bound_xl->itable == NULL)) {
-                /* create inode table for this bound_xl, if one doesn't
-                   already exist */
+        LOCK (&conf->itable_lock);
+        {
+                if (client->bound_xl->itable == NULL) {
+                        /* create inode table for this bound_xl, if one doesn't
+                           already exist */
 
-                gf_msg_trace (this->name, 0, "creating inode table with "
-                              "lru_limit=%"PRId32", xlator=%s",
-                              conf->inode_lru_limit, client->bound_xl->name);
+                        gf_msg_trace (this->name, 0, "creating inode table with"
+                                      " lru_limit=%"PRId32", xlator=%s",
+                                      conf->inode_lru_limit,
+                                      client->bound_xl->name);
 
-                /* TODO: what is this ? */
-                client->bound_xl->itable =
-                        inode_table_new (conf->inode_lru_limit,
-                                         client->bound_xl);
+                        /* TODO: what is this ? */
+                        client->bound_xl->itable =
+                                inode_table_new (conf->inode_lru_limit,
+                                                 client->bound_xl);
+                }
         }
+        UNLOCK (&conf->itable_lock);
 
         ret = dict_set_str (reply, "process-uuid",
                             this->ctx->process_uuid);
@@ -679,20 +760,25 @@ server_setvolume (rpcsvc_request_t *req)
                 gf_msg_debug (this->name, 0, "failed to set 'transport-ptr'");
 
 fail:
-        rsp.dict.dict_len = dict_serialized_length (reply);
-        if (rsp.dict.dict_len > UINT_MAX) {
+        rsp = GF_CALLOC (1, sizeof (gf_setvolume_rsp),
+                         gf_server_mt_setvolume_rsp_t);
+        GF_ASSERT (rsp);
+
+        rsp->op_ret = 0;
+        rsp->dict.dict_len = dict_serialized_length (reply);
+        if (rsp->dict.dict_len > UINT_MAX) {
                 gf_msg_debug ("server-handshake", 0, "failed to get serialized"
                                " length of reply dict");
                 op_ret   = -1;
                 op_errno = EINVAL;
-                rsp.dict.dict_len = 0;
+                rsp->dict.dict_len = 0;
         }
 
-        if (rsp.dict.dict_len) {
-                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len,
-                                               gf_server_mt_rsp_buf_t);
-                if (rsp.dict.dict_val) {
-                        ret = dict_serialize (reply, rsp.dict.dict_val);
+        if (rsp->dict.dict_len) {
+                rsp->dict.dict_val = GF_CALLOC (1, rsp->dict.dict_len,
+                                                gf_server_mt_rsp_buf_t);
+                if (rsp->dict.dict_val) {
+                        ret = dict_serialize (reply, rsp->dict.dict_val);
                         if (ret < 0) {
                                 gf_msg_debug ("server-handshake", 0, "failed "
                                               "to serialize reply dict");
@@ -701,8 +787,8 @@ fail:
                         }
                 }
         }
-        rsp.op_ret   = op_ret;
-        rsp.op_errno = gf_errno_to_error (op_errno);
+        rsp->op_ret   = op_ret;
+        rsp->op_errno = gf_errno_to_error (op_errno);
 
         /* if bound_xl is NULL or something fails, then put the connection
          * back. Otherwise the connection would have been added to the
@@ -719,13 +805,13 @@ fail:
                 gf_client_put (client, NULL);
                 req->trans->xl_private = NULL;
         }
-        server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (xdrproc_t)xdr_gf_setvolume_rsp);
 
+        if (op_ret >= 0 && client->bound_xl->itable)
+                server_first_lookup (this, client->bound_xl, req, rsp);
+        else
+                server_first_lookup_done (req, rsp);
 
         free (args.dict.dict_val);
-
-        GF_FREE (rsp.dict.dict_val);
 
         dict_unref (params);
         dict_unref (reply);

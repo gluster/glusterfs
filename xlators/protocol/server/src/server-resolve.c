@@ -157,7 +157,8 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         resolve_loc->name = resolve->bname;
 
-        resolve_loc->inode = inode_new (state->itable);
+        resolve_loc->inode = server_inode_new (state->itable,
+                                               resolve_loc->gfid);
 
         inode_path (resolve_loc->parent, resolve_loc->name,
                     (char **) &resolve_loc->path);
@@ -204,7 +205,8 @@ resolve_gfid (call_frame_t *frame)
         else if (!gf_uuid_is_null (resolve->gfid))
                 gf_uuid_copy (resolve_loc->gfid, resolve->gfid);
 
-        resolve_loc->inode = inode_new (state->itable);
+        resolve_loc->inode = server_inode_new (state->itable,
+                                               resolve_loc->gfid);
         ret = loc_path (resolve_loc, NULL);
 
         if (state->xdata) {
