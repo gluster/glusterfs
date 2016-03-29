@@ -815,11 +815,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to get vol: %d",
                 rsp.op_ret);
 
-        if (rsp.op_ret) {
-                ret = -1;
-                goto out;
-        }
-
         if (!rsp.dict.dict_len) {
                 if (global_state->mode & GLUSTER_MODE_XML)
                         goto xml_output;
@@ -867,6 +862,13 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (!(global_state->mode & GLUSTER_MODE_XML))
                                 goto out;
                 }
+        }
+
+        if (rsp.op_ret) {
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+                ret = -1;
+                goto out;
         }
 
 xml_output:
