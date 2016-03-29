@@ -91,7 +91,8 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 state->is_revalidate = 2;
                 loc_copy (&fresh_loc, &state->loc);
                 inode_unref (fresh_loc.inode);
-                fresh_loc.inode = inode_new (state->itable);
+                fresh_loc.inode = server_inode_new (state->itable,
+                                                    fresh_loc.gfid);
 
                 STACK_WIND (frame, server_lookup_cbk,
                             frame->root->client->bound_xl,
@@ -3138,7 +3139,8 @@ server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
                 goto err;
 
         if (!state->loc.inode)
-                state->loc.inode = inode_new (state->itable);
+                state->loc.inode = server_inode_new (state->itable,
+                                                     state->loc.gfid);
         else
                 state->is_revalidate = 1;
 

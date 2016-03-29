@@ -74,6 +74,8 @@ struct server_conf {
                                             * tweeked */
         gf_boolean_t            child_up; /* Set to true, when child is up, and
                                            * false, when child is down */
+
+        gf_lock_t               itable_lock;
 };
 typedef struct server_conf server_conf_t;
 
