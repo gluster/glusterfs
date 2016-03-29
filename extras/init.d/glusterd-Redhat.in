@@ -76,6 +76,7 @@ stop()
         killproc $BASE
     fi
     RETVAL=$?
+    echo
     [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
     return $RETVAL
 }
