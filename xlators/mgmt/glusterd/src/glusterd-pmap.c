@@ -59,15 +59,15 @@ pmap_registry_new (xlator_t *this)
         if (!pmap)
                 return NULL;
 
-        for (i = 0; i < 65536; i++) {
+        pmap->base_port = pmap->last_alloc =
+                ((glusterd_conf_t *)(this->private))->base_port;
+
+        for (i = pmap->base_port; i < 65536; i++) {
                 if (pmap_port_isfree (i))
                         pmap->ports[i].type = GF_PMAP_PORT_FREE;
                 else
                         pmap->ports[i].type = GF_PMAP_PORT_FOREIGN;
         }
-
-        pmap->base_port = pmap->last_alloc =
-                ((glusterd_conf_t *)(this->private))->base_port;
 
         return pmap;
 }
