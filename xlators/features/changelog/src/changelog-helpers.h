@@ -504,7 +504,8 @@ changelog_inode_ctx_t *
 __changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,
                            unsigned long *, changelog_log_type);
 int
-resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
+resolve_pargfid_to_path (xlator_t *this, const uuid_t gfid, char **path,
+                         char *bname);
 
 /* macros */
 
