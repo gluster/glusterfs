@@ -40,6 +40,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-messages.h"
+#include "glusterd-errno.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -1554,7 +1555,6 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
                          GD_MSG_FLAGS_NOTFOUND_IN_DICT, "failed to get flags");
                 goto out;
         }
-
         ret = glusterd_get_volumes (req, dict, flags);
 
 out:
@@ -4167,6 +4167,7 @@ int32_t
 glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
 {
         int32_t                 ret = -1;
+        int32_t                 ret_bkp = 0;
         glusterd_conf_t         *priv = NULL;
         glusterd_volinfo_t      *entry = NULL;
         int32_t                 count = 0;
@@ -4176,7 +4177,6 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
 
         priv = THIS->private;
         GF_ASSERT (priv);
-
         volumes = dict_new ();
         if (!volumes) {
                 gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
@@ -4185,10 +4185,11 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         }
 
         if (cds_list_empty (&priv->volumes)) {
+                if (flags == GF_CLI_GET_VOLUME)
+                        ret_bkp = -1;
                 ret = 0;
                 goto respond;
         }
-
         if (flags == GF_CLI_GET_VOLUME_ALL) {
                 cds_list_for_each_entry (entry, &priv->volumes, vol_list) {
                         ret = glusterd_add_volume_detail_to_dict (entry,
@@ -4230,12 +4231,15 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 }
         } else if (flags == GF_CLI_GET_VOLUME) {
                 ret = dict_get_str (dict, "volname", &volname);
+
                 if (ret)
                         goto respond;
 
                 ret = glusterd_volinfo_find (volname, &entry);
-                if (ret)
+                if (ret) {
+                        ret_bkp = ret;
                         goto respond;
+                }
 
                 ret = glusterd_add_volume_detail_to_dict (entry,
                                                  volumes, count);
@@ -4257,9 +4261,14 @@ respond:
 
         ret = 0;
 out:
-        rsp.op_ret = ret;
-
-        rsp.op_errstr = "";
+        if (ret_bkp == -1) {
+                rsp.op_ret = ret_bkp;
+                rsp.op_errstr = "Volume does not exist";
+                rsp.op_errno = EG_NOVOL;
+        } else {
+                rsp.op_ret = ret;
+                rsp.op_errstr = "";
+        }
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf_cli_rsp);
         ret = 0;
