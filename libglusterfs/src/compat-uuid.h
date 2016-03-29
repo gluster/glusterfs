@@ -28,7 +28,7 @@ gf_uuid_compare (uuid_t u1, uuid_t u2)
 }
 
 static inline void
-gf_uuid_copy (uuid_t dst, uuid_t src)
+gf_uuid_copy (uuid_t dst, const uuid_t src)
 {
         uuid_copy (dst, src);
 }

@@ -1847,7 +1847,7 @@ err:
  */
 
 int
-resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
+resolve_pargfid_to_path (xlator_t *this, const uuid_t pgfid,
                          char **path, char *bname)
 {
         char             *linkname                  = NULL;
@@ -1857,6 +1857,7 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
         ssize_t           len                       = 0;
         int               ret                       = 0;
         uuid_t            tmp_gfid                  = {0, };
+        uuid_t            pargfid                   = {0, };
         changelog_priv_t *priv                      = NULL;
         char              gpath[PATH_MAX]           = {0,};
         char              result[PATH_MAX]          = {0,};
@@ -1867,6 +1868,7 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
         priv = this->private;
         GF_ASSERT (priv);
 
+        gf_uuid_copy (pargfid, pgfid);
         if (!path || gf_uuid_is_null (pargfid)) {
                 ret = -1;
                 goto out;
