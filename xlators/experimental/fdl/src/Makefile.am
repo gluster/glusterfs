@@ -30,7 +30,8 @@ AM_CFLAGS = -Wall $(GF_CFLAGS)
 noinst_PYTHON = gen_fdl.py gen_dumper.py gen_recon.py
 EXTRA_DIST = fdl-tmpl.c dump-tmpl.c recon-tmpl.c
 
-CLEANFILES = $(nodist_fdl_la_SOURCES) $(nodist_gf_logdump_SOURCES)
+CLEANFILES = $(nodist_fdl_la_SOURCES) $(nodist_gf_logdump_SOURCES) \
+	$(nodist_gf_recon_SOURCES)
 
 fdl.c: fdl-tmpl.c gen_fdl.py
 	$(PYTHON) $(srcdir)/gen_fdl.py $(srcdir)/fdl-tmpl.c > $@
