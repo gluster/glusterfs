@@ -68,7 +68,13 @@ mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
 
         this = THIS;
 
-        if ((!inode) || (!loc))
+        if (inode == NULL) {
+                gf_log_callingfn ("marker", GF_LOG_ERROR, "loc fill failed, "
+                                  "inode is NULL");
+                return ret;
+        }
+
+        if (loc == NULL)
                 return ret;
 
         if ((inode) && __is_root_gfid (inode->gfid)) {
