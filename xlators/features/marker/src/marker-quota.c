@@ -164,6 +164,109 @@ out:
         return -1;
 }
 
+int
+mq_build_ancestry (xlator_t *this, loc_t *loc)
+{
+        int32_t               ret            = -1;
+        fd_t                 *fd             = NULL;
+        gf_dirent_t           entries;
+        gf_dirent_t          *entry          = NULL;
+        dict_t               *xdata          = NULL;
+        inode_t              *tmp_parent     = NULL;
+        inode_t              *tmp_inode      = NULL;
+        inode_t              *linked_inode   = NULL;
+        quota_inode_ctx_t    *ctx            = NULL;
+
+        INIT_LIST_HEAD (&entries.list);
+
+        xdata = dict_new ();
+        if (xdata == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = dict_set_int8 (xdata, GET_ANCESTRY_DENTRY_KEY, 1);
+        if (ret < 0)
+                goto out;
+
+        fd = fd_anonymous (loc->inode);
+        if (fd == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "fd creation failed");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        fd_bind (fd);
+
+        ret = syncop_readdirp (this, fd, 131072, 0, &entries, xdata, NULL);
+        if (ret < 0) {
+                gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
+                        ? GF_LOG_DEBUG:GF_LOG_ERROR, "readdirp failed "
+                        "for %s: %s", loc->path, strerror (-ret));
+                goto out;
+        }
+
+        if (list_empty (&entries.list)) {
+                ret = -1;
+                goto out;
+        }
+
+        list_for_each_entry (entry, &entries.list, list) {
+                if (__is_root_gfid (entry->inode->gfid)) {
+                        tmp_parent = NULL;
+                } else {
+                        linked_inode = inode_link (entry->inode, tmp_parent,
+                                                   entry->d_name,
+                                                   &entry->d_stat);
+                        if (linked_inode) {
+                                tmp_inode = entry->inode;
+                                entry->inode = linked_inode;
+                                inode_unref (tmp_inode);
+                        } else {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "inode link failed");
+                                ret = -EINVAL;
+                                goto out;
+                        }
+                }
+
+                ctx = mq_inode_ctx_new (entry->inode, this);
+                if (ctx == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING, "mq_inode_ctx_new "
+                                "failed for %s",
+                                uuid_utoa (entry->inode->gfid));
+                        ret = -ENOMEM;
+                        goto out;
+                }
+
+                tmp_parent = entry->inode;
+        }
+
+        if (loc->parent)
+                inode_unref (loc->parent);
+
+        loc->parent = inode_parent (loc->inode, 0, NULL);
+        if (loc->parent == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        gf_dirent_free (&entries);
+
+        if (fd)
+                fd_unref (fd);
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return ret;
+}
+
+
 /* This function should be used only in inspect_directory and inspect_file
  * function to heal quota xattrs.
  * Inode quota feature is introduced in 3.7.
@@ -1025,13 +1128,8 @@ mq_prevalidate_txn (xlator_t *this, loc_t *origin_loc, loc_t *loc,
         if (gf_uuid_is_null (loc->gfid))
                 gf_uuid_copy (loc->gfid, loc->inode->gfid);
 
-        if (!loc_is_root(loc) && loc->parent == NULL) {
+        if (!loc_is_root(loc) && loc->parent == NULL)
                 loc->parent = inode_parent (loc->inode, 0, NULL);
-                if (loc->parent == NULL) {
-                        ret = -1;
-                        goto out;
-                }
-        }
 
         ret = mq_inode_ctx_get (loc->inode, this, &ctxtmp);
         if (ret < 0) {
@@ -1128,7 +1226,7 @@ _mq_create_xattrs_txn (xlator_t *this, loc_t *origin_loc, struct iatt *buf,
         if (ret < 0 || status == _gf_true)
                 goto out;
 
-        if (!loc_is_root(&loc)) {
+        if (!loc_is_root(&loc) && loc.parent) {
                 contribution = mq_add_new_contribution_node (this, ctx, &loc);
                 if (contribution == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -1206,7 +1304,8 @@ mq_reduce_parent_size_task (void *opaque)
 
         ret = mq_inode_loc_fill (NULL, loc->parent, &parent_loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "loc fill failed");
+                gf_log (this->name, GF_LOG_ERROR, "parent_loc fill failed for "
+                        "child inode %s: ", uuid_utoa (loc->inode->gfid));
                 goto out;
         }
 
@@ -1285,7 +1384,8 @@ out:
                          */
                         ret = mq_inode_ctx_get (parent_loc.inode, this,
                                                 &parent_ctx);
-                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                        if (ret == 0)
+                                mq_set_ctx_dirty_status (parent_ctx, _gf_false);
                 } else {
                         ret = mq_mark_dirty (this, &parent_loc, 0);
                 }
@@ -1328,6 +1428,7 @@ mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
                             contri, nlink);
 out:
         loc_wipe (&loc);
+
         return ret;
 }
 
@@ -1382,7 +1483,7 @@ mq_initiate_quota_task (void *opaque)
                  * if one is already in progress for same inode
                  */
                 if (status == _gf_true) {
-                        /* status will alreday set before txn start,
+                        /* status will already set before txn start,
                          * so it should not be set in first
                          * loop iteration
                          */
@@ -1392,9 +1493,28 @@ mq_initiate_quota_task (void *opaque)
                                 goto out;
                 }
 
+                if (child_loc.parent == NULL) {
+                        ret = mq_build_ancestry (this, &child_loc);
+                        if (ret < 0 || child_loc.parent == NULL) {
+                                /* If application performs parallel remove
+                                 * operations on same set of files/directories
+                                 * then we may get ENOENT/ESTALE
+                                 */
+                                gf_log (this->name,
+                                        (-ret == ENOENT || -ret == ESTALE)
+                                        ? GF_LOG_DEBUG:GF_LOG_ERROR,
+                                        "build ancestry failed for inode %s",
+                                        uuid_utoa (child_loc.inode->gfid));
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
                 ret = mq_inode_loc_fill (NULL, child_loc.parent, &parent_loc);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "loc fill failed");
+                        gf_log (this->name, GF_LOG_ERROR, "parent_loc fill "
+                                "failed for child inode %s: ",
+                                uuid_utoa (child_loc.inode->gfid));
                         goto out;
                 }
 
@@ -1438,13 +1558,20 @@ mq_initiate_quota_task (void *opaque)
                       wrong parent as it was holding lock on old parent
                       so validate parent once the lock is acquired
 
-                     For more information on thsi problem, please see
+                     For more information on this problem, please see
                      doc for marker_rename in file marker.c
                 */
                 contri = mq_get_contribution_node (child_loc.parent, ctx);
                 if (contri == NULL) {
                         tmp_parent = inode_parent (child_loc.inode, 0, NULL);
                         if (tmp_parent == NULL) {
+                                /* This can happen if application performs
+                                 * parallel remove operations on same set
+                                 * of files/directories
+                                 */
+                                gf_log (this->name, GF_LOG_WARNING, "parent is "
+                                        "NULL for inode %s",
+                                        uuid_utoa (child_loc.inode->gfid));
                                 ret = -1;
                                 goto out;
                         }
@@ -1476,7 +1603,6 @@ mq_initiate_quota_task (void *opaque)
                 if (quota_meta_is_null (&delta))
                         goto out;
 
-                prev_dirty = 0;
                 ret = mq_get_set_dirty (this, &parent_loc, 1, &prev_dirty);
                 if (ret < 0)
                         goto out;
@@ -1497,8 +1623,14 @@ mq_initiate_quota_task (void *opaque)
 
                 if (prev_dirty == 0) {
                         ret = mq_mark_dirty (this, &parent_loc, 0);
-                        dirty = _gf_false;
+                } else {
+                        ret = mq_inode_ctx_get (parent_loc.inode, this,
+                                                &parent_ctx);
+                        if (ret == 0)
+                                mq_set_ctx_dirty_status (parent_ctx, _gf_false);
                 }
+                dirty = _gf_false;
+                prev_dirty = 0;
 
                 ret = mq_lock (this, &parent_loc, F_UNLCK);
                 locked = _gf_false;
@@ -1529,7 +1661,8 @@ out:
                          */
                         ret = mq_inode_ctx_get (parent_loc.inode, this,
                                                 &parent_ctx);
-                        mq_set_ctx_dirty_status (parent_ctx, _gf_false);
+                        if (ret == 0)
+                                mq_set_ctx_dirty_status (parent_ctx, _gf_false);
                 } else {
                         ret = mq_mark_dirty (this, &parent_loc, 0);
                 }
@@ -1762,7 +1895,8 @@ out:
                  * can set the status flag and fix the
                  * dirty directory
                  */
-                mq_set_ctx_dirty_status (ctx, _gf_false);
+                if (ctx)
+                        mq_set_ctx_dirty_status (ctx, _gf_false);
         } else if (dirty) {
                 mq_mark_dirty (this, loc, 0);
         }
@@ -1955,7 +2089,7 @@ mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
         inode_contribution_t *contribution    = NULL;
 
         ret = mq_prevalidate_txn (this, origin_loc, &loc, &ctx, &buf);
-        if (ret < 0)
+        if (ret < 0 || loc.parent == NULL)
                 goto out;
 
         if (!loc_is_root(&loc)) {

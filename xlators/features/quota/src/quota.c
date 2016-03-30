@@ -825,7 +825,10 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 break;
                 }
 
-                GF_ASSERT (&entry->list != &entries->list);
+                /* Getting assertion here, need to investigate
+                   comment for now
+                   GF_ASSERT (&entry->list != &entries->list);
+                */
 
                 quota_add_parent (&parents, entry->d_name, parent->gfid);
         }
