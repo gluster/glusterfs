@@ -106,6 +106,8 @@ struct nfs_state {
         unsigned int            client_max_idle_seconds;
         unsigned int            idle_conn_check_interval;
         gf_boolean_t            close_idle_clients;
+
+        uint32_t                event_threads;
 };
 
 struct nfs_inode_ctx {

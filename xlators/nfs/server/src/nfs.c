@@ -1232,6 +1232,9 @@ nfs_init_state (xlator_t *this)
                                     (int)nfs->close_idle_clients,
                                     nfs->idle_conn_check_interval);
 
+        GF_OPTION_INIT ("nfs.event-threads", nfs->event_threads, uint32, free_foppool);
+        event_reconfigure_threads (this->ctx->event_pool, nfs->event_threads);
+
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
         nfs->generation = 1965;
@@ -1483,6 +1486,10 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                                     nfs->client_max_idle_seconds,
                                     (int)nfs->close_idle_clients,
                                     nfs->idle_conn_check_interval);
+
+
+        GF_OPTION_RECONF ("nfs.event-threads", nfs->event_threads, options, uint32, out);
+        event_reconfigure_threads (this->ctx->event_pool, nfs->event_threads);
 
         ret = 0;
 out:
@@ -2256,6 +2263,16 @@ struct volume_options options[] = {
                          " and tracked via the option \"nfs.client-max-idle-seconds\"."
                          " A value of \"off\" means that we won't close idle connections."
                          " A value of \"on\" means that idle connections will be closed."
+        },
+        { .key = {"nfs.event-threads"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min = 1,
+          .max = 32,
+          .default_value = "1",
+          .description = "Specifies the number of event threads to execute in"
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads."
         },
         { .key  = {NULL} },
 };

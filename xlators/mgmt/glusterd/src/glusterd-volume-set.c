@@ -2521,6 +2521,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
            .type       = NO_DOC,
            .op_version = 2
         },
+        {  .key        = "nfs.event-threads",
+           .voltype    = "nfs/server",
+           .option     = "nfs.event-threads",
+           .type       = NO_DOC,
+           .op_version = 2
+        },
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",
           .voltype    = "features/read-only",
