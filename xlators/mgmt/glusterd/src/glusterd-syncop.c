@@ -363,8 +363,11 @@ out:
                                    GLUSTERD_MGMT_V3_LOCK, *peerid, rsp.uuid);
 
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
 }
@@ -465,8 +468,11 @@ out:
                                    GLUSTERD_MGMT_V3_UNLOCK, *peerid, rsp.uuid);
 
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
 }
@@ -578,8 +584,11 @@ out:
                            GLUSTERD_MGMT_CLUSTER_LOCK, *peerid, rsp.uuid);
 
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
 }
@@ -672,8 +681,11 @@ out:
                            GLUSTERD_MGMT_CLUSTER_UNLOCK, *peerid, rsp.uuid);
 
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
 }
@@ -801,8 +813,11 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
 }
@@ -910,7 +925,11 @@ out:
                 free (rsp.op_errstr);
         free (rsp.output.output_val);
 
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         __wake (args);
 
         return 0;
@@ -1087,8 +1106,11 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
         GF_FREE (peerid);
-
-        STACK_DESTROY (frame->root);
+        /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+         * the caller function.
+         */
+        if (req->rpc_status != -1)
+                STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
 
         return 0;
