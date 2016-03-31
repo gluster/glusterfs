@@ -104,6 +104,7 @@ struct nfs_state {
         gf_boolean_t            register_portmap;
         char                    *rpc_statd;
         char                    *rpc_statd_pid_file;
+        gf_boolean_t            rdirplus;
 };
 
 struct nfs_inode_ctx {
