@@ -805,6 +805,7 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         int          ret = 0;
         ssize_t      size = 0;
         struct stat  stat = {0, };
+        char        *new_uuid = NULL;
 
 
         if (!xattr_req)
@@ -812,12 +813,6 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
 
         if (sys_lstat (path, &stat) != 0)
                 goto out;
-
-        size = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
-        if (size == 16) {
-                ret = 0;
-                goto verify_handle;
-        }
 
         ret = dict_get_ptr (xattr_req, "gfid-req", &uuid_req);
         if (ret) {
@@ -827,7 +822,28 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                 goto out;
         }
 
-        ret = sys_lsetxattr (path, GFID_XATTR_KEY, uuid_req, 16, XATTR_CREATE);
+        size = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (size == 16) {
+                if (!gf_uuid_compare (uuid_curr, uuid_req)) {
+                        ret = 0;
+                        goto verify_handle;
+                }
+
+                /* File has an existing GFID which differs from
+                 * the requested one. This can occur when a subvolume
+                 * has been offline while a file is deleted, and then
+                 * comes back up but has not yet healed. Get rid of
+                 * the old GFID link (handle_unset) and fall through
+                 * to the set case below.
+                 */
+                new_uuid = strdupa (uuid_utoa (uuid_req));
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: existing gfid %s overwritten with %s.",
+                         path, uuid_utoa (uuid_curr), new_uuid);
+                posix_handle_unset (this, uuid_curr, NULL);
+        }
+
+        ret = sys_lsetxattr (path, GFID_XATTR_KEY, uuid_req, 16, 0);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, errno, P_MSG_GFID_FAILED,
                         "setting GFID on %s failed ", path);
