@@ -173,14 +173,14 @@ subvolume=$(get_replicate_subvol_number file6)
 if [ $subvolume == 0 ]
 then
         GFID=$(gf_get_gfid_xattr $B0/${V0}1/file6)
-        mtime1=$(stat -c %Y $B0/${V0}1/file5)
-        mtime2=$(stat -c %Y $B0/${V0}2/file5)
+        mtime1=$(stat -c %Y $B0/${V0}1/file6)
+        mtime2=$(stat -c %Y $B0/${V0}2/file6)
         LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
 elif [ $subvolume == 1 ]
 then
         GFID=$(gf_get_gfid_xattr $B0/${V0}3/file6)
-        mtime1=$(stat -c %Y $B0/${V0}3/file5)
-        mtime2=$(stat -c %Y $B0/${V0}4/file5)
+        mtime1=$(stat -c %Y $B0/${V0}3/file6)
+        mtime2=$(stat -c %Y $B0/${V0}4/file6)
         LATEST_MTIME=$(($mtime1 > $mtime2 ? $mtime1:$mtime2))
 fi
 GFIDSTR="gfid:$(gf_gfid_xattr_to_str $GFID)"
