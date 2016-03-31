@@ -2777,7 +2777,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_12,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
+        { .key        = "cluster.locking-scheme",
+          .voltype    = "cluster/replicate",
+          .type       = DOC,
+          .op_version = GD_OP_VERSION_3_7_12,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

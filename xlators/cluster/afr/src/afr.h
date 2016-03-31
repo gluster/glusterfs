@@ -139,6 +139,7 @@ typedef struct _afr_private {
 	/* pump dependencies */
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
+	char                   *locking_scheme;
 } afr_private_t;
 
 
