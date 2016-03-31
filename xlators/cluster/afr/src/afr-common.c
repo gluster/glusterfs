@@ -4549,8 +4549,11 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         afr_private_t   *priv = NULL;
         fd_t          *fd = NULL;
         struct afr_reply *locked_replies = NULL;
+        gf_boolean_t granular_locks = _gf_false;
 
         priv = this->private;
+	if (strcmp ("granular", priv->locking_scheme) == 0)
+	        granular_locks = _gf_true;
         locked_on = alloca0 (priv->child_count);
         data_lock = alloca0 (priv->child_count);
         sources = alloca0 (priv->child_count);
@@ -4571,10 +4574,12 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
 
         locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
-        ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain,
-                                       0, 0, locked_on);
+        if (!granular_locks) {
+                ret = afr_selfheal_tryinodelk (frame, this, inode,
+                                              priv->sh_domain, 0, 0, locked_on);
+        }
         {
-                if (ret == 0) {
+                if (!granular_locks && (ret == 0)) {
                         ret = -afr_final_errno (frame->local, priv);
                         if (ret == 0)
                                 ret = -ENOTCONN;/* all invalid responses */
@@ -4601,8 +4606,9 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                                         data_lock);
         }
 unlock:
-        afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0,
-                                locked_on);
+        if (!granular_locks)
+                afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0,
+                                        0, locked_on);
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
@@ -4625,8 +4631,11 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
         unsigned char *sinks = NULL;
         unsigned char *healed_sinks = NULL;
         struct afr_reply *locked_replies = NULL;
+        gf_boolean_t granular_locks = _gf_false;
 
         priv = this->private;
+	if (strcmp ("granular", priv->locking_scheme) == 0)
+	        granular_locks = _gf_true;
         locked_on = alloca0 (priv->child_count);
         data_lock = alloca0 (priv->child_count);
         sources = alloca0 (priv->child_count);
@@ -4635,10 +4644,12 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
 
         locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
-        ret = afr_selfheal_tryentrylk (frame, this, inode, priv->sh_domain,
-                                       NULL, locked_on);
+        if (!granular_locks) {
+                ret = afr_selfheal_tryentrylk (frame, this, inode,
+                                              priv->sh_domain, NULL, locked_on);
+        }
         {
-                if (ret == 0) {
+                if (!granular_locks && ret == 0) {
                         ret = -afr_final_errno (frame->local, priv);
                         if (ret == 0)
                                 ret = -ENOTCONN;/* all invalid responses */
@@ -4668,8 +4679,9 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                         data_lock);
         }
 unlock:
-        afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL,
-                                locked_on);
+        if (!granular_locks)
+                afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain,
+                                        NULL, locked_on);
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);

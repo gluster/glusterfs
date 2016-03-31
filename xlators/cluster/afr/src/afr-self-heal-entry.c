@@ -744,8 +744,11 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
         unsigned char *long_name_locked = NULL;
 	fd_t *fd = NULL;
 	int ret = 0;
+	gf_boolean_t granular_locks = _gf_false;
 
 	priv = this->private;
+	if (strcmp ("granular", priv->locking_scheme) == 0)
+	        granular_locks = _gf_true;
 
 	fd = afr_selfheal_data_opendir (this, inode);
 	if (!fd)
@@ -772,10 +775,13 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			goto unlock;
 		}
 
-                ret = afr_selfheal_tryentrylk (frame, this, inode, this->name,
-                                               LONG_FILENAME, long_name_locked);
+                if (!granular_locks) {
+                        ret = afr_selfheal_tryentrylk (frame, this, inode,
+                                                      this->name, LONG_FILENAME,
+                                                      long_name_locked);
+                }
                 {
-                        if (ret < 1) {
+                        if (!granular_locks && ret < 1) {
                                 gf_msg_debug (this->name, 0, "%s: Skipping"
                                               " entry self-heal as only %d "
                                               "sub-volumes could be "
@@ -788,8 +794,9 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         }
                         ret = __afr_selfheal_entry (frame, this, fd, locked_on);
                 }
-                afr_selfheal_unentrylk (frame, this, inode, this->name,
-                                        LONG_FILENAME, long_name_locked);
+                if (!granular_locks)
+                        afr_selfheal_unentrylk (frame, this, inode, this->name,
+                                               LONG_FILENAME, long_name_locked);
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL, locked_on);
