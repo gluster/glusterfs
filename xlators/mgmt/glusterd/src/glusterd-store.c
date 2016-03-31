@@ -2385,24 +2385,34 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                        GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (brickinfo, volinfo,
                                                              brickid++);
                 }
-                /* By now if the brick is a local brick then it will be able to
-                 * resolve which is the only thing we want now for checking
-                 * whether the brickinfo->uuid matches with MY_UUID for realpath
-                 * check. Hence do not handle error
+                /* Populate brickinfo->real_path for normal volumes, for
+                 * snapshot or snapshot restored volume this would be done post
+                 * creating the brick mounts
                  */
-                (void)glusterd_resolve_brick (brickinfo);
-                if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
-                        if (!realpath (brickinfo->path, abspath)) {
-                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                        GD_MSG_BRICKINFO_CREATE_FAIL, "realpath"
-                                        " () failed for brick %s. The "
-                                        "underlying file system may be in bad"
-                                        " state", brickinfo->path);
-                                ret = -1;
-                                goto out;
+                if (!volinfo->is_snap_volume &&
+                    gf_uuid_is_null (volinfo->restored_from_snap)) {
+                        /* By now if the brick is a local brick then it will be
+                         * able to resolve which is the only thing we want now
+                         * for checking  whether the brickinfo->uuid matches
+                         * with MY_UUID for realpath check. Hence do not handle
+                         * error
+                         */
+                        (void)glusterd_resolve_brick (brickinfo);
+                        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+                                if (!realpath (brickinfo->path, abspath)) {
+                                        gf_msg (this->name, GF_LOG_CRITICAL,
+                                                errno,
+                                                GD_MSG_BRICKINFO_CREATE_FAIL,
+                                                "realpath() failed for brick %s"
+                                                ". The underlying file system "
+                                                "may be in bad state",
+                                                brickinfo->path);
+                                        ret = -1;
+                                        goto out;
+                                }
+                                strncpy (brickinfo->real_path, abspath,
+                                         strlen(abspath));
                         }
-                        strncpy (brickinfo->real_path, abspath,
-                                 strlen(abspath));
                 }
                 cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick_count++;
@@ -3216,6 +3226,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
         glusterd_brickinfo_t    *brickinfo           = NULL;
         int32_t                  ret                 = -1;
         struct stat              st_buf              = {0, };
+        char                     abspath[PATH_MAX]   = {0};
 
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
@@ -3271,6 +3282,21 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_BRK_MNTPATH_MOUNT_FAIL,
                                 "Failed to mount brick_mount_path");
+                }
+                if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+                        if (!realpath (brickinfo->path, abspath)) {
+                                gf_msg (this->name, GF_LOG_CRITICAL,
+                                        errno,
+                                        GD_MSG_BRICKINFO_CREATE_FAIL,
+                                        "realpath() failed for brick %s"
+                                        ". The underlying file system "
+                                        "may be in bad state",
+                                        brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
+                        strncpy (brickinfo->real_path, abspath,
+                                 strlen(abspath));
                 }
 
                 if (brick_mount_path) {
