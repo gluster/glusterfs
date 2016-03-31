@@ -58,4 +58,8 @@ int auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
 
 server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
 int server_process_event_upcall (xlator_t *this, void *data);
+
+inode_t *
+server_inode_new (inode_table_t *itable, uuid_t gfid);
+
 #endif /* !_SERVER_HELPERS_H */

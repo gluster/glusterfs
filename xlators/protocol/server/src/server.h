@@ -72,6 +72,8 @@ struct server_conf {
                                             * in case if volume set options
                                             * (say *.allow | *.reject) are
                                             * tweeked */
+
+        gf_lock_t               itable_lock;
 };
 typedef struct server_conf server_conf_t;
 
