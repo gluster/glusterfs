@@ -1073,6 +1073,9 @@ nfs_init_state (xlator_t *this)
                         goto free_foppool;
                 }
         }
+
+        GF_OPTION_INIT ("nfs.rdirplus", nfs->rdirplus, bool, free_foppool);
+
 	GF_OPTION_INIT (OPT_SERVER_RPC_STATD, nfs->rpc_statd, path, free_foppool);
 
 	GF_OPTION_INIT (OPT_SERVER_RPC_STATD_PIDFILE, nfs->rpc_statd_pid_file, path, free_foppool);
@@ -1283,6 +1286,14 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_VALUE,
                         "Reconfigured %s with value %d",
                         OPT_SERVER_GID_CACHE_TIMEOUT, optuint32);
+        }
+
+        GF_OPTION_RECONF ("nfs.rdirplus", optbool,
+                                          options, bool, out);
+        if (nfs->rdirplus != optbool) {
+                nfs->rdirplus = optbool;
+                gf_msg (GF_NFS, GF_LOG_INFO, 0, NFS_MSG_RECONFIG_VALUE,
+                        "Reconfigured nfs.rdirplus with value %d", optbool);
         }
 
         /* reconfig nfs.dynamic-volumes */
@@ -2080,6 +2091,12 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .description = "Sets the TTL of an entry in the auth cache. Value is "
                          "in seconds."
+        },
+        { .key  = {"nfs.rdirplus"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "When this option is set to off NFS falls back to "
+                         "standard readdir instead of readdirp"
         },
 
         { .key  = {NULL} },

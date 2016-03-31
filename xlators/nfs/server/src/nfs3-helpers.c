@@ -225,6 +225,7 @@ nfs3_errno_to_nfsstat3 (int errnum)
                 stat = NFS3ERR_SERVERFAULT;
                 break;
 
+        case ENOTSUP:
         case ENOSYS:
                 stat = NFS3ERR_NOTSUPP;
                 break;
