@@ -361,6 +361,9 @@ Group:            Applications/File
 
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         nfs-ganesha-gluster, pcs, dbus
+%if ( 0%{?rhel} && 0%{?rhel} == 6 )
+Requires:         cman, pacemaker, corosync
+%endif
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
