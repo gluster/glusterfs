@@ -2837,32 +2837,29 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         memset (filename, 0, value->len + 1);
         memcpy (filename, data_to_str (value), value->len);
 
-        if (fnmatch ("*io*stat*dump", key, 0) == 0) {
-                pid = getpid ();
+        pid = getpid ();
 
-
-                if (!strncmp (filename, "", 1)) {
-                        gf_log (this->name, GF_LOG_ERROR, "No filename given");
-                        return -1;
-                }
-                logfp = fopen (filename, "w+");
-                if (!logfp) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
-                                "for writing", filename);
-                        return -1;
-                }
-                sprintf (dump_key, "*io*stat*%d_json_dump", pid);
-                if (fnmatch (dump_key, key, 0) == 0) {
-                        (void) ios_dump_args_init (
-                                        &args, IOS_DUMP_TYPE_JSON_FILE,
-                                        logfp);
-                } else {
-                        (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
-                                                   logfp);
-                }
-                io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
-                fclose (logfp);
+        if (!strncmp (filename, "", 1)) {
+                gf_log (this->name, GF_LOG_ERROR, "No filename given");
+                return -1;
         }
+        logfp = fopen (filename, "w+");
+        if (!logfp) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
+                                "for writing", filename);
+                return -1;
+        }
+        sprintf (dump_key, "*io*stat*%d_json_dump", pid);
+        if (fnmatch (dump_key, key, 0) == 0) {
+                (void) ios_dump_args_init (
+                                &args, IOS_DUMP_TYPE_JSON_FILE,
+                                logfp);
+        } else {
+                (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
+                                logfp);
+        }
+        io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
+        fclose (logfp);
         return 0;
 }
 
@@ -2992,11 +2989,23 @@ out:
         return NULL;
 }
 
+static gf_boolean_t
+match_special_xattr (dict_t *d, char *k, data_t *val, void *mdata)
+{
+        gf_boolean_t ret = _gf_false;
+        if (fnmatch ("*io*stat*dump", k, 0) == 0) {
+                ret = _gf_true;
+        }
+
+        return ret;
+}
+
 int
 io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, dict_t *dict,
                    int32_t flags, dict_t *xdata)
 {
+        int ret = 0;
         struct {
                 xlator_t     *this;
                 inode_t      *inode;
@@ -3007,7 +3016,13 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
         stub.inode = loc->inode;
         stub.path  = loc->path;
 
-        dict_foreach (dict, conditional_dump, &stub);
+        ret = dict_foreach_match (dict, match_special_xattr, NULL,
+                                  conditional_dump, &stub);
+        if (ret > 0) {
+                /* Setxattr was on key 'io-stat-dump', hence dump and unwind
+                 * from here */
+                goto out;
+        }
 
         START_FOP_LATENCY (frame);
 
@@ -3015,6 +3030,10 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     loc, dict, flags, xdata);
+        return 0;
+
+out:
+        STACK_UNWIND_STRICT (setxattr, frame, 0, 0, NULL);
         return 0;
 }
 
