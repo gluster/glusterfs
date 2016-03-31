@@ -41,7 +41,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	$(CONTRIBDIR)/userspace-rcu/rculist-extra.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
-	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \
+	-I$(CONTRIBDIR)/rbtree \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(CONTRIBDIR)/mount \
 	-I$(CONTRIBDIR)/userspace-rcu \
