@@ -3731,6 +3731,42 @@ err:
         return 0;
 }
 
+int
+dht_nuke_dir (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *tmp)
+{
+        if (!IA_ISDIR(loc->inode->ia_type)) {
+                DHT_STACK_UNWIND (setxattr, frame, -1, ENOTSUP, NULL);
+                return 0;
+        }
+
+        /* Setxattr didn't need the parent, but rmdir does. */
+        loc->parent = inode_parent (loc->inode, NULL, NULL);
+        if (!loc->parent) {
+                DHT_STACK_UNWIND (setxattr, frame, -1, ENOENT, NULL);
+                return 0;
+        }
+        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
+
+        if (!loc->name && loc->path) {
+                loc->name = strrchr (loc->path, '/');
+                if (loc->name) {
+                        ++(loc->name);
+                }
+        }
+
+        /*
+         * We do this instead of calling dht_rmdir_do directly for two reasons.
+         * The first is that we want to reuse all of the initialization that
+         * dht_rmdir does, so if it ever changes we'll just follow along.  The
+         * second (i.e. why we don't use STACK_WIND_TAIL) is so that we don't
+         * obscure the fact that we came in via this path instead of a genuine
+         * rmdir.  That makes debugging just a tiny bit easier.
+         */
+        STACK_WIND (frame, default_rmdir_cbk, this, this->fops->rmdir,
+                    loc, 1, NULL);
+
+        return 0;
+}
 
 int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
@@ -3953,6 +3989,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         "wrong 'directory-spread-count' value (%s)", value);
                 op_errno = ENOTSUP;
                 goto err;
+        }
+
+        tmp = dict_get (xattr, "glusterfs.dht.nuke");
+        if (tmp) {
+                return dht_nuke_dir (frame, this, loc, tmp);
         }
 
         if (IA_ISDIR (loc->inode->ia_type)) {
@@ -7643,6 +7684,10 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
                 op_errno = ENOMEM;
                 goto err;
+        }
+
+        if (flags) {
+                return dht_rmdir_do (frame, this);
         }
 
         for (i = 0; i < conf->subvolume_cnt; i++) {

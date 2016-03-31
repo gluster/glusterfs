@@ -1994,6 +1994,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 } else {
                         sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
                         op_ret = sys_rename (real_path, tmp_path);
+                        pthread_cond_signal (&priv->janitor_cond);
                 }
         } else {
                 op_ret = sys_rmdir (real_path);
@@ -6528,7 +6529,6 @@ init (xlator_t *this)
         int                   ret           = 0;
         int                   op_ret        = -1;
         ssize_t               size          = -1;
-        int32_t               janitor_sleep = 0;
         uuid_t                old_uuid      = {0,};
         uuid_t                dict_uuid     = {0,};
         uuid_t                gfid          = {0,};
@@ -6857,16 +6857,9 @@ init (xlator_t *this)
         }
         ret = 0;
 
-        _private->janitor_sleep_duration = 600;
+        GF_OPTION_INIT ("janitor-sleep-duration",
+                        _private->janitor_sleep_duration, int32, out);
 
-        dict_ret = dict_get_int32 (this->options, "janitor-sleep-duration",
-                                   &janitor_sleep);
-        if (dict_ret == 0) {
-                gf_msg_debug (this->name, 0, "Setting janitor sleep duration "
-                              "to %d.", janitor_sleep);
-
-                _private->janitor_sleep_duration = janitor_sleep;
-        }
         /* performing open dir on brick dir locks the brick dir
          * and prevents it from being unmounted
          */
@@ -7105,7 +7098,13 @@ struct volume_options options[] = {
         { .key  = {"background-unlink"},
           .type = GF_OPTION_TYPE_BOOL },
         { .key  = {"janitor-sleep-duration"},
-          .type = GF_OPTION_TYPE_INT },
+          .type = GF_OPTION_TYPE_INT,
+          .min = 1,
+          .validate = GF_OPT_VALIDATE_MIN,
+          .default_value = "10",
+          .description = "Interval (in seconds) between times the internal "
+                         "'landfill' directory is emptied."
+        },
         { .key  = {"volume-id"},
           .type = GF_OPTION_TYPE_ANY },
         { .key  = {"glusterd-uuid"},

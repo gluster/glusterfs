@@ -3292,7 +3292,14 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         if (fsi->size > 0) {
-                dict_value = memdup (value, fsi->size);
+                /*
+                 * Many translators expect setxattr values to be strings, but
+                 * neither dict_get_str nor data_to_str do any checking or
+                 * fixups to make sure that's the case.  To avoid nasty
+                 * surprises, allocate an extra byte and add a NUL here.
+                 */
+                dict_value = memdup (value, fsi->size+1);
+                dict_value[fsi->size] = '\0';
         }
         dict_set (state->xattr, newkey,
                   data_from_dynptr ((void *)dict_value, fsi->size));
