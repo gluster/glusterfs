@@ -4444,6 +4444,8 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
         int                     ret = -EFAULT;
         struct nfs3_state       *nfs3 = NULL;
         nfs3_call_state_t       *cs = NULL;
+        struct nfs_state        *nfs = NULL;
+        gf_boolean_t            is_readdirp = !!maxcount;
 
         if ((!req) || (!fh)) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
@@ -4458,6 +4460,13 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
         nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
+        nfs = nfs_state (nfs3->nfsx);
+
+        if (is_readdirp && !nfs->rdirplus) {
+                ret = -ENOTSUP;
+                stat = nfs3_errno_to_nfsstat3 (-ret);
+                goto nfs3err;
+        }
 
         cs->cookieverf = cverf;
         cs->dircount = dircount;
@@ -4471,7 +4480,7 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
 
 nfs3err:
         if (ret < 0) {
-                if (maxcount == 0) {
+                if (!is_readdirp) {
                         nfs3_log_common_res (rpcsvc_request_xid (req),
                                              NFS3_READDIR, stat, -ret,
                                              cs ? cs->resolvedloc.path : NULL);

@@ -2230,6 +2230,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = GLOBAL_DOC,
           .op_version  = 3
         },
+        { .key         = "nfs.rdirplus",
+          .voltype     = "nfs/server",
+          .option      = "nfs.rdirplus",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_12,
+          .description = "When this option is set to off NFS falls back to "
+                         "standard readdir instead of readdirp"
+        },
 
         /* Cli options for Export authentication on nfs mount */
         { .key         = "nfs.exports-auth-enable",
