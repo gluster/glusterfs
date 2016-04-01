@@ -101,7 +101,29 @@ def get_special_subs (name, args, fop_type):
 									 .replace("@ARGTYPE@",arg[2])
 		cleanup_key = recon_type + "_CLEANUP"
 		if fragments.has_key(cleanup_key):
-			cleanups += fragments[cleanup_key].replace("@ARGNAME@",arg[1])
+			new_frag = fragments[cleanup_key].replace("@ARGNAME@",arg[1])
+			# Make sure these get added in *reverse* order.  Otherwise, a
+			# failure for an earlier argument might goto a label that falls
+			# through to the cleanup code for a variable associated with a
+			# later argument, but that variable might not even have been
+			# *declared* (let alone initialized) yet.  Consider the following
+			# case.
+			#
+			#         process argument A (on failure goto cleanup_A)
+			#         set error label to cleanup_A
+			#
+			#         declare pointer variable for argument B
+			#         process argument B (on failure goto cleanup_B)
+			#
+			#     cleanup_A:
+			#         /* whatever */
+			#     cleanup_B:
+			#         free pointer variable <= "USED BUT NOT SET" error here
+			#
+			# By adding these in reverse order, we ensure that cleanup_B is
+			# actually *before* cleanup_A, and nothing will try to do the free
+			# until we've actually attempted processing of B.
+			cleanups = new_frag + cleanups
 		if 'nosync' in arg[4:]:
 			code += "\t(void)%s;\n" % arg[1];
 			continue
