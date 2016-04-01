@@ -360,6 +360,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 state->log_file = oarg;
                 return 0;
         }
+        oarg = strtail (opt, "timeout=");
+        if (oarg) {
+                cli_default_conn_timeout = atoi(oarg);
+                return 0;
+        }
 
         oarg = strtail (opt, "log-level=");
         if (oarg) {
@@ -701,6 +706,9 @@ main (int argc, char *argv[])
         ret = glusterfs_ctx_defaults_init (ctx);
         if (ret)
                 goto out;
+
+        cli_default_conn_timeout = 120;
+        cli_ten_minutes_timeout = 600;
 
         ret = cli_state_init (&state);
         if (ret)

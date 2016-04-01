@@ -25,9 +25,6 @@
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
 #define CLI_GLUSTERD_PORT                  24007
-#define CLI_DEFAULT_CONN_TIMEOUT             120
-#define CLI_DEFAULT_CMD_TIMEOUT              120
-#define CLI_TEN_MINUTES_TIMEOUT              600 //Longer timeout for volume top
 #define DEFAULT_CLI_LOG_FILE_DIRECTORY     DATADIR "/log/glusterfs"
 #define CLI_VOL_STATUS_BRICK_LEN              43
 #define CLI_TAB_LENGTH                         8
@@ -41,6 +38,9 @@ enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
 	ARGP_PORT_KEY = 'p',
 };
+
+int cli_default_conn_timeout;
+int cli_ten_minutes_timeout;
 
 typedef enum {
         COLD_BRICK_COUNT,
