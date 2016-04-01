@@ -621,6 +621,11 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         if (local->rebalance.iobref)
                 iobref_unref (local->rebalance.iobref);
 
+        if (local->stub) {
+                call_stub_destroy (local->stub);
+                local->stub = NULL;
+        }
+
         mem_put (local);
 }
 

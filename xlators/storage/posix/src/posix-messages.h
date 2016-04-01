@@ -918,6 +918,16 @@
  */
 
 #define P_MSG_INODE_RESOLVE_FAILED              (POSIX_COMP_BASE + 108)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define P_MSG_PREOP_CHECK_FAILED              (POSIX_COMP_BASE + 109)
+
 /*!
  * @messageid
  * @diagnosis

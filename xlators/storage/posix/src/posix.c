@@ -1393,18 +1393,22 @@ int
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
-        int32_t               op_ret        = -1;
-        int32_t               op_errno      = 0;
-        char                 *real_path     = NULL, *gfid_path = NULL;
-        char                 *par_path      = NULL;
-        struct iatt           stbuf         = {0, };
-        struct posix_private *priv          = NULL;
-        gid_t                 gid           = 0;
-        struct iatt           preparent     = {0,};
-        struct iatt           postparent    = {0,};
-        gf_boolean_t          entry_created = _gf_false, gfid_set = _gf_false;
-        void                 *uuid_req      = NULL;
-        ssize_t               size          = 0;
+        int32_t               op_ret          = -1;
+        int32_t               op_errno        = 0;
+        char                 *real_path       = NULL, *gfid_path = NULL;
+        char                 *par_path        = NULL, *xattr_name = NULL;
+        struct iatt           stbuf           = {0, };
+        struct posix_private *priv            = NULL;
+        gid_t                 gid             = 0;
+        struct iatt           preparent       = {0,};
+        struct iatt           postparent      = {0,};
+        gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
+        void                 *uuid_req        = NULL;
+        ssize_t               size            = 0;
+        dict_t               *xdata_rsp       = NULL;
+        void                 *disk_xattr      = NULL, *arg_xattr = NULL;
+        data_t               *arg_data        = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1433,6 +1437,11 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 op_errno = ESTALE;
                 goto out;
         }
+
+        if (loc->parent)
+                gf_uuid_unparse (loc->parent->gfid, pgfid);
+        else
+                gf_uuid_unparse (loc->pargfid, pgfid);
 
         gid = frame->root->gid;
 
@@ -1475,6 +1484,84 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         if (preparent.ia_prot.sgid) {
                 gid = preparent.ia_gid;
                 mode |= S_ISGID;
+        }
+
+        op_ret = dict_get_str (xdata, GF_PREOP_PARENT_KEY, &xattr_name);
+        if (xattr_name != NULL) {
+                arg_data = dict_get (xdata, xattr_name);
+                if (arg_data) {
+                        size = sys_lgetxattr (par_path, xattr_name, NULL, 0);
+                        if (size < 0) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_PREOP_CHECK_FAILED,
+                                        "mkdir (%s/%s): getxattr on key (%s)"
+                                        " path (%s) failed ", pgfid,
+                                        loc->name, xattr_name,
+                                        par_path);
+                                goto out;
+                        }
+
+                        disk_xattr = alloca (size);
+                        if (disk_xattr == NULL) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_PREOP_CHECK_FAILED,
+                                        "mkdir (%s/%s): alloca failed during"
+                                        " preop of mkdir (%s)", pgfid,
+                                        loc->name, real_path);
+                                goto out;
+                        }
+
+                        size = sys_lgetxattr (par_path, xattr_name,
+                                              disk_xattr, size);
+                        if (size < 0) {
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_PREOP_CHECK_FAILED,
+                                        "mkdir (%s/%s): getxattr on key (%s)"
+                                        " path (%s) failed (%s)", pgfid,
+                                        loc->name, xattr_name,
+                                        par_path, strerror (errno));
+                                goto out;
+                        }
+
+                        if ((arg_data->len != size)
+                            || (memcmp (arg_data->data, disk_xattr, size))) {
+                                int ret = 0;
+                                gf_msg (this->name, GF_LOG_INFO, EIO,
+                                        P_MSG_PREOP_CHECK_FAILED,
+                                        "mkdir (%s/%s): failing preop of "
+                                        "mkdir (%s) as on-disk"
+                                        " xattr value differs from argument "
+                                        "value for key %s", pgfid, loc->name,
+                                        real_path, xattr_name);
+                                op_ret = -1;
+                                op_errno = EIO;
+
+                                xdata_rsp = dict_new ();
+                                if (xdata_rsp == NULL) {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                ENOMEM,
+                                                P_MSG_PREOP_CHECK_FAILED,
+                                                "mkdir (%s/%s):  "
+                                                "dict allocation failed", pgfid,
+                                                loc->name);
+                                        op_errno = ENOMEM;
+                                        goto out;
+                                }
+
+                                ret = dict_set_int8 (xdata_rsp,
+                                                     GF_PREOP_CHECK_FAILED, 1);
+                                goto out;
+                        }
+
+                        dict_del (xdata, xattr_name);
+                }
+
+                dict_del (xdata, GF_PREOP_PARENT_KEY);
         }
 
         op_ret = sys_mkdir (real_path, mode);
@@ -1540,7 +1627,7 @@ out:
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
                              (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, NULL);
+                             &postparent, xdata_rsp);
 
         if (op_ret < 0) {
                 if (entry_created)
@@ -1549,6 +1636,9 @@ out:
                 if (gfid_set)
                         posix_gfid_unset (this, xdata);
         }
+
+        if (xdata_rsp)
+                dict_unref (xdata_rsp);
 
         return 0;
 }

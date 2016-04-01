@@ -280,6 +280,22 @@ out:
         return ret;
 }
 
+int
+dht_disk_layout_extract_for_subvol (xlator_t *this, dht_layout_t *layout,
+                                    xlator_t *subvol, int32_t **disk_layout_p)
+{
+        int i = 0;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].xlator == subvol)
+                        break;
+        }
+
+        if (i == layout->cnt)
+                return -1;
+
+        return dht_disk_layout_extract (this, layout, i, disk_layout_p);
+}
 
 int
 dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,

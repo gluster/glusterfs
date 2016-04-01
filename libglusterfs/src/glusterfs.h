@@ -89,6 +89,8 @@
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
 #define BD_XATTR_KEY             "user.glusterfs"
+#define GF_PREOP_PARENT_KEY      "glusterfs.preop.parent.key"
+#define GF_PREOP_CHECK_FAILED    "glusterfs.preop.check.failed"
 
 #define XATTR_IS_PATHINFO(x)  ((strncmp (x, GF_XATTR_PATHINFO_KEY,       \
                                         strlen (x)) == 0) ||             \
