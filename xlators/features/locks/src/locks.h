@@ -169,7 +169,8 @@ typedef struct {
         data_t        *inodelk_dom_count_req;
 
         dict_t  *xdata;
-        loc_t  loc[2];
+        /* used by {f,}truncate */
+        loc_t  loc;
         fd_t  *fd;
         off_t  offset;
         enum {TRUNCATE, FTRUNCATE} op;
