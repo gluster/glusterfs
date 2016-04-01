@@ -64,3 +64,4 @@ gluster volume top $V0 open | grep -w "$F0" >/dev/null 2>&1
 TEST [ $? -eq 0 ];
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1300253
