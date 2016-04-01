@@ -5377,7 +5377,6 @@ out:
         return 0;
 }
 
-
 int32_t
 dht_mknod_do (call_frame_t *frame)
 {
@@ -5562,6 +5561,357 @@ err:
         return -1;
 }
 
+int
+dht_refresh_parent_layout_resume (call_frame_t *frame, xlator_t *this, int ret,
+                                  int invoke_cbk)
+{
+        dht_local_t  *local        = NULL, *parent_local = NULL;
+        call_stub_t  *stub         = NULL;
+        call_frame_t *parent_frame = NULL;
+
+        local = frame->local;
+
+        stub = local->stub;
+        local->stub = NULL;
+
+        parent_frame = stub->frame;
+        parent_local = parent_frame->local;
+
+        if (ret < 0) {
+                parent_local->op_ret = -1;
+                parent_local->op_errno = local->op_errno
+                        ? local->op_errno : EIO;
+        } else {
+                parent_local->op_ret = 0;
+        }
+
+        call_resume (stub);
+
+        DHT_STACK_DESTROY (frame);
+
+        return 0;
+}
+
+
+int
+dht_refresh_parent_layout_done (call_frame_t *frame)
+{
+        dht_local_t *local = NULL;
+        int          ret   = 0;
+
+        local = frame->local;
+
+        if (local->op_ret < 0) {
+                ret = -1;
+                goto resume;
+        }
+
+        dht_layout_set (frame->this, local->loc.inode,
+                        local->selfheal.refreshed_layout);
+
+resume:
+        dht_refresh_parent_layout_resume (frame, frame->this, ret, 1);
+        return 0;
+}
+
+
+int
+dht_handle_parent_layout_change (xlator_t *this, call_stub_t *stub)
+{
+        call_frame_t *refresh_frame = NULL, *frame = NULL;
+        dht_local_t  *refresh_local = NULL, *local = NULL;
+
+        frame = stub->frame;
+        local = frame->local;
+
+        refresh_frame = copy_frame (frame);
+        refresh_local = dht_local_init (refresh_frame, NULL, NULL,
+                                        stub->fop);
+
+        refresh_local->loc.inode = inode_ref (local->loc.parent);
+        gf_uuid_copy (refresh_local->loc.gfid, local->loc.parent->gfid);
+
+        refresh_local->stub = stub;
+
+        refresh_local->refresh_layout_unlock = dht_refresh_parent_layout_resume;
+        refresh_local->refresh_layout_done = dht_refresh_parent_layout_done;
+
+        dht_refresh_layout (refresh_frame);
+        return 0;
+}
+
+int32_t
+dht_unlock_parent_layout_during_entry_fop_done (call_frame_t *frame,
+                                                void *cookie,
+                                                xlator_t *this,
+                                                int32_t op_ret,
+                                                int32_t op_errno,
+                                                dict_t *xdata)
+{
+        dht_local_t *local                   = NULL;
+        char          gfid[GF_UUID_BUF_SIZE] = {0};
+
+        local = frame->local;
+        gf_uuid_unparse (local->lock.locks[0]->loc.inode->gfid, gfid);
+
+        if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "unlock failed on gfid: %s, stale lock might be left "
+                        "in DHT_LAYOUT_HEAL_DOMAIN", gfid);
+        }
+
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+int32_t
+dht_unlock_parent_layout_during_entry_fop (call_frame_t *frame)
+{
+        dht_local_t  *local                   = NULL, *lock_local = NULL;
+        call_frame_t *lock_frame              = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+
+        local = frame->local;
+
+        gf_uuid_unparse (local->loc.parent->gfid, pgfid);
+
+        lock_frame = copy_frame (frame);
+        if (lock_frame == NULL) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "copy frame failed", pgfid, local->loc.name,
+                        local->loc.path);
+                goto done;
+        }
+
+        lock_local = mem_get0 (THIS->local_pool);
+        if (lock_local == NULL) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "local creation failed", pgfid, local->loc.name,
+                        local->loc.path);
+                goto done;
+        }
+
+        lock_frame->local = lock_local;
+
+        lock_local->lock.locks = local->lock.locks;
+        lock_local->lock.lk_count = local->lock.lk_count;
+
+        local->lock.locks = NULL;
+        local->lock.lk_count = 0;
+
+        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
+                            lock_local->lock.lk_count,
+                            dht_unlock_parent_layout_during_entry_fop_done);
+
+done:
+        return 0;
+}
+
+int32_t
+dht_guard_parent_layout_during_entry_fop_cbk (call_frame_t *frame, void *cookie,
+                                              xlator_t *this, int32_t op_ret,
+                                              int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t *local = NULL;
+        call_stub_t *stub  = NULL;
+
+        local = frame->local;
+        stub = local->stub;
+        local->stub = NULL;
+
+        if (op_ret < 0) {
+                local->op_ret = -1;
+                local->op_errno = op_errno;
+        } else {
+                local->op_ret = 0;
+        }
+
+        call_resume (stub);
+
+        return 0;
+}
+
+int32_t
+dht_guard_parent_layout_during_entry_fop (xlator_t *subvol, call_stub_t *stub)
+{
+        dht_local_t   *local                  = NULL;
+        int            count                  = 1,    ret = -1;
+        dht_lock_t   **lk_array               = NULL;
+        loc_t         *loc                    = NULL;
+        xlator_t      *hashed_subvol          = NULL, *this = NULL;;
+        call_frame_t  *frame                  = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+        loc_t          parent                 = {0, };
+        int32_t       *parent_disk_layout     = NULL;
+        dht_layout_t  *parent_layout          = NULL;
+        dht_conf_t    *conf                   = NULL;
+
+        GF_VALIDATE_OR_GOTO ("dht", stub, err);
+
+        frame = stub->frame;
+        this = frame->this;
+
+        conf = this->private;
+
+        local = frame->local;
+
+        local->stub = stub;
+
+        /* TODO: recheck whether we should lock on src or dst if we do similar
+         * stale layout checks for rename.
+         */
+        loc = &stub->args.loc;
+
+        gf_uuid_unparse (loc->parent->gfid, pgfid);
+
+        if (local->params == NULL) {
+                local->params = dict_new ();
+                if (local->params == NULL) {
+                        local->op_errno = ENOMEM;
+                        gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                                DHT_MSG_PARENT_LAYOUT_CHANGED,
+                                "%s (%s/%s) (path: %s): "
+                                "dict allocation failed",
+                                gf_fop_list[stub->fop],
+                                pgfid, loc->name, loc->path);
+                        goto err;
+                }
+        }
+
+        hashed_subvol = dht_subvol_get_hashed (this, loc);
+        if (hashed_subvol == NULL) {
+                local->op_errno = EINVAL;
+
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "hashed subvolume not found", gf_fop_list[stub->fop],
+                        pgfid, loc->name, loc->path);
+                goto err;
+        }
+
+        parent_layout = dht_layout_get (this, loc->parent);
+
+        ret = dht_disk_layout_extract_for_subvol (this, parent_layout,
+                                                  hashed_subvol,
+                                                  &parent_disk_layout);
+        if (ret == -1) {
+                local->op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "extracting in-memory layout of parent failed. ",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
+                goto err;
+        }
+
+        memcpy ((void *)local->parent_disk_layout, (void *)parent_disk_layout,
+                sizeof (local->parent_disk_layout));
+
+        dht_layout_unref (this, parent_layout);
+        parent_layout = NULL;
+
+        ret = dict_set_str (local->params, GF_PREOP_PARENT_KEY,
+                            conf->xattr_name);
+        if (ret < 0) {
+                local->op_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "setting %s key in params dictionary failed. ",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path,
+                        GF_PREOP_PARENT_KEY);
+                goto err;
+        }
+
+        ret = dict_set_bin (local->params, conf->xattr_name, parent_disk_layout,
+                            4 * 4);
+        if (ret < 0) {
+                local->op_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "setting parent-layout in params dictionary failed. ",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
+                goto err;
+        }
+
+        parent_disk_layout = NULL;
+
+        parent.inode = inode_ref (loc->parent);
+        gf_uuid_copy (parent.gfid, loc->parent->gfid);
+
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+
+        if (lk_array == NULL) {
+                local->op_errno = ENOMEM;
+
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "calloc failure",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
+
+                goto err;
+        }
+
+        lk_array[0] = dht_lock_new (frame->this, hashed_subvol, &parent,
+                                    F_RDLCK, DHT_LAYOUT_HEAL_DOMAIN);
+
+        if (lk_array[0] == NULL) {
+                local->op_errno = ENOMEM;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "lock allocation failed",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
+
+                goto err;
+        }
+
+        local->lock.locks = lk_array;
+        local->lock.lk_count = count;
+
+        ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
+                                    dht_guard_parent_layout_during_entry_fop_cbk);
+
+        if (ret < 0) {
+                local->op_errno = EIO;
+                local->lock.locks = NULL;
+                local->lock.lk_count = 0;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "%s (%s/%s) (path: %s): "
+                        "dht_blocking_inodelk failed",
+                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
+
+                goto err;
+        }
+
+        loc_wipe (&parent);
+
+        return 0;
+err:
+        if (lk_array != NULL) {
+                dht_lock_array_free (lk_array, count);
+                GF_FREE (lk_array);
+        }
+
+        loc_wipe (&parent);
+
+        if (parent_disk_layout != NULL)
+                GF_FREE (parent_disk_layout);
+
+        if (parent_layout != NULL)
+                dht_layout_unref (this, parent_layout);
+
+        return -1;
+}
 
 int
 dht_mknod (call_frame_t *frame, xlator_t *this,
@@ -6690,15 +7040,154 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                       xlator_t *this, int op_ret, int op_errno,
                       inode_t *inode, struct iatt *stbuf,
                       struct iatt *preparent, struct iatt *postparent,
+                      dict_t *xdata);
+
+int
+dht_mkdir_helper (call_frame_t *frame, xlator_t *this,
+                  loc_t *loc, mode_t mode, mode_t umask, dict_t *params)
+{
+        dht_local_t  *local                   = NULL;
+        dht_conf_t   *conf                    = NULL;
+        int           op_errno                = -1, ret = -1;
+        xlator_t     *hashed_subvol           = NULL;
+        int32_t      *parent_disk_layout      = NULL;
+        dht_layout_t *parent_layout           = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (this->private, err);
+
+        gf_uuid_unparse (loc->parent->gfid, pgfid);
+
+        conf = this->private;
+        local = frame->local;
+
+        if (local->op_ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): refreshing parent layout "
+                        "failed.", pgfid, loc->name,
+                        loc->path);
+
+                op_errno = local->op_errno;
+                goto err;
+        }
+
+        local->op_ret = -1;
+
+        hashed_subvol = dht_subvol_get_hashed (this, loc);
+        if (hashed_subvol == NULL) {
+                gf_msg_debug (this->name, 0,
+                              "mkdir (%s/%s) (path: %s): hashed subvol not "
+                              "found", pgfid, loc->name, loc->path);
+                op_errno = ENOENT;
+                goto err;
+        }
+
+        local->hashed_subvol = hashed_subvol;
+
+        parent_layout = dht_layout_get (this, loc->parent);
+
+        ret = dht_disk_layout_extract_for_subvol (this, parent_layout,
+                                                  hashed_subvol,
+                                                  &parent_disk_layout);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING, EIO,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "extracting in-memory layout of parent failed. ",
+                        pgfid, loc->name, loc->path);
+                goto err;
+        }
+
+        if (memcmp (local->parent_disk_layout, parent_disk_layout,
+                    sizeof (local->parent_disk_layout)) == 0) {
+                gf_msg (this->name, GF_LOG_WARNING, EIO,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): loop detected. "
+                        "parent layout didn't change even though "
+                        "previous attempt of mkdir failed because of "
+                        "in-memory layout not matching with that on disk.",
+                        pgfid, loc->name, loc->path);
+                op_errno = EIO;
+                goto err;
+        }
+
+        memcpy ((void *)local->parent_disk_layout, (void *)parent_disk_layout,
+                sizeof (local->parent_disk_layout));
+
+        dht_layout_unref (this, parent_layout);
+        parent_layout = NULL;
+
+        ret = dict_set_str (params, GF_PREOP_PARENT_KEY, conf->xattr_name);
+        if (ret < 0) {
+                local->op_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "setting %s key in params dictionary failed. ",
+                        pgfid, loc->name, loc->path, GF_PREOP_PARENT_KEY);
+                goto err;
+        }
+
+        ret = dict_set_bin (params, conf->xattr_name, parent_disk_layout,
+                            4 * 4);
+        if (ret < 0) {
+                local->op_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "setting parent-layout in params dictionary failed. "
+                        "mkdir (%s/%s) (path: %s)", pgfid, loc->name,
+                        loc->path);
+                goto err;
+        }
+
+        parent_disk_layout = NULL;
+
+        STACK_WIND (frame, dht_mkdir_hashed_cbk,
+                    hashed_subvol,
+                    hashed_subvol->fops->mkdir,
+                    loc, mode, umask, params);
+
+        return 0;
+
+err:
+        dht_unlock_parent_layout_during_entry_fop (frame);
+
+        op_errno = local ? local->op_errno : op_errno;
+        DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL, NULL);
+
+        if (parent_disk_layout != NULL)
+                GF_FREE (parent_disk_layout);
+
+        if (parent_layout != NULL)
+                dht_layout_unref (this, parent_layout);
+
+        return 0;
+}
+
+int
+dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this, int op_ret, int op_errno,
+                      inode_t *inode, struct iatt *stbuf,
+                      struct iatt *preparent, struct iatt *postparent,
                       dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        int           ret = -1;
-        call_frame_t *prev = NULL;
-        dht_layout_t *layout = NULL;
-        dht_conf_t   *conf = NULL;
-        int           i = 0;
-        xlator_t     *hashed_subvol = NULL;
+        dht_local_t  *local                   = NULL;
+        int           ret                     = -1;
+        call_frame_t *prev                    = NULL;
+        dht_layout_t *layout                  = NULL;
+        dht_conf_t   *conf                    = NULL;
+        int           i                       = 0;
+        xlator_t     *hashed_subvol           = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+        gf_boolean_t  parent_layout_changed   = _gf_false;
+        call_stub_t  *stub                    = NULL;
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -6708,8 +7197,43 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         conf = this->private;
         hashed_subvol = local->hashed_subvol;
 
+        gf_uuid_unparse (local->loc.parent->gfid, pgfid);
+
         if (gf_uuid_is_null (local->loc.gfid) && !op_ret)
                 gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
+
+        if (op_ret == -1) {
+                local->op_errno = op_errno;
+
+                parent_layout_changed = dict_get (xdata, GF_PREOP_CHECK_FAILED)
+                        ? 1 : 0;
+                if (parent_layout_changed) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_PARENT_LAYOUT_CHANGED,
+                                "mkdir (%s/%s) (path: %s): parent layout "
+                                "changed. Attempting a refresh and then a "
+                                "retry", pgfid, local->loc.name,
+                                local->loc.path);
+
+                        stub = fop_mkdir_stub (frame, dht_mkdir_helper,
+                                               &local->loc, local->mode,
+                                               local->umask, local->params);
+                        if (stub == NULL) {
+                                goto err;
+                        }
+
+                        dht_handle_parent_layout_change (this, stub);
+                        stub = NULL;
+
+                        return 0;
+                }
+
+                goto err;
+        }
+
+        dht_unlock_parent_layout_during_entry_fop (frame);
+        dict_del (local->params, GF_PREOP_PARENT_KEY);
+        dict_del (local->params, conf->xattr_name);
 
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
@@ -6726,10 +7250,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                         "%s: failed to merge layouts for subvol %s",
                         local->loc.path, prev->this->name);
 
-        if (op_ret == -1) {
-                local->op_errno = op_errno;
-                goto err;
-        }
         local->op_ret = 0;
 
         dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
@@ -6744,6 +7264,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
         }
+
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (conf->subvolumes[i] == hashed_subvol)
                         continue;
@@ -6754,21 +7275,64 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         }
         return 0;
 err:
+        if (local->op_ret != 0)
+                dht_unlock_parent_layout_during_entry_fop (frame);
+
         DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                           NULL, NULL);
+        if (stub) {
+                call_stub_destroy (stub);
+        }
+
         return 0;
 }
 
+int
+dht_mkdir_guard_parent_layout_cbk (call_frame_t *frame, xlator_t *this,
+                                   loc_t *loc, mode_t mode, mode_t umask,
+                                   dict_t *params)
+{
+        dht_local_t *local                    = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+
+        local = frame->local;
+
+        gf_uuid_unparse (loc->parent->gfid, pgfid);
+
+        if (local->op_ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "Acquiring lock on parent to guard against "
+                        "layout-change failed.", pgfid, loc->name, loc->path);
+                goto err;
+        }
+
+        local->op_ret = -1;
+
+        STACK_WIND (frame, dht_mkdir_hashed_cbk,
+                    local->hashed_subvol,
+                    local->hashed_subvol->fops->mkdir,
+                    loc, mode, umask, params);
+
+        return 0;
+err:
+        DHT_STACK_UNWIND (mkdir, frame, -1, local->op_errno, NULL, NULL, NULL,
+                          NULL, NULL);
+
+        return 0;
+}
 
 int
 dht_mkdir (call_frame_t *frame, xlator_t *this,
            loc_t *loc, mode_t mode, mode_t umask, dict_t *params)
 {
-        dht_local_t  *local  = NULL;
-        dht_conf_t   *conf = NULL;
-        int           op_errno = -1;
-        xlator_t     *hashed_subvol = NULL;
-
+        dht_local_t  *local                   = NULL;
+        dht_conf_t   *conf                    = NULL;
+        int           op_errno                = -1, ret = -1;
+        xlator_t     *hashed_subvol           = NULL;
+        char          pgfid[GF_UUID_BUF_SIZE] = {0};
+        call_stub_t  *stub                    = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -6776,6 +7340,8 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
         VALIDATE_OR_GOTO (this->private, err);
+
+        gf_uuid_unparse (loc->parent->gfid, pgfid);
 
         conf = this->private;
 
@@ -6792,14 +7358,17 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 gf_msg_debug (this->name, 0,
                               "hashed subvol not found for %s",
                               loc->path);
-                op_errno = EIO;
+                local->op_errno = EIO;
                 goto err;
         }
+
 
         local->hashed_subvol = hashed_subvol;
         local->mode = mode;
         local->umask = umask;
-        local->params = dict_ref (params);
+        if (params)
+                local->params = dict_ref (params);
+
         local->inode  = inode_ref (loc->inode);
 
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
@@ -6818,15 +7387,31 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
         else
                 local->layout->commit_hash = DHT_LAYOUT_HASH_INVALID;
 
-        STACK_WIND (frame, dht_mkdir_hashed_cbk,
-                    hashed_subvol,
-                    hashed_subvol->fops->mkdir,
-                    loc, mode, umask, params);
+
+        stub = fop_mkdir_stub (frame, dht_mkdir_guard_parent_layout_cbk, loc,
+                               mode, umask, params);
+        if (stub == NULL) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s): "
+                        "creating stub failed.", pgfid, loc->name, loc->path);
+                local->op_errno = ENOMEM;
+                goto err;
+        }
+
+        ret = dht_guard_parent_layout_during_entry_fop (this, stub);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_PARENT_LAYOUT_CHANGED,
+                        "mkdir (%s/%s) (path: %s) cannot wind lock request to "
+                        "guard parent layout", pgfid, loc->name, loc->path);
+                goto err;
+        }
 
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
+        op_errno = local ? local->op_errno : op_errno;
         DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                           NULL, NULL);
 

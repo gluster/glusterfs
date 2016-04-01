@@ -13,6 +13,7 @@
 
 #include "dht-mem-types.h"
 #include "dht-messages.h"
+#include "call-stub.h"
 #include "libxlator.h"
 #include "syncop.h"
 #include "refcount.h"
@@ -281,6 +282,9 @@ struct dht_local {
                 int                 op_ret;
                 int                 op_errno;
         } lock;
+
+        call_stub_t *stub;
+        int32_t      parent_disk_layout[4];
 };
 typedef struct dht_local dht_local_t;
 
@@ -705,7 +709,9 @@ int     dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
                              int       pos, int32_t **disk_layout_p);
 int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
                            int         pos, void *disk_layout_raw, int disk_layout_len);
-
+int
+dht_disk_layout_extract_for_subvol (xlator_t *this, dht_layout_t *layout,
+                                    xlator_t *subvol, int32_t **disk_layout_p);
 
 int dht_frame_return (call_frame_t *frame);
 
