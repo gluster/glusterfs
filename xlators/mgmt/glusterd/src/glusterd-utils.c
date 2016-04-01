@@ -3050,6 +3050,7 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         char                    msg[2048] = {0};
         xlator_t                *this     = NULL;
         char                    *brick_uuid_str = NULL;
+        char                    abspath[PATH_MAX] = {0};
 
         this = THIS;
         GF_ASSERT (this);
@@ -3113,7 +3114,21 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         ret = dict_get_str (peer_data, key, &brick_uuid_str);
         if (ret)
                 goto out;
+
         gf_uuid_parse (brick_uuid_str, new_brickinfo->uuid);
+        if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
+                if (!realpath (new_brickinfo->path, abspath)) {
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_BRICKINFO_CREATE_FAIL, "realpath() "
+                                "failed for brick %s. The underlying file "
+                                "system may be in bad state",
+                                new_brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+                strncpy (new_brickinfo->real_path, abspath,
+                         strlen(abspath));
+        }
 
         *brickinfo = new_brickinfo;
 out:
