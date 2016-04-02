@@ -1574,6 +1574,74 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_service_stop_nolock (const char *service, char *pidfile, int sig,
+                              gf_boolean_t force_kill)
+{
+        int32_t    ret                = -1;
+        pid_t      pid                = -1;
+        xlator_t  *this               = NULL;
+        FILE      *file               = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        file = fopen (pidfile, "r+");
+        if (file) {
+                ret = fscanf (file, "%d", &pid);
+                if (ret <= 0) {
+                        gf_msg_debug (this->name, 0,
+                                      "Unable to read pidfile: %s", pidfile);
+                        goto out;
+                }
+        }
+
+        if (kill (pid, 0) < 0) {
+                ret = 0;
+                gf_msg_debug (this->name, 0, "%s process not running: (%d) %s",
+                              service, pid, strerror (errno));
+                goto out;
+        }
+        gf_msg_debug (this->name, 0, "Stopping gluster %s service running with "
+                      "pid: %d", service, pid);
+
+        ret = kill (pid, sig);
+        if (ret) {
+                switch (errno) {
+                case ESRCH:
+                        gf_msg_debug (this->name, 0, "%s is already stopped",
+                                service);
+                        ret = 0;
+                        goto out;
+                default:
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_SVC_KILL_FAIL, "Unable to kill %s "
+                                "service, reason:%s", service,
+                                strerror (errno));
+                }
+        }
+        if (!force_kill)
+                goto out;
+
+        sleep (1);
+        if (kill(pid, 0) == 0) {
+                ret = kill (pid, SIGKILL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_PID_KILL_FAIL, "Unable to kill pid:%d, "
+                                "reason:%s", pid, strerror(errno));
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        if (file)
+                fclose (file);
+
+        return ret;
+}
 void
 glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len)
 {

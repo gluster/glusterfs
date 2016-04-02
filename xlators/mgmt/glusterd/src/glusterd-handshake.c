@@ -156,6 +156,27 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_get_client_per_brick_volfile (glusterd_volinfo_t *volinfo,
+                                       char *filename, char *path, int path_len)
+{
+        char                    workdir[PATH_MAX]      = {0,};
+        glusterd_conf_t        *priv                   = NULL;
+        int32_t                 ret                    = -1;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", THIS, out);
+        priv = THIS->private;
+        GF_VALIDATE_OR_GOTO (THIS->name, priv, out);
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        snprintf (path, path_len, "%s/%s", workdir, filename);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 static size_t
 build_volfile_path (char *volume_id, char *path,
                     size_t path_len, char *trusted_str)
@@ -261,6 +282,49 @@ build_volfile_path (char *volume_id, char *path,
                 }
                 glusterd_get_rebalance_volfile (volinfo, path, path_len);
                 ret = 0;
+                goto out;
+        }
+
+        volid_ptr = strstr (volume_id, "client_per_brick/");
+        if (volid_ptr) {
+                volid_ptr = strchr (volid_ptr, '/');
+                if (!volid_ptr) {
+                        ret = -1;
+                        goto out;
+                }
+                volid_ptr++;
+
+                dup_volname = gf_strdup (volid_ptr);
+                if (!dup_volname) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY,
+                                "strdup failed");
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Split the volume name */
+                vol = strtok_r (dup_volname, ".", &save_ptr);
+                if (!vol) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = glusterd_volinfo_find (vol, &volinfo);
+                if (ret == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL,
+                                "Couldn't find volinfo");
+                        goto out;
+                }
+                ret = glusterd_get_client_per_brick_volfile (volinfo, volid_ptr,
+                                                             path, path_len);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NO_MEMORY, "failed to get volinfo path");
+                        goto out;
+                }
+
+                ret = sys_access (path, F_OK);
                 goto out;
         }
 

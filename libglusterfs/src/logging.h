@@ -89,8 +89,9 @@ typedef enum {
         /* NOTE: In the future journald, lumberjack, next new thing here */
 } gf_log_logger_t;
 
-#define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
-#define DEFAULT_LOG_LEVEL                     GF_LOG_INFO
+#define DEFAULT_LOG_FILE_DIRECTORY          DATADIR "/log/glusterfs"
+#define DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY   DATADIR "/log/glusterfs/quota_crawl"
+#define DEFAULT_LOG_LEVEL                   GF_LOG_INFO
 
 typedef struct gf_log_handle_ {
         pthread_mutex_t   logfile_mutex;

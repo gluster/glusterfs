@@ -94,12 +94,17 @@ glusterd_is_quota_supported (int32_t type, char **op_errstr)
 
         /* Quota xattr version implemented in 3.7.6
          * quota-version is incremented when quota is enabled
-         * so don't allow enabling quota in heterogeneous
+         * Quota enable and disable performance enhancement has been done
+         * in version 3.7.12.
+         * so don't allow enabling/disabling quota in heterogeneous
          * cluster during upgrade
          */
-        if (conf->op_version < GD_OP_VERSION_3_7_6 &&
-            type == GF_QUOTA_OPTION_TYPE_ENABLE)
-                goto out;
+        if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+            type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS ||
+            type == GF_QUOTA_OPTION_TYPE_DISABLE) {
+                if (conf->op_version < GD_OP_VERSION_3_7_12)
+                        goto out;
+        }
 
         supported = _gf_true;
 
@@ -229,37 +234,73 @@ out:
 }
 
 int32_t
-glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
-                                  int type)
+_glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
+                                  glusterd_volinfo_t *volinfo,
+                                  glusterd_brickinfo_t *brick, int type,
+                                  char *pid_dir)
 {
         pid_t                      pid;
-        int32_t                    ret               = 0;
-        int                        status            = 0;
-        char                       mountdir[]        = "/tmp/mntXXXXXX";
-        char                       logfile[PATH_MAX] = {0,};
-        runner_t                   runner            = {0};
-        char                       *volfileserver    = NULL;
+        int32_t                    ret                 = -1;
+        int                        status              = 0;
+        char                       mountdir[PATH_MAX]  = {0,};
+        char                       logfile[PATH_MAX]   = {0,};
+        char                       brickpath[PATH_MAX] = {0,};
+        char                       vol_id[PATH_MAX]    = {0,};
+        char                       pidfile[PATH_MAX]   = {0,};
+        runner_t                   runner              = {0};
+        char                      *volfileserver       = NULL;
+        FILE                      *pidfp               = NULL;
 
-        if (mkdtemp (mountdir) == NULL) {
-                gf_msg_debug ("glusterd", 0,
-                        "failed to create a temporary mount directory");
+        GF_VALIDATE_OR_GOTO ("glusterd", THIS, out);
+
+        GLUSTERD_GET_TMP_PATH (mountdir, "/");
+        ret = sys_mkdir (mountdir, 0777);
+        if (ret && errno != EEXIST) {
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        GD_MSG_MOUNT_REQ_FAIL, "failed to create temporary "
+                        "directory %s", mountdir);
                 ret = -1;
                 goto out;
         }
+
+        strcat (mountdir, "mntXXXXXX");
+        if (mkdtemp (mountdir) == NULL) {
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        GD_MSG_MOUNT_REQ_FAIL, "failed to create a temporary "
+                        "mount directory: %s", mountdir);
+                ret = -1;
+                goto out;
+        }
+
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brick->path, brickpath);
         snprintf (logfile, sizeof (logfile),
-                  DEFAULT_LOG_FILE_DIRECTORY"/%s-quota-crawl.log", volname);
+                  DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY"/%s.log",
+                  brickpath);
 
         if (dict_get_str (THIS->options, "transport.socket.bind-address",
                           &volfileserver) != 0)
                 volfileserver = "localhost";
 
+        snprintf (vol_id, sizeof (vol_id), "client_per_brick/%s.%s.%s.%s.vol",
+                  volinfo->volname, "client", brick->hostname, brickpath);
+
         runinit (&runner);
-        runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", volfileserver,
-                         "--volfile-id", volname,
-			 "--use-readdirp=no",
-                         "--client-pid", QUOTA_CRAWL_PID,
-                         "-l", logfile, mountdir, NULL);
+
+        if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+            type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "-s", volfileserver,
+                                 "--volfile-id", vol_id,
+                                 "--use-readdirp=yes",
+                                 "--client-pid", QUOTA_CRAWL_PID,
+                                 "-l", logfile, mountdir, NULL);
+        else
+                runner_add_args (&runner, SBIN_DIR"/glusterfs",
+                                 "-s", volfileserver,
+                                 "--volfile-id", vol_id,
+                                 "--use-readdirp=no",
+                                 "--client-pid", QUOTA_CRAWL_PID,
+                                 "-l", logfile, mountdir, NULL);
 
         synclock_unlock (&priv->big_lock);
         ret = runner_run_reuse (&runner);
@@ -272,7 +313,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         runner_end (&runner);
 
         if ((pid = fork ()) < 0) {
-                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
                         GD_MSG_FORK_FAIL, "fork from parent failed");
                 ret = -1;
                 goto out;
@@ -286,7 +327,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
 
                 ret = chdir (mountdir);
                 if (ret == -1) {
-                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                        gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                 GD_MSG_DIR_OP_FAILED, "chdir %s failed",
                                 mountdir);
                         exit (EXIT_FAILURE);
@@ -295,9 +336,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
 
                 if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
                     type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
-                        runner_add_args (&runner, "/usr/bin/find", ".",
-                                         "-exec", "/usr/bin/stat",
-                                         "{}", "\\", ";", NULL);
+                        runner_add_args (&runner, "/usr/bin/find", ".", NULL);
 
                 else if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
 
@@ -321,8 +360,19 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
 
                 }
 
-                if (runner_start (&runner) == -1)
+                if (runner_start (&runner) == -1) {
+                        gf_umount_lazy ("glusterd", mountdir, 1);
                         _exit (EXIT_FAILURE);
+                }
+
+                snprintf (pidfile, sizeof (pidfile), "%s/%s.pid", pid_dir,
+                          brickpath);
+                pidfp = fopen (pidfile, "w");
+                if (pidfp) {
+                        fprintf (pidfp, "%d\n", runner.chpid);
+                        fflush (pidfp);
+                        fclose (pidfp);
+                }
 
 #ifndef GF_LINUX_HOST_OS
                 runner_end (&runner); /* blocks in waitpid */
@@ -334,6 +384,100 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
         ret = (waitpid (pid, &status, 0) == pid &&
                WIFEXITED (status) && WEXITSTATUS (status) == EXIT_SUCCESS) ? 0 : -1;
 
+out:
+        return ret;
+}
+
+void
+glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
+                                       glusterd_volinfo_t *volinfo, int type)
+{
+        char                       pid_dir[PATH_MAX]  = {0, };
+        char                       pidfile[PATH_MAX]  = {0,};
+        struct dirent             *entry              = NULL;
+        DIR                       *dir                = NULL;
+
+        GLUSTERD_GET_QUOTA_CRAWL_PIDDIR (pid_dir, volinfo, type);
+
+        dir = sys_opendir (pid_dir);
+        if (dir == NULL)
+                return;
+
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        while (entry) {
+                snprintf (pidfile, sizeof (pidfile), "%s/%s",
+                          pid_dir, entry->d_name);
+
+                glusterd_service_stop_nolock ("quota_crawl", pidfile, SIGKILL,
+                                              _gf_true);
+                sys_unlink (pidfile);
+
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        }
+        sys_closedir (dir);
+}
+
+int32_t
+glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
+                                  glusterd_volinfo_t *volinfo, int type)
+{
+        int32_t                    ret                = -1;
+        glusterd_brickinfo_t      *brick              = NULL;
+        char                       pid_dir[PATH_MAX]  = {0, };
+
+        GF_VALIDATE_OR_GOTO ("glusterd", THIS, out);
+
+        ret = glusterd_generate_client_per_brick_volfile (volinfo);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_OP_FAILED,
+                        "failed to generate client volume file");
+                goto out;
+        }
+
+        ret = mkdir_p (DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY, 0777, _gf_true);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_GLUSTERD_OP_FAILED,
+                        "failed to create dir %s: %s",
+                        DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY, strerror (errno));
+                goto out;
+        }
+
+        GLUSTERD_GET_QUOTA_CRAWL_PIDDIR (pid_dir, volinfo, type);
+        ret = mkdir_p (pid_dir, 0777, _gf_true);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_GLUSTERD_OP_FAILED,
+                        "failed to create dir %s: %s",
+                        pid_dir, strerror (errno));
+                goto out;
+        }
+
+        /* When quota enable is performed, stop alreday running enable crawl
+         * process and start fresh crawl process. let disable process continue
+         * if running to cleanup the older xattrs
+         * When quota disable is performed, stop both enable/disable crawl
+         * process and start fresh crawl process to cleanup the xattrs
+         */
+        glusterd_stop_all_quota_crawl_service (priv, volinfo,
+                                               GF_QUOTA_OPTION_TYPE_ENABLE);
+        if (type == GF_QUOTA_OPTION_TYPE_DISABLE)
+                glusterd_stop_all_quota_crawl_service (priv, volinfo,
+                                               GF_QUOTA_OPTION_TYPE_DISABLE);
+
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                if (gf_uuid_compare (brick->uuid, MY_UUID))
+                        continue;
+
+                ret = _glusterd_quota_initiate_fs_crawl (priv, volinfo, brick,
+                                                         type, pid_dir);
+
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
 out:
         return ret;
 }
@@ -1539,7 +1683,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         if (rsp_dict && start_crawl == _gf_true)
-                glusterd_quota_initiate_fs_crawl (priv, volname, type);
+                glusterd_quota_initiate_fs_crawl (priv, volinfo, type);
 
         ret = 0;
 out:

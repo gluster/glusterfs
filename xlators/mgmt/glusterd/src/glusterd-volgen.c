@@ -5081,7 +5081,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
 static void
 get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
-                    glusterd_brickinfo_t *brickinfo)
+                    glusterd_brickinfo_t *brickinfo, char *prefix)
 {
         char  path[PATH_MAX]   = {0,};
         char  brick[PATH_MAX]  = {0,};
@@ -5092,10 +5092,14 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, brick);
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",
-                  path, volinfo->volname,
-                  brickinfo->hostname,
-                  brick);
+        if (prefix)
+                snprintf (filename, PATH_MAX, "%s/%s.%s.%s.%s.vol",
+                          path, volinfo->volname, prefix,
+                          brickinfo->hostname, brick);
+        else
+                snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",
+                          path, volinfo->volname,
+                          brickinfo->hostname, brick);
 }
 
 gf_boolean_t
@@ -5128,7 +5132,7 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
                 goto out;
         }
         strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
-        get_brick_filepath (volfpath, volinfo, brickinfo);
+        get_brick_filepath (volfpath, volinfo, brickinfo, NULL);
 
         ret = ((strlen(volfpath) < PATH_MAX) &&
                 strlen (strrchr(volfpath, '/')) < _POSIX_PATH_MAX);
@@ -5153,7 +5157,7 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
-        get_brick_filepath (filename, volinfo, brickinfo);
+        get_brick_filepath (filename, volinfo, brickinfo, NULL);
 
         ret = build_server_graph (&graph, volinfo, mod_dict, brickinfo);
         if (!ret)
@@ -5413,6 +5417,55 @@ generate_single_transport_client_volfile (glusterd_volinfo_t *volinfo,
                 ret = volgen_write_volfile (&graph, filepath);
 
         volgen_graph_free (&graph);
+
+        return ret;
+}
+
+int
+glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo)
+{
+        char                   filepath[PATH_MAX]   = {0, };
+        glusterd_brickinfo_t  *brick                = NULL;
+        volgen_graph_t         graph                = {0, };
+        dict_t                *dict                 = NULL;
+        xlator_t              *xl                   = NULL;
+        int                    ret                  = -1;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_uint32 (dict, "trusted-client", GF_CLIENT_TRUSTED);
+        if (ret)
+                goto out;
+
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                xl = volgen_graph_build_client (&graph, volinfo,
+                                                brick->hostname, brick->path,
+                                                brick->brick_id,
+                                                "tcp", dict);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+
+                get_brick_filepath (filepath, volinfo, brick, "client");
+                ret = volgen_write_volfile (&graph, filepath);
+                if (ret < 0)
+                        goto out;
+
+                volgen_graph_free (&graph);
+                memset (&graph, 0, sizeof (graph));
+        }
+
+
+        ret = 0;
+out:
+        if (ret)
+                volgen_graph_free (&graph);
+
+        if (dict)
+                dict_unref (dict);
 
         return ret;
 }
@@ -6089,7 +6142,7 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
-        get_brick_filepath (filename, volinfo, brickinfo);
+        get_brick_filepath (filename, volinfo, brickinfo, NULL);
         ret = sys_unlink (filename);
         if (ret)
                 gf_msg ("glusterd", GF_LOG_ERROR, errno,

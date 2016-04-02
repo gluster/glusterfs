@@ -127,6 +127,10 @@ int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
                       gf_boolean_t force_kill);
 
+int32_t
+glusterd_service_stop_nolock (const char *service, char *pidfile, int sig,
+                              gf_boolean_t force_kill);
+
 int
 glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
 
