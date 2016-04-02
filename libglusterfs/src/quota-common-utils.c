@@ -16,6 +16,17 @@
 #include "common-utils.h"
 #include "libglusterfs-messages.h"
 
+gf_boolean_t
+quota_meta_is_null (const quota_meta_t *meta)
+{
+        if (meta->size == 0 &&
+            meta->file_count == 0 &&
+            meta->dir_count == 0)
+                return _gf_true;
+
+        return _gf_false;
+}
+
 int32_t
 quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta)
 {

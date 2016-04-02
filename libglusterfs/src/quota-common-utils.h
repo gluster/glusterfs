@@ -37,6 +37,9 @@ struct _quota_meta {
 } __attribute__ ((__packed__));
 typedef struct _quota_meta quota_meta_t;
 
+gf_boolean_t
+quota_meta_is_null (const quota_meta_t *meta);
+
 int32_t
 quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta);
 
