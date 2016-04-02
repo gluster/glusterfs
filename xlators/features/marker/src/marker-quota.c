@@ -372,17 +372,6 @@ mq_sub_meta (quota_meta_t *dst, const quota_meta_t *src)
         }
 }
 
-gf_boolean_t
-quota_meta_is_null (const quota_meta_t *meta)
-{
-        if (meta->size == 0 &&
-            meta->file_count == 0 &&
-            meta->dir_count == 0)
-                return _gf_true;
-
-        return _gf_false;
-}
-
 int32_t
 mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
                    gf_boolean_t *size_set)
@@ -1764,24 +1753,24 @@ out:
 int
 mq_update_dirty_inode_task (void *opaque)
 {
-        int32_t               ret            = -1;
-        fd_t                 *fd             = NULL;
-        off_t                 offset         = 0;
-        loc_t                 child_loc      = {0, };
+        int32_t               ret                         = -1;
+        fd_t                 *fd                          = NULL;
+        off_t                 offset                      = 0;
         gf_dirent_t           entries;
-        gf_dirent_t          *entry          = NULL;
-        gf_boolean_t          locked         = _gf_false;
-        gf_boolean_t          free_entries   = _gf_false;
-        gf_boolean_t          updated        = _gf_false;
-        int32_t               dirty          = 0;
-        quota_meta_t          contri         = {0, };
-        quota_meta_t          size           = {0, };
-        quota_meta_t          contri_sum     = {0, };
-        quota_meta_t          delta          = {0, };
-        quota_synctask_t     *args           = NULL;
-        xlator_t             *this           = NULL;
-        loc_t                *loc            = NULL;
-        quota_inode_ctx_t    *ctx            = NULL;
+        gf_dirent_t          *entry                       = NULL;
+        gf_boolean_t          locked                      = _gf_false;
+        gf_boolean_t          updated                     = _gf_false;
+        int32_t               dirty                       = 0;
+        quota_meta_t          contri                      = {0, };
+        quota_meta_t          size                        = {0, };
+        quota_meta_t          contri_sum                  = {0, };
+        quota_meta_t          delta                       = {0, };
+        quota_synctask_t     *args                        = NULL;
+        xlator_t             *this                        = NULL;
+        loc_t                *loc                         = NULL;
+        quota_inode_ctx_t    *ctx                         = NULL;
+        dict_t               *xdata                       = NULL;
+        char                  contri_key[QUOTA_KEY_MAX]   = {0, };
 
         GF_ASSERT (opaque);
 
@@ -1789,10 +1778,28 @@ mq_update_dirty_inode_task (void *opaque)
         loc = &args->loc;
         this = args->this;
         THIS = this;
+        INIT_LIST_HEAD (&entries.list);
 
         ret = mq_inode_ctx_get (loc->inode, this, &ctx);
         if (ret < 0)
                 goto out;
+
+        GET_CONTRI_KEY (this, contri_key, loc->gfid, ret);
+        if (ret < 0)
+                goto out;
+
+        xdata = dict_new ();
+        if (xdata == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int64 (xdata, contri_key, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "dict_set failed");
+                goto out;
+        }
 
         ret = mq_lock (this, loc, F_WRLCK);
         if (ret < 0)
@@ -1821,9 +1828,8 @@ mq_update_dirty_inode_task (void *opaque)
         }
 
         fd_bind (fd);
-        INIT_LIST_HEAD (&entries.list);
         while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
-                                       NULL, NULL)) != 0) {
+                                       xdata, NULL)) != 0) {
                 if (ret < 0) {
                         gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                                 ? GF_LOG_DEBUG:GF_LOG_ERROR, "readdirp failed "
@@ -1834,7 +1840,6 @@ mq_update_dirty_inode_task (void *opaque)
                 if (list_empty (&entries.list))
                         break;
 
-                free_entries = _gf_true;
                 list_for_each_entry (entry, &entries.list, list) {
                         offset = entry->d_off;
 
@@ -1842,26 +1847,15 @@ mq_update_dirty_inode_task (void *opaque)
                             !strcmp (entry->d_name, ".."))
                                 continue;
 
-                        ret = loc_build_child (&child_loc, loc, entry->d_name);
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "Couldn't build loc for %s/%s "
-                                        "returning from updation of dirty "
-                                        "inode", loc->path, entry->d_name);
-                                goto out;
-                        }
-
-                        ret = mq_get_contri (this, &child_loc, &contri,
-                                             loc->gfid);
-                        if (ret < 0)
-                                goto out;
+                        memset (&contri, 0, sizeof (contri));
+                        quota_dict_get_meta (entry->dict, contri_key, &contri);
+                        if (quota_meta_is_null (&contri))
+                                continue;
 
                         mq_add_meta (&contri_sum, &contri);
-                        loc_wipe (&child_loc);
                 }
 
                 gf_dirent_free (&entries);
-                free_entries = _gf_false;
         }
         /* Inculde for self */
         contri_sum.dir_count++;
@@ -1898,11 +1892,13 @@ mq_update_dirty_inode_task (void *opaque)
         updated = _gf_true;
 
 out:
-        if (free_entries)
-                gf_dirent_free (&entries);
+        gf_dirent_free (&entries);
 
         if (fd)
                 fd_unref (fd);
+
+        if (xdata)
+                dict_unref (xdata);
 
         if (ret < 0) {
                 /* On failure clear dirty status flag.
@@ -1918,8 +1914,6 @@ out:
 
         if (locked)
                 mq_lock (this, loc, F_UNLCK);
-
-        loc_wipe(&child_loc);
 
         if (updated)
                 mq_initiate_quota_blocking_txn (this, loc, NULL);
