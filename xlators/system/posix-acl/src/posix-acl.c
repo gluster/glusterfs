@@ -158,11 +158,16 @@ sticky_permits (call_frame_t *frame, inode_t *parent, inode_t *inode)
         struct posix_acl_ctx  *par = NULL;
         struct posix_acl_ctx  *ctx = NULL;
 
-        par = posix_acl_ctx_get (parent, frame->this);
-        ctx = posix_acl_ctx_get (inode, frame->this);
-
-        if (frame_is_super_user (frame))
+        if ((0 > frame->root->pid) || frame_is_super_user (frame))
                 return 1;
+
+        par = posix_acl_ctx_get (parent, frame->this);
+        if (par == NULL)
+                return 0;
+
+        ctx = posix_acl_ctx_get (inode, frame->this);
+        if (ctx == NULL)
+                return 0;
 
         if (!(par->perm & S_ISVTX))
                 return 1;
@@ -192,16 +197,12 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
 
         conf = frame->this->private;
 
-        ctx = posix_acl_ctx_get (inode, frame->this);
-        if (!ctx) {
-                gf_log_callingfn (frame->this->name, GF_LOG_ERROR,
-                                  "inode ctx is NULL for %s",
-                                  uuid_utoa (inode->gfid));
-                goto red;
-        }
-
-        if (frame_is_super_user (frame))
+        if ((0 > frame->root->pid) || frame_is_super_user (frame))
                 goto green;
+
+        ctx = posix_acl_ctx_get (inode, frame->this);
+        if (!ctx)
+                goto red;
 
         posix_acl_get (inode, frame->this, &acl, NULL);
         if (!acl) {
@@ -318,12 +319,20 @@ posix_acl_ctx_new (inode_t *inode, xlator_t *this)
 {
         struct posix_acl_ctx *ctx = NULL;
 
+        if (inode == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING, "inode is NULL");
+                return NULL;
+        }
+
         LOCK (&inode->lock);
         {
                 ctx = __posix_acl_ctx_get (inode, this, _gf_true);
         }
         UNLOCK (&inode->lock);
 
+        if (ctx == NULL)
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "creating inode ctx"
+                                  "failed for %s", uuid_utoa (inode->gfid));
         return ctx;
 }
 
@@ -332,12 +341,20 @@ posix_acl_ctx_get (inode_t *inode, xlator_t *this)
 {
         struct posix_acl_ctx *ctx = NULL;
 
+        if (inode == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING, "inode is NULL");
+                return NULL;
+        }
+
         LOCK (&inode->lock);
         {
                 ctx = __posix_acl_ctx_get (inode, this, _gf_false);
         }
         UNLOCK (&inode->lock);
 
+        if (ctx == NULL)
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "inode ctx is NULL "
+                                  "for %s", uuid_utoa (inode->gfid));
         return ctx;
 }
 
