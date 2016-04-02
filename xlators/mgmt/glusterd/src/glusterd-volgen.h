@@ -176,6 +176,9 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo);
 int
 glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
 
+int
+glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo);
+
 void
 glusterd_get_nfs_filepath (char *filename);
 

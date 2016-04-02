@@ -595,6 +595,11 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         snprintf (abspath, sizeof (abspath)-1,                          \
                   DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
 
+#define GLUSTERD_GET_TMP_PATH(abspath, path) do {                       \
+        snprintf (abspath, sizeof (abspath)-1,                          \
+                  DEFAULT_VAR_RUN_DIRECTORY"/tmp%s", path);             \
+        } while (0)
+
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {                  \
                 int i = 0;                                                 \
                 for (i = 1; i < strlen (path); i++) {                      \
@@ -622,6 +627,18 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 snprintf (pidfile, PATH_MAX, "%s/run/quotad.pid",          \
                           quotadpath);                                     \
         }
+
+#define GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(piddir, volinfo, type) do {           \
+                char _volpath[PATH_MAX]  = {0,};                              \
+                GLUSTERD_GET_VOLUME_DIR (_volpath, volinfo, priv);            \
+                if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||                    \
+                    type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)              \
+                        snprintf (piddir, PATH_MAX, "%s/run/quota/enable",    \
+                                  _volpath);                                  \
+                else                                                          \
+                        snprintf (piddir, PATH_MAX, "%s/run/quota/disable",   \
+                                  _volpath);                                  \
+        } while (0)
 
 #define GLUSTERD_STACK_DESTROY(frame) do {\
                 frame->local = NULL;                                    \
