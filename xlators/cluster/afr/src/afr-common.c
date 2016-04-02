@@ -4293,12 +4293,35 @@ __get_heard_from_all_status (xlator_t *this)
  *
  * Passed to the qsort function to order a list of children by the latency
  * and/or up/down states.
+ *
+ * Note: This isn't as simple as taking the latencies and calling it a
+ * a day.  Children can be marked down, which overrides their latency
+ * signal.  Having a lower-latency child available doesn't guarentee this
+ * child shall be marked up: we don't want to constantly be swapping
+ * slightly better bricks for others...this is jarring to clients and
+ * could cause all sorts of issues.  Plus, the fail-over, max-replicas
+ * flags must all be honored which manage the up/down state of children.
+ *
+ * In short, the (as marked) up/down down state of the brick shall always
+ * take precedence when sorting by latency.
  */
 static int
 _afr_cmp_child (const void *child1, const void *child2)
 {
         struct afr_child *child11 = (struct afr_child *)child1;
         struct afr_child *child22 = (struct afr_child *)child2;
+
+        /* If both children are _marked_ down they are equal */
+        if (!child11->child_up && !child22->child_up)
+                return 0;
+
+        /* Prefer child 2, child 1 is _marked_ down, child 2 is not */
+        if (!child11->child_up && child22->child_up)
+                return 1;
+
+        /* Prefer child 1, child 2 is _marked_ down, child 1 is not */
+        if (child11->child_up && !child22->child_up)
+                return -1;
 
         if (child11->latency > child22->latency) {
                 return 1;
