@@ -3352,23 +3352,6 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
                 goto out;
         }
 
-        /* Need to check if any quota limits are set on the volume before trying
-         * to list them
-         */
-        if (!_limits_set_on_volume (volname, type)) {
-                snprintf (err_str, sizeof (err_str), "No%s quota configured on "
-                          "volume %s",
-                          (type == GF_QUOTA_OPTION_TYPE_LIST) ? "" : " inode",
-                          volname);
-                if (global_state->mode & GLUSTER_MODE_XML) {
-                        xml_err_flag = _gf_true;
-                } else {
-                        cli_out ("quota: %s", err_str);
-                }
-                ret = 0;
-                goto out;
-        }
-
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_quota_limit_list_begin
                                 (local, op_ret, op_errno, op_errstr);
