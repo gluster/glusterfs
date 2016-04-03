@@ -1252,6 +1252,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this)
         char               just_validated      = 0;
         gf_boolean_t       hard_limit_exceeded = 0;
         int64_t            delta               = 0;
+        int8_t             object_delta        = 0;
         uint64_t           value               = 0;
         gf_boolean_t       skip_check          = _gf_false;
 
@@ -1270,6 +1271,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this)
         }
 
         delta = par_local->delta;
+        object_delta = par_local->object_delta;
 
         GF_VALIDATE_OR_GOTO (this->name, par_local->stub, err);
         /* Allow all the trusted clients
@@ -1310,6 +1312,9 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this)
                         break;
                 }
 
+                if (object_delta <= 0)
+                        goto skip_check_object_limit;
+
                 ret = quota_check_object_limit (frame, ctx, priv, _inode, this,
                                                 &op_errno, just_validated,
                                                 par_local, &skip_check);
@@ -1325,6 +1330,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this)
                         goto err;
                 }
 
+skip_check_object_limit:
                 ret = quota_check_size_limit (frame, ctx, priv, _inode, this,
                                               &op_errno, just_validated, delta,
                                               par_local, &skip_check);
@@ -1863,6 +1869,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         LOCK (&local->lock);
         {
                 local->delta = size;
+                local->object_delta = 0;
                 local->link_count = (parents != 0) ? parents : 1;
                 local->stub = stub;
         }
@@ -2001,6 +2008,7 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         {
                 local->stub = stub;
                 local->delta = 0;
+                local->object_delta = 1;
                 local->link_count = 1;
         }
         UNLOCK (&local->lock);
@@ -2151,6 +2159,7 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 local->link_count = 1;
                 local->stub = stub;
                 local->delta = 0;
+                local->object_delta = 1;
         }
         UNLOCK (&local->lock);
 
@@ -2427,6 +2436,7 @@ quota_link_continue (call_frame_t *frame)
         {
                 local->link_count = 1;
                 local->delta = (ctx != NULL) ? ctx->buf.ia_blocks * 512 : 0;
+                local->object_delta = 1;
                 gf_uuid_copy (local->common_ancestor, common_ancestor);
         }
         UNLOCK (&local->lock);
@@ -2703,6 +2713,7 @@ quota_rename_get_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         local->delta = ntoh64 (*size);
+        local->object_delta = 1;
         quota_check_limit (frame, local->newloc.parent, this);
         return 0;
 
@@ -2760,20 +2771,22 @@ quota_rename_continue (call_frame_t *frame)
 
 
                         local->delta = 0;
+                        local->object_delta = 1;
                 } else {
 
-                    /* FIXME: We need to account for the size occupied by this
-                     * inode on the target directory. To avoid double
-                     * accounting, we need to modify enforcer to perform
-                     * quota_check_limit only uptil the least common ancestor
-                     * directory inode*/
+                        /* FIXME: We need to account for the size occupied by
+                         * this inode on the target directory. To avoid double
+                         * accounting, we need to modify enforcer to perform
+                         * quota_check_limit only uptil the least common
+                         * ancestor directory inode*/
 
-                    /* FIXME: The following code assumes that regular files and
-                     * linkfiles are present, in their entirety, in a single
-                     * brick. This *assumption is invalid in the case of
-                     * stripe.*/
+                        /* FIXME: The following code assumes that regular files
+                         * and linkfiles are present, in their entirety, in a
+                         * single brick. This *assumption is invalid in the
+                         * case of stripe.*/
 
-                    local->delta = ctx->buf.ia_blocks * 512;
+                        local->delta = ctx->buf.ia_blocks * 512;
+                        local->object_delta = 1;
                 }
 
         } else if (IA_ISDIR (local->oldloc.inode->ia_type)) {
@@ -3002,6 +3015,7 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         {
                 local->stub = stub;
                 local->delta = strlen (linkpath);
+                local->object_delta = 1;
                 local->link_count = 1;
         }
         UNLOCK (&local->lock);
@@ -3945,6 +3959,7 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 local->link_count = 1;
                 local->stub = stub;
                 local->delta = 0;
+                local->object_delta = 1;
         }
         UNLOCK (&local->lock);
 
@@ -4889,6 +4904,7 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 	 * in ENOSPC errors attempting to allocate an already allocated range.
 	 */
         local->delta = len;
+        local->object_delta = 0;
         local->stub = stub;
         local->link_count = parents;
 
