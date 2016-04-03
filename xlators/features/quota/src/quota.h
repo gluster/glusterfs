@@ -194,6 +194,7 @@ struct quota_local {
         loc_t                   newloc;
         loc_t                   validate_loc;
         int64_t                 delta;
+        int8_t                  object_delta;
         int32_t                 op_ret;
         int32_t                 op_errno;
         int64_t                 size;
