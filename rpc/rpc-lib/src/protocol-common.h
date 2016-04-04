@@ -360,4 +360,5 @@ typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
 
 #define GD_VOLUME_NAME_MAX 256 /* Maximum size of volume name */
 
+#define GLUSTER_PROCESS_UUID_FMT "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 #endif /* !_PROTOCOL_COMMON_H */

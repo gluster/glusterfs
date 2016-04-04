@@ -1312,6 +1312,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         clnt_conf_t      *conf            = NULL;
         dict_t           *options         = NULL;
         char             counter_str[32]  = {0};
+        char             hostname[256]    = {0,};
 
         options = this->options;
         conf    = this->private;
@@ -1354,9 +1355,17 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                           "-%"PRIu64, conf->setvol_count);
                 conf->setvol_count++;
         }
-        ret = gf_asprintf (&process_uuid_xl, "%s-%s-%d%s",
-                           this->ctx->process_uuid, this->name,
-                           this->graph->id, counter_str);
+
+        if (gethostname (hostname, 256) == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: failed");
+
+                goto fail;
+        }
+
+        ret = gf_asprintf (&process_uuid_xl, GLUSTER_PROCESS_UUID_FMT,
+                           this->ctx->process_uuid, this->graph->id, getpid(),
+                           hostname, this->name, counter_str);
         if (-1 == ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         PC_MSG_PROCESS_UUID_SET_FAIL, "asprintf failed while "
