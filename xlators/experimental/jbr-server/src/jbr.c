@@ -25,17 +25,17 @@
 #include "syscall.h"
 #include "compat-errno.h"
 
-#include "nsr-internal.h"
-#include "nsr-messages.h"
+#include "jbr-internal.h"
+#include "jbr-messages.h"
 
-#define NSR_FLUSH_INTERVAL      5
+#define JBR_FLUSH_INTERVAL      5
 
 enum {
-        /* echo "cluster/nsr-server" | md5sum | cut -c 1-8 */
-        NSR_SERVER_IPC_BASE = 0x0e2d66a5,
-        NSR_SERVER_TERM_RANGE,
-        NSR_SERVER_OPEN_TERM,
-        NSR_SERVER_NEXT_ENTRY
+        /* echo "cluster/jbr-server" | md5sum | cut -c 1-8 */
+        JBR_SERVER_IPC_BASE = 0x0e2d66a5,
+        JBR_SERVER_TERM_RANGE,
+        JBR_SERVER_OPEN_TERM,
+        JBR_SERVER_NEXT_ENTRY
 };
 
 /* Used to check the quorum of acks received after the fop
@@ -46,12 +46,12 @@ gf_boolean_t
 fop_quorum_check (xlator_t *this, double n_children,
                   double current_state)
 {
-        nsr_private_t   *priv           = NULL;
+        jbr_private_t   *priv           = NULL;
         gf_boolean_t     result         = _gf_false;
         double           required       = 0;
         double           current        = 0;
 
-        GF_VALIDATE_OR_GOTO ("nsr", this, out);
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
@@ -74,7 +74,7 @@ fop_quorum_check (xlator_t *this, double n_children,
 
         if (current < required) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_QUORUM_NOT_MET,
+                        J_MSG_QUORUM_NOT_MET,
                         "Quorum not met. quorum_pct = %f "
                         "Current State = %f, Required State = %f",
                         priv->quorum_pct, current,
@@ -86,17 +86,17 @@ out:
         return result;
 }
 
-nsr_inode_ctx_t *
-nsr_get_inode_ctx (xlator_t *this, inode_t *inode)
+jbr_inode_ctx_t *
+jbr_get_inode_ctx (xlator_t *this, inode_t *inode)
 {
         uint64_t                ctx_int         = 0LL;
-        nsr_inode_ctx_t         *ctx_ptr;
+        jbr_inode_ctx_t         *ctx_ptr;
 
         if (__inode_ctx_get(inode, this, &ctx_int) == 0) {
-                ctx_ptr = (nsr_inode_ctx_t *)(long)ctx_int;
+                ctx_ptr = (jbr_inode_ctx_t *)(long)ctx_int;
         } else {
                 ctx_ptr = GF_CALLOC (1, sizeof(*ctx_ptr),
-                                     gf_mt_nsr_inode_ctx_t);
+                                     gf_mt_jbr_inode_ctx_t);
                 if (ctx_ptr) {
                         ctx_int = (uint64_t)(long)ctx_ptr;
                         if (__inode_ctx_set(inode, this, &ctx_int) == 0) {
@@ -114,16 +114,16 @@ nsr_get_inode_ctx (xlator_t *this, inode_t *inode)
         return ctx_ptr;
 }
 
-nsr_fd_ctx_t *
-nsr_get_fd_ctx (xlator_t *this, fd_t *fd)
+jbr_fd_ctx_t *
+jbr_get_fd_ctx (xlator_t *this, fd_t *fd)
 {
         uint64_t                ctx_int         = 0LL;
-        nsr_fd_ctx_t            *ctx_ptr;
+        jbr_fd_ctx_t            *ctx_ptr;
 
         if (__fd_ctx_get(fd, this, &ctx_int) == 0) {
-                ctx_ptr = (nsr_fd_ctx_t *)(long)ctx_int;
+                ctx_ptr = (jbr_fd_ctx_t *)(long)ctx_int;
         } else {
-                ctx_ptr = GF_CALLOC (1, sizeof(*ctx_ptr), gf_mt_nsr_fd_ctx_t);
+                ctx_ptr = GF_CALLOC (1, sizeof(*ctx_ptr), gf_mt_jbr_fd_ctx_t);
                 if (ctx_ptr) {
                         if (__fd_ctx_set(fd, this, (uint64_t)ctx_ptr) == 0) {
                                 INIT_LIST_HEAD(&ctx_ptr->dirty_list);
@@ -140,12 +140,12 @@ nsr_get_fd_ctx (xlator_t *this, fd_t *fd)
 }
 
 void
-nsr_mark_fd_dirty (xlator_t *this, nsr_local_t *local)
+jbr_mark_fd_dirty (xlator_t *this, jbr_local_t *local)
 {
         fd_t                    *fd             = local->fd;
-        nsr_fd_ctx_t            *ctx_ptr;
-        nsr_dirty_list_t        *dirty;
-        nsr_private_t           *priv           = this->private;
+        jbr_fd_ctx_t            *ctx_ptr;
+        jbr_dirty_list_t        *dirty;
+        jbr_private_t           *priv           = this->private;
 
         /*
          * TBD: don't do any of this for O_SYNC/O_DIRECT writes.
@@ -156,8 +156,8 @@ nsr_mark_fd_dirty (xlator_t *this, nsr_local_t *local)
          */
 
         LOCK(&fd->lock);
-                ctx_ptr = nsr_get_fd_ctx(this, fd);
-                dirty = GF_CALLOC(1, sizeof(*dirty), gf_mt_nsr_dirty_t);
+                ctx_ptr = jbr_get_fd_ctx(this, fd);
+                dirty = GF_CALLOC(1, sizeof(*dirty), gf_mt_jbr_dirty_t);
                 if (ctx_ptr && dirty) {
                         gf_msg_trace (this->name, 0,
                                       "marking fd %p as dirty (%p)", fd, dirty);
@@ -173,7 +173,7 @@ nsr_mark_fd_dirty (xlator_t *this, nsr_local_t *local)
                         }
                 } else {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                N_MSG_MEM_ERR, "could not mark %p dirty", fd);
+                                J_MSG_MEM_ERR, "could not mark %p dirty", fd);
                         if (ctx_ptr) {
                                 GF_FREE(ctx_ptr);
                         }
@@ -184,16 +184,16 @@ nsr_mark_fd_dirty (xlator_t *this, nsr_local_t *local)
         UNLOCK(&fd->lock);
 }
 
-#define NSR_TERM_XATTR          "trusted.nsr.term"
-#define NSR_INDEX_XATTR         "trusted.nsr.index"
-#define NSR_REP_COUNT_XATTR     "trusted.nsr.rep-count"
-#define RECON_TERM_XATTR        "trusted.nsr.recon-term"
-#define RECON_INDEX_XATTR       "trusted.nsr.recon-index"
+#define JBR_TERM_XATTR          "trusted.jbr.term"
+#define JBR_INDEX_XATTR         "trusted.jbr.index"
+#define JBR_REP_COUNT_XATTR     "trusted.jbr.rep-count"
+#define RECON_TERM_XATTR        "trusted.jbr.recon-term"
+#define RECON_INDEX_XATTR       "trusted.jbr.recon-index"
 
 #pragma generate
 
 uint8_t
-nsr_count_up_kids (nsr_private_t *priv)
+jbr_count_up_kids (jbr_private_t *priv)
 {
         uint8_t         retval  = 0;
         uint8_t         i;
@@ -219,11 +219,11 @@ nsr_count_up_kids (nsr_private_t *priv)
  */
 
 int32_t
-nsr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+jbr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
-        nsr_local_t     *local  = frame->local;
+        jbr_local_t     *local  = frame->local;
         gf_boolean_t    unwind;
 
         LOCK(&frame->lock);
@@ -238,13 +238,13 @@ nsr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-nsr_fsync_local_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+jbr_fsync_local_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
-        nsr_dirty_list_t        *dirty;
-        nsr_dirty_list_t        *dtmp;
-        nsr_local_t             *local  = frame->local;
+        jbr_dirty_list_t        *dirty;
+        jbr_dirty_list_t        *dtmp;
+        jbr_local_t             *local  = frame->local;
 
         list_for_each_entry_safe (dirty, dtmp, &local->qlinks, links) {
                 gf_msg_trace (this->name, 0,
@@ -252,18 +252,18 @@ nsr_fsync_local_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 GF_FREE(dirty);
         }
 
-        return nsr_fsync_cbk (frame, cookie, this, op_ret, op_errno,
+        return jbr_fsync_cbk (frame, cookie, this, op_ret, op_errno,
                               prebuf, postbuf, xdata);
 }
 
 int32_t
-nsr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+jbr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
            dict_t *xdata)
 {
-        nsr_private_t   *priv   = this->private;
-        nsr_local_t     *local;
+        jbr_private_t   *priv   = this->private;
+        jbr_local_t     *local;
         uint64_t        ctx_int         = 0LL;
-        nsr_fd_ctx_t    *ctx_ptr;
+        jbr_fd_ctx_t    *ctx_ptr;
         xlator_list_t   *trav;
 
         local = mem_get0(this->local_pool);
@@ -278,7 +278,7 @@ nsr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
         /* Move the dirty list from the fd to the fsync request. */
         LOCK(&fd->lock);
                 if (__fd_ctx_get(fd, this, &ctx_int) == 0) {
-                        ctx_ptr = (nsr_fd_ctx_t *)(long)ctx_int;
+                        ctx_ptr = (jbr_fd_ctx_t *)(long)ctx_int;
                         list_splice_init (&ctx_ptr->dirty_list,
                                           &local->qlinks);
                 }
@@ -286,14 +286,14 @@ nsr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 
         /* Issue the local call. */
         local->call_count = priv->leader ? priv->n_children : 1;
-        STACK_WIND (frame, nsr_fsync_local_cbk,
+        STACK_WIND (frame, jbr_fsync_local_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsync,
                     fd, flags, xdata);
 
         /* Issue remote calls if we're the leader. */
         if (priv->leader) {
                 for (trav = this->children->next; trav; trav = trav->next) {
-                        STACK_WIND (frame, nsr_fsync_cbk,
+                        STACK_WIND (frame, jbr_fsync_cbk,
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->fsync,
                                     fd, flags, xdata);
@@ -304,18 +304,18 @@ nsr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 }
 
 int32_t
-nsr_getxattr_special (call_frame_t *frame, xlator_t *this, loc_t *loc,
+jbr_getxattr_special (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       const char *name, dict_t *xdata)
 {
         dict_t          *result;
-        nsr_private_t   *priv   = this->private;
+        jbr_private_t   *priv   = this->private;
 
         if (!priv->leader) {
                 STACK_UNWIND_STRICT (getxattr, frame, -1, EREMOTE, NULL, NULL);
                 return 0;
         }
 
-        if (!name || (strcmp(name, NSR_REP_COUNT_XATTR) != 0)) {
+        if (!name || (strcmp(name, JBR_REP_COUNT_XATTR) != 0)) {
                 STACK_WIND_TAIL (frame,
                                  FIRST_CHILD(this),
                                  FIRST_CHILD(this)->fops->getxattr,
@@ -328,8 +328,8 @@ nsr_getxattr_special (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto dn_failed;
         }
 
-        priv->up_children = nsr_count_up_kids(this->private);
-        if (dict_set_uint32(result, NSR_REP_COUNT_XATTR,
+        priv->up_children = jbr_count_up_kids(this->private);
+        if (dict_set_uint32(result, JBR_REP_COUNT_XATTR,
                             priv->up_children) != 0) {
                 goto dsu_failed;
         }
@@ -346,10 +346,10 @@ dn_failed:
 }
 
 void
-nsr_flush_fd (xlator_t *this, nsr_fd_ctx_t *fd_ctx)
+jbr_flush_fd (xlator_t *this, jbr_fd_ctx_t *fd_ctx)
 {
-        nsr_dirty_list_t        *dirty;
-        nsr_dirty_list_t        *dtmp;
+        jbr_dirty_list_t        *dirty;
+        jbr_dirty_list_t        *dtmp;
 
         list_for_each_entry_safe (dirty, dtmp, &fd_ctx->dirty_list, links) {
                 gf_msg_trace (this->name, 0,
@@ -361,13 +361,13 @@ nsr_flush_fd (xlator_t *this, nsr_fd_ctx_t *fd_ctx)
 }
 
 void *
-nsr_flush_thread (void *ctx)
+jbr_flush_thread (void *ctx)
 {
         xlator_t                *this   = ctx;
-        nsr_private_t           *priv   = this->private;
+        jbr_private_t           *priv   = this->private;
         struct list_head        dirty_fds;
-        nsr_fd_ctx_t            *fd_ctx;
-        nsr_fd_ctx_t            *fd_tmp;
+        jbr_fd_ctx_t            *fd_ctx;
+        jbr_fd_ctx_t            *fd_tmp;
         int                     ret;
 
         for (;;) {
@@ -406,19 +406,19 @@ nsr_flush_thread (void *ctx)
                                            NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        N_MSG_SYS_CALL_FAILURE,
+                                        J_MSG_SYS_CALL_FAILURE,
                                         "failed to fsync %p (%d)",
                                         fd_ctx->fd, -ret);
                         }
 
                         LOCK(&fd_ctx->fd->lock);
-                                nsr_flush_fd(this, fd_ctx);
+                                jbr_flush_fd(this, fd_ctx);
                                 list_del_init(&fd_ctx->fd_list);
                         UNLOCK(&fd_ctx->fd->lock);
                         fd_unref(fd_ctx->fd);
                 }
 
-                sleep(NSR_FLUSH_INTERVAL);
+                sleep(JBR_FLUSH_INTERVAL);
         }
 
         return NULL;
@@ -426,7 +426,7 @@ nsr_flush_thread (void *ctx)
 
 
 int32_t
-nsr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
+jbr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
 {
         xlator_t        *cl_xl;
 
@@ -440,7 +440,7 @@ nsr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
         }
         if (!cl_xl) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_INIT_FAIL,
+                        J_MSG_INIT_FAIL,
                         "failed to find changelog translator");
                 return ENOENT;
         }
@@ -448,7 +448,7 @@ nsr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
         /* Find the actual changelog directory. */
         if (dict_get_str(cl_xl->options, "changelog-dir", cl_dir_p) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_INIT_FAIL,
+                        J_MSG_INIT_FAIL,
                         "failed to find changelog-dir for %s", cl_xl->name);
                 return ENODATA;
         }
@@ -458,7 +458,7 @@ nsr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
 
 
 void
-nsr_get_terms (call_frame_t *frame, xlator_t *this)
+jbr_get_terms (call_frame_t *frame, xlator_t *this)
 {
         int32_t         op_errno;
         char            *cl_dir;
@@ -472,7 +472,7 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
         char            *probe_str;
         dict_t          *my_xdata       = NULL;
 
-        op_errno = nsr_get_changelog_dir(this, &cl_dir);
+        op_errno = jbr_get_changelog_dir(this, &cl_dir);
         if (op_errno) {
                 goto err;       /* Error was already logged. */
         }
@@ -505,11 +505,11 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
                 /* +5 points to the character after the period */
                 term_num = atoi(rd_entry->d_name+5);
                 gf_msg (this->name, GF_LOG_INFO, 0,
-                        N_MSG_GENERIC,
+                        J_MSG_GENERIC,
                         "%s => %d", rd_entry->d_name, term_num);
                 if (term_num < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                N_MSG_INVALID,
+                                J_MSG_INVALID,
                                 "invalid term file name %s", rd_entry->d_name);
                         op_errno = EINVAL;
                         goto err;
@@ -524,7 +524,7 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
         if ((term_first < 0) || (term_last < 0)) {
                 /* TBD: are we *sure* there should always be at least one? */
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_NO_DATA, "no terms found");
+                        J_MSG_NO_DATA, "no terms found");
                 op_errno = EINVAL;
                 goto err;
         }
@@ -540,7 +540,7 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
                 if (gf_asprintf(&probe_str, "%s/TERM.%d",
                                 cl_dir, term_contig-1) <= 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                N_MSG_MEM_ERR,
+                                J_MSG_MEM_ERR,
                                 "failed to format term %d", term_contig-1);
                         goto err;
                 }
@@ -552,7 +552,7 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
         }
 
         gf_msg (this->name, GF_LOG_INFO, 0,
-                N_MSG_GENERIC,
+                J_MSG_GENERIC,
                 "found terms %d-%d (%d)",
                 term_first, term_last, term_contig);
 
@@ -560,25 +560,25 @@ nsr_get_terms (call_frame_t *frame, xlator_t *this)
         my_xdata = dict_new();
         if (!my_xdata) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_MEM_ERR,
+                        J_MSG_MEM_ERR,
                         "failed to allocate reply dictionary");
                 goto err;
         }
         if (dict_set_int32(my_xdata, "term-first", term_first) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR,
+                        J_MSG_DICT_FLR,
                         "failed to set term-first");
                 goto err;
         }
         if (dict_set_int32(my_xdata, "term-contig", term_contig) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR,
+                        J_MSG_DICT_FLR,
                         "failed to set term-contig");
                 goto err;
         }
         if (dict_set_int32(my_xdata, "term-last", term_last) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR,
+                        J_MSG_DICT_FLR,
                         "failed to set term-last");
                 goto err;
         }
@@ -632,7 +632,7 @@ get_entry_count (xlator_t *this, int fd)
 
         if (sys_lseek(fd, 0, SEEK_SET) < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
-                        N_MSG_SYS_CALL_FAILURE,
+                        J_MSG_SYS_CALL_FAILURE,
                         "failed to reset offset");
         }
         return max;
@@ -640,29 +640,29 @@ get_entry_count (xlator_t *this, int fd)
 
 
 void
-nsr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
+jbr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
 {
         int32_t         op_errno;
         char            *cl_dir;
         char            *term;
         char            *path;
-        nsr_private_t   *priv           = this->private;
+        jbr_private_t   *priv           = this->private;
 
-        op_errno = nsr_get_changelog_dir(this, &cl_dir);
+        op_errno = jbr_get_changelog_dir(this, &cl_dir);
         if (op_errno) {
                 goto err;
         }
 
         if (dict_get_str(xdata, "term", &term) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_NO_DATA, "missing term");
+                        J_MSG_NO_DATA, "missing term");
                 op_errno = ENODATA;
                 goto err;
         }
 
         if (gf_asprintf(&path, "%s/TERM.%s", cl_dir, term) < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_MEM_ERR, "failed to construct path");
+                        J_MSG_MEM_ERR, "failed to construct path");
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -674,7 +674,7 @@ nsr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
         if (priv->term_fd < 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_SYS_CALL_FAILURE,
+                        J_MSG_SYS_CALL_FAILURE,
                         "failed to open term file");
                 goto err;
         }
@@ -682,7 +682,7 @@ nsr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
         priv->term_total = get_entry_count(this, priv->term_fd);
         if (priv->term_total < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_NO_DATA, "failed to get entry count");
+                        J_MSG_NO_DATA, "failed to get entry count");
                 sys_close (priv->term_fd);
                 priv->term_fd = -1;
                 op_errno = EIO;
@@ -700,10 +700,10 @@ err:
 
 
 void
-nsr_next_entry (call_frame_t *frame, xlator_t *this)
+jbr_next_entry (call_frame_t *frame, xlator_t *this)
 {
         int32_t         op_errno        = ENOMEM;
-        nsr_private_t   *priv           = this->private;
+        jbr_private_t   *priv           = this->private;
         ssize_t          nbytes;
         dict_t          *my_xdata;
 
@@ -722,13 +722,13 @@ nsr_next_entry (call_frame_t *frame, xlator_t *this)
                 if (nbytes < 0) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                N_MSG_SYS_CALL_FAILURE,
+                                J_MSG_SYS_CALL_FAILURE,
                                 "error reading next entry: %s",
                                 strerror(errno));
                 } else {
                         op_errno = EIO;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                N_MSG_SYS_CALL_FAILURE,
+                                J_MSG_SYS_CALL_FAILURE,
                                 "got %ld/%d bytes for next entry",
                                 nbytes, CHANGELOG_ENTRY_SIZE);
                 }
@@ -739,14 +739,14 @@ nsr_next_entry (call_frame_t *frame, xlator_t *this)
         my_xdata = dict_new();
         if (!my_xdata) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_MEM_ERR, "failed to allocate reply xdata");
+                        J_MSG_MEM_ERR, "failed to allocate reply xdata");
                 goto err;
         }
 
         if (dict_set_static_bin(my_xdata, "data",
                                 priv->term_buf, CHANGELOG_ENTRY_SIZE) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR, "failed to assign reply xdata");
+                        J_MSG_DICT_FLR, "failed to assign reply xdata");
                 goto err;
         }
 
@@ -760,17 +760,17 @@ err:
 
 
 int32_t
-nsr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+jbr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 {
         switch (op) {
-        case NSR_SERVER_TERM_RANGE:
-                nsr_get_terms(frame, this);
+        case JBR_SERVER_TERM_RANGE:
+                jbr_get_terms(frame, this);
                 break;
-        case NSR_SERVER_OPEN_TERM:
-                nsr_open_term(frame, this, xdata);
+        case JBR_SERVER_OPEN_TERM:
+                jbr_open_term(frame, this, xdata);
                 break;
-        case NSR_SERVER_NEXT_ENTRY:
-                nsr_next_entry(frame, this);
+        case JBR_SERVER_NEXT_ENTRY:
+                jbr_next_entry(frame, this);
                 break;
         default:
                 STACK_WIND_TAIL (frame,
@@ -784,7 +784,7 @@ nsr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 
 
 int32_t
-nsr_forget (xlator_t *this, inode_t *inode)
+jbr_forget (xlator_t *this, inode_t *inode)
 {
         uint64_t        ctx     = 0LL;
 
@@ -796,7 +796,7 @@ nsr_forget (xlator_t *this, inode_t *inode)
 }
 
 int32_t
-nsr_release (xlator_t *this, fd_t *fd)
+jbr_release (xlator_t *this, fd_t *fd)
 {
         uint64_t        ctx     = 0LL;
 
@@ -808,20 +808,20 @@ nsr_release (xlator_t *this, fd_t *fd)
 }
 
 struct xlator_cbks cbks = {
-        .forget  = nsr_forget,
-        .release = nsr_release,
+        .forget  = jbr_forget,
+        .release = jbr_release,
 };
 
 int
-nsr_reconfigure (xlator_t *this, dict_t *options)
+jbr_reconfigure (xlator_t *this, dict_t *options)
 {
-        nsr_private_t   *priv   = this->private;
+        jbr_private_t   *priv   = this->private;
 
         GF_OPTION_RECONF ("leader",
                           priv->config_leader, options, bool, err);
         GF_OPTION_RECONF ("quorum-percent",
                           priv->quorum_pct, options, percent, err);
-        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+        gf_msg (this->name, GF_LOG_INFO, 0, J_MSG_GENERIC,
                 "reconfigure called, config_leader = %d, quorum_pct = %.1f\n",
                 priv->leader, priv->quorum_pct);
 
@@ -834,7 +834,7 @@ err:
 }
 
 int
-nsr_get_child_index (xlator_t *this, xlator_t *kid)
+jbr_get_child_index (xlator_t *this, xlator_t *kid)
 {
         xlator_list_t   *trav;
         int             retval = -1;
@@ -858,9 +858,9 @@ nsr_get_child_index (xlator_t *this, xlator_t *kid)
  * then generate counts on demand.
  */
 int
-nsr_notify (xlator_t *this, int event, void *data, ...)
+jbr_notify (xlator_t *this, int event, void *data, ...)
 {
-        nsr_private_t   *priv         = this->private;
+        jbr_private_t   *priv         = this->private;
         int             index         = -1;
         int             ret           = -1;
         gf_boolean_t    result        = _gf_false;
@@ -868,7 +868,7 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
 
         switch (event) {
         case GF_EVENT_CHILD_UP:
-                index = nsr_get_child_index(this, data);
+                index = jbr_get_child_index(this, data);
                 if (index >= 0) {
                         /* Check if the child was previously down
                          * and it's not a false CHILD_UP
@@ -878,8 +878,8 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                         }
 
                         priv->kid_state |= (1 << index);
-                        priv->up_children = nsr_count_up_kids(priv);
-                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                        priv->up_children = jbr_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, J_MSG_GENERIC,
                                 "got CHILD_UP for %s, now %u kids",
                                 ((xlator_t *)data)->name,
                                 priv->up_children);
@@ -905,12 +905,12 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                                                (double)(priv->up_children - 1));
                         if (result == _gf_false) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
-                                        N_MSG_GENERIC, "Not enough children "
+                                        J_MSG_GENERIC, "Not enough children "
                                         "are up to meet quorum. Waiting to "
                                         "send CHILD_UP from leader");
                         } else {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
-                                        N_MSG_GENERIC, "Enough children are up "
+                                        J_MSG_GENERIC, "Enough children are up "
                                         "to meet quorum. Sending CHILD_UP "
                                         "from leader");
                                 ret = default_notify(this, event, data);
@@ -920,7 +920,7 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                 }
                 break;
         case GF_EVENT_CHILD_DOWN:
-                index = nsr_get_child_index(this, data);
+                index = jbr_get_child_index(this, data);
                 if (index >= 0) {
                         /* Check if the child was previously up
                          * and it's not a false CHILD_DOWN
@@ -929,8 +929,8 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                                 relevant = _gf_true;
                         }
                         priv->kid_state &= ~(1 << index);
-                        priv->up_children = nsr_count_up_kids(priv);
-                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                        priv->up_children = jbr_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, J_MSG_GENERIC,
                                 "got CHILD_DOWN for %s, now %u kids",
                                 ((xlator_t *)data)->name,
                                 priv->up_children);
@@ -957,7 +957,7 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                                            (double)(priv->up_children - 1));
                         if (result == _gf_false) {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
-                                        N_MSG_GENERIC, "Enough children are "
+                                        J_MSG_GENERIC, "Enough children are "
                                         "to down to fail quorum. "
                                         "Sending CHILD_DOWN from leader");
                                 ret = default_notify(this, event, data);
@@ -965,7 +965,7 @@ nsr_notify (xlator_t *this, int event, void *data, ...)
                                         priv->child_up = _gf_false;
                         } else {
                                 gf_msg (this->name, GF_LOG_INFO, 0,
-                                        N_MSG_GENERIC, "Not enough children "
+                                        J_MSG_GENERIC, "Not enough children "
                                         "are down to fail quorum. Waiting to "
                                         "send CHILD_DOWN from leader");
                         }
@@ -984,12 +984,12 @@ mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        GF_VALIDATE_OR_GOTO ("nsr", this, out);
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
 
-        ret = xlator_mem_acct_init (this, gf_mt_nsr_end + 1);
+        ret = xlator_mem_acct_init (this, gf_mt_jbr_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_MEM_ERR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_MEM_ERR,
                         "Memory accounting init" "failed");
                 return ret;
         }
@@ -999,7 +999,7 @@ out:
 
 
 void
-nsr_deallocate_priv (nsr_private_t *priv)
+jbr_deallocate_priv (jbr_private_t *priv)
 {
         if (!priv) {
                 return;
@@ -1010,11 +1010,11 @@ nsr_deallocate_priv (nsr_private_t *priv)
 
 
 int32_t
-nsr_init (xlator_t *this)
+jbr_init (xlator_t *this)
 {
         xlator_list_t   *remote;
         xlator_list_t   *local;
-        nsr_private_t   *priv           = NULL;
+        jbr_private_t   *priv           = NULL;
         xlator_list_t   *trav;
         pthread_t       kid;
         extern xlator_t global_xlator;
@@ -1027,34 +1027,34 @@ nsr_init (xlator_t *this)
          * this->fops because of some dynamic-linking strangeness; modifying
          * the static table doesn't work.
          */
-        this->fops->getxattr = nsr_getxattr_special;
-        this->fops->fsync = nsr_fsync;
-        this->fops->ipc = nsr_ipc;
+        this->fops->getxattr = jbr_getxattr_special;
+        this->fops->fsync = jbr_fsync;
+        this->fops->ipc = jbr_ipc;
 
         local = this->children;
         if (!local) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_NO_DATA,
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_NO_DATA,
                         "no local subvolume");
                 goto err;
         }
 
         remote = local->next;
         if (!remote) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_NO_DATA,
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_NO_DATA,
                         "no remote subvolumes");
                 goto err;
         }
 
-        this->local_pool = mem_pool_new (nsr_local_t, 128);
+        this->local_pool = mem_pool_new (jbr_local_t, 128);
         if (!this->local_pool) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_MEM_ERR,
-                        "failed to create nsr_local_t pool");
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_MEM_ERR,
+                        "failed to create jbr_local_t pool");
                 goto err;
         }
 
-        priv = GF_CALLOC (1, sizeof(*priv), gf_mt_nsr_private_t);
+        priv = GF_CALLOC (1, sizeof(*priv), gf_mt_jbr_private_t);
         if (!priv) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_MEM_ERR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_MEM_ERR,
                         "could not allocate priv");
                 goto err;
         }
@@ -1076,9 +1076,9 @@ nsr_init (xlator_t *this)
         priv->leader = priv->config_leader;
         priv->child_up = _gf_false;
 
-        if (pthread_create(&kid, NULL, nsr_flush_thread,
+        if (pthread_create(&kid, NULL, jbr_flush_thread,
                            this) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, N_MSG_SYS_CALL_FAILURE,
+                gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_SYS_CALL_FAILURE,
                         "could not start flush thread");
                 /* TBD: treat this as a fatal error? */
         }
@@ -1096,22 +1096,22 @@ nsr_init (xlator_t *this)
 	return 0;
 
 err:
-        nsr_deallocate_priv(priv);
+        jbr_deallocate_priv(priv);
         return -1;
 }
 
 
 void
-nsr_fini (xlator_t *this)
+jbr_fini (xlator_t *this)
 {
-        nsr_deallocate_priv(this->private);
+        jbr_deallocate_priv(this->private);
 }
 
 class_methods_t class_methods = {
-        .init           = nsr_init,
-        .fini           = nsr_fini,
-        .reconfigure    = nsr_reconfigure,
-        .notify         = nsr_notify,
+        .init           = jbr_init,
+        .fini           = jbr_fini,
+        .reconfigure    = jbr_reconfigure,
+        .notify         = jbr_notify,
 };
 
 struct volume_options options[] = {
@@ -1136,7 +1136,7 @@ struct volume_options options[] = {
         },
         { .key = {"subvol-uuid"},
           .type = GF_OPTION_TYPE_STR,
-          .description = "UUID for this NSR (sub)volume"
+          .description = "UUID for this JBR (sub)volume"
         },
         { .key = {"quorum-percent"},
           .type = GF_OPTION_TYPE_PERCENT,

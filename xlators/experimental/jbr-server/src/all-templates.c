@@ -6,10 +6,10 @@
 
 /* template-name read-fop */
 int32_t
-nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
+jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
             @LONG_ARGS@)
 {
-        nsr_private_t   *priv   = this->private;
+        jbr_private_t   *priv   = this->private;
         gf_boolean_t in_recon = _gf_false;
         int32_t recon_term, recon_index;
 
@@ -51,11 +51,11 @@ err:
 
 /* template-name write-fop */
 int32_t
-nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
+jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
             @LONG_ARGS@)
 {
-        nsr_local_t     *local          = NULL;
-        nsr_private_t   *priv           = this->private;
+        jbr_local_t     *local          = NULL;
+        jbr_private_t   *priv           = this->private;
         gf_boolean_t     result         = _gf_false;
         int             op_errno        = ENOMEM;
         int             from_leader;
@@ -84,14 +84,14 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
                 if (result == _gf_false) {
                         /* Emulate the AFR client-side-quorum behavior. */
                         gf_msg (this->name, GF_LOG_ERROR, EROFS,
-                                N_MSG_QUORUM_NOT_MET, "Sufficient number of "
+                                J_MSG_QUORUM_NOT_MET, "Sufficient number of "
                                 "subvolumes are not up to meet quorum.");
                         op_errno = EROFS;
                         goto err;
                 }
         } else {
                 if (xdata) {
-                        from_leader = !!dict_get(xdata, NSR_TERM_XATTR);
+                        from_leader = !!dict_get(xdata, JBR_TERM_XATTR);
                         from_recon = !!dict_get(xdata, RECON_TERM_XATTR)
                                   && !!dict_get(xdata, RECON_INDEX_XATTR);
                 } else {
@@ -111,7 +111,7 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
         if (!local) {
                 goto err;
         }
-#if defined(NSR_CG_NEED_FD)
+#if defined(JBR_CG_NEED_FD)
         local->fd = fd_ref(fd);
 #else
         local->fd = NULL;
@@ -122,11 +122,11 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
         /*
          * If we let it through despite not being the leader, then we just want
          * to pass it on down without all of the additional xattrs, queuing, and
-         * so on.  However, nsr_*_complete does depend on the initialization
+         * so on.  However, jbr_*_complete does depend on the initialization
          * immediately above this.
          */
         if (!priv->leader) {
-                STACK_WIND (frame, nsr_@NAME@_complete,
+                STACK_WIND (frame, jbr_@NAME@_complete,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->@NAME@,
                             @SHORT_ARGS@);
                 return 0;
@@ -136,35 +136,35 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
                 xdata = dict_new();
                 if (!xdata) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                N_MSG_MEM_ERR, "failed to allocate xdata");
+                                J_MSG_MEM_ERR, "failed to allocate xdata");
                         goto err;
                 }
         }
 
-        if (dict_set_int32(xdata, NSR_TERM_XATTR, priv->current_term) != 0) {
+        if (dict_set_int32(xdata, JBR_TERM_XATTR, priv->current_term) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR, "failed to set nsr-term");
+                        J_MSG_DICT_FLR, "failed to set jbr-term");
                 goto err;
         }
 
         LOCK(&priv->index_lock);
         ti = ++(priv->index);
         UNLOCK(&priv->index_lock);
-        if (dict_set_int32(xdata, NSR_INDEX_XATTR, ti) != 0) {
+        if (dict_set_int32(xdata, JBR_INDEX_XATTR, ti) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        N_MSG_DICT_FLR, "failed to set index");
+                        J_MSG_DICT_FLR, "failed to set index");
                 goto err;
         }
 
-        local->stub = fop_@NAME@_stub (frame, nsr_@NAME@_continue,
+        local->stub = fop_@NAME@_stub (frame, jbr_@NAME@_continue,
                                        @SHORT_ARGS@);
         if (!local->stub) {
                 goto err;
         }
 
 
-#if defined(NSR_CG_QUEUE)
-        nsr_inode_ctx_t         *ictx   = nsr_get_inode_ctx(this, fd->inode);
+#if defined(JBR_CG_QUEUE)
+        jbr_inode_ctx_t         *ictx   = jbr_get_inode_ctx(this, fd->inode);
 
         if (!ictx) {
                 op_errno = EIO;
@@ -190,7 +190,7 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
                          * would be incorrect.
                          */
                         local->qstub = fop_@NAME@_stub (frame,
-                                                        nsr_@NAME@_dispatch,
+                                                        jbr_@NAME@_dispatch,
                                                         @SHORT_ARGS@);
                         if (!local->qstub) {
                                 UNLOCK(&ictx->lock);
@@ -207,7 +207,7 @@ nsr_@NAME@ (call_frame_t *frame, xlator_t *this,
         UNLOCK(&ictx->lock);
 #endif
 
-        return nsr_@NAME@_dispatch (frame, this, @SHORT_ARGS@);
+        return jbr_@NAME@_dispatch (frame, this, @SHORT_ARGS@);
 
 err:
         if (local) {
@@ -229,23 +229,23 @@ err:
 
 /* template-name write-dispatch */
 int32_t
-nsr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
+jbr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
                      @LONG_ARGS@)
 {
-        nsr_local_t     *local  = frame->local;
-        nsr_private_t   *priv   = this->private;
+        jbr_local_t     *local  = frame->local;
+        jbr_private_t   *priv   = this->private;
         xlator_list_t   *trav;
 
         /*
          * TBD: unblock pending request(s) if we fail after this point but
-         * before we get to nsr_@NAME@_complete (where that code currently
+         * before we get to jbr_@NAME@_complete (where that code currently
          * resides).
          */
 
         local->call_count = priv->n_children - 1;
         local->successful_acks = 0;
         for (trav = this->children->next; trav; trav = trav->next) {
-                STACK_WIND (frame, nsr_@NAME@_fan_in,
+                STACK_WIND (frame, jbr_@NAME@_fan_in,
                             trav->xlator, trav->xlator->fops->@NAME@,
                             @SHORT_ARGS@);
         }
@@ -256,11 +256,11 @@ nsr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
 
 /* template-name write-fan-in */
 int32_t
-nsr_@NAME@_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
+jbr_@NAME@_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    @LONG_ARGS@)
 {
-        nsr_local_t     *local  = frame->local;
+        jbr_local_t     *local  = frame->local;
         uint8_t         call_count;
 
         gf_msg_trace (this->name, 0, "op_ret = %d, op_errno = %d\n",
@@ -289,15 +289,15 @@ nsr_@NAME@_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
 
 /* template-name write-continue */
 int32_t
-nsr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
+jbr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                      @LONG_ARGS@)
 {
         int32_t          ret = -1;
         gf_boolean_t     result   = _gf_false;
-        nsr_local_t     *local    = NULL;
-        nsr_private_t   *priv     = NULL;
+        jbr_local_t     *local    = NULL;
+        jbr_private_t   *priv     = NULL;
 
-        GF_VALIDATE_OR_GOTO ("nsr", this, out);
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         priv = this->private;
         local = frame->local;
@@ -313,13 +313,13 @@ nsr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                                    (double)local->successful_acks + 1);
         if (result == _gf_false) {
                 gf_msg (this->name, GF_LOG_ERROR, EROFS,
-                        N_MSG_QUORUM_NOT_MET, "Didn't receive enough acks "
+                        J_MSG_QUORUM_NOT_MET, "Didn't receive enough acks "
                         "to meet quorum. Failing the operation without trying "
                         "it on the leader.");
                 STACK_UNWIND_STRICT (@NAME@, frame, -1, EROFS,
                                      @ERROR_ARGS@);
         } else {
-                STACK_WIND (frame, nsr_@NAME@_complete,
+                STACK_WIND (frame, jbr_@NAME@_complete,
                             FIRST_CHILD(this), FIRST_CHILD(this)->fops->@NAME@,
                             @SHORT_ARGS@);
         }
@@ -331,14 +331,14 @@ out:
 
 /* template-name write-complete */
 int32_t
-nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
+jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      @LONG_ARGS@)
 {
         gf_boolean_t     result         = _gf_false;
-        nsr_private_t   *priv           = this->private;
+        jbr_private_t   *priv           = this->private;
 
-        nsr_local_t *local = frame->local;
+        jbr_local_t *local = frame->local;
 
         /* If the fop failed on the leader, then reduce one succesful ack
          * before calculating the fop quorum
@@ -348,13 +348,13 @@ nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                 (local->successful_acks)--;
         UNLOCK(&frame->lock);
 
-#if defined(NSR_CG_QUEUE)
-        nsr_inode_ctx_t *ictx;
-        nsr_local_t     *next;
+#if defined(JBR_CG_QUEUE)
+        jbr_inode_ctx_t *ictx;
+        jbr_local_t     *next;
 
         if (local->qlinks.next != &local->qlinks) {
                 list_del(&local->qlinks);
-                ictx = nsr_get_inode_ctx(this, local->fd->inode);
+                ictx = jbr_get_inode_ctx(this, local->fd->inode);
                 if (ictx) {
                         LOCK(&ictx->lock);
                                 if (ictx->pending) {
@@ -375,7 +375,7 @@ nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                                                      "unblocking next request");
                                         --(ictx->pending);
                                         next = list_entry (ictx->pqueue.next,
-                                                           nsr_local_t, qlinks);
+                                                           jbr_local_t, qlinks);
                                         list_del(&next->qlinks);
                                         list_add_tail(&next->qlinks,
                                                       &ictx->aqueue);
@@ -388,11 +388,11 @@ nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 #endif
 
-#if defined(NSR_CG_FSYNC)
-        nsr_mark_fd_dirty(this, local);
+#if defined(JBR_CG_FSYNC)
+        jbr_mark_fd_dirty(this, local);
 #endif
 
-#if defined(NSR_CG_NEED_FD)
+#if defined(JBR_CG_NEED_FD)
         fd_unref(local->fd);
 #endif
 
@@ -414,10 +414,10 @@ nsr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret = -1;
                         op_errno = EROFS;
                         gf_msg (this->name, GF_LOG_ERROR, EROFS,
-                                N_MSG_QUORUM_NOT_MET, "Quorum is not met. "
+                                J_MSG_QUORUM_NOT_MET, "Quorum is not met. "
                                 "The operation has failed.");
                 } else {
-#if defined(NSR_CG_NEED_FD)
+#if defined(JBR_CG_NEED_FD)
                         op_ret = local->successful_op_ret;
 #else
                         op_ret = 0;

@@ -11,29 +11,29 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define LEADER_XATTR            "user.nsr.leader"
+#define LEADER_XATTR            "user.jbr.leader"
 #define SECOND_CHILD(xl)        (xl->children->next->xlator)
-#define RECONCILER_PATH         NSR_SCRIPT_PREFIX"/reconciler.py"
+#define RECONCILER_PATH         JBR_SCRIPT_PREFIX"/reconciler.py"
 #define CHANGELOG_ENTRY_SIZE    128
 
 enum {
-        gf_mt_nsr_private_t = gf_common_mt_end + 1,
-        gf_mt_nsr_fd_ctx_t,
-        gf_mt_nsr_inode_ctx_t,
-        gf_mt_nsr_dirty_t,
-        gf_mt_nsr_end
+        gf_mt_jbr_private_t = gf_common_mt_end + 1,
+        gf_mt_jbr_fd_ctx_t,
+        gf_mt_jbr_inode_ctx_t,
+        gf_mt_jbr_dirty_t,
+        gf_mt_jbr_end
 };
 
-typedef enum nsr_recon_notify_ev_id_t {
-        NSR_RECON_SET_LEADER = 1,
-        NSR_RECON_ADD_CHILD = 2
-} nsr_recon_notify_ev_id_t;
+typedef enum jbr_recon_notify_ev_id_t {
+        JBR_RECON_SET_LEADER = 1,
+        JBR_RECON_ADD_CHILD = 2
+} jbr_recon_notify_ev_id_t;
 
-typedef struct _nsr_recon_notify_ev_s {
-        nsr_recon_notify_ev_id_t id;
+typedef struct _jbr_recon_notify_ev_s {
+        jbr_recon_notify_ev_id_t id;
         uint32_t index; /* in case of add */
         struct list_head list;
-} nsr_recon_notify_ev_t;
+} jbr_recon_notify_ev_t;
 
 typedef struct {
         /*
@@ -44,7 +44,7 @@ typedef struct {
          * config_leader is true, then leader will *always* be true as well,
          * giving that brick precedence.  If config_leader is false, then
          * leader will only be true if there is no connection to the other
-         * brick (tracked in nsr_notify).
+         * brick (tracked in jbr_notify).
          *
          * TBD: implement real leader election
          */
@@ -76,7 +76,7 @@ typedef struct {
         char                    term_buf[CHANGELOG_ENTRY_SIZE];
         gf_boolean_t            child_up; /* To maintain the state of *
                                            * the translator */
-} nsr_private_t;
+} jbr_private_t;
 
 typedef struct {
         call_stub_t             *stub;
@@ -86,7 +86,7 @@ typedef struct {
         uint32_t                successful_op_ret;
         fd_t                    *fd;
         struct list_head        qlinks;
-} nsr_local_t;
+} jbr_local_t;
 
 /*
  * This should match whatever changelog returns on the pre-op for us to pass
@@ -97,13 +97,13 @@ typedef uint32_t log_id_t;
 typedef struct {
         struct list_head        links;
         log_id_t                id;
-} nsr_dirty_list_t;
+} jbr_dirty_list_t;
 
 typedef struct {
         fd_t                    *fd;
         struct list_head        dirty_list;
         struct list_head        fd_list;
-} nsr_fd_ctx_t;
+} jbr_fd_ctx_t;
 
 typedef struct {
         gf_lock_t               lock;
@@ -111,6 +111,6 @@ typedef struct {
         struct list_head        aqueue;
         uint32_t                pending;
         struct list_head        pqueue;
-} nsr_inode_ctx_t;
+} jbr_inode_ctx_t;
 
-void nsr_start_reconciler (xlator_t *this);
+void jbr_start_reconciler (xlator_t *this);

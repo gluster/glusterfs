@@ -2735,15 +2735,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_7_6,
           .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key         = "cluster.nsr",
-          .voltype     = "experimental/nsr",
-          .option      = "!nsr",
+        { .key         = "cluster.jbr",
+          .voltype     = "experimental/jbr",
+          .option      = "!jbr",
           .op_version  = GD_OP_VERSION_4_0_0,
-          .description = "enable NSR instead of AFR for replication",
+          .description = "enable JBR instead of AFR for replication",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key         = "cluster.nsr.quorum-percent",
-          .voltype     = "experimental/nsr",
+        { .key         = "cluster.jbr.quorum-percent",
+          .voltype     = "experimental/jbr",
           .option      = "quorum-percent",
           .op_version  = GD_OP_VERSION_4_0_0,
           .description = "percent of rep_count-1 bricks that must be up"

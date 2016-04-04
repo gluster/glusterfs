@@ -17,13 +17,13 @@ TEST $CLI_1 peer probe $H3;
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
 TEST $CLI_1 volume create $V0 replica 3 $H1:$L1 $H2:$L2 $H3:$L3
-TEST $CLI_1 volume set $V0 cluster.nsr on
+TEST $CLI_1 volume set $V0 cluster.jbr on
 #TEST $CLI_1 volume set $V0 diagnostics.brick-log-level DEBUG
 TEST $CLI_1 volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H1 --entry-timeout=0 $M0;
 
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" nsrc_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" jbrc_child_up_status $V0 0
 
 echo "file" > $M0/file1
 TEST stat $L1/file1

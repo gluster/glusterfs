@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _NSR_MESSAGES_H_
-#define _NSR_MESSAGES_H_
+#ifndef _JBR_MESSAGES_H_
+#define _JBR_MESSAGES_H_
 
 #include "glfs-message-id.h"
 
@@ -35,71 +35,71 @@
  *    holes.
  */
 
-#define NSR_COMP_BASE           GLFS_MSGID_COMP_NSR
+#define JBR_COMP_BASE           GLFS_MSGID_COMP_JBR
 #define GLFS_NUM_MESSAGES       1
-#define GLFS_MSGID_END          (NSR_COMP_BASE + GLFS_NUM_MESSAGES + 1)
+#define GLFS_MSGID_END          (JBR_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_INIT_FAIL                      (NSR_COMP_BASE + 1)
+#define J_MSG_INIT_FAIL                      (JBR_COMP_BASE + 1)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_RETRY_MSG                      (NSR_COMP_BASE + 2)
+#define J_MSG_RETRY_MSG                      (JBR_COMP_BASE + 2)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_MEM_ERR                        (NSR_COMP_BASE + 3)
+#define J_MSG_MEM_ERR                        (JBR_COMP_BASE + 3)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_DICT_FLR                       (NSR_COMP_BASE + 4)
+#define J_MSG_DICT_FLR                       (JBR_COMP_BASE + 4)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_GENERIC                        (NSR_COMP_BASE + 5)
+#define J_MSG_GENERIC                        (JBR_COMP_BASE + 5)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_INVALID                        (NSR_COMP_BASE + 6)
+#define J_MSG_INVALID                        (JBR_COMP_BASE + 6)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_NO_DATA                        (NSR_COMP_BASE + 7)
+#define J_MSG_NO_DATA                        (JBR_COMP_BASE + 7)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_SYS_CALL_FAILURE               (NSR_COMP_BASE + 8)
+#define J_MSG_SYS_CALL_FAILURE               (JBR_COMP_BASE + 8)
 
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  */
-#define N_MSG_QUORUM_NOT_MET                 (NSR_COMP_BASE + 9)
+#define J_MSG_QUORUM_NOT_MET                 (JBR_COMP_BASE + 9)
 
-#endif /* _NSR_MESSAGES_H_ */
+#endif /* _JBR_MESSAGES_H_ */

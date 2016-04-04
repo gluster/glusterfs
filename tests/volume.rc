@@ -110,7 +110,7 @@ function snap_client_connected_status {
          echo "$up"
 }
 
-function _nsrc_child_up_status {
+function _jbrc_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
         local brick_id=$2
@@ -121,11 +121,11 @@ function _nsrc_child_up_status {
         echo "$up"
 }
 
-function nsrc_child_up_status {
+function jbrc_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
         local brick_id=$2
-        _nsrc_child_up_status $vol $brick_id generate_mount_statedump
+        _jbrc_child_up_status $vol $brick_id generate_mount_statedump
 }
 
 function _afr_child_up_status {

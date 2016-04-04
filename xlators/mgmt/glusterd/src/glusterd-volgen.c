@@ -1876,7 +1876,7 @@ add_one_peer (volgen_graph_t *graph, glusterd_brickinfo_t *peer,
 }
 
 int
-add_nsr_stuff (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+add_jbr_stuff (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                glusterd_brickinfo_t *brickinfo)
 {
         xlator_t                *me;
@@ -1886,8 +1886,8 @@ add_nsr_stuff (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         uint16_t                index   = 0;
         xlator_t                *kid;
 
-        /* Create the NSR xlator, but defer linkage for now. */
-        me = xlator_instantiate ("experimental/nsr", "%s-nsr",
+        /* Create the JBR xlator, but defer linkage for now. */
+        me = xlator_instantiate ("experimental/jbr", "%s-jbr",
                                  volinfo->volname);
         if (!me || volgen_xlator_link(me, first_of(graph))) {
                 return -1;
@@ -1960,9 +1960,9 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!graph || !volinfo || !brickinfo || !set_dict)
                 goto out;
 
-        /* For NSR we don't need/want index. */
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.nsr") > 0) {
-                return add_nsr_stuff (graph, volinfo, brickinfo);
+        /* For JBR we don't need/want index. */
+        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
+                return add_jbr_stuff (graph, volinfo, brickinfo);
         }
 
         xl = volgen_graph_add (graph, "features/index", volinfo->volname);
@@ -3552,8 +3552,8 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
         char            option[32]           = {0};
         int             start_count          = 0;
 
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.nsr") > 0) {
-                replicate_type = "experimental/nsrc";
+        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
+                replicate_type = "experimental/jbrc";
         } else {
                 replicate_type = "cluster/replicate";
         }
@@ -5309,7 +5309,7 @@ assign_groups (glusterd_volinfo_t *volinfo)
                         gf_uuid_generate(tmp_uuid);
                 }
                 brickinfo->group = group_num;
-                gf_uuid_copy(brickinfo->nsr_uuid, tmp_uuid);
+                gf_uuid_copy(brickinfo->jbr_uuid, tmp_uuid);
                 if (++in_group >= volinfo->replica_count) {
                         in_group = 0;
                         ++group_num;
@@ -5385,7 +5385,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                 }
         }
 
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.nsr") > 0) {
+        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
                 assign_groups(volinfo);
         }
 

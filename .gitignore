@@ -98,5 +98,5 @@ xlators/experimental/fdl/src/gf_logdump
 xlators/experimental/fdl/src/gf_recon
 xlators/experimental/fdl/src/libfdl.c
 xlators/experimental/fdl/src/librecon.c
-xlators/experimental/nsr-client/src/nsrc-cg.c
-xlators/experimental/nsr-server/src/nsr-cg.c
+xlators/experimental/jbr-client/src/jbrc-cg.c
+xlators/experimental/jbr-server/src/jbr-cg.c

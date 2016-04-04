@@ -16,8 +16,8 @@
 #include "defaults.h"
 #include "timer.h"
 #include "xlator.h"
-#include "nsr-messages.h"
-#include "nsrc.h"
+#include "jbr-messages.h"
+#include "jbrc.h"
 #include "statedump.h"
 
 #define SCAR_LIMIT      20
@@ -29,17 +29,17 @@
  */
 
 enum gf_dht_mem_types_ {
-        gf_mt_nsrc_private_t = gf_common_mt_end + 1,
-        gf_mt_nsrc_end
+        gf_mt_jbrc_private_t = gf_common_mt_end + 1,
+        gf_mt_jbrc_end
 };
 
-char            *NSRC_XATTR     = "user.nsr.active";
+char            *JBRC_XATTR     = "user.jbr.active";
 
 static inline
 xlator_t *
 ACTIVE_CHILD (xlator_t *parent)
 {
-        nsrc_private_t  *priv   = parent->private;
+        jbrc_private_t  *priv   = parent->private;
 
         return priv ? priv->active : FIRST_CHILD(parent);
 }
@@ -60,11 +60,11 @@ next_xlator (xlator_t *this, xlator_t *prev)
 }
 
 void
-nsrc_retry_cb (void *cb_arg)
+jbrc_retry_cb (void *cb_arg)
 {
-        nsrc_local_t    *local  = cb_arg;
+        jbrc_local_t    *local  = cb_arg;
 
-        gf_msg (__func__, GF_LOG_INFO, 0, N_MSG_RETRY_MSG,
+        gf_msg (__func__, GF_LOG_INFO, 0, J_MSG_RETRY_MSG,
                 HILITE("retrying %p"), local);
         call_resume_wind(local->stub);
 }
@@ -72,74 +72,74 @@ nsrc_retry_cb (void *cb_arg)
 #pragma generate
 
 int32_t
-nsrc_forget (xlator_t *this, inode_t *inode)
+jbrc_forget (xlator_t *this, inode_t *inode)
 {
-        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, N_MSG_INIT_FAIL,
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, J_MSG_INIT_FAIL,
                           "xlator does not implement forget_cbk");
         return 0;
 }
 
 
 int32_t
-nsrc_releasedir (xlator_t *this, fd_t *fd)
+jbrc_releasedir (xlator_t *this, fd_t *fd)
 {
-        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, N_MSG_INIT_FAIL,
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, J_MSG_INIT_FAIL,
                           "xlator does not implement releasedir_cbk");
         return 0;
 }
 
 int32_t
-nsrc_release (xlator_t *this, fd_t *fd)
+jbrc_release (xlator_t *this, fd_t *fd)
 {
-        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, N_MSG_INIT_FAIL,
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0, J_MSG_INIT_FAIL,
                           "xlator does not implement release_cbk");
         return 0;
 }
 
 struct xlator_fops fops = {
-        .lookup         = nsrc_lookup,
-        .stat           = nsrc_stat,
-        .fstat          = nsrc_fstat,
-        .truncate       = nsrc_truncate,
-        .ftruncate      = nsrc_ftruncate,
-        .access         = nsrc_access,
-        .readlink       = nsrc_readlink,
-        .mknod          = nsrc_mknod,
-        .mkdir          = nsrc_mkdir,
-        .unlink         = nsrc_unlink,
-        .rmdir          = nsrc_rmdir,
-        .symlink        = nsrc_symlink,
-        .rename         = nsrc_rename,
-        .link           = nsrc_link,
-        .create         = nsrc_create,
-        .open           = nsrc_open,
-        .readv          = nsrc_readv,
-        .writev         = nsrc_writev,
-        .flush          = nsrc_flush,
-        .fsync          = nsrc_fsync,
-        .opendir        = nsrc_opendir,
-        .readdir        = nsrc_readdir,
-        .readdirp       = nsrc_readdirp,
-        .fsyncdir       = nsrc_fsyncdir,
-        .statfs         = nsrc_statfs,
-        .setxattr       = nsrc_setxattr,
-        .getxattr       = nsrc_getxattr,
-        .fsetxattr      = nsrc_fsetxattr,
-        .fgetxattr      = nsrc_fgetxattr,
-        .removexattr    = nsrc_removexattr,
-        .fremovexattr   = nsrc_fremovexattr,
-        .lk             = nsrc_lk,
-        .inodelk        = nsrc_inodelk,
-        .finodelk       = nsrc_finodelk,
-        .entrylk        = nsrc_entrylk,
-        .fentrylk       = nsrc_fentrylk,
-        .rchecksum      = nsrc_rchecksum,
-        .xattrop        = nsrc_xattrop,
-        .fxattrop       = nsrc_fxattrop,
-        .setattr        = nsrc_setattr,
-        .fsetattr       = nsrc_fsetattr,
-	.fallocate	= nsrc_fallocate,
-	.discard        = nsrc_discard,
+        .lookup         = jbrc_lookup,
+        .stat           = jbrc_stat,
+        .fstat          = jbrc_fstat,
+        .truncate       = jbrc_truncate,
+        .ftruncate      = jbrc_ftruncate,
+        .access         = jbrc_access,
+        .readlink       = jbrc_readlink,
+        .mknod          = jbrc_mknod,
+        .mkdir          = jbrc_mkdir,
+        .unlink         = jbrc_unlink,
+        .rmdir          = jbrc_rmdir,
+        .symlink        = jbrc_symlink,
+        .rename         = jbrc_rename,
+        .link           = jbrc_link,
+        .create         = jbrc_create,
+        .open           = jbrc_open,
+        .readv          = jbrc_readv,
+        .writev         = jbrc_writev,
+        .flush          = jbrc_flush,
+        .fsync          = jbrc_fsync,
+        .opendir        = jbrc_opendir,
+        .readdir        = jbrc_readdir,
+        .readdirp       = jbrc_readdirp,
+        .fsyncdir       = jbrc_fsyncdir,
+        .statfs         = jbrc_statfs,
+        .setxattr       = jbrc_setxattr,
+        .getxattr       = jbrc_getxattr,
+        .fsetxattr      = jbrc_fsetxattr,
+        .fgetxattr      = jbrc_fgetxattr,
+        .removexattr    = jbrc_removexattr,
+        .fremovexattr   = jbrc_fremovexattr,
+        .lk             = jbrc_lk,
+        .inodelk        = jbrc_inodelk,
+        .finodelk       = jbrc_finodelk,
+        .entrylk        = jbrc_entrylk,
+        .fentrylk       = jbrc_fentrylk,
+        .rchecksum      = jbrc_rchecksum,
+        .xattrop        = jbrc_xattrop,
+        .fxattrop       = jbrc_fxattrop,
+        .setattr        = jbrc_setattr,
+        .fsetattr       = jbrc_fsetattr,
+	.fallocate	= jbrc_fallocate,
+	.discard        = jbrc_discard,
 };
 
 struct xlator_cbks cbks = {
@@ -151,12 +151,12 @@ mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        GF_VALIDATE_OR_GOTO ("nsrc", this, out);
+        GF_VALIDATE_OR_GOTO ("jbrc", this, out);
 
-        ret = xlator_mem_acct_init (this, gf_mt_nsrc_end + 1);
+        ret = xlator_mem_acct_init (this, gf_mt_jbrc_end + 1);
 
         if (ret != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, N_MSG_MEM_ERR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, J_MSG_MEM_ERR,
                         "Memory accounting init failed");
                 return ret;
         }
@@ -166,19 +166,19 @@ out:
 
 
 int32_t
-nsrc_init (xlator_t *this)
+jbrc_init (xlator_t *this)
 {
-        nsrc_private_t  *priv   = NULL;
+        jbrc_private_t  *priv   = NULL;
         xlator_list_t   *trav   = NULL;
 
-        this->local_pool = mem_pool_new (nsrc_local_t, 128);
+        this->local_pool = mem_pool_new (jbrc_local_t, 128);
         if (!this->local_pool) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, N_MSG_MEM_ERR,
-                        "failed to create nsrc_local_t pool");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, J_MSG_MEM_ERR,
+                        "failed to create jbrc_local_t pool");
                 goto err;
         }
 
-        priv = GF_CALLOC (1, sizeof (*priv), gf_mt_nsrc_private_t);
+        priv = GF_CALLOC (1, sizeof (*priv), gf_mt_jbrc_private_t);
         if (!priv) {
                 goto err;
         }
@@ -199,13 +199,13 @@ err:
 }
 
 void
-nsrc_fini (xlator_t *this)
+jbrc_fini (xlator_t *this)
 {
         GF_FREE(this->private);
 }
 
 int
-nsrc_get_child_index (xlator_t *this, xlator_t *kid)
+jbrc_get_child_index (xlator_t *this, xlator_t *kid)
 {
         xlator_list_t   *trav;
         int             retval = -1;
@@ -221,7 +221,7 @@ nsrc_get_child_index (xlator_t *this, xlator_t *kid)
 }
 
 uint8_t
-nsrc_count_up_kids (nsrc_private_t *priv)
+jbrc_count_up_kids (jbrc_private_t *priv)
 {
         uint8_t         retval  = 0;
         uint8_t         i;
@@ -236,11 +236,11 @@ nsrc_count_up_kids (nsrc_private_t *priv)
 }
 
 int32_t
-nsrc_notify (xlator_t *this, int32_t event, void *data, ...)
+jbrc_notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int32_t           ret        = 0;
         int32_t           index      = 0;
-        nsrc_private_t   *priv       = NULL;
+        jbrc_private_t   *priv       = NULL;
 
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
         priv = this->private;
@@ -248,11 +248,11 @@ nsrc_notify (xlator_t *this, int32_t event, void *data, ...)
 
         switch (event) {
         case GF_EVENT_CHILD_UP:
-                index = nsrc_get_child_index(this, data);
+                index = jbrc_get_child_index(this, data);
                 if (index >= 0) {
                         priv->kid_state |= (1 << index);
-                        priv->up_children = nsrc_count_up_kids(priv);
-                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                        priv->up_children = jbrc_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, J_MSG_GENERIC,
                                 "got CHILD_UP for %s, now %u kids",
                                 ((xlator_t *)data)->name,
                                 priv->up_children);
@@ -260,11 +260,11 @@ nsrc_notify (xlator_t *this, int32_t event, void *data, ...)
                 ret = default_notify (this, event, data);
                 break;
         case GF_EVENT_CHILD_DOWN:
-                index = nsrc_get_child_index(this, data);
+                index = jbrc_get_child_index(this, data);
                 if (index >= 0) {
                         priv->kid_state &= ~(1 << index);
-                        priv->up_children = nsrc_count_up_kids(priv);
-                        gf_msg (this->name, GF_LOG_INFO, 0, N_MSG_GENERIC,
+                        priv->up_children = jbrc_count_up_kids(priv);
+                        gf_msg (this->name, GF_LOG_INFO, 0, J_MSG_GENERIC,
                                 "got CHILD_DOWN for %s, now %u kids",
                                 ((xlator_t *)data)->name,
                                 priv->up_children);
@@ -279,9 +279,9 @@ out:
 }
 
 int
-nsrc_priv_dump (xlator_t *this)
+jbrc_priv_dump (xlator_t *this)
 {
-        nsrc_private_t     *priv = NULL;
+        jbrc_private_t     *priv = NULL;
         char                key_prefix[GF_DUMP_MAX_BUF_LEN];
         xlator_list_t      *trav = NULL;
         int32_t             i    = -1;
@@ -306,13 +306,13 @@ out:
 }
 
 struct xlator_dumpops dumpops = {
-        .priv       = nsrc_priv_dump,
+        .priv       = jbrc_priv_dump,
 };
 
 class_methods_t class_methods = {
-        .init           = nsrc_init,
-        .fini           = nsrc_fini,
-        .notify         = nsrc_notify,
+        .init           = jbrc_init,
+        .fini           = jbrc_fini,
+        .notify         = jbrc_notify,
 };
 
 struct volume_options options[] = {

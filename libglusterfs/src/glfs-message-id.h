@@ -163,11 +163,11 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_SHARD_END           (GLFS_MSGID_COMP_SHARD +\
                                              GLFS_MSGID_SEGMENT)
 
-#define GLFS_MSGID_COMP_NSR                     GLFS_MSGID_COMP_SHARD_END
-#define GLFS_MSGID_COMP_NSR_END                 (GLFS_MSGID_COMP_SHARD_END+\
+#define GLFS_MSGID_COMP_JBR                     GLFS_MSGID_COMP_SHARD_END
+#define GLFS_MSGID_COMP_JBR_END                 (GLFS_MSGID_COMP_SHARD_END+\
                                                  GLFS_MSGID_SEGMENT)
 
-#define GLFS_MSGID_COMP_PL               GLFS_MSGID_COMP_NSR_END
+#define GLFS_MSGID_COMP_PL               GLFS_MSGID_COMP_JBR_END
 #define GLFS_MSGID_COMP_PL_END           (GLFS_MSGID_COMP_PL +\
                                          GLFS_MSGID_SEGMENT)
 /* --- new segments for messages goes above this line --- */
