@@ -186,7 +186,7 @@ echo
 echo
 
 cd tests/vagrant/$BRANCHNAME
-vagrant ssh -c 'cd /home/vagrant/glusterfs; sudo make install' -- -t
+vagrant ssh -c 'cd /home/vagrant/glusterfs; sudo make -j install' -- -t
 if [ $? -ne 0 ]
 then
         echo "make failed, exiting...."
@@ -198,7 +198,7 @@ echo
 echo
 
 cd tests/vagrant/$BRANCHNAME
-vagrant ssh -c 'cd /home/vagrant/glusterfs; sudo ./run-tests.sh' -- -t
+vagrant ssh -c "cd /home/vagrant/glusterfs; sudo ./run-tests.sh $*" -- -t
 cd $ORIGIN_DIR
 echo
 echo
