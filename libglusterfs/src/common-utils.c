@@ -3082,32 +3082,13 @@ _gf_timestuff (gf_timefmts *fmt, const char ***fmts, const char ***zeros)
 char *
 generate_glusterfs_ctx_id (void)
 {
-        char           tmp_str[1024] = {0,};
-        char           hostname[256] = {0,};
-        struct timeval tv = {0,};
-        char           now_str[32];
+        uuid_t         ctxid;
+        char          *tmp = NULL;
 
-        if (gettimeofday (&tv, NULL) == -1) {
-                gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
-                        LG_MSG_GETTIMEOFDAY_FAILED, "gettimeofday: "
-                        "failed");
-        }
+        gf_uuid_generate (ctxid);
+        tmp = uuid_utoa (ctxid);
 
-        if (gethostname (hostname, 256) == -1) {
-                gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
-                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: failed");
-        }
-
-        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
-        snprintf (tmp_str, sizeof tmp_str, "%s-%d-%s:%"
-#ifdef GF_DARWIN_HOST_OS
-                  PRId32,
-#else
-                  "ld",
-#endif
-                  hostname, getpid(), now_str, tv.tv_usec);
-
-        return gf_strdup (tmp_str);
+        return gf_strdup (tmp);
 }
 
 char *
