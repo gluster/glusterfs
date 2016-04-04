@@ -67,12 +67,14 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
         }
 
         while (port) {
-                _assign_port (sockaddr, port);
                 /* ignore the reserved ports */
                 if (ports[port] == _gf_true) {
                         port--;
                         continue;
                 }
+
+                _assign_port (sockaddr, port);
+
                 ret = rdma_bind_addr (cm_id, sockaddr);
 
                 if (ret == 0)

@@ -56,12 +56,14 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
 
         while (port)
         {
-                _assign_port (sockaddr, port);
                 // ignore the reserved ports
                 if (ports[port] == _gf_true) {
                         port--;
                         continue;
                 }
+
+                _assign_port (sockaddr, port);
+
                 ret = bind (fd, sockaddr, sockaddr_len);
 
                 if (ret == 0)
