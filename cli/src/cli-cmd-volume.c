@@ -2432,8 +2432,6 @@ out:
                         cli_err ("Volume barrier failed");
         }
         CLI_STACK_DESTROY (frame);
-        if (options)
-                dict_unref (options);
 
         return ret;
 }
@@ -2486,8 +2484,6 @@ out:
                         cli_err ("Volume get option failed");
         }
         CLI_STACK_DESTROY (frame);
-        if (options)
-                dict_unref (options);
         return ret;
 }
 
