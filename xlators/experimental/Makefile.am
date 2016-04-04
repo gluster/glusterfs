@@ -1,3 +1,3 @@
-SUBDIRS = nsr-client nsr-server fdl dht2
+SUBDIRS = jbr-client jbr-server fdl dht2
 
 CLEANFILES =

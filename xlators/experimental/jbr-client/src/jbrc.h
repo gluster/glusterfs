@@ -8,20 +8,20 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _NSRC_H_
-#define _NSRC_H_
+#ifndef _JBRC_H_
+#define _JBRC_H_
 
 typedef struct {
         xlator_t        *active;
         uint8_t          up_children;
         uint8_t          n_children;
         uint32_t         kid_state;
-} nsrc_private_t;
+} jbrc_private_t;
 
 typedef struct {
         call_stub_t     *stub;
         xlator_t        *curr_xl;
         uint16_t        scars;
-} nsrc_local_t;
+} jbrc_local_t;
 
-#endif /* _NSRC_H_ */
+#endif /* _JBRC_H_ */

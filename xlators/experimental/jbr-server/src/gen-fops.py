@@ -53,7 +53,7 @@ def load_templates (path):
 #
 # Various keywords can be used to define/undefine preprocessor symbols used
 # in the templates, on a per-function basis.  For example, if the keyword here
-# is "fsync" (lowercase word or abbreviation) that will cause NSR_CG_FSYNC
+# is "fsync" (lowercase word or abbreviation) that will cause JBR_CG_FSYNC
 # (prefix plus uppercase version) to be defined above all of the generated code
 # for that fop.
 
@@ -113,19 +113,19 @@ def gen_server (templates):
 		if ("fsync" in flags) or ("queue" in flags):
 			flags.append("need_fd")
 		for fname in flags:
-			print "#define NSR_CG_%s" % fname.upper()
+			print "#define JBR_CG_%s" % fname.upper()
 		print generate(templates[kind+"-complete"],name,cbk_subs)
 		print generate(templates[kind+"-continue"],name,fop_subs)
 		print generate(templates[kind+"-fan-in"],name,cbk_subs)
 		print generate(templates[kind+"-dispatch"],name,fop_subs)
 		print generate(templates[kind+"-fop"],name,fop_subs)
 		for fname in flags:
-			print "#undef NSR_CG_%s" % fname.upper()
+			print "#undef JBR_CG_%s" % fname.upper()
 		fops_done.append(name)
 	# Just for fun, emit the fops table too.
 	print("struct xlator_fops fops = {")
 	for x in fops_done:
-		print("	.%s = nsr_%s,"%(x,x))
+		print("	.%s = jbr_%s,"%(x,x))
 	print("};")
 
 tmpl = load_templates(sys.argv[1])

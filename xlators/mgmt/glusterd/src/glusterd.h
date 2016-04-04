@@ -210,13 +210,13 @@ struct glusterd_brickinfo {
         int32_t            snap_status;
         /*
          * The group is used to identify which bricks are part of the same
-         * replica set during brick-volfile generation, so that NSR volfiles
+         * replica set during brick-volfile generation, so that JBR volfiles
          * can "cross-connect" the bricks to one another. It is also used by
          * AFR to load the arbiter xlator in the appropriate brick in case of
          * a replica 3 volume with arbiter enabled.
          */
         uint16_t           group;
-        uuid_t             nsr_uuid;
+        uuid_t             jbr_uuid;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;

@@ -6,7 +6,7 @@
 volfiles=${GLUSTERD_WORKDIR}/vols/${V0}/
 check_brick_volfiles () {
         for vf in ${volfiles}${V0}.$(hostname).*.vol; do
-                grep -qs experimental/nsr $vf || return
+                grep -qs experimental/jbr $vf || return
                 # At least for now, nothing else would put a client translator
                 # in a brick volfile.
                 grep -qs protocol/client $vf || return
@@ -18,16 +18,16 @@ TEST glusterd
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2}
-TEST $CLI volume set $V0 cluster.nsr on
+TEST $CLI volume set $V0 cluster.jbr on
 
 # Check that the client volfile got modified properly.
-TEST grep -qs experimental/nsrc ${volfiles}${V0}.tcp-fuse.vol
+TEST grep -qs experimental/jbrc ${volfiles}${V0}.tcp-fuse.vol
 
 # Check that the brick volfiles got modified as well.
 EXPECT "OK" check_brick_volfiles
 
 # Put things back and make sure the "undo" worked.
-TEST $CLI volume set $V0 cluster.nsr off
+TEST $CLI volume set $V0 cluster.jbr off
 TEST $CLI volume start $V0
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 echo hello > $M0/probe

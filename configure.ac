@@ -187,10 +187,10 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
                 xlators/experimental/Makefile
-                xlators/experimental/nsr-client/Makefile
-                xlators/experimental/nsr-client/src/Makefile
-                xlators/experimental/nsr-server/Makefile
-                xlators/experimental/nsr-server/src/Makefile
+                xlators/experimental/jbr-client/Makefile
+                xlators/experimental/jbr-client/src/Makefile
+                xlators/experimental/jbr-server/Makefile
+                xlators/experimental/jbr-server/src/Makefile
                 xlators/experimental/dht2/Makefile
                 xlators/experimental/dht2/dht2-client/Makefile
                 xlators/experimental/dht2/dht2-client/src/Makefile
