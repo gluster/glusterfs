@@ -12,5 +12,6 @@
     - mock-user
     - selinux
     - iptables
+    - fix-localhost
     - daemon-services
 
