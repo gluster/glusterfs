@@ -412,7 +412,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 {
         call_frame_t    *transaction_frame = NULL;
         afr_local_t     *local             = NULL;
-        afr_private_t   *priv              = NULL;
         int             ret   = -1;
         int             op_errno = ENOMEM;
 
@@ -421,7 +420,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
                 goto out;
 
         local = frame->local;
-        priv = this->private;
         transaction_frame->local = local;
 	frame->local = NULL;
 
@@ -451,12 +449,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
                 local->transaction.start   = local->cont.writev.offset;
                 local->transaction.len     = iov_length (local->cont.writev.vector,
                                                          local->cont.writev.count);
-
-                /*Lock entire file to avoid network split brains.*/
-                if (priv->arbiter_count == 1) {
-                        local->transaction.start   = 0;
-                        local->transaction.len     = 0;
-                }
         }
 
         ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
