@@ -1356,16 +1356,24 @@ afr_post_lower_unlock_cbk (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_set_transaction_flock (afr_local_t *local)
+afr_set_transaction_flock (xlator_t *this, afr_local_t *local)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_inodelk_t       *inodelk  = NULL;
+        afr_private_t       *priv     = NULL;
 
         int_lock = &local->internal_lock;
         inodelk = afr_get_inodelk (int_lock, int_lock->domain);
+        priv = this->private;
 
-        inodelk->flock.l_len   = local->transaction.len;
-        inodelk->flock.l_start = local->transaction.start;
+        if (priv->arbiter_count) {
+                /*Lock entire file to avoid network split brains.*/
+                inodelk->flock.l_len   = 0;
+                inodelk->flock.l_start = 0;
+        } else {
+                inodelk->flock.l_len   = local->transaction.len;
+                inodelk->flock.l_start = local->transaction.start;
+        }
         inodelk->flock.l_type  = F_WRLCK;
 
         return 0;
@@ -1386,7 +1394,7 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
         switch (local->transaction.type) {
         case AFR_DATA_TRANSACTION:
         case AFR_METADATA_TRANSACTION:
-                afr_set_transaction_flock (local);
+                afr_set_transaction_flock (this, local);
 
                 int_lock->lock_cbk = afr_post_nonblocking_inodelk_cbk;
 
