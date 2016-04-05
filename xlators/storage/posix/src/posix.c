@@ -3055,28 +3055,35 @@ _fill_writev_xdata (fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
                 goto out;
         }
 
-        if (!xdata || !dict_get (xdata, GLUSTERFS_OPEN_FD_COUNT))
+        if (!xdata)
                 goto out;
 
         rsp_xdata = dict_new();
         if (!rsp_xdata)
                 goto out;
 
-        ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_OPEN_FD_COUNT,
-                               fd->inode->fd_count);
-        if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
-                        "%s: Failed to set dictionary value for %s",
-                        uuid_utoa (fd->inode->gfid), GLUSTERFS_OPEN_FD_COUNT);
+        if (dict_get (xdata, GLUSTERFS_OPEN_FD_COUNT)) {
+                ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_OPEN_FD_COUNT,
+                                       fd->inode->fd_count);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_DICT_SET_FAILED, "%s: Failed to set "
+                                "dictionary value for %s",
+                                uuid_utoa (fd->inode->gfid),
+                                GLUSTERFS_OPEN_FD_COUNT);
+                }
         }
 
-        ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_WRITE_IS_APPEND,
-                               is_append);
-        if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
-                        "%s: Failed to set dictionary value for %s",
-                        uuid_utoa (fd->inode->gfid),
-                        GLUSTERFS_WRITE_IS_APPEND);
+        if (dict_get (xdata, GLUSTERFS_WRITE_IS_APPEND)) {
+                ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_WRITE_IS_APPEND,
+                                       is_append);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_DICT_SET_FAILED, "%s: Failed to set "
+                                "dictionary value for %s",
+                                uuid_utoa (fd->inode->gfid),
+                                GLUSTERFS_WRITE_IS_APPEND);
+                }
         }
 out:
         return rsp_xdata;

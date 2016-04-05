@@ -128,8 +128,7 @@ arbiter_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         }
         buf = ctx->iattbuf;
 unwind:
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, buf,
-                             xdata);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
 }
 
@@ -152,8 +151,46 @@ arbiter_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         buf = ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, buf, buf,
-                             xdata);
+                             NULL);
         return 0;
+}
+
+dict_t*
+arbiter_fill_writev_xdata (fd_t *fd, dict_t *xdata, xlator_t *this)
+{
+        dict_t  *rsp_xdata = NULL;
+        int32_t ret = 0;
+        int is_append = 1;
+
+        if (!fd || !fd->inode || gf_uuid_is_null (fd->inode->gfid)) {
+                goto out;
+        }
+
+        if (!xdata)
+                goto out;
+
+        rsp_xdata = dict_new();
+        if (!rsp_xdata)
+                goto out;
+
+        if (dict_get (xdata, GLUSTERFS_OPEN_FD_COUNT)) {
+                ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_OPEN_FD_COUNT,
+                                       fd->inode->fd_count);
+                if (ret < 0) {
+                        gf_msg_debug (this->name, 0, "Failed to set dict value"
+                                      " for GLUSTERFS_OPEN_FD_COUNT");
+                }
+        }
+        if (dict_get (xdata, GLUSTERFS_WRITE_IS_APPEND)) {
+                ret = dict_set_uint32 (rsp_xdata, GLUSTERFS_WRITE_IS_APPEND,
+                                       is_append);
+                if (ret < 0) {
+                        gf_msg_debug (this->name, 0, "Failed to set dict value"
+                                      " for GLUSTERFS_WRITE_IS_APPEND");
+                }
+        }
+out:
+        return rsp_xdata;
 }
 
 int32_t
@@ -163,6 +200,7 @@ arbiter_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         arbiter_inode_ctx_t *ctx      = NULL;
         struct iatt         *buf      = NULL;
+        dict_t           *rsp_xdata   = NULL;
         int                  op_ret   = 0;
         int                  op_errno = 0;
 
@@ -174,8 +212,12 @@ arbiter_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         buf = ctx->iattbuf;
         op_ret = iov_length (vector, count);
+        rsp_xdata = arbiter_fill_writev_xdata (fd, xdata, this);
 unwind:
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, buf, buf, xdata);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, buf, buf,
+                             rsp_xdata);
+        if (rsp_xdata)
+                dict_unref (rsp_xdata);
         return 0;
 }
 
@@ -196,8 +238,7 @@ arbiter_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         buf = ctx->iattbuf;
 unwind:
-        STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, buf, buf,
-                            xdata);
+        STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
 }
 
@@ -218,7 +259,7 @@ arbiter_discard (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         buf = ctx->iattbuf;
 unwind:
-        STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, buf, buf, xdata);
+        STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
 }
 
@@ -239,7 +280,7 @@ arbiter_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         buf = ctx->iattbuf;
 unwind:
-        STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, buf, buf, xdata);
+        STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
 }
 
