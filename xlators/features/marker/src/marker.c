@@ -959,6 +959,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_conf_t      *priv    = NULL;
         marker_local_t     *local   = NULL;
+        call_stub_t        *stub    = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "error occurred "
@@ -968,21 +969,40 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
-
-        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
-                             postparent, xdata);
+        priv = this->private;
 
         if (op_ret == -1 || local == NULL)
                 goto out;
 
-        priv = this->private;
-
-        if (priv->feature_enabled & GF_QUOTA)
-                mq_reduce_parent_size_txn (this, &local->loc, NULL, 1);
-
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
+
+        if (priv->feature_enabled & GF_QUOTA) {
+                /* If a 'rm -rf' is performed by a client, rmdir can be faster
+                   than marker background mq_reduce_parent_size_txn.
+                   In this case, as part of rmdir parent child association
+                   will be removed in the server protocol.
+                   This can lead to mq_reduce_parent_size_txn failures.
+
+                   So perform mq_reduce_parent_size_txn in foreground
+                   and unwind to server once txn is complete
+                 */
+
+                stub = fop_rmdir_cbk_stub (frame, default_rmdir_cbk, op_ret,
+                                           op_errno, preparent, postparent,
+                                           xdata);
+                mq_reduce_parent_size_txn (this, &local->loc, NULL, 1, stub);
+
+                if (stub) {
+                        marker_local_unref (local);
+                        return 0;
+                }
+        }
+
 out:
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
+                             postparent, xdata);
+
         marker_local_unref (local);
 
         return 0;
@@ -1029,6 +1049,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_local_t     *local   = NULL;
         uint32_t            nlink   = -1;
         GF_UNUSED int32_t   ret     = 0;
+        call_stub_t        *stub    = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -1038,34 +1059,54 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = (marker_local_t *) frame->local;
 
         frame->local = NULL;
-
-        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
-                             postparent, xdata);
+        priv = this->private;
 
         if (op_ret == -1 || local == NULL)
                 goto out;
 
-        priv = this->private;
+        if (priv->feature_enabled & GF_XTIME)
+                marker_xtime_update_marks (this, local);
 
         if (priv->feature_enabled & GF_QUOTA) {
-                if (!local->skip_txn) {
-                        if (xdata) {
-                                ret = dict_get_uint32 (xdata,
-                                        GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_TRACE,
-                                                "dict get failed %s ",
-                                                strerror (-ret));
-                                }
+                if (local->skip_txn)
+                        goto out;
+
+                if (xdata) {
+                        ret = dict_get_uint32 (xdata,
+                                GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "dict get failed %s ",
+                                        strerror (-ret));
                         }
-                        mq_reduce_parent_size_txn (this, &local->loc, NULL,
-                                                   nlink);
+                }
+
+                /* If a 'rm -rf' is performed by a client, unlink can be faster
+                   than marker background mq_reduce_parent_size_txn.
+                   In this case, as part of unlink parent child association
+                   will be removed in the server protocol.
+                   This can lead to mq_reduce_parent_size_txn failures.
+
+                  So perform mq_reduce_parent_size_txn in foreground
+                  and unwind to server once txn is complete
+                */
+
+                stub = fop_unlink_cbk_stub (frame, default_unlink_cbk, op_ret,
+                                            op_errno, preparent, postparent,
+                                            xdata);
+                mq_reduce_parent_size_txn (this, &local->loc, NULL, nlink,
+                                           stub);
+
+                if (stub) {
+                        marker_local_unref (local);
+                        return 0;
                 }
         }
 
-        if (priv->feature_enabled & GF_XTIME)
-                marker_xtime_update_marks (this, local);
 out:
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
+                             postparent, xdata);
+
         marker_local_unref (local);
 
         return 0;
@@ -1229,14 +1270,14 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
 
         mq_reduce_parent_size_txn (this, &oplocal->loc, &oplocal->contribution,
-                                   -1);
+                                   -1, NULL);
 
         if (local->loc.inode != NULL) {
                 /* If destination file exits before rename, it would have
                  * been unlinked while renaming a file
                  */
                 mq_reduce_parent_size_txn (this, &local->loc, NULL,
-                                           local->ia_nlink);
+                                           local->ia_nlink, NULL);
         }
 
         newloc.inode = inode_ref (oplocal->loc.inode);

@@ -1046,6 +1046,9 @@ mq_synctask_cleanup (int ret, call_frame_t *frame, void *opaque)
         args = (quota_synctask_t *) opaque;
         loc_wipe (&args->loc);
 
+        if (args->stub)
+                call_resume (args->stub);
+
         if (!args->is_static)
                 GF_FREE (args);
 
@@ -1054,7 +1057,8 @@ mq_synctask_cleanup (int ret, call_frame_t *frame, void *opaque)
 
 int
 mq_synctask1 (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn,
-              loc_t *loc, quota_meta_t *contri, uint32_t nlink)
+              loc_t *loc, quota_meta_t *contri, uint32_t nlink,
+              call_stub_t *stub)
 {
         int32_t              ret         = -1;
         quota_synctask_t    *args        = NULL;
@@ -1069,6 +1073,7 @@ mq_synctask1 (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn,
         }
 
         args->this = this;
+        args->stub = stub;
         loc_copy (&args->loc, loc);
         args->ia_nlink = nlink;
 
@@ -1100,7 +1105,7 @@ out:
 int
 mq_synctask (xlator_t *this, synctask_fn_t task, gf_boolean_t spawn, loc_t *loc)
 {
-        return mq_synctask1 (this, task, spawn, loc, NULL, -1);
+        return mq_synctask1 (this, task, spawn, loc, NULL, -1, NULL);
 }
 
 int32_t
@@ -1407,10 +1412,12 @@ out:
 
 int32_t
 mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
-                           quota_meta_t *contri, uint32_t nlink)
+                           quota_meta_t *contri, uint32_t nlink,
+                           call_stub_t *stub)
 {
         int32_t                  ret           = -1;
         loc_t                    loc           = {0, };
+        gf_boolean_t             resume_stub   = _gf_true;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", origin_loc, out);
@@ -1424,10 +1431,18 @@ mq_reduce_parent_size_txn (xlator_t *this, loc_t *origin_loc,
                 goto out;
         }
 
+        resume_stub = _gf_false;
         ret = mq_synctask1 (this, mq_reduce_parent_size_task, _gf_true, &loc,
-                            contri, nlink);
+                            contri, nlink, stub);
 out:
         loc_wipe (&loc);
+
+        if (resume_stub && stub)
+                call_resume (stub);
+
+        if (ret)
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "mq_reduce_parent_size_txn failed");
 
         return ret;
 }
