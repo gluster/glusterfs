@@ -1579,10 +1579,18 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
                 snprintf (key, 256, "status-%d", i);
 
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
-                if (ret) {
+                if (ret == -ENOENT) {
                         gf_log ("cli", GF_LOG_TRACE, "count %d %d", count, i);
                         gf_log ("cli", GF_LOG_TRACE, "failed to get status");
-                        goto out;
+                        gf_log ("cli", GF_LOG_ERROR, "node down and has failed"
+                                " to set dict");
+                        continue;
+                        /* skip this node if value not available*/
+                } else if (ret) {
+                        gf_log ("cli", GF_LOG_TRACE, "count %d %d", count, i);
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get status");
+                        continue;
+                        /* skip this node if value not available*/
                 }
 
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
@@ -1704,10 +1712,17 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 snprintf (key, 256, "status-%d", i);
 
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
-                if (ret) {
+                if (ret == -ENOENT) {
                         gf_log ("cli", GF_LOG_TRACE, "count: %d, %d,"
                                 "failed to get status", count, i);
-                        goto out;
+                        gf_log ("cli", GF_LOG_ERROR, "node down and has failed"
+                                " to set dict");
+                        continue;
+                        /*skipping this node as value unavailable*/
+                } else if (ret) {
+                        gf_log ("cli", GF_LOG_TRACE, "count: %d, %d,"
+                                "failed to get status", count, i);
+                        continue;
                 }
 
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
