@@ -239,7 +239,7 @@ function run_tests()
 
     for t in $(find ${regression_testsdir}/tests -name '*.t' \
                | LC_COLLATE=C sort) ; do
-        old_cores=$(ls /core.* 2> /dev/null | wc -l)
+        old_cores=$(ls /*-*.core 2> /dev/null | wc -l)
         total_tests=$((total_tests+1))
         if match $t "$@" ; then
             selected_tests=$((selected_tests+1))
@@ -287,7 +287,7 @@ function run_tests()
                 RES=${TMP_RES}
                 FAILED="${FAILED}${t} "
             fi
-            new_cores=$(ls /core.* 2> /dev/null | wc -l)
+            new_cores=$(ls /*-*.core 2> /dev/null | wc -l)
             if [ x"$new_cores" != x"$old_cores" ]; then
                 core_diff=$((new_cores-old_cores))
                 echo "$t: $core_diff new core files"
