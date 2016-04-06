@@ -30,10 +30,10 @@
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 
 if [ -n "${OCF_DEBUG_LIBRARY}" ]; then
-    . ${OCF_DEBUG_LIBRARY}
+	. ${OCF_DEBUG_LIBRARY}
 else
-    : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
-. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+	: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
 # Defaults
@@ -46,7 +46,7 @@ OCF_RESKEY_grace_delay_default="5"
 : ${OCF_RESKEY_grace_delay=${OCF_RESKEY_grace_delay_default}}
 
 ganesha_meta_data() {
-        cat <<END
+	cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
 <resource-agent name="ganesha_mon">
@@ -113,13 +113,13 @@ ganesha_mon_start()
 {
 	ocf_log debug "ganesha_mon_start"
 	ganesha_mon_monitor
-        return $OCF_SUCCESS
+	return $OCF_SUCCESS
 }
 
 ganesha_mon_stop()
 {
 	ocf_log debug "ganesha_mon_stop"
-        return $OCF_SUCCESS
+	return $OCF_SUCCESS
 }
 
 ganesha_mon_monitor()
@@ -142,9 +142,20 @@ ganesha_mon_monitor()
 			ocf_log info "warning: attrd_updater -n ${OCF_RESKEY_ganesha_active} -v 1 failed"
 		fi
 
+		# ganesha_grace (nfs-grace) RA follows grace-active attr
+		# w/ constraint location
 		attrd_updater -n ${OCF_RESKEY_grace_active} -v 1
 		if [ $? -ne 0 ]; then
 			ocf_log info "warning: attrd_updater -n ${OCF_RESKEY_grace_active} -v 1 failed"
+		fi
+
+		# ganesha_mon (nfs-mon) and ganesha_grace (nfs-grace)
+		# track grace-active crm_attr (attr != crm_attr)
+		# we can't just use the attr as there's no way to query
+		# its value in RHEL6 pacemaker
+		crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1
+		if [ $? -ne 0 ]; then
+			ocf_log info "warning: crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 failed"
 		fi
 
 		return ${OCF_SUCCESS}
@@ -155,23 +166,23 @@ ganesha_mon_monitor()
 	#
 	# Meanwhile the ganesha_grace notify() runs when its
 	# nfs-grace resource is disabled on a node; which
-	# is triggered by clearing the ganesha-grace node
-	# attribute on this node.
+	# is triggered by clearing the grace-active attribute
+	# on this node.
 	#
 	# We need to allow time for it to run and put
 	# the remaining ganesha.nfsds into grace before
 	# initiating the VIP fail-over.
+
+	sleep ${OCF_RESKEY_grace_delay}
 
 	attrd_updater -D -n ${OCF_RESKEY_grace_active}
 	if [ $? -ne 0 ]; then
 		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_grace_active} failed"
 	fi
 
-	sleep ${OCF_RESKEY_grace_delay}
-
-	attrd_updater -D -n ${OCF_RESKEY_ganesha_active}
+	crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0
 	if [ $? -ne 0 ]; then
-		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_ganesha_active} failed"
+		ocf_log info "warning: crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0 failed"
 	fi
 
 	return ${OCF_SUCCESS}
@@ -193,8 +204,8 @@ stop)           ganesha_mon_stop
 status|monitor) ganesha_mon_monitor
 		;;
 *)              ganesha_mon_usage
-                exit ${OCF_ERR_UNIMPLEMENTED}
-                ;;
+		exit ${OCF_ERR_UNIMPLEMENTED}
+		;;
 esac
 
 rc=$?
