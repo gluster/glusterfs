@@ -376,7 +376,7 @@ teardown_cluster()
         if [[ ${HA_CLUSTER_NODES} != *${server}* ]]; then
             logger "info: ${server} is not in config, removing"
 
-            pcs cluster stop ${server}
+            pcs cluster stop ${server} --force
             if [ $? -ne 0 ]; then
                 logger "warning: pcs cluster stop ${server} failed"
             fi

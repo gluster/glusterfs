@@ -30,17 +30,17 @@
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 
 if [ -n "$OCF_DEBUG_LIBRARY" ]; then
-    . $OCF_DEBUG_LIBRARY
+	. $OCF_DEBUG_LIBRARY
 else
-    : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
-. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+	: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
 OCF_RESKEY_grace_active_default="grace-active"
 : ${OCF_RESKEY_grace_active=${OCF_RESKEY_grace_active_default}}
 
 ganesha_meta_data() {
-        cat <<END
+	cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
 <resource-agent name="ganesha_grace">
@@ -93,9 +93,11 @@ esac
 
 ganesha_grace_start()
 {
-        rc=${OCF_ERR_GENERIC}
+	local rc=${OCF_ERR_GENERIC}
+	local short_host=$(hostname -s)
+
 	ocf_log debug "ganesha_grace_start()"
-	attr=$(attrd_updater -Q -n ${OCF_RESKEY_grace_active})
+	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active})
 
 	# Three possibilities:
 	# 1. There is no attribute at all and attr_updater returns
@@ -116,7 +118,7 @@ ganesha_grace_start()
 	fi
 
 	# case 2
-	if [[ "${attr}" = *"value=\"1\"" ]]; then
+	if [[ "${attr}" = *"value=1" ]]; then
 		return ${OCF_SUCCESS}
 	fi
 
@@ -149,10 +151,12 @@ ganesha_grace_notify()
 
 ganesha_grace_monitor()
 {
-        rc=${OCF_ERR_GENERIC}
+	local rc=${OCF_ERR_GENERIC}
+	local short_host=$(hostname -s)
+
 	ocf_log debug "monitor"
 
-	attr=$(attrd_updater -Q -n ${OCF_RESKEY_grace_active})
+	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active})
 
 	# if there is no attribute (yet), maybe it's because
 	# this RA started before ganesha_mon (nfs-mon) has had
@@ -162,7 +166,7 @@ ganesha_grace_monitor()
 		return ${OCF_SUCCESS}
 	fi
 
-	if [[ "${attr}" = *"value=\"1\"" ]]; then
+	if [[ "${attr}" = *"value=1" ]]; then
 		rc=${OCF_SUCCESS}
 	fi
 
@@ -187,8 +191,8 @@ status|monitor) ganesha_grace_monitor
 notify)         ganesha_grace_notify
 		;;
 *)              ganesha_grace_usage
-                exit ${OCF_ERR_UNIMPLEMENTED}
-                ;;
+		exit ${OCF_ERR_UNIMPLEMENTED}
+		;;
 esac
 
 rc=$?

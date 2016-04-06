@@ -30,17 +30,17 @@
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 
 if [ -n "${OCF_DEBUG_LIBRARY}" ]; then
-    . ${OCF_DEBUG_LIBRARY}
+	. ${OCF_DEBUG_LIBRARY}
 else
-    : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
-. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+	: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
 OCF_RESKEY_ha_vol_mnt_default="/var/run/gluster/shared_storage"
 : ${OCF_RESKEY_ha_vol_mnt=${OCF_RESKEY_ha_vol_mnt_default}}
 
 ganesha_meta_data() {
-        cat <<END
+	cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
 <resource-agent name="ganesha_nfsd">
@@ -156,8 +156,8 @@ stop)           ganesha_nfsd_stop
 status|monitor) ganesha_nfsd_monitor
 		;;
 *)              ganesha_nfsd_usage
-                exit ${OCF_ERR_UNIMPLEMENTED}
-                ;;
+		exit ${OCF_ERR_UNIMPLEMENTED}
+		;;
 esac
 
 rc=$?
