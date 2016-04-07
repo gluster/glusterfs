@@ -463,6 +463,10 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #define ST_CTIM_NSEC_SET(stbuf, val) do { } while (0);
 #endif
 
+#ifdef GF_BSD_HOST_OS
+#define CLOCK_REALTIME_COARSE CLOCK_REALTIME
+#endif
+
 #ifndef IPV6_DEFAULT
 
 #ifndef IXDR_GET_LONG

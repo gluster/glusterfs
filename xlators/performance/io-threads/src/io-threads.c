@@ -162,8 +162,6 @@ iot_worker (void *data)
         THIS = this;
 
         for (;;) {
-                sleep_till.tv_sec = time (NULL) + conf->idle_time;
-
                 pthread_mutex_lock (&conf->mutex);
                 {
                         if (pri != -1) {
@@ -171,8 +169,11 @@ iot_worker (void *data)
                                 pri = -1;
                         }
                         while (conf->queue_size == 0) {
-                                conf->sleep_count++;
+                                clock_gettime (CLOCK_REALTIME_COARSE,
+                                               &sleep_till);
+                                sleep_till.tv_sec += conf->idle_time;
 
+                                conf->sleep_count++;
                                 ret = pthread_cond_timedwait (&conf->cond,
                                                               &conf->mutex,
                                                               &sleep_till);
