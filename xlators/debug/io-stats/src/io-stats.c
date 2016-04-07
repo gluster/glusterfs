@@ -865,6 +865,11 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         float                 fop_lat_min;
         float                 fop_lat_max;
         double                interval_sec;
+        double                fop_ave_usec = 0.0;
+        double                fop_ave_usec_sum = 0.0;
+        double                weighted_fop_ave_usec = 0.0;
+        double                weighted_fop_ave_usec_sum = 0.0;
+        long                  total_fop_hits = 0;
         loc_t                 unused_loc = {0, };
 
         interval_sec = ((now->tv_sec * 1000000.0 + now->tv_usec) -
@@ -969,7 +974,32 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                 ios_log (this, logfp,
                         "\"%s.%s.fop.%s.latency_max_usec\": \"%0.2lf\",",
                         key_prefix, str_prefix, lc_fop_name, fop_lat_max);
+
+                fop_ave_usec_sum += fop_lat_ave;
+                weighted_fop_ave_usec_sum += fop_hits * fop_lat_ave;
+                total_fop_hits += fop_hits;
         }
+
+        if (total_fop_hits) {
+                weighted_fop_ave_usec = weighted_fop_ave_usec_sum/total_fop_hits;
+                /* Extra key that does not print out an entry w/ 0.00 for
+                 * intervals with no data
+                 */
+                ios_log (this, logfp,
+                        "\"%s.%s.fop.weighted_latency_ave_usec_nozerofill\": \"%0.4lf\",",
+                        key_prefix, str_prefix, weighted_fop_ave_usec);
+        }
+        ios_log (this, logfp,
+                "\"%s.%s.fop.weighted_latency_ave_usec\": \"%0.4lf\",",
+                key_prefix, str_prefix, weighted_fop_ave_usec);
+        ios_log (this, logfp,
+                "\"%s.%s.fop.weighted_fop_count\": \"%ld\",",
+                key_prefix, str_prefix, total_fop_hits);
+
+        fop_ave_usec = fop_ave_usec_sum/GF_FOP_MAXVALUE;
+        ios_log (this, logfp,
+                "\"%s.%s.fop.unweighted_latency_ave_usec\":\"%0.4lf\",",
+                key_prefix, str_prefix, fop_ave_usec);
 
         dict_t *xattr = NULL;
         ret = syncop_getxattr (this, &unused_loc, &xattr,
