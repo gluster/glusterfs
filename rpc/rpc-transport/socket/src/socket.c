@@ -3052,17 +3052,11 @@ socket_connect (rpc_transport_t *this, int port)
 
 handler:
                 if (ret < 0) {
-                        if (priv->own_thread) {
-                                sys_close (priv->sock);
-                                priv->sock = -1;
-                        }
-                        else {
-                                /* Ignore error from connect. epoll events
-                                   should be handled in the socket handler.
-                                   shutdown(2) will result in EPOLLERR, so
-                                   cleanup is done in socket_event_handler */
-                                shutdown (priv->sock, SHUT_RDWR);
-                        }
+                        /* Ignore error from connect. epoll events
+                           should be handled in the socket handler.  shutdown(2)
+                           will result in EPOLLERR, so cleanup is done in
+                           socket_event_handler or socket_poller */
+                        shutdown (priv->sock, SHUT_RDWR);
                 }
 
                 /*
@@ -3074,7 +3068,7 @@ handler:
                 rpc_transport_ref (this);
                 refd = _gf_true;
 
-                if (!ret && priv->own_thread) {
+                if (priv->own_thread) {
                         if (pipe(priv->pipe) < 0) {
                                 gf_log(this->name,GF_LOG_ERROR,
                                 "could not create pipe");
