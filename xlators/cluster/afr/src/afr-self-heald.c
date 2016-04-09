@@ -738,7 +738,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-		        "Could not add statistics_healed_count to outout");
+		        "Could not add statistics_healed_count to output");
                 goto out;
 	}
 
@@ -748,7 +748,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 	if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-		        "Could not add statistics_split_brain_count to outout");
+		        "Could not add statistics_split_brain_count to output");
                 goto out;
         }
 
@@ -768,7 +768,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 	if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-	                "Could not add statistics_healed_failed_count to outout");
+	                "Could not add statistics_healed_failed_count to output");
                 goto out;
         }
 
@@ -778,7 +778,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 	if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-		        "Could not add statistics_crawl_start_time to outout");
+		        "Could not add statistics_crawl_start_time to output");
                 goto out;
         } else {
 		start_time_str = NULL;
@@ -797,7 +797,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 	if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-		        "Could not add statistics_crawl_end_time to outout");
+		        "Could not add statistics_crawl_end_time to output");
                 goto out;
         } else {
 		end_time_str = NULL;
@@ -810,7 +810,7 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 	if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         -ret, AFR_MSG_DICT_SET_FAILED,
-		        "Could not add statistics_inprogress to outout");
+		        "Could not add statistics_inprogress to output");
                 goto out;
         }
 
