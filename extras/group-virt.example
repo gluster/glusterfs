@@ -1,8 +1,8 @@
-quick-read=off
-read-ahead=off
-io-cache=off
-stat-prefetch=off
-eager-lock=enable
-remote-dio=enable
-quorum-type=auto
-server-quorum-type=server
+performance.quick-read=off
+performance.read-ahead=off
+performance.io-cache=off
+performance.stat-prefetch=off
+cluster.eager-lock=enable
+network.remote-dio=enable
+cluster.quorum-type=auto
+cluster.server-quorum-type=server

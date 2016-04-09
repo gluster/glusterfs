@@ -512,11 +512,12 @@ function cleanup()
                 ;;
         esac
 
-        # remove contents of "GLUSTERD_WORKDIR" except hooks directory.
+        # remove contents of "GLUSTERD_WORKDIR" except hooks and groups
+        # directories.
         if [ -n $GLUSTERD_WORKDIR ]
         then
                 find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
-                -o -exec rm -rf '{}' ';'
+                -o -name 'groups' -prune -o -exec rm -rf '{}' ';'
         else
                 echo "GLUSTERD_WORKDIR is not set"
         fi
