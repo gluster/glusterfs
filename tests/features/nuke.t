@@ -36,6 +36,6 @@ TEST ! ls $M0/foo
 TEST [ $(count_files $LANDFILL) = "1" ]
 
 # Make sure the janitor thread cleans it up in a timely fashion.
-EXPECT_WITHIN 20 "0" count_files $LANDFILL
+EXPECT_WITHIN 60 "0" count_files $LANDFILL
 
 cleanup
