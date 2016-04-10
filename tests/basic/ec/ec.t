@@ -1,5 +1,6 @@
 #!/bin/bash
 
+. $(dirname $0)/../../traps.rc
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
@@ -155,7 +156,7 @@ function check_perm_file {
 cleanup
 
 TEST useradd -o -M -u ${TEST_UID} ${TEST_USER}
-trap "userdel --force ${TEST_USER}" EXIT
+push_trapfunc "userdel --force ${TEST_USER}"
 
 TEST glusterd
 TEST pidof glusterd
@@ -177,7 +178,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Create local files for comparisons etc.
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
-trap "rm -rf $tmpdir" EXIT
+push_trapfunc "rm -rf $tmpdir"
 TEST create_file $tmpdir/create-write 10
 TEST create_file $tmpdir/truncate 10
 
@@ -254,8 +255,5 @@ EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mkdir $B0/${V0}{0..9}
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_setxattr $B0/${V0}{0..9}
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_removexattr $B0/${V0}{0..9}
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_perm_file $B0/${V0}{0..9}
-
-TEST rm -rf $tmpdir
-TEST userdel --force ${TEST_USER}
 
 cleanup

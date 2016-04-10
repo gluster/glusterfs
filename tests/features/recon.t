@@ -1,5 +1,6 @@
 #!/bin/bash
 
+. $(dirname $0)/../traps.rc
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
@@ -11,7 +12,7 @@ FDL_META_FILE=${log_base}/${log_id}-meta-1.jnl
 FDL_DATA_FILE=${log_base}/${log_id}-data-1.jnl
 
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
-trap "rm -rf $tmpdir" EXIT
+push_trapfunc "rm -rf $tmpdir"
 
 write_file () {
 	echo "peekaboo" > $1

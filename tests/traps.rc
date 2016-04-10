@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Make sure this only gets included/executed once.  Unfortunately, bash doesn't
+# usually distinguish between values that are unset and values that are null.
+# To work around that, we declare TRAPFUNCS to be a one-element array right at
+# the start, but that one element is : which is defined to do nothing.
+
+if [ ${#TRAPFUNCS[@]} = 0 ]; then
+        TRAPFUNCS=(:)
+
+        push_trapfunc () {
+                TRAPFUNCS[${#TRAPFUNCS[@]}]="$@"
+        }
+
+        execute_trapfuncs () {
+                for i in "${TRAPFUNCS[@]}"; do
+                        $i
+                done
+        }
+
+        trap execute_trapfuncs EXIT
+fi
