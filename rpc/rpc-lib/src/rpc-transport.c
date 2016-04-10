@@ -669,7 +669,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
                 goto out;
 
         host = gf_strdup ((char*)hostname);
-        if (!hostname) {
+        if (!host) {
                 ret = -1;
                 goto out;
         }
