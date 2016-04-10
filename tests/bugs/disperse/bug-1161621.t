@@ -1,5 +1,6 @@
 #!/bin/bash
 
+. $(dirname $0)/../../traps.rc
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
@@ -16,7 +17,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "5" ec_child_up_count $V0 0
 
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
-trap "rm -rf $tmpdir" EXIT
+push_trapfunc "rm -rf $tmpdir"
 
 TEST dd if=/dev/urandom of=$tmpdir/file bs=1234 count=20
 cs=$(sha1sum $tmpdir/file | awk '{ print $1 }')
@@ -37,7 +38,5 @@ wait
 
 EXPECT "24680000" stat -c "%s" $M0/shared
 EXPECT "$cs" echo $(sha1sum $M0/shared | awk '{ print $1 }')
-
-TEST rm -rf $tmpdir
 
 cleanup

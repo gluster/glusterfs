@@ -94,6 +94,11 @@ function cleanup_lvm() {
     return 0
 }
 
+# Find out how this file was sourced, source traps.rc the same way, and use
+# push_trapfunc to make sure cleanup_lvm gets called before we exit.
+. $(dirname ${BASH_SOURCE[0]})/traps.rc
+push_trapfunc cleanup_lvm
+
 ########################################################
 # Private Functions
 ########################################################
