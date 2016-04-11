@@ -17,7 +17,7 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 TEST $CLI volume set $V0 features.uss enable
 
 ## Now set another volume option, this should not fail
-TEST $CLI volume set $V0 features.file-snapshot on
+TEST $CLI volume set $V0 performance.io-cache off
 
 ## start the volume
 TEST $CLI volume start $V0

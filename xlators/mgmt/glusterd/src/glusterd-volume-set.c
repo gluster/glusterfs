@@ -1792,16 +1792,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
 	/* Feature translators */
-        { .key         = "features.file-snapshot",
-          .voltype     = "features/qemu-block",
-          .option      = "!feat",
-          .value       = "off",
-          .op_version  = 3,
-          .description = "enable/disable file-snapshot feature in the "
-                         "volume.",
-          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
-        },
-
         { .key         = "features.uss",
           .voltype     = "features/snapview-server",
           .op_version  = GD_OP_VERSION_3_6_0,
