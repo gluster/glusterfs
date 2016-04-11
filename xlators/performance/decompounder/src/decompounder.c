@@ -899,6 +899,12 @@ out:
         return 0;
 }
 
+struct xlator_cbks cbks = {
+};
+
+struct volume_options options[] = {
+};
+
 struct xlator_fops fops = {
         .compound = dc_compound,
 };
