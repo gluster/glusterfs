@@ -4038,20 +4038,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
-
-        ret = dict_get_str_boolean (set_dict, "features.file-snapshot",
-                                    _gf_false);
-        if (ret == -1)
-                goto out;
-        if (ret) {
-                xl = volgen_graph_add (graph, "features/qemu-block", volname);
-
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-        }
-
         /* Do not allow changing read-after-open option if root-squash is
            enabled.
         */
