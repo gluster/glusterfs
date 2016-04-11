@@ -5124,7 +5124,7 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
         this = THIS;
         GF_ASSERT (this);
 
-        ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo);
+        ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo, _gf_true);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_BRICKINFO_CREATE_FAIL,

@@ -1059,7 +1059,8 @@ out:
 
 int32_t
 glusterd_brickinfo_new_from_brick (char *brick,
-                                   glusterd_brickinfo_t **brickinfo)
+                                   glusterd_brickinfo_t **brickinfo,
+                                   gf_boolean_t construct_real_path)
 {
         char                   *hostname      = NULL;
         char                   *path          = NULL;
@@ -1107,19 +1108,22 @@ glusterd_brickinfo_new_from_brick (char *brick,
         strncpy (new_brickinfo->hostname, hostname, 1024);
         strncpy (new_brickinfo->path, path, 1024);
 
-        if (!realpath (new_brickinfo->path, abspath)) {
-                /* ENOENT indicates that brick path has not been created which
-                 * is a valid scenario */
-                if (errno != ENOENT) {
-                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                GD_MSG_BRICKINFO_CREATE_FAIL, "realpath () failed for "
-                                "brick %s. The underlying filesystem may be in bad "
-                                "state", new_brickinfo->path);
-                        ret = -1;
-                        goto out;
+        if (construct_real_path) {
+                if (!realpath (new_brickinfo->path, abspath)) {
+                        /* ENOENT indicates that brick path has not been created
+                         * which is a valid scenario */
+                        if (errno != ENOENT) {
+                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_BRICKINFO_CREATE_FAIL, "realpath"
+                                        " () failed for brick %s. The "
+                                        "underlying filesystem may be in bad "
+                                        "state", new_brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
                 }
+                strncpy (new_brickinfo->real_path, abspath, strlen(abspath));
         }
-        strncpy (new_brickinfo->real_path, abspath, strlen(abspath));
 
         *brickinfo = new_brickinfo;
 
@@ -1420,7 +1424,8 @@ out:
 int32_t
 glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
-                                        glusterd_brickinfo_t **brickinfo)
+                                        glusterd_brickinfo_t **brickinfo,
+                                        gf_boolean_t construct_real_path)
 {
         int32_t                 ret = -1;
         glusterd_brickinfo_t    *tmp_brickinfo = NULL;
@@ -1428,7 +1433,8 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         GF_ASSERT (brick);
         GF_ASSERT (volinfo);
 
-        ret = glusterd_brickinfo_new_from_brick (brick, &tmp_brickinfo);
+        ret = glusterd_brickinfo_new_from_brick (brick, &tmp_brickinfo,
+                                                 construct_real_path);
         if (ret)
                 goto out;
 
@@ -5806,7 +5812,8 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
         GF_ASSERT (op_errstr);
 
         if (!brickinfo) {
-                ret = glusterd_brickinfo_new_from_brick (brick, &newbrickinfo);
+                ret = glusterd_brickinfo_new_from_brick (brick, &newbrickinfo,
+                                                         _gf_true);
                 if (ret)
                         goto out;
                 is_allocated = _gf_true;
@@ -10149,7 +10156,8 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
                                 goto out;
                         ret = glusterd_volume_brickinfo_get_by_brick (brickname,
                                                                       volinfo,
-                                                                      &brick);
+                                                                      &brick,
+                                                                      _gf_true);
                         if (ret)
                                 goto out;
                         if (gf_uuid_compare (MY_UUID, brick->uuid) == 0) {
