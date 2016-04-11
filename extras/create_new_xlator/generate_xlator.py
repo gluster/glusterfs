@@ -7,7 +7,6 @@ import time
 path = os.path.abspath(os.path.dirname(__file__)) + '/../../libglusterfs/src'
 sys.path.append(path)
 from generator import ops, xlator_cbks, xlator_dumpops
-from config import fops, xl_cbk, dumpops
 
 MAKEFILE_FMT = """
 xlator_LTLIBRARIES = @XL_NAME@.la
@@ -79,15 +78,15 @@ def gen_xlator():
                                                               xl_name)
 
         #Generate cbks and fops
-        for fop in fops:
+        for fop in ops:
                 print >> xl, generate(fragments["CBK_TEMPLATE"], fop, ops)
                 print >> xl, generate(fragments["FOP_TEMPLATE"], fop, ops)
 
-        for cbk in xl_cbk:
+        for cbk in xlator_cbks:
                 print >> xl, generate(fragments["FUNC_TEMPLATE"], cbk,
                                       xlator_cbks)
 
-        for dops in dumpops:
+        for dops in xlator_dumpops:
                 print >> xl, generate(fragments["FUNC_TEMPLATE"], dops,
                                       xlator_dumpops)
 
@@ -95,19 +94,19 @@ def gen_xlator():
 
         #Generate fop table
         print >> xl, "struct xlator_fops fops = {"
-        for fop in fops:
+        for fop in ops:
                 print >> xl, "        .{0:20} = {1}_{2},".format(fop, fop_prefix, fop)
         print >> xl, "};"
 
         #Generate xlator_cbks table
         print >> xl, "struct xlator_cbks cbks = {"
-        for cbk in xl_cbk:
+        for cbk in xlator_cbks:
                 print >> xl, "        .{0:20} = {1}_{2},".format(cbk, fop_prefix, cbk)
         print >> xl, "};"
 
         #Generate xlator_dumpops table
         print >> xl, "struct xlator_dumpops dumpops = {"
-        for dops in dumpops:
+        for dops in xlator_dumpops:
                 print >> xl, "        .{0:20} = {1}_{2},".format(dops, fop_prefix, dops)
         print >> xl, "};"
 
