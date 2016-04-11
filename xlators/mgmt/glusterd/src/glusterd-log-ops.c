@@ -146,7 +146,8 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL);
+        ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, NULL,
+                                                      _gf_true);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Incorrect brick %s "
                           "for volume %s", brick, volname);
@@ -205,7 +206,8 @@ glusterd_op_log_rotate (dict_t *dict)
         if (ret)
                 goto cont;
 
-        ret = glusterd_brickinfo_new_from_brick (brick, &tmpbrkinfo);
+        ret = glusterd_brickinfo_new_from_brick (brick, &tmpbrkinfo,
+                                                 _gf_true);
         if (ret) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_NOT_FOUND,

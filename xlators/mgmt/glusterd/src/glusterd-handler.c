@@ -4948,7 +4948,8 @@ get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
         }
 
         ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
-                                                      brickinfo);
+                                                      brickinfo,
+                                                      _gf_false);
         if (ret)
                 goto out;
 

@@ -113,7 +113,9 @@ int32_t
 glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo);
 
 int32_t
-glusterd_brickinfo_new_from_brick (char *brick, glusterd_brickinfo_t **brickinfo);
+glusterd_brickinfo_new_from_brick (char *brick,
+                                   glusterd_brickinfo_t **brickinfo,
+                                   gf_boolean_t construct_real_path);
 
 int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
@@ -159,7 +161,8 @@ glusterd_is_cli_op_req (int32_t op);
 int32_t
 glusterd_volume_brickinfo_get_by_brick (char *brick,
                                         glusterd_volinfo_t *volinfo,
-                                        glusterd_brickinfo_t **brickinfo);
+                                        glusterd_brickinfo_t **brickinfo,
+                                        gf_boolean_t construct_real_path);
 
 int32_t
 glusterd_add_volumes_to_export_dict (dict_t **peer_data);
