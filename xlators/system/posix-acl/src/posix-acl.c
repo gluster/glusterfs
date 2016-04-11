@@ -855,16 +855,24 @@ posix_acl_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, inode_t *inode,
                       struct iatt *buf, dict_t *xattr, struct iatt *postparent)
 {
-        struct posix_acl     *acl_access = NULL;
+        struct posix_acl     *acl_access  = NULL;
         struct posix_acl     *acl_default = NULL;
-        struct posix_acl     *old_access = NULL;
+        struct posix_acl     *old_access  = NULL;
         struct posix_acl     *old_default = NULL;
-        data_t               *data = NULL;
-        int                   ret = 0;
-        dict_t               *my_xattr = NULL;
+        struct posix_acl_ctx *ctx         = NULL;
+        data_t               *data        = NULL;
+        int                   ret         = 0;
+        dict_t               *my_xattr    = NULL;
 
         if (op_ret != 0)
                 goto unwind;
+
+        ctx = posix_acl_ctx_new (inode, this);
+        if (!ctx) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
 
         ret = posix_acl_get (inode, this, &old_access, &old_default);
 
@@ -1626,11 +1634,12 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, gf_dirent_t *entries,
                         dict_t *xdata)
 {
-        gf_dirent_t      *entry       = NULL;
-        struct posix_acl *acl_access  = NULL;
-        struct posix_acl *acl_default = NULL;
-        data_t           *data        = NULL;
-        int               ret         = 0;
+        gf_dirent_t          *entry       = NULL;
+        struct posix_acl     *acl_access  = NULL;
+        struct posix_acl     *acl_default = NULL;
+        struct posix_acl_ctx *ctx         = NULL;
+        data_t               *data        = NULL;
+        int                   ret         = 0;
 
         if (op_ret <= 0)
                 goto unwind;
@@ -1639,6 +1648,13 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Update the inode ctx */
                 if (!entry->dict || !entry->inode)
                         continue;
+
+                ctx = posix_acl_ctx_new (entry->inode, this);
+                if (!ctx) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
 
                 ret = posix_acl_get (entry->inode, this,
                                      &acl_access, &acl_default);
