@@ -1177,6 +1177,7 @@ server_auth_option_handler (volgen_graph_t *graph,
         char *aa = NULL;
         int   ret   = 0;
         char *key = NULL;
+        char *auth_path = NULL;
 
         if (strcmp (vme->option, "!server-auth") != 0)
                 return 0;
@@ -1186,16 +1187,21 @@ server_auth_option_handler (volgen_graph_t *graph,
         /* from 'auth.allow' -> 'allow', and 'auth.reject' -> 'reject' */
         key = strchr (vme->key, '.') + 1;
 
-        for (trav = xl->children; trav; trav = trav->next) {
-                ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
-                                   key);
-                if (ret != -1) {
-                        ret = xlator_set_option (xl, aa, vme->value);
-                        GF_FREE (aa);
-                }
-                if (ret)
-                        return -1;
+        ret = xlator_get_option (xl, "auth-path", &auth_path);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DEFAULT_OPT_INFO,
+                        "Failed to get auth-path from server graph");
+                return -1;
         }
+        ret = gf_asprintf (&aa, "auth.addr.%s.%s", auth_path,
+                                   key);
+        if (ret != -1) {
+                ret = xlator_set_option (xl, aa, vme->value);
+                GF_FREE (aa);
+        }
+        if (ret)
+                return -1;
 
         return 0;
 }
@@ -1531,6 +1537,27 @@ brick_graph_add_trash (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = xlator_set_option (xl, "trash-internal-op", "off");
         if (ret)
                 goto out;
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_decompounder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t *xl                = NULL;
+        xlator_t  *this             = NULL;
+        glusterd_conf_t *conf       = NULL;
+        int ret                     = -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        xl = volgen_graph_add (graph, "performance/decompounder", volinfo->volname);
+        if (xl)
+                ret = 0;
 out:
         return ret;
 }
@@ -2280,6 +2307,13 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
         }
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "auth-path");
+
+        ret = xlator_set_option (xl, key, brickinfo->path);
+        if (ret)
+                return -1;
+
         if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "auth.login.%s.ssl-allow",
@@ -2402,7 +2436,8 @@ out:
  * the topology of the brick graph */
 static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_server, NULL},
-        {brick_graph_add_io_stats, NULL},
+        {brick_graph_add_decompounder, "decompounder"},
+        {brick_graph_add_io_stats, "NULL"},
         {brick_graph_add_cdc, NULL},
         {brick_graph_add_quota, "quota"},
         {brick_graph_add_index, "index"},
@@ -5624,6 +5659,7 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         char           *loglevel        = NULL;
         char           *xlator          = NULL;
         char           *value           = NULL;
+        char           auth_path[]      = "auth-path";
 
         set_dict = dict_copy (volinfo->dict, NULL);
         if (!set_dict)
@@ -5688,6 +5724,11 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
 
         snprintf (key, sizeof (key), "auth.login.%s.password", username);
         ret = xlator_set_option (xl, key, passwd);
+        if (ret)
+                return -1;
+
+        snprintf (key, sizeof (key), "snapd-%s", volinfo->volname);
+        ret = xlator_set_option (xl, auth_path, key);
         if (ret)
                 return -1;
 
