@@ -333,6 +333,12 @@ function _TEST_IN_LOOP()
         _TEST $@
 }
 
+function _EXPECT_WITHIN_TEST_IN_LOOP()
+{
+        testcnt=`expr $testcnt + 1`;
+        _EXPECT_WITHIN $@
+}
+
 which killall > /dev/null || {
   killall() {
     pkill $@
@@ -800,6 +806,7 @@ alias TEST='_TEST $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
+alias EXPECT_WITHIN_TEST_IN_LOOP='_EXPECT_WITHIN_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
 
 if [ x"$OSTYPE" = x"Linux" ]; then
