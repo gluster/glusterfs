@@ -22,7 +22,7 @@ else
         # might be in developer's tree
         if [ -d ./libglusterfs/src/.libs ]; then
                 buildscratch="."
-        elif [ -d ../libglusterfs/src/.libs]; then
+        elif [ -d ../libglusterfs/src/.libs ]; then
                 buildscratch=".."
         fi
 fi
