@@ -25,9 +25,9 @@ try:
     import xml.etree.cElementTree as etree
 except ImportError:
     import xml.etree.ElementTree as etree
-from distaf.gluster_libs.mount_ops import mount_volume
-from distaf.gluster_libs.peer_ops import peer_probe, nodes_from_pool_list
-from distaf.gluster_libs.gluster_init import env_setup_servers, start_glusterd
+from distaflibs.gluster.mount_ops import mount_volume
+from distaflibs.gluster.peer_ops import peer_probe, nodes_from_pool_list
+from distaflibs.gluster.gluster_init import env_setup_servers, start_glusterd
 
 """
     This file contains the gluster volume operations like create volume,
