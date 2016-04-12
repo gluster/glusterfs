@@ -18,7 +18,7 @@
 
 
 from distaf.util import tc
-from distaf.gluster_libs.volume_ops import start_volume, stop_volume
+from distaflibs.gluster.volume_ops import start_volume, stop_volume
 
 
 def snap_create(volname, snapname, server='', desc=''):
