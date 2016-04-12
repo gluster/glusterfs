@@ -2083,6 +2083,8 @@ sub process {
                  "Use of $flag is deprecated, please use \`$replacement->{$flag} instead.\n" . $herecurr) if ($replacement->{$flag});
         }
 
+# check we are in .spec file, then ignore this hunk
+        next if ($realfile eq "glusterfs.spec.in");
 
 # check we are in a valid source file if not then ignore this hunk
         next if ($realfile !~ /\.(h|c|pl|py|l|y|sh|in)$/);
