@@ -5146,8 +5146,16 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
 
                 ret = dict_get_str (dict, key, &buffer);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_INFO, "Unable to get Brick Path");
-                        goto out;
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Unable to get Brick Path");
+                        /*
+                         * If path itself is not present, then end *
+                         * this brick's status and continue to the *
+                         * brick                                   *
+                         */
+                        ret = xmlTextWriterEndElement (writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                        continue;
                 }
 
                 ret = xmlTextWriterWriteFormatElement (writer,
@@ -5159,14 +5167,14 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
 
                 ret = dict_get_str (dict, key, &buffer);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_INFO,
+                        gf_log ("cli", GF_LOG_ERROR,
                                 "Unable to get Volume Group");
-                        goto out;
-                }
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                              (xmlChar *) "volumeGroup", "N/A");
+                } else
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                       (xmlChar *) "volumeGroup", "%s", buffer);
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                        (xmlChar *) "volumeGroup",
-                                        "%s", buffer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 snprintf (key, sizeof (key), "%s.brick%d.status", keyprefix, i);
@@ -5175,22 +5183,25 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
                 if (ret) {
                         gf_log ("cli", GF_LOG_INFO,
                                 "Unable to get Brick Running");
-                        strcpy (buffer, "N/A");
-                }
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                    (xmlChar *) "BrickRunning", "%s", buffer);
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                            (xmlChar *) "brick_running", "N/A");
+                } else
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                     (xmlChar *) "brick_running", "%s", buffer);
+
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 snprintf (key, sizeof (key), "%s.brick%d.pid", keyprefix, i);
 
                 ret = dict_get_int32 (dict, key, &pid);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Unable to get pid");
-                        goto out;
-                }
+                        gf_log ("cli", GF_LOG_INFO, "Unable to get pid");
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                      (xmlChar *) "pid", "N/A");
+                } else
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                  (xmlChar *) "pid", "%d", pid);
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                        (xmlChar *) "pid", "%d", pid);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 snprintf (key, sizeof (key), "%s.brick%d.data", keyprefix, i);
@@ -5199,28 +5210,29 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                         "Unable to get Data Percent");
-                        goto out;
-                }
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                          (xmlChar *) "data_percentage", "N/A");
+                } else
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                   (xmlChar *) "data_percentage", "%s", buffer);
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *) "lvUsage",
-                                                       "%s", buffer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 snprintf (key, sizeof (key), "%s.brick%d.lvsize",
                           keyprefix, i);
                 ret = dict_get_str (dict, key, &buffer);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_INFO, "Unable to get LV Size");
-                        goto out;
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to get LV Size");
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                 (xmlChar *) "lvSize", "N/A");
+                } else {
+                        /* Truncate any newline character */
+                        buffer = strtok (buffer, "\n");
+
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                          (xmlChar *) "lvSize", "%s", buffer);
                 }
 
-                /* Truncate any newline character */
-                buffer = strtok (buffer, "\n");
-
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *) "lvSize",
-                                                       "%s", buffer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 /* </brick> */
@@ -5358,7 +5370,8 @@ cli_xml_snapshot_status (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
                 goto out;
         }
 
-        if (GF_SNAP_STATUS_TYPE_SNAP == status_cmd) {
+        if ((GF_SNAP_STATUS_TYPE_SNAP == status_cmd) ||
+            (GF_SNAP_STATUS_TYPE_ITER == status_cmd)) {
                 snapcount = 1;
         } else {
                 ret = dict_get_int32 (dict, "status.snapcount", &snapcount);
@@ -6123,7 +6136,7 @@ cli_xml_snapshot_begin_composite_op (cli_local_t *local)
                 goto out;
         }
 
-        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+        if (cmd == GF_SNAP_STATUS_TYPE_ITER ||
             cmd == GF_SNAP_DELETE_TYPE_SNAP){
                 ret = 0;
                 goto out;
@@ -6168,7 +6181,7 @@ cli_xml_snapshot_end_composite_op (cli_local_t *local)
                 goto out;
         }
 
-        if (cmd == GF_SNAP_STATUS_TYPE_SNAP ||
+        if (cmd == GF_SNAP_STATUS_TYPE_ITER ||
             cmd == GF_SNAP_DELETE_TYPE_SNAP){
                 ret = 0;
                 goto out;

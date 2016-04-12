@@ -5946,6 +5946,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                 {
                         break;
                 }
+                case GF_SNAP_STATUS_TYPE_ITER:
                 case GF_SNAP_STATUS_TYPE_SNAP:
                 {
                         ret = dict_get_str (dict, "snapname", &snapname);
@@ -7865,6 +7866,7 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
                         }
                         break;
                 }
+                case GF_SNAP_STATUS_TYPE_ITER:
                 case GF_SNAP_STATUS_TYPE_SNAP:
                 {
 
