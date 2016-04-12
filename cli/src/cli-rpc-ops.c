@@ -9908,7 +9908,7 @@ cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index) {
         GF_ASSERT (dict);
 
         ret = dict_set_uint32 (snap_dict, "sub-cmd",
-                               GF_SNAP_STATUS_TYPE_SNAP);
+                               GF_SNAP_STATUS_TYPE_ITER);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not save command "
                         "type in snap dict");
@@ -10000,7 +10000,8 @@ cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
                 goto out;
         }
 
-        if (status_cmd != GF_SNAP_STATUS_TYPE_SNAP) {
+        if ((status_cmd != GF_SNAP_STATUS_TYPE_SNAP) &&
+            (status_cmd != GF_SNAP_STATUS_TYPE_ITER)) {
                 dict_copy (dict, local->dict);
                 goto out;
         }
@@ -10484,7 +10485,8 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
          * is already handled. Therefore we can return from here.
          * If want to get status of all snaps in the system or volume then
          * we should get them one by one.*/
-        if (cmd == GF_SNAP_STATUS_TYPE_SNAP) {
+        if ((cmd == GF_SNAP_STATUS_TYPE_SNAP) ||
+            (cmd == GF_SNAP_STATUS_TYPE_ITER)) {
                 ret = 0;
                 goto out;
         }
