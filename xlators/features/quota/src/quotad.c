@@ -129,6 +129,14 @@ qd_nameless_lookup (xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
                 goto out;
         }
 
+        ret = dict_set_int8 (xdata, QUOTA_READ_ONLY_KEY, 1);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        Q_MSG_ENOMEM, "dict set failed");
+                ret = -ENOMEM;
+                goto out;
+        }
+
         subvol = qd_find_subvol (this, volume_uuid);
         if (subvol == NULL) {
                 op_errno = EINVAL;

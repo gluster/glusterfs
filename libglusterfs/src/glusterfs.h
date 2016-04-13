@@ -158,6 +158,7 @@
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
 #define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
+#define QUOTA_READ_ONLY_KEY "trusted.glusterfs.quota.read-only"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
