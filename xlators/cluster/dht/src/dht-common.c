@@ -250,6 +250,7 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
         int              heal_path       = 0;
         int              i               = 0;
         loc_t            loc             = {0 };
+        int8_t           is_read_only    = 0;
 
         local = discover_frame->local;
         layout = local->layout;
@@ -264,6 +265,12 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
 
         if (!main_frame)
                 return 0;
+
+        ret = dict_get_int8 (local->xattr_req, QUOTA_READ_ONLY_KEY,
+                             &is_read_only);
+        if (ret < 0)
+                gf_msg_debug (this->name, 0, "key = %s not present in dict",
+                              QUOTA_READ_ONLY_KEY);
 
         if (local->file_count && local->dir_count) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -311,7 +318,8 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                          * healing layout of directory otherwise we don't heal.
                          */
 
-                        if (local->inode && conf->randomize_by_gfid)
+                        if (local->inode && conf->randomize_by_gfid &&
+                            !is_read_only)
                                 goto selfheal;
                 }
 
@@ -328,7 +336,7 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 }
         }
 
-        if (IA_ISDIR (local->stbuf.ia_type)) {
+        if (IA_ISDIR (local->stbuf.ia_type) && !is_read_only) {
                 for (i = 0; i < layout->cnt; i++) {
                        if (!source && !layout->list[i].err)
                                 source = layout->list[i].xlator;
