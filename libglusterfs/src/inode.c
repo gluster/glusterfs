@@ -1726,7 +1726,7 @@ inode_table_destroy_all (glusterfs_ctx_t *ctx) {
 void
 inode_table_destroy (inode_table_t *inode_table) {
 
-        inode_t  *tmp = NULL, *trav = NULL;
+        inode_t  *trav = NULL;
 
         if (inode_table == NULL)
                 return;
@@ -1766,15 +1766,15 @@ inode_table_destroy (inode_table_t *inode_table) {
                  * traverse the lru list till it gets empty.
                  */
                 while (!list_empty (&inode_table->lru)) {
-                        list_for_each_entry_safe (trav, tmp, &inode_table->lru,
-                                                  list) {
-                                __inode_forget (trav, 0);
-                                __inode_retire (trav);
-                        }
+                        trav = list_first_entry (&inode_table->lru,
+                                                 inode_t, list);
+                        __inode_forget (trav, 0);
+                        __inode_retire (trav);
                 }
 
-                list_for_each_entry_safe (trav, tmp, &inode_table->active,
-                                          list) {
+                while (!list_empty (&inode_table->active)) {
+                        trav = list_first_entry (&inode_table->active,
+                                                 inode_t, list);
                         /* forget and unref the inode to retire and add it to
                          * purge list. By this time there should not be any
                          * inodes present in the active list except for root
