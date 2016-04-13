@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       574
+#define GLFS_NUM_MESSAGES       573
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4632,14 +4632,6 @@
  *
  */
 #define GD_MSG_SNAP_RESUME_TIER_FAIL                (GLUSTERD_COMP_BASE + 573)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define GD_MSG_PMAP_REMOVE_FAIL                (GLUSTERD_COMP_BASE + 574)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

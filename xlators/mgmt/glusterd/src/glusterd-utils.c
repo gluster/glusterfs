@@ -1730,22 +1730,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (gf_is_service_running (pidfile, NULL))
                 goto connect;
 
-        /* Do a pmap registry remove on the older connected port */
-        if (brickinfo->port) {
-                ret = pmap_registry_remove (this, brickinfo->port,
-                                            brickinfo->path,
-                                            GF_PMAP_PORT_BRICKSERVER,
-                                            NULL);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_PMAP_REMOVE_FAIL, "Failed to remove pmap"
-                                "registry for older signin port %d",
-                                brickinfo->port);
-                        goto out;
-                }
-        }
-
-        port = pmap_registry_alloc (THIS);
+        port = brickinfo->port;
+        if (!port)
+                port = pmap_registry_alloc (THIS);
 
         /* Build the exp_path, before starting the glusterfsd even in
            valgrind mode. Otherwise all the glusterfsd processes start
@@ -1808,22 +1795,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
         } else {
-                /* Do a pmap registry remove on the older connected port */
-                if (brickinfo->rdma_port) {
-                        ret = pmap_registry_remove (this, brickinfo->rdma_port,
-                                                    brickinfo->path,
-                                                    GF_PMAP_PORT_BRICKSERVER,
-                                                    NULL);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_PMAP_REMOVE_FAIL, "Failed to "
-                                        "remove pmap registry for older signin "
-                                        "port %d", brickinfo->rdma_port);
-                                goto out;
-                        }
-                }
-                rdma_port = pmap_registry_alloc (THIS);
-
+                rdma_port = brickinfo->rdma_port;
+                if (!rdma_port)
+                        rdma_port = pmap_registry_alloc (THIS);
                 runner_argprintf (&runner, "%d,%d", port, rdma_port);
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner, "%s-server.transport.rdma.listen-port=%d",
