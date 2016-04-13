@@ -137,7 +137,6 @@ EXPECT "`pwd`/`dirname $0`/dh1024.pem" volume_option $V0 ssl.dh-param
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
-BRICK_PORT=`brick_port $V0`
 EXPECT "Y" openssl_connect -cipher EDH -connect $H0:$BRICK_PORT
 
 # Test the cipher-list option
@@ -146,7 +145,6 @@ EXPECT AES256-SHA volume_option $V0 ssl.cipher-list
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
-BRICK_PORT=`brick_port $V0`
 EXPECT "Y" openssl_connect -cipher AES256-SHA -connect $H0:$BRICK_PORT
 EXPECT "N" openssl_connect -cipher AES128-SHA -connect $H0:$BRICK_PORT
 
@@ -156,7 +154,6 @@ EXPECT EECDH:EDH:!TLSv1 volume_option $V0 ssl.cipher-list
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
-BRICK_PORT=`brick_port $V0`
 EXPECT "N" openssl_connect -cipher AES256-SHA -connect $H0:$BRICK_PORT
 EXPECT "Y" openssl_connect -cipher EECDH -connect $H0:$BRICK_PORT
 
@@ -165,7 +162,6 @@ EXPECT invalid volume_option $V0 ssl.ec-curve
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
-BRICK_PORT=`brick_port $V0`
 EXPECT "N" openssl_connect -cipher EECDH -connect $H0:$BRICK_PORT
 
 TEST $CLI volume set $V0 ssl.ec-curve secp521r1
@@ -173,7 +169,6 @@ EXPECT secp521r1 volume_option $V0 ssl.ec-curve
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
-BRICK_PORT=`brick_port $V0`
 EXPECT "Y" openssl_connect -cipher EECDH -connect $H0:$BRICK_PORT
 
 # test revocation
