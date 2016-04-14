@@ -1226,6 +1226,7 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         int32_t                  type       = 0;
         char                     gfid_type  = 0;
         float                    version    = 0.0f;
+        int32_t                  max_count  = 0;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1321,6 +1322,41 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
                 ret = -1;
                 goto out;
         }
+
+        for (count = 0;; count++) {
+                ret = quota_conf_read_gfid (fd, buf, &gfid_type, version);
+                if (ret == 0) {
+                        break;
+                } else if (ret < 0) {
+                        gf_log (THIS->name, GF_LOG_CRITICAL, "Quota "
+                                "configuration store may be corrupt.");
+                        goto out;
+                }
+
+                if ((type == GF_QUOTA_OPTION_TYPE_LIST &&
+                     gfid_type == GF_QUOTA_CONF_TYPE_OBJECTS) ||
+                    (type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS &&
+                     gfid_type == GF_QUOTA_CONF_TYPE_USAGE))
+                        continue;
+
+                max_count++;
+        }
+        ret = dict_set_int32 (xdata, "max_count", max_count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to set max_count");
+                goto out;
+        }
+
+        ret = sys_lseek (fd, 0L, SEEK_SET);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to move offset to "
+                        "the beginning: %s", strerror (errno));
+                goto out;
+        }
+        ret = quota_conf_read_version (fd, &version);
+        if (ret)
+                goto out;
+
         for (count = 0;; count++) {
                 ret = quota_conf_read_gfid (fd, buf, &gfid_type, version);
                 if (ret == 0) {

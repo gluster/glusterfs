@@ -4214,6 +4214,54 @@ _unmask_cancellation (void)
         (void) pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 }
 
+/* This is a wrapper function to add a pointer to a list,
+ * which doesn't contain list member
+ */
+struct list_node*
+_list_node_add (void *ptr, struct list_head *list,
+               int (*compare)(struct list_head *, struct list_head *))
+{
+        struct list_node  *node = NULL;
+
+        if (ptr == NULL || list == NULL)
+                goto out;
+
+        node = GF_CALLOC (1, sizeof (struct list_node), gf_common_list_node);
+
+        if (node == NULL)
+                goto out;
+
+        node->ptr = ptr;
+        if (compare)
+                list_add_order (&node->list, list, compare);
+        else
+                list_add_tail (&node->list, list);
+out:
+        return node;
+}
+
+struct list_node*
+list_node_add (void *ptr, struct list_head *list)
+{
+        return _list_node_add (ptr, list, NULL);
+}
+
+struct list_node*
+list_node_add_order (void *ptr, struct list_head *list,
+                     int (*compare)(struct list_head *, struct list_head *))
+{
+        return _list_node_add (ptr, list, compare);
+}
+
+void
+list_node_del (struct list_node *node)
+{
+        if (node == NULL)
+                return;
+
+        list_del_init (&node->list);
+        GF_FREE (node);
+}
 
 const char *
 fop_enum_to_pri_string (glusterfs_fop_t fop)
