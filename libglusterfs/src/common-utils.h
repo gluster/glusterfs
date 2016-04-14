@@ -82,7 +82,10 @@ void trap (void);
  * nfs port in volume status.
  */
 #define GF_NFS3_PORT    2049
+
 #define GF_CLIENT_PORT_CEILING 1024
+#define GF_IANA_PRIV_PORTS_START 49152 /* RFC 6335 */
+#define GF_CLNT_INSECURE_PORT_CEILING (GF_IANA_PRIV_PORTS_START - 1)
 #define GF_PORT_MAX 65535
 
 #define GF_MINUTE_IN_SECONDS 60
