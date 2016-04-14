@@ -782,16 +782,17 @@ struct volume_options options[] = {
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
-          .description = "Lock phase of a transaction has two sub-phases. "
+          .description = "Enable/Disable eager lock for replica volume. "
+                         "Lock phase of a transaction has two sub-phases. "
                          "First is an attempt to acquire locks in parallel by "
                          "broadcasting non-blocking lock requests. If lock "
                          "acquisition fails on any server, then the held locks "
-                         "are unlocked and revert to a blocking locked mode "
+                         "are unlocked and we revert to a blocking locks mode "
                          "sequentially on one server after another.  If this "
                          "option is enabled the initial broadcasting lock "
-                         "request attempt to acquire lock on the entire file. "
+                         "request attempts to acquire a full lock on the entire file. "
                          "If this fails, we revert back to the sequential "
-                         "\"regional\" blocking lock as before. In the case "
+                         "\"regional\" blocking locks as before. In the case "
                          "where such an \"eager\" lock is granted in the "
                          "non-blocking phase, it gives rise to an opportunity "
                          "for optimization. i.e, if the next write transaction "

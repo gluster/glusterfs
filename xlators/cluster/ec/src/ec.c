@@ -1327,8 +1327,18 @@ struct volume_options options[] =
     { .key = {"eager-lock"},
       .type = GF_OPTION_TYPE_BOOL,
       .default_value = "on",
-      .description = "This option will enable/diable eager lock for"
-                     "disperse volume "
+      .description = "Enable/Disable eager lock for disperse volume. "
+                     "If a fop takes a lock and completes its operation, "
+                     "it waits for next 1 second before releasing the lock, "
+                     "to see if the lock can be reused for next fop from "
+                     "the same client. If ec finds any lock contention within "
+                     "1 second it releases the lock immediately before time "
+                     "expires. This improves the performance of file operations."
+                     "However, as it takes lock on first brick, for few operations "
+                     "like read, discovery of lock contention might take long time "
+                     "and can actually degrade the performance. "
+                     "If eager lock is disabled, lock will be released as soon as fop "
+                     "completes. "
     },
     { .key = {"background-heals"},
       .type = GF_OPTION_TYPE_INT,
