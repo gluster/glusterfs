@@ -57,10 +57,17 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
         int32_t        ret        = -1;
         uint16_t      port        = ceiling - 1;
         gf_boolean_t  ports[GF_PORT_MAX];
+        int           i           = 0;
 
+loop:
         ret = gf_process_reserved_ports (ports, ceiling);
 
         while (port) {
+                if (port == GF_CLIENT_PORT_CEILING) {
+                        ret = -1;
+                        break;
+                }
+
                 /* ignore the reserved ports */
                 if (ports[port] == _gf_true) {
                         port--;
@@ -78,6 +85,18 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
                         break;
 
                 port--;
+        }
+
+        /* Incase if all the secure ports are exhausted, we are no more
+         * binding to secure ports, hence instead of getting a random
+         * port, lets define the range to restrict it from getting from
+         * ports reserved for bricks i.e from range of 49152 - 65535
+         * which further may lead to port clash */
+        if (!port) {
+                ceiling = port = GF_CLNT_INSECURE_PORT_CEILING;
+                for (i = 0; i <= ceiling; i++)
+                        ports[i] = _gf_false;
+                goto loop;
         }
 
         return ret;
