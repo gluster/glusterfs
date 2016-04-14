@@ -18,13 +18,19 @@ META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared g
 CC=cc
 OSTYPE=$(uname -s)
 
-ENV_RC=$(dirname $0)/../env.rc
-if [ ! -f $ENV_RC ]; then
-   ENV_RC=$(dirname $0)/../../env.rc
-   if [ ! -f $ENV_RC ]; then
-      ENV_RC=$(dirname $0)/../../../env.rc
-   fi
-fi
+env_dir=$(dirname $0)
+while true; do
+        ENV_RC=${env_dir}/env.rc
+        if [ -f ${ENV_RC} ]; then
+                break
+        fi
+        new_dir=$(dirname $env_dir)
+        if [ x"$new_dir" = x"$old_dir" ]; then
+                ENV_RC="/not/found"
+                break
+        fi
+        env_dir=$new_dir
+done
 
 if [ ! -f $ENV_RC ]; then
    echo "Aborting." | tee /dev/stderr
@@ -556,8 +562,13 @@ function cleanup()
         if [ -n "$LOGDIR" -a -z "$STOP_WASTING_SPACE" ]
         then
                 tarname=$(basename $0 .t)
-                tar -rf ${LOGDIR}/${tarname}.tar ${LOGDIR}/* \
-                        --exclude="*.tar" \
+		# Can't use --exclude here because NetBSD doesn't have it.
+		# However, both it and Linux have -X to take patterns from
+		# a file, so use that.
+		(echo '*.tar'; echo .notar) > ${LOGDIR}/.notar \
+			&& \
+                tar -cf ${LOGDIR}/${tarname}.tar -X ${LOGDIR}/.notar \
+			${LOGDIR}/* 2> /dev/null \
                         && \
                 find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
                                         -o -exec rm -rf '{}' ';'
@@ -802,9 +813,28 @@ useradd --help 2>/dev/null | grep -q -- '--no-create-home' || {
   }
 }
 
+DBG_TEST () {
+        read -p "execute \"$*\"? " x;
+        case $x in
+        'y')
+                _TEST "$@"
+                ;;
+        'q')
+                exit 0
+                ;;
+        *)
+                echo "skipping"
+                ;;
+        esac
+}
+
 alias EXPECT='_EXPECT $LINENO'
 alias EXPECT_NOT='_EXPECT_NOT $LINENO'
-alias TEST='_TEST $LINENO'
+if [ -n "$GF_INTERACTIVE" ]; then
+	alias TEST='DBG_TEST $LINENO'
+else
+	alias TEST='_TEST $LINENO'
+fi
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
