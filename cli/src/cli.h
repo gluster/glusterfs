@@ -156,6 +156,7 @@ struct cli_local {
         int                     vol_count;
 #endif
         gf_lock_t               lock;
+        struct list_head        dict_list;
 };
 
 struct cli_volume_status {

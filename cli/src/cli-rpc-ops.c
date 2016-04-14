@@ -3533,6 +3533,35 @@ cli_cmd_broadcast_response_detached (void *opaque)
         return NULL;
 }
 
+int32_t
+cli_quota_compare_path (struct list_head *list1,
+                        struct list_head *list2)
+{
+        struct list_node  *node1  = NULL;
+        struct list_node  *node2  = NULL;
+        dict_t            *dict1  = NULL;
+        dict_t            *dict2  = NULL;
+        char              *path1  = NULL;
+        char              *path2  = NULL;
+        int                ret    = 0;
+
+        node1 = list_entry (list1, struct list_node, list);
+        node2 = list_entry (list2, struct list_node, list);
+
+        dict1 = node1->ptr;
+        dict2 = node2->ptr;
+
+        ret = dict_get_str (dict1, GET_ANCESTRY_PATH_KEY, &path1);
+        if (ret < 0)
+                return 0;
+
+        ret = dict_get_str (dict2, GET_ANCESTRY_PATH_KEY, &path2);
+        if (ret < 0)
+                return 0;
+
+        return strcmp (path1, path2);
+}
+
 int
 cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
@@ -3541,10 +3570,13 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp         rsp         = {0,};
         int                ret         = -1;
         dict_t            *dict        = NULL;
+        struct list_node  *node        = NULL;
+        struct list_node  *tmpnode     = NULL;
         call_frame_t      *frame       = NULL;
         cli_local_t       *local       = NULL;
         int32_t            list_count  = 0;
         pthread_t          th_id       = {0, };
+        int32_t            max_count   = 0;
 
         GF_ASSERT (myframe);
 
@@ -3560,8 +3592,10 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                                       &list_count);
                 if (ret)
                         list_count = 0;
+
+                list_count++;
                 ret = dict_set_int32 (local->dict, "quota-list-count",
-                                      list_count + 1);
+                                      list_count);
         }
         UNLOCK (&local->lock);
 
@@ -3609,7 +3643,32 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                print_quota_list_from_quotad (frame, dict);
+                ret = dict_get_int32 (local->dict, "max_count",
+                                      &max_count);
+                if (ret < 0) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "failed to get max_count");
+                        goto out;
+                }
+
+                node = list_node_add_order (dict, &local->dict_list,
+                                            cli_quota_compare_path);
+                if (node == NULL) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "failed to add node to the list");
+                        dict_unref (dict);
+                        goto out;
+                }
+
+                if (list_count == max_count) {
+                        list_for_each_entry_safe (node, tmpnode,
+                                                  &local->dict_list, list) {
+                                dict = node->ptr;
+                                print_quota_list_from_quotad (frame, dict);
+                                list_node_del (node);
+                                dict_unref (dict);
+                        }
+                }
         }
 
 out:
@@ -3638,9 +3697,6 @@ out:
         } else {
                 cli_cmd_broadcast_response (ret);
         }
-
-        if (dict)
-                dict_unref (dict);
 
         free (rsp.dict.dict_val);
         return ret;

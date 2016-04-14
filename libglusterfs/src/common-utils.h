@@ -188,7 +188,16 @@ struct dnscache6 {
         struct addrinfo *next;
 };
 
+struct list_node {
+        void *ptr;
+        struct list_head list;
+};
 
+struct list_node *list_node_add (void *ptr, struct list_head *list);
+struct list_node *list_node_add_order (void *ptr, struct list_head *list,
+                                       int (*compare)(struct list_head *,
+                                            struct list_head *));
+void list_node_del (struct list_node *node);
 
 struct dnscache *gf_dnscache_init (time_t ttl);
 struct dnscache_entry *gf_dnscache_entry_init ();
