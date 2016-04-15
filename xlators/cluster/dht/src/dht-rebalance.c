@@ -2074,6 +2074,10 @@ gf_defrag_task (void *opaque)
         while (true) {
 
                 if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
+                        pthread_cond_broadcast (
+                                &defrag->rebalance_crawler_alarm);
+                        pthread_cond_broadcast (
+                                &defrag->parallel_migration_cond);
                         goto out;
                 }
 
@@ -2137,6 +2141,13 @@ gf_defrag_task (void *opaque)
 
                                         defrag->defrag_status =
                                                        GF_DEFRAG_STATUS_FAILED;
+
+                                        pthread_cond_broadcast (
+                                             &defrag->rebalance_crawler_alarm);
+
+                                        pthread_cond_broadcast (
+                                             &defrag->parallel_migration_cond);
+
                                         goto out;
                                 }
 
@@ -2195,10 +2206,16 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         xlator_t               *hashed_subvol   = NULL;
         xlator_t               *cached_subvol   = NULL;
 
+        if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
+                ret = -1;
+                goto out;
+        }
+
         if (dir_dfmeta->offset_var[i].readdir_done == 1) {
                 ret = 0;
                 goto out;
         }
+
         if (dir_dfmeta->fetch_entries[i] == 1) {
                 ret = syncop_readdirp (conf->local_subvols[i], fd, 131072,
                                        dir_dfmeta->offset_var[i].offset,
