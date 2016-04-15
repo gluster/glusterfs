@@ -3920,8 +3920,9 @@ fetch_data:
                 sts_val->master[strlen(master)] = '\0';
 
                 /* Master Brick Node */
-                memcpy (sts_val->node, node, strlen(node));
-                sts_val->node[strlen(node)] = '\0';
+                memcpy (sts_val->node, brickinfo->hostname,
+                        strlen(brickinfo->hostname));
+                sts_val->node[strlen(brickinfo->hostname)] = '\0';
 
                 /* Master Brick Path */
                 memcpy (sts_val->brick, brickinfo->path,
