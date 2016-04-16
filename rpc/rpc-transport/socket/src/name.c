@@ -149,10 +149,9 @@ client_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
 
                 if (remote_host_data) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "address-family not specified, marking it as unspec "
-                                "for getaddrinfo to resolve from (remote-host: %s)",
-                                data_to_str(remote_host_data));
-                        *sa_family = AF_UNSPEC;
+                                "address-family not specified, guessing it "
+                                "to be inet from (remote-host: %s)", data_to_str (remote_host_data));
+                        *sa_family = AF_INET;
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "address-family not specified, guessing it "
@@ -396,7 +395,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         memset (&hints, 0, sizeof (hints));
         hints.ai_family = addr->sa_family;
         hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags    = AI_PASSIVE;
+        hints.ai_flags    = AI_PASSIVE | AI_ADDRCONFIG;
 
         ret = getaddrinfo(listen_host, service, &hints, &res);
         if (ret != 0) {

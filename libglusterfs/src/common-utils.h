@@ -165,12 +165,6 @@ typedef struct dht_changelog_rename_info {
          char    buffer[1];
  } dht_changelog_rename_info_t;
 
-struct dnscache6 {
-        struct addrinfo *first;
-        struct addrinfo *next;
-};
-
-
 
 typedef int (*gf_cmp) (void *, void *);
 

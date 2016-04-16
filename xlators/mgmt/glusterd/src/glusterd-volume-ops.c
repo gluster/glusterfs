@@ -285,7 +285,6 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
         xlator_t               *this        = NULL;
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
-        char                   *address_family_str  = NULL;
         uuid_t                  volume_id   = {0,};
         uuid_t                  tmp_uuid    = {0};
         int32_t                 type        = 0;
@@ -366,8 +365,6 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-
-
         ret = dict_get_str (dict, "transport", &trans_type);
         if (ret) {
                 snprintf (err_str, sizeof (err_str), "Unable to get "
@@ -375,30 +372,6 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "%s", err_str);
                 goto out;
-        }
-
-        ret = dict_get_str (this->options, "transport.address-family",
-                        &address_family_str);
-
-        if (!ret) {
-                ret = dict_set_dynstr_with_alloc (dict,
-                                "transport.address-family",
-                                address_family_str);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to set transport.address-family");
-                        goto out;
-                }
-        } else if (!strcmp(trans_type, "tcp")) {
-                /* Setting default as inet for trans_type tcp */
-                ret = dict_set_dynstr_with_alloc (dict,
-                                "transport.address-family",
-                                "inet");
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to set transport.address-family");
-                        goto out;
-                }
         }
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
@@ -2117,7 +2090,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                  msg[1024] __attribute__((unused)) = {0, };
         char                 *brick_mount_dir = NULL;
         char                  key[PATH_MAX]   = "";
-        char                 *address_family_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2388,20 +2360,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                         GD_MSG_FAIL_DEFAULT_OPT_SET, "Failed to set default "
                         "options on create for volume %s", volinfo->volname);
                 goto out;
-        }
-
-        ret = dict_get_str (dict, "transport.address-family",
-                        &address_family_str);
-
-        if (!ret) {
-                ret = dict_set_dynstr_with_alloc(volinfo->dict,
-                                "transport.address-family", address_family_str);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set transport.address-family for %s",
-                                        volinfo->volname);
-                        goto out;
-                }
         }
 
         gd_update_volume_op_versions (volinfo);
