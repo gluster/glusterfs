@@ -4213,6 +4213,25 @@ out:
 }
 
 void
+gf_free_mig_locks (lock_migration_info_t *locks)
+{
+        lock_migration_info_t    *current       = NULL;
+        lock_migration_info_t    *temp          = NULL;
+
+        if (!locks)
+                return;
+
+        if (list_empty (&locks->list))
+                return;
+
+        list_for_each_entry_safe (current, temp, &locks->list, list) {
+                list_del_init (&current->list);
+                GF_FREE (current->client_uid);
+                GF_FREE (current);
+        }
+}
+
+void
 _mask_cancellation (void)
 {
         (void) pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
@@ -4287,6 +4306,7 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_STATFS:
         case GF_FOP_READDIR:
         case GF_FOP_READDIRP:
+        case GF_FOP_GETACTIVELK:
                 return "HIGH";
 
         case GF_FOP_CREATE:

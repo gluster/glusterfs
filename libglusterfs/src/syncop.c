@@ -3062,3 +3062,82 @@ syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
 
         return args.op_ret;
 }
+
+int32_t
+syncop_getactivelk_cbk (call_frame_t *frame,
+                         void *cookie,
+                         xlator_t *this,
+                         int32_t op_ret,
+                         int32_t op_errno,
+                         lock_migration_info_t *locklist, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+        lock_migration_info_t   *tmp = NULL;
+        lock_migration_info_t   *entry = NULL;
+
+        args = cookie;
+
+        INIT_LIST_HEAD (&args->locklist.list);
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
+
+        if (op_ret > 0) {
+                list_for_each_entry (tmp, &locklist->list, list) {
+                        entry = GF_CALLOC (1, sizeof (lock_migration_info_t),
+                                          gf_common_mt_char);
+
+                        if (!entry) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                        "lock mem allocation  failed");
+                                gf_free_mig_locks (&args->locklist);
+
+                                break;
+                        }
+
+                        INIT_LIST_HEAD (&entry->list);
+
+                        entry->flock = tmp->flock;
+
+                        entry->client_uid = gf_strdup (tmp->client_uid);
+
+                        list_add_tail (&entry->list, &args->locklist.list);
+
+                }
+        }
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_getactivelk (xlator_t *subvol, loc_t *loc,
+                    lock_migration_info_t *locklist,  dict_t *xdata_in,
+                    dict_t **xdata_out)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_getactivelk_cbk,
+                subvol->fops->getactivelk,
+                loc, xdata_in);
+
+        if (locklist)
+                list_splice_init (&args.locklist.list, &locklist->list);
+        else
+                gf_free_mig_locks (&args.locklist) ;
+
+        if (xdata_out)
+                *xdata_out = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        if (args.op_ret < 0)
+                return -args.op_errno;
+
+        return args.op_ret;
+
+}

@@ -44,6 +44,7 @@ typedef struct {
         int valid; /* If the response is valid or not. For call-stub it is
                       always valid irrespective of this */
         struct gf_lease lease;
+        lock_migration_info_t locklist;
 } default_args_cbk_t;
 
 typedef struct {
@@ -344,6 +345,9 @@ int32_t default_seek (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t default_lease (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        struct gf_lease *lease, dict_t *xdata);
 
+int32_t
+default_getactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      dict_t *xdata);
 
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
@@ -858,6 +862,10 @@ default_lease_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno,
                           struct gf_lease *lease, dict_t *xdata);
 
+int32_t
+default_getactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                             dict_t *xdata);
+
 /* _CBK */
 int32_t
 default_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1237,6 +1245,12 @@ default_seek_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_lease_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_getactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          lock_migration_info_t *locklist,
+                          dict_t *xdata);
 
 int32_t
 default_mem_acct_init (xlator_t *this);

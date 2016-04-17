@@ -57,6 +57,7 @@ enum glusterfs_fop_t {
         GF_FOP_SEEK,
         GF_FOP_LEASE,
         GF_FOP_COMPOUND,
+        GF_FOP_GETACTIVELK,
         GF_FOP_MAXVALUE
 };
 

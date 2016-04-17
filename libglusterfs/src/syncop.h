@@ -173,6 +173,8 @@ struct syncargs {
 
         gf_dirent_t        entries;
         off_t              offset;
+
+        lock_migration_info_t locklist;
 };
 
 struct syncopctx {
@@ -522,4 +524,7 @@ int
 syncop_seek (xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,
              dict_t *xdata_in, off_t *off);
 
+int
+syncop_getactivelk (xlator_t *subvol, loc_t *loc,                                                                                                    lock_migration_info_t *locklist,
+                     dict_t *xdata_in, dict_t **xdata_out);
 #endif /* _SYNCOP_H */
