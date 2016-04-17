@@ -542,6 +542,13 @@ ops['lease'] = (
         ('cbk-arg',     'xdata',                'dict_t *'),
 )
 
+ops['getactivelk'] = (
+        ('fop-arg',     'loc',                  'loc_t *'),
+        ('fop-arg',     'xdata',                'dict_t *'),
+        ('cbk-arg',     'locklist',             'lock_migration_info_t *'),
+        ('cbk-arg',     'xdata',                'dict_t *'),
+)
+
 #####################################################################
 xlator_cbks['forget'] = (
         ('fn-arg',      'this',        'xlator_t *'),

@@ -501,6 +501,12 @@ struct gf_flock {
         gf_lkowner_t l_owner;
 };
 
+typedef struct lock_migration_info {
+        struct list_head        list;
+        struct gf_flock         flock;
+        char                   *client_uid;
+} lock_migration_info_t;
+
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
 /*
  * Some macros (e.g. ALLOC_OR_GOTO) set variables in function scope, but the
@@ -539,5 +545,8 @@ glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();
 int glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                                   glusterfs_graph_t *newgraph);
+
+void
+gf_free_mig_locks (lock_migration_info_t *locks);
 
 #endif /* _GLUSTERFS_H */
