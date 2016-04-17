@@ -160,6 +160,7 @@ struct _server_state {
         dict_t           *xdata;
         mode_t            umask;
         struct gf_lease   lease;
+        lock_migration_info_t locklist;
 };
 
 
@@ -185,4 +186,7 @@ int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
 void
 forget_inode_if_no_dentry (inode_t *inode);
 
+int
+unserialize_req_locklist (gfs3_setactivelk_req *req,
+                          lock_migration_info_t *lmi);
 #endif /* !_SERVER_H */

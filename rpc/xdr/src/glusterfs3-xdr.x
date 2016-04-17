@@ -980,3 +980,15 @@ struct gfs3_getactivelk_req {
         opaque gfid[16];
         opaque xdata<>;
 };
+
+struct gfs3_setactivelk_rsp {
+        int    op_ret;
+        int    op_errno;
+        opaque   xdata<>;
+};
+
+struct gfs3_setactivelk_req {
+        opaque gfid[16];
+        struct gfs3_locklist *request;
+        opaque xdata<>;
+};

@@ -1806,3 +1806,81 @@ clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
 out:
         return ret;
 }
+
+void
+clnt_setactivelk_req_cleanup (gfs3_setactivelk_req *req)
+{
+        gfs3_locklist   *trav = NULL;
+        gfs3_locklist   *next = NULL;
+
+        trav = req->request;
+
+        while (trav) {
+                next = trav->nextentry;
+                GF_FREE (trav->client_uid);
+                GF_FREE (trav);
+                trav = next;
+        }
+}
+
+int
+serialize_req_locklist (lock_migration_info_t *locklist,
+                        gfs3_setactivelk_req *req)
+{
+        lock_migration_info_t   *tmp    = NULL;
+        gfs3_locklist           *trav   = NULL;
+        gfs3_locklist           *prev   = NULL;
+        int                     ret     = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", locklist, out);
+        GF_VALIDATE_OR_GOTO ("server", req, out);
+
+        list_for_each_entry (tmp, &locklist->list, list) {
+                trav = GF_CALLOC (1, sizeof (*trav),
+                                  gf_client_mt_clnt_lock_request_t);
+                if (!trav)
+                        goto out;
+
+                switch (tmp->flock.l_type) {
+                case F_RDLCK:
+                        tmp->flock.l_type = GF_LK_F_RDLCK;
+                        break;
+                case F_WRLCK:
+                        tmp->flock.l_type = GF_LK_F_WRLCK;
+                        break;
+                case F_UNLCK:
+                        tmp->flock.l_type = GF_LK_F_UNLCK;
+                        break;
+
+                default:
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "Unknown lock type: %"PRId32"!",
+                                tmp->flock.l_type);
+                        break;
+                }
+
+                gf_proto_flock_from_flock (&trav->flock, &tmp->flock);
+
+                trav->client_uid = gf_strdup (tmp->client_uid);
+                if (!trav->client_uid) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "client_uid could not be allocated");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (prev)
+                        prev->nextentry = trav;
+                else
+                        req->request = trav;
+
+                prev = trav;
+                trav = NULL;
+        }
+
+        ret = 0;
+out:
+        GF_FREE (trav);
+
+        return ret;
+}

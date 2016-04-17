@@ -2095,6 +2095,34 @@ out:
 }
 
 int32_t
+client_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      lock_migration_info_t *locklist, dict_t *xdata)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t  args = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+
+        args.loc = loc;
+        args.xdata = xdata;
+        args.locklist = locklist;
+
+        proc = &conf->fops->proctable[GF_FOP_SETACTIVELK];
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (setactivelk, frame, -1, ENOTCONN, NULL);
+
+        return 0;
+}
+
+int32_t
 client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                 int32_t flags)
 {
@@ -2921,6 +2949,7 @@ struct xlator_fops fops = {
         .lease       = client_lease,
         .compound    = client_compound,
         .getactivelk = client_getactivelk,
+        .setactivelk = client_setactivelk,
 };
 
 

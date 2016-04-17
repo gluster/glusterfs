@@ -3093,6 +3093,60 @@ out:
         return 0;
 }
 
+static int
+client3_3_setactivelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                             void *myframe)
+{
+        call_frame_t            *frame = NULL;
+        gfs3_getactivelk_rsp     rsp   = {0,};
+        int32_t                  ret   = 0;
+        clnt_local_t            *local = NULL;
+        xlator_t                *this  = NULL;
+        dict_t                  *xdata = NULL;
+
+        this = THIS;
+
+        frame = myframe;
+        local = frame->local;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_setactivelk_rsp);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        PC_MSG_XDR_DECODING_FAILED, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
+                                      (rsp.xdata.xdata_len), ret,
+                                      rsp.op_errno, out);
+
+out:
+        if (rsp.op_ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING,
+                        gf_error_to_errno (rsp.op_errno),
+                        PC_MSG_REMOTE_OP_FAILED,
+                        "remote operation failed");
+        }
+
+        CLIENT_STACK_UNWIND (setactivelk, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno), xdata);
+
+        free (rsp.xdata.xdata_val);
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return 0;
+}
+
 int
 client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
@@ -6232,6 +6286,68 @@ unwind:
         return 0;
 }
 
+static int32_t
+client3_3_setactivelk (call_frame_t *frame, xlator_t *this,
+                        void *data)
+{
+        clnt_conf_t   *conf             = NULL;
+        clnt_args_t   *args             = NULL;
+        gfs3_setactivelk_req  req      = {{0,},};
+        int            ret              = 0;
+        int            op_errno         = ESTALE;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        if (!(args->loc && args->loc->inode && args->locklist))
+                goto unwind;
+
+        if (!gf_uuid_is_null (args->loc->inode->gfid))
+                memcpy (req.gfid,  args->loc->inode->gfid, 16);
+        else
+                memcpy (req.gfid, args->loc->gfid, 16);
+
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !gf_uuid_is_null (*((uuid_t *)req.gfid)),
+                                       unwind, op_errno, EINVAL);
+        conf = this->private;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
+        ret = serialize_req_locklist (args->locklist, &req);
+
+        if (ret)
+                goto unwind;
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_SETACTIVELK, client3_3_setactivelk_cbk, NULL,
+                                     NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfs3_setactivelk_req);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
+                        "failed to send the fop");
+        }
+
+
+        clnt_setactivelk_req_cleanup (&req);
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+
+unwind:
+
+        CLIENT_STACK_UNWIND (setactivelk, frame, -1, op_errno, NULL);
+
+        GF_FREE (req.xdata.xdata_val);
+
+        clnt_setactivelk_req_cleanup (&req);
+
+        return 0;
+}
+
 /* Table Specific to FOPS */
 rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]         = { "NULL",         NULL},
@@ -6286,7 +6402,7 @@ rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_SEEK]         = { "SEEK",         client3_3_seek },
         [GF_FOP_LEASE]        = { "LEASE",        client3_3_lease },
         [GF_FOP_GETACTIVELK]  = { "GETACTIVELK", client3_3_getactivelk},
-
+        [GF_FOP_SETACTIVELK]  = { "SETACTIVELK", client3_3_setactivelk},
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
@@ -6342,6 +6458,7 @@ char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_SEEK]        = "SEEK",
         [GFS3_OP_LEASE]       = "LEASE",
         [GFS3_OP_GETACTIVELK] = "GETACTIVELK",
+        [GFS3_OP_SETACTIVELK] = "SETACTIVELK",
 };
 
 rpc_clnt_prog_t clnt3_3_fop_prog = {

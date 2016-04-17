@@ -267,6 +267,7 @@ typedef struct client_args {
 
         mode_t              umask;
         dict_t             *xdata;
+        lock_migration_info_t *locklist;
 } clnt_args_t;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *args);
@@ -366,4 +367,12 @@ clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
                                lock_migration_info_t *lmi);
 void
 clnt_getactivelk_rsp_cleanup (gfs3_getactivelk_rsp *rsp);
+
+void
+clnt_setactivelk_req_cleanup (gfs3_setactivelk_req *req);
+
+int
+serialize_req_locklist (lock_migration_info_t *locklist,
+                        gfs3_setactivelk_req *req);
+
 #endif /* !_CLIENT_H */
