@@ -1472,6 +1472,44 @@ out:
         return ret;
 }
 
+int
+args_setactivelk_store (default_args_t *args, loc_t *loc,
+                          lock_migration_info_t *locklist, dict_t *xdata)
+{
+        lock_migration_info_t  *stub_entry = NULL, *entry = NULL;
+        int     ret = 0;
+
+        list_for_each_entry (entry, &locklist->list, list) {
+                stub_entry = GF_CALLOC (1, sizeof (*stub_entry),
+                                        gf_common_mt_lock_mig);
+                if (!stub_entry) {
+                       ret = -1;
+                       goto out;
+                }
+
+                INIT_LIST_HEAD (&stub_entry->list);
+                stub_entry->flock = entry->flock;
+
+                stub_entry->client_uid = gf_strdup (entry->client_uid);
+                if (!stub_entry->client_uid) {
+                        GF_FREE (stub_entry);
+                        ret = -1;
+                        goto out;
+                }
+
+                list_add_tail (&stub_entry->list,
+                               &args->locklist.list);
+        }
+
+        loc_copy (&args->loc, loc);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+out:
+        return ret;
+}
+
 void
 args_lease_store (default_args_t *args, loc_t *loc, struct gf_lease *lease,
                   dict_t *xdata)

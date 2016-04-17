@@ -463,6 +463,10 @@ typedef int32_t (*fop_getactivelk_cbk_t) (call_frame_t *frame, void *cookie,
                                            lock_migration_info_t *locklist,
                                            dict_t *xdata);
 
+typedef int32_t (*fop_setactivelk_cbk_t) (call_frame_t *frame, void *cookie,
+                                            xlator_t *this, int32_t op_ret,
+                                            int32_t op_errno, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -718,6 +722,11 @@ typedef int32_t (*fop_compound_t) (call_frame_t *frame, xlator_t *this,
 typedef int32_t (*fop_getactivelk_t) (call_frame_t *frame, xlator_t *this,
                                        loc_t *loc, dict_t *xdata);
 
+typedef int32_t (*fop_setactivelk_t) (call_frame_t *frame, xlator_t *this,
+                                      loc_t *loc,
+                                      lock_migration_info_t *locklist,
+                                      dict_t *xdata);
+
 struct xlator_fops {
         fop_lookup_t         lookup;
         fop_stat_t           stat;
@@ -769,6 +778,7 @@ struct xlator_fops {
         fop_lease_t          lease;
         fop_compound_t       compound;
         fop_getactivelk_t   getactivelk;
+        fop_setactivelk_t  setactivelk;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         fop_lookup_cbk_t         lookup_cbk;
@@ -821,6 +831,7 @@ struct xlator_fops {
         fop_lease_cbk_t          lease_cbk;
         fop_compound_cbk_t       compound_cbk;
         fop_getactivelk_cbk_t   getactivelk_cbk;
+        fop_setactivelk_cbk_t  setactivelk_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

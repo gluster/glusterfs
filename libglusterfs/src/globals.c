@@ -72,6 +72,7 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_LEASE]       = "LEASE",
         [GF_FOP_COMPOUND]    = "COMPOUND",
         [GF_FOP_GETACTIVELK] = "GETACTIVELK",
+        [GF_FOP_SETACTIVELK] = "SETACTIVELK",
 };
 /* THIS */
 
