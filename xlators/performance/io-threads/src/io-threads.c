@@ -290,6 +290,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_READDIR:
         case GF_FOP_READDIRP:
         case GF_FOP_GETACTIVELK:
+        case GF_FOP_SETACTIVELK:
                 pri = IOT_PRI_HI;
                 break;
 
