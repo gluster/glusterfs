@@ -2944,6 +2944,124 @@ pl_rename (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+posix_lock_t *
+gf_lkmig_info_to_posix_lock (call_frame_t *frame,
+                             lock_migration_info_t *lmi)
+{
+        posix_lock_t    *lock    = NULL;
+
+        lock = GF_CALLOC (1, sizeof (posix_lock_t), gf_locks_mt_posix_lock_t);
+        if (!lock)
+                goto out;
+
+        lock->fl_start = lmi->flock.l_start;
+        lock->fl_type  = lmi->flock.l_type;
+
+        if (lmi->flock.l_len == 0)
+                lock->fl_end = LLONG_MAX;
+        else
+               lock->fl_end = lmi->flock.l_start + lmi->flock.l_len - 1;
+
+        lock->client = frame->root->client;
+
+        lock->client_uid = gf_strdup (lmi->client_uid);
+        if (lock->client_uid == NULL) {
+                GF_FREE (lock);
+               goto out;
+        }
+
+        lock->client_pid = lmi->flock.l_pid;
+        lock->owner      = lmi->flock.l_owner;
+
+        INIT_LIST_HEAD (&lock->list);
+
+out:
+        return lock;
+}
+
+/* This function is supposed to write the active locks from the source brick(in
+ * rebalance context) and write here. Hence, will add the locks directly to the
+ * pl_inode->ext_list*/
+int
+pl_write_active_locks (call_frame_t *frame, pl_inode_t *pl_inode,
+                       lock_migration_info_t *locklist)
+{
+        posix_lock_t            *newlock        = NULL;
+        lock_migration_info_t   *temp           = NULL;
+        int                      ret            = 0;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                /* Just making sure the activelk list is empty. Should not
+                 * happen though*/
+               if (!list_empty (&pl_inode->ext_list)) {
+
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "invalid locks found");
+
+                        ret = -1;
+                        goto out;
+               }
+
+                /* This list also should not be empty */
+                if (list_empty (&locklist->list)) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "empty lock list");
+
+                        ret = -1;
+                        goto out;
+                }
+
+                list_for_each_entry (temp, &locklist->list, list) {
+
+                        newlock = gf_lkmig_info_to_posix_lock (frame, temp);
+                        if (!newlock) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                        "mem allocation failed for newlock");
+
+                                ret = -1;
+                                goto out;
+                        }
+                        list_add_tail (&newlock->list, &pl_inode->ext_list);
+                }
+        }
+
+out:
+        /*TODO: What if few lock add failed with ENOMEM. Should the already
+         *      added locks be clearted */
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+        return ret;
+}
+
+static int
+pl_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                  lock_migration_info_t *locklist, dict_t *xdata)
+{
+        pl_inode_t             *pl_inode        = NULL;
+        int                     op_ret          = 0;
+        int                     op_errno        = 0;
+        int                     ret             = 0;
+
+        pl_inode = pl_inode_get (this, loc->inode);
+        if (!pl_inode) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                        "pl_inode_get failed");
+
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+        ret = pl_write_active_locks (frame, pl_inode, locklist);
+
+        op_ret = ret;
+
+out:
+        STACK_UNWIND_STRICT (setactivelk, frame, op_ret, op_errno, NULL);
+
+        return 0;
+}
+
 struct xlator_fops fops = {
         .lookup      = pl_lookup,
         .create      = pl_create,
@@ -2966,6 +3084,7 @@ struct xlator_fops fops = {
         .fsetxattr   = pl_fsetxattr,
         .rename      = pl_rename,
         .getactivelk = pl_getactivelk,
+        .setactivelk = pl_setactivelk,
 };
 
 struct xlator_dumpops dumpops = {
