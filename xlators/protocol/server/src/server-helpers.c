@@ -1309,3 +1309,39 @@ server_inode_new (inode_table_t *itable, uuid_t gfid) {
                 return inode_new (itable);
 }
 
+int
+unserialize_req_locklist (gfs3_setactivelk_req *req,
+                          lock_migration_info_t *lmi)
+{
+        struct gfs3_locklist            *trav      = NULL;
+        lock_migration_info_t           *temp    = NULL;
+        char                            *buf       = NULL;
+        int                             entry_len = 0;
+        int                             ret       = -1;
+
+        trav = req->request;
+
+        INIT_LIST_HEAD (&lmi->list);
+
+        while (trav) {
+                temp = GF_CALLOC (1, sizeof (*lmi), gf_common_mt_lock_mig);
+                if (temp == NULL) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
+                        goto out;
+                }
+
+                INIT_LIST_HEAD (&temp->list);
+
+                gf_proto_flock_to_flock (&trav->flock, &temp->flock);
+
+                temp->client_uid =  gf_strdup (trav->client_uid);
+
+                list_add_tail (&temp->list, &lmi->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}

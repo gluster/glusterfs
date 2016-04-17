@@ -64,6 +64,7 @@ enum gf_fop_procnum {
         GFS3_OP_COMPOUND,
         GFS3_OP_LEASE,
         GFS3_OP_GETACTIVELK,
+        GFS3_OP_SETACTIVELK,
         GFS3_OP_MAXVALUE,
 };
 
