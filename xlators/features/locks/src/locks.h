@@ -42,6 +42,16 @@ struct __posix_lock {
            across nodes */
 
         void              *client;     /* to identify client node */
+
+        /* This field uniquely identifies the client the lock belongs to.  As
+         * lock migration is handled by rebalance, the client_t object will be
+         * overwritten by rebalance and can't be deemed as the owner of the
+         * lock on destination. Hence, the below field is migrated from
+         * source to destination by lock_migration_info_t and updated on the
+         * destination. So that on client-server disconnection, server can
+         * cleanup the locks proper;y.  */
+
+        char              *client_uid;
         gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
 };
@@ -145,6 +155,7 @@ struct __pl_inode {
         inode_t          *inode;         /* pointer to be used for ref and unref
                                             of inode_t as long as there are
                                             locks on it */
+        gf_boolean_t     migrated;
 };
 typedef struct __pl_inode pl_inode_t;
 
