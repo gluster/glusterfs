@@ -1924,6 +1924,50 @@ out:
 
 }
 
+call_stub_t *
+fop_setactivelk_cbk_stub (call_frame_t *frame, fop_setactivelk_cbk_t fn,
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_SETACTIVELK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.setactivelk = fn;
+        stub->args_cbk.op_ret = op_ret;
+        stub->args_cbk.op_errno = op_errno;
+
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_setactivelk_stub (call_frame_t *frame, fop_setactivelk_t fn,
+                        loc_t *loc, lock_migration_info_t *locklist,
+                        dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_SETACTIVELK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.setactivelk = fn;
+
+        args_setactivelk_store (&stub->args, loc, locklist, xdata);
+
+out:
+        return stub;
+
+}
+
 void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2175,6 +2219,11 @@ call_resume_wind (call_stub_t *stub)
                 stub->fn.getactivelk (stub->frame, stub->frame->this,
                                        &stub->args.loc, stub->args.xdata);
 
+        case GF_FOP_SETACTIVELK:
+                stub->fn.setactivelk (stub->frame, stub->frame->this,
+                                        &stub->args.loc, &stub->args.locklist,
+                                        stub->args.xdata);
+
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
                                   LG_MSG_INVALID_ENTRY, "Invalid value of FOP"
@@ -2396,6 +2445,9 @@ call_resume_unwind (call_stub_t *stub)
         case GF_FOP_GETACTIVELK:
                 STUB_UNWIND (stub, getactivelk, &stub->args_cbk.locklist,
                              stub->args_cbk.xdata);
+
+        case GF_FOP_SETACTIVELK:
+                STUB_UNWIND (stub, setactivelk, stub->args_cbk.xdata);
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,

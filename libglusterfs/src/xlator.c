@@ -83,6 +83,7 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (seek);
         SET_DEFAULT_FOP (lease);
         SET_DEFAULT_FOP (getactivelk);
+        SET_DEFAULT_FOP (setactivelk);
 
         SET_DEFAULT_FOP (getspec);
 

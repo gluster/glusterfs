@@ -76,7 +76,8 @@ typedef struct _call_stub {
                 fop_seek_t seek;
                 fop_lease_t lease;
                 fop_getactivelk_t getactivelk;
-	} fn;
+	        fop_setactivelk_t setactivelk;
+        } fn;
 
 	union {
 		fop_lookup_cbk_t lookup;
@@ -127,6 +128,7 @@ typedef struct _call_stub {
                 fop_seek_cbk_t seek;
                 fop_lease_cbk_t lease;
                 fop_getactivelk_cbk_t getactivelk;
+                fop_setactivelk_cbk_t setactivelk;
 	} fn_cbk;
 
         default_args_t args;
@@ -750,6 +752,15 @@ call_stub_t *
 fop_getactivelk_cbk_stub (call_frame_t *frame, fop_getactivelk_cbk_t fn,
                           int32_t op_ret, int32_t op_errno,
                           lock_migration_info_t *lmi, dict_t *xdata);
+
+call_stub_t *
+fop_setactivelk_stub (call_frame_t *frame, fop_setactivelk_t fn,
+                        loc_t *loc, lock_migration_info_t *locklist,
+                        dict_t *xdata);
+
+call_stub_t *
+fop_setactivelk_cbk_stub (call_frame_t *frame, fop_setactivelk_cbk_t fn,
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

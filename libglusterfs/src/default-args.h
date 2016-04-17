@@ -476,4 +476,7 @@ args_getactivelk_cbk_store (default_args_cbk_t *args,
                              int32_t op_ret, int32_t op_errno,
                              lock_migration_info_t *locklist, dict_t *xdata);
 
+int
+args_setactivelk_store (default_args_t *args, loc_t *loc,
+                          lock_migration_info_t *locklist, dict_t *xdata);
 #endif /* _DEFAULT_ARGS_H */
