@@ -2278,6 +2278,102 @@ pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
+lock_migration_info_t *
+gf_mig_info_for_lock (posix_lock_t *lock)
+{
+        lock_migration_info_t   *new    = NULL;
+
+        new = GF_CALLOC (1, sizeof (lock_migration_info_t),
+                         gf_common_mt_lock_mig);
+        if (new == NULL) {
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&new->list);
+
+        posix_lock_to_flock (lock, &new->flock);
+
+        new->client_uid = gf_strdup (lock->client_uid);
+
+out:
+        return new;
+}
+
+int
+pl_fill_active_locks (pl_inode_t *pl_inode, lock_migration_info_t *lmi)
+{
+        posix_lock_t            *temp           = NULL;
+        lock_migration_info_t   *newlock        = NULL;
+        int                      count          = 0;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                if (list_empty (&pl_inode->ext_list)) {
+                        count = 0;
+                        goto out;
+                }
+
+                list_for_each_entry (temp, &pl_inode->ext_list, list) {
+
+                        if (temp->blocked)
+                                continue;
+
+                        newlock = gf_mig_info_for_lock (temp);
+                        if (!newlock) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                        "lock_dup failed");
+                                count = -1;
+                                goto out;
+                        }
+
+                        list_add_tail (&newlock->list, &lmi->list);
+                        count++;
+                }
+
+                /*TODO: Need to implement meta lock/unlock. meta-unlock should
+                 * set this flag. Tracking BZ: 1331720*/
+                pl_inode->migrated = _gf_true;
+        }
+
+out:
+        pthread_mutex_unlock (&pl_inode->mutex);
+        return count;
+}
+
+/* This function reads only active locks */
+static int
+pl_getactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        pl_inode_t             *pl_inode        = NULL;
+        lock_migration_info_t   locks;
+        int                     op_ret          = 0;
+        int                     op_errno        = 0;
+        int                     count           = 0;
+
+        INIT_LIST_HEAD (&locks.list);
+
+        pl_inode = pl_inode_get (this, loc->inode);
+        if (!pl_inode) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                        "pl_inode_get failed");
+
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        count = pl_fill_active_locks (pl_inode, &locks);
+
+        op_ret = count;
+
+out:
+        STACK_UNWIND_STRICT (getactivelk, frame, op_ret, op_errno, &locks,
+                             NULL);
+
+        gf_free_mig_locks (&locks);
+
+        return 0;
+}
 
 void
 pl_dump_lock (char *str, int size, struct gf_flock *flock,
@@ -2869,6 +2965,7 @@ struct xlator_fops fops = {
         .fgetxattr   = pl_fgetxattr,
         .fsetxattr   = pl_fsetxattr,
         .rename      = pl_rename,
+        .getactivelk = pl_getactivelk,
 };
 
 struct xlator_dumpops dumpops = {

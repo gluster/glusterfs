@@ -469,6 +469,13 @@ new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
                 lock->fl_end = flock->l_start + flock->l_len - 1;
 
         lock->client     = client;
+
+        lock->client_uid = gf_strdup (client->client_uid);
+        if (lock->client_uid == NULL) {
+                GF_FREE (lock);
+                goto out;
+        }
+
         lock->fd_num     = fd_to_fdnum (fd);
         lock->fd         = fd;
         lock->client_pid = client_pid;
@@ -783,6 +790,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
         posix_lock_t  *sum = NULL;
         int            i = 0;
         struct _values v = { .locks = {0, 0, 0} };
+        client_t      *client = NULL;
 
         list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
                 if (conf->blocked)
@@ -796,6 +804,9 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = lock->fl_type;
                                 sum->client     = lock->client;
+                                client          = sum->client;
+                                sum->client_uid =
+                                         gf_strdup (client->client_uid);
                                 sum->fd_num     = lock->fd_num;
                                 sum->client_pid = lock->client_pid;
                                 sum->owner      = lock->owner;
@@ -814,6 +825,10 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = conf->fl_type;
                                 sum->client     = conf->client;
+                                client          = sum->client;
+                                sum->client_uid =
+                                         gf_strdup (client->client_uid);
+
                                 sum->fd_num     = conf->fd_num;
                                 sum->client_pid = conf->client_pid;
                                 sum->owner      = conf->owner;
