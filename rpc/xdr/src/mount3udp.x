@@ -12,6 +12,8 @@
  * mount3udp_svc.c is heavily modified though
  */
 
+%#include "xdr-nfs3.h"
+
 const MNTUDPPATHLEN = 1024;
 
 typedef string mntudpdirpath<MNTPATHLEN>;

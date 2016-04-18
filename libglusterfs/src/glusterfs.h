@@ -29,6 +29,8 @@
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
 
+#include "glusterfs-fops.h" /* generated XDR values for FOPs */
+
 #include "list.h"
 #include "logging.h"
 #include "lkowner.h"
@@ -266,161 +268,8 @@
 #define GF_BACKTRACE_LEN        4096
 #define GF_BACKTRACE_FRAME_COUNT 7
 
-
-/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
-/*
- * OTHER NOTE: fop_enum_to_str and fop_enum_to_pri_str (in common-utils.h)
- * and gf_fop_list in globals.c also
- * contain lists of fops, so if you update this list UPDATE THOSE TOO.
- */
-typedef enum {
-        GF_FOP_NULL = 0,
-        GF_FOP_STAT,
-        GF_FOP_READLINK,
-        GF_FOP_MKNOD,
-        GF_FOP_MKDIR,
-        GF_FOP_UNLINK,
-        GF_FOP_RMDIR,
-        GF_FOP_SYMLINK,
-        GF_FOP_RENAME,
-        GF_FOP_LINK,
-        GF_FOP_TRUNCATE,
-        GF_FOP_OPEN,
-        GF_FOP_READ,
-        GF_FOP_WRITE,
-        GF_FOP_STATFS,
-        GF_FOP_FLUSH,
-        GF_FOP_FSYNC,      /* 16 */
-        GF_FOP_SETXATTR,
-        GF_FOP_GETXATTR,
-        GF_FOP_REMOVEXATTR,
-        GF_FOP_OPENDIR,
-        GF_FOP_FSYNCDIR,
-        GF_FOP_ACCESS,
-        GF_FOP_CREATE,
-        GF_FOP_FTRUNCATE,
-        GF_FOP_FSTAT,      /* 25 */
-        GF_FOP_LK,
-        GF_FOP_LOOKUP,
-        GF_FOP_READDIR,
-        GF_FOP_INODELK,
-        GF_FOP_FINODELK,
-        GF_FOP_ENTRYLK,
-        GF_FOP_FENTRYLK,
-        GF_FOP_XATTROP,
-        GF_FOP_FXATTROP,
-        GF_FOP_FGETXATTR,
-        GF_FOP_FSETXATTR,
-        GF_FOP_RCHECKSUM,
-        GF_FOP_SETATTR,
-        GF_FOP_FSETATTR,
-        GF_FOP_READDIRP,
-        GF_FOP_FORGET,
-        GF_FOP_RELEASE,
-        GF_FOP_RELEASEDIR,
-        GF_FOP_GETSPEC,
-        GF_FOP_FREMOVEXATTR,
-	GF_FOP_FALLOCATE,
-	GF_FOP_DISCARD,
-        GF_FOP_ZEROFILL,
-        GF_FOP_IPC,
-        GF_FOP_SEEK,
-        GF_FOP_LEASE,
-        GF_FOP_COMPOUND,
-        GF_FOP_MAXVALUE,
-} glusterfs_fop_t;
-
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 const char *fop_enum_to_string (glusterfs_fop_t fop);
-
-typedef enum {
-        GF_MGMT_NULL = 0,
-        GF_MGMT_MAXVALUE,
-} glusterfs_mgmt_t;
-
-typedef enum {
-        GF_OP_TYPE_NULL = 0,
-        GF_OP_TYPE_FOP,
-        GF_OP_TYPE_MGMT,
-        GF_OP_TYPE_MAX,
-} gf_op_type_t;
-
-/* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
-typedef enum {
-        GF_LK_GETLK = 0,
-        GF_LK_SETLK,
-        GF_LK_SETLKW,
-        GF_LK_RESLK_LCK,
-        GF_LK_RESLK_LCKW,
-        GF_LK_RESLK_UNLCK,
-        GF_LK_GETLK_FD,
-} glusterfs_lk_cmds_t;
-
-
-typedef enum {
-        GF_LK_F_RDLCK = 0,
-        GF_LK_F_WRLCK,
-        GF_LK_F_UNLCK,
-        GF_LK_EOL,
-} glusterfs_lk_types_t;
-
-/* Lease Types */
-enum gf_lease_types {
-        NONE        = 0,
-        GF_RD_LEASE = 1,
-        GF_RW_LEASE = 2,
-        GF_LEASE_MAX_TYPE,
-};
-typedef enum gf_lease_types gf_lease_types_t;
-
-/* Lease cmds */
-enum gf_lease_cmds {
-        GF_GET_LEASE = 1,
-        GF_SET_LEASE = 2,
-        GF_UNLK_LEASE = 3,
-};
-typedef enum gf_lease_cmds gf_lease_cmds_t;
-
-typedef enum {
-        F_RESLK_LCK = 200,
-        F_RESLK_LCKW,
-        F_RESLK_UNLCK,
-        F_GETLK_FD,
-} glusterfs_lk_recovery_cmds_t;
-
-typedef enum {
-        GF_LOCK_POSIX,
-        GF_LOCK_INTERNAL
-} gf_lk_domain_t;
-
-
-typedef enum {
-        ENTRYLK_LOCK,
-        ENTRYLK_UNLOCK,
-        ENTRYLK_LOCK_NB
-} entrylk_cmd;
-
-
-typedef enum {
-        ENTRYLK_RDLCK,
-        ENTRYLK_WRLCK
-} entrylk_type;
-
-
-typedef enum {
-        GF_XATTROP_ADD_ARRAY,
-        GF_XATTROP_ADD_ARRAY64,
-        GF_XATTROP_OR_ARRAY,
-        GF_XATTROP_AND_ARRAY,
-        GF_XATTROP_GET_AND_SET,
-        GF_XATTROP_ADD_ARRAY_WITH_DEFAULT,
-        GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT
-} gf_xattrop_flags_t;
-
-typedef enum {
-        GF_SEEK_DATA,
-        GF_SEEK_HOLE
-} gf_seek_what_t;
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
@@ -637,39 +486,6 @@ struct _glusterfs_ctx {
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
 glusterfs_ctx_t *glusterfs_ctx_new (void);
-
-typedef enum {
-        GF_EVENT_PARENT_UP = 1,
-        GF_EVENT_POLLIN,
-        GF_EVENT_POLLOUT,
-        GF_EVENT_POLLERR,
-        GF_EVENT_CHILD_UP,
-        GF_EVENT_CHILD_DOWN,
-        GF_EVENT_CHILD_CONNECTING,
-        GF_EVENT_CHILD_MODIFIED,
-        GF_EVENT_TRANSPORT_CLEANUP,
-        GF_EVENT_TRANSPORT_CONNECTED,
-        GF_EVENT_VOLFILE_MODIFIED,
-        GF_EVENT_GRAPH_NEW,
-        GF_EVENT_TRANSLATOR_INFO,
-        GF_EVENT_TRANSLATOR_OP,
-        GF_EVENT_AUTH_FAILED,
-        GF_EVENT_VOLUME_DEFRAG,
-        GF_EVENT_PARENT_DOWN,
-        GF_EVENT_VOLUME_BARRIER_OP,
-        GF_EVENT_UPCALL,
-        GF_EVENT_SCRUB_STATUS,
-        GF_EVENT_SOME_CHILD_DOWN,
-        GF_EVENT_MAXVAL,
-} glusterfs_event_t;
-
-#define LEASE_ID_SIZE 16 /* 128bits */
-struct gf_lease {
-        gf_lease_cmds_t  cmd;
-        gf_lease_types_t lease_type;
-        char             lease_id[LEASE_ID_SIZE];
-        unsigned int     lease_flags;
-};
 
 struct gf_flock {
         short        l_type;

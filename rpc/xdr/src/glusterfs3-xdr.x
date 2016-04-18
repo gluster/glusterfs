@@ -1,3 +1,6 @@
+%#include "rpc-common-xdr.h"
+%#include "glusterfs-fops.h"
+
 #define GF_REQUEST_MAXGROUPS    16
 struct gf_statfs {
 	u_quad_t bsize;

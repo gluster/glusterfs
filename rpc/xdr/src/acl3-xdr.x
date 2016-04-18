@@ -8,6 +8,7 @@
  * cases as published by the Free Software Foundation.
  */
 
+%#include "xdr-nfs3.h"
 
 struct aclentry {
 	int type;

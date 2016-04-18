@@ -8,6 +8,8 @@ glusterd1-xdr.c
 glusterd1-xdr.h
 glusterfs3-xdr.c
 glusterfs3-xdr.h
+glusterfs-fops.h
+glusterfs-fops.c
 mount3udp.c
 mount3udp.h
 nlm4-xdr.c
