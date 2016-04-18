@@ -455,7 +455,13 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("rebal-throttle", conf->dthrottle, options,
                           str, out);
 
+        GF_OPTION_RECONF ("lock-migration", conf->lock_migration_enabled,
+                          options, bool, out);
+
         if (conf->defrag) {
+                conf->defrag->lock_migration_enabled =
+                                        conf->lock_migration_enabled;
+
                 GF_DECIDE_DEFRAG_THROTTLE_COUNT (throttle_count, conf);
                 gf_msg ("DHT", GF_LOG_INFO, 0,
                         DHT_MSG_REBAL_THROTTLE_INFO,
@@ -587,8 +593,6 @@ dht_init_methods (xlator_t *this)
 err:
         return ret;
 }
-
-
 
 int
 dht_init (xlator_t *this)
@@ -722,8 +726,14 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("readdir-optimize", conf->readdir_optimize, bool, err);
 
+
+        GF_OPTION_INIT ("lock-migration", conf->lock_migration_enabled,
+                         bool, err);
+
         if (defrag) {
-                GF_OPTION_INIT ("rebalance-stats", defrag->stats, bool, err);
+              defrag->lock_migration_enabled = conf->lock_migration_enabled;
+
+              GF_OPTION_INIT ("rebalance-stats", defrag->stats, bool, err);
                 if (dict_get_str (this->options, "rebalance-filter", &temp_str)
                     == 0) {
                         if (gf_defrag_pattern_list_fill (this, defrag, temp_str)
@@ -1064,6 +1074,13 @@ struct volume_options options[] = {
                          "migrated at a time. Lazy will allow only one file to "
                          "be migrated at a time and aggressive will allow "
                          "max of [($(processing units) - 4) / 2), 4]"
+        },
+
+        { .key =  {"lock-migration"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = " If enabled this feature will migrate the posix locks"
+                         " associated with a file during rebalance"
         },
 
         { .key  = {NULL} },

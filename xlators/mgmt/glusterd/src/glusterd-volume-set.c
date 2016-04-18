@@ -816,6 +816,53 @@ validate_disperse_heal_enable_disable (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
+static int
+validate_lock_migration_option (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                 char *key, char *value, char **op_errstr)
+{
+        char                 errstr[2048] = "";
+        glusterd_conf_t     *priv         = NULL;
+        int                  ret          = 0;
+        xlator_t            *this         = NULL;
+        gf_boolean_t         b            = _gf_false;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (volinfo->replica_count > 1 || volinfo->disperse_count ||
+            volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                snprintf (errstr, sizeof (errstr), "Lock migration is "
+                          "a experimental feature. Currently works with"
+                          " pure distribute volume only");
+                ret = -1;
+
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                         GD_MSG_INVALID_ENTRY, "%s", errstr);
+
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+
+        ret = gf_string2boolean (value, &b);
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "Invalid value"
+                          " for volume set command. Use on/off only.");
+                ret = -1;
+
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                         GD_MSG_INVALID_ENTRY, "%s", errstr);
+
+                *op_errstr = gf_strdup (errstr);
+
+                goto out;
+        }
+
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+
+out:
+        return ret;
+}
+
 /* dispatch table for VOLUME SET
  * -----------------------------
  *
@@ -951,6 +998,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .validate_fn = validate_defrag_throttle_option,
           .flags       = OPT_FLAG_CLIENT_OPT,
         },
+
+        { .key         = "cluster.lock-migration",
+          .voltype     = "cluster/distribute",
+          .option      = "lock-migration",
+          .value       = "off",
+          .op_version  = GD_OP_VERSION_3_8_0,
+          .validate_fn = validate_lock_migration_option,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+        },
+
         /* NUFA xlator options (Distribute special case) */
         { .key        = "cluster.nufa",
           .voltype    = "cluster/distribute",
