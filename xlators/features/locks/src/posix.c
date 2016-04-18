@@ -1268,6 +1268,17 @@ pl_flush (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                if (pl_inode->migrated) {
+                       pthread_mutex_unlock (&pl_inode->mutex);
+                       STACK_UNWIND_STRICT (flush, frame, -1, EREMOTE,
+                                            NULL);
+                       return 0;
+                }
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
         pl_trace_flush (this, frame, fd);
 
         if (frame->root->lk_owner.len == 0) {
@@ -1968,6 +1979,22 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 #endif
         case F_SETLK:
                 memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
+
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                        if (pl_inode->migrated) {
+                                op_errno = EREMOTE;
+                                pthread_mutex_unlock (&pl_inode->mutex);
+                                STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno,
+                                                     flock, xdata);
+
+                                __destroy_lock (reqlock);
+                                goto out;
+                        }
+                }
+                pthread_mutex_unlock (&pl_inode->mutex);
+
+
                 ret = pl_verify_reservelk (this, pl_inode, reqlock, can_block);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_TRACE,
