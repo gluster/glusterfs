@@ -14,6 +14,7 @@
 #include <dirent.h>
 #include <sys/uio.h>
 #include <sys/statvfs.h>
+#include <sys/stat.h>
 
 /* GF follows the Linux XATTR definition, which differs in Darwin. */
 #define GF_XATTR_CREATE  0x1 /* set value, fail if attr already exists */

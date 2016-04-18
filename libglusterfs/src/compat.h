@@ -437,7 +437,6 @@ char *dirname_r(char *path);
 #endif /* THREAD_UNSAFE_DIRNAME */
 
 int gf_mkostemp (char *tmpl, int suffixlen, int flags);
-#define mkostemp(tmpl, flags) gf_mkostemp(tmpl, 0, flags);
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
@@ -482,7 +481,9 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 
 #if defined(__GNUC__) && !defined(RELAX_POISONING)
 /* Use run API, see run.h */
-#pragma GCC poison system popen
+#include <stdlib.h> /* system(), mkostemp() */
+#include <stdio.h> /* popen() */
+#pragma GCC poison system mkostemp popen
 #endif
 
 int gf_umount_lazy(char *xlname, char *path, int rmdir);
