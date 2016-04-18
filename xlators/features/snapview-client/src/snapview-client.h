@@ -26,9 +26,6 @@ struct __svc_local {
 };
 typedef struct __svc_local svc_local_t;
 
-void
-svc_local_free (svc_local_t *local);
-
 #define SVC_STACK_UNWIND(fop, frame, params ...) do {           \
                 svc_local_t *__local = NULL;                    \
                 if (frame) {                                    \
@@ -97,25 +94,4 @@ typedef enum {
         VIRTUAL_INODE
 } inode_type_t;
 
-void svc_local_free (svc_local_t *local);
-
-xlator_t *
-svc_get_subvolume (xlator_t *this, int inode_type);
-
-int
-__svc_inode_ctx_get (xlator_t *this, inode_t *inode, int *inode_type);
-
-int
-svc_inode_ctx_get (xlator_t *this, inode_t *inode, int *inode_type);
-
-int32_t
-svc_inode_ctx_set (xlator_t *this, inode_t *inode, int inode_type);
-
-void
-svc_local_free (svc_local_t *local);
-
-gf_boolean_t
-svc_readdir_on_special_dir (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno,
-                            gf_dirent_t *entries, dict_t *xdata);
 #endif /* __SNAP_VIEW_CLIENT_H__ */
