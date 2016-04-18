@@ -8,14 +8,16 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "compat.h"
 #include "syscall.h"
+#include "compat.h"
+#include "mem-pool.h"
 
 #include <sys/types.h>
 #include <utime.h>
 #include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 int
 sys_lstat (const char *path, struct stat *buf)
