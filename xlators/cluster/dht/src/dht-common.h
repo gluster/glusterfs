@@ -444,6 +444,9 @@ struct gf_defrag_info_ {
 
         /* Hard link handle requirement */
         synclock_t                   link_lock;
+
+        /* lock migration flag */
+        gf_boolean_t                 lock_migration_enabled;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -535,6 +538,10 @@ struct dht_conf {
          */
         uint32_t        vol_commit_hash;
         gf_boolean_t    vch_forced;
+
+        /* lock migration */
+
+        gf_boolean_t    lock_migration_enabled;
 };
 typedef struct dht_conf dht_conf_t;
 
