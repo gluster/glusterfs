@@ -128,6 +128,8 @@ struct dht_rebalance_ {
         dict_t              *xdata;
         dict_t              *xattr;
         int32_t              set;
+        struct gf_flock      flock;
+        int                  lock_cmd;
 };
 
 /**

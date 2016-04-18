@@ -692,8 +692,9 @@ int
 dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, dict_t *xdata)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = 0;
+        dht_local_t     *local  = NULL;
+        xlator_t        *subvol = 0;
+        int             ret = 0;
 
         local = frame->local;
 
@@ -702,11 +703,26 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->call_cnt != 1)
                 goto out;
 
+        local->rebalance.target_op_fn = dht_flush2;
+
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
+
         /* If context is set, then send flush() it to the destination */
         dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
         if (subvol && dht_fd_open_on_dst (this, local->fd, subvol)) {
                 dht_flush2 (this, subvol, frame, 0);
                 return 0;
+        }
+
+        if (op_errno == EREMOTE) {
+                ret = dht_rebalance_complete_check (this, frame);
+                if (!ret) {
+                        return 0;
+                }
         }
 
 out:
@@ -734,7 +750,8 @@ dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         local->call_cnt = 2; /* This is the second attempt */
 
         STACK_WIND (frame, dht_flush_cbk,
-                    subvol, subvol->fops->flush, local->fd, NULL);
+                    subvol, subvol->fops->flush, local->fd,
+                    local->rebalance.xdata);
 
         return 0;
 
@@ -942,23 +959,91 @@ int
 dht_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int op_ret, int op_errno, struct gf_flock *flock, dict_t *xdata)
 {
+        dht_local_t     *local  = NULL;
+        int             ret     = -1;
+        xlator_t        *subvol = NULL;
+
+        local = frame->local;
+
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (local->call_cnt != 1)
+                goto out;
+
+        local->rebalance.target_op_fn = dht_lk2;
+
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
+
+        if (op_errno == EREMOTE) {
+                dht_inode_ctx_get_mig_info (this, local->fd->inode,
+                                            NULL, &subvol);
+                if (subvol && dht_fd_open_on_dst (this, local->fd, subvol)) {
+                        dht_lk2 (this, subvol, frame, 0);
+                        return 0;
+                } else {
+                        ret = dht_rebalance_complete_check (this, frame);
+                        if (!ret) {
+                                return 0;
+                        }
+                }
+        }
+
+out:
         DHT_STACK_UNWIND (lk, frame, op_ret, op_errno, flock, xdata);
 
         return 0;
 }
 
+int
+dht_lk2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+{
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if ((frame == NULL) || (frame->local == NULL))
+                goto out;
+
+        local = frame->local;
+
+        op_errno = local->op_errno;
+
+        if (subvol == NULL)
+                goto out;
+
+        local->call_cnt = 2; /* This is the second attempt */
+
+        STACK_WIND (frame, dht_lk_cbk, subvol, subvol->fops->lk, local->fd,
+                    local->rebalance.lock_cmd, &local->rebalance.flock,
+                    local->rebalance.xdata);
+
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (lk, frame, -1, op_errno, NULL,  NULL);
+        return 0;
+}
 
 int
 dht_lk (call_frame_t *frame, xlator_t *this,
         fd_t *fd, int cmd, struct gf_flock *flock, dict_t *xdata)
 {
-        xlator_t     *subvol = NULL;
-        int           op_errno = -1;
-
+        xlator_t        *subvol         = NULL;
+        int             op_errno        = -1;
+        dht_local_t     *local          = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+
+        local = dht_local_init (frame, NULL, fd, GF_FOP_LK);
 
         subvol = dht_subvol_get_cached (this, fd->inode);
         if (!subvol) {
@@ -968,7 +1053,11 @@ dht_lk (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        /* TODO: for rebalance, we need to preserve the fop arguments */
+        local->rebalance.flock = *flock;
+        local->rebalance.lock_cmd = cmd;
+
+        local->call_cnt = 1;
+
         STACK_WIND (frame, dht_lk_cbk, subvol, subvol->fops->lk, fd,
                     cmd, flock, xdata);
 
