@@ -1,6 +1,8 @@
 /* This file has definition of few XDR structures which are
  * not captured in any section specific file */
 
+%#include "xdr-common.h"
+
 struct auth_glusterfs_parms_v2 {
         int pid;
         unsigned int uid;

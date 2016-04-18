@@ -10,6 +10,8 @@
 
 /* .x file defined as according to the RFC */
 
+%#include "xdr-common.h"
+
 const MAXNETOBJ_SZ = 1024;
 const LM_MAXSTRLEN = 1024;
 const MAXNAMELEN = 1025;

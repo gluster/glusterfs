@@ -11,17 +11,7 @@
 #ifndef _LK_OWNER_H
 #define _LK_OWNER_H
 
-#define GF_MAX_LOCK_OWNER_LEN 1024 /* 1kB as per NLM */
-
-/* 16strings-16strings-... */
-#define GF_LKOWNER_BUF_SIZE  ((GF_MAX_LOCK_OWNER_LEN * 2) +     \
-                              (GF_MAX_LOCK_OWNER_LEN / 8))
-
-typedef struct gf_lkowner_ {
-        int  len;
-        char data[GF_MAX_LOCK_OWNER_LEN];
-} gf_lkowner_t;
-
+#include "glusterfs-fops.h"
 
 /* LKOWNER to string functions */
 static inline void

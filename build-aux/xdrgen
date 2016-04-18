@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# error out if an error occurs
+set -e
+
 append_licence_header ()
 {
     local src_file=$1;
@@ -7,7 +10,7 @@ append_licence_header ()
 
     cat >$dst_file <<EOF
 /*
-  Copyright (c) 2007-2014 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2007-2016 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -17,8 +20,6 @@ append_licence_header ()
 */
 
 #include "compat.h"
-#include "xdr-common.h"
-#include "xdr-nfs3.h"
 
 #if defined(__GNUC__)
 #if __GNUC__ >= 4
@@ -74,7 +75,7 @@ gen_headers ()
     rm -f $hfile;
     rpcgen -h -o $hfile $xfile;
     # the '#ifdef' part of file should be fixed
-    sed -e 's/-/_/g' $hfile > ${hfile}.new && mv ${hfile}.new $hfile;
+    sed -r -e '/#(ifdef|ifndef|define)/s/-/_/g' $hfile > ${hfile}.new && mv ${hfile}.new $hfile;
     # Gen header to temp file and append generated file
     append_licence_header $hfile $tmp_hfile;
     # now move the destination file to actual original file

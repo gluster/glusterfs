@@ -80,6 +80,7 @@ libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
 libglusterfs/src/defaults.c
+libglusterfs/src/glusterfs-fops.h
 libtool
 run-tests.sh
 tests/env.rc

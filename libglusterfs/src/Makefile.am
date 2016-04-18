@@ -34,9 +34,9 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c default-args.c locking.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
-nodist_libglusterfs_la_HEADERS = y.tab.h
+nodist_libglusterfs_la_HEADERS = y.tab.h glusterfs-fops.h
 
-BUILT_SOURCES = graph.lex.c defaults.c
+BUILT_SOURCES = graph.lex.c defaults.c glusterfs-fops.h
 
 libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
@@ -83,6 +83,12 @@ y.tab.h: graph.y
 
 defaults.c: defaults-tmpl.c generator.py gen-defaults.py
 	$(PYTHON) $(srcdir)/gen-defaults.py $(srcdir)/defaults-tmpl.c > $@
+
+$(top_srcdir)/rpc/xdr/src/glusterfs-fops.h: $(top_srcdir)/rpc/xdr/src/glusterfs-fops.x
+	$(MAKE) -C $(top_builddir)/rpc/xdr/src/ `basename $@`
+
+glusterfs-fops.h: $(top_srcdir)/rpc/xdr/src/glusterfs-fops.h
+	cp $(top_srcdir)/rpc/xdr/src/glusterfs-fops.h .
 
 CLEANFILES = $(nodist_libglusterfs_la_SOURCES) $(nodist_libglusterfs_la_HEADERS)
 
