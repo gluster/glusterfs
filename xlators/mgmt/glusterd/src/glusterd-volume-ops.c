@@ -1697,7 +1697,7 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         }
         ret = glusterd_check_ganesha_export (volinfo);
         if (ret) {
-                ret = ganesha_manage_export(dict, "off", op_errstr);
+                ret = ganesha_manage_export (volname, "off", op_errstr, _gf_false);
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_WARNING, 0,
                                 GD_MSG_NFS_GNS_UNEXPRT_VOL_FAIL, "Could not "
