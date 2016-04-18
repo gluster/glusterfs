@@ -692,7 +692,8 @@ quota_add_parent (struct list_head *list, char *name, uuid_t pgfid)
         }
 
         entry = __quota_dentry_new (NULL, name, pgfid);
-        list_add_tail (&entry->next, list);
+        if (entry)
+                list_add_tail (&entry->next, list);
 
 out:
         if (found)
