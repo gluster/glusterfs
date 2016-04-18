@@ -5228,6 +5228,9 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 }
                 cds_list_add_tail (&snap_vol->vol_list, &snap->volumes);
                 strcpy(snap_vol->volname, clonename);
+                gf_uuid_copy (snap_vol->restored_from_snap,
+                              origin_vol->snapshot->snap_id);
+
         } else {
                 GLUSTERD_GET_UUID_NOHYPHEN (snap_vol->volname, *snap_volid);
                 strcpy (snap_vol->parent_volname, origin_vol->volname);
