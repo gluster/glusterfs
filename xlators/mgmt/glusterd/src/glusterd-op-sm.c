@@ -1449,6 +1449,82 @@ out:
         }
         return ret;
 }
+static int
+glusterd_water_limit_check (glusterd_volinfo_t *volinfo, gf_boolean_t is_hi,
+                char **op_errstr)
+{
+
+        int                                     ret            = -1;
+        char                                    *default_value = NULL;
+        char                                    *temp          = NULL;
+        uint64_t                                wm             = 0;
+        uint64_t                                default_wm     = 0;
+        struct volopt_map_entry                 *vmap          = NULL;
+        xlator_t                                *this          = NULL;
+        extern struct volopt_map_entry          glusterd_volopt_map[];
+        char                                    msg[2048]      = {0};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (is_hi)
+                ret = glusterd_volinfo_get (volinfo,
+                                            "cluster.watermark-low", &temp);
+        else
+                ret = glusterd_volinfo_get (volinfo,
+                                            "cluster.watermark-hi", &temp);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "failed to get watermark");
+                goto out;
+        }
+
+        gf_string2bytesize_uint64 (temp, &wm);
+
+        if (is_hi)
+                for (vmap = glusterd_volopt_map; vmap->key; vmap++) {
+                        if (strcmp (vmap->key, "cluster.watermark-hi") == 0)
+                                default_value = vmap->value;
+                }
+        else
+                for (vmap = glusterd_volopt_map; vmap->key; vmap++) {
+                        if (strcmp (vmap->key, "cluster.watermark-low") == 0)
+                                default_value = vmap->value;
+                }
+
+        gf_string2bytesize_uint64 (default_value, &default_wm);
+
+        if (is_hi) {
+                if (default_wm <= wm) {
+                        snprintf (msg, sizeof (msg), "Resetting hi-watermark "
+                                  "to default will make it lower or equal to "
+                                  "the low-watermark, which is an invalid "
+                                  "configuration state. Please lower the "
+                                  "low-watermark first to the desired value "
+                                  "and then reset the hi-watermark.");
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                if (default_wm >= wm) {
+                        snprintf (msg, sizeof (msg), "Resetting low-watermark "
+                                  "to default will make it higher or equal to "
+                                  "the hi-watermark, which is an invalid "
+                                  "configuration state. Please raise the "
+                                  "hi-watermark first to the desired value "
+                                  "and then reset the low-watermark.");
+                        ret = -1;
+                        goto out;
+                }
+        }
+out:
+        if (msg[0] != '\0') {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TIER_WATERMARK_RESET_FAIL, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+        }
+        return ret;
+}
 
 static int
 glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
@@ -1525,6 +1601,16 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 if (exists == -1) {
                         ret = -1;
                         goto out;
+                } else if (strcmp (key, "cluster.watermark-low") == 0) {
+                        ret = glusterd_water_limit_check (volinfo, _gf_false,
+                                        op_errstr);
+                        if (ret)
+                                return ret;
+                } else if (strcmp (key, "cluster.watermark-hi") == 0) {
+                        ret = glusterd_water_limit_check (volinfo, _gf_true,
+                                        op_errstr);
+                        if (ret)
+                                return ret;
                 }
 
                 if (!exists) {
