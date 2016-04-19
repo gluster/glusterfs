@@ -131,11 +131,9 @@ def glustermount(hostname, volname):
     """
     mnt = tempfile.mkdtemp(prefix="georepsetup_")
     execute(["glusterfs",
-             "--xlator-option=\"*dht.lookup-unhashed=off\"",
              "--volfile-server", hostname,
              "--volfile-id", volname,
              "-l", SESSION_MOUNT_LOG_FILE,
-             "--client-pid=-1",
              mnt],
             failure_msg="Unable to Mount Gluster Volume "
             "{0}:{1}".format(hostname, volname))
@@ -412,16 +410,14 @@ def main(args):
                       "All status {2} (Turns {0:>3})".format(
                           turns, chkpt_status, ok_status))
         else:
-            if not summary["checkpoints_ok"]:
-                # If Checkpoint is not complete after a iteration means brick
-                # was down and came online now. SETATTR on mount is not
-                # recorded, So again issue touch on mount root So that
-                # Stime will increase and Checkpoint will complete.
-                touch_mount_root(args.mastervol)
-
             output_warning("All Checkpoints {1}, "
                            "All status {2} (Turns {0:>3})".format(
                                turns, chkpt_status, ok_status))
+
+            output_warning("Geo-rep workers Faulty/Offline, "
+                           "Faulty: {0} Offline: {1}".format(
+                               repr(faulty_rows),
+                               repr(down_rows)))
 
         if summary["checkpoints_ok"]:
             output_ok("Stopping Geo-replication session now")
@@ -429,12 +425,12 @@ def main(args):
                    "%s::%s" % (args.slave, args.slavevol), "stop"]
             execute(cmd)
             break
-
-        if not summary["ok"]:
-            output_warning("Geo-rep workers Faulty/Offline, "
-                           "Faulty: {0} Offline: {1}".format(
-                               repr(faulty_rows),
-                               repr(down_rows)))
+        else:
+            # If Checkpoint is not complete after a iteration means brick
+            # was down and came online now. SETATTR on mount is not
+            # recorded, So again issue touch on mount root So that
+            # Stime will increase and Checkpoint will complete.
+            touch_mount_root(args.mastervol)
 
         # Increment the turns and Sleep for 10 sec
         turns += 1
