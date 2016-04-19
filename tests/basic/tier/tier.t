@@ -113,6 +113,12 @@ TEST ! $CLI volume set $V0 cluster.watermark-low 90
 TEST ! $CLI volume set $V0 cluster.read-freq-threshold -12
 TEST ! $CLI volume set $V0 cluster.write-freq-threshold -12
 
+#check for watermark reset
+TEST $CLI volume set $V0 cluster.watermark-low 10
+TEST $CLI volume set $V0 cluster.watermark-hi 30
+TEST ! $CLI volume reset $V0 cluster.watermark-low
+TEST $CLI volume reset $V0 cluster.watermark-hi
+TEST $CLI volume reset $V0 cluster.watermark-low
 
 # stop the volume and restart it. The rebalance daemon should restart.
 cd /tmp
