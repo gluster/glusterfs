@@ -12,7 +12,6 @@
 #define __COMPAT_H__
 
 #include <stdint.h>
-#include "dict.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX __LONG_LONG_MAX__ /* compat with old gcc */
@@ -254,10 +253,6 @@ enum {
 #ifndef FTW_CONTINUE
   #define FTW_CONTINUE 0
 #endif
-
-int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
-int32_t gf_darwin_compat_getxattr (const char *key, dict_t *dict);
-int32_t gf_darwin_compat_setxattr (dict_t *dict);
 
 #ifndef _PATH_UMOUNT
   #define _PATH_UMOUNT "/sbin/umount"
