@@ -8546,7 +8546,6 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_str (rsp_dict, key, &node_uuid);
         if (!ret) {
                 node_uuid_str = gf_strdup (node_uuid);
-
                 memset (key, 0, 256);
                 snprintf (key, 256, "node-uuid-%d", src_count+dst_count);
                 ret = dict_set_dynstr (aggr, key, node_uuid_str);
@@ -8641,7 +8640,8 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "bitrot_log_file", &bitd_log);
         if (!ret) {
-                ret = dict_set_str (aggr, "bitrot_log_file", bitd_log);
+                ret = dict_set_dynstr_with_alloc (aggr, "bitrot_log_file",
+                                                  bitd_log);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "bitrot log file location");
@@ -8651,7 +8651,8 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "scrub_log_file", &scrub_log);
         if (!ret) {
-                ret = dict_set_str (aggr, "scrub_log_file", scrub_log);
+                ret = dict_set_dynstr_with_alloc (aggr, "scrub_log_file",
+                                                  scrub_log);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "scrubber log file location");
@@ -8661,7 +8662,8 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "features.scrub-freq", &scrub_freq);
         if (!ret) {
-                ret = dict_set_str (aggr, "features.scrub-freq", scrub_freq);
+                ret = dict_set_dynstr_with_alloc (aggr, "features.scrub-freq",
+                                                  scrub_freq);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "scrub-frequency value to dictionary");
@@ -8671,8 +8673,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "features.scrub-throttle", &scrub_impact);
         if (!ret) {
-                ret = dict_set_str (aggr, "features.scrub-throttle",
-                                    scrub_impact);
+                ret = dict_set_dynstr_with_alloc (aggr,
+                                                  "features.scrub-throttle",
+                                                  scrub_impact);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "scrub-throttle value to dictionary");
@@ -8682,7 +8685,8 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "features.scrub", &scrub_state);
         if (!ret) {
-                ret = dict_set_str (aggr, "features.scrub", scrub_state);
+                ret = dict_set_dynstr_with_alloc (aggr, "features.scrub",
+                                                  scrub_state);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "scrub state value to dictionary");
