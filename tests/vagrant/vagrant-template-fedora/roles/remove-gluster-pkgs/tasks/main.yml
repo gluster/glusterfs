@@ -1,0 +1,4 @@
+---
+- name: Erase gluster packages, keep dependencies; we will source install
+  shell: rpm -ev --nodeps `rpm -qa | grep ^gluster`
+  ignore_errors: True

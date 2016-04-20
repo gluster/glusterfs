@@ -10,8 +10,6 @@
     - remove-gluster-pkgs
     - prepare-brick
     - mock-user
-    - selinux
     - iptables
     - fix-localhost
     - daemon-services
-

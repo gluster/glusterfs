@@ -1,0 +1,16 @@
+---
+- hosts: all
+  sudo: true
+  roles:
+    #Installing packages invoke dnf and metadata download takes a long time.
+    #The box used in Vagrantfile has all the packages installed.
+    #Refer to main.yml file in install-pkgs role to get list of packages.
+    #install-pkgs role is hence disabled by default.
+    #- install-pkgs
+    - remove-gluster-pkgs
+    - prepare-brick
+    - mock-user
+    - selinux
+    - iptables
+    - fix-localhost
+    - daemon-services

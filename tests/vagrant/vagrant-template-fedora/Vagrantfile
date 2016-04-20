@@ -1,0 +1,56 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+    config.vm.define "vagrant-testVM" do |testvm|
+      testvm.vm.box = "gluster-dev-fedora"
+      testvm.vm.box_url = "http://download.gluster.org/pub/gluster/glusterfs/vagrant/gluster-dev-fedora/boxes/gluster-dev-fedora.json"
+      testvm.vm.hostname = "vagrant-testVM"
+      #testvm.ssh.insert_key = false
+      testvm.vm.synced_folder ".", "/vagrant", disabled: true
+
+        host = RbConfig::CONFIG['host_os']
+        # Give VM 1/4 system memory & access to all cpu cores on the host
+        if host =~ /darwin/
+          cpus = `sysctl -n hw.ncpu`.to_i
+          # sysctl returns Bytes and we need to convert to MB
+          mem = `sysctl -n hw.memsize`.to_i / 1024 / 1024 / 4
+        elsif host =~ /linux/
+          cpus = `nproc`.to_i
+          # meminfo shows KB and we need to convert to MB
+          mem = `grep 'MemTotal' /proc/meminfo | sed -e 's/MemTotal://' -e 's/ kB//'`.to_i / 1024 / 4
+        else # sorry Windows folks, I can't help you
+          cpus = 2
+          mem = 1024
+        end
+
+      # Define basic config for VM, memory, cpu, storage pool
+      testvm.vm.provider "libvirt" do |lv|
+        lv.storage_pool_name = "default"
+        lv.memory = mem
+        lv.cpus = cpus
+
+
+        # We need a brick partition, lets have a 5G disk for that.
+        # If you need more bricks, just add more letters to the
+        # string below.
+        "b".split("").each do |i|
+          lv.storage :file,
+          #:path           => "",
+          #:allow_existing => "",
+          :device         => "vd#{i}",
+          :size           => "5G",
+          :type           => "qcow2",
+          :bus            => "virtio",
+          :cache          => "default"
+        end
+      end
+
+      # Let's provision
+      testvm.vm.provision "ansible", run: "always" do |setup|
+        setup.verbose = "v"
+        setup.playbook = "setup.yml"
+      end
+
+    end
+end
