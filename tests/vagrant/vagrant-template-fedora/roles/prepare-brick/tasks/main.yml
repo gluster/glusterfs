@@ -1,0 +1,6 @@
+---
+- name: Format backend
+  filesystem: fstype=xfs dev=/dev/vdb
+
+- name: Add entry to fstab and mount
+  mount: name=/d src=/dev/vdb fstype=xfs state=mounted

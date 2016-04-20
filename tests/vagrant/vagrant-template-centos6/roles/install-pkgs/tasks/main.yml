@@ -1,0 +1,91 @@
+---
+- name: install deltarpm
+  yum:  name=deltarpm state=present
+
+- name: remove samba3
+  shell:  yum -y remove samba*
+
+- name: update system
+  shell: yum -y update
+
+- name: install epel repo
+  yum: name=http://download.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm state=present
+
+- name: install other packages
+  yum:  name={{ item }} state=present
+  with_items:
+    - attr
+    - autoconf
+    - automake
+    - bison
+      #- libcmocka-devel
+    - dbench
+    - dos2unix
+    - e2fsprogs
+    - findutils
+    - flex
+    - fuse-devel
+    - fuse-libs
+    - gcc
+    - gdb
+    - git
+    - glib2-devel
+      #- hostname
+    - libacl-devel
+    - libaio-devel
+    - libattr-devel
+    - libibverbs-devel
+    - librdmacm-devel
+    - libselinux-python
+    - libsemanage-python
+    - libtool
+    - libxml2-devel
+    - lvm2-devel
+    - make
+      #- man-db
+    - mock
+    - net-tools
+      #- nfs-ganesha-gluster
+    - nfs-utils
+    - openssh-server
+    - openssl-devel
+    - perl-Test-Harness
+    - pkgconfig
+      #- procps-ng
+    - psmisc
+    - python-devel
+    - python-eventlet
+    - python-netifaces
+    - python-paste-deploy
+    - python-setuptools
+    - python-simplejson
+    - python-sphinx
+    - python-webob
+    - pyxattr
+    - readline-devel
+    - rpm-build
+    - screen
+    - strace
+    - supervisor
+    - systemtap-sdt-devel
+    - sqlite-devel
+    - samba4*
+    - userspace-rcu-devel
+    - vim
+    - wget
+    - which
+    - xfsprogs
+    - yajl-devel
+
+- name: install dev help packages, not required by Gluster
+  yum:  name={{ item }} state=present
+  with_items:
+    - cgdb
+    - clang
+    - lsof
+    - perf
+    - sysstat
+    - systemtap
+    - systemtap-runtime
+    - tcpdump
+    - valgrind
