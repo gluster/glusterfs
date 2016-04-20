@@ -10892,9 +10892,9 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         uint64_t       unsigned_files   = 0;
         uint64_t       scrub_time       = 0;
         uint64_t       days             = 0;
-        uint64_t       hour             = 0;
-        uint64_t       minut            = 0;
-        uint64_t       second           = 0;
+        uint64_t       hours            = 0;
+        uint64_t       minutes          = 0;
+        uint64_t       seconds          = 0;
         char          *last_scrub       = NULL;
         uint64_t       error_count      = 0;
 
@@ -10952,9 +10952,9 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 last_scrub      = NULL;
                 scrub_time      = 0;
                 days            = 0;
-                hour            = 0;
-                minut           = 0;
-                second          = 0;
+                hours           = 0;
+                minutes         = 0;
+                seconds         = 0;
                 error_count     = 0;
                 scrub_files     = 0;
                 unsigned_files  = 0;
@@ -10966,6 +10966,33 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
                 memset (key, 0, 256);
+                snprintf (key, 256, "scrubbed-files-%d", i);
+                ret = dict_get_uint64 (dict, key, &scrub_files);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get scrubbed "
+                                "files");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "unsigned-files-%d", i);
+                ret = dict_get_uint64 (dict, key, &unsigned_files);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get unsigned "
+                                "files");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-duration-%d", i);
+                ret = dict_get_uint64 (dict, key, &scrub_time);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub "
+                                "duration");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "last-scrub-time-%d", i);
+                ret = dict_get_str (dict, key, &last_scrub);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub"
+                                " time");
+                memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", i);
                 ret = dict_get_uint64 (dict, key, &error_count);
                 if (ret)
@@ -10976,6 +11003,28 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                          "===============");
 
                 cli_out ("%s: %s\n", "Node", node_name);
+
+                cli_out ("%s: %"PRIu64 "\n", "Number of Scrubbed files",
+                          scrub_files);
+
+                cli_out ("%s: %"PRIu64 "\n", "Number of Skipped files",
+                          unsigned_files);
+
+                if ((!last_scrub) || !strcmp (last_scrub, ""))
+                        cli_out ("%s: %s\n", "Last completed scrub time",
+                                 "Scrubber pending to complete.");
+                else
+                        cli_out ("%s: %s\n", "Last completed scrub time",
+                                 last_scrub);
+
+                /* Printing last scrub duration time in human readable form*/
+                seconds    = scrub_time%60;
+                minutes    = (scrub_time/60)%60;
+                hours      = (scrub_time/3600)%24;
+                days       = scrub_time/86400;
+                cli_out ("%s: %"PRIu64 ":%"PRIu64 ":%"PRIu64 ":%"PRIu64 "\n",
+                         "Duration of last scrub (D:M:H:M:S)",
+                         days, hours, minutes, seconds);
 
                 cli_out ("%s: %"PRIu64 "\n", "Error count", error_count);
 
