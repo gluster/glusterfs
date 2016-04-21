@@ -343,8 +343,13 @@ runner_end_reuse (runner_t *runner)
         int chstat = 0;
 
         if (runner->chpid > 0) {
-                if (waitpid (runner->chpid, &chstat, 0) == runner->chpid)
-                        ret = chstat;
+                if (waitpid (runner->chpid, &chstat, 0) == runner->chpid) {
+                        if (WIFEXITED(chstat)) {
+                                ret = -WEXITSTATUS(chstat);
+                        } else {
+                                ret = chstat;
+                        }
+                }
         }
 
         for (i = 0; i < 3; i++) {
