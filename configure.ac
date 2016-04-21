@@ -97,6 +97,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/performance/open-behind/src/Makefile
                 xlators/performance/md-cache/Makefile
                 xlators/performance/md-cache/src/Makefile
+                xlators/performance/decompounder/Makefile
+                xlators/performance/decompounder/src/Makefile
                 xlators/debug/Makefile
                 xlators/debug/trace/Makefile
                 xlators/debug/trace/src/Makefile

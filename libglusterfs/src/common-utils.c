@@ -4327,8 +4327,9 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_MAXVALUE:
         case GF_FOP_DISCARD:
                 return "LEAST";
+        default:
+                return "UNKNOWN";
         }
-        return "UNKNOWN";
 }
 
 const char *
@@ -4385,6 +4386,8 @@ fop_enum_to_string (glusterfs_fop_t fop)
                 "DISCARD",
                 "ZEROFILL",
                 "IPC",
+                "SEEK",
+                "COMPOUND",
                 "MAXVALUE"};
         if (fop <= GF_FOP_MAXVALUE)
                 return str_map[fop];

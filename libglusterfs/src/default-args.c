@@ -1486,3 +1486,37 @@ args_cbk_wipe (default_args_cbk_t *args_cbk)
         if (!list_empty (&args_cbk->entries.list))
                 gf_dirent_free (&args_cbk->entries);
 }
+
+void
+args_wipe (default_args_t *args)
+{
+        if (!args)
+                return;
+
+        if (&args->loc)
+                loc_wipe (&args->loc);
+
+        if (&args->loc2)
+                loc_wipe (&args->loc2);
+
+        if (args->fd)
+                fd_unref (args->fd);
+
+        GF_FREE ((char *)args->linkname);
+
+	GF_FREE (args->vector);
+
+        if (args->iobref)
+                iobref_unref (args->iobref);
+
+        if (args->xattr)
+                dict_unref (args->xattr);
+
+        if (args->xdata)
+                dict_unref (args->xdata);
+
+	GF_FREE ((char *)args->name);
+
+	GF_FREE ((char *)args->volume);
+
+}

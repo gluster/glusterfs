@@ -159,6 +159,11 @@ enum gf_common_mem_types_ {
         gf_common_mt_syncenv,
         gf_common_mt_scan_data,
         gf_common_list_node,
+        gf_mt_default_args_t,
+        gf_mt_default_args_cbk_t,
+        /*used for compound fops*/
+        gf_mt_compound_req_t,
+        gf_mt_compound_rsp_t,
         gf_common_mt_end
 };
 #endif

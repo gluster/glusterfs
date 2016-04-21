@@ -61,6 +61,7 @@ enum gf_fop_procnum {
         GFS3_OP_ZEROFILL,
         GFS3_OP_IPC,
         GFS3_OP_SEEK,
+        GFS3_OP_COMPOUND,
         GFS3_OP_MAXVALUE,
 } ;
 

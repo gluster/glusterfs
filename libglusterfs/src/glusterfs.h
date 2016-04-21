@@ -269,7 +269,8 @@
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 /*
- * OTHER NOTE: fop_enum_to_str and fop_enum_to_pri_str (in common-utils.h) also
+ * OTHER NOTE: fop_enum_to_str and fop_enum_to_pri_str (in common-utils.h)
+ * and gf_fop_list in globals.c also
  * contain lists of fops, so if you update this list UPDATE THOSE TOO.
  */
 typedef enum {
@@ -325,6 +326,7 @@ typedef enum {
         GF_FOP_IPC,
         GF_FOP_SEEK,
         GF_FOP_LEASE,
+        GF_FOP_COMPOUND,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
