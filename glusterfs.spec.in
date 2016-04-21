@@ -1114,6 +1114,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/libgfdb.so.*
 %endif

@@ -276,6 +276,9 @@ args_lease_cbk_store (default_args_cbk_t *args,
 void
 args_cbk_wipe (default_args_cbk_t *args_cbk);
 
+void
+args_wipe (default_args_t *args);
+
 int
 args_lookup_store (default_args_t *args, loc_t *loc,
                    dict_t *xdata);

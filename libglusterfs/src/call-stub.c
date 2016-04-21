@@ -2360,31 +2360,8 @@ out:
 static void
 call_stub_wipe_args (call_stub_t *stub)
 {
-	loc_wipe (&stub->args.loc);
-
-	loc_wipe (&stub->args.loc2);
-
-	if (stub->args.fd)
-		fd_unref (stub->args.fd);
-
-	GF_FREE ((char *)stub->args.linkname);
-
-	GF_FREE (stub->args.vector);
-
-	if (stub->args.iobref)
-		iobref_unref (stub->args.iobref);
-
-	if (stub->args.xattr)
-		dict_unref (stub->args.xattr);
-
-	GF_FREE ((char *)stub->args.name);
-
-	GF_FREE ((char *)stub->args.volume);
-
-	if (stub->args.xdata)
-		dict_unref (stub->args.xdata);
+        args_wipe (&stub->args);
 }
-
 
 static void
 call_stub_wipe_args_cbk (call_stub_t *stub)

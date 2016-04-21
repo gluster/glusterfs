@@ -78,6 +78,22 @@ typedef struct {
         struct gf_lease lease;
 } default_args_t;
 
+typedef struct {
+        int             fop_enum;
+        int             fop_length;
+        int             *enum_list;
+        default_args_t  *req_list;
+        dict_t          *xdata;
+} compound_args_t;
+
+typedef struct {
+        int                fop_enum;
+        int                fop_length;
+        int                *enum_list;
+        default_args_cbk_t *rsp_list;
+        dict_t             *xdata;
+} compound_args_cbk_t;
+
 int32_t default_notify (xlator_t *this,
                         int32_t event,
                         void *data,
