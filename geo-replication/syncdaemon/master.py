@@ -1377,6 +1377,9 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                              "correct xtime for %s (%d)" % (path, xtr))
             xtr = self.minus_infinity
         xtr = max(xtr, xtr_root)
+        zero_zero = (0, 0)
+        if xtr_root == zero_zero:
+            xtr = self.minus_infinity
         if not self.need_sync(path, xtl, xtr):
             if path == '.':
                 self.sync_done([(path, xtl)], True)

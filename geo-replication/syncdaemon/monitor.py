@@ -165,6 +165,7 @@ class Volinfo(object):
         else:
             return 0
 
+
 class Monitor(object):
 
     """class which spawns and manages gsyncd workers"""
@@ -428,6 +429,15 @@ def distribute(*resources):
         suuid = svol.uuid
         slave_host = slave.remote_addr.split('@')[-1]
         slave_vol = si.volume
+
+        # save this xattr for the session delete command
+        old_stime_xattr_name = getattr(gconf, "master.stime_xattr_name", None)
+        new_stime_xattr_name = "trusted.glusterfs." + mvol.uuid + "." + \
+            svol.uuid + ".stime"
+        if not old_stime_xattr_name or \
+           old_stime_xattr_name != new_stime_xattr_name:
+            gconf.configinterface.set("master.stime_xattr_name",
+                                      new_stime_xattr_name)
     else:
         raise GsyncdError("unknown slave type " + slave.url)
     logging.info('slave bricks: ' + repr(sbricks))

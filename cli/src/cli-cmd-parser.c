@@ -2574,7 +2574,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
          * volume geo-replication [$m [$s]] status [detail]
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop [force]
-         * volume geo-replication $m $s delete
+         * volume geo-replication $m $s delete [reset-sync-time]
          * volume geo-replication $m $s pause [force]
          * volume geo-replication $m $s resume [force]
          */
@@ -2697,6 +2697,22 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
                 ret = dict_set_uint32 (dict, "status-detail", _gf_true);
+                if (ret)
+                        goto out;
+                cmdi++;
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_DELETE &&
+            !strcmp ((char *)words[wordcount-1], "reset-sync-time")) {
+                if (strcmp ((char *)words[wordcount-2], "delete")) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!slavei || !masteri) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_uint32 (dict, "reset-sync-time", _gf_true);
                 if (ret)
                         goto out;
                 cmdi++;
