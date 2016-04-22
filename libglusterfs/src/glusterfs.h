@@ -85,6 +85,8 @@
 #define GF_REBAL_FIND_LOCAL_SUBVOL "glusterfs.find-local-subvol"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
+#define GF_META_LOCK_KEY        "glusterfs.lock-migration-meta-lock"
+#define GF_META_UNLOCK_KEY      "glusterfs.lock-migration-meta-unlock"
 #define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
