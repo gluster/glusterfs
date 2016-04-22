@@ -1259,7 +1259,7 @@ pl_fgetxattr_handle_lockinfo (xlator_t *this, fd_t *fd,
         char          *key      = NULL, *buf = NULL;
         int32_t        op_ret   = 0;
         unsigned long  fdnum    = 0;
-	int32_t        len      = 0;
+        int32_t        len      = 0;
         dict_t        *tmp      = NULL;
 
         pl_inode = pl_inode_get (this, fd->inode);
@@ -2062,7 +2062,8 @@ lock_dup (posix_lock_t *lock)
 
         new_lock = new_posix_lock (&lock->user_flock, lock->client,
                                    lock->client_pid, &lock->owner,
-                                   (fd_t *)lock->fd_num, lock->lk_flags);
+                                   (fd_t *)lock->fd_num, lock->lk_flags,
+                                   lock->blocking);
         return new_lock;
 }
 
@@ -2217,6 +2218,23 @@ unlock:
 }
 
 int
+pl_metalock_is_active (pl_inode_t *pl_inode)
+{
+        if (list_empty (&pl_inode->metalk_list))
+                return 0;
+        else
+                return 1;
+}
+
+int
+__pl_queue_lock (pl_inode_t *pl_inode, posix_lock_t *reqlock, int can_block)
+{
+        list_add_tail (&reqlock->list, &pl_inode->queued_locks);
+
+        return 0;
+}
+
+int
 pl_lk (call_frame_t *frame, xlator_t *this,
        fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
@@ -2268,7 +2286,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         }
 
         reqlock = new_posix_lock (flock, frame->root->client, frame->root->pid,
-                                  &frame->root->lk_owner, fd, lk_flags);
+                                  &frame->root->lk_owner, fd, lk_flags,
+                                  can_block);
 
         if (!reqlock) {
                 op_ret = -1;
@@ -2359,13 +2378,16 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 can_block = 1;
                 reqlock->frame  = frame;
                 reqlock->this   = this;
-
+                reqlock->blocking = can_block;
                 /* fall through */
 
 #if F_SETLK != F_SETLK64
         case F_SETLK64:
 #endif
         case F_SETLK:
+                reqlock->frame  = frame;
+                reqlock->this   = this;
+
                 memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
 
                 pthread_mutex_lock (&pl_inode->mutex);
@@ -2373,8 +2395,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                         if (pl_inode->migrated) {
                                 op_errno = EREMOTE;
                                 pthread_mutex_unlock (&pl_inode->mutex);
-                                STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno,
-                                                     flock, xdata);
+                                STACK_UNWIND_STRICT (lk, frame, -1,
+                                                     op_errno, flock, xdata);
 
                                 __destroy_lock (reqlock);
                                 goto out;
@@ -2382,16 +2404,14 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 }
                 pthread_mutex_unlock (&pl_inode->mutex);
 
-
                 ret = pl_verify_reservelk (this, pl_inode, reqlock, can_block);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "Lock blocked due to conflicting reserve lock");
                         goto out;
                 }
-                ret = pl_setlk (this, pl_inode, reqlock,
-                                can_block);
 
+                ret = pl_setlk (this, pl_inode, reqlock, can_block);
                 if (ret == -1) {
                         if ((can_block) && (F_UNLCK != flock->l_type)) {
                                 pl_trace_block (this, frame, fd, NULL, cmd, flock, NULL);
@@ -2401,7 +2421,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                         op_ret = -1;
                         op_errno = EAGAIN;
                         __destroy_lock (reqlock);
-
+                } else if (ret == -2) {
+                        goto out;
                 } else if ((0 == ret) && (F_UNLCK == flock->l_type)) {
                         /* For NLM's last "unlock on fd" detection */
                         if (pl_locks_by_fd (pl_inode, fd))
@@ -2747,9 +2768,6 @@ pl_fill_active_locks (pl_inode_t *pl_inode, lock_migration_info_t *lmi)
                         count++;
                 }
 
-                /*TODO: Need to implement meta lock/unlock. meta-unlock should
-                 * set this flag. Tracking BZ: 1331720*/
-                pl_inode->migrated = _gf_true;
         }
 
 out:
@@ -2789,6 +2807,308 @@ out:
 
         gf_free_mig_locks (&locks);
 
+        return 0;
+}
+
+void
+pl_metalk_unref (pl_meta_lock_t *lock)
+{
+        lock->ref--;
+        if (!lock->ref) {
+                GF_FREE (lock->client_uid);
+                GF_FREE (lock);
+        }
+}
+
+
+void
+__pl_metalk_ref (pl_meta_lock_t *lock)
+{
+        lock->ref++;
+}
+
+pl_meta_lock_t *
+new_meta_lock (call_frame_t *frame, xlator_t *this)
+{
+        pl_meta_lock_t  *lock   = NULL;
+
+        lock = GF_CALLOC (1, sizeof (*lock),
+                          gf_locks_mt_pl_meta_lock_t);
+
+        if (!lock) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM, "mem allocation"
+                        " failed for meta lock");
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&lock->list);
+        INIT_LIST_HEAD (&lock->client_list);
+
+        lock->client_uid = gf_strdup (frame->root->client->client_uid);
+        if (!lock->client_uid) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM, "mem allocation"
+                        " failed for client_uid");
+                GF_FREE (lock);
+                goto out;
+        }
+
+        __pl_metalk_ref (lock);
+out:
+        return lock;
+}
+
+int
+pl_insert_metalk (pl_inode_t *pl_inode, pl_ctx_t *ctx, pl_meta_lock_t *lock)
+{
+        int     ret = 0;
+
+        if (!pl_inode || !ctx || !lock) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0, 0, "NULL parameter");
+                ret = -1;
+                goto out;
+        }
+
+        lock->pl_inode = pl_inode;
+
+        /* refer function pl_inode_setlk for more info for this ref.
+         * This should be unrefed on meta-unlock triggered by rebalance or
+         * in cleanup with client disconnect*/
+        /*TODO: unref this in  cleanup code for disconnect and meta-unlock*/
+        pl_inode->inode = inode_ref (pl_inode->inode);
+
+        /* NOTE:In case of a client-server disconnect we need to cleanup metalk.
+         * Hence, adding the metalk to pl_ctx_t as well. The mutex lock order
+         * should always be on ctx and then on pl_inode*/
+
+        pthread_mutex_lock (&ctx->lock);
+        {
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                       list_add_tail (&lock->list, &pl_inode->metalk_list);
+                }
+                pthread_mutex_unlock (&pl_inode->mutex);
+
+                list_add_tail (&lock->client_list, &ctx->metalk_list);
+        }
+        pthread_mutex_unlock (&ctx->lock);
+
+out:
+        return ret;
+}
+
+int32_t
+pl_metalk (call_frame_t *frame, xlator_t *this, inode_t *inode)
+{
+        pl_inode_t      *pl_inode       = NULL;
+        int              ret            = 0;
+        pl_meta_lock_t  *reqlk          = NULL;
+        pl_ctx_t        *ctx            = NULL;
+
+        pl_inode = pl_inode_get (this, inode);
+        if (!pl_inode) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM,
+                        "pl_inode mem allocation failedd");
+
+                ret = -1;
+                goto out;
+        }
+
+        if (frame->root->client) {
+                ctx = pl_ctx_get (frame->root->client, this);
+                if (!ctx) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                "pl_ctx_get failed");
+
+                        ret = -1;
+                        goto out;
+
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_INFO, 0, 0, "frame-root-client "
+                        "is NULL");
+
+                ret = -1;
+                goto out;
+        }
+
+        reqlk = new_meta_lock (frame, this);
+        if (!reqlk) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = pl_insert_metalk (pl_inode, ctx, reqlk);
+        if (ret < 0) {
+                pl_metalk_unref (reqlk);
+        }
+
+out:
+        return ret;
+}
+
+void
+__unwind_queued_locks (xlator_t *this, pl_inode_t *pl_inode,
+                       struct list_head *tmp_list)
+{
+        posix_lock_t    *lock   = NULL;
+        posix_lock_t    *tmp    = NULL;
+
+        if (list_empty (&pl_inode->queued_locks))
+                return;
+
+        list_splice_init (&pl_inode->queued_locks, tmp_list);
+}
+
+void
+__unwind_blocked_locks (xlator_t *this, pl_inode_t *pl_inode,
+                        struct list_head *tmp_list)
+{
+        posix_lock_t    *lock   = NULL;
+        posix_lock_t    *tmp    = NULL;
+
+        if (list_empty (&pl_inode->ext_list))
+                return;
+
+        list_for_each_entry_safe (lock, tmp, &pl_inode->ext_list, list) {
+
+                if (!lock->blocking)
+                        continue;
+
+                list_del_init (&lock->list);
+                list_add_tail (&lock->list, tmp_list);
+        }
+}
+
+int
+pl_metaunlock (call_frame_t *frame, xlator_t *this, inode_t *inode,
+               dict_t *dict)
+{
+        pl_inode_t      *pl_inode               = NULL;
+        int              ret                    = 0;
+        pl_meta_lock_t  *meta_lock              = NULL;
+        pl_meta_lock_t  *tmp_metalk             = NULL;
+        pl_ctx_t        *ctx                    = NULL;
+        posix_lock_t    *posix_lock             = NULL;
+        posix_lock_t    *tmp_posixlk            = NULL;
+        struct list_head tmp_posixlk_list;
+
+        INIT_LIST_HEAD (&tmp_posixlk_list);
+
+        if (frame->root->client) {
+                ctx = pl_ctx_get (frame->root->client, this);
+                if (!ctx) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                "pl_ctx_get failed");
+
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "frame-root-client is "
+                        "NULL");
+                ret = -1;
+                goto out;
+        }
+
+        pl_inode = pl_inode_get (this, inode);
+        if (!pl_inode) {
+                ret = -1;
+                goto out;
+        }
+
+        pthread_mutex_lock (&ctx->lock);
+        {
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                        /* Unwind queued locks regardless of migration status */
+                        __unwind_queued_locks (this, pl_inode,
+                                               &tmp_posixlk_list);
+
+                        /* Unwind blocked locks only for successful migration */
+                        if (dict_get (dict, "status")) {
+
+                                /* unwind all blocked locks */
+                                __unwind_blocked_locks (this, pl_inode,
+                                                        &tmp_posixlk_list);
+                        }
+
+                        /* unlock metalk */
+                        /* if this list is empty then pl_inode->metalk_list
+                         * should be empty too. meta lock should in all cases
+                         * be added/removed from both pl_ctx_t and pl_inode */
+
+                        if (list_empty (&ctx->metalk_list))
+                               goto unlock;
+
+                        list_for_each_entry_safe (meta_lock, tmp_metalk,
+                                                  &ctx->metalk_list,
+                                                  client_list) {
+                                list_del_init (&meta_lock->client_list);
+
+                                pl_inode = meta_lock->pl_inode;
+
+                                list_del_init (&meta_lock->list);
+
+                                pl_metalk_unref (meta_lock);
+
+                                /* The corresponding ref is taken in
+                                 * pl_insert_metalk*/
+                                inode_unref (pl_inode->inode);
+                        }
+
+                        if (dict_get (dict, "status"))
+                                pl_inode->migrated = _gf_true;
+                        else
+                                pl_inode->migrated = _gf_false;
+                }
+unlock:
+
+               pthread_mutex_unlock (&pl_inode->mutex);
+
+        }
+        pthread_mutex_unlock (&ctx->lock);
+
+out:
+        list_for_each_entry_safe (posix_lock, tmp_posixlk, &tmp_posixlk_list,
+                                  list) {
+                list_del_init (&posix_lock->list);
+
+                STACK_UNWIND_STRICT (lk, posix_lock->frame, -1, EREMOTE,
+                                     &posix_lock->user_flock, NULL);
+
+                GF_FREE (posix_lock->client_uid);
+                GF_FREE (posix_lock);
+        }
+
+        return ret;
+}
+
+int32_t
+pl_setxattr (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
+{
+        int             op_ret          = 0;
+        int             op_errno        = 0;
+
+        if (dict_get (dict, GF_META_LOCK_KEY)) {
+
+                op_ret = pl_metalk (frame, this, loc->inode);
+
+        } else if (dict_get (dict, GF_META_UNLOCK_KEY)) {
+
+                op_ret = pl_metaunlock (frame, this, loc->inode, dict);
+
+        } else {
+                goto usual;
+        }
+
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
+        return 0;
+
+usual:
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD (this)->fops->setxattr, loc, dict, flags,
+                         xdata);
         return 0;
 }
 
@@ -3174,8 +3494,9 @@ pl_ctx_get (client_t *client, xlator_t *xlator)
                 goto out;
 
         pthread_mutex_init (&ctx->lock, NULL);
-	INIT_LIST_HEAD (&ctx->inodelk_lockers);
-	INIT_LIST_HEAD (&ctx->entrylk_lockers);
+        INIT_LIST_HEAD (&ctx->inodelk_lockers);
+        INIT_LIST_HEAD (&ctx->entrylk_lockers);
+        INIT_LIST_HEAD (&ctx->metalk_list);
 
         if (client_ctx_set (client, xlator, ctx) != 0) {
                 pthread_mutex_destroy (&ctx->lock);
@@ -3186,19 +3507,90 @@ out:
         return ctx;
 }
 
+int
+pl_metalk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
+{
+        pl_meta_lock_t  *meta_lock              = NULL;
+        pl_meta_lock_t  *tmp_metalk             = NULL;
+        pl_inode_t      *pl_inode               = NULL;
+        posix_lock_t    *posix_lock             = NULL;
+        posix_lock_t    *tmp_posixlk            = NULL;
+        struct list_head tmp_posixlk_list;
+
+        INIT_LIST_HEAD (&tmp_posixlk_list);
+
+        pthread_mutex_lock (&ctx->lock);
+        {
+
+                /* if this list is empty then pl_inode->metalk_list should be
+                 * empty too. meta lock should in all cases be added/removed
+                 * from both pl_ctx_t and pl_inode */
+                if (list_empty (&ctx->metalk_list))
+                       goto unlock;
+
+                list_for_each_entry_safe (meta_lock, tmp_metalk,
+                                          &ctx->metalk_list, client_list) {
+                        list_del_init (&meta_lock->client_list);
+
+                        pl_inode = meta_lock->pl_inode;
+
+                        pthread_mutex_lock (&pl_inode->mutex);
+
+                        {
+
+                                /* Since the migration status is unknown here
+                                 * unwind all queued and blocked locks to check
+                                 * migration status and find the correct
+                                 * destination */
+                                __unwind_queued_locks (this, pl_inode,
+                                                       &tmp_posixlk_list);
+
+                                __unwind_blocked_locks (this, pl_inode,
+                                                        &tmp_posixlk_list);
+
+                                list_del_init (&meta_lock->list);
+
+                                pl_metalk_unref (meta_lock);
+
+                        }
+                        pthread_mutex_unlock (&pl_inode->mutex);
+
+                        /* The corresponding ref is taken in
+                         * pl_insert_metalk*/
+                        inode_unref (pl_inode->inode);
+                }
+        }
+
+unlock:
+        pthread_mutex_unlock (&ctx->lock);
+
+        list_for_each_entry_safe (posix_lock, tmp_posixlk, &tmp_posixlk_list,
+                                  list) {
+                list_del_init (&posix_lock->list);
+
+                STACK_UNWIND_STRICT (lk, posix_lock->frame, -1, EREMOTE,
+                                     &posix_lock->user_flock, NULL);
+
+                GF_FREE (posix_lock->client_uid);
+                GF_FREE (posix_lock);
+        }
+        return 0;
+}
 
 static int
 pl_client_disconnect_cbk (xlator_t *this, client_t *client)
 {
         pl_ctx_t *pl_ctx = NULL;
 
-	pl_ctx = pl_ctx_get (client, this);
+        pl_ctx = pl_ctx_get (client, this);
 
-	pl_inodelk_client_cleanup (this, pl_ctx);
+        pl_inodelk_client_cleanup (this, pl_ctx);
 
-	pl_entrylk_client_cleanup (this, pl_ctx);
+        pl_entrylk_client_cleanup (this, pl_ctx);
 
-	return 0;
+        pl_metalk_client_cleanup (this, pl_ctx);
+
+        return 0;
 }
 
 
@@ -3208,7 +3600,7 @@ pl_client_destroy_cbk (xlator_t *this, client_t *client)
         void     *tmp    = NULL;
         pl_ctx_t *pl_ctx = NULL;
 
-	pl_client_disconnect_cbk (this, client);
+        pl_client_disconnect_cbk (this, client);
 
         client_ctx_del (client, this, &tmp);
 
@@ -3217,10 +3609,10 @@ pl_client_destroy_cbk (xlator_t *this, client_t *client)
 
         pl_ctx = tmp;
 
-	GF_ASSERT (list_empty(&pl_ctx->inodelk_lockers));
-	GF_ASSERT (list_empty(&pl_ctx->entrylk_lockers));
+        GF_ASSERT (list_empty(&pl_ctx->inodelk_lockers));
+        GF_ASSERT (list_empty(&pl_ctx->entrylk_lockers));
 
-	pthread_mutex_destroy (&pl_ctx->lock);
+        pthread_mutex_destroy (&pl_ctx->lock);
         GF_FREE (pl_ctx);
 
         return 0;
@@ -3509,6 +3901,7 @@ struct xlator_fops fops = {
         .getxattr    = pl_getxattr,
         .fgetxattr   = pl_fgetxattr,
         .fsetxattr   = pl_fsetxattr,
+        .setxattr    = pl_setxattr,
         .rename      = pl_rename,
         .getactivelk = pl_getactivelk,
         .setactivelk = pl_setactivelk,

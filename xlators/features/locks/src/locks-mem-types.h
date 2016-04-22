@@ -23,6 +23,7 @@ enum gf_locks_mem_types_ {
         gf_locks_mt_pl_rw_req_t,
         gf_locks_mt_posix_locks_private_t,
         gf_locks_mt_pl_fdctx_t,
+        gf_locks_mt_pl_meta_lock_t,
         gf_locks_mt_end
 };
 #endif
