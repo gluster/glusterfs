@@ -613,7 +613,9 @@ typedef struct dht_fd_ctx {
                 }                                               \
         } while (0)
 
-#define dht_inode_missing(op_errno) (op_errno == ENOENT || op_errno == ESTALE)
+#define dht_inode_missing(op_errno) (op_errno == ENOENT || op_errno == ESTALE \
+                                     || op_errno == EIO) \
+/*Bad fix. Please revert the commit after fixing the bug 1329505*/
 
 #define check_is_dir(i,s,x) (IA_ISDIR(s->ia_type))
 
