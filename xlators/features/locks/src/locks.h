@@ -62,6 +62,8 @@ struct __posix_lock {
         char              *client_uid;
         gf_lkowner_t       owner;
         pid_t              client_pid;    /* pid of client process */
+
+        int                blocking;
 };
 typedef struct __posix_lock posix_lock_t;
 
@@ -155,6 +157,10 @@ struct __pl_inode {
         struct list_head reservelk_list;        /* list of reservelks */
         struct list_head blocked_reservelks;        /* list of blocked reservelks */
         struct list_head blocked_calls;  /* List of blocked lock calls while a reserve is held*/
+        struct list_head metalk_list;    /* Meta lock list */
+         /* This is to store the incoming lock
+            requests while meta lock is enabled */
+        struct list_head queued_locks;
         int              mandatory;      /* if mandatory locking is enabled */
 
         inode_t          *refkeeper;     /* hold refs on an inode while locks are
@@ -167,6 +173,18 @@ struct __pl_inode {
 };
 typedef struct __pl_inode pl_inode_t;
 
+struct __pl_metalk {
+        pthread_mutex_t mutex;
+        /* For pl_inode meta lock list */
+        struct list_head        list;
+        /* For pl_ctx_t list */
+        struct list_head        client_list;
+        char                   *client_uid;
+
+        pl_inode_t             *pl_inode;
+        int                     ref;
+};
+typedef struct __pl_metalk pl_meta_lock_t;
 
 typedef struct {
         mlk_mode_t      mandatory_mode; /* holds current mandatory locking mode */
@@ -206,6 +224,7 @@ typedef struct _locks_ctx {
         pthread_mutex_t      lock;
         struct list_head     inodelk_lockers;
         struct list_head     entrylk_lockers;
+        struct list_head     metalk_list;
 } pl_ctx_t;
 
 
