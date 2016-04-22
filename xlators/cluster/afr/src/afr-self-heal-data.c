@@ -298,6 +298,9 @@ afr_selfheal_data_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local = frame->local;
 	priv = this->private;
 
+        if (!priv->ensure_durability)
+                return 0;
+
 	AFR_ONLIST (healed_sinks, frame, attr_cbk, fsync, fd, 0, NULL);
 
 	for (i = 0; i < priv->child_count; i++)
