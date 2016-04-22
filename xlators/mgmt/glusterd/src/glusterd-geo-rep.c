@@ -5005,6 +5005,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave,
         char             geo_rep_dir[PATH_MAX] = "";
         char            *conf_path = NULL;
         xlator_t *this = NULL;
+        uint32_t        reset_sync_time = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5040,6 +5041,13 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave,
                           "--delete", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
         runner_argprintf (&runner, "--iprefix=%s", DATADIR);
+
+        runner_argprintf (&runner, "--path-list=%s", path_list);
+
+        ret = dict_get_uint32 (dict, "reset-sync-time", &reset_sync_time);
+        if (!ret && reset_sync_time) {
+                runner_add_args  (&runner, "--reset-sync-time", NULL);
+        }
 
         if (volinfo) {
                 master = volinfo->volname;

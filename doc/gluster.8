@@ -144,8 +144,9 @@ Query status of the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> ho
 \fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {pause|resume} [force] \fR
 Pause/resume the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> delete \fR
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> delete [reset-sync-time]\fR
 Delete the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+Optionally you can also reset the sync time in case you need to resync the entire volume on session recreate.
 .TP
 \fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> config [[!]<options> [<value>]] \fR
 View (when no option provided) or set configuration for this geo-replication session.
