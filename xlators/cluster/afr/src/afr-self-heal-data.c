@@ -809,7 +809,6 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
 	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd_tmp, NULL, NULL);
 	if (ret < 0) {
 		fd_unref (fd_tmp);
-                loc_wipe (&loc);
                 goto out;
 	} else {
 		fd_bind (fd_tmp);
@@ -817,6 +816,7 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
 
         *fd = fd_tmp;
 out:
+        loc_wipe (&loc);
 	return ret;
 }
 
