@@ -223,7 +223,6 @@ static void
 gf_proc_dump_xlator_mem_info (xlator_t *xl)
 {
         int     i = 0;
-        struct mem_acct rec = {0,};
 
         if (!xl)
                 return;
@@ -235,8 +234,7 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
         for (i = 0; i < xl->mem_acct->num_types; i++) {
-                if (!(memcmp (&xl->mem_acct->rec[i], &rec,
-                              sizeof (struct mem_acct))))
+                if (xl->mem_acct->rec[i].total_allocs == 0)
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %s memusage",
