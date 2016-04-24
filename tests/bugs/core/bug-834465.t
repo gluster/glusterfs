@@ -25,7 +25,7 @@ nalloc1=0
 grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump1
 if [ $? -eq '0' ]
 then
-        nalloc1=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump1 | grep num_allocs | cut -d '=' -f2`
+        nalloc1=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump1 | grep -E "^num_allocs" | cut -d '=' -f2`
 fi
 
 build_tester $(dirname $0)/bug-834465.c
@@ -34,11 +34,7 @@ TEST $(dirname $0)/bug-834465 $M0/testfile
 
 sdump2=$(generate_mount_statedump $V0);
 
-# With _gf_free now setting typestr to NULL when num_allocs become 0, it is
-# expected that there wouldn't be any entry for gf_common_mt_fd_lk_ctx_node_t
-# in the statedump file now
-
-nalloc2=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2 | wc -l`
+nalloc2=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2 | grep -E "^num_allocs" | cut -d '=' -f2`
 TEST [ $nalloc1 -eq $nalloc2 ];
 
 TEST rm -rf $MOUNTDIR/*
