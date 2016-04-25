@@ -893,7 +893,7 @@ __synclock_lock (struct synclock *lock)
                         }
                         break;
                 case LOCK_THREAD:
-                        if (pthread_self () == lock->owner_tid) {
+                        if (pthread_equal(pthread_self (), lock->owner_tid)) {
                                 lock->lock++;
                                 gf_msg_trace ("", 0, "Recursive lock called by"
                                               " thread ,owner=%u lock=%d",
@@ -1012,7 +1012,7 @@ __synclock_unlock (synclock_t *lock)
 
                 break;
         case LOCK_THREAD:
-                if (pthread_self () == lock->owner_tid) {
+                if (pthread_equal(pthread_self (), lock->owner_tid)) {
                         lock->lock--;
                         gf_msg_trace ("", 0, "Unlock success %u, remaining "
                                       "locks=%d",
