@@ -402,23 +402,27 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        ret = dict_get_int32 (xattrs, GLUSTERFS_POSIXLK_COUNT, &lock_count);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed:"
-                        "%s: Unable to get lock count for file", loc->path);
-                ret = -1;
-                goto out;
-        }
+        if (!defrag->lock_migration_enabled) {
+                ret = dict_get_int32 (xattrs, GLUSTERFS_POSIXLK_COUNT,
+                                      &lock_count);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed:"
+                                "%s: Unable to get lock count for file",
+                                loc->path);
+                        ret = -1;
+                        goto out;
+                }
 
-        if (lock_count) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed: %s: File has locks."
-                        " Skipping file migration", loc->path);
-                ret = -1;
-                goto out;
+                if (lock_count) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed: %s: File has locks."
+                                " Skipping file migration", loc->path);
+                        ret = -1;
+                        goto out;
+                }
         }
 
         if (flags == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS) {
@@ -1174,30 +1178,31 @@ int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                   int flag)
 {
-        int             ret                  = -1;
-        struct iatt     new_stbuf            = {0,};
-        struct iatt     stbuf                = {0,};
-        struct iatt     empty_iatt           = {0,};
-        ia_prot_t       src_ia_prot          = {0,};
-        fd_t           *src_fd               = NULL;
-        fd_t           *dst_fd               = NULL;
-        dict_t         *dict                 = NULL;
-        dict_t         *xattr                = NULL;
-        dict_t         *xattr_rsp            = NULL;
-        int             file_has_holes       = 0;
-        dht_conf_t     *conf                 = this->private;
-        int             rcvd_enoent_from_src = 0;
-        struct gf_flock flock                = {0, };
-        struct gf_flock plock                = {0, };
-        loc_t           tmp_loc              = {0, };
-        gf_boolean_t    locked               = _gf_false;
-        gf_boolean_t    p_locked             = _gf_false;
-        int             lk_ret               = -1;
-        gf_defrag_info_t *defrag             =  NULL;
-        gf_boolean_t    clean_src            = _gf_false;
-        gf_boolean_t    clean_dst            = _gf_false;
-        int             log_level            = GF_LOG_INFO;
-        gf_boolean_t    delete_src_linkto    = _gf_true;
+        int                     ret                     = -1;
+        struct iatt             new_stbuf               = {0,};
+        struct iatt             stbuf                   = {0,};
+        struct iatt             empty_iatt              = {0,};
+        ia_prot_t               src_ia_prot             = {0,};
+        fd_t                    *src_fd                 = NULL;
+        fd_t                    *dst_fd                 = NULL;
+        dict_t                  *dict                   = NULL;
+        dict_t                  *xattr                  = NULL;
+        dict_t                  *xattr_rsp              = NULL;
+        int                     file_has_holes          = 0;
+        dht_conf_t              *conf                   = this->private;
+        int                     rcvd_enoent_from_src    = 0;
+        struct gf_flock         flock                   = {0, };
+        struct gf_flock         plock                   = {0, };
+        loc_t                   tmp_loc                 = {0, };
+        gf_boolean_t            locked                  = _gf_false;
+        gf_boolean_t            p_locked                = _gf_false;
+        int                     lk_ret                  = -1;
+        gf_defrag_info_t        *defrag                 =  NULL;
+        gf_boolean_t            clean_src               = _gf_false;
+        gf_boolean_t            clean_dst               = _gf_false;
+        int                     log_level               = GF_LOG_INFO;
+        gf_boolean_t            delete_src_linkto       = _gf_true;
+        lock_migration_info_t   locklist;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1224,14 +1229,22 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
 
-        /* Don't migrate files with POSIX locks */
-        ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, sizeof(int32_t));
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed: %s: failed to "
-                        "set "GLUSTERFS_POSIXLK_COUNT" key in dict", loc->path);
-                goto out;
+        /* Do not migrate file in case lock migration is not enabled on the
+         * volume*/
+        if (!defrag->lock_migration_enabled) {
+                ret = dict_set_int32 (dict,
+                                 GLUSTERFS_POSIXLK_COUNT, sizeof(int32_t));
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed: %s: failed to "
+                                "set "GLUSTERFS_POSIXLK_COUNT" key in dict",
+                                loc->path);
+                        goto out;
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_INFO, 0, 0, "locks will be migrated"
+                        " for file: %s", loc->path);
         }
 
         flock.l_type = F_WRLCK;
@@ -1393,23 +1406,52 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
            to the dst data file.
         */
 
-        plock.l_type = F_WRLCK;
-        plock.l_start = 0;
-        plock.l_len = 0;
-        plock.l_whence = SEEK_SET;
+        if (!defrag->lock_migration_enabled) {
+                plock.l_type = F_WRLCK;
+                plock.l_start = 0;
+                plock.l_len = 0;
+                plock.l_whence = SEEK_SET;
 
-        ret = syncop_lk (from, src_fd, F_SETLK, &plock, NULL, NULL);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, -ret,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed:"
-                        "%s: Failed to lock on %s",
-                        loc->path, from->name);
-                ret = -1;
-                goto out;
+                ret = syncop_lk (from, src_fd, F_SETLK, &plock, NULL, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed:"
+                                "%s: Failed to lock on %s",
+                                loc->path, from->name);
+                        ret = -1;
+                        goto out;
+                }
+
+                p_locked = _gf_true;
+
+        } else {
+
+                INIT_LIST_HEAD (&locklist.list);
+
+                ret = syncop_getactivelk (from, loc, &locklist, NULL, NULL);
+                if (ret == 0) {
+                        gf_log (this->name, GF_LOG_INFO, "No active locks on:%s"
+                                , loc->path);
+
+                } else if (ret > 0) {
+
+                        ret = syncop_setactivelk (to, loc, &locklist, NULL,
+                                                  NULL);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_LOCK_MIGRATION_FAILED,
+                                        "write lock failed on:%s", loc->path);
+
+                                ret = -1;
+                                goto out;
+                        }
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOCK_MIGRATION_FAILED,
+                                "getactivelk failed for file: %s", loc->path);
+                }
         }
-
-        p_locked = _gf_true;
 
         /* source would have both sticky bit and sgid bit set, reset it to 0,
            and set the source permission on destination, if it was not set
