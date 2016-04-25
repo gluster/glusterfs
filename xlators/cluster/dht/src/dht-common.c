@@ -7429,17 +7429,22 @@ err:
 
 
 int
-dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rmdir_selfheal_cbk (call_frame_t *heal_frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
+        dht_local_t  *heal_local = NULL;
+        call_frame_t *main_frame = NULL;
 
-        local = frame->local;
+        heal_local = heal_frame->local;
+        main_frame = heal_local->main_frame;
+        local = main_frame->local;
 
+        DHT_STACK_DESTROY (heal_frame);
         dht_set_fixed_dir_stat (&local->preparent);
         dht_set_fixed_dir_stat (&local->postparent);
 
-        DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
+        DHT_STACK_UNWIND (rmdir, main_frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);
 
         return 0;
@@ -7452,6 +7457,8 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
+        dht_local_t  *heal_local = NULL;
+        call_frame_t *heal_frame = NULL;
         dht_conf_t   *conf = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
@@ -7502,8 +7509,33 @@ unlock:
                         local->stbuf.ia_type = local->loc.inode->ia_type;
 
                         gf_uuid_copy (local->gfid, local->loc.inode->gfid);
-                        dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
-                                              &local->loc, local->layout);
+
+                        /* Use a different frame or else the rmdir op_ret is
+                         * overwritten by that of the selfheal */
+
+                        heal_frame = copy_frame (frame);
+
+                        if (heal_frame == NULL) {
+                                goto err;
+                        }
+
+                        heal_local = dht_local_init (heal_frame,
+                                                     &local->loc,
+                                                     NULL, 0);
+                        if (!heal_local) {
+                                DHT_STACK_DESTROY (heal_frame);
+                                goto err;
+                        }
+
+                        heal_local->inode = inode_ref (local->loc.inode);
+                        heal_local->main_frame = frame;
+                        gf_uuid_copy (heal_local->gfid, local->loc.inode->gfid);
+
+                        dht_selfheal_restore (heal_frame,
+                                              dht_rmdir_selfheal_cbk,
+                                              &heal_local->loc,
+                                              heal_local->layout);
+                        return 0;
                } else {
 
                         if (local->loc.parent) {
@@ -7529,6 +7561,12 @@ unlock:
         }
 
         return 0;
+
+err:
+        DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
+                          local->op_errno, NULL, NULL, NULL);
+        return 0;
+
 }
 
 
@@ -7542,6 +7580,9 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t *prev = NULL;
         int           done = 0;
         char gfid[GF_UUID_BUF_SIZE] ={0};
+        dht_local_t  *heal_local = NULL;
+        call_frame_t *heal_frame = NULL;
+        int           ret        = -1;
 
         local = frame->local;
         prev  = cookie;
@@ -7598,16 +7639,56 @@ unlock:
                         local->stbuf.ia_type = local->loc.inode->ia_type;
 
                         gf_uuid_copy (local->gfid, local->loc.inode->gfid);
-                        dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
-                                              &local->loc, local->layout);
+                        heal_frame = copy_frame (frame);
+                        if (heal_frame == NULL) {
+                                goto err;
+                        }
+
+                        heal_local = dht_local_init (heal_frame, &local->loc,
+                                                     NULL, 0);
+                        if (!heal_local) {
+                                DHT_STACK_DESTROY (heal_frame);
+                                goto err;
+                        }
+
+                        heal_local->inode = inode_ref (local->loc.inode);
+                        heal_local->main_frame = frame;
+                        gf_uuid_copy (heal_local->gfid, local->loc.inode->gfid);
+                        ret = dht_selfheal_restore (heal_frame,
+                                                    dht_rmdir_selfheal_cbk,
+                                                    &heal_local->loc,
+                                                    heal_local->layout);
+                        if (ret) {
+                                DHT_STACK_DESTROY (heal_frame);
+                                goto err;
+                        }
+
                 } else if (this_call_cnt) {
                         /* If non-hashed subvol's have responded, proceed */
+                        if (local->op_ret == 0) {
+                                /* Delete the dir from the hashed subvol if:
+                                 * The fop succeeded on at least one subvol
+                                 *  and did not fail on any
+                                 *  or
+                                 *  The fop failed with ENOENT/ESTALE on
+                                 *  all subvols */
 
-                        local->need_selfheal = 0;
-                        STACK_WIND (frame, dht_rmdir_hashed_subvol_cbk,
-                                    local->hashed_subvol,
-                                    local->hashed_subvol->fops->rmdir,
-                                    &local->loc, local->flags, NULL);
+                                STACK_WIND (frame, dht_rmdir_hashed_subvol_cbk,
+                                            local->hashed_subvol,
+                                            local->hashed_subvol->fops->rmdir,
+                                            &local->loc, local->flags, NULL);
+                        } else {
+                         /* hashed-subvol was non-NULL and rmdir failed on
+                          * all non hashed-subvols. Unwind rmdir with
+                          * local->op_ret and local->op_errno. */
+                                dht_rmdir_unlock (frame, this);
+                                DHT_STACK_UNWIND (rmdir, frame, local->op_ret,
+                                          local->op_errno, &local->preparent,
+                                          &local->postparent, NULL);
+
+                                return 0;
+
+                        }
                 } else if (!this_call_cnt) {
                         /* All subvol's have responded, proceed */
 
@@ -7636,6 +7717,11 @@ unlock:
         }
 
         return 0;
+
+err:
+        DHT_STACK_UNWIND (rmdir, frame, -1, local->op_errno, NULL, NULL, NULL);
+        return 0;
+
 }
 
 
