@@ -1309,20 +1309,29 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
         int           missing_dirs = 0;
         dht_layout_t  *layout = NULL;
         loc_t         *loc    = NULL;
+        call_frame_t *prev    = NULL;
 
         VALIDATE_OR_GOTO (this->private, err);
 
         local = frame->local;
         layout = local->layout;
         loc = &local->loc;
+        prev  = cookie;
 
         this_call_cnt = dht_frame_return (frame);
 
         LOCK (&frame->lock);
         {
-                if ((op_ret < 0) && (op_errno == ENOENT || op_errno == ESTALE))
+                if ((op_ret < 0) &&
+                    (op_errno == ENOENT || op_errno == ESTALE)) {
                         local->selfheal.hole_cnt = !local->selfheal.hole_cnt ? 1
                                                 : local->selfheal.hole_cnt + 1;
+                }
+
+                if (!op_ret) {
+                        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                }
+
         }
         UNLOCK (&frame->lock);
 
