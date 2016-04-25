@@ -165,6 +165,16 @@ typedef struct dht_changelog_rename_info {
          char    buffer[1];
  } dht_changelog_rename_info_t;
 
+struct list_node {
+        void *ptr;
+        struct list_head list;
+};
+
+struct list_node *list_node_add (void *ptr, struct list_head *list);
+struct list_node *list_node_add_order (void *ptr, struct list_head *list,
+                                       int (*compare)(struct list_head *,
+                                            struct list_head *));
+void list_node_del (struct list_node *node);
 
 typedef int (*gf_cmp) (void *, void *);
 
