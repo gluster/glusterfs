@@ -45,7 +45,7 @@
  */
 
 #define POSIX_COMP_BASE         GLFS_MSGID_COMP_POSIX
-#define GLFS_NUM_MESSAGES       109
+#define GLFS_NUM_MESSAGES       110
 #define GLFS_MSGID_END          (POSIX_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x POSIX_COMP_BASE, "Invalid: Start of messages"
@@ -928,6 +928,7 @@
 
 #define P_MSG_PREOP_CHECK_FAILED              (POSIX_COMP_BASE + 109)
 
+
 /*!
  * @messageid
  * @diagnosis
@@ -935,7 +936,8 @@
  *
  */
 
-#define P_MSG_LEASE_DISABLED                    (POSIX_COMP_BASE + 109)
+#define P_MSG_LEASE_DISABLED                    (POSIX_COMP_BASE + 110)
+
 /*!
  * @messageid
  * @diagnosis
