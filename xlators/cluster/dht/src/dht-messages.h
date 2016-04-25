@@ -1057,5 +1057,12 @@
  */
 #define DHT_MSG_PARENT_LAYOUT_CHANGED  (GLFS_DHT_BASE + 114)
 
+/*
+ * @messageid 109115
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_LOCK_MIGRATION_FAILED  (GLFS_DHT_BASE + 115)
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
