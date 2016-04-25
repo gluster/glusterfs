@@ -1608,7 +1608,7 @@ brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
         xlator_t        *xl  = NULL;
-        int		 ret = -1;
+        int              ret = -1;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -2242,7 +2242,7 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      return -1);
         RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          return -1);
         RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         return -1);
-        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", return -1);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth",       return -1);
         RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      return -1);
         RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         return -1);
         RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         return -1);
@@ -2341,7 +2341,7 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             return -1);
                 RPC_SET_OPT(rbxl, SSL_CRL_PATH_OPT,   "ssl-crl-path",
                             return -1);
-                RPC_SET_OPT(rbxl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth",
+                RPC_SET_OPT(rbxl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth",
                             return -1);
                 RPC_SET_OPT(rbxl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",
                             return -1);
@@ -2414,7 +2414,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_pump, NULL},
         {brick_graph_add_locks, "locks"},
         {brick_graph_add_acl, "acl"},
-	{brick_graph_add_bitrot_stub, "bitrot-stub"},
+        {brick_graph_add_bitrot_stub, "bitrot-stub"},
         {brick_graph_add_changelog, "changelog"},
 #if USE_GFDB /* changetimerecorder depends on gfdb */
         {brick_graph_add_changetimerecorder, "changetimerecorder"},
@@ -2937,7 +2937,7 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      goto err);
         RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          goto err);
         RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         goto err);
-        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", goto err);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth",       goto err);
         RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      goto err);
         RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         goto err);
         RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         goto err);
@@ -5620,7 +5620,7 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      return -1);
         RPC_SET_OPT(xl, SSL_CA_LIST_OPT,    "ssl-ca-list",          return -1);
         RPC_SET_OPT(xl, SSL_CRL_PATH_OPT,   "ssl-crl-path",         return -1);
-        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cetificate-depth", return -1);
+        RPC_SET_OPT(xl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth",       return -1);
         RPC_SET_OPT(xl, SSL_CIPHER_LIST_OPT,"ssl-cipher-list",      return -1);
         RPC_SET_OPT(xl, SSL_DH_PARAM_OPT,   "ssl-dh-param",         return -1);
         RPC_SET_OPT(xl, SSL_EC_CURVE_OPT,   "ssl-ec-curve",         return -1);
