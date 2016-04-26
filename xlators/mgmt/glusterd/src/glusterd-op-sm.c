@@ -1141,7 +1141,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                         "%s", errstr);
                                 goto out;
                         }
-                        if (local_key_op_version > local_new_op_version) {
+                        if (local_key_op_version > priv->op_version) {
                                 local_new_op_version = local_key_op_version;
                         } else {
                                 ret = -1;
@@ -1150,7 +1150,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                           " not be equal or lower than current"
                                           " cluster op-version (%d).",
                                           local_key_op_version,
-                                          local_new_op_version);
+                                          priv->op_version);
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_VERSION_UNSUPPORTED,
                                         "%s", errstr);
