@@ -723,9 +723,9 @@ rm -rf %{buildroot}
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %_init_restart rsyslog
+%endif
+%endif
 exit 0
-%endif
-%endif
 
 %post api -p /sbin/ldconfig
 
@@ -858,14 +858,15 @@ exit 0
 
 %postun libs -p /sbin/ldconfig
 
-%if (0%{?_with_firewalld:1})
 %postun server
+/sbin/ldconfig
+%if (0%{?_with_firewalld:1})
 #reload service files if firewalld running
 if $(systemctl is-active firewalld 1>/dev/null 2>&1); then
     firewall-cmd  --reload
 fi
-exit 0
 %endif
+exit 0
 
 ##-----------------------------------------------------------------------------
 ## All %%files should be placed here and keep them grouped
@@ -1178,6 +1179,9 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Tue Apr 26 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- %%postun libs w/o firewalld on RHEL6 (#1330583)
+
 * Tue Apr 12 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - additional dirs and files in /var/lib/glusterd/... (#1326410)
 
