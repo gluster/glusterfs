@@ -1404,6 +1404,9 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         ssize_t qfile_array_size                = 0;
         int count                               = 0;
         int temp_fd                             = 0;
+        gf_tier_conf_t  *tier_conf              = NULL;
+
+        tier_conf = &(query_cbk_args->defrag->tier_conf);
 
         /* Time format for error query files */
         gettimeofday (&current_time, NULL);
@@ -1438,6 +1441,21 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
                 }
                 query_cbk_args->qfile_array->fd_array[count] = temp_fd;
                 count++;
+        }
+
+        /* Moving the query file index to the next, so that we won't the same
+         * query file every cycle as the first one */
+        query_cbk_args->qfile_array->next_index =
+                        (query_cbk_args->is_promotion) ?
+                        tier_conf->last_promote_qfile_index :
+                        tier_conf->last_demote_qfile_index;
+        shift_next_index (query_cbk_args->qfile_array);
+        if (query_cbk_args->is_promotion) {
+                tier_conf->last_promote_qfile_index =
+                        query_cbk_args->qfile_array->next_index;
+        } else {
+                tier_conf->last_demote_qfile_index =
+                        query_cbk_args->qfile_array->next_index;
         }
 
         /* Migrate files using query file list */
@@ -2138,6 +2156,9 @@ tier_init (xlator_t *this)
         }
 
         defrag = conf->defrag;
+
+        defrag->tier_conf.last_demote_qfile_index = 0;
+        defrag->tier_conf.last_promote_qfile_index = 0;
 
         defrag->tier_conf.is_tier = 1;
 

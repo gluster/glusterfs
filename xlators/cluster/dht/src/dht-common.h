@@ -391,6 +391,10 @@ typedef struct gf_tier_conf {
         int                          demote_in_progress;
         /* This Structure is only used in tiering fixlayout */
         gf_tier_fix_layout_arg_t     tier_fix_layout_arg;
+        /* Indicates the index of the first queryfile picked
+         * in the last cycle of promote or demote */
+        int32_t last_promote_qfile_index;
+        int32_t last_demote_qfile_index;
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {
