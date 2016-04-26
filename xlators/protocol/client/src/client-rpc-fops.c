@@ -3326,17 +3326,15 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
         loc_copy (&local->loc, args->loc);
         loc_path (&local->loc, NULL);
 
-        if (args->loc->parent) {
-                if (!gf_uuid_is_null (args->loc->parent->gfid))
+        if ((args->loc->parent) && (!gf_uuid_is_null (args->loc->parent->gfid)))
                         memcpy (req.pargfid, args->loc->parent->gfid, 16);
                 else
                         memcpy (req.pargfid, args->loc->pargfid, 16);
-        } else {
-                if (!gf_uuid_is_null (args->loc->inode->gfid))
-                        memcpy (req.gfid, args->loc->inode->gfid, 16);
-                else
-                        memcpy (req.gfid, args->loc->gfid, 16);
-        }
+
+        if ((args->loc->inode) && (!gf_uuid_is_null (args->loc->inode->gfid)))
+                memcpy (req.gfid, args->loc->inode->gfid, 16);
+        else
+                memcpy (req.gfid, args->loc->gfid, 16);
 
         if (args->xdata) {
                 content = dict_get (args->xdata, GF_CONTENT_KEY);
