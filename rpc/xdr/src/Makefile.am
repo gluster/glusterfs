@@ -9,9 +9,10 @@ lib_LTLIBRARIES = libgfxdr.la
 libgfxdr_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
 
 libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
-			-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src
+	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src \
+	-I$(top_builddir)/rpc/xdr/src
 
-libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+# libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
 
@@ -19,82 +20,44 @@ libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
 nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
 
 libgfxdr_la_HEADERS = xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h \
-	$(XDRHEADERS)
+	rpc-pragmas.h $(XDRHEADERS)
 
 libgfxdr_ladir = $(includedir)/glusterfs/rpc
 
-BUILT_SOURCES = $(XDRSOURCES) $(XDRHEADERS)
+# trick automake into doing BUILT_SOURCES magic
+BUILT_SOURCES = $(XDRHEADERS)
 
 EXTRA_DIST = $(XDRGENFILES)
 
 CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 
 xdrsrc=$(top_srcdir)/rpc/xdr/src
-glusterfs-fops.c: glusterfs-fops.x glusterfs-fops.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
-glusterfs-fops.h: glusterfs-fops.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
+# make's dependency resolution may mean that it decides to run
+# rpcgen again (unnecessarily), but as the .c file already exists,
+# rpcgen will exit with an error, resulting in a build error. We
+# could use a '-' (i.e. -@rpcgen ...) and suffer with noisy warnings
+# in the build. Or we do this crufty thing instead.
+$(XDRSOURCES): $(XDRHEADERS)
+	@rpcgen -c -o $(@:.c=.tmp) $(@:.c=.x) && mv $(@:.c=.tmp) $@
 
-$(top_srcdir)/libglusterfs/src/glusterfs-fops.h: glusterfs-fops.h
-	cp $(xdrsrc)/`basename $@` $(top_srcdir)/libglusterfs/src/
+# d*mn sed in netbsd6 doesn't do -i (inline)
+# (why are we still running smoke on netbsd6 and not netbsd7?)
+$(XDRHEADERS): $(XDRGENFILES)
+	@rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x)
+	@sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' \
+		$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp)
 
-glusterfs3-xdr.c: glusterfs3-xdr.x glusterfs3-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
+# link .x files when doing out-of-tree builds
+# have to use .PHONY here to force it; all versions of make
+# will think the file already exists "here" by virtue of the
+# VPATH. And we have to have the .x file in $cwd in order to
+# have rpcgen generate "nice" #include directives
+# i.e. (nice):
+# #include "acl3-xdr.h"
+# versus (not nice):
+# #include "../../../../foo/src/rpc/xdr/src/acl3-xdr.h"
+.PHONY : $(XDRGENFILES)
+$(XDRGENFILES):
+	@if [ ! -e $@ ]; then ln -s $(xdrsrc)/$@ . ; fi;
 
-glusterfs3-xdr.h: glusterfs3-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-cli1-xdr.c: cli1-xdr.x cli1-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-cli1-xdr.h: cli1-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-nlm4-xdr.c: nlm4-xdr.x nlm4-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-nlm4-xdr.h: nlm4-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-nsm-xdr.c: nsm-xdr.x nsm-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-nsm-xdr.h: nsm-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-rpc-common-xdr.c: rpc-common-xdr.x rpc-common-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-rpc-common-xdr.h: rpc-common-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-glusterd1-xdr.c: glusterd1-xdr.x glusterd1-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-glusterd1-xdr.h: glusterd1-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-acl3-xdr.c: acl3-xdr.x acl3-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-acl3-xdr.h: acl3-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-portmap-xdr.c: portmap-xdr.x portmap-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-portmap-xdr.h: portmap-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-mount3udp.c: mount3udp.x mount3udp.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-mount3udp.h: mount3udp.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
-
-changelog-xdr.c: changelog-xdr.x changelog-xdr.h
-	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
-
-changelog-xdr.h: changelog-xdr.x
-	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`

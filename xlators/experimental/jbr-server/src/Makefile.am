@@ -12,12 +12,12 @@ noinst_HEADERS = jbr-internal.h \
 	$(top_srcdir)/xlators/lib/src/libxlator.h \
 	$(top_srcdir)/glusterfsd/src/glusterfsd.h
 
-AM_CPPFLAGS = $(GF_CPPFLAGS) \
-	-I$(top_srcdir)/libglusterfs/src \
-	-I$(top_srcdir)/xlators/lib/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src -DSBIN_DIR=\"$(sbindir)\" \
-	-I$(top_srcdir)/api/src -DJBR_SCRIPT_PREFIX=\"$(jbrdir)\" \
-        -I$(top_srcdir)/xlators/experimental/jbr-client/src/
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
+	-I$(top_srcdir)/xlators/lib/src -I$(top_srcdir)/rpc/rpc-lib/src \
+	-DSBIN_DIR=\"$(sbindir)\" -I$(top_srcdir)/api/src \
+	-DJBR_SCRIPT_PREFIX=\"$(jbrdir)\" \
+	-I$(top_srcdir)/xlators/experimental/jbr-client/src/
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

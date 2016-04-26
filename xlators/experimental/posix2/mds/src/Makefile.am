@@ -14,5 +14,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/storage/posix2/common/src
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
+AM_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
+AM_CPPFLAGS += -I$(top_builddir)/rpc/xdr/src
 
 CLEANFILES =
