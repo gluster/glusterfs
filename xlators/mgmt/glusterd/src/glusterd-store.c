@@ -379,6 +379,11 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         if (ret)
                 goto out;
 
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_REAL_PATH,
+                                   brickinfo->path);
+        if (ret)
+                goto out;
+
         snprintf (value, sizeof(value), "%d", brickinfo->port);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_PORT, value);
 
@@ -2305,6 +2310,10 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                     strlen (GLUSTERD_STORE_KEY_BRICK_PATH))) {
                                 strncpy (brickinfo->path, value,
                                          sizeof (brickinfo->path));
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_REAL_PATH,
+                                    strlen (GLUSTERD_STORE_KEY_BRICK_REAL_PATH))) {
+                                strncpy (brickinfo->real_path, value,
+                                         sizeof (brickinfo->real_path));
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_PORT,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_PORT))) {
                                 gf_string2int (value, &brickinfo->port);
@@ -2405,8 +2414,8 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                  * snapshot or snapshot restored volume this would be done post
                  * creating the brick mounts
                  */
-                if (!volinfo->is_snap_volume &&
-                    gf_uuid_is_null (volinfo->restored_from_snap)) {
+                if (brickinfo->real_path[0] == '\0' && !volinfo->is_snap_volume
+                    && gf_uuid_is_null (volinfo->restored_from_snap)) {
                         /* By now if the brick is a local brick then it will be
                          * able to resolve which is the only thing we want now
                          * for checking  whether the brickinfo->uuid matches
@@ -3300,19 +3309,21 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                                 "Failed to mount brick_mount_path");
                 }
                 if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
-                        if (!realpath (brickinfo->path, abspath)) {
-                                gf_msg (this->name, GF_LOG_CRITICAL,
-                                        errno,
-                                        GD_MSG_BRICKINFO_CREATE_FAIL,
-                                        "realpath() failed for brick %s"
-                                        ". The underlying file system "
-                                        "may be in bad state",
-                                        brickinfo->path);
-                                ret = -1;
-                                goto out;
+                        if (brickinfo->real_path[0] == '\0') {
+                                if (!realpath (brickinfo->path, abspath)) {
+                                        gf_msg (this->name, GF_LOG_CRITICAL,
+                                                errno,
+                                                GD_MSG_BRICKINFO_CREATE_FAIL,
+                                                "realpath() failed for brick %s"
+                                                ". The underlying file system "
+                                                "may be in bad state",
+                                                brickinfo->path);
+                                        ret = -1;
+                                        goto out;
+                                }
+                                strncpy (brickinfo->real_path, abspath,
+                                         strlen(abspath));
                         }
-                        strncpy (brickinfo->real_path, abspath,
-                                 strlen(abspath));
                 }
 
                 if (brick_mount_path) {
