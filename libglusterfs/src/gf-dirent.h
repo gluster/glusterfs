@@ -61,6 +61,9 @@ void gf_dirent_entry_free (gf_dirent_t *entry);
 void gf_dirent_free (gf_dirent_t *entries);
 int gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
                                 gf_dirent_t *entries);
+int
+gf_fill_iatt_for_dirent (gf_dirent_t *entry, inode_t *parent,
+                         xlator_t *subvol);
 
 void
 gf_link_inode_from_dirent (xlator_t *this, inode_t *parent, gf_dirent_t *entry);

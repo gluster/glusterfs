@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include "compat.h"
 #include "xlator.h"
+#include "syncop.h"
 
 #define ONE 1ULL
 #define PRESENT_D_OFF_BITS 63
@@ -256,4 +257,45 @@ gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
         }
 
         return 0;
+}
+
+int
+gf_fill_iatt_for_dirent (gf_dirent_t *entry, inode_t *parent, xlator_t *subvol)
+{
+        loc_t                   loc             = {0, };
+        int                     ret             = -1;
+        char                   *path            = NULL;
+        struct iatt             iatt            = {0,};
+
+        loc.inode = inode_grep (parent->table, parent, entry->d_name);
+        if (!loc.inode) {
+                loc.inode = inode_new (parent->table);
+                gf_uuid_copy (loc.inode->gfid, entry->d_stat.ia_gfid);
+        }
+
+        gf_uuid_copy (loc.pargfid, parent->gfid);
+        loc.name = entry->d_name;
+        loc.parent = inode_ref (parent);
+        ret = inode_path (loc.inode, entry->d_name, &path);
+        loc.path = path;
+        if (ret < 0)
+                goto out;
+
+        ret = syncop_lookup (subvol, &loc, &iatt, NULL, NULL, NULL);
+        if (ret)
+                goto out;
+
+        entry->d_stat = iatt;
+        entry->inode = inode_ref (loc.inode);
+        /* We don't need to link inode here, because as part of readdirp_cbk
+         * we will link all dirents.
+         *
+         * Since we did a proper lookup, we don't need to set need_lookup
+         * flag.
+         */
+
+        ret = 0;
+out:
+        loc_wipe (&loc);
+        return ret;
 }

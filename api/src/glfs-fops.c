@@ -2508,6 +2508,17 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
                         list_for_each_entry (entry, &entries.list, list) {
                                 if (entry->inode)
                                         inode_set_need_lookup (entry->inode, THIS);
+                                else if (!IA_ISDIR (entry->d_stat.ia_type)) {
+                                        /* entry->inode for directories will be
+                                         * always set to null to force a lookup
+                                         * on the dentry. Also we will have
+                                         * proper stat if directory present on
+                                         * hashed subvolume.
+                                         */
+                                        gf_fill_iatt_for_dirent (entry,
+                                                                 fd->inode,
+                                                                 subvol);
+                                }
                         }
 
 			gf_link_inodes_from_dirent (THIS, fd->inode, &entries);
