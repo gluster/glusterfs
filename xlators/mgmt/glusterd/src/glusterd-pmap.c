@@ -185,13 +185,15 @@ pmap_registry_alloc (xlator_t *this)
         pmap = pmap_registry_get (this);
 
         for (p = pmap->last_alloc; p < 65535; p++) {
-                if (pmap->ports[p].type != GF_PMAP_PORT_FREE)
-                        continue;
+                /* GF_PMAP_PORT_FOREIGN may be freed up ? */
+                if ((pmap->ports[p].type == GF_PMAP_PORT_FREE) ||
+                    (pmap->ports[p].type == GF_PMAP_PORT_FOREIGN)) {
 
-                if (pmap_port_isfree (p)) {
-                        pmap->ports[p].type = GF_PMAP_PORT_LEASED;
-                        port = p;
-                        break;
+                        if (pmap_port_isfree (p)) {
+                                pmap->ports[p].type = GF_PMAP_PORT_LEASED;
+                                port = p;
+                                break;
+                        }
                 }
         }
 
@@ -271,6 +273,7 @@ remove:
 
         free (pmap->ports[p].brickname);
 
+        pmap->ports[p].type = GF_PMAP_PORT_FREE;
         pmap->ports[p].brickname = NULL;
         pmap->ports[p].xprt = NULL;
 
