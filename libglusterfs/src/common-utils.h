@@ -117,10 +117,9 @@ enum _gf_boolean
  * we could have initialized these as +ve values and treated
  * them as negative while comparing etc.. (which would have
  * saved us with the pain of assigning values), but since we
- * only have a couple of clients that use this feature, it's
- * okay.
+ * only have a few clients that use this feature, it's okay.
  */
-enum _gf_client_pid
+enum _gf_special_pid
 {
         GF_CLIENT_PID_MAX               =  0,
         GF_CLIENT_PID_GSYNCD            = -1,
@@ -141,7 +140,7 @@ enum _gf_xlator_ipc_targets {
 };
 
 typedef enum _gf_boolean gf_boolean_t;
-typedef enum _gf_client_pid gf_client_pid_t;
+typedef enum _gf_special_pid gf_special_pid_t;
 typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 
 /* The DHT file rename operation is not a straightforward rename.

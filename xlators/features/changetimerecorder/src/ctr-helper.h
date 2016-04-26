@@ -79,7 +79,7 @@ typedef struct gf_ctr_local {
         gfdb_db_record_t        gfdb_db_record;
         ia_type_t               ia_inode_type;
         gf_boolean_t            is_internal_fop;
-        gf_client_pid_t         client_pid;
+        gf_special_pid_t        client_pid;
 } gf_ctr_local_t;
 /*
  * Easy access of gfdb_db_record of ctr_local
