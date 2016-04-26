@@ -2980,6 +2980,12 @@ int
 gf_process_reserved_ports (gf_boolean_t *ports, uint32_t ceiling)
 {
         int      ret         = -1;
+        int      i           = 0;
+
+        for (i = 0; i < GF_PORT_MAX; i++) {
+                *(ports + i) = _gf_false;
+        }
+
 #if defined GF_LINUX_HOST_OS
         char    *ports_info  = NULL;
         char    *tmp         = NULL;
@@ -3005,7 +3011,11 @@ gf_process_reserved_ports (gf_boolean_t *ports, uint32_t ceiling)
 
 out:
         GF_FREE (ports_info);
+
+#else  /* FIXME: Non Linux Host */
+        ret = 0;
 #endif /* GF_LINUX_HOST_OS */
+
         return ret;
 }
 
