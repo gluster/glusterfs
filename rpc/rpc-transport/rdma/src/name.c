@@ -56,15 +56,9 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
 {
         int32_t        ret        = -1;
         uint16_t      port        = ceiling - 1;
-        /* by default assume none of the ports are blocked and all are available */
-        gf_boolean_t  ports[GF_PORT_MAX] = {_gf_false,};
-        int           i           = 0;
+        gf_boolean_t  ports[GF_PORT_MAX];
 
         ret = gf_process_reserved_ports (ports, ceiling);
-        if (ret != 0) {
-                for (i = 0; i < GF_PORT_MAX; i++)
-                        ports[i] = _gf_false;
-        }
 
         while (port) {
                 /* ignore the reserved ports */
