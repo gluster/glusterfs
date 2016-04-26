@@ -2505,7 +2505,7 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
                          * to a race where a fop comes after inode link
                          * but before setting need_lookup flag.
                          */
-                        list_for_each_entry (entry, &glfd->entries, list) {
+                        list_for_each_entry (entry, &entries.list, list) {
                                 if (entry->inode)
                                         inode_set_need_lookup (entry->inode, THIS);
                         }
