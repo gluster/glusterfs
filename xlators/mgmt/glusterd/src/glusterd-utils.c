@@ -1109,7 +1109,7 @@ glusterd_brickinfo_new_from_brick (char *brick,
         strncpy (new_brickinfo->hostname, hostname, 1024);
         strncpy (new_brickinfo->path, path, 1024);
 
-        if (construct_real_path) {
+        if (construct_real_path && new_brickinfo->real_path[0] == '\0') {
                 if (!realpath (new_brickinfo->path, abspath)) {
                         /* ENOENT indicates that brick path has not been created
                          * which is a valid scenario */
@@ -3169,17 +3169,19 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
 
         gf_uuid_parse (brick_uuid_str, new_brickinfo->uuid);
         if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
-                if (!realpath (new_brickinfo->path, abspath)) {
-                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                GD_MSG_BRICKINFO_CREATE_FAIL, "realpath() "
-                                "failed for brick %s. The underlying file "
-                                "system may be in bad state",
-                                new_brickinfo->path);
-                        ret = -1;
-                        goto out;
+                if (new_brickinfo->real_path[0] == '\0') {
+                        if (!realpath (new_brickinfo->path, abspath)) {
+                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                        GD_MSG_BRICKINFO_CREATE_FAIL,
+                                        "realpath() failed for brick %s. The "
+                                        "underlying file system may be in bad "
+                                        "state", new_brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
+                        strncpy (new_brickinfo->real_path, abspath,
+                                 strlen(abspath));
                 }
-                strncpy (new_brickinfo->real_path, abspath,
-                         strlen(abspath));
         }
 
         *brickinfo = new_brickinfo;
