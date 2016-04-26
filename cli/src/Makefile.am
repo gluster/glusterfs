@@ -15,6 +15,7 @@ noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h cli-quotad-client.h
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src\
 	-I$(top_srcdir)/rpc/xdr/src\
+	-I$(top_builddir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\

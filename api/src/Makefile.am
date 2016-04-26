@@ -15,6 +15,7 @@ libgfapi_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
         -I$(top_srcdir)/rpc/rpc-lib/src \
         -I$(top_srcdir)/rpc/xdr/src \
+        -I$(top_builddir)/rpc/xdr/src \
         -DDATADIR=\"$(localstatedir)\" \
         -D__USE_FILE_OFFSET64
 

@@ -4,15 +4,14 @@ EXTRA_DIST = autogen.sh \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in libgfdb.pc.in \
 	run-tests.sh \
 	build-aux/pkg-version \
-	build-aux/xdrgen \
         contrib/argp-standalone \
         contrib/umountd \
         contrib/uuid \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
-	$(FUSERMOUNT_SUBDIR) doc extras cli heal @SYNCDAEMON_SUBDIR@ \
-	@UMOUNTD_SUBDIR@ tools events
+SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/src libglusterfs rpc api xlators \
+	glusterfsd $(FUSERMOUNT_SUBDIR) doc extras cli heal \
+	@SYNCDAEMON_SUBDIR@ @UMOUNTD_SUBDIR@ tools events
 
 pkgconfigdir = @pkgconfigdir@
 pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
@@ -55,9 +54,11 @@ clang-check:
 gen-ChangeLog:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
 
+.PHONY : gen-VERSION
 gen-VERSION:
 	if test -d $(top_srcdir)/.git; then             \
 	  cd $(top_srcdir);                             \
 	  ./build-aux/pkg-version --full                \
 	    > $(abs_top_builddir)/$(distdir)/VERSION;   \
 	fi
+

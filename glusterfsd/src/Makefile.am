@@ -12,7 +12,9 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS) \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
-	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src \
+	-I$(top_srcdir)/rpc/rpc-lib/src \
+	-I$(top_srcdir)/rpc/xdr/src \
+	-I$(top_builddir)/rpc/xdr/src \
 	-I$(top_srcdir)/xlators/nfs/server/src
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)

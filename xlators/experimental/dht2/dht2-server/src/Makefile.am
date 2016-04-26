@@ -14,6 +14,8 @@ AM_CFLAGS = -Wall $(GF_CFLAGS)
 AM_CPPFLAGS = $(GF_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/experimental/dht2/dht2-common/src/
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
+AM_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
+AM_CPPFLAGS += -I$(top_builddir)/rpc/xdr/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
 
 CLEANFILES =

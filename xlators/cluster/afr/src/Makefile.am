@@ -15,7 +15,7 @@ afr_la_SOURCES = $(afr_common_source) $(AFR_SELFHEAL_SOURCES) afr.c
 afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 pump_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
-pump_la_SOURCES =  $(afr_common_source) $(AFR_SELFHEAL_SOURCES) pump.c
+pump_la_SOURCES = $(afr_common_source) $(AFR_SELFHEAL_SOURCES) pump.c
 pump_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
@@ -25,7 +25,8 @@ noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/xlators/lib/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src
+	-I$(top_srcdir)/rpc/rpc-lib/src \
+	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

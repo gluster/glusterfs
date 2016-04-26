@@ -64,10 +64,12 @@ ec_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 ec_la_SOURCES = $(ec_sources) $(ec_headers) $(ec_ext_sources) $(ec_ext_headers)
 ec_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-AM_CPPFLAGS  = $(GF_CPPFLAGS)
+AM_CPPFLAGS = $(GF_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
 AM_CPPFLAGS += -I$(top_srcdir)/rpc/rpc-lib/src
+AM_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
+AM_CPPFLAGS += -I$(top_builddir)/rpc/xdr/src
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

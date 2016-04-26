@@ -19,14 +19,12 @@ gsyncd_LDFLAGS = $(GF_LDFLAGS)
 
 noinst_HEADERS = procdiggy.h
 
-AM_CPPFLAGS = $(GF_CPPFLAGS) \
-	-I$(top_srcdir)/libglusterfs/src\
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
-	-DUSE_LIBGLUSTERFS\
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
+	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\" -DUSE_LIBGLUSTERFS \
 	-DSBIN_DIR=\"$(sbindir)\" -DPYTHON=\"$(PYTHON)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
-
 
 CLEANFILES =
 

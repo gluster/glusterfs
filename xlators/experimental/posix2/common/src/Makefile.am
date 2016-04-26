@@ -9,5 +9,8 @@ libposix2common_la_CFLAGS = -Wall $(GF_CFLAGS)
 
 libposix2common_la_CPPFLAGS = $(GF_CPPFLAGS)
 libposix2common_la_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
+libposix2common_la_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
+libposix2common_la_CPPFLAGS += -I$(top_builddir)/rpc/xdr/src
+
 
 CLEANFILES =

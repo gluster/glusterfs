@@ -8,6 +8,10 @@
  * cases as published by the Free Software Foundation.
  */
 
+#ifdef RPC_XDR
+%#include "rpc-pragmas.h"
+#endif
+%#include "compat.h"
 %#include "xdr-nfs3.h"
 
 struct aclentry {
