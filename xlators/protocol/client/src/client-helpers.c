@@ -354,6 +354,7 @@ client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd, int64_t remote_fd)
         local = frame->local;
         local->fd = fd_ref (fd);
         local->attempt_reopen = client_is_reopen_needed (fd, this, remote_fd);
+
         return 0;
 out:
         return ret;
