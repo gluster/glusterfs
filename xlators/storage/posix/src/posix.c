@@ -6059,6 +6059,24 @@ posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
 }
 
 
+#ifdef _DIRENT_HAVE_D_TYPE
+static int
+posix_d_type_from_ia_type (ia_type_t type)
+{
+        switch (type) {
+        case IA_IFDIR:      return DT_DIR;
+        case IA_IFCHR:      return DT_CHR;
+        case IA_IFBLK:      return DT_BLK;
+        case IA_IFIFO:      return DT_FIFO;
+        case IA_IFLNK:      return DT_LNK;
+        case IA_IFREG:      return DT_REG;
+        case IA_IFSOCK:     return DT_SOCK;
+        default:            return DT_UNKNOWN;
+        }
+}
+#endif
+
+
 int
 posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dict)
 {
@@ -6116,6 +6134,17 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
                 entry->d_stat = stbuf;
                 if (stbuf.ia_ino)
                         entry->d_ino = stbuf.ia_ino;
+
+#ifdef _DIRENT_HAVE_D_TYPE
+                if (entry->d_type == DT_UNKNOWN && !IA_ISINVAL(stbuf.ia_type)) {
+                        /* The platform supports d_type but the underlying
+                           filesystem doesn't. We set d_type to the correct
+                           value from ia_type */
+                        entry->d_type =
+                                posix_d_type_from_ia_type (stbuf.ia_type);
+                }
+#endif
+
 		inode = NULL;
         }
 
