@@ -16,7 +16,6 @@
 #elif defined(__FreeBSD__)
 #include <sys/types.h>
 #include <libutil.h>
-#include <sys/user.h>
 #elif defined(CTL_KERN)
 #include <sys/sysctl.h>
 #endif
