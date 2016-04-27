@@ -21,6 +21,9 @@
 #include "protocol-common.h"
 #include "glusterfs3.h"
 #include "fd-lk.h"
+#include "defaults.h"
+#include "default-args.h"
+#include "client-messages.h"
 
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_CMD_CONNECT    "trusted.glusterfs.client-connect"
@@ -277,4 +280,7 @@ int
 client_notify_dispatch (xlator_t *this, int32_t event, void *data, ...);
 int
 client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...);
+
+gf_boolean_t
+client_is_reopen_needed (fd_t *fd, xlator_t *this, int64_t remote_fd);
 #endif /* !_CLIENT_H */
