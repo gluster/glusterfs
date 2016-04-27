@@ -1808,6 +1808,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
            writing the valgrind log to the same file.
         */
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
+
+retry:
         runinit (&runner);
 
         if (priv->valgrind) {
@@ -1899,6 +1901,26 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 ret = runner_run (&runner);
                 synclock_lock (&priv->big_lock);
 
+                if (ret == -EADDRINUSE) {
+                        /* retry after getting a new port */
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                GD_MSG_SRC_BRICK_PORT_UNAVAIL,
+                                "Port %d is used by other process", port);
+
+                        port = pmap_registry_alloc (this);
+                        if (!port) {
+                                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                        GD_MSG_NO_FREE_PORTS,
+                                        "Couldn't allocate a port");
+                                ret = -1;
+                                goto out;
+                        }
+                        gf_msg (this->name, GF_LOG_NOTICE, 0,
+                                GD_MSG_RETRY_WITH_NEW_PORT,
+                                "Retrying to start brick %s with new port %d",
+                                brickinfo->path, port);
+                        goto retry;
+                }
         } else {
                 ret = runner_run_nowait (&runner);
         }
