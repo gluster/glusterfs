@@ -339,13 +339,13 @@ int
 runner_end_reuse (runner_t *runner)
 {
         int i = 0;
-        int ret = -1;
+        int ret = 1;
         int chstat = 0;
 
         if (runner->chpid > 0) {
                 if (waitpid (runner->chpid, &chstat, 0) == runner->chpid) {
                         if (WIFEXITED(chstat)) {
-                                ret = -WEXITSTATUS(chstat);
+                                ret = WEXITSTATUS(chstat);
                         } else {
                                 ret = chstat;
                         }
@@ -359,7 +359,7 @@ runner_end_reuse (runner_t *runner)
                 }
         }
 
-        return ret;
+        return -ret;
 }
 
 int
@@ -388,8 +388,12 @@ runner_run_generic (runner_t *runner, int (*rfin)(runner_t *runner))
         int ret = 0;
 
         ret = runner_start (runner);
+        if (ret)
+                goto out;
+        ret = rfin (runner);
 
-        return -(rfin (runner) || ret);
+out:
+        return ret;
 }
 
 int

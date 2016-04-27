@@ -1580,43 +1580,6 @@ rpcsvc_transport_peeraddr (rpc_transport_t *trans, char *addrstr, int addrlen,
                                           sasize);
 }
 
-
-rpc_transport_t *
-rpcsvc_transport_create (rpcsvc_t *svc, dict_t *options, char *name)
-{
-        int                ret   = -1;
-        rpc_transport_t   *trans = NULL;
-
-        trans = rpc_transport_load (svc->ctx, options, name);
-        if (!trans) {
-                gf_log (GF_RPCSVC, GF_LOG_WARNING, "cannot create listener, "
-                        "initing the transport failed");
-                goto out;
-        }
-
-        ret = rpc_transport_listen (trans);
-        if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_WARNING,
-                        "listening on transport failed");
-                goto out;
-        }
-
-        ret = rpc_transport_register_notify (trans, rpcsvc_notify, svc);
-        if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_WARNING, "registering notify failed");
-                goto out;
-        }
-
-        ret = 0;
-out:
-        if ((ret == -1) && (trans)) {
-                rpc_transport_disconnect (trans);
-                trans = NULL;
-        }
-
-        return trans;
-}
-
 rpcsvc_listener_t *
 rpcsvc_listener_alloc (rpcsvc_t *svc, rpc_transport_t *trans)
 {
@@ -1654,9 +1617,23 @@ rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name)
                 goto out;
         }
 
-        trans = rpcsvc_transport_create (svc, options, name);
+        trans = rpc_transport_load (svc->ctx, options, name);
         if (!trans) {
-                /* LOG TODO */
+                gf_log (GF_RPCSVC, GF_LOG_WARNING, "cannot create listener, "
+                        "initing the transport failed");
+                goto out;
+        }
+
+        ret = rpc_transport_listen (trans);
+        if (ret == -EADDRINUSE || ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_WARNING,
+                        "listening on transport failed");
+                goto out;
+        }
+
+        ret = rpc_transport_register_notify (trans, rpcsvc_notify, svc);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_WARNING, "registering notify failed");
                 goto out;
         }
 
@@ -1759,7 +1736,11 @@ out:
 
         GF_FREE (transport_name);
 
-        return count;
+        if (count > 0) {
+                return count;
+        } else {
+                return ret;
+        }
 }
 
 

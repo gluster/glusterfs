@@ -878,6 +878,8 @@ __socket_server_bind (rpc_transport_t *this)
                 if (errno == EADDRINUSE) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Port is already in use");
+
+                        ret = -EADDRINUSE;
                 }
         }
 
@@ -3349,7 +3351,7 @@ socket_listen (rpc_transport_t *this)
 
                 ret = __socket_server_bind (this);
 
-                if (ret == -1) {
+                if ((ret == -EADDRINUSE) || (ret == -1)) {
                         /* logged inside __socket_server_bind() */
                         sys_close (priv->sock);
                         priv->sock = -1;
