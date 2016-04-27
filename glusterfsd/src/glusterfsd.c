@@ -1305,7 +1305,7 @@ cleanup_and_exit (int signum)
                 }
 
         }
-        exit(0);
+        exit(signum);
 }
 
 
@@ -2185,6 +2185,7 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
         glusterfs_graph_t  *graph = NULL;
         int                 ret = -1;
         xlator_t           *trav = NULL;
+        int                 err = 0;
 
         graph = glusterfs_graph_construct (fp);
         if (!graph) {
@@ -2221,7 +2222,9 @@ out:
         if (ret && !ctx->active) {
                 glusterfs_graph_destroy (graph);
                 /* there is some error in setting up the first graph itself */
-                cleanup_and_exit (0);
+                err = -ret;
+                sys_write (ctx->daemon_pipe[1], (void *) &err, sizeof (err));
+                cleanup_and_exit (err);
         }
 
         return ret;
