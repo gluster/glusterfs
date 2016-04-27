@@ -1059,7 +1059,8 @@ init (xlator_t *this)
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         PS_MSG_RPCSVC_LISTENER_CREATE_FAILED,
                         "creation of listener failed");
-                ret = -1;
+                if (ret != -EADDRINUSE)
+                        ret = -1;
                 goto out;
         } else if (ret < total_transport) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
