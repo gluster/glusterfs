@@ -7295,6 +7295,8 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         case GF_DEFRAG_STATUS_NOT_STARTED:
                 ret = glusterd_handle_defrag_start (volinfo, op_errstr, len,
                                 cmd, cbk, volinfo->rebal.op);
+                if (ret)
+                        volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_FAILED;
                 break;
         default:
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -7306,6 +7308,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         }
 out:
         return ret;
+
 }
 
 void
@@ -7367,9 +7370,6 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
         int             ret = -1;
         char          op_errstr[PATH_MAX];
 
-        if (!volinfo->rebal.defrag_cmd)
-                return -1;
-
         if (!gd_should_i_start_rebalance (volinfo)) {
 
                 /* Store the rebalance-id and rebalance command even if
@@ -7380,11 +7380,17 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
                  * Storing this is needed for having 'volume status'
                  * work correctly.
                  */
+                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER)
                         glusterd_store_perform_node_state_store (volinfo);
 
                 return 0;
         }
+        if (!volinfo->rebal.defrag_cmd) {
+                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_FAILED;
+                return -1;
+        }
+
         ret = glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
                                 volinfo->rebal.defrag_cmd,
                                 volinfo->rebal.op == GD_OP_REMOVE_BRICK ?
@@ -7399,7 +7405,6 @@ glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
                         volinfo->decommission_in_progress = 1;
                 }
         }
-
         return ret;
 }
 int
