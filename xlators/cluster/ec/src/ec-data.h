@@ -140,17 +140,28 @@ struct _ec_lock
 {
     ec_inode_t        *ctx;
     gf_timer_t        *timer;
-    struct list_head   owners;  /* List of owners of this lock. */
-    struct list_head   waiting; /* Queue of requests being serviced. */
-    struct list_head   frozen;  /* Queue of requests that will be serviced in
-                                   the next unlock/lock cycle. */
+
+    /* List of owners of this lock. All fops added to this list are running
+     * concurrently. */
+    struct list_head   owners;
+
+    /* List of fops waiting to be an owner of the lock. Fops are added to this
+     * list when the current owner has an incompatible access (shared vs
+     * exclusive) or the lock is not acquired yet. */
+    struct list_head   waiting;
+
+    /* List of fops that will wait until the next unlock/lock cycle. This
+     * happens when the currently acquired lock is decided to be released as
+     * soon as possible. In this case, all frozen fops will be continued only
+     * after the lock is reacquired. */
+    struct list_head   frozen;
+
     int32_t            exclusive;
     uintptr_t          mask;
     uintptr_t          good_mask;
     uintptr_t          healing;
-    int32_t            refs;
-    int32_t            refs_frozen;
-    int32_t            inserted;
+    uint32_t           refs_owners;  /* Refs for fops owning the lock */
+    uint32_t           refs_pending; /* Refs assigned to fops being prepared */
     gf_boolean_t       acquired;
     gf_boolean_t       getting_size;
     gf_boolean_t       release;
