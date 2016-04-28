@@ -2172,6 +2172,9 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
 
         switch (heal_op) {
         case GF_SHD_OP_INDEX_SUMMARY:
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        runner_add_args (&runner, "xml", NULL);
+                }
                 break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 ret = dict_get_str (options, "file", &filename);
@@ -2193,6 +2196,9 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                 break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
                 runner_add_args (&runner, "split-brain-info", NULL);
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        runner_add_args (&runner, "xml", NULL);
+                }
                 break;
         default:
                 ret = -1;
@@ -2262,8 +2268,10 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
 out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error == 0))
+                if ((sent == 0) && (parse_error == 0) &&
+                    !(global_state->mode & GLUSTER_MODE_XML)) {
                         cli_out ("Volume heal failed.");
+                }
         }
 
         CLI_STACK_DESTROY (frame);
