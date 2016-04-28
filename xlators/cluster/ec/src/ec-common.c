@@ -711,8 +711,7 @@ void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, uint32_t flags,
     link->update[EC_METADATA_TXN] = (flags & EC_UPDATE_META) != 0;
     link->base = base;
 
-    lock->refs++;
-    lock->inserted++;
+    lock->refs_pending++;
 }
 
 void ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc,
@@ -1347,6 +1346,7 @@ ec_lock_wake_shared(ec_lock_t *lock, struct list_head *list)
         list_move_tail(&link->wait_list, list);
 
         list_add_tail(&link->owner_list, &lock->owners);
+        lock->refs_owners++;
 
         ec_lock_update_fd(lock, fop);
     }
@@ -1478,6 +1478,8 @@ ec_lock_assign_owner(ec_lock_link_t *link)
     ec_lock_link_t *timer_link = NULL;
     gf_boolean_t assigned = _gf_false;
 
+    /* The link cannot be in any list because we have just finished preparing
+     * it. */
     GF_ASSERT(list_empty(&link->wait_list));
 
     fop = link->fop;
@@ -1485,27 +1487,85 @@ ec_lock_assign_owner(ec_lock_link_t *link)
 
     LOCK(&lock->loc.inode->lock);
 
-    GF_ASSERT (lock->inserted > 0);
-    lock->inserted--;
+    /* Since the link has just been prepared but it's not active yet, the
+     * refs_pending must be one at least (the ref owned by this link). */
+    GF_ASSERT (lock->refs_pending > 0);
+    /* The link is not pending any more. It will be assigned to the owner,
+     * waiting or frozen list. */
+    lock->refs_pending--;
 
     if (lock->release) {
         ec_trace("LOCK_QUEUE_FREEZE", fop, "lock=%p", lock);
 
+        /* When lock->release is set, we'll unlock the lock as soon as
+         * possible, meaning that we won't use a timer. */
+        GF_ASSERT(lock->timer == NULL);
+
+        /* The lock is marked to be released. We can still have owners and fops
+         * in the waiting ilist f they have been added before the lock has been
+         * marked to be released. However new fops are put into the frozen list
+         * to wait for the next unlock/lock cycle. */
         list_add_tail(&link->wait_list, &lock->frozen);
 
-        /* The lock is frozen, so we move the current reference to refs_frozen.
-         * After that, there should remain at least one ref belonging to the
-         * lock that is processing the release. */
-        lock->refs--;
-        GF_ASSERT(lock->refs > 0);
-        lock->refs_frozen++;
-
         goto unlock;
+    }
+
+    /* The lock is not marked to be released, so the frozen list should be
+     * empty. */
+    GF_ASSERT(list_empty(&lock->frozen));
+
+    if (lock->timer != NULL) {
+        /* We are trying to acquire a lock that has an unlock timer active.
+         * This means that the lock must be idle, i.e. no fop can be in the
+         * owner, waiting or frozen lists. It also means that the lock cannot
+         * have been marked as being released (this is done without timers)
+         * and it must not be exclusive. There should only be one owner
+         * reference, but it's possible that some fops are being prepared to
+         * use this lock. */
+        GF_ASSERT ((lock->exclusive == 0) && (lock->refs_owners == 1) &&
+                   list_empty(&lock->owners) && list_empty(&lock->waiting));
+
+        /* We take the timer_link before cancelling the timer, since a
+         * successful cancellation will destroy it. It must not be NULL
+         * because it references the fop responsible for the delayed unlock
+         * that we are currently trying to cancel. */
+        timer_link = lock->timer->data;
+        GF_ASSERT(timer_link != NULL);
+
+        gf_timer_call_cancel(fop->xl->ctx, lock->timer);
+        ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
+
+        /* We have two options here:
+         *
+         * 1. The timer has been successfully cancelled.
+         *
+         *    This is the easiest case and we can continue with the currently
+         *    acquired lock.
+         *
+         * 2. The timer callback has already been fired.
+         *
+         *    In this case we have not been able to cancel the timer before
+         *    the timer callback has been fired, but we also know that
+         *    lock->timer != NULL. This means that the timer callback is still
+         *    trying to acquire the inode mutex that we currently own. We are
+         *    safe until we release it. In this case we can safely clear
+         *    lock->timer. This will cause that the timer callback does nothing
+         *    once it acquires the mutex.
+         *
+         * In both cases we must release the owner reference assigned to the
+         * fop that was handling the unlock because ec_unlock_now() won't be
+         * called for that fop.
+         */
+        lock->timer = NULL;
+        lock->refs_owners--;
     }
 
     lock->exclusive |= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
 
     if (!list_empty(&lock->owners)) {
+        /* There are other owners of this lock. We can only take ownership if
+         * the lock is already acquired and can be shared. Otherwise we need
+         * to wait. */
         if (!lock->acquired || (lock->exclusive != 0)) {
             ec_trace("LOCK_QUEUE_WAIT", fop, "lock=%p", lock);
 
@@ -1513,36 +1573,24 @@ ec_lock_assign_owner(ec_lock_link_t *link)
 
             goto unlock;
         }
-    } else if (lock->timer != NULL) {
-        GF_ASSERT (lock->release == _gf_false);
-
-        timer_link = lock->timer->data;
-        if (gf_timer_call_cancel(fop->xl->ctx, lock->timer) == 0) {
-            ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
-            lock->timer = NULL;
-            lock->refs--;
-            /* There should remain at least 1 ref, the current one. */
-            GF_ASSERT(lock->refs > 0);
-        } else {
-            /* Timer expired and on the way to unlock.
-             * Set lock->release to _gf_true, so that this
-             * lock will be put in frozen list*/
-            timer_link = NULL;
-            lock->release = _gf_true;
-        }
     }
 
     list_add_tail(&link->owner_list, &lock->owners);
+    lock->refs_owners++;
 
     assigned = _gf_true;
 
 unlock:
     if (!assigned) {
+        /* We have not been able to take ownership of this lock. The fop must
+         * be put to sleep. */
         ec_sleep(fop);
     }
 
     UNLOCK(&lock->loc.inode->lock);
 
+    /* If we have cancelled the timer, we need to resume the fop that was
+     * waiting for it. */
     if (timer_link != NULL) {
         ec_resume(timer_link->fop, 0);
     }
@@ -1566,8 +1614,14 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
 
     ec_trace("LOCK_DONE", fop, "lock=%p", lock);
 
-    GF_ASSERT(!list_empty(&link->owner_list));
+    /* Current link must belong to the owner list of the lock. We don't
+     * decrement lock->refs_owners here because the inode mutex is released
+     * before ec_unlock() is called and we need to know when the last owner
+     * unlocks the lock to do proper cleanup. lock->refs_owners is used for
+     * this task. */
+    GF_ASSERT((lock->refs_owners > 0) && !list_empty(&link->owner_list));
     list_del_init(&link->owner_list);
+
     lock->release |= release;
 
     if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
@@ -1625,6 +1679,7 @@ ec_lock_unfreeze(ec_lock_link_t *link)
 {
     struct list_head list;
     ec_lock_t *lock;
+    gf_boolean_t destroy = _gf_false;
 
     lock = link->lock;
 
@@ -1632,18 +1687,30 @@ ec_lock_unfreeze(ec_lock_link_t *link)
 
     LOCK(&lock->loc.inode->lock);
 
-    lock->acquired = _gf_false;
+    /* The lock must be marked to be released here, since we have just released
+     * it and any attempt to assign it to more fops must have added them to the
+     * frozen list. We can only have one active reference here: the one that
+     * is processing this unfreeze. */
+    GF_ASSERT(lock->release && (lock->refs_owners == 1));
     lock->release = _gf_false;
-    lock->refs--;
+    lock->refs_owners = 0;
 
-    GF_ASSERT (lock->refs == lock->inserted);
-    GF_ASSERT(lock->exclusive == 0);
-    GF_ASSERT(list_empty(&lock->waiting) && list_empty(&lock->owners));
+    lock->acquired = _gf_false;
 
+    /* We are unfreezing a lock. This means that the lock has already been
+     * released. In this state it shouldn't be exclusive nor have a pending
+     * timer nor have any owner, and the waiting list should be empty. Only
+     * the frozen list can contain some fop. */
+    GF_ASSERT((lock->exclusive == 0) && (lock->timer == NULL) &&
+              list_empty(&lock->waiting) && list_empty(&lock->owners));
+
+    /* We move all frozen fops to the waiting list. */
     list_splice_init(&lock->frozen, &lock->waiting);
-    lock->refs += lock->refs_frozen;
-    lock->refs_frozen = 0;
-    if (lock->refs == 0) {
+
+    /* If we don't have any fop waiting nor there are any prepared fops using
+     * this lock, we can finally dispose it. */
+    destroy = list_empty(&lock->waiting) && (lock->refs_pending == 0);
+    if (destroy) {
         ec_trace("LOCK_DESTROY", link->fop, "lock=%p", lock);
 
         lock->ctx->inode_lock = NULL;
@@ -1657,7 +1724,7 @@ ec_lock_unfreeze(ec_lock_link_t *link)
 
     ec_lock_resume_shared(&list);
 
-    if (lock->refs == 0) {
+    if (destroy) {
         ec_lock_destroy(lock);
     }
 }
@@ -1770,9 +1837,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
 
     fop = link->fop;
 
-    GF_ASSERT(version[0] < 0x100000000);
-    GF_ASSERT(version[1] < 0x100000000);
-
     ec_trace("UPDATE", fop, "version=%ld/%ld, size=%ld, dirty=%ld/%ld",
              version[0], version[1], size, dirty[0], dirty[1]);
 
@@ -1814,7 +1878,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
         }
     }
 
-    /* If config information is not know, we request it now. */
+    /* If config information is not known, we request it now. */
     if ((lock->loc.inode->ia_type == IA_IFREG) && !ctx->have_config) {
         /* A failure requesting this xattr is ignored because it's not
          * absolutely required right now. */
@@ -1850,6 +1914,13 @@ out:
 
     gf_msg (fop->xl->name, GF_LOG_ERROR, -err, EC_MSG_SIZE_VERS_UPDATE_FAIL,
             "Unable to update version and size");
+
+    if ((fop->parent->id != GF_FOP_FLUSH) &&
+        (fop->parent->id != GF_FOP_FSYNC) &&
+        (fop->parent->id != GF_FOP_FSYNCDIR)) {
+        ec_unlock_lock(fop->data);
+    }
+
 }
 
 gf_boolean_t
@@ -1900,7 +1971,6 @@ ec_unlock_now(ec_lock_link_t *link)
 void
 ec_unlock_timer_del(ec_lock_link_t *link)
 {
-        int32_t before = 0;
         ec_lock_t *lock;
         inode_t *inode;
         gf_boolean_t now = _gf_false;
@@ -1922,22 +1992,24 @@ ec_unlock_timer_del(ec_lock_link_t *link)
         if (lock->timer != NULL) {
                 ec_trace("UNLOCK_DELAYED", link->fop, "lock=%p", lock);
 
+                /* The unlock timer has expired without anyone cancelling it.
+                 * This means that it shouldn't have any owner, and the
+                 * waiting and frozen lists should be empty. It shouldn't have
+                 * been marked as release nor be exclusive either. It must have
+                 * only one owner reference, but there can be fops being
+                 * prepared though. */
+                GF_ASSERT(!lock->release && (lock->exclusive == 0) &&
+                          (lock->refs_owners == 1) &&
+                          list_empty(&lock->owners) &&
+                          list_empty(&lock->waiting) &&
+                          list_empty(&lock->frozen));
+
                 gf_timer_call_cancel(link->fop->xl->ctx, lock->timer);
                 lock->timer = NULL;
 
+                /* Any fop being processed from now on, will need to wait
+                 * until the next unlock/lock cycle. */
                 lock->release = now = _gf_true;
-
-                /* TODO: If the assertion is really true, following code is
-                 *       not needed. */
-                GF_ASSERT(list_empty(&lock->waiting));
-
-                before = lock->refs + lock->refs_frozen;
-                list_splice_init(&lock->waiting, &lock->frozen);
-                lock->refs_frozen += lock->refs - lock->inserted - 1;
-                lock->refs = 1 + lock->inserted;
-                /* We moved around the locks, so total number of locks shouldn't
-                 * change by this operation*/
-                GF_ASSERT (before == (lock->refs + lock->refs_frozen));
         }
 
         UNLOCK(&inode->lock);
@@ -1961,24 +2033,50 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
 
     LOCK(&lock->loc.inode->lock);
 
-    GF_ASSERT(lock->timer == NULL);
+    /* We are trying to unlock the lock. We can have multiple scenarios here,
+     * but all of them need to have lock->timer == NULL:
+     *
+     * 1. There are other owners currently running that can call ec_unlock().
+     *
+     *    None of them can have started the timer until the last one. But this
+     *    call should be the consequence of this lastest one.
+     *
+     * 2. There are fops in the waiting or frozen lists.
+     *
+     *    These fops cannot call ec_unlock(). So we should be here.
+     *
+     * We must reach here with at least one owner reference.
+     */
+    GF_ASSERT((lock->timer == NULL) && (lock->refs_owners > 0));
 
-    if ((lock->refs - lock->inserted) > 1) {
+    /* If the fop detects that a heal is needed, we mark the lock to be
+     * released as soon as possible. */
+    lock->release |= ec_fop_needs_heal(fop);
+
+    if (lock->refs_owners > 1) {
         ec_trace("UNLOCK_SKIP", fop, "lock=%p", lock);
 
-        lock->refs--;
+        /* If there are other owners we cannot do anything else with the lock.
+         * Note that the current fop has already been removed from the owners
+         * list in ec_lock_reuse(). */
+        lock->refs_owners--;
 
         UNLOCK(&lock->loc.inode->lock);
     } else if (lock->acquired) {
+        /* There are no other owners and the lock is acquired. If there were
+         * fops waiting, at least one of them should have been promoted to an
+         * owner, so the waiting list should be empty. */
+        GF_ASSERT(list_empty(&lock->owners) && list_empty(&lock->waiting));
+
         ec_t *ec = fop->xl->private;
 
-        GF_ASSERT(list_empty(&lock->owners));
-
+        /* If everything goes as expected this fop will be put to sleep until
+         * the timer callback is executed. */
         ec_sleep(fop);
 
-        /* If healing is needed, the lock needs to be released due to
-         * contention, or ec is shutting down, do not delay lock release. */
-        if (!lock->release && !ec_fop_needs_heal(fop) && !ec->shutdown) {
+        /* If the lock needs to be released, or ec is shutting down, do not
+         * delay lock release. */
+        if (!lock->release && !ec->shutdown) {
             ec_trace("UNLOCK_DELAY", fop, "lock=%p, release=%d", lock,
                      lock->release);
 
@@ -1989,9 +2087,10 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
             if (lock->timer == NULL) {
                 gf_msg(fop->xl->name, GF_LOG_WARNING, ENOMEM,
                        EC_MSG_UNLOCK_DELAY_FAILED,
-                       "Unable to delay an "
-                       "unlock");
+                       "Unable to delay an unlock");
 
+                /* We are unable to create a new timer. We immediately release
+                 * the lock. */
                 lock->release = now = _gf_true;
             }
         } else {
@@ -2006,9 +2105,16 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
             ec_unlock_now(link);
         }
     } else {
-        lock->release = _gf_true;
+        /* There are no owners and the lock is not acquired. This can only
+         * happen if a lock attempt has failed and we get to the unlock step
+         * of the fop. As in the previous case, the waiting list must be
+         * empty. */
+        GF_ASSERT(list_empty(&lock->owners) && list_empty(&lock->waiting));
 
-        GF_ASSERT(list_empty(&lock->owners));
+        /* We need to mark the lock to be released to correctly handle fops
+         * that may get in after we release the inode mutex but before
+         * ec_lock_unfreeze() is processed. */
+        lock->release = _gf_true;
 
         UNLOCK(&lock->loc.inode->lock);
 
@@ -2052,7 +2158,7 @@ void ec_lock_reuse(ec_fop_data_t *fop)
             }
         }
     } else {
-        /* If eager lock is disabled or If we haven't get
+        /* If eager lock is disabled or if we haven't get
          * an answer with enough quorum, we always release
          * the lock. */
         release = _gf_true;
