@@ -1509,22 +1509,26 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
-        dict_t                          *dict = NULL;
         int32_t                         flags = 0;
+        dict_t                         *dict = NULL;
+        xlator_t                       *this = NULL;
 
         GF_ASSERT (req);
+        this = THIS;
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
                 //failed to decode msg;
-                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_REQ_DECODE_FAIL, "Failed to decode "
                         "request received from cli");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
-        gf_msg_plain (GF_LOG_INFO, "Received get vol req");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_GET_VOL_REQ_RCVD,
+                "Received get vol req");
 
         if (cli_req.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -1534,7 +1538,7 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
@@ -1546,7 +1550,7 @@ __glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 
         ret = dict_get_int32 (dict, "flags", &flags);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                          GD_MSG_FLAGS_NOTFOUND_IN_DICT, "failed to get flags");
                 goto out;
         }
@@ -1957,7 +1961,8 @@ __glusterd_handle_reset_volume (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (this);
 
-        gf_msg_plain (GF_LOG_DEBUG, "Received reset vol req");
+        gf_msg (this->name, GF_LOG_INFO, 0, 0,
+                "Received reset vol req");
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
