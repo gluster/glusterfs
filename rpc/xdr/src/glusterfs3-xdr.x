@@ -892,6 +892,7 @@ union compound_req switch (glusterfs_fop_t fop_enum) {
         case GF_FOP_ZEROFILL:     gfs3_zerofill_req compound_zerofill_req;
         case GF_FOP_IPC:          gfs3_ipc_req compound_ipc_req;
         case GF_FOP_SEEK:         gfs3_seek_req compound_seek_req;
+        case GF_FOP_LEASE:         gfs3_lease_req compound_lease_req;
         default:                  void;
 };
 
@@ -951,6 +952,7 @@ union compound_rsp switch (glusterfs_fop_t fop_enum) {
         case GF_FOP_ZEROFILL:     gfs3_zerofill_rsp compound_zerofill_rsp;
         case GF_FOP_IPC:          gfs3_ipc_rsp compound_ipc_rsp;
         case GF_FOP_SEEK:         gfs3_seek_rsp compound_seek_rsp;
+        case GF_FOP_LEASE:         gfs3_lease_rsp compound_lease_rsp;
         default:                  void;
 };
 

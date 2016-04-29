@@ -1829,8 +1829,12 @@ int
 client_post_lookup (xlator_t *this, gfs3_lookup_rsp *rsp, struct iatt *stbuf,
                     struct iatt *postparent, dict_t **xdata)
 {
-        gf_stat_to_iatt (&rsp->postparent, postparent);
-        gf_stat_to_iatt (&rsp->stat, stbuf);
+
+        if (-1 != rsp->op_ret) {
+                gf_stat_to_iatt (&rsp->postparent, postparent);
+                gf_stat_to_iatt (&rsp->stat, stbuf);
+        }
+
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), rsp->op_ret,
                                       rsp->op_errno, out);
