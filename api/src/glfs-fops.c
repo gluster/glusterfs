@@ -793,121 +793,66 @@ struct glfs_io {
 
 
 static int
-glfs_io_async_cbk (int ret, call_frame_t *frame, void *data)
+glfs_io_async_cbk (int op_ret, int op_errno, call_frame_t *frame,
+                   void *cookie, struct iovec *iovec, int count)
 {
-	struct glfs_io  *gio = data;
+        struct glfs_io *gio = NULL;
+        xlator_t       *subvol = NULL;
+        struct glfs    *fs = NULL;
+        struct glfs_fd *glfd = NULL;
+        int             ret  = -1;
 
-        /* If the fd is already closed then
-         * no need to do the callback */
-        if (glfs_is_glfd_still_valid (gio->glfd)) {
-                gio->fn (gio->glfd, ret, gio->data);
-        }
+        GF_VALIDATE_OR_GOTO ("gfapi", frame, inval);
+        GF_VALIDATE_OR_GOTO ("gfapi", cookie, inval);
+        GF_VALIDATE_OR_GOTO ("gfapi", iovec, inval);
 
-        /* Since the async operation is complete
-         * release the ref taken during the start
-         * of async operation
-         */
-        if (gio->glfd)
-                GF_REF_PUT (gio->glfd);
-
-	GF_FREE (gio->iov);
-	GF_FREE (gio);
-
-	return 0;
-}
-
-ssize_t
-pub_glfs_pwritev (struct glfs_fd *, const struct iovec *, int, off_t, int);
-
-int
-pub_glfs_ftruncate (struct glfs_fd *, off_t);
-
-int
-pub_glfs_fdatasync (struct glfs_fd *);
-
-int
-pub_glfs_fsync (struct glfs_fd *glfd);
-
-int
-pub_glfs_discard (struct glfs_fd *, off_t, size_t);
-
-int
-pub_glfs_zerofill (struct glfs_fd *, off_t, off_t);
-
-static int
-glfs_io_async_task (void *data)
-{
-	struct glfs_io *gio = data;
-	ssize_t         ret = 0;
-
-	switch (gio->op) {
-	case GF_FOP_WRITE:
-		ret = pub_glfs_pwritev (gio->glfd, gio->iov, gio->count,
-				    gio->offset, gio->flags);
-		break;
-	case GF_FOP_FTRUNCATE:
-		ret = pub_glfs_ftruncate (gio->glfd, gio->offset);
-		break;
-	case GF_FOP_FSYNC:
-		if (gio->flags)
-			ret = pub_glfs_fdatasync (gio->glfd);
-		else
-			ret = pub_glfs_fsync (gio->glfd);
-		break;
-	case GF_FOP_DISCARD:
-		ret = pub_glfs_discard (gio->glfd, gio->offset, gio->count);
-		break;
-        case GF_FOP_ZEROFILL:
-                ret = pub_glfs_zerofill(gio->glfd, gio->offset, gio->count);
-                break;
-	}
-
-	return (int) ret;
-}
-
-
-int
-glfs_preadv_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int op_ret, int op_errno, struct iovec *iovec,
-		       int count, struct iatt *stbuf, struct iobref *iobref,
-		       dict_t *xdata)
-{
-	struct glfs_io *gio = NULL;
-	xlator_t       *subvol = NULL;
-	struct glfs    *fs = NULL;
-	struct glfs_fd *glfd = NULL;
-
-
-	gio = frame->local;
-	frame->local = NULL;
-	subvol = cookie;
-	glfd = gio->glfd;
-	fs = glfd->fs;
+        gio = frame->local;
+        frame->local = NULL;
+        subvol = cookie;
+        glfd = gio->glfd;
+        fs = glfd->fs;
 
         if (!glfs_is_glfd_still_valid (glfd))
                 goto err;
 
-	if (op_ret <= 0)
-		goto out;
+        if (op_ret <= 0) {
+                goto out;
+        } else if (gio->op == GF_FOP_READ) {
+                op_ret = iov_copy (gio->iov, gio->count, iovec, count);
+                glfd->offset = gio->offset + op_ret;
+        } else if (gio->op == GF_FOP_WRITE) {
+                glfd->offset = gio->offset + gio->iov->iov_len;
+        }
 
-	op_ret = iov_copy (gio->iov, gio->count, iovec, count);
-
-	glfd->offset = gio->offset + op_ret;
 out:
-	errno = op_errno;
-	gio->fn (gio->glfd, op_ret, gio->data);
+        errno = op_errno;
+        gio->fn (gio->glfd, op_ret, gio->data);
 
 err:
+        fd_unref (glfd->fd);
         /* Since the async operation is complete
          * release the ref taken during the start
          * of async operation
          */
         GF_REF_PUT (glfd);
 
-	GF_FREE (gio->iov);
-	GF_FREE (gio);
-	STACK_DESTROY (frame->root);
-	glfs_subvol_done (fs, subvol);
+        GF_FREE (gio->iov);
+        GF_FREE (gio);
+        STACK_DESTROY (frame->root);
+        glfs_subvol_done (fs, subvol);
+
+        ret = 0;
+inval:
+        return ret;
+}
+
+static int
+glfs_preadv_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, struct iovec *iovec,
+                       int count, struct iatt *stbuf, struct iobref *iobref,
+                       dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, iovec, count);
 
 	return 0;
 }
@@ -995,9 +940,6 @@ out:
 		glfs_subvol_done (fs, subvol);
 	}
 
-	if (fd)
-		fd_unref (fd);
-
         __GLFS_EXIT_FS;
 
 	return ret;
@@ -1059,13 +1001,56 @@ pub_glfs_readv_async (struct glfs_fd *glfd, const struct iovec *iov, int count,
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, 3.4.0);
 
 
+static int
+glfs_buf_copy (xlator_t *subvol, const struct iovec *iovec_src, int iovcnt,
+               struct iobref **iobref, struct iobuf **iobuf,
+               struct iovec *iov_dst)
+{
+        size_t         size = -1;
+        int            ret  = 0;
+
+        size = iov_length (iovec_src, iovcnt);
+
+        *iobuf = iobuf_get2 (subvol->ctx->iobuf_pool, size);
+        if (!(*iobuf)) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        *iobref = iobref_new ();
+        if (!(*iobref)) {
+                iobuf_unref (*iobuf);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = iobref_add (*iobref, *iobuf);
+        if (ret) {
+                iobuf_unref (*iobuf);
+                iobref_unref (*iobref);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        iov_unload (iobuf_ptr (*iobuf), iovec_src, iovcnt);  /* FIXME!!! */
+
+        iov_dst->iov_base = iobuf_ptr (*iobuf);
+        iov_dst->iov_len = size;
+
+out:
+        return ret;
+}
+
+
 ssize_t
 pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
                   off_t offset, int flags)
 {
 	xlator_t       *subvol = NULL;
 	int             ret = -1;
-	size_t          size = -1;
 	struct iobref  *iobref = NULL;
 	struct iobuf   *iobuf = NULL;
 	struct iovec    iov = {0, };
@@ -1090,50 +1075,24 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 		goto out;
 	}
 
-	size = iov_length (iovec, iovcnt);
-
-	iobuf = iobuf_get2 (subvol->ctx->iobuf_pool, size);
-	if (!iobuf) {
-		ret = -1;
-		errno = ENOMEM;
-		goto out;
-	}
-
-	iobref = iobref_new ();
-	if (!iobref) {
-		iobuf_unref (iobuf);
-		errno = ENOMEM;
-		ret = -1;
-		goto out;
-	}
-
-	ret = iobref_add (iobref, iobuf);
-	if (ret) {
-		iobuf_unref (iobuf);
-		iobref_unref (iobref);
-		errno = ENOMEM;
-		ret = -1;
-		goto out;
-	}
-
-	iov_unload (iobuf_ptr (iobuf), iovec, iovcnt);  /* FIXME!!! */
-
-	iov.iov_base = iobuf_ptr (iobuf);
-	iov.iov_len = size;
+        ret = glfs_buf_copy (subvol, iovec, iovcnt, &iobref, &iobuf, &iov);
+        if (ret)
+                goto out;
 
 	ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags, NULL,
                              NULL);
         DECODE_SYNCOP_ERR (ret);
 
-	iobuf_unref (iobuf);
-	iobref_unref (iobref);
-
 	if (ret <= 0)
 		goto out;
 
-	glfd->offset = (offset + size);
+	glfd->offset = (offset + iov.iov_len);
 
 out:
+        if (iobuf)
+                iobuf_unref (iobuf);
+        if (iobref)
+                iobref_unref (iobref);
 	if (fd)
 		fd_unref (fd);
         if (glfd)
@@ -1201,6 +1160,17 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite, 3.4.0);
 
 extern glfs_t *pub_glfs_from_glfd (glfs_fd_t *);
 
+
+static int
+glfs_pwritev_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno, struct iatt *prebuf,
+                        struct iatt *postbuf, dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, NULL, 0);
+
+        return 0;
+}
+
 int
 pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
                         int count, off_t offset, int flags, glfs_io_cbk fn,
@@ -1208,47 +1178,84 @@ pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
 {
 	struct glfs_io *gio = NULL;
 	int             ret = -1;
+        call_frame_t   *frame = NULL;
+        xlator_t       *subvol = NULL;
+        fd_t           *fd = NULL;
+        struct iobref  *iobref = NULL;
+        struct iobuf   *iobuf = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
-
-	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
-	if (!gio) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	gio->iov = iov_dup (iovec, count);
-	if (!gio->iov) {
-		GF_FREE (gio);
-		errno = ENOMEM;
-		goto out;
-	}
-
-	gio->op     = GF_FOP_WRITE;
-	gio->glfd   = glfd;
-	gio->count  = count;
-	gio->offset = offset;
-	gio->flags  = flags;
-	gio->fn     = fn;
-	gio->data   = data;
 
         /* Need to take explicit ref so that the fd
          * is not destroyed before the fop is complete
          */
         GF_REF_GET (glfd);
 
-	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
-			    glfs_io_async_task, glfs_io_async_cbk,
-			    NULL, gio);
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
 
-	if (ret) {
-                GF_REF_PUT (glfd);
-		GF_FREE (gio->iov);
-		GF_FREE (gio);
-	}
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto out;
+        }
 
+        gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
+        if (!gio) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        gio->op     = GF_FOP_WRITE;
+        gio->glfd   = glfd;
+        gio->count  = count;
+        gio->offset = offset;
+        gio->flags  = flags;
+        gio->fn     = fn;
+        gio->data   = data;
+        gio->iov = GF_CALLOC (1, sizeof (*(gio->iov)), gf_common_mt_iovec);
+        if (!gio->iov) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        ret = glfs_buf_copy (subvol, iovec, count, &iobref, &iobuf, gio->iov);
+        if (ret)
+                goto out;
+
+        frame = syncop_create_frame (THIS);
+        if (!frame) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        frame->local = gio;
+
+        STACK_WIND_COOKIE (frame, glfs_pwritev_async_cbk, subvol, subvol,
+                           subvol->fops->writev, fd, gio->iov,
+                           gio->count, offset, flags, iobref, NULL);
+
+        ret = 0;
 out:
+        if (ret) {
+                if (glfd)
+                        GF_REF_PUT (glfd);
+                GF_FREE (gio);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+
+                glfs_subvol_done (glfd->fs, subvol);
+        }
+
+        if (iobuf)
+                iobuf_unref (iobuf);
+        if (iobref)
+                iobref_unref (iobref);
+
         __GLFS_EXIT_FS;
 
 invalid_fs:
@@ -1352,6 +1359,16 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync, 3.4.0);
 
+static int
+glfs_fsync_async_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this, int32_t op_ret,
+                      int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, NULL, 0);
+
+        return 0;
+}
 
 static int
 glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
@@ -1359,17 +1376,42 @@ glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
 {
 	struct glfs_io *gio = NULL;
 	int             ret = 0;
-
-	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
-	if (!gio) {
-		errno = ENOMEM;
-		return -1;
-	}
+        call_frame_t   *frame = NULL;
+        xlator_t       *subvol = NULL;
+        fd_t           *fd = NULL;
 
         /* Need to take explicit ref so that the fd
          * is not destroyed before the fop is complete
          */
         GF_REF_GET (glfd);
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                ret = -1;
+                errno = EBADFD;
+                goto out;
+        }
+
+        frame = syncop_create_frame (THIS);
+        if (!frame) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
+        if (!gio) {
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
 
 	gio->op     = GF_FOP_FSYNC;
 	gio->glfd   = glfd;
@@ -1377,18 +1419,22 @@ glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
 	gio->fn     = fn;
 	gio->data   = data;
 
-	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
-			    glfs_io_async_task, glfs_io_async_cbk,
-			    NULL, gio);
+        frame->local = gio;
 
-	if (ret) {
-                GF_REF_PUT (glfd);
-		GF_FREE (gio->iov);
-		GF_FREE (gio);
-	}
+        STACK_WIND_COOKIE (frame, glfs_fsync_async_cbk, subvol, subvol,
+                           subvol->fops->fsync, fd, dataonly, NULL);
 
-	return ret;
+out:
+        if (ret) {
+                if (glfd)
+                        GF_REF_PUT (glfd);
+                GF_FREE (gio);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+                glfs_subvol_done (glfd->fs, subvol);
+        }
 
+        return ret;
 }
 
 
@@ -1519,6 +1565,16 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, 3.4.0);
 
+static int
+glfs_ftruncate_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iatt *prebuf, struct iatt *postbuf,
+                          dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, NULL, 0);
+
+        return 0;
+}
 
 int
 pub_glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
@@ -1526,9 +1582,35 @@ pub_glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
 {
 	struct glfs_io *gio = NULL;
 	int             ret = -1;
+        call_frame_t   *frame = NULL;
+        xlator_t       *subvol = NULL;
+        fd_t           *fd = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        /* Need to take explicit ref so that the fd
+         * is not destroyed before the fop is complete
+         */
+        GF_REF_GET (glfd);
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto out;
+        }
+
+        frame = syncop_create_frame (THIS);
+        if (!frame) {
+                errno = ENOMEM;
+                goto out;
+        }
 
 	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
 	if (!gio) {
@@ -1542,22 +1624,23 @@ pub_glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
 	gio->fn     = fn;
 	gio->data   = data;
 
-        /* Need to take explicit ref so that the fd
-         * is not destroyed before the fop is complete
-         */
-        GF_REF_GET (glfd);
+        frame->local = gio;
 
-	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
-			    glfs_io_async_task, glfs_io_async_cbk,
-			    NULL, gio);
+        STACK_WIND_COOKIE (frame, glfs_ftruncate_async_cbk, subvol, subvol,
+                           subvol->fops->ftruncate, fd, offset, NULL);
 
-	if (ret) {
-                GF_REF_PUT (glfd);
-		GF_FREE (gio->iov);
-		GF_FREE (gio);
-	}
+        ret = 0;
 
 out:
+        if (ret) {
+                if (glfd)
+                        GF_REF_PUT (glfd);
+                GF_FREE (gio);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+                glfs_subvol_done (glfd->fs, subvol);
+        }
+
         __GLFS_EXIT_FS;
 
 invalid_fs:
@@ -2338,6 +2421,16 @@ pub_glfs_seekdir (struct glfs_fd *fd, long offset)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_seekdir, 3.4.0);
 
+static int
+glfs_discard_async_cbk (call_frame_t *frame, void *cookie,
+                        xlator_t *this, int32_t op_ret,
+                        int32_t op_errno, struct iatt *preop_stbuf,
+                        struct iatt *postop_stbuf, dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, NULL, 0);
+
+        return 0;
+}
 
 int
 pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
@@ -2345,6 +2438,9 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 {
 	struct glfs_io *gio = NULL;
 	int             ret = -1;
+        call_frame_t   *frame = NULL;
+        xlator_t       *subvol = NULL;
+        fd_t           *fd = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -2353,6 +2449,24 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
          * is not destroyed before the fop is complete
          */
         GF_REF_GET (glfd);
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto out;
+        }
+
+        frame = syncop_create_frame (THIS);
+        if (!frame) {
+                errno = ENOMEM;
+                goto out;
+        }
 
 	gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
 	if (!gio) {
@@ -2367,17 +2481,22 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 	gio->fn     = fn;
 	gio->data   = data;
 
-	ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
-			    glfs_io_async_task, glfs_io_async_cbk,
-			    NULL, gio);
+        frame->local = gio;
 
-	if (ret) {
-                GF_REF_PUT (glfd);
-		GF_FREE (gio->iov);
-		GF_FREE (gio);
-	}
+        STACK_WIND_COOKIE (frame, glfs_discard_async_cbk, subvol, subvol,
+                           subvol->fops->discard, fd, offset, len, NULL);
 
+        ret = 0;
 out:
+        if (ret) {
+                if (glfd)
+                        GF_REF_PUT (glfd);
+                GF_FREE (gio);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+                glfs_subvol_done (glfd->fs, subvol);
+        }
+
         __GLFS_EXIT_FS;
 
 invalid_fs:
@@ -2387,12 +2506,27 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_discard_async, 3.5.0);
 
 
+static int
+glfs_zerofill_async_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret,
+                         int32_t op_errno, struct iatt *preop_stbuf,
+                         struct iatt *postop_stbuf, dict_t *xdata)
+{
+        glfs_io_async_cbk (op_ret, op_errno, frame, cookie, NULL, 0);
+
+        return 0;
+}
+
+
 int
 pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
                          glfs_io_cbk fn, void *data)
 {
         struct glfs_io *gio  = NULL;
         int             ret  = -1;
+        call_frame_t   *frame = NULL;
+        xlator_t       *subvol = NULL;
+        fd_t           *fd = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -2401,6 +2535,24 @@ pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
          * is not destroyed before the fop is complete
          */
         GF_REF_GET (glfd);
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                errno = EBADFD;
+                goto out;
+        }
+
+        frame = syncop_create_frame (THIS);
+        if (!frame) {
+                errno = ENOMEM;
+                goto out;
+        }
 
         gio = GF_CALLOC (1, sizeof (*gio), glfs_mt_glfs_io_t);
         if (!gio) {
@@ -2415,17 +2567,21 @@ pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
         gio->fn     = fn;
         gio->data   = data;
 
-        ret = synctask_new (pub_glfs_from_glfd (glfd)->ctx->env,
-                            glfs_io_async_task, glfs_io_async_cbk,
-                            NULL, gio);
+        frame->local = gio;
 
+        STACK_WIND_COOKIE (frame, glfs_zerofill_async_cbk, subvol, subvol,
+                           subvol->fops->zerofill, fd, offset, len, NULL);
+        ret = 0;
+out:
         if (ret) {
-                GF_REF_PUT (glfd);
-                GF_FREE (gio->iov);
+                if (glfd)
+                        GF_REF_PUT (glfd);
                 GF_FREE (gio);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+                glfs_subvol_done (glfd->fs, subvol);
         }
 
-out:
         __GLFS_EXIT_FS;
 
 invalid_fs:
