@@ -223,6 +223,7 @@ AC_CONFIG_FILES([Makefile
                 extras/ocf/volume
                 extras/LinuxRPM/Makefile
                 extras/geo-rep/Makefile
+                extras/geo-rep/schedule_georep.py
                 extras/firewalld/Makefile
                 extras/hook-scripts/add-brick/Makefile
                 extras/hook-scripts/add-brick/pre/Makefile
@@ -1074,6 +1075,22 @@ case $host_os in
         GFAPI_EXTRA_LDFLAGS='-Wl,--version-script=$(top_srcdir)/api/src/gfapi.map'
         ;;
 esac
+
+# Default value for sbindir
+prefix_temp=$prefix
+exec_prefix_temp=$exec_prefix
+
+test "${prefix}" = "NONE" && prefix="${ac_default_prefix}"
+test "${exec_prefix}" = "NONE" && exec_prefix='${prefix}'
+sbintemp="${sbindir}"
+eval sbintemp=\"${sbintemp}\"
+eval sbintemp=\"${sbintemp}\"
+SBIN_DIR=${sbintemp}
+
+prefix=$prefix_temp
+exec_prefix=$exec_prefix_temp
+
+AC_SUBST(SBIN_DIR)
 
 # lazy umount emulation
 UMOUNTD_SUBDIR=""

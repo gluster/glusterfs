@@ -10,4 +10,6 @@ gsync_sync_gfid_SOURCES = gsync-sync-gfid.c
 gsync_sync_gfid_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
 
 EXTRA_DIST = gsync-sync-gfid.c gsync-upgrade.sh generate-gfid-file.sh \
-	get-gfid.sh slave-upgrade.sh schedule_georep.py
+	get-gfid.sh slave-upgrade.sh schedule_georep.py.in
+
+CLEANFILES = schedule_georep.py
