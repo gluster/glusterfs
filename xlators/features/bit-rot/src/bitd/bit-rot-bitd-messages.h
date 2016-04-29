@@ -40,7 +40,7 @@
  */
 
 #define GLFS_BITROT_BITD_BASE                   GLFS_MSGID_COMP_BITROT_BITD
-#define GLFS_BITROT_BITD_NUM_MESSAGES           53
+#define GLFS_BITROT_BITD_NUM_MESSAGES           55
 #define GLFS_MSGID_END                          (GLFS_BITROT_BITD_BASE + \
                                            GLFS_BITROT_BITD_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -420,6 +420,22 @@
  */
 /*------------*/
 #define BRB_MSG_BAD_OBJ_READDIR_FAIL       (GLFS_BITROT_BITD_BASE + 53)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+/*------------*/
+#define BRB_MSG_SSM_FAILED                 (GLFS_BITROT_BITD_BASE + 54)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+/*------------*/
+#define BRB_MSG_SCRUB_WAIT_FAILED          (GLFS_BITROT_BITD_BASE + 55)
 /*!
  * @messageid
  * @diagnosis

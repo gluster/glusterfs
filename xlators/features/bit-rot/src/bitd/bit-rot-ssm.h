@@ -29,8 +29,8 @@ typedef enum br_scrub_event {
         BR_SCRUB_MAXEVENTS,
 } br_scrub_event_t;
 
-struct br_child;
+struct br_monitor;
 
-int32_t br_scrub_state_machine (xlator_t *, struct br_child *);
+int32_t br_scrub_state_machine (xlator_t *);
 
 #endif /* __BIT_ROT_SSM_H__ */
