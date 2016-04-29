@@ -708,4 +708,10 @@ int
 glusterd_handle_replicate_brick_ops (glusterd_volinfo_t *volinfo,
                                      glusterd_brickinfo_t *brickinfo,
                                      glusterd_op_t op);
+void
+assign_brick_groups (glusterd_volinfo_t *volinfo);
+
+glusterd_brickinfo_t*
+get_last_brick_of_brick_group (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t *brickinfo);
 #endif

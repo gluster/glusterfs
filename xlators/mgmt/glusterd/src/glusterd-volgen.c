@@ -1547,16 +1547,8 @@ brick_graph_add_arbiter (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (volinfo->arbiter_count != 1)
                 return 0;
 
-        /* Find the last brick in the same group. */
-        last = brickinfo;
-        for (;;) {
-                next = list_next (last, &volinfo->bricks,
-                                  glusterd_brickinfo_t, brick_list);
-                if (!next || (next->group != brickinfo->group)) {
-                        break;
-                }
-                last = next;
-        }
+        /* Add arbiter only if it is the last (i.e. 3rd) brick. */
+        last = get_last_brick_of_brick_group (volinfo, brickinfo);
         if (last != brickinfo)
                 return 0;
 
@@ -1621,22 +1613,6 @@ brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 out:
         return ret;
-}
-
-void
-assign_brick_groups (glusterd_volinfo_t *volinfo)
-{
-        glusterd_brickinfo_t    *brickinfo      = NULL;
-        uint16_t                group_num       = 0;
-        int                     in_group        = 0;
-
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                brickinfo->group = group_num;
-                if (++in_group >= volinfo->replica_count) {
-                        in_group = 0;
-                        ++group_num;
-                }
-        }
 }
 
 static int
@@ -5304,23 +5280,18 @@ get_parent_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
 }
 
 void
-assign_groups (glusterd_volinfo_t *volinfo)
+assign_jbr_uuids (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t    *brickinfo      = NULL;
-        uint16_t                group_num       = 0;
         int                     in_group        = 0;
         uuid_t                  tmp_uuid;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (in_group == 0) {
+                if (in_group == 0)
                         gf_uuid_generate(tmp_uuid);
-                }
-                brickinfo->group = group_num;
                 gf_uuid_copy(brickinfo->jbr_uuid, tmp_uuid);
-                if (++in_group >= volinfo->replica_count) {
+                if (++in_group >= volinfo->replica_count)
                         in_group = 0;
-                        ++group_num;
-                }
         }
 }
 
@@ -5393,7 +5364,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         }
 
         if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
-                assign_groups(volinfo);
+                assign_jbr_uuids(volinfo);
         }
 
         ret = glusterd_volume_brick_for_each (volinfo, NULL,
