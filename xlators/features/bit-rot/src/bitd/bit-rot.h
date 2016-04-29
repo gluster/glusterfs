@@ -26,6 +26,7 @@
 
 #include "bit-rot-common.h"
 #include "bit-rot-stub-mem-types.h"
+#include "bit-rot-scrub-status.h"
 
 #include <openssl/sha.h>
 
@@ -63,18 +64,6 @@ struct br_scanfs {
         unsigned int     entries;
         struct list_head queued;
         struct list_head ready;
-
-        /* scheduler */
-        uint32_t boot;
-        gf_boolean_t kick;
-        gf_boolean_t over;
-
-        br_scrub_state_t state;   /* current scrub state */
-
-        pthread_mutex_t wakelock;
-        pthread_cond_t  wakecond;
-
-        struct gf_tw_timer_list *timer;
 };
 
 /* just need three states to track child status */
@@ -111,6 +100,8 @@ struct br_child {
         struct timeval tv;
 
         struct br_scanfs fsscan;      /* per subvolume FS scanner */
+
+        gf_boolean_t active_scrubbing; /* Actively scrubbing or not */
 };
 
 typedef struct br_child br_child_t;
@@ -152,27 +143,42 @@ struct br_scrubber {
         struct list_head scrublist;
 };
 
+struct br_monitor {
+        gf_lock_t lock;
+        pthread_t thread;         /* Monitor thread */
+
+        gf_boolean_t  inited;
+        pthread_mutex_t mutex;
+        pthread_cond_t cond;      /* Thread starts and will be waiting on cond.
+                                     First child which is up wakes this up */
+
+        xlator_t *this;
+        /* scheduler */
+        uint32_t boot;
+
+        int32_t active_child_count; /* Number of children currently scrubbing */
+        gf_boolean_t kick;          /* This variable tracks the scrubber is
+                                     * kicked or not. Both 'kick' and
+                                     * 'active_child_count' uses the same pair
+                                     * of mutex-cond variable, i.e, wakelock and
+                                     * wakecond. */
+
+        pthread_mutex_t wakelock;
+        pthread_cond_t  wakecond;
+
+        gf_boolean_t done;
+        pthread_mutex_t donelock;
+        pthread_cond_t  donecond;
+
+        struct gf_tw_timer_list *timer;
+        br_scrub_state_t state;   /* current scrub state */
+};
+
 typedef struct br_obj_n_workers br_obj_n_workers_t;
 
 typedef struct br_private br_private_t;
 
 typedef void (*br_scrubbed_file_update) (br_private_t *priv);
-
-struct br_scrub_stats {
-        uint32_t       scrubbed_files;       /* Total number of scrubbed file */
-
-        uint32_t       unsigned_files;       /* Total number of unsigned file */
-
-        uint32_t       scrub_duration;            /* Duration of last scrub */
-
-        char           last_scrub_time[1024];    /*last scrub completion time */
-
-        struct         timeval scrub_start_tv;   /* Scrubbing starting time*/
-
-        struct         timeval scrub_end_tv;     /* Scrubbing finishing time */
-
-        pthread_mutex_t  lock;
-};
 
 struct br_private {
         pthread_mutex_t lock;
@@ -209,6 +215,8 @@ struct br_private {
         struct br_scrub_stats scrub_stat; /* statistics of scrub*/
 
         struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
+
+        struct br_monitor scrub_monitor;  /* scrubber monitor */
 };
 
 struct br_object {
@@ -228,7 +236,7 @@ struct br_object {
 };
 
 typedef struct br_object br_object_t;
-typedef int32_t (br_scrub_ssm_call) (xlator_t *, br_child_t *);
+typedef int32_t (br_scrub_ssm_call) (xlator_t *);
 
 void
 br_log_object (xlator_t *, char *, uuid_t, int32_t);
@@ -259,6 +267,12 @@ _br_is_child_connected (br_child_t *child)
 }
 
 static inline int
+_br_is_child_scrub_active (br_child_t *child)
+{
+        return child->active_scrubbing;
+}
+
+static inline int
 _br_child_failed_conn (br_child_t *child)
 {
         return (child->c_state == BR_CHILD_STATE_CONNFAILED);
@@ -272,10 +286,10 @@ _br_child_witnessed_connection (br_child_t *child)
 
 /* scrub state */
 static inline void
-_br_child_set_scrub_state (br_child_t *child, br_scrub_state_t state)
+_br_monitor_set_scrub_state (struct br_monitor *scrub_monitor,
+                           br_scrub_state_t state)
 {
-        struct br_scanfs *fsscan = &child->fsscan;
-        fsscan->state = state;
+        scrub_monitor->state = state;
 }
 
 static inline br_scrub_event_t

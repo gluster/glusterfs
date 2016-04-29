@@ -19,6 +19,7 @@
 #include "bit-rot-scrub.h"
 #include <pthread.h>
 #include "bit-rot-bitd-messages.h"
+#include "bit-rot-scrub-status.h"
 
 struct br_scrubbers {
         pthread_t scrubthread;
@@ -74,20 +75,6 @@ bitd_fetch_signature (xlator_t *this, br_child_t *child,
 
 }
 
-static void
-br_inc_unsigned_file_count (xlator_t *this)
-{
-        br_private_t   *priv = NULL;
-
-        priv = this->private;
-
-        pthread_mutex_lock (&priv->scrub_stat.lock);
-        {
-                priv->scrub_stat.unsigned_files++;
-        }
-        pthread_mutex_unlock (&priv->scrub_stat.lock);
-}
-
 /**
  * POST COMPUTE CHECK
  *
@@ -101,7 +88,8 @@ int32_t
 bitd_scrub_post_compute_check (xlator_t *this,
                                br_child_t *child,
                                fd_t *fd, unsigned long version,
-                               br_isignature_out_t **signature)
+                               br_isignature_out_t **signature,
+                               br_scrub_stats_t *scrub_stat)
 {
         int32_t              ret     = 0;
         size_t               signlen = 0;
@@ -109,8 +97,10 @@ bitd_scrub_post_compute_check (xlator_t *this,
         br_isignature_out_t *signptr = NULL;
 
         ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
-        if (ret < 0)
+        if (ret < 0) {
+                br_inc_unsigned_file_count (scrub_stat);
                 goto out;
+        }
 
         /**
          * Either the object got dirtied during the time the signature was
@@ -121,7 +111,7 @@ bitd_scrub_post_compute_check (xlator_t *this,
          * The log entry looks pretty ugly, but helps in debugging..
          */
         if (signptr->stale || (signptr->version != version)) {
-                br_inc_unsigned_file_count (this);
+                br_inc_unsigned_file_count (scrub_stat);
                 gf_msg_debug (this->name, 0, "<STAGE: POST> Object [GFID: %s] "
                               "either has a stale signature OR underwent "
                               "signing during checksumming {Stale: %d | "
@@ -149,15 +139,18 @@ bitd_scrub_post_compute_check (xlator_t *this,
 static int32_t
 bitd_signature_staleness (xlator_t *this,
                           br_child_t *child, fd_t *fd,
-                          int *stale, unsigned long *version)
+                          int *stale, unsigned long *version,
+                          br_scrub_stats_t *scrub_stat)
 {
         int32_t ret = -1;
         dict_t *xattr = NULL;
         br_isignature_out_t *signptr = NULL;
 
         ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
-        if (ret < 0)
+        if (ret < 0) {
+                br_inc_unsigned_file_count (scrub_stat);
                 goto out;
+        }
 
         /**
          * save verison for validation in post compute stage
@@ -182,7 +175,8 @@ bitd_signature_staleness (xlator_t *this,
  */
 int32_t
 bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
-                              fd_t *fd, unsigned long *version)
+                              fd_t *fd, unsigned long *version,
+                              br_scrub_stats_t *scrub_stat)
 {
         int     stale = 0;
         int32_t ret   = -1;
@@ -194,9 +188,10 @@ bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
                 goto out;
         }
 
-        ret = bitd_signature_staleness (this, child, fd, &stale, version);
+        ret = bitd_signature_staleness (this, child, fd, &stale, version,
+                                        scrub_stat);
         if (!ret && stale) {
-                br_inc_unsigned_file_count (this);
+                br_inc_unsigned_file_count (scrub_stat);
                 gf_msg_debug (this->name, 0, "<STAGE: PRE> Object [GFID: %s] "
                               "has stale signature",
                               uuid_utoa (fd->inode->gfid));
@@ -270,16 +265,6 @@ bitd_compare_ckum (xlator_t *this,
         dict_unref (xattr);
  out:
         return ret;
-}
-
-static void
-br_inc_scrubbed_file (br_private_t *priv)
-{
-        pthread_mutex_lock (&priv->scrub_stat.lock);
-        {
-                priv->scrub_stat.scrubbed_files++;
-        }
-        pthread_mutex_unlock (&priv->scrub_stat.lock);
 }
 
 /**
@@ -374,7 +359,8 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
          *  - presence of bad object
          *  - signature staleness
          */
-        ret = bitd_scrub_pre_compute_check (this, child, fd, &signedversion);
+        ret = bitd_scrub_pre_compute_check (this, child, fd, &signedversion,
+                                            &priv->scrub_stat);
         if (ret)
                 goto unrefd; /* skip this object */
 
@@ -397,8 +383,8 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
          * perform post compute checks as an object's signature may have
          * become stale while scrubber calculated checksum.
          */
-        ret = bitd_scrub_post_compute_check (this, child,
-                                             fd, signedversion, &sign);
+        ret = bitd_scrub_post_compute_check (this, child, fd, signedversion,
+                                             &sign, &priv->scrub_stat);
         if (ret)
                 goto free_md;
 
@@ -406,7 +392,7 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
                                  linked_inode, entry, fd, child, &loc);
 
         /* Increment of total number of scrubbed file counter */
-        br_inc_scrubbed_file (priv);
+        br_inc_scrubbed_file (&priv->scrub_stat);
 
         GF_FREE (sign); /* alloced on post-compute */
 
@@ -560,79 +546,52 @@ br_fsscanner_handle_entry (xlator_t *subvol,
 }
 
 int32_t
-br_fsscan_deactivate (xlator_t *this, br_child_t *child)
+br_fsscan_deactivate (xlator_t *this)
 {
         int ret = 0;
         br_private_t *priv = NULL;
         br_scrub_state_t nstate = 0;
-        struct br_scanfs *fsscan = NULL;
+        struct br_monitor *scrub_monitor = NULL;
 
         priv = this->private;
-        fsscan = &child->fsscan;
+        scrub_monitor = &priv->scrub_monitor;
 
-        ret = gf_tw_del_timer (priv->timer_wheel, fsscan->timer);
+        ret = gf_tw_del_timer (priv->timer_wheel, scrub_monitor->timer);
         if (ret == 0) {
                 nstate = BR_SCRUB_STATE_STALLED;
                 gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
-                        "Brick [%s] is under active scrubbing. Pausing scrub..",
-                        child->brick_path);
+                        "Volume is under active scrubbing. Pausing scrub..");
         } else {
                 nstate = BR_SCRUB_STATE_PAUSED;
                 gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
-                        "Scrubber paused [Brick: %s]", child->brick_path);
+                        "Scrubber paused");
         }
 
-        _br_child_set_scrub_state (child, nstate);
+        _br_monitor_set_scrub_state (scrub_monitor, nstate);
 
         return 0;
 }
+
 static void
-br_update_scrub_start_time (xlator_t *this, struct timeval *tv)
+br_scrubber_log_time (xlator_t *this, const char *sfx)
 {
-        br_private_t     *priv = NULL;
-        static int       child;
+        char           timestr[1024] = {0,};
+        struct         timeval tv    = {0,};
+        br_private_t  *priv          = NULL;
 
         priv = this->private;
 
+        gettimeofday (&tv, NULL);
+        gf_time_fmt (timestr, sizeof (timestr), tv.tv_sec, gf_timefmt_FT);
 
-        /* Setting scrubber starting time for first child only */
-        if (child == 0) {
-                pthread_mutex_lock (&priv->scrub_stat.lock);
-                {
-                        priv->scrub_stat.scrub_start_tv.tv_sec = tv->tv_sec;
-                }
-                pthread_mutex_unlock (&priv->scrub_stat.lock);
-        }
-
-        if (++child == priv->up_children) {
-                child = 0;
-        }
-}
-
-static void
-br_update_scrub_finish_time (xlator_t *this, char *timestr, struct timeval *tv)
-{
-        br_private_t     *priv = NULL;
-        static int       child;
-
-        priv = this->private;
-
-        /*Setting scrubber finishing time at time time of last child operation*/
-        if (++child == priv->up_children) {
-                pthread_mutex_lock (&priv->scrub_stat.lock);
-                {
-                        priv->scrub_stat.scrub_end_tv.tv_sec = tv->tv_sec;
-
-                        priv->scrub_stat.scrub_duration =
-                                         priv->scrub_stat.scrub_end_tv.tv_sec -
-                                         priv->scrub_stat.scrub_start_tv.tv_sec;
-
-                        strncpy (priv->scrub_stat.last_scrub_time, timestr,
-                                 sizeof (priv->scrub_stat.last_scrub_time));
-
-                        child = 0;
-                }
-                pthread_mutex_unlock (&priv->scrub_stat.lock);
+        if (strcasecmp (sfx, "started") == 0) {
+                br_update_scrub_start_time (&priv->scrub_stat, &tv);
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_START,
+                        "Scrubbing %s at %s", sfx, timestr);
+        } else {
+                br_update_scrub_finish_time (&priv->scrub_stat, timestr, &tv);
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_FINISH,
+                        "Scrubbing %s at %s", sfx, timestr);
         }
 }
 
@@ -646,85 +605,156 @@ br_fsscanner_log_time (xlator_t *this, br_child_t *child, const char *sfx)
         gf_time_fmt (timestr, sizeof (timestr), tv.tv_sec, gf_timefmt_FT);
 
         if (strcasecmp (sfx, "started") == 0) {
-                br_update_scrub_start_time (this, &tv);
-                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_START,
-                        "Scrubbing \"%s\" %s at %s", child->brick_path, sfx,
-                        timestr);
+                gf_msg_debug (this->name, 0, "Scrubbing \"%s\" %s at %s",
+                              child->brick_path, sfx, timestr);
         } else {
-                br_update_scrub_finish_time (this, timestr, &tv);
-                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_FINISH,
-                        "Scrubbing \"%s\" %s at %s", child->brick_path, sfx,
-                        timestr);
+                gf_msg_debug (this->name, 0, "Scrubbing \"%s\" %s at %s",
+                              child->brick_path, sfx, timestr);
         }
 }
 
-static void
-br_fsscanner_wait_until_kicked (xlator_t *this, struct br_scanfs *fsscan)
+void
+br_child_set_scrub_state (br_child_t *child, gf_boolean_t state)
 {
-        static int            i;
-        br_private_t         *priv    = NULL;
+        child->active_scrubbing = state;
+}
+
+static void
+br_fsscanner_wait_until_kicked (xlator_t *this, br_child_t *child)
+{
+        br_private_t      *priv          = NULL;
+        struct br_monitor *scrub_monitor = NULL;
 
         priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
 
-        pthread_cleanup_push (_br_lock_cleaner, &fsscan->wakelock);
-        pthread_mutex_lock (&fsscan->wakelock);
+        pthread_cleanup_push (_br_lock_cleaner, &scrub_monitor->wakelock);
+        pthread_mutex_lock (&scrub_monitor->wakelock);
         {
-                while (!fsscan->kick)
-                        pthread_cond_wait (&fsscan->wakecond,
-                                           &fsscan->wakelock);
+                while (!scrub_monitor->kick)
+                        pthread_cond_wait (&scrub_monitor->wakecond,
+                                           &scrub_monitor->wakelock);
 
-                /* resetting total number of scrubbed file when scrubbing
-                 * done for all of its children */
-                if (i == priv->up_children) {
-                        pthread_mutex_lock (&priv->scrub_stat.lock);
-                        {
-                                priv->scrub_stat.scrubbed_files = 0;
-                                priv->scrub_stat.unsigned_files = 0;
-                                i = 0;
-                        }
-                        pthread_mutex_unlock (&priv->scrub_stat.lock);
+                /* Child lock is to synchronize with disconnect events */
+                pthread_cleanup_push (_br_lock_cleaner, &child->lock);
+                LOCK (&child->lock);
+                {
+                        scrub_monitor->active_child_count++;
+                        br_child_set_scrub_state (child, _gf_true);
                 }
-                ++i;
-
-                fsscan->kick = _gf_false;
+                UNLOCK (&child->lock);
+                pthread_cleanup_pop (0);
         }
-        pthread_mutex_unlock (&fsscan->wakelock);
+        pthread_mutex_unlock (&scrub_monitor->wakelock);
         pthread_cleanup_pop (0);
+}
+
+static void
+br_scrubber_entry_control (xlator_t *this)
+{
+        br_private_t      *priv          = NULL;
+        struct br_monitor *scrub_monitor = NULL;
+
+        priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
+
+        LOCK (&scrub_monitor->lock);
+        {
+                /* Move the state to BR_SCRUB_STATE_ACTIVE */
+                if (scrub_monitor->state == BR_SCRUB_STATE_PENDING)
+                        scrub_monitor->state = BR_SCRUB_STATE_ACTIVE;
+                br_scrubber_log_time (this, "started");
+        }
+        UNLOCK (&scrub_monitor->lock);
+}
+
+static void
+br_scrubber_exit_control (xlator_t *this)
+{
+        br_private_t      *priv          = NULL;
+        struct br_monitor *scrub_monitor = NULL;
+
+        priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
+
+        LOCK (&scrub_monitor->lock);
+        {
+                br_scrubber_log_time (this, "finished");
+
+                if (scrub_monitor->state == BR_SCRUB_STATE_ACTIVE) {
+                        (void) br_fsscan_activate (this);
+                } else {
+                        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                                "Volume waiting to get rescheduled..");
+                }
+        }
+        UNLOCK (&scrub_monitor->lock);
 }
 
 static void
 br_fsscanner_entry_control (xlator_t *this, br_child_t *child)
 {
-        struct br_scanfs *fsscan = &child->fsscan;
-
-        LOCK (&child->lock);
-        {
-                if (fsscan->state == BR_SCRUB_STATE_PENDING)
-                        fsscan->state = BR_SCRUB_STATE_ACTIVE;
                 br_fsscanner_log_time (this, child, "started");
-        }
-        UNLOCK (&child->lock);
 }
 
 static void
 br_fsscanner_exit_control (xlator_t *this, br_child_t *child)
 {
-        struct br_scanfs *fsscan = &child->fsscan;
+        br_private_t *priv = NULL;
+        struct br_monitor *scrub_monitor = NULL;
 
-        LOCK (&child->lock);
+        priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
+
+        if (!_br_is_child_connected (child)) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRB_MSG_SCRUB_INFO,
+                        "Brick [%s] disconnected while scrubbing. Scrubbing "
+                        "might be incomplete", child->brick_path);
+        }
+
+        br_fsscanner_log_time (this, child, "finished");
+
+        pthread_cleanup_push (_br_lock_cleaner, &scrub_monitor->wakelock);
+        pthread_mutex_lock (&scrub_monitor->wakelock);
         {
-                fsscan->over = _gf_true;
-                br_fsscanner_log_time (this, child, "finished");
+                scrub_monitor->active_child_count--;
+                pthread_cleanup_push (_br_lock_cleaner, &child->lock);
+                LOCK (&child->lock);
+                {
+                        br_child_set_scrub_state (child, _gf_false);
+                }
+                UNLOCK (&child->lock);
+                pthread_cleanup_pop (0);
 
-                if (fsscan->state == BR_SCRUB_STATE_ACTIVE) {
-                        (void) br_fsscan_activate (this, child);
+                if (scrub_monitor->active_child_count == 0) {
+                        /* The last child has finished scrubbing.
+                         * Set the kick to false and  wake up other
+                         * children who are waiting for the last
+                         * child to complete scrubbing.
+                         */
+                        scrub_monitor->kick = _gf_false;
+                        pthread_cond_broadcast (&scrub_monitor->wakecond);
+
+                        /* Signal monitor thread waiting for the all
+                         * the children to finish scrubbing.
+                         */
+                        pthread_cleanup_push (_br_lock_cleaner,
+                                              &scrub_monitor->donelock);
+                        pthread_mutex_lock (&scrub_monitor->donelock);
+                        {
+                                scrub_monitor->done = _gf_true;
+                                pthread_cond_signal (&scrub_monitor->donecond);
+                        }
+                        pthread_mutex_unlock (&scrub_monitor->donelock);
+                        pthread_cleanup_pop (0);
                 } else {
-                        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
-                                "Brick [%s] waiting to get rescheduled..",
-                                child->brick_path);
+                        while (scrub_monitor->active_child_count)
+                                pthread_cond_wait (&scrub_monitor->wakecond,
+                                                   &scrub_monitor->wakelock);
                 }
         }
-        UNLOCK (&child->lock);
+        pthread_mutex_unlock (&scrub_monitor->wakelock);
+        pthread_cleanup_pop (0);
 }
 
 void *
@@ -743,7 +773,7 @@ br_fsscanner (void *arg)
         loc.inode = child->table->root;
 
         while (1) {
-                br_fsscanner_wait_until_kicked (this, fsscan);
+                br_fsscanner_wait_until_kicked (this, child);
                 {
                         /* precursor for scrub */
                         br_fsscanner_entry_control (this, child);
@@ -775,22 +805,29 @@ br_kickstart_scanner (struct gf_tw_timer_list *timer,
                       void *data, unsigned long calltime)
 {
         xlator_t *this = NULL;
-        br_child_t *child = data;
-        struct br_scanfs *fsscan = NULL;
+        struct br_monitor *scrub_monitor = data;
+        br_private_t *priv = NULL;
 
-        THIS = this = child->this;
-        fsscan = &child->fsscan;
+        THIS = this = scrub_monitor->this;
+        priv = this->private;
+
+        /* Reset scrub statistics */
+        priv->scrub_stat.scrubbed_files = 0;
+        priv->scrub_stat.unsigned_files = 0;
+
+        /* Moves state from PENDING to ACTIVE */
+        (void) br_scrubber_entry_control (this);
 
         /* kickstart scanning.. */
-        pthread_mutex_lock (&fsscan->wakelock);
+        pthread_mutex_lock (&scrub_monitor->wakelock);
         {
-                fsscan->kick = _gf_true;
-                pthread_cond_signal (&fsscan->wakecond);
+                scrub_monitor->kick = _gf_true;
+                GF_ASSERT (scrub_monitor->active_child_count == 0);
+                pthread_cond_broadcast (&scrub_monitor->wakecond);
         }
-        pthread_mutex_unlock (&fsscan->wakelock);
+        pthread_mutex_unlock (&scrub_monitor->wakelock);
 
         return;
-
 }
 
 static uint32_t
@@ -834,22 +871,22 @@ br_fsscan_calculate_timeout (scrub_freq_t freq)
 }
 
 int32_t
-br_fsscan_schedule (xlator_t *this, br_child_t *child)
+br_fsscan_schedule (xlator_t *this)
 {
         uint32_t timo = 0;
         br_private_t *priv = NULL;
         struct timeval tv = {0,};
         char timestr[1024] = {0,};
-        struct br_scanfs *fsscan = NULL;
         struct br_scrubber *fsscrub = NULL;
         struct gf_tw_timer_list *timer = NULL;
+        struct br_monitor *scrub_monitor = NULL;
 
         priv = this->private;
-        fsscan = &child->fsscan;
         fsscrub = &priv->fsscrub;
+        scrub_monitor = &priv->scrub_monitor;
 
         (void) gettimeofday (&tv, NULL);
-        fsscan->boot = tv.tv_sec;
+        scrub_monitor->boot = tv.tv_sec;
 
         timo = br_fsscan_calculate_timeout (fsscrub->frequency);
         if (timo == 0) {
@@ -858,25 +895,25 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child)
                 goto error_return;
         }
 
-        fsscan->timer = GF_CALLOC (1, sizeof (*fsscan->timer),
+        scrub_monitor->timer = GF_CALLOC (1, sizeof (*scrub_monitor->timer),
                                    gf_br_stub_mt_br_scanner_freq_t);
-        if (!fsscan->timer)
+        if (!scrub_monitor->timer)
                 goto error_return;
 
-        timer = fsscan->timer;
+        timer = scrub_monitor->timer;
         INIT_LIST_HEAD (&timer->entry);
 
-        timer->data = child;
+        timer->data = scrub_monitor;
         timer->expires = timo;
         timer->function = br_kickstart_scanner;
 
         gf_tw_add_timer (priv->timer_wheel, timer);
-        _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
+        _br_monitor_set_scrub_state (scrub_monitor, BR_SCRUB_STATE_PENDING);
 
         gf_time_fmt (timestr, sizeof (timestr),
-                     (fsscan->boot + timo), gf_timefmt_FT);
-        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing for "
-                "%s scheduled to run at %s", child->brick_path, timestr);
+                     (scrub_monitor->boot + timo), gf_timefmt_FT);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing is "
+                "scheduled to run at %s", timestr);
 
         return 0;
 
@@ -885,18 +922,18 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child)
 }
 
 int32_t
-br_fsscan_activate (xlator_t *this, br_child_t *child)
+br_fsscan_activate (xlator_t *this)
 {
         uint32_t            timo    = 0;
         char timestr[1024]          = {0,};
         struct timeval      now     = {0,};
         br_private_t       *priv    = NULL;
-        struct br_scanfs   *fsscan  = NULL;
         struct br_scrubber *fsscrub = NULL;
+        struct br_monitor  *scrub_monitor = NULL;
 
         priv = this->private;
-        fsscan = &child->fsscan;
         fsscrub = &priv->fsscrub;
+        scrub_monitor = &priv->scrub_monitor;
 
         (void) gettimeofday (&now, NULL);
         timo = br_fsscan_calculate_timeout (fsscrub->frequency);
@@ -906,32 +943,37 @@ br_fsscan_activate (xlator_t *this, br_child_t *child)
                 return -1;
         }
 
-        fsscan->over = _gf_false;
+        pthread_mutex_lock (&scrub_monitor->donelock);
+        {
+                scrub_monitor->done = _gf_false;
+        }
+        pthread_mutex_unlock (&scrub_monitor->donelock);
+
         gf_time_fmt (timestr, sizeof (timestr),
                      (now.tv_sec + timo), gf_timefmt_FT);
-        (void) gf_tw_mod_timer (priv->timer_wheel, fsscan->timer, timo);
+        (void) gf_tw_mod_timer (priv->timer_wheel, scrub_monitor->timer, timo);
 
-        _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
-        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing for "
-                "%s rescheduled to run at %s", child->brick_path, timestr);
+        _br_monitor_set_scrub_state (scrub_monitor, BR_SCRUB_STATE_PENDING);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing is "
+                "rescheduled to run at %s", timestr);
 
         return 0;
 }
 
 int32_t
-br_fsscan_reschedule (xlator_t *this, br_child_t *child)
+br_fsscan_reschedule (xlator_t *this)
 {
         int32_t             ret     = 0;
         uint32_t            timo    = 0;
         char timestr[1024]          = {0,};
         struct timeval      now     = {0,};
         br_private_t       *priv    = NULL;
-        struct br_scanfs   *fsscan  = NULL;
         struct br_scrubber *fsscrub = NULL;
+        struct br_monitor  *scrub_monitor = NULL;
 
         priv = this->private;
-        fsscan = &child->fsscan;
         fsscrub = &priv->fsscrub;
+        scrub_monitor = &priv->scrub_monitor;
 
         if (!fsscrub->frequency_reconf)
                 return 0;
@@ -947,17 +989,21 @@ br_fsscan_reschedule (xlator_t *this, br_child_t *child)
         gf_time_fmt (timestr, sizeof (timestr),
                      (now.tv_sec + timo), gf_timefmt_FT);
 
-        fsscan->over = _gf_false;
-        ret = gf_tw_mod_timer_pending (priv->timer_wheel, fsscan->timer, timo);
+        pthread_mutex_lock (&scrub_monitor->donelock);
+        {
+                scrub_monitor->done = _gf_false;
+        }
+        pthread_mutex_unlock (&scrub_monitor->donelock);
+
+        ret = gf_tw_mod_timer_pending (priv->timer_wheel, scrub_monitor->timer, timo);
         if (ret == 0)
                 gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
-                        "Scrubber for %s is currently running and would be "
-                        "rescheduled after completion", child->brick_path);
+                        "Scrubber is currently running and would be "
+                        "rescheduled after completion");
         else {
-                _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
+                _br_monitor_set_scrub_state (scrub_monitor, BR_SCRUB_STATE_PENDING);
                 gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
-                        "Scrubbing for %s rescheduled to run at %s",
-                        child->brick_path, timestr);
+                        "Scrubbing rescheduled to run at %s", timestr);
         }
 
         return 0;
@@ -1723,13 +1769,172 @@ out:
         return ret;
 }
 
+static int
+wait_for_scrub_to_finish (xlator_t *this)
+{
+        int                  ret               = -1;
+        br_private_t         *priv             = NULL;
+        struct br_monitor    *scrub_monitor    = NULL;
+
+        priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot", scrub_monitor, out);
+        GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
+
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                "Waiting for all children to start and finish scrub");
+
+        pthread_mutex_lock (&scrub_monitor->donelock);
+        {
+                while (!scrub_monitor->done)
+                        pthread_cond_wait (&scrub_monitor->donecond,
+                                           &scrub_monitor->donelock);
+        }
+        pthread_mutex_unlock (&scrub_monitor->donelock);
+        ret = 0;
+out:
+        return ret;
+}
+
+/**
+ * This function is executed in a separate thread. This is scrubber monitor
+ * thread that takes care of state machine.
+ */
+void *
+br_monitor_thread (void *arg)
+{
+        int32_t              ret               = 0;
+        xlator_t            *this              = NULL;
+        br_private_t        *priv              = NULL;
+        struct br_monitor   *scrub_monitor     = NULL;
+
+        this = arg;
+        priv = this->private;
+
+        /*
+         * Since, this is the topmost xlator, THIS has to be set by bit-rot
+         * xlator itself (STACK_WIND wont help in this case). Also it has
+         * to be done for each thread that gets spawned. Otherwise, a new
+         * thread will get global_xlator's pointer when it does "THIS".
+         */
+        THIS = this;
+
+        scrub_monitor = &priv->scrub_monitor;
+
+        pthread_mutex_lock (&scrub_monitor->mutex);
+        {
+                while (!scrub_monitor->inited)
+                        pthread_cond_wait (&scrub_monitor->cond,
+                                           &scrub_monitor->mutex);
+        }
+        pthread_mutex_unlock (&scrub_monitor->mutex);
+
+        /* this needs to be serialized with reconfigure() */
+        pthread_mutex_lock (&priv->lock);
+        {
+                ret = br_scrub_state_machine (this);
+        }
+        pthread_mutex_unlock (&priv->lock);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        BRB_MSG_SSM_FAILED,
+                        "Scrub state machine failed");
+                goto out;
+        }
+
+        while (1) {
+                /* Wait for all children to finish scrubbing */
+                ret = wait_for_scrub_to_finish (this);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                BRB_MSG_SCRUB_WAIT_FAILED,
+                                "Scrub wait failed");
+                        goto out;
+                }
+
+                /* scrub exit criteria: Move the state to PENDING */
+                br_scrubber_exit_control (this);
+        }
+
+out:
+        return NULL;
+}
+
+static void
+br_set_scrub_state (struct br_monitor *scrub_monitor, br_scrub_state_t state)
+{
+        LOCK (&scrub_monitor->lock);
+        {
+                _br_monitor_set_scrub_state (scrub_monitor, state);
+        }
+        UNLOCK (&scrub_monitor->lock);
+}
+
+int32_t
+br_scrubber_monitor_init (xlator_t *this, br_private_t *priv)
+{
+        struct br_monitor *scrub_monitor = NULL;
+        int                ret           = 0;
+
+        scrub_monitor = &priv->scrub_monitor;
+
+        LOCK_INIT (&scrub_monitor->lock);
+        scrub_monitor->this = this;
+
+        scrub_monitor->inited = _gf_false;
+        pthread_mutex_init (&scrub_monitor->mutex, NULL);
+        pthread_cond_init (&scrub_monitor->cond, NULL);
+
+        scrub_monitor->kick = _gf_false;
+        scrub_monitor->active_child_count = 0;
+        pthread_mutex_init (&scrub_monitor->wakelock, NULL);
+        pthread_cond_init (&scrub_monitor->wakecond, NULL);
+
+        scrub_monitor->done = _gf_false;
+        pthread_mutex_init (&scrub_monitor->donelock, NULL);
+        pthread_cond_init (&scrub_monitor->donecond, NULL);
+
+        /* Set the state to INACTIVE */
+        br_set_scrub_state (&priv->scrub_monitor, BR_SCRUB_STATE_INACTIVE);
+
+        /* Start the monitor thread */
+        ret = gf_thread_create (&scrub_monitor->thread, NULL, br_monitor_thread, this);
+        if (ret != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        BRB_MSG_SPAWN_FAILED, "monitor thread creation failed");
+                ret = -1;
+                goto err;
+        }
+
+        return 0;
+err:
+        pthread_mutex_destroy (&scrub_monitor->mutex);
+        pthread_cond_destroy (&scrub_monitor->cond);
+
+        pthread_mutex_destroy (&scrub_monitor->wakelock);
+        pthread_cond_destroy (&scrub_monitor->wakecond);
+
+        pthread_mutex_destroy (&scrub_monitor->donelock);
+        pthread_cond_destroy (&scrub_monitor->donecond);
+
+        LOCK_DESTROY (&scrub_monitor->lock);
+
+        return ret;
+}
+
 int32_t
 br_scrubber_init (xlator_t *this, br_private_t *priv)
 {
         struct br_scrubber *fsscrub = NULL;
+        int                 ret     = 0;
 
         priv->tbf = br_tbf_init (NULL, 0);
         if (!priv->tbf)
+                return -1;
+
+        ret = br_scrubber_monitor_init (this, priv);
+        if (ret)
                 return -1;
 
         fsscrub = &priv->fsscrub;
