@@ -20,6 +20,7 @@
 #include "client-mem-types.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
+#include "glusterfs3-xdr.h"
 #include "fd-lk.h"
 #include "defaults.h"
 #include "default-args.h"
@@ -41,6 +42,47 @@ typedef enum {
         DEFAULT_REMOTE_FD = 0,
         FALLBACK_TO_ANON_FD = 1
 } clnt_remote_fd_flags_t;
+
+#define CLIENT_POST_FOP(fop, this_rsp_u, this_args_cbk,  params ...)                     \
+        do {                                                                             \
+                gf_common_rsp  *_this_rsp = &this_rsp_u->compound_rsp_u.compound_##fop##_rsp;           \
+                int              _op_ret    = 0;                                         \
+                int              _op_errno  = 0;                                         \
+                                                                                         \
+                _op_ret = _this_rsp->op_ret;                                             \
+                _op_errno = gf_error_to_errno (_this_rsp->op_errno);                     \
+                args_##fop##_cbk_store (this_args_cbk, _op_ret, _op_errno, params);      \
+        } while (0)
+
+#define CLIENT_POST_FOP_TYPE(fop, this_rsp_u, this_args_cbk, params ...)                \
+        do {                                                                             \
+                gfs3_##fop##_rsp  *_this_rsp = &this_rsp_u->compound_rsp_u.compound_##fop##_rsp;          \
+                int              _op_ret    = 0;                                         \
+                int              _op_errno  = 0;                                         \
+                                                                                         \
+                _op_ret = _this_rsp->op_ret;                                             \
+                _op_errno = gf_error_to_errno (_this_rsp->op_errno);                     \
+                args_##fop##_cbk_store (this_args_cbk, _op_ret, _op_errno, params);      \
+        } while (0)
+
+#define CLIENT_PRE_FOP(fop, xl, compound_req, op_errno, label, params ...) \
+        do {                                                               \
+                gfs3_##fop##_req  *_req = (gfs3_##fop##_req *) compound_req;  \
+                int              _ret = 0;                                 \
+                                                                           \
+                _ret = client_pre_##fop (xl, _req, params);              \
+                if (_ret < 0) {                                            \
+                        op_errno = -ret;                                  \
+                        goto label;                                        \
+                }                                                          \
+        } while (0)
+
+#define CLIENT_COMPOUND_FOP_CLEANUP(curr_req, fop)                                      \
+        do {                                                                            \
+                gfs3_##fop##_req *_req = &curr_req->compound_req_u.compound_##fop##_req;\
+                                                                                        \
+                GF_FREE (_req->xdata.xdata_val);                                        \
+        } while (0)
 
 #define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, label) \
         do {                                                            \
@@ -185,6 +227,11 @@ typedef struct client_local {
         pthread_mutex_t      mutex;
         char                *name;
         gf_boolean_t         attempt_reopen;
+        /* required for compound fops */
+        struct iobref       *iobref2;
+        compound_args_t     *compound_args;
+        unsigned int         length; /* length of a compound fop */
+        unsigned int         read_length; /* defines the last processed length for a compound read */
 } clnt_local_t;
 
 typedef struct client_args {
@@ -238,6 +285,15 @@ int client_submit_request (xlator_t *this, void *req,
                            struct iovec *rsp_payload, int rsp_count,
                            struct iobref *rsp_iobref, xdrproc_t xdrproc);
 
+int
+client_submit_compound_request (xlator_t *this, void *req, call_frame_t *frame,
+                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
+                       struct iovec *req_vector, int req_count,
+                       struct iobref *iobref,  struct iovec *rsphdr,
+                       int rsphdr_count, struct iovec *rsp_payload,
+                       int rsp_payload_count, struct iobref *rsp_iobref,
+                       xdrproc_t xdrproc);
+
 int unserialize_rsp_dirent (xlator_t *this, struct gfs3_readdir_rsp *rsp,
                             gf_dirent_t *entries);
 int unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
@@ -283,4 +339,25 @@ client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...);
 
 gf_boolean_t
 client_is_reopen_needed (fd_t *fd, xlator_t *this, int64_t remote_fd);
+
+int
+client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
+                            int64_t remote_fd, int is_dir);
+int
+client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
+                                gfs3_compound_req *req,
+                                clnt_local_t *local,
+                                struct iobref *req_iobref,
+                                struct iobref *rsp_iobref,
+                                struct iovec *req_vector,
+                                struct iovec *rsp_vector, int *req_count,
+                                int *rsp_count, default_args_t *args,
+                                int fop_enum, int index);
+int
+client_process_response (call_frame_t *frame, xlator_t *this,
+                         struct rpc_req *req,
+                         gfs3_compound_rsp *rsp, compound_args_cbk_t *args_cbk,
+                         int index);
+void
+compound_request_cleanup (gfs3_compound_req *req);
 #endif /* !_CLIENT_H */

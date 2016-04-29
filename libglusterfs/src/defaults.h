@@ -80,7 +80,7 @@ typedef struct {
 
 typedef struct {
         int             fop_enum;
-        int             fop_length;
+        unsigned int    fop_length;
         int             *enum_list;
         default_args_t  *req_list;
         dict_t          *xdata;
@@ -88,7 +88,7 @@ typedef struct {
 
 typedef struct {
         int                fop_enum;
-        int                fop_length;
+        unsigned int       fop_length;
         int                *enum_list;
         default_args_cbk_t *rsp_list;
         dict_t             *xdata;

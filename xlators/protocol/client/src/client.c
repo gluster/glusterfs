@@ -339,6 +339,123 @@ out:
 }
 
 
+int
+client_submit_compound_request (xlator_t *this, void *req, call_frame_t *frame,
+                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
+                       struct iovec *req_payload, int req_count,
+                       struct iobref *iobref,  struct iovec *rsphdr,
+                       int rsphdr_count, struct iovec *rsp_payload,
+                       int rsp_payload_count, struct iobref *rsp_iobref,
+                       xdrproc_t xdrproc)
+{
+        int             ret        = -1;
+        clnt_conf_t    *conf       = NULL;
+        struct iovec    iov        = {0, };
+        struct iobuf   *iobuf      = NULL;
+        int             count      = 0;
+        struct iobref  *new_iobref = NULL;
+        ssize_t         xdr_size   = 0;
+        struct rpc_req  rpcreq     = {0, };
+
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, prog, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+
+        conf = this->private;
+
+        /* If 'setvolume' is not successful, we should not send frames to
+         * server
+         */
+
+        if (!conf->connected) {
+                gf_msg_debug (this->name, 0,
+                              "connection in disconnected state");
+                goto out;
+        }
+
+        if (req && xdrproc) {
+                xdr_size = xdr_sizeof (xdrproc, req);
+                iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
+                if (!iobuf) {
+                        goto out;
+                };
+
+                new_iobref = iobref_new ();
+                if (!new_iobref) {
+                        goto out;
+                }
+
+                if (iobref != NULL) {
+                        ret = iobref_merge (new_iobref, iobref);
+                        if (ret != 0) {
+                                goto out;
+                        }
+                }
+
+                ret = iobref_add (new_iobref, iobuf);
+                if (ret != 0) {
+                        goto out;
+                }
+
+                iov.iov_base = iobuf->ptr;
+                iov.iov_len  = iobuf_size (iobuf);
+
+                /* Create the xdr payload */
+                ret = xdr_serialize_generic (iov, req, xdrproc);
+                if (ret == -1) {
+                        /* callingfn so that, we can get to know which xdr
+                           function was called */
+                        gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                          "XDR payload creation failed");
+                        goto out;
+                }
+                iov.iov_len = ret;
+                count = 1;
+        }
+
+        /* do not send all groups if they are resolved server-side */
+        if (!conf->send_gids) {
+                if (frame->root->ngrps <= SMALL_GROUP_COUNT) {
+                        frame->root->groups_small[0] = frame->root->gid;
+                        frame->root->groups = frame->root->groups_small;
+                }
+                frame->root->ngrps = 1;
+        }
+
+        /* Send the msg */
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
+                               req_payload, req_count, new_iobref, frame,
+                               rsphdr, rsphdr_count,
+                               rsp_payload, rsp_payload_count, rsp_iobref);
+
+        if (ret < 0) {
+                gf_msg_debug (this->name, 0, "rpc_clnt_submit failed");
+        }
+
+        ret = 0;
+
+        if (new_iobref)
+                iobref_unref (new_iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
+
+        return ret;
+
+out:
+        rpcreq.rpc_status = -1;
+
+        cbkfn (&rpcreq, NULL, 0, frame);
+
+        if (new_iobref)
+                iobref_unref (new_iobref);
+
+        if (iobuf)
+                iobuf_unref (iobuf);
+
+        return 0;
+}
+
 int32_t
 client_forget (xlator_t *this, inode_t *inode)
 {
@@ -1980,6 +2097,32 @@ out:
 }
 
 
+int32_t
+client_compound (call_frame_t *frame, xlator_t *this,
+                 void *data, dict_t *xdata)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        compound_args_t *args = data;
+        rpc_clnt_procedure_t *proc = NULL;
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args->xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_COMPOUND];
+        if (proc->fn)
+                ret = proc->fn (frame, this, args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (compound, frame, -1, ENOTCONN,
+                                     NULL, NULL);
+
+	return 0;
+}
+
 int
 client_mark_fd_bad (xlator_t *this)
 {
@@ -2749,6 +2892,7 @@ struct xlator_fops fops = {
         .ipc         = client_ipc,
         .seek        = client_seek,
         .lease       = client_lease,
+        .compound    = client_compound,
 };
 
 
