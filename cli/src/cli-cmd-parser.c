@@ -1583,6 +1583,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         char    *opwords_cl[] = { "replica", "stripe", NULL };
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 1;
+        int     arbiter_count = 0;
         char    *w = NULL;
         int     index;
         gf_boolean_t is_force = _gf_false;
@@ -1635,6 +1636,22 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 if (ret)
                         goto out;
                 index = 5;
+                if (words[index] && !strcmp (words[index], "arbiter")) {
+                        arbiter_count = strtol (words[6], NULL, 0);
+                        if (arbiter_count != 1 || count != 3) {
+                                cli_err ("For arbiter configuration, replica "
+                                         "count must be 3 and arbiter count "
+                                         "must be 1. The 3rd brick of the "
+                                         "replica will be the arbiter");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "arbiter-count",
+                                              arbiter_count);
+                        if (ret)
+                                goto out;
+                        index = 7;
+                }
         } else if ((strcmp (w, "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
                 count = strtol (words[4], NULL, 0);

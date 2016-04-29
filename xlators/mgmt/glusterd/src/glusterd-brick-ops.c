@@ -219,8 +219,8 @@ out:
 
 static int
 gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
-                                 int total_bricks, int *type, char *err_str,
-                                 int err_len)
+                                 int arbiter_count, int total_bricks, int *type,
+                                 char *err_str, int err_len)
 {
         int ret = -1;
 
@@ -283,6 +283,14 @@ gd_addbr_validate_replica_count (glusterd_volinfo_t *volinfo, int replica_count,
                         goto out;
                 }
                 if (replica_count == volinfo->replica_count) {
+                        if (arbiter_count && !volinfo->arbiter_count) {
+                                snprintf (err_str, err_len,
+                                          "Cannot convert replica 3 volume "
+                                          "to arbiter volume.");
+                                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                                        GD_MSG_INVALID_ENTRY, "%s", err_str);
+                                goto out;
+                        }
                         if (!(total_bricks % volinfo->dist_leaf_count)) {
                                 ret = 1;
                                 goto out;
@@ -413,6 +421,7 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         xlator_t                        *this = NULL;
         int                             total_bricks = 0;
         int32_t                         replica_count = 0;
+        int32_t                         arbiter_count = 0;
         int32_t                         stripe_count = 0;
         int                             type = 0;
         glusterd_conf_t                 *conf = NULL;
@@ -486,14 +495,21 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (!ret) {
                 gf_msg (this->name, GF_LOG_INFO, errno,
-                        GD_MSG_DICT_GET_FAILED, "replica-count is %d",
+                        GD_MSG_DICT_GET_SUCCESS, "replica-count is %d",
                         replica_count);
+        }
+
+        ret = dict_get_int32 (dict, "arbiter-count", &arbiter_count);
+        if (!ret) {
+                gf_msg (this->name, GF_LOG_INFO, errno,
+                        GD_MSG_DICT_GET_SUCCESS, "arbiter-count is %d",
+                        arbiter_count);
         }
 
         ret = dict_get_int32 (dict, "stripe-count", &stripe_count);
         if (!ret) {
                 gf_msg (this->name, GF_LOG_INFO, errno,
-                        GD_MSG_DICT_GET_FAILED, "stripe-count is %d",
+                        GD_MSG_DICT_GET_SUCCESS, "stripe-count is %d",
                         stripe_count);
         }
 
@@ -602,7 +618,7 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         }
 
         ret = gd_addbr_validate_replica_count (volinfo, replica_count,
-                                               total_bricks,
+                                               arbiter_count, total_bricks,
                                                &type, err_str,
                                                sizeof (err_str));
         if (ret == -1) {
@@ -791,6 +807,71 @@ glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
         return hot_brick_num;
 }
 
+static int
+glusterd_remove_brick_validate_arbiters (glusterd_volinfo_t *volinfo,
+                                         int32_t count, int32_t replica_count,
+                                         glusterd_brickinfo_t **brickinfo_list,
+                                         char *err_str, size_t err_len)
+{
+        int i = 0;
+        int ret = 0;
+        glusterd_brickinfo_t *brickinfo = NULL;
+        glusterd_brickinfo_t *last = NULL;
+        char *arbiter_array = NULL;
+
+        if ((volinfo->type != GF_CLUSTER_TYPE_REPLICATE) &&
+            (volinfo->type != GF_CLUSTER_TYPE_STRIPE_REPLICATE))
+                goto out;
+
+        if (!replica_count || !volinfo->arbiter_count)
+                goto out;
+
+        if (replica_count == 2) {
+                /* If it is an arbiter to replica 2 conversion, only permit
+                *  removal of the arbiter brick.*/
+                for (i = 0; i < count; i++) {
+                        brickinfo = brickinfo_list[i];
+                        last = get_last_brick_of_brick_group (volinfo,
+                                                              brickinfo);
+                        if (last != brickinfo) {
+                                snprintf (err_str, err_len, "Remove arbiter "
+                                          "brick(s) only when converting from "
+                                           "arbiter to replica 2 subvolume.");
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        } else if (replica_count == 1) {
+                /* If it is an arbiter to plain distribute conversion, in every
+                 * replica subvol, the arbiter has to be one of the bricks that
+                 * are removed. */
+                arbiter_array = GF_CALLOC (volinfo->subvol_count,
+                                           sizeof (*arbiter_array),
+                                           gf_common_mt_char);
+                if (!arbiter_array)
+                        return -1;
+                for (i = 0; i < count; i++) {
+                        brickinfo = brickinfo_list[i];
+                        last = get_last_brick_of_brick_group (volinfo,
+                                                              brickinfo);
+                        if (last == brickinfo)
+                                arbiter_array[brickinfo->group] = 1;
+                }
+                for (i = 0; i < volinfo->subvol_count; i++)
+                        if (!arbiter_array[i]) {
+                                snprintf (err_str, err_len, "Removed bricks "
+                                          "must contain arbiter when converting"
+                                           " to plain distrubute.");
+                                ret = -1;
+                                break;
+                        }
+                GF_FREE (arbiter_array);
+        }
+
+out:
+        return ret;
+}
+
 int
 __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 {
@@ -800,10 +881,10 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         int32_t                   count            = 0;
         char                     *brick            = NULL;
         char                      key[256]         = {0,};
-        char                     *brick_list       = NULL;
         int                       i                = 1;
         glusterd_volinfo_t       *volinfo          = NULL;
         glusterd_brickinfo_t     *brickinfo        = NULL;
+        glusterd_brickinfo_t     **brickinfo_list  = NULL;
         int                      *subvols          = NULL;
         char                      err_str[2048]    = {0};
         gf_cli_rsp                rsp              = {0,};
@@ -998,16 +1079,6 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 }
         }
 
-        brick_list = GF_MALLOC (120000 * sizeof(*brick_list),gf_common_mt_char);
-
-        if (!brick_list) {
-                ret = -1;
-                goto out;
-        }
-
-
-        strcpy (brick_list, " ");
-
         /* subvol match is not required for tiered volume*/
         if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
              (volinfo->type != GF_CLUSTER_TYPE_TIER) &&
@@ -1019,6 +1090,13 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         if (volinfo->type == GF_CLUSTER_TYPE_TIER)
                 count = glusterd_set_detach_bricks(dict, volinfo);
+
+        brickinfo_list = GF_CALLOC (count, sizeof (*brickinfo_list),
+                                    gf_common_mt_pointer);
+        if (!brickinfo_list) {
+                ret = -1;
+                goto out;
+        }
 
         while ( i <= count) {
                 snprintf (key, sizeof (key), "brick%d", i);
@@ -1044,8 +1122,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                                 GD_MSG_BRICK_NOT_FOUND, "%s", err_str);
                         goto out;
                 }
-                strcat(brick_list, brick);
-                strcat(brick_list, " ");
+                brickinfo_list[i-1] = brickinfo;
 
                 i++;
                 if ((volinfo->type == GF_CLUSTER_TYPE_NONE) ||
@@ -1072,6 +1149,14 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                         goto out;
         }
 
+        ret = glusterd_remove_brick_validate_arbiters (volinfo, count,
+                                                       replica_count,
+                                                       brickinfo_list,
+                                                       err_str,
+                                                       sizeof (err_str));
+        if (ret)
+                goto out;
+
         ret = glusterd_op_begin_synctask (req, GD_OP_REMOVE_BRICK, dict);
 
 out:
@@ -1092,8 +1177,8 @@ out:
 
         }
 
-        if (brick_list)
-                GF_FREE (brick_list);
+        if (brickinfo_list)
+                GF_FREE (brickinfo_list);
         subvol_matcher_destroy (subvols);
         free (cli_req.dict.dict_val); //its malloced by xdr
 
@@ -1224,6 +1309,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         int32_t                       ret            = -1;
         int32_t                       stripe_count   = 0;
         int32_t                       replica_count  = 0;
+        int32_t                       arbiter_count  = 0;
         int32_t                       type           = 0;
         glusterd_brickinfo_t         *brickinfo      = NULL;
         glusterd_gsync_status_temp_t  param          = {0, };
@@ -1256,18 +1342,23 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 ret = dict_get_int32 (dict, "stripe-count", &stripe_count);
                 if (!ret)
                         gf_msg (THIS->name, GF_LOG_INFO, errno,
-                                GD_MSG_DICT_GET_FAILED,
+                                GD_MSG_DICT_GET_SUCCESS,
                                 "stripe-count is set %d", stripe_count);
 
                 ret = dict_get_int32 (dict, "replica-count", &replica_count);
                 if (!ret)
                         gf_msg (THIS->name, GF_LOG_INFO, errno,
-                                GD_MSG_DICT_GET_FAILED,
+                                GD_MSG_DICT_GET_SUCCESS,
                                 "replica-count is set %d", replica_count);
+                ret = dict_get_int32 (dict, "arbiter-count", &arbiter_count);
+                if (!ret)
+                        gf_msg (THIS->name, GF_LOG_INFO, errno,
+                                GD_MSG_DICT_GET_SUCCESS,
+                                "arbiter-count is set %d", arbiter_count);
                 ret = dict_get_int32 (dict, "type", &type);
                 if (!ret)
                         gf_msg (THIS->name, GF_LOG_INFO, errno,
-                                GD_MSG_DICT_GET_FAILED,
+                                GD_MSG_DICT_GET_SUCCESS,
                                 "type is set %d, need to change it", type);
         }
 
@@ -1327,6 +1418,9 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
 
         if (replica_count) {
                 volinfo->replica_count = replica_count;
+        }
+        if (arbiter_count) {
+                volinfo->arbiter_count = arbiter_count;
         }
         if (stripe_count) {
                 volinfo->stripe_count = stripe_count;
@@ -1529,6 +1623,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                                    *volname = NULL;
         int                                     count = 0;
         int                                     replica_count = 0;
+        int                                     arbiter_count = 0;
         int                                     i = 0;
         int32_t                                 local_brick_count = 0;
         char                                    *bricks    = NULL;
@@ -1578,6 +1673,12 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         "Unable to get replica count");
         }
 
+        ret = dict_get_int32 (dict, "arbiter-count", &arbiter_count);
+        if (ret) {
+                gf_msg_debug (THIS->name, 0,
+                        "No arbiter count present in the dict");
+        }
+
         if (replica_count > 0) {
                 ret = op_version_check (this, GD_OP_VER_PERSISTENT_AFR_XATTRS,
                                         msg, sizeof(msg));
@@ -1589,10 +1690,10 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
         }
 
-        /* Do not allow add-brick for stopped volumes when replica-count
-         * is being increased.
-         */
         if (glusterd_is_volume_replicate (volinfo)) {
+                /* Do not allow add-brick for stopped volumes when replica-count
+                 * is being increased.
+                 */
                 if (conf->op_version >= GD_OP_VERSION_3_7_10 &&
                     !dict_get (dict, "attach-tier") &&
                     replica_count &&
@@ -1601,6 +1702,20 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         snprintf (msg, sizeof (msg), " Volume must not be in"
                                   " stopped state when replica-count needs to "
                                   " be increased.");
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_ADD_FAIL, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+                /* op-version check for replica 2 to arbiter conversion. If we
+                * dont have this check, an older peer added as arbiter brick
+                * will not have the  arbiter xlator in its volfile. */
+                if ((conf->op_version < GD_OP_VERSION_3_8_0) &&
+                    (arbiter_count == 1) && (replica_count == 3)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Cluster op-version must "
+                                  "be >= 30800 to add arbiter brick to a "
+                                  "replica 2 volume.");
                         gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_BRICK_ADD_FAIL, "%s", msg);
                         *op_errstr = gf_strdup (msg);
@@ -2689,6 +2804,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         volinfo->replica_count, replica_count,
                         volinfo->volname);
                 volinfo->replica_count = replica_count;
+                /* A reduction in replica count implies an arbiter volume
+                 * earlier is now no longer one. */
+                if (volinfo->arbiter_count)
+                        volinfo->arbiter_count = 0;
                 volinfo->sub_count = replica_count;
                 volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
 

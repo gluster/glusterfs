@@ -2444,6 +2444,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                 brick_count++;
         }
 
+        assign_brick_groups (volinfo);
         ret = gf_store_iter_destroy (tmpiter);
         if (ret)
                 goto out;

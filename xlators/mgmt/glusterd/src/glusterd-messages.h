@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       577
+#define GLFS_NUM_MESSAGES       578
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4647,7 +4647,6 @@
  *             on its own and try to restart the brick with a new port
  * @recommendedaction  Ensure the new port is not blocked by firewall
  */
-
 #define GD_MSG_RETRY_WITH_NEW_PORT                   (GLUSTERD_COMP_BASE + 575)
 
 /*!
@@ -4665,6 +4664,14 @@
  *
  */
 #define GD_MSG_SLAVE_VOL_PARSE_FAIL               (GLUSTERD_COMP_BASE + 577)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_DICT_GET_SUCCESS                   (GLUSTERD_COMP_BASE + 578)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

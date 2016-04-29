@@ -11418,3 +11418,40 @@ out:
         gf_msg_debug ("glusterd", 0, "Returning with ret");
         return ret;
 }
+
+void
+assign_brick_groups (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        uint16_t                group_num       = 0;
+        int                     in_group        = 0;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brickinfo->group = group_num;
+                if (++in_group >= volinfo->replica_count) {
+                        in_group = 0;
+                        ++group_num;
+                }
+        }
+}
+
+glusterd_brickinfo_t*
+get_last_brick_of_brick_group (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t *brickinfo)
+{
+        glusterd_brickinfo_t  *next = NULL;
+        glusterd_brickinfo_t  *last = NULL;
+        int ret = -1;
+
+        last = brickinfo;
+        for (;;) {
+                next = list_next (last, &volinfo->bricks,
+                                  glusterd_brickinfo_t, brick_list);
+                if (!next || (next->group != brickinfo->group)) {
+                        break;
+                }
+                last = next;
+        }
+
+        return last;
+}
