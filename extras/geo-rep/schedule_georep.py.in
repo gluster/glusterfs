@@ -130,7 +130,7 @@ def glustermount(hostname, volname):
     Automatically unmounts it in case of Exceptions/out of context
     """
     mnt = tempfile.mkdtemp(prefix="georepsetup_")
-    execute(["glusterfs",
+    execute(["@SBIN_DIR@/glusterfs",
              "--volfile-server", hostname,
              "--volfile-id", volname,
              "-l", SESSION_MOUNT_LOG_FILE,
@@ -152,7 +152,7 @@ def get_bricks(volname):
     parsed.
     """
     value = []
-    cmd = ["gluster", "volume", "info", volname, "--xml"]
+    cmd = ["@SBIN_DIR@/gluster", "volume", "info", volname, "--xml"]
     info = execute(cmd)
     try:
         tree = etree.fromstring(info)
@@ -169,7 +169,7 @@ def get_bricks(volname):
 def get_georep_status(mastervol, slave):
     session_keys = set()
     out = {}
-    cmd = ["gluster", "volume", "geo-replication"]
+    cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication"]
     if mastervol is not None:
         cmd += [mastervol]
         if slave:
@@ -357,20 +357,20 @@ def main(args):
     turns = 1
 
     # Stop Force
-    cmd = ["gluster", "volume", "geo-replication", args.mastervol,
+    cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication", args.mastervol,
            "%s::%s" % (args.slave, args.slavevol), "stop", "force"]
     execute(cmd)
     output_ok("Stopped Geo-replication")
 
     # Set Checkpoint to NOW
-    cmd = ["gluster", "volume", "geo-replication", args.mastervol,
+    cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication", args.mastervol,
            "%s::%s" % (args.slave, args.slavevol), "config", "checkpoint",
            "now"]
     execute(cmd)
     output_ok("Set Checkpoint")
 
     # Start the Geo-replication
-    cmd = ["gluster", "volume", "geo-replication", args.mastervol,
+    cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication", args.mastervol,
            "%s::%s" % (args.slave, args.slavevol), "start"]
     execute(cmd)
     output_ok("Started Geo-replication and watching Status for "
@@ -421,7 +421,8 @@ def main(args):
 
         if summary["checkpoints_ok"]:
             output_ok("Stopping Geo-replication session now")
-            cmd = ["gluster", "volume", "geo-replication", args.mastervol,
+            cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication",
+                   args.mastervol,
                    "%s::%s" % (args.slave, args.slavevol), "stop"]
             execute(cmd)
             break
@@ -436,7 +437,8 @@ def main(args):
         turns += 1
         duration = int(time.time()) - start_time
         if args.timeout > 0 and duration > (args.timeout * 60):
-            cmd = ["gluster", "volume", "geo-replication", args.mastervol,
+            cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication",
+                   args.mastervol,
                    "%s::%s" % (args.slave, args.slavevol), "stop", "force"]
             execute(cmd)
             output_notok("Timed out, Stopping Geo-replication("
