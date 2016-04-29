@@ -2586,7 +2586,8 @@ struct cli_cmd volume_cmds[] = {
           "{start|stop|commit} [force]"},
 #endif
 
-        { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
+        { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT> "
+          "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,
           "add brick to volume <VOLNAME>"},
 
