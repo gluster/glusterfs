@@ -2106,7 +2106,7 @@ daemonize (glusterfs_ctx_t *ctx)
         int            ret = -1;
         cmd_args_t    *cmd_args = NULL;
         int            cstatus = 0;
-        int            err = 0;
+        int            err = 1;
 
         cmd_args = &ctx->cmd_args;
 
@@ -2151,14 +2151,17 @@ daemonize (glusterfs_ctx_t *ctx)
 
                 if (ctx->mnt_pid > 0) {
                         ret = waitpid (ctx->mnt_pid, &cstatus, 0);
-                        if (!(ret == ctx->mnt_pid && cstatus == 0)) {
+                        if (!(ret == ctx->mnt_pid)) {
+                                if (WIFEXITED(cstatus)) {
+                                        err = WEXITSTATUS(cstatus);
+                                } else {
+                                        err = cstatus;
+                                }
                                 gf_msg ("daemonize", GF_LOG_ERROR, 0,
                                         glusterfsd_msg_25);
-                                exit (1);
+                                exit (err);
                         }
                 }
-
-                err = 1;
                 read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
                 _exit (err);
         }
