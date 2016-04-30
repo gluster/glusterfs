@@ -1750,3 +1750,59 @@ compound_request_cleanup (gfs3_compound_req *req)
 
         return;
 }
+
+void
+clnt_getactivelk_rsp_cleanup (gfs3_getactivelk_rsp *rsp)
+{
+        gfs3_locklist   *trav = NULL;
+        gfs3_locklist   *next = NULL;
+
+        trav = rsp->reply;
+
+        while (trav) {
+                next = trav->nextentry;
+                free (trav->client_uid);
+                free (trav);
+                trav = next;
+        }
+}
+
+int
+clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
+                               lock_migration_info_t *lmi)
+{
+        struct gfs3_locklist            *trav           = NULL;
+        lock_migration_info_t           *temp           = NULL;
+        char                            *buf            = NULL;
+        int                             entry_len       = 0;
+        int                             ret             = -1;
+        clnt_conf_t                     *conf           = NULL;
+
+        trav = rsp->reply;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
+
+        while (trav) {
+                temp = GF_CALLOC (1, sizeof (*lmi), gf_common_mt_lock_mig);
+                if (temp == NULL) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "No memory");
+                        goto out;
+                }
+
+                INIT_LIST_HEAD (&temp->list);
+
+                gf_proto_flock_to_flock (&trav->flock, &temp->flock);
+
+                temp->client_uid =  gf_strdup (trav->client_uid);
+
+                list_add_tail (&temp->list, &lmi->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}

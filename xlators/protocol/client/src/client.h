@@ -360,4 +360,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                          int index);
 void
 compound_request_cleanup (gfs3_compound_req *req);
+
+int
+clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
+                               lock_migration_info_t *lmi);
+void
+clnt_getactivelk_rsp_cleanup (gfs3_getactivelk_rsp *rsp);
 #endif /* !_CLIENT_H */

@@ -3301,7 +3301,79 @@ err:
         return 0;
 }
 
+static int
+server_getactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno,
+                        lock_migration_info_t *locklist, dict_t *xdata)
+{
+        gfs3_getactivelk_rsp    rsp     = {0,};
+        server_state_t          *state  = NULL;
+        rpcsvc_request_t        *req    = NULL;
+        int                     ret     = 0;
 
+        state = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret < 0) {
+                state = CALL_STATE (frame);
+
+                gf_msg (this->name, GF_LOG_INFO,
+                        op_errno, 0,
+                        "%"PRId64": GETACTIVELK %s (%s) ==> (%s)",
+                        frame->root->unique, state->loc.path,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+
+                goto out;
+        }
+
+        /* (op_ret == 0) means there are no locks on the file*/
+        if (op_ret > 0) {
+                ret = serialize_rsp_locklist (locklist, &rsp);
+                if (ret == -1) {
+                        op_ret   = -1;
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+        }
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        req = frame->local;
+
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfs3_getactivelk_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        getactivelkinfo_rsp_cleanup (&rsp);
+
+        return 0;
+}
+
+int
+server_getactivelk_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_getactivelk_cbk, bound_xl,
+                    bound_xl->fops->getactivelk, &state->loc, state->xdata);
+        return 0;
+err:
+        server_getactivelk_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                                state->resolve.op_errno, NULL, NULL);
+        return 0;
+
+}
 
 /* Fop section */
 
@@ -6517,6 +6589,62 @@ out:
         return ret;
 }
 
+static int
+server3_3_getactivelk (rpcsvc_request_t *req)
+{
+        server_state_t          *state          = NULL;
+        call_frame_t            *frame          = NULL;
+        gfs3_getactivelk_req   args            = {{0,},};
+        size_t                  headers_size    = 0;
+        int                     ret             = -1;
+        int                     op_errno        = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_getactivelk_req);
+        if (ret < 0) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+        frame->root->op = GF_FOP_GETACTIVELK;
+
+        state = CALL_STATE (frame);
+        if (!frame->root->client->bound_xl) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        state->resolve.type = RESOLVE_MUST;
+        memcpy (state->resolve.gfid, args.gfid, 16);
+
+        /* here, dict itself works as xdata */
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata,
+                                      (args.xdata.xdata_val),
+                                      (args.xdata.xdata_len), ret,
+                                      op_errno, out);
+
+
+        ret = 0;
+        resolve_and_resume (frame, server_getactivelk_resume);
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        free (args.xdata.xdata_val);
+
+        return ret;
+}
 
 rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_NULL]         = {"NULL",         GFS3_OP_NULL,         server_null,            NULL, 0, DRC_NA},
@@ -6569,6 +6697,7 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_IPC]          = {"IPC",          GFS3_OP_IPC,          server3_3_ipc,          NULL, 0, DRC_NA},
         [GFS3_OP_SEEK]         = {"SEEK",         GFS3_OP_SEEK,         server3_3_seek,         NULL, 0, DRC_NA},
         [GFS3_OP_LEASE]       =  {"LEASE",        GFS3_OP_LEASE,        server3_3_lease,        NULL, 0, DRC_NA},
+        [GFS3_OP_GETACTIVELK] = {"GETACTIVELK", GFS3_OP_GETACTIVELK, server3_3_getactivelk, NULL, 0, DRC_NA},
 };
 
 
