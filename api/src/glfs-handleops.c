@@ -1805,6 +1805,69 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 
+/*
+ * Given a handle/gfid, find if the corresponding inode is present in
+ * the inode table. If yes create and return the corresponding glfs_object.
+ */
+struct glfs_object *
+glfs_h_find_handle (struct glfs *fs, unsigned char *handle, int len)
+{
+        int                 ret = -1;
+        inode_t            *newinode = NULL;
+        xlator_t           *subvol = NULL;
+        struct glfs_object *object = NULL;
+        uuid_t gfid;
+
+        /* validate in args */
+        if ((fs == NULL) || (handle == NULL) || (len != GFAPI_HANDLE_LENGTH)) {
+                errno = EINVAL;
+                return NULL;
+        }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                errno = EIO;
+                goto out;
+        }
+
+        memcpy (gfid, handle, GFAPI_HANDLE_LENGTH);
+
+        /* make sure the gfid received is valid */
+        GF_VALIDATE_OR_GOTO ("glfs_h_find_handle",
+                             !(gf_uuid_is_null (gfid)), out);
+
+        newinode = inode_find (subvol->itable, gfid);
+        if (!newinode) {
+                goto out;
+        }
+
+        object = GF_CALLOC (1, sizeof(struct glfs_object),
+                            glfs_mt_glfs_object_t);
+        if (object == NULL) {
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        /* populate the return object. The ref taken here
+         * is un'refed when the application does glfs_h_close() */
+        object->inode = inode_ref(newinode);
+        gf_uuid_copy (object->gfid, object->inode->gfid);
+
+out:
+        glfs_subvol_done (fs, subvol);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return object;
+
+}
+
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
                                 struct callback_arg *up_arg,
@@ -1821,11 +1884,24 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
                              ca_data, out);
 
-        object = glfs_h_create_from_handle (fs, upcall_data->gfid,
-                                            GFAPI_HANDLE_LENGTH,
-                                            NULL);
-        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
-                             object, out);
+        object = glfs_h_find_handle (fs, upcall_data->gfid,
+                                     GFAPI_HANDLE_LENGTH);
+        if (!object) {
+                /* The reason handle creation will fail is because we
+                 * couldn't find the inode in the gfapi inode table.
+                 *
+                 * But since application would have taken inode_ref, the
+                 * only case when this can happen is when it has closed
+                 * the handle and hence will no more be interested in
+                 * the upcall for this particular gfid.
+                 */
+                gf_msg (THIS->name, GF_LOG_DEBUG, errno,
+                        API_MSG_CREATE_HANDLE_FAILED,
+                        "handle creation of %s failed",
+                         uuid_utoa (upcall_data->gfid));
+                errno = ESTALE;
+                goto out;
+        }
 
         up_inode_arg = calloc (1, sizeof (struct callback_inode_arg));
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
@@ -1844,12 +1920,17 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         }
 
         if (ca_data->flags & GFAPI_UP_PARENT_TIMES) {
-                p_object = glfs_h_create_from_handle (fs,
-                                                      ca_data->p_stat.ia_gfid,
-                                                      GFAPI_HANDLE_LENGTH,
-                                                      NULL);
-                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
-                                       p_object, out);
+                p_object = glfs_h_find_handle (fs,
+                                               ca_data->p_stat.ia_gfid,
+                                               GFAPI_HANDLE_LENGTH);
+                if (!p_object) {
+                        gf_msg (THIS->name, GF_LOG_DEBUG, errno,
+                                API_MSG_CREATE_HANDLE_FAILED,
+                                "handle creation of %s failed",
+                                 uuid_utoa (ca_data->p_stat.ia_gfid));
+                        errno = ESTALE;
+                        goto out;
+                }
 
                 glfs_iatt_to_stat (fs, &ca_data->p_stat, &up_inode_arg->p_buf);
         }
@@ -1857,12 +1938,21 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
 
         /* In case of RENAME, update old parent as well */
         if (ca_data->flags & GFAPI_UP_RENAME) {
-                oldp_object = glfs_h_create_from_handle (fs,
-                                                     ca_data->oldp_stat.ia_gfid,
-                                                     GFAPI_HANDLE_LENGTH,
-                                                     NULL);
-                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
-                                       oldp_object, out);
+                oldp_object = glfs_h_find_handle (fs,
+                                                  ca_data->oldp_stat.ia_gfid,
+                                                  GFAPI_HANDLE_LENGTH);
+                if (!oldp_object) {
+                        gf_msg (THIS->name, GF_LOG_DEBUG, errno,
+                                API_MSG_CREATE_HANDLE_FAILED,
+                                "handle creation of %s failed",
+                                 uuid_utoa (ca_data->oldp_stat.ia_gfid));
+                        errno = ESTALE;
+                        /* By the time we receive upcall old parent_dir may
+                         * have got removed. We still need to send upcall
+                         * for the file/dir and current parent handles. */
+                        up_inode_arg->oldp_object = NULL;
+                        ret = 0;
+                }
 
                 glfs_iatt_to_stat (fs, &ca_data->oldp_stat,
                                    &up_inode_arg->oldp_buf);
@@ -1872,6 +1962,15 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         ret = 0;
 
 out:
+        if (ret) {
+                /* Close p_object and oldp_object as well if being referenced.*/
+                if (object)
+                        glfs_h_close (object);
+
+                /* Reset event_arg as well*/
+                up_arg->event_arg = NULL;
+                GF_FREE (up_inode_arg);
+        }
         return ret;
 }
 
@@ -1972,16 +2071,11 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                         }
                         /* It could so happen that the file which got
                          * upcall notification may have got deleted
-                         * by other thread. Irrespective of the error,
-                         * log it and return with CBK_NULL reason.
+                         * by the same client. Irrespective of the error,
+                         * return with CBK_NULL reason.
                          *
                          * Applications will ignore this notification
                          * as up_arg->object will be NULL */
-                        gf_msg (subvol->name, GF_LOG_WARNING, errno,
-                                API_MSG_CREATE_HANDLE_FAILED,
-                                "handle creation of %s failed",
-                                uuid_utoa (upcall_data->gfid));
-
                         reason = GFAPI_CBK_EVENT_NULL;
                         break;
                 default:
