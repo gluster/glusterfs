@@ -985,6 +985,77 @@ readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
         return 0;
 }
 
+int
+serialize_rsp_locklist (lock_migration_info_t *locklist,
+                               gfs3_getactivelk_rsp *rsp)
+{
+        lock_migration_info_t   *tmp    = NULL;
+        gfs3_locklist           *trav   = NULL;
+        gfs3_locklist           *prev   = NULL;
+        int                     ret     = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", locklist, out);
+        GF_VALIDATE_OR_GOTO ("server", rsp, out);
+
+        list_for_each_entry (tmp, &locklist->list, list) {
+                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_lock_mig_t);
+                if (!trav)
+                        goto out;
+
+                switch (tmp->flock.l_type) {
+                case F_RDLCK:
+                        tmp->flock.l_type = GF_LK_F_RDLCK;
+                        break;
+                case F_WRLCK:
+                        tmp->flock.l_type = GF_LK_F_WRLCK;
+                        break;
+                case F_UNLCK:
+                        tmp->flock.l_type = GF_LK_F_UNLCK;
+                        break;
+
+                default:
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
+                                "Unknown lock type: %"PRId32"!",
+                                tmp->flock.l_type);
+                        break;
+                }
+
+                gf_proto_flock_from_flock (&trav->flock, &tmp->flock);
+
+                trav->client_uid = tmp->client_uid;
+
+                if (prev)
+                        prev->nextentry = trav;
+                else
+                        rsp->reply = trav;
+
+                prev = trav;
+                trav = NULL;
+        }
+
+        ret = 0;
+out:
+        GF_FREE (trav);
+        return ret;
+}
+
+int
+getactivelkinfo_rsp_cleanup (gfs3_getactivelk_rsp  *rsp)
+{
+        gfs3_locklist  *prev = NULL;
+        gfs3_locklist  *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+
+        while (trav) {
+                trav = trav->nextentry;
+                GF_FREE (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
 
 int
 gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)

@@ -26,6 +26,7 @@ enum gf_server_mem_types_ {
         gf_server_mt_volfile_ctx_t,
         gf_server_mt_timer_data_t,
         gf_server_mt_setvolume_rsp_t,
+        gf_server_mt_lock_mig_t,
         gf_server_mt_end,
 };
 #endif /* __SERVER_MEM_TYPES_H__ */

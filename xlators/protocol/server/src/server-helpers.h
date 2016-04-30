@@ -62,4 +62,10 @@ int server_process_event_upcall (xlator_t *this, void *data);
 inode_t *
 server_inode_new (inode_table_t *itable, uuid_t gfid);
 
+int
+serialize_rsp_locklist (lock_migration_info_t *locklist,
+                                                 gfs3_getactivelk_rsp *rsp);
+
+int
+getactivelkinfo_rsp_cleanup (gfs3_getactivelk_rsp  *rsp);
 #endif /* !_SERVER_HELPERS_H */

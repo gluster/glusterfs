@@ -962,3 +962,21 @@ struct gfs3_compound_rsp {
         compound_rsp  compound_rsp_array<>;
         opaque        xdata<>;
 };
+
+struct gfs3_locklist {
+        struct gf_proto_flock flock;
+        string client_uid<>;
+        struct gfs3_locklist *nextentry;
+};
+
+struct gfs3_getactivelk_rsp {
+        int op_ret;
+        int op_errno;
+        struct gfs3_locklist *reply;
+        opaque xdata<>;
+};
+
+struct gfs3_getactivelk_req {
+        opaque gfid[16];
+        opaque xdata<>;
+};
