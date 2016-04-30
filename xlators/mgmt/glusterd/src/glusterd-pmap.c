@@ -63,7 +63,7 @@ pmap_registry_new (xlator_t *this)
         if (!pmap)
                 return NULL;
 
-        for (i = 0; i < 65536; i++) {
+        for (i = 0; i <= GF_PORT_MAX; i++) {
                 if (pmap_port_isfree (i))
                         pmap->ports[i].type = GF_PMAP_PORT_FREE;
                 else
@@ -166,7 +166,7 @@ pmap_registry_search_by_port (xlator_t *this, int port)
         struct pmap_registry *pmap = NULL;
         char *brickname = NULL;
 
-        if (port > 65535)
+        if (port > GF_PORT_MAX)
                 goto out;
 
         pmap = pmap_registry_get (this);
@@ -188,7 +188,7 @@ pmap_registry_alloc (xlator_t *this)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->last_alloc; p < 65535; p++) {
+        for (p = pmap->last_alloc; p <= GF_PORT_MAX; p++) {
                 if (pmap->ports[p].type != GF_PMAP_PORT_FREE)
                         continue;
 
@@ -214,7 +214,7 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
 
         pmap = pmap_registry_get (this);
 
-        if (port > 65535)
+        if (port > GF_PORT_MAX)
                 goto out;
 
         p = port;
@@ -248,7 +248,7 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
                 goto out;
 
         if (port) {
-                if (port > 65535)
+                if (port > GF_PORT_MAX)
                         goto out;
 
                 p = port;
