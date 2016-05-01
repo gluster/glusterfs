@@ -38,3 +38,5 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0
 echo "rebalance done..."
 kill $back_pid1
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1332022
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1332022
