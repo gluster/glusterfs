@@ -93,3 +93,5 @@ TEST $CLI volume delete $V0
 TEST rm -rf $B0/*
 
 cleanup;
+
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1332054
