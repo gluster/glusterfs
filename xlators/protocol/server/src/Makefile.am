@@ -8,10 +8,10 @@ server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la
 
 server_la_SOURCES = server.c server-resolve.c server-helpers.c  \
-	server-rpc-fops.c server-handshake.c authenticate.c
+	server-rpc-fops.c server-handshake.c authenticate.c server-common.c
 
 server_la_HEADERS = server.h server-helpers.h server-mem-types.h authenticate.h \
-	server-messages.h
+	server-messages.h server-common.h
 
 server_ladir = $(includedir)/glusterfs/server
 

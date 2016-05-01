@@ -18,6 +18,9 @@
 #include "glusterfs3.h"
 #include "compat-errno.h"
 #include "server-messages.h"
+#include "defaults.h"
+#include "default-args.h"
+#include "server-common.h"
 
 #include "xdr-nfs3.h"
 
@@ -56,7 +59,7 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_statfs_from_statfs (&rsp.statfs, buf);
+        server_post_statfs (&rsp, buf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -83,7 +86,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_t             *link_inode = NULL;
         loc_t                fresh_loc  = {0,};
         gfs3_lookup_rsp      rsp        = {0,};
-        uuid_t               rootgfid   = {0,};
 
         state = CALL_STATE (frame);
 
@@ -136,27 +138,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        root_inode = frame->root->client->bound_xl->itable->root;
-        if (inode == root_inode) {
-                /* we just looked up root ("/") */
-                stbuf->ia_ino = 1;
-                rootgfid[15]  = 1;
-                gf_uuid_copy (stbuf->ia_gfid, rootgfid);
-                if (inode->ia_type == 0)
-                        inode->ia_type = stbuf->ia_type;
-        }
-
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-
-        if (!__is_root_gfid (inode->gfid)) {
-                link_inode = inode_link (inode, state->loc.parent,
-                                         state->loc.name, stbuf);
-                if (link_inode) {
-                        inode_lookup (link_inode);
-                        inode_unref (link_inode);
-                }
-        }
-
+        server_post_lookup (&rsp, frame, state, inode, stbuf, postparent);
 out:
         rsp.op_ret   = op_ret;
         rsp.op_errno = gf_errno_to_error (op_errno);
@@ -215,7 +197,7 @@ server_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
-        gf_proto_lease_from_lease (&rsp.lease, lease);
+        server_post_lease (&rsp, lease);
 
 out:
         rsp.op_ret    = op_ret;
@@ -254,24 +236,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        switch (lock->l_type) {
-        case F_RDLCK:
-                lock->l_type = GF_LK_F_RDLCK;
-                break;
-        case F_WRLCK:
-                lock->l_type = GF_LK_F_WRLCK;
-                break;
-        case F_UNLCK:
-                lock->l_type = GF_LK_F_UNLCK;
-                break;
-        default:
-                gf_msg (this->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
-                        "Unknown lock type: %"PRId32"!", lock->l_type);
-                break;
-        }
-
-        gf_proto_flock_from_flock (&rsp.flock, lock);
-
+        server_post_lk (this, &rsp, lock);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -494,16 +459,7 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        inode_unlink (state->loc.inode, state->loc.parent,
-                      state->loc.name);
-        /* parent should not be found for directories after
-         * inode_unlink, since directories cannot have
-         * hardlinks.
-         */
-        forget_inode_if_no_dentry (state->loc.inode);
-
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
+        server_post_rmdir (state, &rsp, preparent, postparent);
 
 out:
         rsp.op_ret    = op_ret;
@@ -526,7 +482,6 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_mkdir_rsp       rsp        = {0,};
         server_state_t      *state      = NULL;
-        inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
         client_t            *client     = NULL;
 
@@ -548,15 +503,8 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        link_inode = inode_link (inode, state->loc.parent,
-                                 state->loc.name, stbuf);
-        inode_lookup (link_inode);
-        inode_unref (link_inode);
-
+        server_post_mkdir (state, &rsp, inode, stbuf, preparent,
+                           postparent, xdata);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -578,7 +526,6 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_mknod_rsp       rsp        = {0,};
         server_state_t      *state      = NULL;
-        inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
@@ -596,15 +543,8 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        link_inode = inode_link (inode, state->loc.parent,
-                                 state->loc.name, stbuf);
-        inode_lookup (link_inode);
-        inode_unref (link_inode);
-
+        server_post_mknod (state, &rsp, stbuf, preparent, postparent,
+                           inode);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -679,7 +619,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* (op_ret == 0) is valid, and means EOF */
         if (op_ret) {
-                ret = serialize_rsp_dirent (entries, &rsp);
+                ret = server_post_readdir (&rsp, entries);
                 if (ret == -1) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
@@ -726,20 +666,13 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        serv_ctx = server_ctx_get (frame->root->client, this);
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
+
+        op_ret = server_post_opendir (frame, this, &rsp, fd);
+        if (op_ret)
                 goto out;
-        }
-
-        fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
-        fd_ref (fd); // on behalf of the client
-
 out:
-        rsp.fd = fd_no;
+        if (op_ret)
+                rsp.fd = fd_no;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1044,8 +977,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_rename_rsp      rsp        = {0,};
         server_state_t      *state      = NULL;
         rpcsvc_request_t    *req        = NULL;
-        inode_t             *tmp_inode  = NULL;
-        inode_t             *tmp_parent = NULL;
         char         oldpar_str[50]     = {0,};
         char         newpar_str[50]     = {0,};
 
@@ -1065,42 +996,9 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        stbuf->ia_type = state->loc.inode->ia_type;
-
-        /* TODO: log gfid of the inodes */
-        gf_msg_trace (frame->root->client->bound_xl->name, 0, "%"PRId64": "
-                      "RENAME_CBK %s ==> %s", frame->root->unique,
-                      state->loc.name, state->loc2.name);
-
-        /* Before renaming the inode, we have to get the inode for the
-         * destination entry (i.e. inode with state->loc2.parent as
-         * parent and state->loc2.name as name). If it exists, then
-         * unlink that inode, and send forget on that inode if the
-         * unlinked entry is the last entry. In case of fuse client
-         * the fuse kernel module itself sends the forget on the
-         * unlinked inode.
-         */
-        tmp_inode = inode_grep (state->loc.inode->table,
-                                state->loc2.parent, state->loc2.name);
-        if (tmp_inode) {
-                inode_unlink (tmp_inode, state->loc2.parent,
-                              state->loc2.name);
-                forget_inode_if_no_dentry (tmp_inode);
-                inode_unref (tmp_inode);
-        }
-
-        inode_rename (state->itable,
-                      state->loc.parent, state->loc.name,
-                      state->loc2.parent, state->loc2.name,
-                      state->loc.inode, stbuf);
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-
-        gf_stat_from_iatt (&rsp.preoldparent, preoldparent);
-        gf_stat_from_iatt (&rsp.postoldparent, postoldparent);
-
-        gf_stat_from_iatt (&rsp.prenewparent, prenewparent);
-        gf_stat_from_iatt (&rsp.postnewparent, postnewparent);
-
+        server_post_rename (frame, state, &rsp, stbuf,
+                            preoldparent, postoldparent,
+                            prenewparent, postnewparent);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1142,13 +1040,7 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_msg_trace (frame->root->client->bound_xl->name, 0, "%"PRId64": "
                       "UNLINK_CBK %s", frame->root->unique, state->loc.name);
 
-        inode_unlink (state->loc.inode, state->loc.parent,
-                      state->loc.name);
-
-        forget_inode_if_no_dentry (state->loc.inode);
-
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
+        server_post_unlink (state, &rsp, preparent, postparent);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1188,14 +1080,8 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        link_inode = inode_link (inode, state->loc.parent,
-                                 state->loc.name, stbuf);
-        inode_lookup (link_inode);
-        inode_unref (link_inode);
+        server_post_symlink (state, &rsp, inode, stbuf, preparent,
+                           postparent, xdata);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1241,13 +1127,8 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
-
-        link_inode = inode_link (inode, state->loc2.parent,
-                                 state->loc2.name, stbuf);
-        inode_unref (link_inode);
+        server_post_link (state, &rsp, inode, stbuf, preparent,
+                          postparent, xdata);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1284,8 +1165,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.prestat, prebuf);
-        gf_stat_from_iatt (&rsp.poststat, postbuf);
+        server_post_truncate (&rsp, prebuf, postbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1322,7 +1202,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
+        server_post_fstat (&rsp, stbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1359,8 +1239,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.prestat, prebuf);
-        gf_stat_from_iatt (&rsp.poststat, postbuf);
+        server_post_ftruncate (&rsp, prebuf, postbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1431,8 +1310,7 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&(rsp.prestat), prebuf);
-        gf_stat_from_iatt (&(rsp.poststat), postbuf);
+        server_post_fsync (&rsp, prebuf, postbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1469,8 +1347,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.prestat, prebuf);
-        gf_stat_from_iatt (&rsp.poststat, postbuf);
+        server_post_writev (&rsp, prebuf, postbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1519,8 +1396,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        rsp.size = op_ret;
+        server_post_readv (&rsp, stbuf, op_ret);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1558,11 +1434,7 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        rsp.weak_checksum = weak_checksum;
-
-        rsp.strong_checksum.strong_checksum_val = (char *)strong_checksum;
-        rsp.strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
-
+        server_post_rchecksum (&rsp, weak_checksum, strong_checksum);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1601,19 +1473,9 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        serv_ctx = server_ctx_get (frame->root->client, this);
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
+        op_ret = server_post_open (frame, this, &rsp, fd);
+        if (op_ret)
                 goto out;
-        }
-
-        fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
-        fd_ref (fd);
-        rsp.fd = fd_no;
-
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1634,8 +1496,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *postparent, dict_t *xdata)
 {
         server_state_t      *state      = NULL;
-        server_ctx_t        *serv_ctx   = NULL;
-        inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
         uint64_t             fd_no      = 0;
         gfs3_create_rsp      rsp        = {0,};
@@ -1659,52 +1519,18 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       "CREATE %s (%s)", frame->root->unique, state->loc.name,
                       uuid_utoa (stbuf->ia_gfid));
 
-        link_inode = inode_link (inode, state->loc.parent,
-                                 state->loc.name, stbuf);
-
-        if (!link_inode) {
+        op_ret = server_post_create (frame, &rsp, state, this, fd, inode,
+                                     stbuf,
+                                     preparent, postparent);
+        if (op_ret) {
+                op_errno = -op_ret;
                 op_ret = -1;
-                op_errno = ENOENT;
                 goto out;
         }
-
-        if (link_inode != inode) {
-                /*
-                  VERY racy code (if used anywhere else)
-                  -- don't do this without understanding
-                */
-
-                inode_ctx_merge (fd, fd->inode, link_inode);
-                inode_unref (fd->inode);
-                fd->inode = inode_ref (link_inode);
-        }
-
-        inode_lookup (link_inode);
-        inode_unref (link_inode);
-
-        serv_ctx = server_ctx_get (frame->root->client, this);
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
-                goto out;
-        }
-
-        fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
-        fd_ref (fd);
-
-        if ((fd_no > UINT64_MAX) || (fd == 0)) {
-                op_ret = -1;
-                op_errno = errno;
-        }
-
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-        gf_stat_from_iatt (&rsp.preparent, preparent);
-        gf_stat_from_iatt (&rsp.postparent, postparent);
 
 out:
-        rsp.fd        = fd_no;
+        if (op_ret)
+                rsp.fd = fd_no;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1739,15 +1565,10 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.buf, stbuf);
-        rsp.path = (char *)buf;
-
+        server_post_readlink (&rsp, stbuf, buf);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
-
-        if (!rsp.path)
-                rsp.path = "";
 
         req = frame->local;
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
@@ -1781,8 +1602,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.stat, stbuf);
-
+        server_post_stat (&rsp, stbuf);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -1819,12 +1639,7 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (statpre) {
-                gf_stat_from_iatt (&rsp.statpre, statpre);
-        }
-        if (statpost) {
-                gf_stat_from_iatt (&rsp.statpost, statpost);
-        }
+        server_post_setattr (&rsp, statpre, statpost);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1862,8 +1677,7 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.statpre, statpre);
-        gf_stat_from_iatt (&rsp.statpost, statpost);
+        server_post_fsetattr (&rsp, statpre, statpost);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1991,7 +1805,7 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* (op_ret == 0) is valid, and means EOF */
         if (op_ret) {
-                ret = serialize_rsp_direntp (entries, &rsp);
+                ret = server_post_readdirp (&rsp, entries);
                 if (ret == -1) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
@@ -2039,8 +1853,7 @@ server_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.statpre, statpre);
-        gf_stat_from_iatt (&rsp.statpost, statpost);
+        server_post_fallocate (&rsp, statpre, statpost);
 
 out:
         rsp.op_ret    = op_ret;
@@ -2078,8 +1891,7 @@ server_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.statpre, statpre);
-        gf_stat_from_iatt (&rsp.statpost, statpost);
+        server_post_discard (&rsp, statpre, statpost);
 
 out:
         rsp.op_ret    = op_ret;
@@ -2119,8 +1931,7 @@ server_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        gf_stat_from_iatt (&rsp.statpre, statpre);
-        gf_stat_from_iatt (&rsp.statpost, statpost);
+        server_post_zerofill (&rsp, statpre, statpost);
 
 out:
         rsp.op_ret    = op_ret;
@@ -2195,8 +2006,6 @@ server_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        rsp.offset    = offset;
-
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -2243,6 +2052,61 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t)xdr_gfs3_setactivelk_rsp);
 
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
+int
+server_compound_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, void *data,
+                     dict_t *xdata)
+{
+        struct gfs3_compound_rsp   rsp    = {0,};
+        server_state_t             *state  = NULL;
+        rpcsvc_request_t           *req    = NULL;
+        compound_args_cbk_t        *args_cbk = data;
+        int                        i       = 0;
+
+        req = frame->local;
+        state  = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret) {
+                gf_msg (this->name, fop_log_level (GF_FOP_COMPOUND, op_errno),
+                        op_errno, PS_MSG_COMPOUND_INFO,
+                        "%"PRId64": COMPOUND%"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+        for (i = 0; i < args_cbk->fop_length; i++) {
+                op_ret = server_populate_compound_response (this, &rsp,
+                                                            frame,
+                                                            args_cbk, i);
+
+                if (op_ret) {
+                        op_errno = op_ret;
+                        op_ret = -1;
+                        goto out;
+                }
+        }
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t) xdr_gfs3_compound_rsp);
+
+        for (i = 0; i < state->args->fop_length; i++)
+                args_wipe (&state->args->req_list[i]);
+
+        GF_FREE (state->args->req_list);
+        GF_FREE (state->args);
         GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
@@ -3435,6 +3299,67 @@ err:
 
 }
 
+int
+server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t          *state  = NULL;
+        gfs3_compound_req       *req    = NULL;
+        compound_args_t         *args   = NULL;
+        int                     i       = 0;
+        int                     ret     = -1;
+        int                     length  = 0;
+        int                     op_errno = ENOMEM;
+
+        state = CALL_STATE (frame);
+        if (state->resolve.op_ret != 0) {
+                ret = state->resolve.op_ret;
+                op_errno = state->resolve.op_errno;
+                goto err;
+        }
+
+        req = state->req;
+
+        args = GF_CALLOC (1, sizeof (*args), gf_mt_compound_req_t);
+        state->args = args;
+        if (!args)
+                goto err;
+
+        length = req->compound_req_array.compound_req_array_len;
+
+        args->req_list = GF_CALLOC (length,
+                                    sizeof (*args->req_list),
+                                    gf_mt_default_args_t);
+        if (!args->req_list)
+                goto err;
+
+        for (i = 0; i < length; i++) {
+                ret = server_populate_compound_request (req, frame,
+                                                        &args->req_list[i],
+                                                        i);
+
+                if (ret) {
+                        op_errno = ret;
+                        ret = -1;
+                        goto err;
+                }
+        }
+
+        STACK_WIND (frame, server_compound_cbk,
+                    bound_xl, bound_xl->fops->compound,
+                    args, state->xdata);
+
+        return 0;
+err:
+        server_compound_cbk (frame, NULL, frame->this, ret, op_errno,
+                             NULL, NULL);
+
+        for (i = 0; i < length; i++)
+                args_wipe (&args->req_list[i]);
+
+        GF_FREE (args->req_list);
+        GF_FREE (args);
+        return ret;
+}
 /* Fop section */
 
 int
@@ -6769,6 +6694,85 @@ out:
         return ret;
 }
 
+int
+server3_3_compound (rpcsvc_request_t *req)
+{
+        server_state_t      *state = NULL;
+        call_frame_t        *frame = NULL;
+        gfs3_compound_req    args  = {0,};
+        ssize_t              len    = 0;
+        int                  i      = 0;
+        int                  ret   = -1;
+        int                  op_errno = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_compound_req);
+        if (ret < 0) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+        frame->root->op = GF_FOP_COMPOUND;
+
+        state = CALL_STATE (frame);
+        if (!frame->root->client->bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        state->req           = &args;
+        state->iobref        = iobref_ref (req->iobref);
+
+        if (len < req->msg[0].iov_len) {
+                state->payload_vector[0].iov_base
+                        = (req->msg[0].iov_base + len);
+                state->payload_vector[0].iov_len
+                        = req->msg[0].iov_len - len;
+                state->payload_count = 1;
+        }
+
+        for (i = 1; i < req->count; i++) {
+                state->payload_vector[state->payload_count++]
+                        = req->msg[i];
+        }
+
+        for (i = 0; i < state->payload_count; i++) {
+                state->size += state->payload_vector[i].iov_len;
+        }
+
+        ret = server_get_compound_resolve (state, &args);
+
+        if (ret) {
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata,
+                                      args.xdata.xdata_val,
+                                      args.xdata.xdata_len, ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_compound_resume);
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
 rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_NULL]         = {"NULL",         GFS3_OP_NULL,         server_null,            NULL, 0, DRC_NA},
         [GFS3_OP_STAT]         = {"STAT",         GFS3_OP_STAT,         server3_3_stat,         NULL, 0, DRC_NA},
@@ -6820,8 +6824,9 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_IPC]          = {"IPC",          GFS3_OP_IPC,          server3_3_ipc,          NULL, 0, DRC_NA},
         [GFS3_OP_SEEK]         = {"SEEK",         GFS3_OP_SEEK,         server3_3_seek,         NULL, 0, DRC_NA},
         [GFS3_OP_LEASE]       =  {"LEASE",        GFS3_OP_LEASE,        server3_3_lease,        NULL, 0, DRC_NA},
-        [GFS3_OP_GETACTIVELK]  = {"GETACTIVELK", GFS3_OP_GETACTIVELK, server3_3_getactivelk, NULL, 0, DRC_NA},
-        [GFS3_OP_SETACTIVELK]  = {"SETACTIVELK", GFS3_OP_SETACTIVELK, server3_3_setactivelk, NULL, 0, DRC_NA},
+        [GFS3_OP_GETACTIVELK]  = {"GETACTIVELK",  GFS3_OP_GETACTIVELK,  server3_3_getactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_SETACTIVELK]  = {"SETACTIVELK",  GFS3_OP_SETACTIVELK,  server3_3_setactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_COMPOUND]     = {"COMPOUND",     GFS3_OP_COMPOUND,     server3_3_compound,     NULL, 0, DRC_NA},
 };
 
 
