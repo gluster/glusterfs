@@ -6403,6 +6403,7 @@ rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_LEASE]        = { "LEASE",        client3_3_lease },
         [GF_FOP_GETACTIVELK]  = { "GETACTIVELK", client3_3_getactivelk},
         [GF_FOP_SETACTIVELK]  = { "SETACTIVELK", client3_3_setactivelk},
+        [GF_FOP_COMPOUND]     = { "COMPOUND",     client3_3_compound },
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
@@ -6459,6 +6460,7 @@ char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_LEASE]       = "LEASE",
         [GFS3_OP_GETACTIVELK] = "GETACTIVELK",
         [GFS3_OP_SETACTIVELK] = "SETACTIVELK",
+        [GFS3_OP_COMPOUND]    = "COMPOUND",
 };
 
 rpc_clnt_prog_t clnt3_3_fop_prog = {

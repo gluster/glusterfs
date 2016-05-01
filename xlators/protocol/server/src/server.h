@@ -23,6 +23,7 @@
 #include "timer.h"
 #include "client_t.h"
 #include "gidcache.h"
+#include "defaults.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
@@ -161,6 +162,16 @@ struct _server_state {
         mode_t            umask;
         struct gf_lease   lease;
         lock_migration_info_t locklist;
+        /* required for compound fops */
+        gfs3_compound_req *req;
+        /* last length till which iovec for compound
+         * writes was processed */
+        int               write_length;
+        struct iovec      rsp_vector[MAX_IOVEC];
+        int               rsp_count;
+        struct iobuf     *rsp_iobuf;
+        struct iobref    *rsp_iobref;
+        compound_args_t  *args;
 };
 
 
@@ -189,4 +200,13 @@ forget_inode_if_no_dentry (inode_t *inode);
 int
 unserialize_req_locklist (gfs3_setactivelk_req *req,
                           lock_migration_info_t *lmi);
+
+int
+serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
+
+int
+serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
+
+server_ctx_t*
+server_ctx_get (client_t *client, xlator_t *xlator);
 #endif /* !_SERVER_H */
