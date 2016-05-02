@@ -637,12 +637,12 @@ br_fsscanner_wait_until_kicked (xlator_t *this, br_child_t *child)
 
                 /* Child lock is to synchronize with disconnect events */
                 pthread_cleanup_push (_br_lock_cleaner, &child->lock);
-                LOCK (&child->lock);
+                pthread_mutex_lock (&child->lock);
                 {
                         scrub_monitor->active_child_count++;
                         br_child_set_scrub_state (child, _gf_true);
                 }
-                UNLOCK (&child->lock);
+                pthread_mutex_unlock (&child->lock);
                 pthread_cleanup_pop (0);
         }
         pthread_mutex_unlock (&scrub_monitor->wakelock);
@@ -719,11 +719,11 @@ br_fsscanner_exit_control (xlator_t *this, br_child_t *child)
         {
                 scrub_monitor->active_child_count--;
                 pthread_cleanup_push (_br_lock_cleaner, &child->lock);
-                LOCK (&child->lock);
+                pthread_mutex_lock (&child->lock);
                 {
                         br_child_set_scrub_state (child, _gf_false);
                 }
-                UNLOCK (&child->lock);
+                pthread_mutex_unlock (&child->lock);
                 pthread_cleanup_pop (0);
 
                 if (scrub_monitor->active_child_count == 0) {

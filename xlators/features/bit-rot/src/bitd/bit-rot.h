@@ -75,7 +75,7 @@ typedef enum br_child_state {
 } br_child_state_t;
 
 struct br_child {
-        gf_lock_t lock;               /* protects child state */
+        pthread_mutex_t lock;         /* protects child state */
         char witnessed;               /* witnessed at least one succesfull
                                          connection */
         br_child_state_t c_state;     /* current state of this child */

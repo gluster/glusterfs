@@ -1092,11 +1092,11 @@ br_oneshot_signer (void *arg)
 static void
 br_set_child_state (br_child_t *child, br_child_state_t state)
 {
-        LOCK (&child->lock);
+        pthread_mutex_lock (&child->lock);
         {
                 _br_set_child_state (child, state);
         }
-        UNLOCK (&child->lock);
+        pthread_mutex_unlock (&child->lock);
 }
 
 /**
@@ -1245,7 +1245,7 @@ br_child_enaction (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
         int32_t ret = -1;
         br_private_t *priv = this->private;
 
-        LOCK (&child->lock);
+        pthread_mutex_lock (&child->lock);
         {
                 if (priv->iamscrubber)
                         ret = br_enact_scrubber (this, child);
@@ -1260,7 +1260,7 @@ br_child_enaction (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
                                 "Connected to brick %s..", child->brick_path);
                 }
         }
-        UNLOCK (&child->lock);
+        pthread_mutex_unlock (&child->lock);
 
         return ret;
 }
@@ -1417,7 +1417,7 @@ br_brick_disconnect (xlator_t *this, br_child_t *child)
          */
         pthread_mutex_lock (&scrub_monitor->wakelock);
         {
-                LOCK (&child->lock);
+                pthread_mutex_lock (&child->lock);
                 {
                         if (!_br_is_child_connected (child))
                                 goto unblock;
@@ -1431,7 +1431,7 @@ br_brick_disconnect (xlator_t *this, br_child_t *child)
                                 ret = br_cleanup_signer (this, child);
                 }
  unblock:
-                UNLOCK (&child->lock);
+                pthread_mutex_unlock (&child->lock);
         }
         pthread_mutex_unlock (&scrub_monitor->wakelock);
 
@@ -1863,7 +1863,7 @@ br_free_children (xlator_t *this, br_private_t *priv, int count)
         for (--count; count >= 0; count--) {
                 child = &priv->children[count];
                 mem_pool_destroy (child->timer_pool);
-                LOCK_DESTROY (&child->lock);
+                pthread_mutex_destroy (&child->lock);
         }
 
         GF_FREE (priv->children);
@@ -1887,7 +1887,7 @@ br_init_children (xlator_t *this, br_private_t *priv)
         while (trav) {
                 child = &priv->children[i];
 
-                LOCK_INIT (&child->lock);
+                pthread_mutex_init (&child->lock, NULL);
                 child->witnessed = 0;
 
                 br_set_child_state (child, BR_CHILD_STATE_DISCONNECTED);
