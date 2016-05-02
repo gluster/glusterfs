@@ -3350,7 +3350,20 @@ out:
 int
 gf_tier_clear_fix_layout (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
 {
-        int ret = -1;
+        int ret         = -1;
+        dict_t *dict    = NULL;
+
+        /* Check if background fixlayout is completed. */
+        ret = syncop_getxattr (this, loc, &dict,
+                        GF_XATTR_TIER_LAYOUT_FIXED_KEY, NULL, NULL);
+        if (ret) {
+                /* Background fixlayout not complete - nothing to clear*/
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to retrieve fixlayout xattr."
+                        "Assume background fix layout not complete");
+                ret = 0;
+                goto out;
+        }
 
         ret = syncop_removexattr (this, loc, GF_XATTR_TIER_LAYOUT_FIXED_KEY,
                                   NULL, NULL);
@@ -3364,6 +3377,8 @@ gf_tier_clear_fix_layout (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         }
         ret = 0;
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
