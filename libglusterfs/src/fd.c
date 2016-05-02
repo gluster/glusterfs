@@ -744,7 +744,7 @@ fd_lookup_uint64 (inode_t *inode, uint64_t pid)
 }
 
 static fd_t *
-__fd_lookup_anonymous (inode_t *inode)
+__fd_lookup_anonymous (inode_t *inode, int32_t flags)
 {
         fd_t *iter_fd = NULL;
         fd_t *fd = NULL;
@@ -753,7 +753,7 @@ __fd_lookup_anonymous (inode_t *inode)
                 return NULL;
 
         list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-                if (iter_fd->anonymous) {
+                if ((iter_fd->anonymous) && (flags == iter_fd->flags)) {
                         fd = __fd_ref (iter_fd);
                         break;
                 }
@@ -763,11 +763,11 @@ __fd_lookup_anonymous (inode_t *inode)
 }
 
 static fd_t *
-__fd_anonymous (inode_t *inode)
+__fd_anonymous (inode_t *inode, int32_t flags)
 {
         fd_t *fd = NULL;
 
-        fd = __fd_lookup_anonymous (inode);
+        fd = __fd_lookup_anonymous (inode, flags);
 
         /* if (fd); then we already have increased the refcount in
            __fd_lookup_anonymous(), so no need of one more fd_ref().
@@ -780,7 +780,7 @@ __fd_anonymous (inode_t *inode)
                         return NULL;
 
                 fd->anonymous = _gf_true;
-                fd->flags = GF_ANON_FD_FLAGS;
+                fd->flags = GF_ANON_FD_FLAGS|flags;
 
                 __fd_bind (fd);
 
@@ -798,7 +798,32 @@ fd_anonymous (inode_t *inode)
 
         LOCK (&inode->lock);
         {
-                fd = __fd_anonymous (inode);
+                fd = __fd_anonymous (inode, GF_ANON_FD_FLAGS);
+        }
+        UNLOCK (&inode->lock);
+
+        return fd;
+}
+
+fd_t *
+fd_anonymous_with_flags (inode_t *inode, int32_t flags)
+{
+        fd_t *fd = NULL;
+
+        LOCK (&inode->lock);
+        {
+                if (flags == 0)
+                        flags = GF_ANON_FD_FLAGS;
+                /* If this API is ever called with O_SYNC or O_DSYNC in @flags,
+                 * reset the bits associated with these flags before calling
+                 * __fd_anonymous(). That way, posix will do the open() without
+                 * these flags. And subsequently, posix_writev() (mostly) will
+                 * do the write within inode->lock on an fd without O_SYNC or
+                 * O_DSYNC and in its place to an fsync() outside of the locks
+                 * to simulate the effect of using these flags.
+                 */
+                flags &= (~(O_SYNC|O_DSYNC));
+                fd = __fd_anonymous (inode, flags);
         }
         UNLOCK (&inode->lock);
 
@@ -806,7 +831,7 @@ fd_anonymous (inode_t *inode)
 }
 
 fd_t*
-fd_lookup_anonymous (inode_t *inode)
+fd_lookup_anonymous (inode_t *inode, int32_t flags)
 {
         fd_t *fd = NULL;
 
@@ -818,7 +843,7 @@ fd_lookup_anonymous (inode_t *inode)
 
         LOCK (&inode->lock);
         {
-                fd = __fd_lookup_anonymous (inode);
+                fd = __fd_lookup_anonymous (inode, flags);
         }
         UNLOCK (&inode->lock);
         return fd;

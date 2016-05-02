@@ -453,7 +453,7 @@ resolve_anonfd_simple (call_frame_t *frame)
 
         ret = 0;
 
-        state->fd = fd_anonymous (inode);
+        state->fd = fd_anonymous_with_flags (inode, state->flags);
 out:
         if (inode)
                 inode_unref (inode);
