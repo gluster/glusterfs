@@ -2240,24 +2240,6 @@ nfs3_write_resume (void *carg)
 
         cs->fd = fd;    /* Gets unrefd when the call state is wiped. */
 
-/*
-  enum stable_how {
-  UNSTABLE = 0,
-  DATA_SYNC = 1,
-  FILE_SYNC = 2,
-  };
-*/
-	switch (cs->writetype) {
-	case UNSTABLE:
-		break;
-	case DATA_SYNC:
-		fd->flags |= O_DSYNC;
-		break;
-	case FILE_SYNC:
-		fd->flags |= O_SYNC;
-		break;
-	}
-
         ret = __nfs3_write_resume (cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);

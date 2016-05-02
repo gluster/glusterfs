@@ -2175,7 +2175,8 @@ afr_transaction_start (call_frame_t *frame, xlator_t *this)
         if (!local->transaction.eager_lock_on && local->loc.inode) {
                 fd = fd_lookup (local->loc.inode, frame->root->pid);
                 if (fd == NULL)
-                        fd = fd_lookup_anonymous (local->loc.inode);
+                        fd = fd_lookup_anonymous (local->loc.inode,
+                                                  GF_ANON_FD_FLAGS);
 
                 if (fd) {
                         afr_delayed_changelog_wake_up (this, fd);

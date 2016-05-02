@@ -136,11 +136,13 @@ fd_t *
 fd_lookup_uint64 (struct _inode *inode, uint64_t pid);
 
 fd_t*
-fd_lookup_anonymous (inode_t *inode);
+fd_lookup_anonymous (inode_t *inode, int32_t flags);
 
 fd_t *
 fd_anonymous (inode_t *inode);
 
+fd_t *
+fd_anonymous_with_flags (inode_t *inode, int32_t flags);
 
 gf_boolean_t
 fd_is_anonymous (fd_t *fd);

@@ -3638,6 +3638,7 @@ shard_common_inode_write_do (call_frame_t *frame, xlator_t *this)
         shard_local_t  *local             = NULL;
         struct iovec   *vec               = NULL;
         gf_boolean_t    wind_failed       = _gf_false;
+        gf_boolean_t    odirect           = _gf_false;
         off_t           orig_offset       = 0;
         off_t           shard_offset      = 0;
         off_t           vec_offset        = 0;
@@ -3667,6 +3668,9 @@ shard_common_inode_write_do (call_frame_t *frame, xlator_t *this)
                                                  -1, ENOMEM, NULL, NULL, NULL);
                 return 0;
         }
+
+        if ((fd->flags & O_DIRECT) && (local->fop == GF_FOP_WRITE))
+                odirect = _gf_true;
 
         while (cur_block <= last_block) {
                 if (wind_failed) {
@@ -3724,6 +3728,13 @@ shard_common_inode_write_do (call_frame_t *frame, xlator_t *this)
                                                                  ENOMEM, NULL,
                                                                  NULL, NULL);
                                 goto next;
+                        }
+
+                        if (local->fop == GF_FOP_WRITE) {
+                                if (odirect)
+                                        local->flags = O_DIRECT;
+                                else
+                                        local->flags = GF_ANON_FD_FLAGS;
                         }
                 }
 
