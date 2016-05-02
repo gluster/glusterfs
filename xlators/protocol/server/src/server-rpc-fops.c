@@ -6626,8 +6626,6 @@ out:
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
 
-        free (args.xdata.xdata_val);
-
         return ret;
 }
 
@@ -6688,8 +6686,6 @@ out:
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
-
-        free (args.xdata.xdata_val);
 
         return ret;
 }
