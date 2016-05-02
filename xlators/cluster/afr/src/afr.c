@@ -20,6 +20,15 @@
 
 struct volume_options options[];
 
+static char *afr_favorite_child_policies[AFR_FAV_CHILD_POLICY_MAX + 1] = {
+        [AFR_FAV_CHILD_NONE] = "none",
+        [AFR_FAV_CHILD_BY_SIZE] = "size",
+        [AFR_FAV_CHILD_BY_CTIME] = "ctime",
+        [AFR_FAV_CHILD_BY_MTIME] = "mtime",
+        [AFR_FAV_CHILD_BY_MAJORITY] = "majority",
+        [AFR_FAV_CHILD_POLICY_MAX] = NULL,
+};
+
 int32_t
 notify (xlator_t *this, int32_t event,
         void *data, ...)
@@ -101,6 +110,19 @@ fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
 }
 
 int
+afr_set_favorite_child_policy (afr_private_t *priv, char *policy)
+{
+        int index = -1;
+
+        index = gf_get_index_by_elem (afr_favorite_child_policies, policy);
+        if (index  < 0 || index >= AFR_FAV_CHILD_POLICY_MAX)
+                return -1;
+
+        priv->fav_child_policy = index;
+
+        return 0;
+}
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
         afr_private_t *priv        = NULL;
@@ -109,6 +131,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int            ret         = -1;
         int            index       = -1;
         char          *qtype       = NULL;
+        char          *fav_child_policy = NULL;
 
         priv = this->private;
 
@@ -228,6 +251,11 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("shd-wait-qlength", priv->shd.wait_qlength,
                           options, uint32, out);
 
+        GF_OPTION_RECONF ("favorite-child-policy", fav_child_policy, options,
+                          str, out);
+        if (afr_set_favorite_child_policy (priv, fav_child_policy) == -1)
+                goto out;
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -261,6 +289,7 @@ init (xlator_t *this)
         char          *qtype       = NULL;
         char          *xattrs_list = NULL;
         char          *ptr         = NULL;
+        char          *fav_child_policy = NULL;
 
         if (!this->children) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -339,6 +368,10 @@ init (xlator_t *this)
                         favorite_child_warning_str, fav_child->name,
                         fav_child->name, fav_child->name);
         }
+
+        GF_OPTION_INIT ("favorite-child-policy", fav_child_policy, str, out);
+        if (afr_set_favorite_child_policy(priv, fav_child_policy) == -1)
+                goto out;
 
         GF_OPTION_INIT ("shd-max-threads", priv->shd.max_threads,
                          uint32, out);
@@ -906,6 +939,19 @@ struct volume_options options[] = {
           .description = "If this option is enabled, self-heal will resort to "
                          "granular way of recording changelogs and doing entry "
                          "self-heal.",
+        },
+        { .key   = {"favorite-child-policy"},
+          .type  = GF_OPTION_TYPE_STR,
+          .value = {"none", "size", "ctime", "mtime", "majority"},
+          .default_value = "none",
+          .description = "This option can be used to automatically resolve "
+                         "split-brains using various policies without user "
+                         "intervention. \"size\" picks the file with the "
+                         "biggest size as the source. \"ctime\" and \"mtime\" "
+                         "pick the file with the latest ctime and mtime "
+                         "respectively as the source. \"majority\" picks a file"
+                         " with identical mtime and size in more than half the "
+                         "number of bricks in the replica.",
         },
         { .key  = {NULL} },
 };

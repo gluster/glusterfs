@@ -1293,6 +1293,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_10,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.favorite-child-policy",
+          .voltype    = "cluster/replicate",
+          .type       = DOC,
+          .op_version = GD_OP_VERSION_3_7_12,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
         /* stripe xlator options */
         { .key         = "cluster.stripe-block-size",

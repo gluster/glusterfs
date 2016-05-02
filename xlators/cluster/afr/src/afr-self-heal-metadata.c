@@ -196,6 +196,7 @@ out:
 
 static int
 __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
+                                         inode_t *inode,
                                          unsigned char *sources,
                                          unsigned char *sinks,
 					 unsigned char *healed_sinks,
@@ -215,7 +216,7 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
 	    || !sources_count) {
 
-                source = afr_mark_split_brain_source_sinks (frame, this,
+                source = afr_mark_split_brain_source_sinks (frame, this, inode,
                                                             sources, sinks,
                                                             healed_sinks,
                                                             locked_on, replies,
@@ -352,8 +353,9 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
                 }
         }
 
-	source = __afr_selfheal_metadata_finalize_source (frame, this, sources,
-                                                          sinks, healed_sinks,
+	source = __afr_selfheal_metadata_finalize_source (frame, this, inode,
+                                                          sources, sinks,
+                                                          healed_sinks,
                                                           locked_on, replies);
 
 	if (source < 0)
