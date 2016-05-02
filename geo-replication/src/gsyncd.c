@@ -407,10 +407,17 @@ main (int argc, char **argv)
                 return invoke_gsyncd (argc, argv);
 
         argc = str2argv (sargv, &argv);
-        if (argc == -1 || setenv (_GSYNCD_DISPATCHED_, "1", 1) == -1) {
+
+        if (argc == -1) {
                 fprintf (stderr, "internal error\n");
                 return 1;
         }
+
+        if (setenv (_GSYNCD_DISPATCHED_, "1", 1) == -1) {
+                fprintf (stderr, "internal error\n");
+                goto out;
+        }
+
 
         b = basename (argv[0]);
         for (i = invocables; i->name; i++) {
@@ -421,6 +428,7 @@ main (int argc, char **argv)
         fprintf (stderr, "invoking %s in restricted SSH session is not allowed\n",
                  b);
 
+out:
         for (j = 1; j < argc; j++)
                 free(argv[j]);
         free(argv);
