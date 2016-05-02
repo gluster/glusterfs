@@ -1924,7 +1924,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         DHT_MSG_LOG_TIER_ERROR,
                         "Failed to start demotion thread.");
                 defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                goto out;
+                goto cleanup;
         }
 
         tier_get_bricklist (conf->subvolumes[0], &bricklist_cold);
@@ -1943,12 +1943,15 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         DHT_MSG_LOG_TIER_ERROR,
                         "Failed to start promotion thread.");
                 defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                goto waitforspawned;
         }
 
-out:
         pthread_join (promote_thread, NULL);
+
+waitforspawned:
         pthread_join (demote_thread, NULL);
 
+cleanup:
         clear_bricklist (&bricklist_cold);
         clear_bricklist (&bricklist_hot);
 
