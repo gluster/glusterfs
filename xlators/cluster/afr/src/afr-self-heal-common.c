@@ -466,28 +466,20 @@ afr_dict_contains_heal_op (call_frame_t *frame)
         return _gf_true;
 }
 
-/* Return a source depending on the type of heal_op, and set sources[source],
- * sinks[source] and healed_sinks[source] to 1, 0 and 0 respectively. Do so
- * only if the following condition is met:
- * ∀i((i ∈ locked_on[] ∧ i=1)==>(sources[i]=0 ∧ sinks[i]=1 ∧ healed_sinks[i]=1))
- * i.e. for each locked node, sources[node] is 0; healed_sinks[node] and
- * sinks[node] are 1. This should be the case if the file is in split-brain.
- */
 int
-afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
-                                   unsigned char *sources,
+afr_mark_split_brain_source_sinks_by_heal_op (call_frame_t *frame,
+                                   xlator_t *this, unsigned char *sources,
                                    unsigned char *sinks,
                                    unsigned char *healed_sinks,
                                    unsigned char *locked_on,
                                    struct afr_reply *replies,
-                                   afr_transaction_type type)
+                                   afr_transaction_type type, int heal_op)
 {
         afr_local_t   *local     = NULL;
         afr_private_t *priv      = NULL;
         dict_t        *xdata_req = NULL;
         dict_t        *xdata_rsp = NULL;
         int            ret       = 0;
-        int            heal_op   = -1;
         int            i         = 0;
         char          *name      = NULL;
         int            source     = -1;
@@ -495,10 +487,6 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         priv = this->private;
         xdata_req = local->xdata_req;
-
-        ret = dict_get_int32 (xdata_req, "heal-op", &heal_op);
-        if (ret)
-                goto out;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (locked_on[i])
@@ -596,6 +584,280 @@ out:
                 memset (sources, 0, sizeof (*sources) * priv->child_count);
         return ret;
 
+}
+
+int
+afr_sh_fav_by_majority (xlator_t *this, struct afr_reply *replies,
+                        inode_t *inode)
+{
+        afr_private_t   *priv;
+        int             vote_count = -1;
+        int             fav_child = -1;
+        int             i = 0;
+        int             k = 0;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].valid == 1) {
+                        gf_msg_debug (this->name, 0, "Child:%s "
+                                "mtime_sec = %d, size = %lu for gfid %s",
+                                priv->children[i]->name,
+                                replies[i].poststat.ia_mtime,
+                                replies[i].poststat.ia_size,
+                                uuid_utoa (inode->gfid));
+                                vote_count = 0;
+                        for (k = 0; k < priv->child_count; k++) {
+                                if ((replies[k].poststat.ia_mtime ==
+                                     replies[i].poststat.ia_mtime) &&
+                                    (replies[k].poststat.ia_size ==
+                                     replies[i].poststat.ia_size)
+                                   ) {
+                                        vote_count++;
+                                }
+                        }
+                        if (vote_count > priv->child_count/2) {
+                                fav_child = i;
+                                break;
+                        }
+                }
+        }
+        return fav_child;
+}
+
+/*
+ * afr_sh_fav_by_mtime: Choose favorite child by mtime.
+ */
+int
+afr_sh_fav_by_mtime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
+{
+        afr_private_t *priv;
+        int fav_child = -1;
+        int i = 0;
+        uint32_t cmp_mtime = 0;
+        uint32_t cmp_mtime_nsec = 0;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].valid == 1) {
+                        gf_msg_debug (this->name, 0, "Child:%s "
+                                "mtime = %d, mtime_nsec = %d for gfid %s",
+                                priv->children[i]->name,
+                                replies[i].poststat.ia_mtime,
+                                replies[i].poststat.ia_mtime_nsec,
+                                uuid_utoa (inode->gfid));
+                        if (replies[i].poststat.ia_mtime > cmp_mtime) {
+                                cmp_mtime = replies[i].poststat.ia_mtime;
+                                cmp_mtime_nsec =
+                                        replies[i].poststat.ia_mtime_nsec;
+                                fav_child = i;
+                        } else if ((replies[i].poststat.ia_mtime == cmp_mtime)
+                                    && (replies[i].poststat.ia_mtime_nsec >
+                                    cmp_mtime_nsec)) {
+                                cmp_mtime = replies[i].poststat.ia_mtime;
+                                cmp_mtime_nsec =
+                                        replies[i].poststat.ia_mtime_nsec;
+                                fav_child = i;
+                        }
+                }
+        }
+        return fav_child;
+}
+
+/*
+ * afr_sh_fav_by_ctime: Choose favorite child by ctime.
+ */
+int
+afr_sh_fav_by_ctime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
+{
+        afr_private_t *priv;
+        int fav_child = -1;
+        int i = 0;
+        uint32_t cmp_ctime = 0;
+        uint32_t cmp_ctime_nsec = 0;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].valid == 1) {
+                        gf_msg_debug (this->name, 0, "Child:%s "
+                                "ctime = %d, ctime_nsec = %d for gfid %s",
+                                priv->children[i]->name,
+                                replies[i].poststat.ia_ctime,
+                                replies[i].poststat.ia_ctime_nsec,
+                                uuid_utoa (inode->gfid));
+                        if (replies[i].poststat.ia_ctime > cmp_ctime) {
+                                cmp_ctime = replies[i].poststat.ia_ctime;
+                                cmp_ctime_nsec =
+                                        replies[i].poststat.ia_ctime_nsec;
+                                fav_child = i;
+                        } else if ((replies[i].poststat.ia_ctime == cmp_ctime)
+                                    && (replies[i].poststat.ia_ctime_nsec >
+                                    cmp_ctime_nsec)) {
+                                cmp_ctime = replies[i].poststat.ia_ctime;
+                                cmp_ctime_nsec =
+                                        replies[i].poststat.ia_ctime_nsec;
+                                fav_child = i;
+                        }
+                }
+        }
+        return fav_child;
+}
+
+/*
+ * afr_sh_fav_by_size: Choose favorite child by size.
+ */
+int
+afr_sh_fav_by_size (xlator_t *this, struct afr_reply *replies, inode_t *inode)
+{
+        afr_private_t *priv;
+        int fav_child = -1;
+        int i = 0;
+        uint64_t cmp_sz = 0;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].valid == 1) {
+                        gf_msg_debug (this->name, 0, "Child:%s "
+                                "file size = %lu for gfid %s",
+                                priv->children[i]->name,
+                                replies[i].poststat.ia_size,
+                                uuid_utoa (inode->gfid));
+                        if (replies[i].poststat.ia_size > cmp_sz) {
+                                cmp_sz = replies[i].poststat.ia_size;
+                                fav_child = i;
+                        }
+                }
+        }
+        return fav_child;
+}
+
+
+int
+afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
+                                             xlator_t *this,
+                                             inode_t *inode,
+                                             unsigned char *sources,
+                                             unsigned char *sinks,
+                                             unsigned char *healed_sinks,
+                                             unsigned char *locked_on,
+                                             struct afr_reply *replies,
+                                             afr_transaction_type type)
+{
+        afr_private_t *priv = NULL;
+        int fav_child = -1;
+        char mtime_str[256];
+        char ctime_str[256];
+        char *policy_str = NULL;
+        struct tm *tm_ptr;
+        time_t time;
+
+        priv = this->private;
+        if (priv->fav_child_policy == AFR_FAV_CHILD_BY_MAJORITY)  {
+                fav_child = afr_sh_fav_by_majority (this, replies, inode);
+                if (fav_child >= 0)
+                        policy_str = "MAJORITY";
+        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_MTIME)  {
+                fav_child = afr_sh_fav_by_mtime (this, replies, inode);
+                if (fav_child >= 0)
+                        policy_str = "MTIME";
+        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_CTIME)  {
+                fav_child = afr_sh_fav_by_ctime (this, replies, inode);
+                if (fav_child >= 0)
+                        policy_str = "CTIME";
+        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_SIZE)  {
+                fav_child = afr_sh_fav_by_size (this, replies, inode);
+                if (fav_child >= 0)
+                        policy_str = "SIZE";
+        }
+
+        if (fav_child > priv->child_count - 1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_SBRAIN_FAV_CHILD_POLICY, "Invalid child (%d) "
+                        "selected by policy %s.", fav_child, policy_str);
+        } else if (fav_child >= 0) {
+                time = replies[fav_child].poststat.ia_mtime;
+                tm_ptr = localtime (&time);
+                strftime (mtime_str, sizeof (mtime_str), "%Y-%m-%d %H:%M:%S",
+                          tm_ptr);
+                time = replies[fav_child].poststat.ia_ctime;
+                tm_ptr = localtime (&time);
+                strftime (ctime_str, sizeof (ctime_str), "%Y-%m-%d %H:%M:%S",
+                          tm_ptr);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_SBRAIN_FAV_CHILD_POLICY, "Source %s "
+                        "selected as authentic to resolve conflicting "
+                         "data in file (gfid:%s) by %s (%lu bytes @ %s mtime, "
+                         "%s ctime).",
+                         priv->children[fav_child]->name,
+                         uuid_utoa (inode->gfid),
+                         policy_str,
+                         replies[fav_child].poststat.ia_size,
+                         mtime_str,
+                         ctime_str);
+
+                sources[fav_child] = 1;
+                sinks[fav_child] = 0;
+                healed_sinks[fav_child] = 0;
+        }
+        return fav_child;
+}
+
+/* Return a source depending on the type of heal_op, and set sources[source],
+ * sinks[source] and healed_sinks[source] to 1, 0 and 0 respectively. Do so
+ * only if the following condition is met:
+ * ∀i((i ∈ locked_on[] ∧ i=1)==>(sources[i]=0 ∧ sinks[i]=1 ∧ healed_sinks[i]=1))
+ * i.e. for each locked node, sources[node] is 0; healed_sinks[node] and
+ * sinks[node] are 1. This should be the case if the file is in split-brain.
+ */
+int
+afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
+                                   inode_t *inode,
+                                   unsigned char *sources,
+                                   unsigned char *sinks,
+                                   unsigned char *healed_sinks,
+                                   unsigned char *locked_on,
+                                   struct afr_reply *replies,
+                                   afr_transaction_type type)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        dict_t *xdata_req = NULL;
+        int heal_op = -1;
+        int ret = -1;
+
+        local = frame->local;
+        priv = this->private;
+        xdata_req = local->xdata_req;
+
+        ret = dict_get_int32 (xdata_req, "heal-op", &heal_op);
+        if (ret)
+                goto autoheal;
+
+        ret = afr_mark_split_brain_source_sinks_by_heal_op (frame, this,
+                                                            sources, sinks,
+                                                            healed_sinks,
+                                                            locked_on, replies,
+                                                            type, heal_op);
+        return ret;
+
+autoheal:
+        /* Automatically heal if fav_child_policy is set. */
+        if (priv->fav_child_policy != AFR_FAV_CHILD_NONE) {
+                ret = afr_mark_split_brain_source_sinks_by_policy (frame, this,
+                                                                   inode,
+                                                                   sources,
+                                                                   sinks,
+                                                                   healed_sinks,
+                                                                   locked_on,
+                                                                   replies,
+                                                                   type);
+        }
+
+        return ret;
 }
 
 gf_boolean_t

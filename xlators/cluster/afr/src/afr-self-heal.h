@@ -220,6 +220,7 @@ afr_dict_contains_heal_op (call_frame_t *frame);
 
 int
 afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
+                                   inode_t *inode,
                                    unsigned char *sources,
                                    unsigned char *sinks,
                                    unsigned char *healed_sinks,

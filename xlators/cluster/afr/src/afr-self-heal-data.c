@@ -568,6 +568,7 @@ afr_mark_newest_file_as_source (xlator_t *this, unsigned char *sources,
 
 static int
 __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
+                                     inode_t *inode,
                                      unsigned char *sources,
                                      unsigned char *sinks,
 				     unsigned char *healed_sinks,
@@ -585,7 +586,7 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
             || !sources_count) {
 		/* split brain */
-                source = afr_mark_split_brain_source_sinks (frame, this,
+                source = afr_mark_split_brain_source_sinks (frame, this, inode,
                                                             sources, sinks,
                                                             healed_sinks,
                                                             locked_on, replies,
@@ -663,8 +664,9 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
         */
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
-	source = __afr_selfheal_data_finalize_source (frame, this, sources,
-                                                      sinks, healed_sinks,
+	source = __afr_selfheal_data_finalize_source (frame, this, inode,
+                                                      sources, sinks,
+                                                      healed_sinks,
                                                       locked_on, replies,
                                                       witness);
 	if (source < 0)
