@@ -1382,6 +1382,8 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         call_frame_t            *frame = NULL;
         int                     ret = -EFAULT;
         struct nfs_fop_local    *nfl = NULL;
+        int flags = 0;
+        nfs3_call_state_t       *cs = local;
 
         if ((!nfsx) || (!xl) || (!fd) || (!vector) || (!nfu) || (!srciobref))
                 return ret;
@@ -1399,8 +1401,20 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 
         iobref_add (nfl->iobref, srciob);
 */
+
+        switch (cs->writetype) {
+        case UNSTABLE:
+                break;
+        case DATA_SYNC:
+                flags |= O_DSYNC;
+                break;
+        case FILE_SYNC:
+                flags |= O_SYNC;
+                break;
+        }
+
         STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev,
-                           fd, vector, count, offset, fd->flags, srciobref, NULL);
+                           fd, vector, count, offset, flags, srciobref, NULL);
         ret = 0;
 err:
         if (ret < 0) {

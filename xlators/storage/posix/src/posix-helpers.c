@@ -1686,6 +1686,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
 
         pfd->fd = _fd;
         pfd->dir = dir;
+        pfd->flags = fd->flags;
 
         ret = __fd_ctx_set (fd, this, (uint64_t) (long) pfd);
         if (ret != 0) {
