@@ -509,6 +509,7 @@ typedef struct lock_migration_info {
         struct list_head        list;
         struct gf_flock         flock;
         char                   *client_uid;
+        uint32_t                lk_flags;
 } lock_migration_info_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))

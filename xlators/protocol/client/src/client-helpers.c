@@ -1795,6 +1795,8 @@ clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
 
                 gf_proto_flock_to_flock (&trav->flock, &temp->flock);
 
+                temp->lk_flags = trav->lk_flags;
+
                 temp->client_uid =  gf_strdup (trav->client_uid);
 
                 list_add_tail (&temp->list, &lmi->list);
@@ -1860,6 +1862,8 @@ serialize_req_locklist (lock_migration_info_t *locklist,
                 }
 
                 gf_proto_flock_from_flock (&trav->flock, &tmp->flock);
+
+                trav->lk_flags = tmp->lk_flags;
 
                 trav->client_uid = gf_strdup (tmp->client_uid);
                 if (!trav->client_uid) {
