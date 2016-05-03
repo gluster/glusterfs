@@ -2708,6 +2708,8 @@ gf_mig_info_for_lock (posix_lock_t *lock)
 
         posix_lock_to_flock (lock, &new->flock);
 
+        new->lk_flags = lock->lk_flags;
+
         new->client_uid = gf_strdup (lock->client_uid);
 
 out:
@@ -3384,6 +3386,8 @@ gf_lkmig_info_to_posix_lock (call_frame_t *frame,
                lock->fl_end = lmi->flock.l_start + lmi->flock.l_len - 1;
 
         lock->client = frame->root->client;
+
+        lock->lk_flags = lmi->lk_flags;
 
         lock->client_uid = gf_strdup (lmi->client_uid);
         if (lock->client_uid == NULL) {

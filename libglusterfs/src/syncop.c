@@ -3101,6 +3101,8 @@ syncop_getactivelk_cbk (call_frame_t *frame,
 
                         entry->flock = tmp->flock;
 
+                        entry->lk_flags = tmp->lk_flags;
+
                         entry->client_uid = gf_strdup (tmp->client_uid);
 
                         list_add_tail (&entry->list, &args->locklist.list);

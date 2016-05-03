@@ -1454,6 +1454,8 @@ args_getactivelk_cbk_store (default_args_cbk_t *args,
                         INIT_LIST_HEAD (&stub_entry->list);
                         stub_entry->flock = entry->flock;
 
+                        stub_entry->lk_flags = entry->lk_flags;
+
                         stub_entry->client_uid = gf_strdup (entry->client_uid);
                         if (!stub_entry->client_uid) {
                                 GF_FREE (stub_entry);
@@ -1489,6 +1491,8 @@ args_setactivelk_store (default_args_t *args, loc_t *loc,
 
                 INIT_LIST_HEAD (&stub_entry->list);
                 stub_entry->flock = entry->flock;
+
+                stub_entry->lk_flags = entry->lk_flags;
 
                 stub_entry->client_uid = gf_strdup (entry->client_uid);
                 if (!stub_entry->client_uid) {

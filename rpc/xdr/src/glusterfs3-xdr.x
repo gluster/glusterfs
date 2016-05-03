@@ -966,6 +966,7 @@ struct gfs3_compound_rsp {
 struct gfs3_locklist {
         struct gf_proto_flock flock;
         string client_uid<>;
+        unsigned int lk_flags;
         struct gfs3_locklist *nextentry;
 };
 
