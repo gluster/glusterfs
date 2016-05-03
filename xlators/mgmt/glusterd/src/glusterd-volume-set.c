@@ -2822,7 +2822,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "locks.mandatory-locking",
           .voltype     = "features/locks",
-          .op_version  = GD_OP_VERSION_4_0_0,
+          .op_version  = GD_OP_VERSION_3_8_0,
           .validate_fn = validate_mandatory_locking,
         },
         { .key           = "cluster.disperse-self-heal-daemon",
