@@ -8404,7 +8404,10 @@ dht_entrylk_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-
+/* TODO
+ * Sending entrylk to cached subvol can result in stale lock
+ * as described in the bug 1311002.
+ */
 int
 dht_entrylk (call_frame_t *frame, xlator_t *this,
              const char *volume, loc_t *loc, const char *basename,

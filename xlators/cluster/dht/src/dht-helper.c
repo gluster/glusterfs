@@ -2298,3 +2298,158 @@ dht_heal_full_path_done (int op_ret, call_frame_t *heal_frame, void *data)
         DHT_STACK_DESTROY (heal_frame);
         return 0;
 }
+
+/* This function must be called inside an inode lock */
+int
+__dht_lock_subvol_set (inode_t *inode, xlator_t *this,
+                       xlator_t *lock_subvol)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        int                      ret            = -1;
+        uint64_t                 value          = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        ret = __inode_ctx_get0 (inode, this, &value);
+        if (ret || !value) {
+                return -1;
+        }
+
+        ctx = (dht_inode_ctx_t *) value;
+        ctx->lock_subvol = lock_subvol;
+out:
+        return ret;
+}
+
+xlator_t*
+dht_get_lock_subvolume (xlator_t *this, struct gf_flock *lock,
+                        dht_local_t *local)
+{
+        xlator_t                *subvol                  = NULL;
+        inode_t                 *inode                   = NULL;
+        int32_t                  ret                     = -1;
+        uint64_t                 value                   = 0;
+        xlator_t                *cached_subvol           = NULL;
+        dht_inode_ctx_t         *ctx                     = NULL;
+        char                     gfid[GF_UUID_BUF_SIZE]  = {0};
+
+        GF_VALIDATE_OR_GOTO (this->name, lock, out);
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+
+        cached_subvol = local->cached_subvol;
+
+        if (local->loc.inode || local->fd) {
+                inode = local->loc.inode ? local->loc.inode : local->fd->inode;
+        }
+
+        if (!inode)
+                goto out;
+
+        if (!(IA_ISDIR (inode->ia_type) || IA_ISINVAL (inode->ia_type))) {
+                /*
+                 * We may get non-linked inode for directories as part
+                 * of the selfheal code path. So checking  for IA_INVAL
+                 * type also. This will only happen for directory.
+                 */
+                subvol = local->cached_subvol;
+                goto out;
+        }
+
+        if (lock->l_type != F_UNLCK) {
+                /*
+                 * inode purging might happen on NFS between a lk
+                 * and unlk. Due to this lk and unlk might be sent
+                 * to different subvols.
+                 * So during a lock request, taking a ref on inode
+                 * to prevent inode purging. inode unref will happen
+                 * in unlock cbk code path.
+                 */
+                inode_ref (inode);
+        }
+
+        LOCK (&inode->lock);
+                ret = __inode_ctx_get0 (inode, this, &value);
+                if (!ret && value) {
+                        ctx = (dht_inode_ctx_t *) value;
+                        subvol = ctx->lock_subvol;
+                }
+                if (!subvol && lock->l_type != F_UNLCK && cached_subvol) {
+                        ret = __dht_lock_subvol_set (inode, this,
+                                                     cached_subvol);
+                        if (ret) {
+                                gf_uuid_unparse(inode->gfid, gfid);
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_SET_INODE_CTX_FAILED,
+                                        "Failed to set lock_subvol in "
+                                        "inode ctx for gfid %s",
+                                        gfid);
+                                goto unlock;
+                        }
+                        subvol = cached_subvol;
+                }
+unlock:
+        UNLOCK (&inode->lock);
+        if (!subvol && inode && lock->l_type != F_UNLCK) {
+                inode_unref (inode);
+        }
+out:
+        return subvol;
+}
+
+int
+dht_lk_inode_unref (call_frame_t *frame, int32_t op_ret)
+{
+        int                     ret                     = -1;
+        dht_local_t            *local                   = NULL;
+        inode_t                *inode                   = NULL;
+        xlator_t               *this                    = NULL;
+        char                    gfid[GF_UUID_BUF_SIZE]  = {0};
+
+        local = frame->local;
+        this = frame->this;
+
+        if (local->loc.inode || local->fd) {
+                inode = local->loc.inode ? local->loc.inode : local->fd->inode;
+        }
+        if (!inode) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LOCK_INODE_UNREF_FAILED,
+                        "Found a NULL inode. Failed to unref the inode");
+                goto out;
+        }
+
+        if (!(IA_ISDIR (inode->ia_type) || IA_ISINVAL (inode->ia_type))) {
+                ret = 0;
+                goto out;
+        }
+
+        switch (local->lock_type) {
+        case F_RDLCK:
+        case F_WRLCK:
+                if (op_ret) {
+                        gf_uuid_unparse(inode->gfid, gfid);
+                        gf_msg_debug (this->name, 0,
+                                "lock request failed for gfid %s", gfid);
+                        inode_unref (inode);
+                        goto out;
+                }
+                break;
+
+        case F_UNLCK:
+                if (!op_ret) {
+                        inode_unref (inode);
+                } else {
+                        gf_uuid_unparse(inode->gfid, gfid);
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_LOCK_INODE_UNREF_FAILED,
+                                "Unlock request failed for gfid %s."
+                                "Failed to unref the inode", gfid);
+                        goto out;
+                }
+        default:
+                break;
+        }
+        ret = 0;
+out:
+        return ret;
+}

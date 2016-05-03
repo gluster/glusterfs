@@ -101,6 +101,7 @@ typedef struct dht_stat_time dht_stat_time_t;
 struct dht_inode_ctx {
         dht_layout_t    *layout;
         dht_stat_time_t  time;
+        xlator_t        *lock_subvol;
 };
 
 typedef struct dht_inode_ctx dht_inode_ctx_t;
@@ -284,6 +285,8 @@ struct dht_local {
                 int                 op_ret;
                 int                 op_errno;
         } lock;
+
+        short           lock_type;
 
         call_stub_t *stub;
         int32_t      parent_disk_layout[4];
@@ -1218,4 +1221,12 @@ dht_release (xlator_t *this, fd_t *fd);
 
 int32_t
 dht_set_fixed_dir_stat (struct iatt *stat);
+
+xlator_t*
+dht_get_lock_subvolume (xlator_t *this, struct gf_flock *lock,
+                        dht_local_t *local);
+
+int
+dht_lk_inode_unref (call_frame_t *frame, int32_t op_ret);
+
 #endif/* _DHT_H */
