@@ -79,3 +79,4 @@ TEST $CLI volume bitrot $V0 scrub pause
 TEST kill_brick $V0 $H0 $B0/${V0}2
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=0000000
