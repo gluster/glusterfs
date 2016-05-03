@@ -52,9 +52,15 @@ worm_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 {
         int ret                     =       -1;
         int label                   =       -1;
+        read_only_priv_t *priv      =       NULL;
 
+        priv = this->private;
+        GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto unwind;
+        if (!priv->worm_file)
+                goto wind;
+
         gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
         if (is_wormfile (this, _gf_false, oldloc))
                 goto wind;
@@ -90,9 +96,15 @@ worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
         int ret                     =       -1;
         int label                   =       -1;
+        read_only_priv_t *priv      =       NULL;
 
+        priv = this->private;
+        GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto unwind;
+        if (!priv->worm_file)
+                goto wind;
+
         gf_uuid_copy (loc->gfid, loc->inode->gfid);
         if (is_wormfile (this, _gf_false, loc))
                 goto wind;
@@ -127,9 +139,15 @@ worm_rename (call_frame_t *frame, xlator_t *this,
 {
         int ret                     =       -1;
         int label                   =       -1;
+        read_only_priv_t *priv      =       NULL;
 
+        priv = this->private;
+        GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto unwind;
+        if (!priv->worm_file)
+                goto wind;
+
         gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
         if (is_wormfile (this, _gf_false, oldloc))
                 goto wind;
@@ -166,9 +184,15 @@ worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 {
         int ret                     =       -1;
         int label                   =       -1;
+        read_only_priv_t *priv      =       NULL;
 
+        priv = this->private;
+        GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto unwind;
+        if (!priv->worm_file)
+                goto wind;
+
         if (is_wormfile (this, _gf_false, loc))
                 goto wind;
         label = state_transition (this, _gf_false, loc, GF_FOP_TRUNCATE,
@@ -207,7 +231,13 @@ worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         gf_boolean_t rd_only            =       _gf_false;
         worm_reten_state_t reten_state  =       {0,};
         struct iatt stpre               =       {0,};
+        read_only_priv_t *priv          =       NULL;
         int ret                         =       -1;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        if (!priv->worm_file)
+                goto wind;
 
         if (is_wormfile (this, _gf_false, loc))
                 goto wind;
@@ -272,7 +302,13 @@ worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_boolean_t rd_only            =       _gf_false;
         worm_reten_state_t reten_state  =       {0,};
         struct iatt stpre               =       {0,};
+        read_only_priv_t *priv          =       NULL;
         int ret                         =       -1;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        if (!priv->worm_file)
+                goto wind;
 
         if (is_wormfile (this, _gf_true, fd))
                 goto wind;
@@ -336,17 +372,20 @@ worm_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
              struct iobref *iobref, dict_t *xdata)
 {
         worm_reten_state_t reten_state    =       {0,};
+        read_only_priv_t *priv            =       NULL;
         int ret                           =       -1;
 
-        if (is_readonly_or_worm_enabled (this))
-                goto unwind;
+        priv = this->private;
+        GF_ASSERT (priv);
+        if (!priv->worm_file)
+                goto wind;
+
         if (is_wormfile (this, _gf_true, fd))
                 goto wind;
         ret = worm_get_state (this, _gf_true, fd, &reten_state);
         if (!reten_state.worm)
                 goto wind;
 
-unwind:
         STACK_UNWIND_STRICT (writev, frame, -1, EROFS, NULL, NULL, NULL);
         goto out;
 
@@ -356,7 +395,6 @@ wind:
                          FIRST_CHILD (this)->fops->writev,
                          fd, vector, count, offset, flags,
                          iobref, xdata);
-        gf_log (this->name, GF_LOG_INFO, "WORM writev");
         ret = 0;
 
 out:
