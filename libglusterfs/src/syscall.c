@@ -350,7 +350,7 @@ gf_add_prefix(const char *ns, const char *key, char **newkey)
         /* if we dont have any namespace, append USER NS */
         if (strncmp(key, XATTR_USER_PREFIX,     XATTR_USER_PREFIX_LEN) &&
             strncmp(key, XATTR_TRUSTED_PREFIX,  XATTR_TRUSTED_PREFIX_LEN) &&
-            strncmp(key, XATTR_SECURITY_PREFIX, XATTR_TRUSTED_PREFIX_LEN) &&
+            strncmp(key, XATTR_SECURITY_PREFIX, XATTR_SECURITY_PREFIX_LEN) &&
             strncmp(key, XATTR_SYSTEM_PREFIX,   XATTR_SYSTEM_PREFIX_LEN)) {
                 int ns_length =  strlen(ns);
                 *newkey = GF_MALLOC(ns_length + strlen(key) + 10,
