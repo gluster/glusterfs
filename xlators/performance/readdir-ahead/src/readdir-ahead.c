@@ -52,8 +52,9 @@ rda_fd_ctx *get_rda_fd_ctx(fd_t *fd, xlator_t *this)
 
 		LOCK_INIT(&ctx->lock);
 		INIT_LIST_HEAD(&ctx->entries.list);
-		ctx->state = RDA_FD_NEW;
+                ctx->state = RDA_FD_NEW;
 		/* ctx offset values initialized to 0 */
+                ctx->xattrs = NULL;
 
 		if (__fd_ctx_set(fd, this, (uint64_t) ctx) < 0) {
 			GF_FREE(ctx);
@@ -80,6 +81,10 @@ rda_reset_ctx(struct rda_fd_ctx *ctx)
 	ctx->next_offset = 0;
         ctx->op_errno = 0;
 	gf_dirent_free(&ctx->entries);
+        if (ctx->xattrs) {
+                dict_unref (ctx->xattrs);
+                ctx->xattrs = NULL;
+        }
 }
 
 /*
@@ -196,6 +201,15 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	 */
 	if (!off && (ctx->state & RDA_FD_EOD) && (ctx->cur_size == 0)) {
 		rda_reset_ctx(ctx);
+                /*
+                 * Unref and discard the 'list of xattrs to be fetched'
+                 * stored during opendir call. This is done above - inside
+                 * rda_reset_ctx().
+                 * Now, ref the xdata passed by md-cache in actual readdirp()
+                 * call and use that for all subsequent internal readdirp()
+                 * requests issued by this xlator.
+                 */
+                ctx->xattrs = dict_ref (xdata);
 		fill = 1;
 	}
 
@@ -312,6 +326,14 @@ out:
 
 	if (!(ctx->state & RDA_FD_RUNNING)) {
 		fill = 0;
+        if (ctx->xattrs) {
+                /*
+                 * fill = 0 and hence rda_fill_fd() won't be invoked.
+                 * unref for ref taken in rda_fill_fd()
+                 */
+                dict_unref (ctx->xattrs);
+                ctx->xattrs = NULL;
+        }
 		STACK_DESTROY(ctx->fill_frame->root);
 		ctx->fill_frame = NULL;
 	}
@@ -332,6 +354,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	call_frame_t *nframe = NULL;
 	struct rda_local *local = NULL;
+        struct rda_local *orig_local = frame->local;
 	struct rda_fd_ctx *ctx;
 	off_t offset;
 	struct rda_priv *priv = this->private;
@@ -369,6 +392,11 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 		nframe->local = local;
 
 		ctx->fill_frame = nframe;
+
+        if (!ctx->xattrs && orig_local && orig_local->xattrs) {
+                /* when this function is invoked by rda_opendir_cbk */
+                ctx->xattrs = dict_ref(orig_local->xattrs);
+        }
 	} else {
 		nframe = ctx->fill_frame;
 		local = nframe->local;
@@ -378,9 +406,9 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 	UNLOCK(&ctx->lock);
 
-	STACK_WIND(nframe, rda_fill_fd_cbk, FIRST_CHILD(this),
-		   FIRST_CHILD(this)->fops->readdirp, fd, priv->rda_req_size,
-		   offset, NULL);
+        STACK_WIND(nframe, rda_fill_fd_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readdirp, fd,
+                   priv->rda_req_size, offset, ctx->xattrs);
 
 	return 0;
 
@@ -391,14 +419,53 @@ err:
 	return -1;
 }
 
+
+static int
+rda_unpack_mdc_loaded_keys_to_dict(char *payload, dict_t *dict)
+{
+        int      ret = -1;
+        char    *mdc_key = NULL;
+
+        if (!payload || !dict) {
+                goto out;
+        }
+
+        mdc_key = strtok(payload, " ");
+        while (mdc_key != NULL) {
+                ret = dict_set_int8 (dict, mdc_key, 0);
+                if (ret) {
+                        goto out;
+                }
+                mdc_key = strtok(NULL, " ");
+        }
+
+out:
+        return ret;
+}
+
+
 static int32_t
 rda_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
+        struct rda_local *local = frame->local;
+
 	if (!op_ret)
 		rda_fill_fd(frame, this, fd);
 
+        frame->local = NULL;
+
 	STACK_UNWIND_STRICT(opendir, frame, op_ret, op_errno, fd, xdata);
+
+        if (local && local->xattrs) {
+                /* unref for dict_new() done in rda_opendir */
+                dict_unref (local->xattrs);
+                local->xattrs = NULL;
+        }
+
+        if (local)
+                mem_put (local);
+
 	return 0;
 }
 
@@ -406,9 +473,57 @@ static int32_t
 rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 		dict_t *xdata)
 {
-	STACK_WIND(frame, rda_opendir_cbk, FIRST_CHILD(this),
-		   FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
-	return 0;
+        int                  ret = -1;
+        int                  op_errno = 0;
+        char                *payload = NULL;
+        struct rda_local    *local = NULL;
+        dict_t              *xdata_from_req = NULL;
+
+        if (xdata) {
+                /*
+                 * Retrieve list of keys set by md-cache xlator and store it
+                 * in local to be consumed in rda_opendir_cbk
+                 */
+                ret = dict_get_str (xdata, GF_MDC_LOADED_KEY_NAMES, &payload);
+                if (ret)
+                        goto wind;
+
+                xdata_from_req = dict_new();
+                if (!xdata_from_req) {
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                ret = rda_unpack_mdc_loaded_keys_to_dict((char *) payload,
+                                                         xdata_from_req);
+                if (ret) {
+                        dict_unref(xdata_from_req);
+                        goto wind;
+                }
+
+                local = mem_get0(this->local_pool);
+                if (!local) {
+                        dict_unref(xdata_from_req);
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                local->xattrs = xdata_from_req;
+                frame->local = local;
+        }
+
+wind:
+        if (xdata)
+                /* Remove the key after consumption. */
+                dict_del (xdata, GF_MDC_LOADED_KEY_NAMES);
+
+        STACK_WIND(frame, rda_opendir_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT(opendir, frame, -1, op_errno, fd, xdata);
+        return 0;
 }
 
 static int32_t

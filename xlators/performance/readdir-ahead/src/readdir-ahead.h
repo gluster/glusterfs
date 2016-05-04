@@ -29,12 +29,14 @@ struct rda_fd_ctx {
 	call_frame_t *fill_frame;
 	call_stub_t *stub;
 	int op_errno;
+        dict_t *xattrs;      /* md-cache keys to be sent in readdirp() */
 };
 
 struct rda_local {
 	struct rda_fd_ctx *ctx;
 	fd_t *fd;
 	off_t offset;
+        dict_t *xattrs;      /* md-cache keys to be sent in readdirp() */
 };
 
 struct rda_priv {

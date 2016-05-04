@@ -9,6 +9,7 @@
 */
 
 #include "glusterfs.h"
+#include "defaults.h"
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
@@ -735,6 +736,50 @@ mdc_load_reqs (xlator_t *this, dict_t *dict)
 		if (ret)
 			return;
 	}
+}
+
+
+static char*
+mdc_serialize_loaded_key_names (xlator_t *this)
+{
+        int             max_len = 0;
+        int             len = 0;
+        int             i = 0;
+        char           *mdc_key_names = NULL;
+        const char     *mdc_key = NULL;
+        gf_boolean_t    at_least_one_key_loaded = _gf_false;
+
+        for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
+                max_len += (strlen(mdc_keys[i].name) + 1);
+                if (mdc_keys[i].load)
+                        at_least_one_key_loaded = _gf_true;
+        }
+
+        if (!at_least_one_key_loaded)
+                goto out;
+
+        mdc_key_names = GF_CALLOC (1, max_len + 1, gf_common_mt_char);
+        if (!mdc_key_names)
+                goto out;
+
+        i = 0;
+        for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
+                if (!mdc_keys[i].load)
+                        continue;
+                strcat (mdc_key_names, mdc_keys[i].name);
+                strcat (mdc_key_names, " ");
+        }
+
+        len = strlen (mdc_key_names);
+        if (len > 0) {
+                mdc_key_names[len - 1] = '\0';
+        } else {
+                GF_FREE (mdc_key_names);
+                mdc_key_names = NULL;
+        }
+
+out:
+        return mdc_key_names;
 }
 
 
@@ -1975,6 +2020,40 @@ mdc_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 int
+mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc,
+            fd_t *fd, dict_t *xdata)
+{
+        int          ret = -1;
+        char        *mdc_key_names = NULL;
+        dict_t      *xattr_alloc = NULL;
+
+        if (!xdata)
+                xdata = xattr_alloc = dict_new ();
+
+        if (xdata) {
+                /* Tell readdir-ahead to include these keys in xdata when it
+                 * internally issues readdirp() in it's opendir_cbk */
+                mdc_key_names = mdc_serialize_loaded_key_names(this);
+                if (!mdc_key_names)
+                        goto wind;
+                ret = dict_set_dynstr (xdata, GF_MDC_LOADED_KEY_NAMES,
+                                       mdc_key_names);
+                if (ret)
+                        goto wind;
+        }
+
+wind:
+        STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+
+        if (xattr_alloc)
+                dict_unref (xattr_alloc);
+
+        return 0;
+}
+
+
+int
 mdc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
@@ -2317,6 +2396,7 @@ struct xlator_fops fops = {
         .fgetxattr   = mdc_fgetxattr,
 	.removexattr = mdc_removexattr,
 	.fremovexattr= mdc_fremovexattr,
+        .opendir     = mdc_opendir,
 	.readdirp    = mdc_readdirp,
 	.readdir     = mdc_readdir,
 	.fallocate   = mdc_fallocate,
