@@ -284,10 +284,11 @@ _dir_scan_job_fn (void *data)
 }
 
 static int
-_run_dir_scan_task (xlator_t *subvol, loc_t *parent, gf_dirent_t *q,
-                    gf_dirent_t *entry, int *retval, pthread_mutex_t *mut,
-                    pthread_cond_t *cond, uint32_t *jobs_running,
-                    uint32_t *qlen, syncop_dir_scan_fn_t fn, void *data)
+_run_dir_scan_task (call_frame_t *frame, xlator_t *subvol, loc_t *parent,
+                    gf_dirent_t *q, gf_dirent_t *entry, int *retval,
+                    pthread_mutex_t *mut, pthread_cond_t *cond,
+                    uint32_t *jobs_running, uint32_t *qlen,
+                    syncop_dir_scan_fn_t fn, void *data)
 {
         int     ret = 0;
         struct syncop_dir_scan_data *scan_data = NULL;
@@ -313,7 +314,7 @@ _run_dir_scan_task (xlator_t *subvol, loc_t *parent, gf_dirent_t *q,
         scan_data->retval       = retval;
 
         ret = synctask_new (subvol->ctx->env, _dir_scan_job_fn,
-                            _dir_scan_job_fn_cbk, NULL, scan_data);
+                            _dir_scan_job_fn_cbk, frame, scan_data);
 out:
         if (ret < 0) {
                 gf_dirent_entry_free (entry);
@@ -329,9 +330,9 @@ out:
 }
 
 int
-syncop_mt_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
-                    syncop_dir_scan_fn_t fn, dict_t *xdata, uint32_t max_jobs,
-                    uint32_t max_qlen)
+syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
+                    void *data, syncop_dir_scan_fn_t fn, dict_t *xdata,
+                    uint32_t max_jobs, uint32_t max_qlen)
 {
         fd_t        *fd    = NULL;
         uint64_t    offset = 0;
@@ -428,7 +429,7 @@ syncop_mt_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
                         if (!entry)
                                 continue;
 
-                        ret = _run_dir_scan_task (subvol, loc, &q, entry,
+                        ret = _run_dir_scan_task (frame, subvol, loc, &q, entry,
                                                   &retval, &mut, &cond,
                                                 &jobs_running, &qlen, fn, data);
                         if (ret)
