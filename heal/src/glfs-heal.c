@@ -457,7 +457,8 @@ glfsh_print_pending_heals_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc
         ret = glfsh_get_index_dir_loc (rootloc, xl, &dirloc, &op_errno,
                                        vgfid);
         if (ret < 0) {
-                if (op_errno == ESTALE || op_errno == ENOENT)
+                if (op_errno == ESTALE || op_errno == ENOENT ||
+                    op_errno == ENOTSUP)
                         ret = 0;
                 else
                         ret = -op_errno;
