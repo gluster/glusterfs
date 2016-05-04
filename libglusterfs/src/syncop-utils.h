@@ -19,9 +19,9 @@ syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
                        void *data));
 
 int
-syncop_mt_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
-                    syncop_dir_scan_fn_t fn, dict_t *xdata, uint32_t max_jobs,
-                    uint32_t max_qlen);
+syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
+                    void *data, syncop_dir_scan_fn_t fn, dict_t *xdata,
+                    uint32_t max_jobs, uint32_t max_qlen);
 
 int
 syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
