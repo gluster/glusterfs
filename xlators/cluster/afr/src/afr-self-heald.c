@@ -430,9 +430,16 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
 	int           ret     = 0;
 	xlator_t      *subvol = NULL;
 	dict_t        *xdata  = NULL;
+        call_frame_t  *frame  = NULL;
 
 	priv = healer->this->private;
 	subvol = priv->children[healer->subvol];
+
+        frame = afr_frame_create (healer->this);
+        if (!frame) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
 	loc.inode = afr_shd_index_inode (healer->this, subvol, vgfid);
 	if (!loc.inode) {
@@ -449,7 +456,7 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
                 goto out;
         }
 
-        ret = syncop_mt_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
+        ret = syncop_mt_dir_scan (frame, subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
                                   healer, afr_shd_index_heal, xdata,
                                  priv->shd.max_threads, priv->shd.wait_qlength);
 
@@ -461,6 +468,8 @@ out:
 
         if (xdata)
                 dict_unref (xdata);
+        if (frame)
+                AFR_STACK_DESTROY (frame);
 	return ret;
 }
 
