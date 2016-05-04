@@ -89,6 +89,7 @@
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
+#define GF_MDC_LOADED_KEY_NAMES     "glusterfs.mdc.loaded.key.names"
 
 #define BD_XATTR_KEY             "user.glusterfs"
 #define GF_PREOP_PARENT_KEY      "glusterfs.preop.parent.key"
