@@ -7206,7 +7206,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         if (op_ret == -1) {
                 local->op_errno = op_errno;
 
-                parent_layout_changed = dict_get (xdata, GF_PREOP_CHECK_FAILED)
+                parent_layout_changed = (xdata && dict_get (xdata, GF_PREOP_CHECK_FAILED))
                         ? 1 : 0;
                 if (parent_layout_changed) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
