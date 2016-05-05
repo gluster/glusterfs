@@ -209,6 +209,14 @@ S: Maintained
 F: xlators/mgmt/glusterd/src/glusterd-snap*
 F: extras/snap-scheduler.py
 
+Events APIs
+M: Aravinda VK <avishwan@redhat.com>
+S: Maintained
+F: events/
+F: libglusterfs/src/events*
+F: libglusterfs/src/eventtypes*
+F: extras/systemd/glustereventsd*
+
 Distribution Specific:
 ----------------------
 Build:

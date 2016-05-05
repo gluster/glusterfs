@@ -1,0 +1,22 @@
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2016 Red Hat, Inc. <http://www.redhat.com>
+#  This file is part of GlusterFS.
+#
+#  This file is licensed to you under your choice of the GNU Lesser
+#  General Public License, version 3 or any later version (LGPLv3 or
+#  later), or the GNU General Public License, version 2 (GPLv2), in all
+#  cases as published by the Free Software Foundation.
+#
+
+SERVER_ADDRESS = "@localstatedir@/run/gluster/events.sock"
+DEFAULT_CONFIG_FILE = "@SYSCONF_DIR@/glusterfs/eventsconfig.json"
+CUSTOM_CONFIG_FILE_TO_SYNC = "/events/config.json"
+CUSTOM_CONFIG_FILE = "@GLUSTERD_WORKDIR@" + CUSTOM_CONFIG_FILE_TO_SYNC
+WEBHOOKS_FILE_TO_SYNC = "/events/webhooks.json"
+WEBHOOKS_FILE = "@GLUSTERD_WORKDIR@" + WEBHOOKS_FILE_TO_SYNC
+LOG_FILE = "@localstatedir@/log/glusterfs/events.log"
+EVENTSD = "glustereventsd"
+CONFIG_KEYS = ["log_level"]
+BOOL_CONFIGS = []
+RESTART_CONFIGS = []
