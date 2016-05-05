@@ -31,6 +31,13 @@ int client_init_rpc (xlator_t *this);
 int client_destroy_rpc (xlator_t *this);
 int client_mark_fd_bad (xlator_t *this);
 
+static void
+client_filter_o_direct (clnt_conf_t *conf, int32_t *flags)
+{
+        if (conf->filter_o_direct)
+                *flags = (*flags & ~O_DIRECT);
+}
+
 static int
 client_fini_complete (xlator_t *this)
 {
@@ -913,11 +920,9 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,  int32_t flags,
         args.fd = fd;
         args.umask = umask;
         args.xdata = xdata;
+        args.flags = flags;
 
-        if (!conf->filter_o_direct)
-                args.flags = flags;
-        else
-                args.flags = (flags & ~O_DIRECT);
+        client_filter_o_direct (conf, &args.flags);
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
         if (proc->fn)
@@ -948,11 +953,9 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.fd = fd;
         args.xdata = xdata;
+        args.flags = flags;
 
-        if (!conf->filter_o_direct)
-                args.flags = flags;
-        else
-                args.flags = (flags & ~O_DIRECT);
+        client_filter_o_direct (conf, &args.flags);
 
         proc = &conf->fops->proctable[GF_FOP_OPEN];
         if (proc->fn)
@@ -985,6 +988,8 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.offset = offset;
         args.flags  = flags;
         args.xdata = xdata;
+
+        client_filter_o_direct (conf, &args.flags);
 
         proc = &conf->fops->proctable[GF_FOP_READ];
         if (proc->fn)
@@ -1023,6 +1028,8 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.flags  = flags;
         args.iobref = iobref;
         args.xdata = xdata;
+
+        client_filter_o_direct (conf, &args.flags);
 
         proc = &conf->fops->proctable[GF_FOP_WRITE];
         if (proc->fn)
