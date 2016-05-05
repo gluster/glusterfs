@@ -14,6 +14,7 @@
 #include "read-only-mem-types.h"
 #include "xlator.h"
 
+
 typedef struct {
         uint8_t worm : 1;
         uint8_t retain : 1;
