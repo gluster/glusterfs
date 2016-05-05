@@ -2134,6 +2134,19 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
+        /* Explicitly turn on encrypted transport. */
+        if (ctx->secure_mgmt) {
+                ret = dict_set_dynstr_with_alloc
+                        (options, "transport.socket.ssl-enabled", "yes");
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "failed to set 'transport.socket.ssl-enabled' "
+                                "in options dict");
+                        goto out;
+
+                }
+        }
+
         rpc = rpc_clnt_new (options, THIS, THIS->name, 8);
         if (!rpc) {
                 ret = -1;
