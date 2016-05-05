@@ -18,7 +18,7 @@
  * the write protection bits for all the users of the file.
  * Return true if all the write bits are disabled,false otherwise*/
 gf_boolean_t
-is_write_disabled (struct iatt *stbuf)
+gf_worm_write_disabled (struct iatt *stbuf)
 {
         gf_boolean_t ret        =       _gf_false;
 
@@ -113,7 +113,7 @@ worm_set_state (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
         if (ret)
                 goto out;
 
-        ret = set_xattr (this, retention_state, fop_with_fd, file_ptr);
+        ret = gf_worm_set_xattr (this, retention_state, fop_with_fd, file_ptr);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Error setting xattr");
                 goto out;
@@ -153,7 +153,7 @@ worm_get_state (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
                 ret = -2;
                 gf_log (this->name, GF_LOG_ERROR, "Empty val");
         }
-        deserialize_state (val, reten_state);
+        gf_worm_deserialize_state (val, reten_state);
 out:
         if (dict)
                 dict_unref (dict);
@@ -165,44 +165,32 @@ out:
  * Based on the retain value and the access time of the file, the transition
  * from WORM/Retention to WORM is made.*/
 void
-state_lookup (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
-              worm_reten_state_t *reten_state)
+gf_worm_state_lookup (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
+                      worm_reten_state_t *reten_state, struct iatt *stbuf)
 {
         int ret                                 =       -1;
-        struct iatt stbuf                       =       {0,};
 
         GF_VALIDATE_OR_GOTO ("worm", this, out);
         GF_VALIDATE_OR_GOTO (this->name, file_ptr, out);
         GF_VALIDATE_OR_GOTO (this->name, reten_state, out);
+        GF_VALIDATE_OR_GOTO (this->name, stbuf, out);
 
-        if (fop_with_fd)
-                ret = syncop_fstat (this, (fd_t *)file_ptr, &stbuf, NULL, NULL);
-        else
-                ret = syncop_stat (this, (loc_t *)file_ptr, &stbuf, NULL, NULL);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Stat lookup error: %s",
-                        strerror (-ret));
-                        goto out;
-        }
-        if (time (NULL) < stbuf.ia_atime)
-                goto out;
-
-        stbuf.ia_atime -= reten_state->ret_period;
+        stbuf->ia_atime -= reten_state->ret_period;
         reten_state->retain = 0;
         reten_state->ret_period = 0;
         reten_state->auto_commit_period = 0;
-        ret = set_xattr (this, reten_state, fop_with_fd, file_ptr);
+        ret = gf_worm_set_xattr (this, reten_state, fop_with_fd, file_ptr);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Error setting xattr");
                 goto out;
         }
 
         if (fop_with_fd)
-                ret = syncop_fsetattr (this, (fd_t *)file_ptr, &stbuf,
+                ret = syncop_fsetattr (this, (fd_t *)file_ptr, stbuf,
                                        GF_SET_ATTR_ATIME, NULL, NULL,
                                        NULL, NULL);
         else
-                ret = syncop_setattr (this, (loc_t *)file_ptr, &stbuf,
+                ret = syncop_setattr (this, (loc_t *)file_ptr, stbuf,
                                       GF_SET_ATTR_ATIME, NULL, NULL,
                                       NULL, NULL);
         if (ret)
@@ -216,7 +204,7 @@ out:
 /*This function serializes and stores the WORM/Retention state of a file in an
  * uint64_t variable by setting the bits using the bitwise operations.*/
 void
-serialize_state (worm_reten_state_t *reten_state, char *val)
+gf_worm_serialize_state (worm_reten_state_t *reten_state, char *val)
 {
         uint32_t state     =       0;
 
@@ -237,7 +225,8 @@ out:
 
 /*This function deserializes the data stored in the xattr of the file and loads
  * the value to the reten_state structure.*/
-void deserialize_state (char *val, worm_reten_state_t *reten_state)
+void
+gf_worm_deserialize_state (char *val, worm_reten_state_t *reten_state)
 {
         char *token     =       NULL;
         uint32_t state  =       0;
@@ -264,8 +253,8 @@ out:
 /*Function to set the xattr for a file.
  * If the xattr is already present then it will replace that.*/
 int32_t
-set_xattr (xlator_t *this, worm_reten_state_t *reten_state,
-           gf_boolean_t fop_with_fd, void *file_ptr)
+gf_worm_set_xattr (xlator_t *this, worm_reten_state_t *reten_state,
+                   gf_boolean_t fop_with_fd, void *file_ptr)
 {
         char val[100]   =        "";
         int ret         =        -1;
@@ -275,7 +264,7 @@ set_xattr (xlator_t *this, worm_reten_state_t *reten_state,
         GF_VALIDATE_OR_GOTO (this->name, reten_state, out);
         GF_VALIDATE_OR_GOTO (this->name, file_ptr, out);
 
-        serialize_state (reten_state, val);
+        gf_worm_serialize_state (reten_state, val);
         dict = dict_new ();
         if (!dict) {
                 gf_log (this->name, GF_LOG_ERROR, "Error creating the dict");
@@ -309,11 +298,11 @@ out:
  * 1: If the FOP sholud block i.e., if the file is in WORM-Retained/WORM state.
  * 2: Blocks the FOP if any operation fails while doing the state transition or
  *    fails to get the state of the file.*/
-int32_t
-state_transition (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
-                  glusterfs_fop_t op, int *ret_val)
+int
+gf_worm_state_transition (xlator_t *this, gf_boolean_t fop_with_fd,
+                          void *file_ptr, glusterfs_fop_t op)
 {
-        int label                         =       -1;
+        int op_errno                      =       EROFS;
         int ret                           =       -1;
         uint64_t com_period               =       0;
         uint64_t ret_period               =       0;
@@ -333,70 +322,74 @@ state_transition (xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
                 ret = syncop_getxattr (this, (loc_t *)file_ptr, &dict,
                                        "trusted.start_time", NULL, NULL);
         if (ret < 0 || !dict) {
-                ret = -2;
-                label = 2;
+                op_errno = ret;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, 0,
+                        "Error getting xattr");
                 goto out;
         }
         ret = dict_get_uint64 (dict, "trusted.start_time", &start_time);
         if (ret) {
-                label = 2;
+                op_errno = ret;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, 0,
+                        "Error getting start time");
+                goto out;
+        }
+
+        com_period = priv->com_period;
+        if (fop_with_fd)
+                ret = syncop_fstat (this, (fd_t *)file_ptr, &stbuf, NULL, NULL);
+        else
+                ret = syncop_stat (this, (loc_t *)file_ptr, &stbuf, NULL, NULL);
+        if (ret) {
+                op_errno = ret;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, 0,
+                        "Error getting file stat");
                 goto out;
         }
 
         ret = worm_get_state (this, fop_with_fd, file_ptr, &reten_state);
         if (ret == -2) {
-                ret = -1;
-                label = 2;
+                op_errno = ret;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, 0,
+                        "Error getting worm/retention state");
                 goto out;
         }
-        com_period = priv->com_period;
+
         if (ret == -1 && (time (NULL) - start_time) >= com_period) {
-                if (fop_with_fd)
-                        ret = syncop_fstat (this, (fd_t *)file_ptr, &stbuf,
-                                            NULL, NULL);
-                else
-                        ret = syncop_stat (this, (loc_t *)file_ptr, &stbuf,
-                                           NULL, NULL);
-                if (ret) {
-                        label = 2;
-                        goto out;
-                }
                 ret_period = priv->reten_period;
                 if ((time (NULL) - stbuf.ia_mtime) >= ret_period) {
                         ret = worm_set_state(this, fop_with_fd, file_ptr,
                                              &reten_state, &stbuf);
                         if (ret) {
-                                label = 2;
+                                op_errno = ret;
+                                gf_msg (this->name, GF_LOG_ERROR, -ret, 0,
+                                        "Error setting worm/retention state");
                                 goto out;
                         }
-                        label = 1;
                         goto out;
                 } else {
-                        label = 0;
+                        op_errno = 0;
                         goto out;
                 }
         } else if (ret == -1 && (time (NULL) - start_time)
                    < com_period) {
-                label = 0;
+                op_errno = 0;
                 goto out;
         } else if (reten_state.retain &&
-                   (time (NULL) - start_time) >=
-                    reten_state.auto_commit_period) {
-                state_lookup (this, fop_with_fd, file_ptr, &reten_state);
+                   ((time (NULL) >= stbuf.ia_atime))) {
+                gf_worm_state_lookup (this, fop_with_fd, file_ptr,
+                                      &reten_state, &stbuf);
         }
-        if (reten_state.retain)
-                label = 1;
-        else if (reten_state.worm && !reten_state.retain &&
-                 op == GF_FOP_UNLINK)
-                label = 0;
-        else
-                label = 1;
+        if (reten_state.worm && !reten_state.retain &&
+                 op == GF_FOP_UNLINK) {
+                op_errno = 0;
+                goto out;
+        }
 
 out:
         if (dict)
                 dict_unref (dict);
-        *ret_val = ret;
-        return label;
+        return op_errno;
 }
 
 
