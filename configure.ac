@@ -38,6 +38,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
+                libglusterfs/src/events.h
                 libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
@@ -225,6 +226,7 @@ AC_CONFIG_FILES([Makefile
                 extras/ganesha/ocf/Makefile
                 extras/systemd/Makefile
                 extras/systemd/glusterd.service
+                extras/systemd/glustereventsd.service
                 extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
@@ -248,6 +250,10 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/reset/post/Makefile
                 extras/hook-scripts/reset/pre/Makefile
                 extras/snap_scheduler/Makefile
+                events/Makefile
+                events/src/Makefile
+                events/src/eventsapiconf.py
+                events/tools/Makefile
                 contrib/fuse-util/Makefile
                 contrib/umountd/Makefile
                 contrib/uuid/uuid_types.h
@@ -718,6 +724,43 @@ fi
 AC_SUBST(GEOREP_EXTRAS_SUBDIR)
 AM_CONDITIONAL(USE_GEOREP, test "x$enable_georeplication" != "xno")
 
+# Events section
+AC_ARG_ENABLE([events],
+              AC_HELP_STRING([--disable-events],
+                             [Do not install Events components]))
+
+BUILD_EVENTS=no
+EVENTS_ENABLED=0
+EVENTS_SUBDIR=
+have_python2=no
+if test "x$enable_events" != "xno"; then
+  EVENTS_SUBDIR=events
+  EVENTS_ENABLED=1
+
+  BUILD_EVENTS="yes"
+  AM_PATH_PYTHON()
+  dnl Check if version matches that we require
+  if echo $PYTHON_VERSION | grep ^2; then
+     have_python2=yes
+  fi
+
+  if test "x$have_python2" = "xno"; then
+     if test "x$enable_events" = "xyes"; then
+        AC_MSG_ERROR([python 2.x packages required. exiting..])
+     fi
+     AC_MSG_WARN([python 2.x not found, disabling events])
+     EVENTS_SUBDIR=
+     EVENTS_ENABLED=0
+     BUILD_EVENTS="no"
+  else
+    AC_DEFINE(USE_EVENTS, 1, [define if events enabled])
+  fi
+fi
+AC_SUBST(EVENTS_ENABLED)
+AC_SUBST(EVENTS_SUBDIR)
+AM_CONDITIONAL([BUILD_EVENTS], [test x$BUILD_EVENTS = xyes])
+# end Events section
+
 # CDC xlator - check if libz is present if so enable HAVE_LIB_Z
 BUILD_CDC=yes
 PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
@@ -1097,10 +1140,15 @@ eval sbintemp=\"${sbintemp}\"
 eval sbintemp=\"${sbintemp}\"
 SBIN_DIR=${sbintemp}
 
+sysconfdirtemp="${sysconfdir}"
+eval sysconfdirtemp=\"${sysconfdirtemp}\"
+SYSCONF_DIR=${sysconfdirtemp}
+
 prefix=$prefix_temp
 exec_prefix=$exec_prefix_temp
 
 AC_SUBST(SBIN_DIR)
+AC_SUBST(SYSCONF_DIR)
 
 # lazy umount emulation
 UMOUNTD_SUBDIR=""
@@ -1377,4 +1425,5 @@ echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"
+echo "Events               : $BUILD_EVENTS"
 echo

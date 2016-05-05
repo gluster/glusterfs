@@ -1,0 +1,12 @@
+[Unit]
+Description=Gluster Events Notifier
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=@SBIN_DIR@/glustereventsd
+ExecReload=/bin/kill -SIGUSR2 $MAINPID
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

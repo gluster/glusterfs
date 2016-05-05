@@ -243,7 +243,11 @@ out:
         }
 
         CLI_STACK_DESTROY (frame);
-
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_VOLUME_CREATE, "name=%s", (char *)words[2]);
+        }
+#endif
         return ret;
 }
 
@@ -318,6 +322,12 @@ out:
 
         CLI_STACK_DESTROY (frame);
 
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_VOLUME_DELETE, "name=%s", (char *)words[2]);
+        }
+#endif
+
         return ret;
 }
 
@@ -391,6 +401,12 @@ out:
         }
 
         CLI_STACK_DESTROY (frame);
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_VOLUME_START, "name=%s", (char *)words[2]);
+        }
+#endif
 
         return ret;
 }
@@ -523,6 +539,12 @@ out:
         }
 
         CLI_STACK_DESTROY (frame);
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_VOLUME_STOP, "name=%s", (char *)words[2]);
+        }
+#endif
 
         return ret;
 }

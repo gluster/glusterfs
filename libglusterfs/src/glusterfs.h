@@ -37,6 +37,10 @@
 #include "lkowner.h"
 #include "compat-uuid.h"
 
+#if (USE_EVENTS)
+#include "events.h"
+#endif
+
 #define GF_YES 1
 #define GF_NO  0
 

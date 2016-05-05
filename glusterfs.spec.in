@@ -90,6 +90,11 @@
 %global _with_tmpfilesdir --without-tmpfilesdir
 %endif
 
+# Eventing
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+%global _without_events --disable-events
+%endif
+
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
 %if ( 0%{?rhel} && 0%{?rhel} <= 5 )
 %{!?python_sitelib: %global python_sitelib %(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
@@ -569,6 +574,23 @@ is in user space and easily manageable.
 
 This package provides the translators needed on any GlusterFS client.
 
+%if ( 0%{!?_without_events:1} )
+%package events
+Summary:          GlusterFS Events
+Group:            Applications/File
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+Requires:         python python-fasteners python-requests python-flask
+Requires:         python-prettytable
+Requires:         python-gluster = %{version}-%{release}
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+Requires:         python-argparse
+%endif
+
+%description events
+GlusterFS Events
+
+%endif
+
 %prep
 %setup -q -n %{name}-%{version}%{?prereltag}
 
@@ -595,7 +617,8 @@ export CFLAGS
         %{?_without_ocf} \
         %{?_without_rdma} \
         %{?_without_syslog} \
-        %{?_without_tiering}
+        %{?_without_tiering} \
+        %{?_without_events}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -1195,7 +1218,25 @@ exit 0
 %{_sbindir}/gf_logdump
 %{_sbindir}/gf_recon
 
+# Events
+%if ( 0%{!?_without_events:1} )
+%files events
+%config %attr(0600, root, root) %{_sysconfdir}/glusterfs/eventsconfig.json
+%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/events
+%{_libexecdir}/glusterfs/events
+%{_libexecdir}/glusterfs/peer_eventsapi.py*
+%{_sbindir}/glustereventsd
+%{_sbindir}/gluster-eventsapi
+%{_datadir}/glusterfs/scripts/eventsdash.py*
+%if ( 0%{?_with_systemd:1} )
+%{_unitdir}/glustereventsd.service
+%endif
+%endif
+
 %changelog
+* Wed Jul 15 2016 Aravinda VK <avishwan@redhat.com>
+- Added new subpackage events(glusterfs-events) (#1334044)
+
 * Fri Jul 15 2016 Aravinda VK <avishwan@redhat.com>
 - Removed ".py" extension from symlink(S57glusterfind-delete-post)(#1356868)
 

@@ -71,6 +71,12 @@ libglusterfs_la_SOURCES += $(CONTRIBDIR)/uuid/clear.c \
 	$(CONTRIBDIR)/uuid/unpack.c
 endif
 
+if BUILD_EVENTS
+libglusterfs_la_SOURCES += events.c
+
+libglusterfs_la_HEADERS += events.h eventtypes.h
+endif
+
 libgfchangelog_HEADERS = changelog.h
 
 EXTRA_DIST = graph.l graph.y defaults-tmpl.c

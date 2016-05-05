@@ -90,6 +90,12 @@ out:
 
         CLI_STACK_DESTROY (frame);
 
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_PEER_ATTACH, "host=%s", (char *)words[2]);
+        }
+#endif
+
         return ret;
 }
 
@@ -159,6 +165,12 @@ out:
         }
 
         CLI_STACK_DESTROY (frame);
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                gf_event (EVENT_PEER_DETACH, "host=%s", (char *)words[2]);
+        }
+#endif
 
         return ret;
 }

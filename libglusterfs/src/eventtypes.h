@@ -1,0 +1,22 @@
+#ifndef __EVENTTYPES_H__
+#define __EVENTTYPES_H__
+
+typedef enum {
+    EVENT_SEND_OK,
+    EVENT_ERROR_INVALID_INPUTS,
+    EVENT_ERROR_SOCKET,
+    EVENT_ERROR_CONNECT,
+    EVENT_ERROR_SEND,
+} event_errors_t;
+
+typedef enum {
+    EVENT_PEER_ATTACH,
+    EVENT_PEER_DETACH,
+    EVENT_VOLUME_CREATE,
+    EVENT_VOLUME_START,
+    EVENT_VOLUME_STOP,
+    EVENT_VOLUME_DELETE,
+    EVENT_LAST
+} eventtypes_t;
+
+#endif /* __EVENTTYPES_H__ */
