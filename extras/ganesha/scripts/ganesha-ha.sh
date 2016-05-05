@@ -259,7 +259,7 @@ ${tganesha_vol_conf}
                 removed_id=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d ' ' -f8")
+grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'")
 
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
@@ -306,7 +306,7 @@ string:\"EXPORT(Path=/$VOL)\" 2>&1")
 
     # Run the same command on the localhost,
         removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d " " -f8`
+grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
 uint16:$removed_id 2>&1)

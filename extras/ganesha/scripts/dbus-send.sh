@@ -91,7 +91,7 @@ string:"EXPORT(Path=/$VOL)"
 function dynamic_export_remove()
 {
         removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d ' ' -f8`
+grep Export_Id | awk -F"[=,;]" '{print$2}'| tr -d '[[:space:]]'`
         check_cmd_status `echo $?`
         dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
