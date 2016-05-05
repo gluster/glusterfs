@@ -30,7 +30,7 @@ mem_acct_init (xlator_t *this)
 }
 
 
-int32_t
+static int32_t
 worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
@@ -46,185 +46,150 @@ worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 }
 
 
-int32_t
+static int32_t
 worm_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
            dict_t *xdata)
 {
-        int ret                     =       -1;
-        int label                   =       -1;
+        int op_errno                =       EROFS;
         read_only_priv_t *priv      =       NULL;
 
         priv = this->private;
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
-                goto unwind;
-        if (!priv->worm_file)
-                goto wind;
+                goto out;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
         gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
-        if (is_wormfile (this, _gf_false, oldloc))
-                goto wind;
-        label = state_transition (this, _gf_false, oldloc, GF_FOP_LINK, &ret);
-        if (label == 0)
-                goto wind;
-        if (label == 1)
-                goto unwind;
-        if (label == 2)
+        if (is_wormfile (this, _gf_false, oldloc)) {
+                op_errno = 0;
                 goto out;
+        }
+        op_errno = gf_worm_state_transition (this, _gf_false, oldloc,
+                                             GF_FOP_LINK);
 
-unwind:
-        STACK_UNWIND_STRICT (link, frame, -1, EROFS, NULL, NULL, NULL, NULL,
-                             NULL);
-        ret = 0;
-        goto out;
-wind:
-        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
-                         FIRST_CHILD(this)->fops->link,
-                         oldloc, newloc, xdata);
-        ret = 0;
 out:
-        if (label == 2)
-                STACK_UNWIND_STRICT (link, frame, -1, ret, NULL, NULL,
+        if (op_errno)
+                STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
-        return ret;
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                                 FIRST_CHILD(this)->fops->link,
+                                 oldloc, newloc, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
              dict_t *xdata)
 {
-        int ret                     =       -1;
-        int label                   =       -1;
+        int op_errno                =       EROFS;
         read_only_priv_t *priv      =       NULL;
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this))
-                goto unwind;
-        if (!priv->worm_file)
-                goto wind;
+        if (is_readonly_or_worm_enabled (this)) {
+                goto out;
+        }
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
         gf_uuid_copy (loc->gfid, loc->inode->gfid);
-        if (is_wormfile (this, _gf_false, loc))
-                goto wind;
-        label = state_transition (this, _gf_false, loc, GF_FOP_UNLINK, &ret);
-        if (label == 0)
-                goto wind;
-        if (label == 1)
-                goto unwind;
-        if (label == 2)
+        if (is_wormfile (this, _gf_false, loc)) {
+                op_errno = 0;
                 goto out;
-
-unwind:
-        STACK_UNWIND_STRICT (unlink, frame, -1, EROFS, NULL, NULL, NULL);
-        ret = 0;
-        goto out;
-wind:
-        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
-                         FIRST_CHILD(this)->fops->unlink,
-                         loc, flags, xdata);
-        ret = 0;
+        }
+        op_errno = gf_worm_state_transition (this, _gf_false, loc,
+                                             GF_FOP_UNLINK);
 out:
-        if (label == 2)
-                STACK_UNWIND_STRICT (unlink, frame, -1, ret,
-                                     NULL, NULL, NULL);
-        return ret;
+        if (op_errno)
+                STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                                 FIRST_CHILD(this)->fops->unlink,
+                                 loc, flags, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_rename (call_frame_t *frame, xlator_t *this,
              loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        int ret                     =       -1;
-        int label                   =       -1;
+        int op_errno                =       EROFS;
         read_only_priv_t *priv      =       NULL;
 
         priv = this->private;
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
-                goto unwind;
-        if (!priv->worm_file)
-                goto wind;
+                goto out;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
         gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
-        if (is_wormfile (this, _gf_false, oldloc))
-                goto wind;
-        label = state_transition (this, _gf_false, oldloc, GF_FOP_RENAME,
-                                  &ret);
-        if (label == 0)
-                goto wind;
-        if (label == 1)
-                goto unwind;
-        if (label == 2)
+        if (is_wormfile (this, _gf_false, oldloc)) {
+                op_errno = 0;
                 goto out;
+        }
+        op_errno = gf_worm_state_transition (this, _gf_false, oldloc,
+                                           GF_FOP_RENAME);
 
-unwind:
-        STACK_UNWIND_STRICT (rename, frame, -1, EROFS, NULL,
-                             NULL, NULL, NULL, NULL, NULL);
-        ret = 0;
-        goto out;
-wind:
-        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                         FIRST_CHILD (this)->fops->rename,
-                         oldloc, newloc, xdata);
-        ret = 0;
 out:
-        if (label == 2)
-                STACK_UNWIND_STRICT (rename, frame, -1, ret, NULL,
+        if (op_errno)
+                STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL,
                                      NULL, NULL, NULL, NULL, NULL);
-        return ret;
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->rename,
+                                 oldloc, newloc, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                dict_t *xdata)
 {
-        int ret                     =       -1;
-        int label                   =       -1;
+        int op_errno                =       EROFS;
         read_only_priv_t *priv      =       NULL;
 
         priv = this->private;
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
-                goto unwind;
-        if (!priv->worm_file)
-                goto wind;
-
-        if (is_wormfile (this, _gf_false, loc))
-                goto wind;
-        label = state_transition (this, _gf_false, loc, GF_FOP_TRUNCATE,
-                                  &ret);
-        if (label == 0)
-                goto wind;
-        if (label == 1)
-                goto unwind;
-        if (label == 2)
                 goto out;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
-unwind:
-        STACK_UNWIND_STRICT (truncate, frame, -1, EROFS,
-                                     NULL, NULL, NULL);
-        ret = 0;
-        goto out;
+        if (is_wormfile (this, _gf_false, loc)) {
+                op_errno = 0;
+                goto out;
+        }
+        op_errno = gf_worm_state_transition (this, _gf_false, loc,
+                                           GF_FOP_TRUNCATE);
 
-wind:
-        STACK_WIND_TAIL (frame,
-                         FIRST_CHILD (this),
-                         FIRST_CHILD (this)->fops->truncate,
-                         loc, offset, xdata);
-        ret = 0;
 out:
-        if (label == 2)
-                STACK_UNWIND_STRICT (truncate, frame, -1, ret,
-                                     NULL, NULL, NULL);
-        return ret;
+        if (op_errno)
+                STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->truncate,
+                                 loc, offset, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
               struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
@@ -232,22 +197,29 @@ worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         worm_reten_state_t reten_state  =       {0,};
         struct iatt stpre               =       {0,};
         read_only_priv_t *priv          =       NULL;
+        int op_errno                    =       EROFS;
         int ret                         =       -1;
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (!priv->worm_file)
-                goto wind;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
-        if (is_wormfile (this, _gf_false, loc))
-                goto wind;
+        if (is_wormfile (this, _gf_false, loc)) {
+                op_errno = 0;
+                goto out;
+        }
         if (valid & GF_SET_ATTR_MODE) {
-                rd_only = is_write_disabled (stbuf);
-                if (!rd_only)
-                        goto wind;
+                rd_only = gf_worm_write_disabled (stbuf);
+                if (!rd_only) {
+                        op_errno = 0;
+                        goto out;
+                }
 
                 ret = worm_set_state (this, _gf_false, loc,
-                                      &reten_state, stbuf);
+                                           &reten_state, stbuf);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Error setting worm state");
@@ -255,8 +227,10 @@ worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
         } else if (valid & GF_SET_ATTR_ATIME) {
                 ret = worm_get_state (this, _gf_false, loc, &reten_state);
-                if (ret)
-                        goto wind;
+                if (ret) {
+                        op_errno = 0;
+                        goto out;
+                }
                 if (reten_state.retain) {
                         ret = syncop_stat (this, loc, &stpre, NULL, NULL);
                         if (ret)
@@ -267,7 +241,7 @@ worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                                 "Cannot set atime less than "
                                                 "the mtime for a WORM-Retained "
                                                 "file");
-                                        goto unwind;
+                                        goto out;
                                 }
                         } else {
                                 if (stbuf->ia_atime < stpre.ia_atime) {
@@ -275,27 +249,27 @@ worm_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                                 "Cannot decrease the atime of a"
                                                 " WORM-Retained file in "
                                                 "Enterprise mode");
-                                        goto unwind;
+                                        goto out;
                                 }
                         }
                         stbuf->ia_mtime = stpre.ia_mtime;
                 }
         }
+        op_errno = 0;
 
-wind:
-        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr,
-                    loc, stbuf, valid, xdata);
-        ret = 0;
-        goto out;
-unwind:
-        STACK_UNWIND_STRICT (setattr, frame, -1, EROFS, NULL, NULL, NULL);
 out:
-        return ret;
+        if (op_errno)
+                STACK_UNWIND_STRICT (setattr, frame, -1, EROFS, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->setattr,
+                                 loc, stbuf, valid, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
@@ -303,19 +277,26 @@ worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         worm_reten_state_t reten_state  =       {0,};
         struct iatt stpre               =       {0,};
         read_only_priv_t *priv          =       NULL;
+        int op_errno                    =       EROFS;
         int ret                         =       -1;
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (!priv->worm_file)
-                goto wind;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
 
-        if (is_wormfile (this, _gf_true, fd))
-                goto wind;
+        if (is_wormfile (this, _gf_true, fd)) {
+                op_errno = 0;
+                goto out;
+        }
         if (valid & GF_SET_ATTR_MODE) {
-                rd_only = is_write_disabled (stbuf);
-                if (!rd_only)
-                        goto wind;
+                rd_only = gf_worm_write_disabled (stbuf);
+                if (!rd_only) {
+                        op_errno = 0;
+                        goto out;
+                }
 
                 ret = worm_set_state (this, _gf_true, fd,
                                       &reten_state, stbuf);
@@ -326,8 +307,10 @@ worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
         } else if (valid & GF_SET_ATTR_ATIME) {
                 ret = worm_get_state (this, _gf_true, fd, &reten_state);
-                if (ret)
-                        goto wind;
+                if (ret) {
+                        op_errno = 0;
+                        goto out;
+                }
                 if (reten_state.retain) {
                         ret = syncop_fstat (this, fd, &stpre, NULL, NULL);
                         if (ret)
@@ -338,7 +321,7 @@ worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                 "Cannot set atime less than "
                                                 "the mtime for a WORM-Retained "
                                                 "file");
-                                        goto unwind;
+                                        goto out;
                                 }
                         } else {
                                 if (stbuf->ia_atime < stpre.ia_atime) {
@@ -346,76 +329,77 @@ worm_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                 "Cannot decrease the atime of a"
                                                 " WORM-Retained file in "
                                                 "Enterprise mode");
-                                        goto unwind;
+                                        goto out;
                                 }
                         }
                         stbuf->ia_mtime = stpre.ia_mtime;
                 }
         }
+        op_errno = 0;
 
-wind:
-        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->fsetattr,
-                    fd, stbuf, valid, xdata);
-        ret = 0;
-        goto out;
-unwind:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, EROFS, NULL, NULL, NULL);
 out:
-        return ret;
+        if (op_errno)
+                STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->fsetattr,
+                                 fd, stbuf, valid, xdata);
+        return 0;
 }
 
 
-int32_t
+static int32_t
 worm_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
              struct iovec *vector, int32_t count, off_t offset, uint32_t flags,
              struct iobref *iobref, dict_t *xdata)
 {
         worm_reten_state_t reten_state    =       {0,};
         read_only_priv_t *priv            =       NULL;
+        int op_errno                      =       EROFS;
         int ret                           =       -1;
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (!priv->worm_file)
-                goto wind;
-
-        if (is_wormfile (this, _gf_true, fd))
-                goto wind;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
+        if (is_wormfile (this, _gf_true, fd)) {
+                op_errno = 0;
+                goto out;
+        }
         ret = worm_get_state (this, _gf_true, fd, &reten_state);
+        if (ret)
+                goto out;
         if (!reten_state.worm)
-                goto wind;
-
-        STACK_UNWIND_STRICT (writev, frame, -1, EROFS, NULL, NULL, NULL);
-        goto out;
-
-wind:
-        STACK_WIND_TAIL (frame,
-                         FIRST_CHILD (this),
-                         FIRST_CHILD (this)->fops->writev,
-                         fd, vector, count, offset, flags,
-                         iobref, xdata);
-        ret = 0;
+                op_errno = 0;
 
 out:
-        return ret;
+        if (op_errno)
+                STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->writev,
+                                 fd, vector, count, offset, flags, iobref,
+                                 xdata);
+        return 0;
 }
 
-
-int32_t
-worm_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-             mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
+static int32_t
+worm_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, fd_t *fd,
+                 inode_t *inode, struct iatt *buf,
+                 struct iatt *preparent, struct iatt *postparent,
+                 dict_t *xdata)
 {
-        int ret                   =       -1;
+        int ret                   =       0;
         read_only_priv_t *priv    =       NULL;
         dict_t *dict              =       NULL;
 
-        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                         FIRST_CHILD(this)->fops->create, loc, flags,
-                         mode, umask, fd, xdata);
         priv = this->private;
         GF_ASSERT (priv);
-
         if (priv->worm_file) {
                 dict = dict_new ();
                 if (!dict) {
@@ -423,7 +407,6 @@ worm_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                                 "dict");
                         goto out;
                 }
-                GF_VALIDATE_OR_GOTO (this->name, dict, out);
                 ret = dict_set_int8 (dict, "trusted.worm_file", 1);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Error in setting "
@@ -444,9 +427,22 @@ worm_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
 out:
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
+                             preparent, postparent, xdata);
         if (dict)
                 dict_destroy (dict);
         return ret;
+}
+
+
+static int32_t
+worm_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+             mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
+{
+        STACK_WIND (frame, worm_create_cbk,  FIRST_CHILD (this),
+                    FIRST_CHILD(this)->fops->create, loc, flags,
+                    mode, umask, fd, xdata);
+        return 0;
 }
 
 
