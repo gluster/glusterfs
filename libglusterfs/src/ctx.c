@@ -35,7 +35,8 @@ glusterfs_ctx_new ()
 	ctx->daemon_pipe[0] = -1;
 	ctx->daemon_pipe[1] = -1;
 
-	ret = pthread_mutex_init (&ctx->lock, NULL);
+        /* lock is never destroyed! */
+	ret = LOCK_INIT (&ctx->lock);
 	if (ret) {
 		free (ctx);
 		ctx = NULL;

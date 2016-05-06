@@ -154,7 +154,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         LOCK_INIT (&pool->lock);
         ctx->pool = pool;
 
-        pthread_mutex_init (&(ctx->lock), NULL);
+        LOCK_INIT (&ctx->lock);
 
         cmd_args = &ctx->cmd_args;
 
