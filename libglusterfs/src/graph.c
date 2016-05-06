@@ -598,16 +598,19 @@ _glusterfs_reachable_leaves(xlator_t *base, xlator_t *xl, dict_t *leaves)
         xlator_list_t *list = NULL;
         int err = 1;
         int pos = 0;
-        char strpos[6];
+        char *strpos = NULL;
 
         if (glusterfs_is_leaf(xl)) {
                 pos = glusterfs_leaf_position(xl);
                 if (pos < 0)
                         goto out;
-                sprintf(strpos, "%d", pos);
 
-                err = dict_set_static_ptr(leaves, strpos, base);
+                err = gf_asprintf(&strpos, "%d", pos);
 
+                if (err >= 0) {
+                        err = dict_set_static_ptr(leaves, strpos, base);
+                        GF_FREE (strpos);
+                }
         } else {
                 for (err = 0, list = xl->children;
                      !err && list;
