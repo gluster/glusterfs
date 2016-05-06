@@ -32,6 +32,7 @@
 #include "glusterfs-fops.h" /* generated XDR values for FOPs */
 
 #include "list.h"
+#include "locking.h"
 #include "logging.h"
 #include "lkowner.h"
 #include "compat-uuid.h"
@@ -428,7 +429,7 @@ struct _glusterfs_ctx {
         void               *event_pool;
         void               *iobuf_pool;
         void               *logbuf_pool;
-        pthread_mutex_t     lock;
+        gf_lock_t           lock;
         size_t              page_size;
         struct list_head    graphs; /* double linked list of graphs - one per volfile parse */
         glusterfs_graph_t  *active; /* the latest graph in use */

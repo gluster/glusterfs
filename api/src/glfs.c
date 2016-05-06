@@ -149,7 +149,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 	LOCK_INIT (&pool->lock);
 	ctx->pool = pool;
 
-	pthread_mutex_init (&(ctx->lock), NULL);
+	LOCK_INIT (&ctx->lock);
 
 	ret = 0;
 err:
@@ -1059,9 +1059,9 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
         GF_FREE (ctx->process_uuid);
         GF_FREE (ctx->cmd_args.volfile_id);
 
-        pthread_mutex_destroy (&(ctx->lock));
-        pthread_mutex_destroy (&(ctx->notify_lock));
-        pthread_cond_destroy (&(ctx->notify_cond));
+        LOCK_DESTROY (&ctx->lock);
+        pthread_mutex_destroy (&ctx->notify_lock);
+        pthread_cond_destroy (&ctx->notify_cond);
 
         /* Free all the graph structs and its containing xlator_t structs
          * from this point there should be no reference to GF_FREE/GF_CALLOC

@@ -4641,7 +4641,7 @@ gf_rdma_init (rpc_transport_t *this)
         pthread_mutex_init (&priv->recv_mutex, NULL);
         pthread_cond_init (&priv->recv_cond, NULL);
 
-        pthread_mutex_lock (&ctx->lock);
+        LOCK (&ctx->lock);
         {
                 if (ctx->ib == NULL) {
                         ctx->ib = __gf_rdma_ctx_create ();
@@ -4650,7 +4650,7 @@ gf_rdma_init (rpc_transport_t *this)
                         }
                 }
         }
-        pthread_mutex_unlock (&ctx->lock);
+        UNLOCK (&ctx->lock);
 
         return ret;
 }
