@@ -353,17 +353,29 @@ out:
 static xlator_t *
 dht_get_subvol_from_id(xlator_t *this, int client_id)
 {
-        xlator_t *xl = NULL;
+        xlator_t   *xl   = NULL;
         dht_conf_t *conf = NULL;
-        char sid[6] = { 0 };
+        char       *sid  = NULL;
+        int32_t     ret  = -1;
 
         conf = this->private;
 
-        sprintf(sid, "%d", client_id);
+        ret = gf_asprintf(&sid, "%d", client_id);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_ASPRINTF_FAILED, "asprintf failed while "
+                        "fetching subvol from the id");
+                goto out;
+        }
+
         if (dict_get_ptr(conf->leaf_to_subvol, sid, (void **) &xl))
                 xl = NULL;
 
+        GF_FREE (sid);
+
+out:
         return xl;
+
 }
 
 int
