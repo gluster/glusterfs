@@ -710,8 +710,6 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 install -p -m 0744 -D extras/command-completion/gluster.bash \
     %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
 
-mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/glusterfind/.keys
-
 %clean
 rm -rf %{buildroot}
 
@@ -1129,7 +1127,7 @@ exit 0
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file/pre
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
-            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
+                            %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
@@ -1180,6 +1178,9 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Fri May 6 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- additional dirs and files in /var/lib/glusterd/... (#1326410)
+
 * Tue Apr 26 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - %%postun libs w/o firewalld on RHEL6 (#1330583)
 
