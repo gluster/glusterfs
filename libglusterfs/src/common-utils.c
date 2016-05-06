@@ -668,9 +668,14 @@ gf_dump_config_flags ()
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING
         {
-                char msg[128];
-                sprintf (msg, "package-string: %s", PACKAGE_STRING);
-                gf_msg_plain_nomem (GF_LOG_ALERT, msg);
+                char *msg = NULL;
+                int   ret = -1;
+
+                ret = gf_asprintf (&msg, "package-string: %s", PACKAGE_STRING);
+                if (ret >= 0) {
+                        gf_msg_plain_nomem (GF_LOG_ALERT, msg);
+                        GF_FREE (msg);
+                }
         }
 #endif
 
