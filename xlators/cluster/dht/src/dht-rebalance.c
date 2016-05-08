@@ -1203,6 +1203,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         int                     log_level               = GF_LOG_INFO;
         gf_boolean_t            delete_src_linkto       = _gf_true;
         lock_migration_info_t   locklist;
+        dict_t                  *meta_dict              = NULL;
+        gf_boolean_t            meta_locked             = _gf_false;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1406,6 +1408,53 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
            to the dst data file.
         */
 
+        /* Take meta lock  */
+
+        if (defrag->lock_migration_enabled) {
+                meta_dict = dict_new ();
+                if (!meta_dict) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace dict_new failed");
+
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_str (meta_dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value: key = %s,"
+                                " path = %s", GLUSTERFS_INTERNAL_FOP_KEY,
+                                 loc->path);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (meta_dict, GF_META_LOCK_KEY, 1);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace dict_set failed");
+
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = syncop_setxattr (from, loc, meta_dict, 0, NULL, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace syncop_setxattr metalock failed");
+
+                        ret = -1;
+                        goto out;
+                } else {
+                        meta_locked = _gf_true;
+                }
+        }
+
         if (!defrag->lock_migration_enabled) {
                 plock.l_type = F_WRLCK;
                 plock.l_start = 0;
@@ -1444,7 +1493,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                         "write lock failed on:%s", loc->path);
 
                                 ret = -1;
-                                goto out;
+                                goto metaunlock;
                         }
                 } else {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1452,6 +1501,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "getactivelk failed for file: %s", loc->path);
                 }
         }
+
 
         /* source would have both sticky bit and sgid bit set, reset it to 0,
            and set the source permission on destination, if it was not set
@@ -1475,7 +1525,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to perform setattr on %s ",
                         loc->path, to->name);
                 ret = -1;
-                goto out;
+                goto metaunlock;
         }
 
         /* Because 'futimes' is not portable */
@@ -1488,6 +1538,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, to->name);
                 ret = -1;
         }
+
 
         clean_dst = _gf_false;
 
@@ -1550,7 +1601,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to perform setattr on %s ",
                         loc->path, from->name);
                 ret = -1;
-                goto out;
+                goto metaunlock;
         }
 
        /* Free up the data blocks on the source node, as the whole
@@ -1591,7 +1642,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
                 if (-ret != ENOENT) {
                         ret = -1;
-                        goto out;
+                        goto metaunlock;
                 }
 
                 rcvd_enoent_from_src = 1;
@@ -1608,7 +1659,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "%s: failed to perform unlink on %s (%s)",
                                 loc->path, from->name, strerror (-ret));
                         ret = -1;
-                        goto out;
+                        goto metaunlock;
                 }
         }
 
@@ -1626,6 +1677,48 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 loc->path, from->name, to->name);
 
         ret = 0;
+
+metaunlock:
+
+        if (defrag->lock_migration_enabled && meta_locked) {
+
+                dict_del (meta_dict, GF_META_LOCK_KEY);
+
+                ret = dict_set_int32 (meta_dict, GF_META_UNLOCK_KEY, 1);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace dict_set failed");
+
+                        ret = -1;
+                        goto out;
+                }
+
+                if (clean_dst == _gf_false)
+                        ret = dict_set_int32 (meta_dict, "status", 1);
+                else
+                        ret = dict_set_int32 (meta_dict, "status", 0);
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace dict_set failed");
+
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = syncop_setxattr (from, loc, meta_dict, 0, NULL, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Trace syncop_setxattr meta unlock failed");
+
+                        ret = -1;
+                        goto out;
+                }
+        }
+
 out:
         if (clean_src) {
                 /* Revert source mode and xattr changes*/
