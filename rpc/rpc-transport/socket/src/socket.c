@@ -1644,7 +1644,6 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
         gfs3_read_rsp     read_rsp          = {0, };
         ssize_t           size              = 0;
         ssize_t           default_read_size = 0;
-        char             *proghdr_buf       = NULL;
         XDR               xdr;
         struct gf_sock_incoming      *in         = NULL;
         struct gf_sock_incoming_frag *frag       = NULL;
@@ -1664,7 +1663,9 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                 default_read_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_read_rsp,
                                                 &read_rsp);
 
-                proghdr_buf = frag->fragcurrent;
+                /* We need to store the current base address because we will
+                 * need it after a partial read. */
+                in->proghdr_base_addr = frag->fragcurrent;
 
                 __socket_proto_init_pending (priv, default_read_size);
 
@@ -1677,7 +1678,8 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                 __socket_proto_read (priv, ret);
 
                 /* there can be 'xdata' in read response, figure it out */
-                xdrmem_create (&xdr, proghdr_buf, default_read_size,
+                default_read_size = frag->fragcurrent - in->proghdr_base_addr;
+                xdrmem_create (&xdr, in->proghdr_base_addr, default_read_size,
                                XDR_DECODE);
 
                 /* This will fail if there is xdata sent from server, if not,
