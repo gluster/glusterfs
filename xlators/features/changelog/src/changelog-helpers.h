@@ -116,8 +116,9 @@ typedef struct changelog_rollover {
 
         xlator_t *this;
 
-        /* read end of pipe used as event from barrier on snapshot */
-        int rfd;
+        pthread_mutex_t lock;
+        pthread_cond_t cond;
+        gf_boolean_t notify;
 } changelog_rollover_t;
 
 typedef struct changelog_fsync {
@@ -264,9 +265,6 @@ struct changelog_priv {
 
         /* Represents the active color. Initially by default black */
         chlog_fop_color_t current_color;
-
-        /* write end of pipe to do explicit rollover on barrier during snap */
-        int cr_wfd;
 
         /* flag to determine explicit rollover is triggered */
         gf_boolean_t explicit_rollover;
