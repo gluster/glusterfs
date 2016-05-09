@@ -3084,7 +3084,9 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READ_FAILED,
-                        "read failed on fd=%p", fd);
+                        "read failed on gfid=%s, fd=%p, offset=%"PRIu64" "
+                        "size=%"GF_PRI_SIZET"", uuid_utoa (fd->inode->gfid), fd,
+                        offset, size);
                 goto out;
         }
 
