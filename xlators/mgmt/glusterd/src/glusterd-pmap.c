@@ -115,7 +115,7 @@ pmap_registry_search (xlator_t *this, const char *brickname,
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
+        for (p = pmap->last_alloc; p >= pmap->base_port; p--) {
                 if (!pmap->ports[p].brickname || pmap->ports[p].type != type)
                         continue;
 
@@ -142,7 +142,7 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
+        for (p = pmap->last_alloc; p >= pmap->base_port; p--) {
                 if (!pmap->ports[p].xprt)
                         continue;
                 if (pmap->ports[p].xprt == xprt &&
