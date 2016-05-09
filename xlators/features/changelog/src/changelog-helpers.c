@@ -1259,15 +1259,10 @@ changelog_rollover (void *data)
 {
         int                     ret             = 0;
         xlator_t               *this            = NULL;
-        struct timeval          tv              = {0,};
+        struct timespec         tv              = {0,};
         changelog_log_data_t    cld             = {0,};
         changelog_time_slice_t *slice           = NULL;
         changelog_priv_t       *priv            = data;
-        int                     max_fd          = 0;
-        char                    buf[1]          = {0};
-        int                     len             = 0;
-
-        fd_set                  rset;
 
         this = priv->cr.this;
         slice = &priv->slice;
@@ -1275,48 +1270,42 @@ changelog_rollover (void *data)
         while (1) {
                 (void) pthread_testcancel();
 
-                tv.tv_sec  = priv->rollover_time;
-                tv.tv_usec = 0;
-                FD_ZERO(&rset);
-                FD_SET(priv->cr.rfd, &rset);
-                max_fd = priv->cr.rfd;
-                max_fd = max_fd + 1;
+                tv.tv_sec  = time (NULL) + priv->rollover_time;
+                tv.tv_nsec = 0;
+                ret = 0; /* Reset ret to zero */
 
-               /* It seems there is a race between actual rollover and explicit
-                * rollover. But it is handled. If actual rollover is being
-                * done and the explicit rollover event comes, the event is
-                * not missed. The next select will immediately wakeup to
-                * handle explicit wakeup.
+               /* The race between actual rollover and explicit rollover is
+                * handled. If actual rollover is being done and the
+                * explicit rollover event comes, the event is not missed.
+                * Since explicit rollover sets 'cr.notify' to true, this
+                * thread doesn't wait on 'pthread_cond_timedwait'.
                 */
+                pthread_cleanup_push (changelog_cleanup_free_mutex,
+                                      &priv->cr.lock);
+                pthread_mutex_lock (&priv->cr.lock);
+                {
+                        while (ret == 0 && !priv->cr.notify)
+                                ret = pthread_cond_timedwait (&priv->cr.cond,
+                                                              &priv->cr.lock,
+                                                              &tv);
+                        if (ret == 0)
+                                priv->cr.notify = _gf_false;
+                }
+                pthread_mutex_unlock (&priv->cr.lock);
+                pthread_cleanup_pop (0);
 
-                ret = select (max_fd, &rset, NULL, NULL, &tv);
-                if (ret == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                CHANGELOG_MSG_SELECT_FAILED,
-                                "select failed");
-                        continue;
-                } else if (ret && FD_ISSET(priv->cr.rfd, &rset)) {
+                if (ret == 0) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 CHANGELOG_MSG_BARRIER_INFO,
-                                "Explicit wakeup of select on barrier notify");
-                        len = sys_read (priv->cr.rfd, buf, 1);
-                        if (len == 0) {
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        CHANGELOG_MSG_READ_ERROR, "BUG: Got EOF"
-                                        " from reconfigure notification pipe");
-                                continue;
-                        }
-                        if (len < 0) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        CHANGELOG_MSG_READ_ERROR,
-                                        "Failed to read wakeup data");
-                                continue;
-                        }
-                        /* Lock is not required as same thread is modifying.*/
+                                "Explicit wakeup on barrier notify");
                         priv->explicit_rollover = _gf_true;
-                } else {
-                        gf_msg_debug (this->name, 0,
-                                      "select wokeup on timeout");
+                } else if (ret && ret != ETIMEDOUT) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                CHANGELOG_MSG_SELECT_FAILED,
+                                "pthread_cond_timedwait failed");
+                        continue;
+                } else if (ret && ret == ETIMEDOUT) {
+                        gf_msg_debug (this->name, 0, "Wokeup on timeout");
                 }
 
                /* Reading curent_color without lock is fine here
@@ -1783,9 +1772,12 @@ changelog_barrier_notify (changelog_priv_t *priv, char *buf)
 {
         int ret = 0;
 
-        LOCK(&priv->lock);
-                ret = changelog_write (priv->cr_wfd, buf, 1);
-        UNLOCK(&priv->lock);
+        pthread_mutex_lock (&priv->cr.lock);
+        {
+                ret = pthread_cond_signal (&priv->cr.cond);
+                priv->cr.notify = _gf_true;
+        }
+        pthread_mutex_unlock (&priv->cr.lock);
         return ret;
 }
 

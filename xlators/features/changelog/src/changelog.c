@@ -2046,11 +2046,6 @@ changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
         if (priv->cr.rollover_th) {
                 (void) changelog_thread_cleanup (this, priv->cr.rollover_th);
                 priv->cr.rollover_th = 0;
-                ret = sys_close (priv->cr_wfd);
-                if (ret)
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                CHANGELOG_MSG_CLOSE_ERROR,
-                                "error closing write end of rollover pipe");
         }
 
         if (priv->cf.fsync_th) {
@@ -2065,7 +2060,6 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
 {
         int ret = 0;
         int flags = 0;
-        int pipe_fd[2] = {0, 0};
 
         /* Geo-Rep snapshot dependency:
          *
@@ -2079,29 +2073,7 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
          * the write end of the pipe in 'reconfigure'.
          */
 
-        ret = pipe (pipe_fd);
-        if (ret == -1) {
-                gf_msg (this->name, GF_LOG_ERROR,
-                        errno, CHANGELOG_MSG_PIPE_CREATION_ERROR,
-                        "Cannot create pipe");
-                goto out;
-        }
-
-        /* writer is non-blocking */
-        flags = fcntl (pipe_fd[1], F_GETFL);
-        flags |= O_NONBLOCK;
-
-        ret = fcntl (pipe_fd[1], F_SETFL, flags);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_FCNTL_FAILED,
-                        "failed to set O_NONBLOCK flag");
-                goto out;
-        }
-
-        priv->cr_wfd = pipe_fd[1];
-        priv->cr.rfd = pipe_fd[0];
-
+        priv->cr.notify = _gf_false;
         priv->cr.this = this;
         ret = gf_thread_create (&priv->cr.rollover_th,
 				NULL, changelog_rollover, priv);
@@ -2419,6 +2391,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         gf_boolean_t    dm_cond_black_init    = _gf_false;
         gf_boolean_t    dm_mutex_white_init   = _gf_false;
         gf_boolean_t    dm_cond_white_init    = _gf_false;
+        gf_boolean_t    cr_mutex_init         = _gf_false;
+        gf_boolean_t    cr_cond_init          = _gf_false;
         int             ret                   = 0;
 
         if ((ret = pthread_mutex_init(&priv->bn.bnotify_mutex, NULL)) != 0) {
@@ -2476,6 +2450,24 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
                 goto out;
         }
         dm_cond_white_init = _gf_true;
+
+        if ((pthread_mutex_init(&priv->cr.lock, NULL)) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
+                        "changelog_rollover lock init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        cr_mutex_init = _gf_true;
+
+        if ((pthread_cond_init(&priv->cr.cond, NULL)) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
+                        "changelog_rollover cond init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        cr_cond_init = _gf_true;
  out:
         if (ret) {
                 if (bn_mutex_init)
@@ -2490,6 +2482,10 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
                         pthread_mutex_destroy(&priv->dm.drain_white_mutex);
                 if (dm_cond_white_init)
                         pthread_cond_destroy (&priv->dm.drain_white_cond);
+                if (cr_mutex_init)
+                        pthread_mutex_destroy(&priv->cr.lock);
+                if (cr_cond_init)
+                        pthread_cond_destroy (&priv->cr.cond);
         }
         return ret;
 }
@@ -2504,6 +2500,8 @@ changelog_barrier_pthread_destroy (changelog_priv_t *priv)
         pthread_cond_destroy (&priv->dm.drain_black_cond);
         pthread_mutex_destroy (&priv->dm.drain_white_mutex);
         pthread_cond_destroy (&priv->dm.drain_white_cond);
+        pthread_mutex_destroy(&priv->cr.lock);
+        pthread_cond_destroy (&priv->cr.cond);
         LOCK_DESTROY (&priv->bflags.lock);
 }
 
@@ -2834,6 +2832,7 @@ init (xlator_t *this)
         priv->current_color = FOP_COLOR_BLACK;
         priv->explicit_rollover = _gf_false;
 
+        priv->cr.notify = _gf_false;
         /* Mutex is not needed as threads are not spawned yet */
         priv->bn.bnotify = _gf_false;
         priv->bn.bnotify_error = _gf_false;
