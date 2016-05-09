@@ -1112,7 +1112,7 @@ pub_glfs_fini (struct glfs *fs)
                         /* Do we need to increase countdown? */
                         if ((!call_pool->cnt) && (!fs->pin_refcnt)) {
                                 gf_msg_trace ("glfs", 0,
-                                        "call_pool_cnt - %ld,"
+                                        "call_pool_cnt - %"PRId64","
                                         "pin_refcnt - %d",
                                         call_pool->cnt, fs->pin_refcnt);
 
