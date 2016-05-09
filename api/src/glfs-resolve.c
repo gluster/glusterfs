@@ -318,6 +318,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
                         inode_unlink(loc.inode, loc.parent,
                                      loc.name);
 		inode_unref (loc.inode);
+	        gf_uuid_clear (loc.gfid);
 		loc.inode = inode_new (parent->table);
 		if (!loc.inode) {
 			errno = ENOMEM;
