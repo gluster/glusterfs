@@ -991,11 +991,11 @@ init (xlator_t *this)
 
         priv->timer_wheel = glusterfs_global_timer_wheel (this);
         if (!priv->timer_wheel) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, LEASE_MSG_NO_TIMER_WHEEL,
-                        "Initing the global timer wheel");
+                gf_msg_debug (this->name, 0, "Initing the global timer wheel");
                 ret = glusterfs_global_timer_wheel_init (this->ctx);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_INFO, 0, LEASE_MSG_NO_TIMER_WHEEL,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                LEASE_MSG_NO_TIMER_WHEEL,
                                 "Initing the global timer wheel failed");
                         goto out;
                 }
@@ -1055,18 +1055,6 @@ leases_clnt_disconnect_cbk (xlator_t *this, client_t *client)
         EXIT_IF_LEASES_OFF (this, out);
 
         ret = cleanup_client_leases (this, client->client_uid);
-out:
-        return ret;
-}
-
-int
-notify (xlator_t *this, int32_t event, void *data, ...)
-{
-        int ret = 0;
-
-        EXIT_IF_LEASES_OFF (this, out);
-
-        ret = default_notify (this, event, data);
 out:
         return ret;
 }
