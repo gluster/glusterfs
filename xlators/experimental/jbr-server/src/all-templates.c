@@ -9,9 +9,17 @@ int32_t
 jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
             @LONG_ARGS@)
 {
-        jbr_private_t   *priv   = this->private;
-        gf_boolean_t in_recon = _gf_false;
-        int32_t recon_term, recon_index;
+        jbr_private_t   *priv     = NULL;
+        gf_boolean_t     in_recon = _gf_false;
+        int32_t          op_errno = 0;
+        int32_t          recon_term, recon_index;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, err);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, err);
+        GF_VALIDATE_OR_GOTO (this->name, frame, err);
+
+        op_errno = EREMOTE;
 
         /* allow reads during reconciliation       *
          * TBD: allow "dirty" reads on non-leaders *
@@ -32,13 +40,19 @@ jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
         return 0;
 
 err:
-        STACK_UNWIND_STRICT (@NAME@, frame, -1, EREMOTE,
+        STACK_UNWIND_STRICT (@NAME@, frame, -1, op_errno,
                              @ERROR_ARGS@);
         return 0;
 }
 
+/* template-name read-perform_local_op */
+/* No "perform_local_op" function needed for @NAME@ */
+
 /* template-name read-dispatch */
 /* No "dispatch" function needed for @NAME@ */
+
+/* template-name read-call_dispatch */
+/* No "call_dispatch" function needed for @NAME@ */
 
 /* template-name read-fan-in */
 /* No "fan-in" function needed for @NAME@ */
@@ -54,70 +68,25 @@ int32_t
 jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
             @LONG_ARGS@)
 {
-        jbr_local_t     *local          = NULL;
-        jbr_private_t   *priv           = this->private;
-        gf_boolean_t     result         = _gf_false;
-        int             op_errno        = ENOMEM;
-        int             from_leader;
-        int             from_recon;
-        uint32_t        ti = 0;
+        jbr_local_t     *local         = NULL;
+        jbr_private_t   *priv          = NULL;
+        int32_t          ret           = -1;
+        int              op_errno      = ENOMEM;
 
-        /*
-         * Our first goal here is to avoid "split brain surprise" for users who
-         * specify exactly 50% with two- or three-way replication.  That means
-         * either a more-than check against half the total replicas or an
-         * at-least check against half of our peers (one less).  Of the two,
-         * only an at-least check supports the intuitive use of 100% to mean
-         * all replicas must be present, because "more than 100%" will never
-         * succeed regardless of which count we use.  This leaves us with a
-         * slightly non-traditional definition of quorum ("at least X% of peers
-         * not including ourselves") but one that's useful enough to be worth
-         * it.
-         *
-         * Note that n_children and up_children *do* include the local
-         * subvolume, so we need to subtract one in each case.
-         */
-        if (priv->leader) {
-                result = fop_quorum_check (this, (double)(priv->n_children - 1),
-                                   (double)(priv->up_children - 1));
+        GF_VALIDATE_OR_GOTO ("jbr", this, err);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, err);
+        GF_VALIDATE_OR_GOTO (this->name, frame, err);
 
-                if (result == _gf_false) {
-                        /* Emulate the AFR client-side-quorum behavior. */
-                        gf_msg (this->name, GF_LOG_ERROR, EROFS,
-                                J_MSG_QUORUM_NOT_MET, "Sufficient number of "
-                                "subvolumes are not up to meet quorum.");
-                        op_errno = EROFS;
-                        goto err;
-                }
-        } else {
-                if (xdata) {
-                        from_leader = !!dict_get(xdata, JBR_TERM_XATTR);
-                        from_recon = !!dict_get(xdata, RECON_TERM_XATTR)
-                                  && !!dict_get(xdata, RECON_INDEX_XATTR);
-                } else {
-                        from_leader = from_recon = _gf_false;
-                }
-
-                /* follower/recon path        *
-                 * just send it to local node *
-                 */
-                if (!from_leader && !from_recon) {
-                        op_errno = EREMOTE;
-                        goto err;
-                }
-        }
-
-        local = mem_get0(this->local_pool);
-        if (!local) {
-                goto err;
-        }
 #if defined(JBR_CG_NEED_FD)
-        local->fd = fd_ref(fd);
+        ret = jbr_leader_checks_and_init (frame, this, &op_errno, xdata, fd);
 #else
-        local->fd = NULL;
+        ret = jbr_leader_checks_and_init (frame, this, &op_errno, xdata, NULL);
 #endif
-        INIT_LIST_HEAD(&local->qlinks);
-        frame->local = local;
+        if (ret)
+                goto err;
+
+        local = frame->local;
 
         /*
          * If we let it through despite not being the leader, then we just want
@@ -132,29 +101,9 @@ jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (!xdata) {
-                xdata = dict_new();
-                if (!xdata) {
-                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                J_MSG_MEM_ERR, "failed to allocate xdata");
-                        goto err;
-                }
-        }
-
-        if (dict_set_int32(xdata, JBR_TERM_XATTR, priv->current_term) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        J_MSG_DICT_FLR, "failed to set jbr-term");
+        ret = jbr_initialize_xdata_set_attrs (this, &xdata);
+        if (ret)
                 goto err;
-        }
-
-        LOCK(&priv->index_lock);
-        ti = ++(priv->index);
-        UNLOCK(&priv->index_lock);
-        if (dict_set_int32(xdata, JBR_INDEX_XATTR, ti) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        J_MSG_DICT_FLR, "failed to set index");
-                goto err;
-        }
 
         local->stub = fop_@NAME@_stub (frame, jbr_@NAME@_continue,
                                        @SHORT_ARGS@);
@@ -162,14 +111,77 @@ jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        /*
+         * Can be used to just call_dispatch or be customised per fop to *
+         * perform ops specific to that particular fop.                  *
+         */
+        ret = jbr_@NAME@_perform_local_op (frame, this, &op_errno,
+                                           @SHORT_ARGS@);
+        if (ret)
+                goto err;
+
+        return ret;
+err:
+        if (local) {
+                if (local->stub) {
+                        call_stub_destroy(local->stub);
+                }
+                if (local->qstub) {
+                        call_stub_destroy(local->qstub);
+                }
+                if (local->fd) {
+                        fd_unref(local->fd);
+                }
+                mem_put(local);
+        }
+        STACK_UNWIND_STRICT (@NAME@, frame, -1, op_errno,
+                             @ERROR_ARGS@);
+        return 0;
+}
+
+/* template-name write-perform_local_op */
+int32_t
+jbr_@NAME@_perform_local_op (call_frame_t *frame, xlator_t *this, int *op_errno,
+                             @LONG_ARGS@)
+{
+        int32_t          ret    = -1;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+
+        ret = jbr_@NAME@_call_dispatch (frame, this, op_errno,
+                                        @SHORT_ARGS@);
+
+out:
+        return ret;
+}
+
+/* template-name write-call_dispatch */
+int32_t
+jbr_@NAME@_call_dispatch (call_frame_t *frame, xlator_t *this, int *op_errno,
+                          @LONG_ARGS@)
+{
+        jbr_local_t     *local  = NULL;
+        jbr_private_t   *priv   = NULL;
+        int32_t          ret    = -1;
+        xlator_list_t   *trav   = NULL;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
 #if defined(JBR_CG_QUEUE)
-        jbr_inode_ctx_t         *ictx   = jbr_get_inode_ctx(this, fd->inode);
-
+        jbr_inode_ctx_t  *ictx  = jbr_get_inode_ctx(this, fd->inode);
         if (!ictx) {
-                op_errno = EIO;
-                goto err;
+                *op_errno = EIO;
+                goto out;
         }
+
         LOCK(&ictx->lock);
                 if (ictx->active) {
                         gf_msg_debug (this->name, 0,
@@ -194,37 +206,23 @@ jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
                                                         @SHORT_ARGS@);
                         if (!local->qstub) {
                                 UNLOCK(&ictx->lock);
-                                goto err;
+                                goto out;
                         }
                         list_add_tail(&local->qlinks, &ictx->pqueue);
                         ++(ictx->pending);
                         UNLOCK(&ictx->lock);
-                        return 0;
+                        ret = 0;
+                        goto out;
                 } else {
                         list_add_tail(&local->qlinks, &ictx->aqueue);
                         ++(ictx->active);
                 }
         UNLOCK(&ictx->lock);
 #endif
+        ret = jbr_@NAME@_dispatch (frame, this, @SHORT_ARGS@);
 
-        return jbr_@NAME@_dispatch (frame, this, @SHORT_ARGS@);
-
-err:
-        if (local) {
-                if (local->stub) {
-                        call_stub_destroy(local->stub);
-                }
-                if (local->qstub) {
-                        call_stub_destroy(local->qstub);
-                }
-                if (local->fd) {
-                        fd_unref(local->fd);
-                }
-                mem_put(local);
-        }
-        STACK_UNWIND_STRICT (@NAME@, frame, -1, op_errno,
-                             @ERROR_ARGS@);
-        return 0;
+out:
+        return ret;
 }
 
 /* template-name write-dispatch */
@@ -232,9 +230,17 @@ int32_t
 jbr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
                      @LONG_ARGS@)
 {
-        jbr_local_t     *local  = frame->local;
-        jbr_private_t   *priv   = this->private;
+        jbr_local_t     *local  = NULL;
+        jbr_private_t   *priv   = NULL;
+        int32_t          ret    = -1;
         xlator_list_t   *trav;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
 
         /*
          * TBD: unblock pending request(s) if we fail after this point but
@@ -251,7 +257,9 @@ jbr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
         }
 
         /* TBD: variable Issue count */
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 /* template-name write-fan-in */
@@ -260,8 +268,14 @@ jbr_@NAME@_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    @LONG_ARGS@)
 {
-        jbr_local_t     *local  = frame->local;
-        uint8_t         call_count;
+        jbr_local_t   *local  = NULL;
+        int32_t        ret    = -1;
+        uint8_t        call_count;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
 
         gf_msg_trace (this->name, 0, "op_ret = %d, op_errno = %d\n",
                       op_ret, op_errno);
@@ -284,7 +298,9 @@ jbr_@NAME@_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
                 call_resume(local->stub);
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 /* template-name write-continue */
@@ -335,10 +351,16 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      @LONG_ARGS@)
 {
-        gf_boolean_t     result         = _gf_false;
-        jbr_private_t   *priv           = this->private;
+        gf_boolean_t     result    = _gf_false;
+        jbr_private_t   *priv      = NULL;
+        jbr_local_t     *local     = NULL;
 
-        jbr_local_t *local = frame->local;
+        GF_VALIDATE_OR_GOTO ("jbr", this, err);
+        GF_VALIDATE_OR_GOTO (this->name, frame, err);
+        priv = this->private;
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, priv, err);
+        GF_VALIDATE_OR_GOTO (this->name, local, err);
 
         /* If the fop failed on the leader, then reduce one succesful ack
          * before calculating the fop quorum
@@ -434,4 +456,9 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 
+err:
+        STACK_UNWIND_STRICT (@NAME@, frame, -1, 0,
+                             @SHORT_ARGS@);
+
+        return 0;
 }

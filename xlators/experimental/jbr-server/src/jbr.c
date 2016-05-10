@@ -190,6 +190,128 @@ jbr_mark_fd_dirty (xlator_t *this, jbr_local_t *local)
 #define RECON_TERM_XATTR        "trusted.jbr.recon-term"
 #define RECON_INDEX_XATTR       "trusted.jbr.recon-index"
 
+int32_t
+jbr_leader_checks_and_init (call_frame_t *frame, xlator_t *this, int *op_errno,
+                            dict_t *xdata, fd_t *fd)
+{
+        jbr_local_t     *local         = NULL;
+        jbr_private_t   *priv          = NULL;
+        int32_t          ret           = -1;
+        gf_boolean_t     result        = _gf_false;
+        int              from_leader   = _gf_false;
+        int              from_recon    = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+
+        /*
+         * Our first goal here is to avoid "split brain surprise" for users who
+         * specify exactly 50% with two- or three-way replication.  That means
+         * either a more-than check against half the total replicas or an
+         * at-least check against half of our peers (one less).  Of the two,
+         * only an at-least check supports the intuitive use of 100% to mean
+         * all replicas must be present, because "more than 100%" will never
+         * succeed regardless of which count we use.  This leaves us with a
+         * slightly non-traditional definition of quorum ("at least X% of peers
+         * not including ourselves") but one that's useful enough to be worth
+         * it.
+         *
+         * Note that n_children and up_children *do* include the local
+         * subvolume, so we need to subtract one in each case.
+         */
+        if (priv->leader) {
+                result = fop_quorum_check (this, (double)(priv->n_children - 1),
+                                   (double)(priv->up_children - 1));
+
+                if (result == _gf_false) {
+                        /* Emulate the AFR client-side-quorum behavior. */
+                        gf_msg (this->name, GF_LOG_ERROR, EROFS,
+                                J_MSG_QUORUM_NOT_MET, "Sufficient number of "
+                                "subvolumes are not up to meet quorum.");
+                        *op_errno = EROFS;
+                        goto out;
+                }
+        } else {
+                if (xdata) {
+                        from_leader = !!dict_get(xdata, JBR_TERM_XATTR);
+                        from_recon = !!dict_get(xdata, RECON_TERM_XATTR)
+                                  && !!dict_get(xdata, RECON_INDEX_XATTR);
+                } else {
+                        from_leader = from_recon = _gf_false;
+                }
+
+                /* follower/recon path        *
+                 * just send it to local node *
+                 */
+                if (!from_leader && !from_recon) {
+                        *op_errno = EREMOTE;
+                        goto out;
+                }
+        }
+
+        local = mem_get0(this->local_pool);
+        if (!local) {
+                goto out;
+        }
+
+        if (fd)
+                local->fd = fd_ref(fd);
+        else
+                local->fd = NULL;
+
+        INIT_LIST_HEAD(&local->qlinks);
+        frame->local = local;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+jbr_initialize_xdata_set_attrs (xlator_t *this, dict_t **xdata)
+{
+        jbr_local_t     *local         = NULL;
+        jbr_private_t   *priv          = NULL;
+        int32_t          ret           = -1;
+        uint32_t         ti            = 0;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, xdata, out);
+
+        if (!*xdata) {
+                *xdata = dict_new();
+                if (!*xdata) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                J_MSG_MEM_ERR, "failed to allocate xdata");
+                        goto out;
+                }
+        }
+
+        if (dict_set_int32(*xdata, JBR_TERM_XATTR, priv->current_term) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        J_MSG_DICT_FLR, "failed to set jbr-term");
+                goto out;
+        }
+
+        LOCK(&priv->index_lock);
+        ti = ++(priv->index);
+        UNLOCK(&priv->index_lock);
+        if (dict_set_int32(*xdata, JBR_INDEX_XATTR, ti) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        J_MSG_DICT_FLR, "failed to set index");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 #pragma generate
 
 uint8_t
