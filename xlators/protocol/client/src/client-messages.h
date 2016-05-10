@@ -627,7 +627,7 @@
  *
  */
 
-#define PC_MSG_RECALL_LEASE_FAIL                (GLFS_PC_BASE + 65)
+#define PC_MSG_GFID_NULL                       (GLFS_PC_BASE + 65)
 
 /*!
  * @messageid
@@ -636,9 +636,16 @@
  *
  */
 
-#define PC_MSG_GFID_NULL                       (GLFS_PC_BASE + 66)
+#define PC_MSG_RECALL_LEASE_FAIL                (GLFS_PC_BASE + 66)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
 /*------------*/
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
 #endif /* !_PC_MESSAGES_H__ */
