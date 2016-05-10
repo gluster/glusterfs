@@ -3385,39 +3385,45 @@ out:
         return ret;
 }
 
-int
+void
 gf_tier_clear_fix_layout (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
 {
         int ret         = -1;
         dict_t *dict    = NULL;
 
-        /* Check if background fixlayout is completed. */
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, defrag, out);
+
+        /* Check if background fixlayout is completed. This is not
+         * multi-process safe i.e there is a possibility that by the time
+         * we move to remove the xattr there it might have been cleared by some
+         * other detach process from other node. We ignore the error if such
+         * a thing happens */
         ret = syncop_getxattr (this, loc, &dict,
                         GF_XATTR_TIER_LAYOUT_FIXED_KEY, NULL, NULL);
         if (ret) {
                 /* Background fixlayout not complete - nothing to clear*/
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_LOG_TIER_STATUS,
                         "Unable to retrieve fixlayout xattr."
                         "Assume background fix layout not complete");
-                ret = 0;
                 goto out;
         }
 
         ret = syncop_removexattr (this, loc, GF_XATTR_TIER_LAYOUT_FIXED_KEY,
                                   NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_LOG_TIER_STATUS,
                         "Failed removing tier fix layout "
                         "xattr from %s", loc->path);
-                defrag->total_failures++;
-                ret = -1;
                 goto out;
         }
         ret = 0;
 out:
         if (dict)
                 dict_unref (dict);
-        return ret;
 }
 
 void
@@ -3434,24 +3440,25 @@ gf_tier_wait_fix_lookup (gf_defrag_info_t *defrag) {
 int
 gf_defrag_start_crawl (void *data)
 {
-        xlator_t                *this           = NULL;
-        dht_conf_t              *conf           = NULL;
-        gf_defrag_info_t        *defrag         = NULL;
-        int                      ret            = -1;
-        loc_t                    loc            = {0,};
-        struct iatt              iatt           = {0,};
-        struct iatt              parent         = {0,};
-        dict_t                  *fix_layout     = NULL;
-        dict_t                  *migrate_data   = NULL;
-        dict_t                  *status         = NULL;
-        dict_t                  *dict           = NULL;
-        glusterfs_ctx_t         *ctx            = NULL;
-        dht_methods_t           *methods        = NULL;
-        int                      i              = 0;
-        int                     thread_index    = 0;
-        int                     err             = 0;
-        int                     thread_spawn_count = 0;
+        xlator_t                *this                   = NULL;
+        dht_conf_t              *conf                   = NULL;
+        gf_defrag_info_t        *defrag                 = NULL;
+        int                      ret                    = -1;
+        loc_t                    loc                    = {0,};
+        struct iatt              iatt                   = {0,};
+        struct iatt              parent                 = {0,};
+        dict_t                  *fix_layout             = NULL;
+        dict_t                  *migrate_data           = NULL;
+        dict_t                  *status                 = NULL;
+        dict_t                  *dict                   = NULL;
+        glusterfs_ctx_t         *ctx                    = NULL;
+        dht_methods_t           *methods                = NULL;
+        int                      i                      = 0;
+        int                     thread_index            = 0;
+        int                     err                     = 0;
+        int                     thread_spawn_count      = 0;
         pthread_t tid[MAX_MIGRATOR_THREAD_COUNT];
+        gf_boolean_t            is_tier_detach          = _gf_false;
 
         this = data;
         if (!this)
@@ -3656,14 +3663,9 @@ gf_defrag_start_crawl (void *data)
                         goto out;
                 }
 
-                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
-                        /* If its was a detach remove the tier fix-layout
-                         * xattr on root */
-                         ret = gf_tier_clear_fix_layout (this, &loc, defrag);
-                         if (ret) {
-                                goto out;
-                         }
-                }
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
+                        is_tier_detach = _gf_true;
+
         }
 
         gf_log ("DHT", GF_LOG_INFO, "crawling file-system completed");
@@ -3699,6 +3701,12 @@ out:
                  gf_tier_wait_fix_lookup (defrag);
         }
 
+        if (is_tier_detach && ret == 0) {
+                /* If it was a detach remove the tier fix-layout
+                * xattr on root. Ignoring the failure, as nothing has to be
+                * done, logging is done in gf_tier_clear_fix_layout */
+                gf_tier_clear_fix_layout (this, &loc, defrag);
+        }
 
         if (defrag->queue) {
                 gf_dirent_free (defrag->queue[0].df_entry);
@@ -3736,6 +3744,7 @@ out:
 exit:
         return ret;
 }
+
 
 
 static int
