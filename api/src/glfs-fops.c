@@ -127,7 +127,6 @@ glfs_loc_link (loc_t *loc, struct iatt *iatt)
 		ret = 0;
 	} else {
 		ret = -1;
-		errno = ENOMEM;
 	}
 
 	return ret;
