@@ -929,27 +929,34 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_table_t *table = NULL;
         inode_t       *link_inode = NULL;
 
-        if (!inode)
+        if (!inode) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         table = inode->table;
-        if (!table)
+        if (!table) {
+                errno = EINVAL;
                 return NULL;
+        }
 
         if (parent) {
                 /* We should prevent inode linking between different
                    inode tables. This can cause errors which is very
                    hard to catch/debug. */
                 if (inode->table != parent->table) {
+                        errno = EINVAL;
                         GF_ASSERT (!"link attempted b/w inodes of diff table");
                 }
 
                 if (parent->ia_type != IA_IFDIR) {
+                        errno = EINVAL;
                         GF_ASSERT (!"link attempted on non-directory parent");
                         return NULL;
                 }
 
                 if (!name || strlen (name) == 0) {
+                        errno = EINVAL;
                         GF_ASSERT (!"link attempted with no basename on "
                                     "parent");
                         return NULL;
@@ -959,11 +966,15 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         link_inode = inode;
 
         if (!__is_inode_hashed (inode)) {
-                if (!iatt)
+                if (!iatt) {
+                        errno = EINVAL;
                         return NULL;
+                }
 
-                if (gf_uuid_is_null (iatt->ia_gfid))
+                if (gf_uuid_is_null (iatt->ia_gfid)) {
+                        errno = EINVAL;
                         return NULL;
+                }
 
                 old_inode = __inode_find (table, iatt->ia_gfid);
 
@@ -1010,9 +1021,11 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                                                   "inode %s with parent %s",
                                                   uuid_utoa (link_inode->gfid),
                                                   uuid_utoa (parent->gfid));
+                                errno = ENOMEM;
                                 return NULL;
                         }
                         if (old_inode && __is_dentry_cyclic (dentry)) {
+                                errno = ELOOP;
                                 __dentry_unset (dentry);
                                 return NULL;
                         }

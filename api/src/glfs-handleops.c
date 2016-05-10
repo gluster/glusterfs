@@ -1332,11 +1332,9 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
                 }
                 inode_lookup (newinode);
         } else {
-                gf_msg (subvol->name, GF_LOG_WARNING, EINVAL,
-                        API_MSG_INVALID_ENTRY,
-                        "inode linking of %s failed: %s",
-                        uuid_utoa (loc.gfid), strerror (errno));
-                errno = EINVAL;
+                gf_msg (subvol->name, GF_LOG_WARNING, errno,
+                        API_MSG_INODE_LINK_FAILED,
+                        "inode linking of %s failed", uuid_utoa (loc.gfid));
                 goto out;
         }
 
