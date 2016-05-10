@@ -78,7 +78,7 @@ fop_table = {
 	"getxattr":		"read",
 #	"inodelk":		"read",
 	"link":			"write",
-#	"lk":			"read",
+#	"lk":			"write",
 #	"lookup":		"read",
 	"mkdir":		"write",
 	"mknod":		"write",
@@ -103,6 +103,13 @@ fop_table = {
 	"xattrop":		"write",
 }
 
+# Mention those fops in the selective_generate table, for which
+# only a few common functions will be generated, and mention those
+# functions. Rest of the functions can be customized
+selective_generate = {
+#	"lk":			"fop,dispatch,call_dispatch",
+}
+
 # Stolen from gen_fdl.py
 def gen_server (templates):
 	fops_done = []
@@ -110,15 +117,48 @@ def gen_server (templates):
 		info = fop_table[name].split(",")
 		kind = info[0]
 		flags = info[1:]
+
+		# generate all functions for the fops in fop_table
+		# except for the ones in selective_generate for which
+		# generate only the functions mentioned in the
+		# selective_generate table
+		gen_funcs = "fop,complete,continue,fan-in,dispatch, \
+			call_dispatch,perform_local_op"
+		if name in selective_generate:
+			gen_funcs = selective_generate[name].split(",")
+
 		if ("fsync" in flags) or ("queue" in flags):
 			flags.append("need_fd")
 		for fname in flags:
 			print "#define JBR_CG_%s" % fname.upper()
-		print generate(templates[kind+"-complete"],name,cbk_subs)
-		print generate(templates[kind+"-continue"],name,fop_subs)
-		print generate(templates[kind+"-fan-in"],name,cbk_subs)
-		print generate(templates[kind+"-dispatch"],name,fop_subs)
-		print generate(templates[kind+"-fop"],name,fop_subs)
+
+		if 'complete' in gen_funcs:
+			print generate(templates[kind+"-complete"],
+					name,cbk_subs)
+
+		if 'continue' in gen_funcs:
+			print generate(templates[kind+"-continue"],
+					name,fop_subs)
+
+		if 'fan-in' in gen_funcs:
+			print generate(templates[kind+"-fan-in"],
+					name,cbk_subs)
+
+		if 'dispatch' in gen_funcs:
+			print generate(templates[kind+"-dispatch"],
+					name,fop_subs)
+
+		if 'call_dispatch' in gen_funcs:
+			print generate(templates[kind+"-call_dispatch"],
+					name,fop_subs)
+
+		if 'perform_local_op' in gen_funcs:
+			print generate(templates[kind+"-perform_local_op"],
+					name, fop_subs)
+
+		if 'fop' in gen_funcs:
+			print generate(templates[kind+"-fop"],name,fop_subs)
+
 		for fname in flags:
 			print "#undef JBR_CG_%s" % fname.upper()
 		fops_done.append(name)
