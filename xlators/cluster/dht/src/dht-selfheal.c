@@ -1952,10 +1952,35 @@ dht_selfheal_new_directory (call_frame_t *frame,
                             dht_selfheal_dir_cbk_t dir_cbk,
                             dht_layout_t *layout)
 {
-        dht_local_t *local = NULL;
-        int          ret   = 0;
+        dht_local_t *local                   = NULL;
+        int          ret                     = 0;
+        inode_t     *linked_inode            = NULL, *inode = NULL;
+        loc_t       *loc                     = NULL;
+        char         pgfid[GF_UUID_BUF_SIZE] = {0};
+        char         gfid[GF_UUID_BUF_SIZE]  = {0};
+        int32_t      op_errno                = EIO;
 
         local = frame->local;
+
+        loc = &local->loc;
+
+        gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+        gf_uuid_unparse(loc->parent->gfid, pgfid);
+
+        linked_inode = inode_link (loc->inode, loc->parent, loc->name,
+                                   &local->stbuf);
+        if (!linked_inode) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_DIR_SELFHEAL_FAILED,
+                        "linking inode failed (%s/%s) => %s",
+                        pgfid, loc->name, gfid);
+                ret = -1;
+                goto out;
+        }
+
+        inode = loc->inode;
+        loc->inode = linked_inode;
+        inode_unref (inode);
 
         local->selfheal.dir_cbk = dir_cbk;
         local->selfheal.layout = dht_layout_ref (frame->this, layout);
@@ -1963,12 +1988,14 @@ dht_selfheal_new_directory (call_frame_t *frame,
         dht_layout_sort_volname (layout);
         dht_selfheal_layout_new_directory (frame, &local->loc, layout);
 
+        op_errno = ENOMEM;
         ret = dht_selfheal_layout_lock (frame, layout, _gf_true,
                                         dht_selfheal_dir_xattr,
                                         dht_should_heal_layout);
 
+out:
         if (ret < 0) {
-                dir_cbk (frame, NULL, frame->this, -1, ENOMEM, NULL);
+                dir_cbk (frame, NULL, frame->this, -1, op_errno, NULL);
         }
 
         return 0;
@@ -2006,17 +2033,37 @@ int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                         loc_t *loc, dht_layout_t *layout)
 {
-        dht_local_t *local    = NULL;
-        uint32_t     down     = 0;
-        uint32_t     misc     = 0;
-        int          ret      = 0;
-        xlator_t    *this     = NULL;
-        char         gfid[GF_UUID_BUF_SIZE] = {0};
+        dht_local_t *local                   = NULL;
+        uint32_t     down                    = 0;
+        uint32_t     misc                    = 0;
+        int          ret                     = 0;
+        xlator_t    *this                    = NULL;
+        char         pgfid[GF_UUID_BUF_SIZE] = {0};
+        char         gfid[GF_UUID_BUF_SIZE]  = {0};
+        inode_t     *linked_inode            = NULL, *inode = NULL;
 
         local = frame->local;
         this = frame->this;
 
-        gf_uuid_unparse(loc->gfid, gfid);
+        if (!__is_root_gfid (local->stbuf.ia_gfid)) {
+                gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+                gf_uuid_unparse(loc->parent->gfid, pgfid);
+
+                linked_inode = inode_link (loc->inode, loc->parent, loc->name,
+                                           &local->stbuf);
+                if (!linked_inode) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DIR_SELFHEAL_FAILED,
+                                "linking inode failed (%s/%s) => %s",
+                                pgfid, loc->name, gfid);
+                        ret = 0;
+                        goto sorry_no_fix;
+                }
+
+                inode = loc->inode;
+                loc->inode = linked_inode;
+                inode_unref (inode);
+        }
 
         dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
