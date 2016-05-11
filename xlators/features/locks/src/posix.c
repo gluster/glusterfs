@@ -2257,7 +2257,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
          */
         if (flock->l_len < 0) {
                 flock->l_start += flock->l_len;
-                flock->l_len = abs (flock->l_len);
+                flock->l_len = labs (flock->l_len);
         }
 
         pl_inode = pl_inode_get (this, fd->inode);
