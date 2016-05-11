@@ -295,7 +295,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
         ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
                                                       &src_brickinfo,
-                                                      _gf_true);
+                                                      _gf_false);
         if (ret) {
                 snprintf (msg, sizeof (msg), "brick: %s does not exist in "
                           "volume: %s", src_brick, volname);
@@ -365,7 +365,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         ret = glusterd_brickinfo_new_from_brick (dst_brick, &dst_brickinfo,
-                                                 _gf_true);
+                                                 _gf_true, NULL);
         if (ret)
                 goto out;
 
@@ -551,7 +551,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         GF_ASSERT (conf);
 
         ret = glusterd_brickinfo_new_from_brick (new_brick, &new_brickinfo,
-                                                 _gf_true);
+                                                 _gf_true, NULL);
         if (ret)
                 goto out;
 
@@ -562,7 +562,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
 
         ret = glusterd_volume_brickinfo_get_by_brick (old_brick,
                                                       volinfo, &old_brickinfo,
-                                                      _gf_true);
+                                                      _gf_false);
         if (ret)
                 goto out;
 
@@ -682,7 +682,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
         ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
                                                       &src_brickinfo,
-                                                      _gf_true);
+                                                      _gf_false);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "Unable to get src-brickinfo");
