@@ -1600,7 +1600,7 @@ unwind_hashed_and_cached:
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         dht_set_fixed_dir_stat (&local->postparent);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
-                          local->loc.inode, &local->stbuf, local->xattr,
+                          local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
         return 0;
 }
