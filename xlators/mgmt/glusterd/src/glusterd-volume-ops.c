@@ -1248,7 +1248,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
                 }
 
                 ret = glusterd_brickinfo_new_from_brick (brick, &brick_info,
-                                                         _gf_true);
+                                                         _gf_true, op_errstr);
                 if (ret)
                         goto out;
 
@@ -2335,7 +2335,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         while ( i <= count) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo,
-                                                         _gf_true);
+                                                         _gf_true, op_errstr);
                 if (ret)
                         goto out;
 

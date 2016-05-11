@@ -1035,7 +1035,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
                 ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
                                                              &brickinfo,
-                                                             _gf_true);
+                                                             _gf_false);
 
                 if (ret) {
                         snprintf (err_str, sizeof (err_str), "Incorrect brick "
@@ -1276,7 +1276,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 goto out;
         while ( i <= count) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo,
-                                                         _gf_true);
+                                                         _gf_true, NULL);
                 if (ret)
                         goto out;
 
@@ -1488,7 +1488,7 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
 
         ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                       &brickinfo,
-                                                      _gf_true);
+                                                      _gf_false);
         if (ret)
                 goto out;
 
@@ -1704,7 +1704,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 ret = glusterd_brickinfo_new_from_brick (brick, &brickinfo,
-                                                         _gf_true);
+                                                         _gf_true, NULL);
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_BRICK_NOT_FOUND,
@@ -1828,7 +1828,7 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                 ret =
                 glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
                                                        &brickinfo,
-                                                       _gf_true);
+                                                       _gf_false);
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Incorrect brick "
                                   "%s for volume %s", brick, volinfo->volname);

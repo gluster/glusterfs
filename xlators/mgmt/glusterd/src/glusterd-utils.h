@@ -115,7 +115,8 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo);
 int32_t
 glusterd_brickinfo_new_from_brick (char *brick,
                                    glusterd_brickinfo_t **brickinfo,
-                                   gf_boolean_t construct_real_path);
+                                   gf_boolean_t construct_real_path,
+                                   char **op_errstr);
 
 int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);

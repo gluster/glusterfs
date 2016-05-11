@@ -603,7 +603,7 @@ glusterd_brick_validation  (dict_t *dict, char *key, data_t *value,
 
         ret = glusterd_volume_brickinfo_get_by_brick (value->data, volinfo,
                                                       &brickinfo,
-                                                      _gf_true);
+                                                      _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_BRICK_NOT_FOUND,

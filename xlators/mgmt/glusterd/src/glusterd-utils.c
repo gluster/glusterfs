@@ -1061,7 +1061,8 @@ out:
 int32_t
 glusterd_brickinfo_new_from_brick (char *brick,
                                    glusterd_brickinfo_t **brickinfo,
-                                   gf_boolean_t construct_real_path)
+                                   gf_boolean_t construct_real_path,
+                                   char **op_errstr)
 {
         char                   *hostname      = NULL;
         char                   *path          = NULL;
@@ -1109,7 +1110,25 @@ glusterd_brickinfo_new_from_brick (char *brick,
         strncpy (new_brickinfo->hostname, hostname, 1024);
         strncpy (new_brickinfo->path, path, 1024);
 
-        if (construct_real_path && new_brickinfo->real_path[0] == '\0') {
+        if (construct_real_path) {
+                ret = glusterd_hostname_to_uuid (new_brickinfo->hostname,
+                                                 new_brickinfo->uuid);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_HOSTNAME_TO_UUID_FAIL,
+                                "Failed to convert hostname %s to uuid",
+                                hostname);
+                        if (op_errstr)
+                                gf_asprintf (op_errstr, "Host %s is not in \' "
+                                             "Peer in Cluster\' state",
+                                             new_brickinfo->hostname);
+                        goto out;
+                }
+        }
+
+        if (construct_real_path &&
+            !gf_uuid_compare (new_brickinfo->uuid, MY_UUID)
+            && new_brickinfo->real_path[0] == '\0') {
                 if (!realpath (new_brickinfo->path, abspath)) {
                         /* ENOENT indicates that brick path has not been created
                          * which is a valid scenario */
@@ -1435,7 +1454,7 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
         GF_ASSERT (volinfo);
 
         ret = glusterd_brickinfo_new_from_brick (brick, &tmp_brickinfo,
-                                                 construct_real_path);
+                                                 construct_real_path, NULL);
         if (ret)
                 goto out;
 
@@ -3122,12 +3141,8 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         int                     decommissioned = 0;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    msg[2048] = {0};
-        xlator_t                *this     = NULL;
         char                    *brick_uuid_str = NULL;
-        char                    abspath[PATH_MAX] = {0};
 
-        this = THIS;
-        GF_ASSERT (this);
         GF_ASSERT (peer_data);
         GF_ASSERT (vol_count >= 0);
         GF_ASSERT (brickinfo);
@@ -3188,23 +3203,7 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         ret = dict_get_str (peer_data, key, &brick_uuid_str);
         if (ret)
                 goto out;
-
         gf_uuid_parse (brick_uuid_str, new_brickinfo->uuid);
-        if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
-                if (new_brickinfo->real_path[0] == '\0') {
-                        if (!realpath (new_brickinfo->path, abspath)) {
-                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                        GD_MSG_BRICKINFO_CREATE_FAIL,
-                                        "realpath() failed for brick %s. The "
-                                        "underlying file system may be in bad "
-                                        "state", new_brickinfo->path);
-                                ret = -1;
-                                goto out;
-                        }
-                        strncpy (new_brickinfo->real_path, abspath,
-                                 strlen(abspath));
-                }
-        }
 
         *brickinfo = new_brickinfo;
 out:
@@ -3219,7 +3218,7 @@ out:
  * It will be "volume" for normal volumes, and snap# like
  * snap1, snap2, for snapshot volumes
  */
-int32_t
+static int32_t
 glusterd_import_bricks (dict_t *peer_data, int32_t vol_count,
                         glusterd_volinfo_t *new_volinfo, char *prefix)
 {
@@ -3429,6 +3428,7 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         char               *parent_volname   = NULL;
         char               *volname          = NULL;
         glusterd_volinfo_t *new_volinfo      = NULL;
+        glusterd_volinfo_t *old_volinfo      = NULL;
         char               *volume_id_str    = NULL;
         char               *restored_snap    = NULL;
         char               msg[2048]         = {0};
@@ -3847,8 +3847,8 @@ glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
 }
 
 int32_t
-glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *old_volinfo,
-                                      glusterd_volinfo_t *new_volinfo)
+glusterd_volinfo_copy_brickinfo (glusterd_volinfo_t *old_volinfo,
+                                 glusterd_volinfo_t *new_volinfo)
 {
         char                    pidfile[PATH_MAX+1] = {0,};
         glusterd_brickinfo_t   *new_brickinfo       = NULL;
@@ -3856,6 +3856,7 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *old_volinfo,
         glusterd_conf_t        *priv                = NULL;
         int                     ret                 = 0;
         xlator_t               *this                = NULL;
+        char                    abspath[PATH_MAX]   = {0};
 
         GF_ASSERT (new_volinfo);
         GF_ASSERT (old_volinfo);
@@ -3873,10 +3874,35 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *old_volinfo,
                                                      &old_brickinfo);
                 if (ret == 0) {
                         new_brickinfo->port = old_brickinfo->port;
+
+                        if (old_brickinfo->real_path == '\0') {
+                                if (!realpath (new_brickinfo->path, abspath)) {
+                                        /* Here an ENOENT should also be a
+                                         * failure as the brick is expected to
+                                         * be in existance
+                                         */
+                                        gf_msg (this->name, GF_LOG_CRITICAL,
+                                                errno,
+                                                GD_MSG_BRICKINFO_CREATE_FAIL,
+                                                "realpath () failed for brick "
+                                                "%s. The underlying filesystem "
+                                                "may be in bad state",
+                                                new_brickinfo->path);
+                                        ret = -1;
+                                        goto out;
+                                }
+                                strncpy (new_brickinfo->real_path, abspath,
+                                         strlen(abspath));
+                        } else {
+                                strncpy (new_brickinfo->real_path,
+                                         old_brickinfo->real_path,
+                                         strlen (old_brickinfo->real_path));
+                        }
                 }
         }
         ret = 0;
 
+out:
         return ret;
 }
 
@@ -4060,8 +4086,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         glusterd_volinfo_t      *old_volinfo = NULL;
         glusterd_volinfo_t      *new_volinfo = NULL;
         glusterd_svc_t          *svc         = NULL;
-        gf_boolean_t            newexportvalue;
-        gf_boolean_t            oldexportvalue;
+        gf_boolean_t            newexportvalue = _gf_false;
+        gf_boolean_t            oldexportvalue = _gf_false;
         char                    *value     = NULL;
 
         GF_ASSERT (peer_data);
@@ -4092,11 +4118,12 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 (void) gd_check_and_update_rebalance_info (old_volinfo,
                                                            new_volinfo);
 
-                /* Copy brick ports from the old volinfo always. The old_volinfo
-                 * will be cleaned up and this information could be lost
+                /* Copy brick ports & real_path from the old volinfo always.
+                 * The old_volinfo will be cleaned up and this information
+                 * could be lost
                  */
-                (void) glusterd_volinfo_copy_brick_portinfo (old_volinfo,
-                                                             new_volinfo);
+                (void) glusterd_volinfo_copy_brickinfo (old_volinfo,
+                                                        new_volinfo);
 
                 (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
                 glusterd_volinfo_unref (old_volinfo);
@@ -5913,7 +5940,7 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
 
         if (!brickinfo) {
                 ret = glusterd_brickinfo_new_from_brick (brick, &newbrickinfo,
-                                                         _gf_true);
+                                                         _gf_true, NULL);
                 if (ret)
                         goto out;
                 is_allocated = _gf_true;
@@ -10266,7 +10293,7 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
                         ret = glusterd_volume_brickinfo_get_by_brick (brickname,
                                                                       volinfo,
                                                                       &brick,
-                                                                      _gf_true);
+                                                                      _gf_false);
                         if (ret)
                                 goto out;
                         if (gf_uuid_compare (MY_UUID, brick->uuid) == 0) {
