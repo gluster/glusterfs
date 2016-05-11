@@ -1114,6 +1114,8 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
@@ -1158,8 +1160,8 @@ exit 0
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/quotad
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/scrub
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/snap
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/ss_bricks
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/snaps
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/ss_brick
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
 
 # Extra utility script
