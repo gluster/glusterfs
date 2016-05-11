@@ -1729,7 +1729,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo,
-                                                              _gf_true);
+                                                              _gf_false);
                 if (ret) {
                         snprintf (msg, sizeof(msg), "No brick %s in"
                                   " volume %s", brick, volname);
@@ -3247,7 +3247,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 ret = glusterd_volume_brickinfo_get_by_brick (brick,
                                                               volinfo,
                                                               &brickinfo,
-                                                              _gf_true);
+                                                              _gf_false);
                 if (ret)
                         goto out;
 
@@ -5829,7 +5829,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo,
-                                                              _gf_true);
+                                                              _gf_false);
 
                 if (ret)
                         goto out;
@@ -6689,7 +6689,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 ret = glusterd_volume_brickinfo_get_by_brick (brickname,
                                                               volinfo,
                                                               &brickinfo,
-                                                              _gf_true);
+                                                              _gf_false);
                 if (ret)
                         goto out;
 
