@@ -2133,6 +2133,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                                            "retry after completion");
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_OIP_RETRY_LATER, "%s", errstr);
+                        ret = -1;
                         goto out;
                 }
                 break;
