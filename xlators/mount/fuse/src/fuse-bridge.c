@@ -2221,8 +2221,11 @@ fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         send_fuse_err (this, finh, ENOMEM);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64": READ => %d (%s)", frame->root->unique,
-                        op_ret, strerror (op_errno));
+                        "%"PRIu64": READ => %d gfid=%s fd=%p (%s)",
+                        frame->root->unique, op_ret,
+                        (state->fd && state->fd->inode) ?
+                        uuid_utoa (state->fd->inode->gfid) : "nil",
+                        state->fd, strerror (op_errno));
 
                 send_fuse_err (this, finh, op_errno);
         }
@@ -2302,7 +2305,10 @@ fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 send_fuse_obj (this, finh, &fwo);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64": WRITE => -1 (%s)", frame->root->unique,
+                        "%"PRIu64": WRITE => -1 gfid=%s fd=%p (%s)",
+                        frame->root->unique,
+                        (state->fd && state->fd->inode) ?
+                        uuid_utoa (state->fd->inode->gfid) : "nil", state->fd,
                         strerror (op_errno));
 
                 send_fuse_err (this, finh, op_errno);
