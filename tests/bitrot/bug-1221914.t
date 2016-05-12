@@ -25,6 +25,9 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+## Enable bitrot
+TEST $CLI volume bitrot $V0 enable;
+
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 

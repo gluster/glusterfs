@@ -1603,8 +1603,10 @@ static int
 brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
-        xlator_t        *xl  = NULL;
-        int              ret = -1;
+        xlator_t *xl    = NULL;
+        int       ret   = -1;
+        char     *value = NULL;
+        xlator_t *this  = THIS;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -1614,6 +1616,17 @@ brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         ret = xlator_set_option (xl, "export", brickinfo->path);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to set the export "
+                        "option in bit-rot-stub");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_BITROT, &value);
+        ret = xlator_set_option (xl, "bitrot", value);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set bitrot "
+                        "enable option in bit-rot-stub");
 
 out:
         return ret;

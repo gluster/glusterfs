@@ -27,6 +27,9 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+## enable bitrot
+TEST $CLI volume bitrot $V0 enable;
+
 ## Wait for gluster nfs to come up
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
