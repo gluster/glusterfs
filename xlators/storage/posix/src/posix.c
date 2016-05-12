@@ -1717,13 +1717,13 @@ out:
 int32_t
 posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                                     struct iatt *stbuf, int32_t *op_errno,
-                                    loc_t *loc)
+                                    loc_t *loc, gf_boolean_t get_link_count,
+                                    dict_t *rsp_dict)
 {
-        int32_t                 ret    = 0;
-        struct posix_private    *priv  = NULL;
-        int fd_count = 0;
-
-        priv = this->private;
+        int                    fd_count = 0;
+        int32_t                ret      = 0;
+        struct iatt            prebuf   = {0,};
+        gf_boolean_t           locked   = _gf_false;
 
         /*  Unlink the gfid_handle_first */
         if (stbuf && stbuf->ia_nlink == 1) {
@@ -1746,6 +1746,18 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                 }
         }
 
+        if (get_link_count) {
+                LOCK (&loc->inode->lock);
+                locked = _gf_true;
+                ret = posix_pstat (this, loc->gfid, real_path, &prebuf);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_LSTAT_FAILED, "lstat on %s failed",
+                                real_path);
+                        goto err;
+                }
+        }
+
         /* Unlink the actual file */
         ret = sys_unlink (real_path);
         if (ret == -1) {
@@ -1756,9 +1768,23 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                 goto err;
         }
 
+        if (locked) {
+                UNLOCK (&loc->inode->lock);
+                locked = _gf_false;
+        }
+
+        ret = dict_set_uint32 (rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
+                        "failed to set "GET_LINK_COUNT" for %s", real_path);
+
         return 0;
 
 err:
+        if (locked) {
+                UNLOCK (&loc->inode->lock);
+                locked = _gf_false;
+        }
         return -1;
 }
 
@@ -1849,6 +1875,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         void                  *uuid               = NULL;
         char                   uuid_str[GF_UUID_BUF_SIZE] = {0};
         char                   gfid_str[GF_UUID_BUF_SIZE] = {0};
+        gf_boolean_t           get_link_count     = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1972,18 +1999,23 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
-                                                      &op_errno, loc);
-        if (op_ret == -1) {
-                goto out;
-        }
-
         unwind_dict = dict_new ();
         if (!unwind_dict) {
                 op_errno = -ENOMEM;
                 op_ret = -1;
                 goto out;
         }
+
+        if (xdata && dict_get (xdata, GET_LINK_COUNT))
+                get_link_count = _gf_true;
+        op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
+                                                      &op_errno, loc,
+                                                      get_link_count,
+                                                      unwind_dict);
+        if (op_ret == -1) {
+                goto out;
+        }
+
         if (fdstat_requested) {
                 op_ret = posix_fdstat (this, fd, &postbuf);
                 if (op_ret == -1) {
@@ -2307,6 +2339,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         char                 *pgfid_xattr_key = NULL;
         int32_t               nlink_samepgfid = 0;
         dict_t               *unwind_dict     = NULL;
+        gf_boolean_t          locked          = _gf_false;
+        gf_boolean_t          get_link_count  = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2330,6 +2364,13 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         if (!real_newpath || !par_newpath) {
                 op_ret = -1;
                 op_errno = ESTALE;
+                goto out;
+        }
+
+        unwind_dict = dict_new ();
+        if (!unwind_dict) {
+                op_ret = -1;
+                op_errno = ENOMEM;
                 goto out;
         }
 
@@ -2399,6 +2440,22 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                                                    this, unlock);
                 }
 
+                if ((xdata) && (dict_get (xdata, GET_LINK_COUNT))
+                    && (real_newpath) && (was_present)) {
+                        LOCK (&newloc->inode->lock);
+                        locked = _gf_true;
+                        get_link_count = _gf_true;
+                        op_ret = posix_pstat (this, newloc->gfid, real_newpath,
+                                              &stbuf);
+                        if ((op_ret == -1) && (errno != ENOENT)) {
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_LSTAT_FAILED,
+                                        "lstat on %s failed", real_newpath);
+                                goto unlock;
+                        }
+                }
+
                 op_ret = sys_rename (real_oldpath, real_newpath);
                 if (op_ret == -1) {
                         op_errno = errno;
@@ -2426,6 +2483,18 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                         goto unlock;
                 }
 
+                if (locked) {
+                        UNLOCK (&newloc->inode->lock);
+                        locked = _gf_false;
+                }
+
+                if ((get_link_count) &&
+                    (dict_set_uint32 (unwind_dict, GET_LINK_COUNT,
+                                      stbuf.ia_nlink)))
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_SET_XDATA_FAIL, "failed to set "
+                                GET_LINK_COUNT" for %s", real_newpath);
+
                 if (!IA_ISDIR (oldloc->inode->ia_type)
                     && priv->update_pgfid_nlinks) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
@@ -2439,6 +2508,10 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 }
         }
 unlock:
+        if (locked) {
+                UNLOCK (&newloc->inode->lock);
+                locked = _gf_false;
+        }
         UNLOCK (&oldloc->inode->lock);
 
         if (op_ret < 0) {
@@ -2487,7 +2560,7 @@ unlock:
         }
 
         if (was_present)
-                unwind_dict = posix_dict_set_nlink (xdata, NULL, nlink);
+                unwind_dict = posix_dict_set_nlink (xdata, unwind_dict, nlink);
         op_ret = 0;
 out:
 
