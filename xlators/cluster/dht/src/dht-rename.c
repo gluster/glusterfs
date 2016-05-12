@@ -561,7 +561,7 @@ dht_rename_unlock_cbk (call_frame_t *frame, void *cookie,
         DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                           &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,
-                          &local->postparent, NULL);
+                          &local->postparent, local->xattr);
         return 0;
 }
 
@@ -872,6 +872,12 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 uuid_utoa(local->loc.inode->gfid):"");
                 }
         }
+        if (xdata) {
+                if (!local->xattr)
+                        local->xattr = dict_ref (xdata);
+                else
+                        local->xattr = dict_copy_with_ref (xdata, local->xattr);
+        }
 
         if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
                 link_frame = copy_frame (frame);
@@ -1022,7 +1028,6 @@ dht_do_rename (call_frame_t *frame)
         xlator_t    *dst_cached    = NULL;
         xlator_t    *this          = NULL;
         xlator_t    *rename_subvol = NULL;
-        dict_t      *dict          = NULL;
 
         local = frame->local;
         this  = frame->this;
@@ -1037,11 +1042,12 @@ dht_do_rename (call_frame_t *frame)
                 rename_subvol = dst_hashed;
 
         if ((src_cached != dst_hashed) && (rename_subvol == dst_hashed)) {
-                DHT_MARKER_DONT_ACCOUNT(dict);
+                DHT_MARKER_DONT_ACCOUNT(local->xattr_req);
         }
 
         if (rename_subvol == src_cached) {
-                DHT_CHANGELOG_TRACK_AS_RENAME(dict, &local->loc, &local->loc2);
+                DHT_CHANGELOG_TRACK_AS_RENAME(local->xattr_req, &local->loc,
+                                              &local->loc2);
         }
 
         gf_msg_trace (this->name, 0,
@@ -1052,10 +1058,7 @@ dht_do_rename (call_frame_t *frame)
                 FRAME_SU_DO (frame, dht_local_t);
         STACK_WIND (frame, dht_rename_cbk,
                     rename_subvol, rename_subvol->fops->rename,
-                    &local->loc, &local->loc2, dict);
-        if (dict)
-                dict_unref (dict);
-
+                    &local->loc, &local->loc2, local->xattr_req);
         return 0;
 }
 
@@ -1548,6 +1551,8 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local->src_cached = src_cached;
         local->dst_hashed = dst_hashed;
         local->dst_cached = dst_cached;
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_RENAME_INFO,

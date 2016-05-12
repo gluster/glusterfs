@@ -252,6 +252,7 @@
 #define TIER_LINKFILE_GFID           "tier-linkfile-gfid"
 #define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
+#define GET_LINK_COUNT              "get-link-count"
 
 /*CTR and Marker requires inode dentry link count from posix*/
 #define GF_RESPONSE_LINK_COUNT_XDATA "gf_response_link_count"
