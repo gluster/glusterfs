@@ -725,7 +725,8 @@ rm -rf %{buildroot}
 %endif
 exit 0
 
-%post api -p /sbin/ldconfig
+%post api
+/sbin/ldconfig
 
 %if ( 0%{?rhel} == 5 )
 %post fuse
@@ -741,7 +742,8 @@ fi
 exit 0
 %endif
 
-%post libs -p /sbin/ldconfig
+%post libs
+/sbin/ldconfig
 
 %post server
 # Legacy server
@@ -852,9 +854,11 @@ exit 0
 %endif
 %endif
 
-%postun api -p /sbin/ldconfig
+%postun api
+/sbin/ldconfig
 
-%postun libs -p /sbin/ldconfig
+%postun libs
+/sbin/ldconfig
 
 %postun server
 /sbin/ldconfig
