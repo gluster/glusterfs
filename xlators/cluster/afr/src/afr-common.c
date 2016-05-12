@@ -4572,11 +4572,11 @@ out:
 }
 
 gf_boolean_t
-afr_decide_heal_info (afr_private_t *priv, unsigned char *sources, int ret)
+afr_decide_heal_info (afr_private_t *priv, unsigned char *sources, int source)
 {
         int sources_count = 0;
 
-        if (ret)
+        if (source < 0)
                 goto out;
 
         sources_count = AFR_COUNT (sources, priv->child_count);
