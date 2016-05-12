@@ -18,6 +18,7 @@
 #include "call-stub.h"
 #include "bit-rot-stub-mem-types.h"
 #include "syscall.h"
+#include "common-utils.h"
 #include "bit-rot-common.h"
 #include "bit-rot-stub-messages.h"
 #include "glusterfs3-xdr.h"
@@ -29,6 +30,29 @@
  */
 #define OLD_BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quanrantine"
 #define BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quarantine"
+
+/* do not reference frame->local in cbk unless initialized.
+ * Assigned 0x1 marks verisoning flag between call path and
+ * cbk path.
+ */
+#define BR_STUB_VER_NOT_ACTIVE_THEN_GOTO(frame, priv, label) do {      \
+                if (priv->do_versioning)                               \
+                        frame->local = (void *)0x1;                    \
+                else                                                   \
+                        goto label;                                    \
+        } while (0)
+
+#define BR_STUB_VER_COND_GOTO(priv, cond, label) do {       \
+                if (!priv->do_versioning || cond)           \
+                        goto label;                         \
+        } while (0)
+
+#define BR_STUB_VER_ENABLED_IN_CALLPATH(frame, flag) do {   \
+                if (frame->local)                           \
+                        flag = _gf_true;                    \
+                if (frame->local == (void *) 0x1)           \
+                        frame->local = NULL;                \
+        } while (0)
 
 typedef int (br_stub_version_cbk) (call_frame_t *, void *,
                                    xlator_t *, int32_t, int32_t, dict_t *);
@@ -80,7 +104,7 @@ typedef struct br_stub_local {
 #define BR_STUB_INCREMENTAL_VERSIONING (1 << 1)
 
 typedef struct br_stub_private {
-        gf_boolean_t go;
+        gf_boolean_t do_versioning;
 
         uint32_t boot[2];
         char export[PATH_MAX];

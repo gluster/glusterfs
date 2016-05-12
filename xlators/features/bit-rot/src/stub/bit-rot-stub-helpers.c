@@ -399,8 +399,11 @@ br_stub_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         struct iatt        stbuf       = {0, };
         struct iatt        postparent  = {0,};
         dict_t            *xattr       = NULL;
+        gf_boolean_t       ver_enabled = _gf_false;
 
+        BR_STUB_VER_ENABLED_IN_CALLPATH(frame, ver_enabled);
         priv = this->private;
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), done);
 
         VALIDATE_OR_GOTO (loc, done);
         if (gf_uuid_compare (loc->gfid, priv->bad_object_dir_gfid))

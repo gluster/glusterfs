@@ -134,7 +134,7 @@ init (xlator_t *this)
         if (!priv->local_pool)
                 goto free_priv;
 
-        GF_OPTION_INIT ("bitrot", priv->go, bool, free_mempool);
+        GF_OPTION_INIT ("bitrot", priv->do_versioning, bool, free_mempool);
 
         GF_OPTION_INIT ("export", tmp, str, free_mempool);
         memcpy (priv->export, tmp, strlen (tmp) + 1);
@@ -182,6 +182,34 @@ init (xlator_t *this)
         this->private = NULL;
  error_return:
         return -1;
+}
+
+/* TODO:
+ * As of now enabling bitrot option does 2 things.
+ * 1) Start the Bitrot Daemon which signs the objects (currently files only)
+ *    upon getting notified by the stub.
+ * 2) Enable versioning of the objects. Object versions (again files only) are
+ *    incremented upon modification.
+ * So object versioning is tied to bitrot daemon's signing. In future, object
+ * versioning might be necessary for other things as well apart from bit-rot
+ * detection (well thats the objective of bringing in object-versioning :)).
+ * In that case, better to make versioning a new option and letting it to be
+ * enabled despite bit-rot detection is not needed.
+ * Ex: ICAP.
+ */
+int32_t
+reconfigure (xlator_t *this, dict_t *options)
+{
+        int32_t            ret  = -1;
+        br_stub_private_t *priv = NULL;
+
+        priv = this->private;
+
+        GF_OPTION_RECONF ("bitrot", priv->do_versioning, options, bool, out);
+
+        ret = 0;
+out:
+        return ret;
 }
 
 void
@@ -287,6 +315,9 @@ br_stub_alloc_local (xlator_t *this)
 static void
 br_stub_dealloc_local (br_stub_local_t *ptr)
 {
+        if (!ptr)
+                return;
+
         mem_put (ptr);
 }
 
@@ -406,6 +437,9 @@ br_stub_fill_local (br_stub_local_t *local,
 static void
 br_stub_cleanup_local (br_stub_local_t *local)
 {
+        if (!local)
+                return;
+
         local->fopstub = NULL;
         local->versioningtype = 0;
         local->u.context.version = 0;
@@ -428,17 +462,33 @@ br_stub_need_versioning (xlator_t *this,
         int32_t ret      = -1;
         uint64_t ctx_addr = 0;
         br_stub_inode_ctx_t *c = NULL;
+        unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
 
         *versioning = _gf_false;
         *modified = _gf_false;
 
+        /* Bitrot stub inode context was initialized only in lookup, create
+         * and mknod cbk path. Object versioning was enabled by default
+         * irrespective of bitrot enbaled or not. But it's made optional now.
+         * As a consequence there could be cases where getting inode ctx would
+         * fail because it's not set yet.
+         * e.g., If versioning (with bitrot enable) is enabled while I/O is
+         * happening, it could directly get other fops like writev without
+         * lookup, where getting inode ctx would fail. Hence initialize the
+         * inode ctx on failure to get ctx. This is done in all places where
+         * applicable.
+         */
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
-                        "inode context for the inode %s",
-                        uuid_utoa (fd->inode->gfid));
-                goto error_return;
+                ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
+                                                   _gf_true, _gf_false);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to "
+                                " init the inode context for the inode %s",
+                                uuid_utoa (fd->inode->gfid));
+                        goto error_return;
+                }
         }
 
         c = (br_stub_inode_ctx_t *) (long) ctx_addr;
@@ -522,12 +572,17 @@ br_stub_mark_inode_modified (xlator_t *this, br_stub_local_t *local)
         int32_t              ret      = 0;
         uint64_t             ctx_addr = 0;
         br_stub_inode_ctx_t *ctx      = NULL;
+        unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
 
         fd = local->u.context.fd;
 
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
-        if (ret < 0)
-                goto error_return;
+        if (ret < 0) {
+                ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
+                                                   _gf_true, _gf_false);
+                if (ret)
+                        goto error_return;
+        }
 
         ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
 
@@ -556,6 +611,7 @@ br_stub_check_bad_object (xlator_t *this, inode_t *inode, int32_t *op_ret,
                            int32_t *op_errno)
 {
         int ret = -1;
+        unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
 
         ret = br_stub_is_bad_object (this, inode);
         if (ret == -2) {
@@ -567,11 +623,16 @@ br_stub_check_bad_object (xlator_t *this, inode_t *inode, int32_t *op_ret,
         }
 
         if (ret == -1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "could not get inode"
-                        " context for %s", uuid_utoa (inode->gfid));
-                *op_ret = -1;
-                *op_errno = EINVAL;
+                ret = br_stub_init_inode_versions (this, NULL, inode, version,
+                                                   _gf_true, _gf_false);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                                "failed to init inode context for %s",
+                                uuid_utoa (inode->gfid));
+                        *op_ret = -1;
+                        *op_errno = EINVAL;
+                }
         }
 
         return ret;
@@ -783,6 +844,20 @@ br_stub_signth (void *arg)
         }
 
         return NULL;
+}
+
+static gf_boolean_t
+br_stub_internal_xattr (dict_t *dict) {
+
+        if (dict_get (dict, GLUSTERFS_SET_OBJECT_SIGNATURE) ||
+            dict_get (dict, GLUSTERFS_GET_OBJECT_SIGNATURE) ||
+            dict_get (dict, BR_REOPEN_SIGN_HINT_KEY) ||
+            dict_get (dict, BITROT_OBJECT_BAD_KEY) ||
+            dict_get (dict, BITROT_SIGNING_VERSION_KEY) ||
+            dict_get (dict, BITROT_CURRENT_VERSION_KEY))
+                return _gf_true;
+
+        return _gf_false;
 }
 
 int
@@ -1198,6 +1273,26 @@ br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
         int32_t              ret      = 0;
         uint32_t             val      = 0;
         br_isignature_t     *sign     = NULL;
+        br_stub_private_t   *priv     = NULL;
+        int32_t              op_ret   = -1;
+        int32_t              op_errno = EINVAL;
+        char                *format   = "(%s:%s)";
+        char                 dump[64*1024]  = {0,};
+
+        priv = this->private;
+
+        if ((frame->root->pid != GF_CLIENT_PID_BITD &&
+            frame->root->pid != GF_CLIENT_PID_SCRUB) &&
+            br_stub_internal_xattr (dict)) {
+                dict_dump_to_str (dict, dump, sizeof(dump), format);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_SET_INTERNAL_XATTR, "fsetxattr called on "
+                        "internal xattr %s", dump);
+                goto unwind;
+        }
+
+        if (!priv->do_versioning)
+                goto wind;
 
         if (!IA_ISREG (fd->inode->ia_type))
                 goto wind;
@@ -1249,6 +1344,11 @@ wind:
         STACK_WIND (frame, default_fsetxattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsetxattr, fd, dict, flags,
                     xdata);
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
+
 done:
         return 0;
 }
@@ -1270,19 +1370,13 @@ br_stub_setxattr (call_frame_t *frame, xlator_t *this,
         char     dump[64*1024]             = {0,};
         char    *format                    = "(%s:%s)";
 
-        if (dict_get (dict, GLUSTERFS_SET_OBJECT_SIGNATURE) ||
-            dict_get (dict, GLUSTERFS_GET_OBJECT_SIGNATURE) ||
-            dict_get (dict, BR_REOPEN_SIGN_HINT_KEY) ||
-            dict_get (dict, BITROT_OBJECT_BAD_KEY) ||
-            dict_get (dict, BITROT_SIGNING_VERSION_KEY) ||
-            dict_get (dict, BITROT_CURRENT_VERSION_KEY)) {
+        if (br_stub_internal_xattr (dict)) {
                 dict_dump_to_str (dict, dump, sizeof(dump), format);
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         BRS_MSG_SET_INTERNAL_XATTR, "setxattr called on "
                         "internal xattr %s", dump);
                 goto unwind;
         }
-
 
         STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                          FIRST_CHILD (this)->fops->setxattr, loc, dict, flags,
@@ -1316,7 +1410,6 @@ br_stub_removexattr (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->removexattr,
                          loc, name, xdata);
@@ -1342,7 +1435,6 @@ br_stub_fremovexattr (call_frame_t *frame, xlator_t *this,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
-
 
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->fremovexattr,
@@ -1591,9 +1683,12 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
         int32_t             op_ret   = -1;
         int32_t             op_errno = EINVAL;
         br_stub_local_t    *local    = NULL;
+        br_stub_private_t  *priv     = NULL;
+
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
 
         rootgfid[15] = 1;
@@ -1602,6 +1697,13 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 cbk = br_stub_listxattr_cbk;
                 goto wind;
         }
+
+        if (br_stub_is_internal_xattr (name))
+                goto unwind;
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
@@ -1613,9 +1715,6 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
             br_stub_check_bad_object (this, loc->inode, &op_ret, &op_errno)) {
                 goto unwind;
         }
-
-        if (br_stub_is_internal_xattr (name))
-                goto unwind;
 
         /**
          * this special extended attribute is allowed only on root
@@ -1669,6 +1768,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         int32_t op_ret = -1;
         int32_t op_errno = EINVAL;
         br_stub_local_t *local = NULL;
+        br_stub_private_t  *priv = NULL;
 
         rootgfid[15] = 1;
 
@@ -1676,6 +1776,13 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                 cbk = br_stub_listxattr_cbk;
                 goto wind;
         }
+
+        if (br_stub_is_internal_xattr (name))
+                goto unwind;
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
@@ -1687,9 +1794,6 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
             br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno)) {
                 goto unwind;
         }
-
-        if (br_stub_is_internal_xattr (name))
-                goto unwind;
 
         /**
          * this special extended attribute is allowed only on root
@@ -1739,16 +1843,23 @@ br_stub_readv (call_frame_t *frame, xlator_t *this,
         int32_t              op_ret   = -1;
         int32_t              op_errno = EINVAL;
         int32_t              ret      = -1;
+        br_stub_private_t   *priv     = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, unwind);
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         ret = br_stub_check_bad_object (this, fd->inode, &op_ret, &op_errno);
         if (ret)
                 goto unwind;
 
+wind:
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->readv, fd, size, offset,
                          flags, xdata);
@@ -1772,8 +1883,8 @@ br_stub_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
-        int32_t          ret   = 0;
-        br_stub_local_t *local = NULL;
+        int32_t            ret   = 0;
+        br_stub_local_t   *local = NULL;
 
         local = frame->local;
         frame->local = NULL;
@@ -1832,10 +1943,16 @@ br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int32_t              ret         = -1;
         fop_writev_cbk_t     cbk         = default_writev_cbk;
         br_stub_local_t     *local       = NULL;
+        br_stub_private_t   *priv        = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
@@ -1907,8 +2024,8 @@ br_stub_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
 {
-        int32_t          ret   = -1;
-        br_stub_local_t *local = NULL;
+        int32_t            ret   = -1;
+        br_stub_local_t   *local = NULL;
 
         local = frame->local;
         frame->local = NULL;
@@ -1955,10 +2072,16 @@ br_stub_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         br_stub_inode_ctx_t *ctx         = NULL;
         int32_t              ret         = -1;
         fop_ftruncate_cbk_t  cbk         = default_ftruncate_cbk;
+        br_stub_private_t   *priv        = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
@@ -2079,11 +2202,17 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int32_t              ret         = -1;
         fd_t                *fd          = NULL;
         fop_truncate_cbk_t   cbk         = default_truncate_cbk;
+        br_stub_private_t   *priv        = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        priv = this->private;
+        if (!priv->do_versioning)
+                goto wind;
 
         fd = fd_anonymous (loc->inode);
         if (!fd) {
@@ -2131,7 +2260,8 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
  wind:
         STACK_WIND (frame, cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
-        fd_unref (fd);
+        if (fd)
+                fd_unref (fd);
         return 0;
 
  cleanup_local:
@@ -2177,19 +2307,32 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
         uint64_t             ctx_addr = 0;
         int32_t              op_ret   = -1;
         int32_t              op_errno = EINVAL;
+        br_stub_private_t   *priv     = NULL;
+        unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, unwind);
 
+        priv = this->private;
+
+        if (!priv->do_versioning)
+                goto wind;
+
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
-                        "inode context for the file %s (gfid: %s)", loc->path,
-                        uuid_utoa (fd->inode->gfid));
-                goto unwind;
+                ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
+                                                   _gf_true, _gf_false);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                                "failed to init the inode context for "
+                                "the file %s (gfid: %s)", loc->path,
+                                uuid_utoa (fd->inode->gfid));
+                        goto unwind;
+                }
         }
 
         ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
@@ -2270,8 +2413,14 @@ br_stub_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t             ctx_addr = 0;
         br_stub_inode_ctx_t *ctx      = NULL;
         unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
+        br_stub_private_t   *priv     = NULL;
+
+        priv = this->private;
 
         if (op_ret < 0)
+                goto unwind;
+
+        if (!priv->do_versioning)
                 goto unwind;
 
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
@@ -2322,8 +2471,14 @@ br_stub_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int32_t              ret      = -1;
         unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
+        br_stub_private_t   *priv     = NULL;
+
+        priv = this->private;
 
         if (op_ret < 0)
+                goto unwind;
+
+        if (!priv->do_versioning)
                 goto unwind;
 
         ret = br_stub_init_inode_versions (this, NULL, inode, version,
@@ -2476,6 +2631,9 @@ br_stub_readdir (call_frame_t *frame, xlator_t *this,
         br_stub_private_t    *priv = NULL;
 
         priv = this->private;
+        if (!priv->do_versioning)
+                goto out;
+
         if (gf_uuid_compare (fd->inode->gfid, priv->bad_object_dir_gfid))
                 goto out;
         stub = fop_readdir_stub (frame, br_stub_readdir_wrapper, fd, size, off,
@@ -2497,9 +2655,15 @@ br_stub_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, gf_dirent_t *entries,
                       dict_t *dict)
 {
-        int32_t      ret     = 0;
-        uint64_t     ctxaddr = 0;
-        gf_dirent_t *entry   = NULL;
+        int32_t            ret     = 0;
+        uint64_t           ctxaddr = 0;
+        gf_dirent_t       *entry   = NULL;
+        br_stub_private_t *priv    = NULL;
+        gf_boolean_t       ver_enabled = _gf_false;
+
+        BR_STUB_VER_ENABLED_IN_CALLPATH (frame, ver_enabled);
+        priv = this->private;
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), unwind);
 
         if (op_ret < 0)
                 goto unwind;
@@ -2547,9 +2711,13 @@ int
 br_stub_readdirp (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, size_t size, off_t offset, dict_t *dict)
 {
-        int32_t ret = -1;
-        int op_errno = 0;
-        gf_boolean_t xref = _gf_false;
+        int32_t            ret      = -1;
+        int                op_errno = 0;
+        gf_boolean_t       xref     = _gf_false;
+        br_stub_private_t *priv     = NULL;
+
+        priv = this->private;
+        BR_STUB_VER_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         op_errno = ENOMEM;
         if (!dict) {
@@ -2573,16 +2741,19 @@ br_stub_readdirp (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto unwind;
 
+wind:
         STACK_WIND (frame, br_stub_readdirp_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->readdirp, fd, size,
                     offset, dict);
         goto unref_dict;
 
- unwind:
+unwind:
+        if (frame->local == (void *)0x1)
+                frame->local = NULL;
         STACK_UNWIND_STRICT (readdirp, frame, -1, op_errno, NULL, NULL);
         return 0;
 
- unref_dict:
+unref_dict:
         if (xref)
                 dict_unref (dict);
         return 0;
@@ -2651,6 +2822,12 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
                     struct iatt *stbuf, dict_t *xattr, struct iatt *postparent)
 {
         int32_t ret = 0;
+        br_stub_private_t *priv = NULL;
+        gf_boolean_t  ver_enabled = _gf_false;
+
+        BR_STUB_VER_ENABLED_IN_CALLPATH(frame, ver_enabled);
+        priv = this->private;
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), unwind);
 
         if (op_ret < 0) {
                 (void) br_stub_handle_lookup_error (this, inode, op_errno);
@@ -2728,6 +2905,8 @@ br_stub_lookup (call_frame_t *frame,
 
         priv = this->private;
 
+        BR_STUB_VER_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+
         if (!gf_uuid_compare (loc->gfid, priv->bad_object_dir_gfid) ||
             !gf_uuid_compare (loc->pargfid, priv->bad_object_dir_gfid)) {
 
@@ -2785,6 +2964,8 @@ br_stub_lookup (call_frame_t *frame,
         goto dealloc_dict;
 
  unwind:
+        if (frame->local == (void *) 0x1)
+                frame->local = NULL;
         STACK_UNWIND_STRICT (lookup, frame,
                              -1, op_errno, NULL, NULL, NULL, NULL);
  dealloc_dict:
@@ -2801,9 +2982,15 @@ br_stub_lookup (call_frame_t *frame,
 int
 br_stub_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        int32_t ret      = 0;
-        int32_t op_ret   = -1;
-        int32_t op_errno = EINVAL;
+        int32_t            ret      = 0;
+        int32_t            op_ret   = -1;
+        int32_t            op_errno = EINVAL;
+        br_stub_private_t *priv     = NULL;
+
+        priv = this->private;
+
+        if (!priv->do_versioning)
+                goto wind;
 
         if (!IA_ISREG (loc->inode->ia_type))
                 goto wind;
@@ -2826,9 +3013,15 @@ unwind:
 int
 br_stub_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        int32_t ret      = 0;
-        int32_t op_ret   = -1;
-        int32_t op_errno = EINVAL;
+        int32_t            ret      = 0;
+        int32_t            op_ret   = -1;
+        int32_t            op_errno = EINVAL;
+        br_stub_private_t *priv     = NULL;
+
+        priv = this->private;
+
+        if (!priv->do_versioning)
+                goto wind;
 
         if (!IA_ISREG (fd->inode->ia_type))
                 goto wind;
@@ -2863,6 +3056,12 @@ br_stub_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t             ctx_addr = 0;
         br_stub_inode_ctx_t *ctx      = NULL;
         int32_t              ret      = -1;
+        br_stub_private_t   *priv     = NULL;
+        gf_boolean_t         ver_enabled = _gf_false;
+
+        BR_STUB_VER_ENABLED_IN_CALLPATH (frame, ver_enabled);
+        priv = this->private;
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), unwind);
 
         local = frame->local;
         frame->local = NULL;
@@ -2919,9 +3118,13 @@ int
 br_stub_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 dict_t *xdata)
 {
-        br_stub_local_t *local = NULL;
-        int32_t          op_ret = -1;
-        int32_t          op_errno = 0;
+        br_stub_local_t   *local    = NULL;
+        int32_t            op_ret   = -1;
+        int32_t            op_errno = 0;
+        br_stub_private_t *priv     = NULL;
+
+        priv = this->private;
+        BR_STUB_VER_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         local = br_stub_alloc_local (this);
         if (!local) {
@@ -2939,11 +3142,14 @@ br_stub_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
 
         frame->local = local;
 
+wind:
         STACK_WIND (frame, br_stub_unlink_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->unlink, loc, flag, xdata);
         return 0;
 
 unwind:
+        if (frame->local == (void *)0x1)
+                frame->local = NULL;
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, NULL, NULL, NULL);
         return 0;
 }
@@ -3244,7 +3450,7 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key = {"bitrot"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "on",
+          .default_value = "off",
           .description = "enable/disable bitrot stub"
         },
         { .key = {"export"},
