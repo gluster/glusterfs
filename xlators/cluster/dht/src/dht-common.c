@@ -250,7 +250,7 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
         int              heal_path       = 0;
         int              i               = 0;
         loc_t            loc             = {0 };
-        int8_t           is_read_only    = 0;
+        int8_t           is_read_only    = 0, layout_anomalies = 0;
 
         local = discover_frame->local;
         layout = local->layout;
@@ -305,26 +305,10 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                                       "(overlaps/holes present: %s, "
                                       "ENOENT errors: %d)", local->loc.path,
                                       (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
-                        if ((ret > 0) && (ret == conf->subvolume_cnt)) {
-                                op_errno = ESTALE;
-                                goto out;
-                        }
-
-                        /* For fixing the directory layout, we need to choose
-                         * the subvolume on which layout will be set first.
-                         * Because in nameless lookup, we have gfid only,
-                         * we are dependent on gfid. Therefore if conf->
-                         * randomize_by_gfid is set, then only we proceed for
-                         * healing layout of directory otherwise we don't heal.
-                         */
-
-                        if (local->inode && conf->randomize_by_gfid &&
-                            !is_read_only)
-                                goto selfheal;
-                }
-
-                if (local->inode)
+                        layout_anomalies = 1;
+                } else if (local->inode) {
                         dht_layout_set (this, local->inode, layout);
+                }
         }
 
         if (!conf->vch_forced) {
@@ -344,11 +328,13 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                             layout->list[i].err == ESTALE) {
                                 heal_path = 1;
                         }
+
                         if (source && heal_path)
                                 break;
                 }
         }
-        if (source && heal_path) {
+
+        if (source && (heal_path || layout_anomalies)) {
                 gf_uuid_copy (loc.gfid, local->gfid);
                 if (gf_uuid_is_null (loc.gfid)) {
                         goto done;
@@ -403,18 +389,6 @@ out:
                           NULL);
 
         return ret;
-
-selfheal:
-
-        main_frame->local = local;
-        discover_frame->local =  NULL;
-        FRAME_SU_DO (main_frame, dht_local_t);
-        gf_uuid_copy (local->loc.gfid, local->gfid);
-        ret = dht_selfheal_directory_for_nameless_lookup (main_frame,
-                                                        dht_lookup_selfheal_cbk,
-                                                          &local->loc, layout);
-        return ret;
-
 }
 
 int
