@@ -417,7 +417,7 @@ index_dec_link_count (index_priv_t *priv, index_xattrop_type_t type)
 char*
 index_get_subdir_from_type (index_xattrop_type_t type)
 {
-        if (type < 0 || type >= XATTROP_TYPE_END)
+        if ((int)type < 0 || (int)type >= (int)XATTROP_TYPE_END)
                 return NULL;
         return index_subdirs[type];
 }
