@@ -531,7 +531,7 @@ tier_migrate_using_query_file (void *_args)
 
                 total_time = current_time.tv_sec - start_time.tv_sec;
                 if (total_time > max_time) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
                                 DHT_MSG_LOG_TIER_STATUS,
                                 "Max cycle time reached. Exiting migration.");
                         goto out;
