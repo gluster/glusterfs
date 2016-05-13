@@ -448,8 +448,8 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
         case AF_INET6:
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
-                                                       *sockaddr_len,
-                                                       GF_CLIENT_PORT_CEILING);
+                                                               *sockaddr_len,
+                                                               GF_CLIENT_PORT_CEILING);
                         if (ret == -1) {
                                 gf_msg (this->name, GF_LOG_WARNING, errno,
                                         RDMA_MSG_PORT_BIND_FAILED,
@@ -458,13 +458,14 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
                         }
                 } else {
                         ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
-                                                       *sockaddr_len,
-                                                       GF_PORT_MAX);
+                                                               *sockaddr_len,
+                                                               GF_IANA_PRIV_PORTS_START);
                         if (ret == -1) {
                                 gf_msg (this->name, GF_LOG_WARNING, errno,
                                         RDMA_MSG_PORT_BIND_FAILED,
                                         "cannot bind rdma_cm_id to port "
-                                        "less than %d", GF_PORT_MAX);
+                                        "less than %d",
+                                        GF_IANA_PRIV_PORTS_START);
                         }
                 }
                 break;

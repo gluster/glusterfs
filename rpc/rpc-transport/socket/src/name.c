@@ -459,20 +459,25 @@ client_bind (rpc_transport_t *this,
         case AF_INET6:
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
-                                                       *sockaddr_len, GF_CLIENT_PORT_CEILING);
+                                                               *sockaddr_len,
+                                                               GF_CLIENT_PORT_CEILING);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_DEBUG,
-                                        "cannot bind inet socket (%d) to port less than %d (%s)",
-                                        sock, GF_CLIENT_PORT_CEILING, strerror (errno));
+                                        "cannot bind inet socket (%d) "
+                                        "to port less than %d (%s)",
+                                        sock, GF_CLIENT_PORT_CEILING,
+                                        strerror (errno));
                                 ret = 0;
                         }
                 } else {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
-                                                       *sockaddr_len, GF_PORT_MAX);
+                                                               *sockaddr_len,
+                                                               GF_IANA_PRIV_PORTS_START);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_DEBUG,
-                                        "failed while binding to less than %d (%s)",
-                                        GF_PORT_MAX, strerror (errno));
+                                        "failed while binding to less than "
+                                        "%d (%s)", GF_IANA_PRIV_PORTS_START,
+                                        strerror (errno));
                                 ret = 0;
                         }
                 }
