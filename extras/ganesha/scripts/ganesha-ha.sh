@@ -259,7 +259,7 @@ ${tganesha_vol_conf}
                 removed_id=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'")
+grep Export_Id | awk -F\"[=,;]\" '{print \$2}' | tr -d '[[:space:]]'")
 
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
