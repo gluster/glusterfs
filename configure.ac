@@ -1172,7 +1172,7 @@ if test "x$enable_glupy" = "xyes"; then
     dnl Find python libs at user configured libdir and also "lib" under prefix
     PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
 
-    BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'`
+    BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix="${exec_prefix}"))'`
     BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
     BUILD_PYTHON_LIB=python$PYTHON_VERSION
 
