@@ -31,6 +31,11 @@ gfid_with_hyphen=`getfattr -n glusterfs.gfid.string $M0/a 2>/dev/null \
 
 TEST setfattr -x trusted.glusterfs.dht $B0/$V0"0"/a
 
+## new healing code don't attempt healing if inode is already
+## populated. So, unmount and remount before we do stat.
+TEST umount $M0
+TEST glusterfs --volfile-id=/$V0 --aux-gfid-mount --volfile-server=$H0 $M0
+
 TEST stat $M0/.gfid/$gfid_with_hyphen
 
 ##  Assuming that we have two bricks, we can have two permutations of layout
@@ -57,6 +62,8 @@ TEST stat $M0/.gfid/$gfid_with_hyphen
 
 
 ##Extract Layout
+echo `get_layout  $B0/$V0"0"/a`
+echo `get_layout  $B0/$V0"1"/a`
 layout_b0_s=`get_layout $B0/$V0"0"/a  | cut -c19-26`
 layout_b0_e=`get_layout $B0/$V0"0"/a  | cut -c27-34`
 layout_b1_s=`get_layout $B0/$V0"1"/a  | cut -c19-26`
@@ -68,7 +75,6 @@ layout_b0_s="0x"$layout_b0_s
 layout_b0_e="0x"$layout_b0_e
 layout_b1_s="0x"$layout_b1_s
 layout_b1_e="0x"$layout_b1_e
-
 
 
 ## Logic of converting starting layout "0" to "Max_value of layout + 1"
@@ -114,9 +120,15 @@ gfid_with_hyphen=`getfattr -n glusterfs.gfid.string $M0/a 2>/dev/null \
 TEST setfattr -x trusted.glusterfs.dht $B0/$V0"0"/a
 TEST setfattr -x trusted.glusterfs.dht $B0/$V0"1"/a
 
+## new healing code don't attempt healing if inode is already
+## populated. So, unmount and remount before we do stat.
+TEST umount $M0
+TEST glusterfs --volfile-id=/$V0 --aux-gfid-mount --volfile-server=$H0 $M0
+
 TEST stat $M0/.gfid/$gfid_with_hyphen
 
 ##Extract Layout
+
 layout_b0_s=`get_layout $B0/$V0"0"/a  | cut -c19-26`
 layout_b0_e=`get_layout $B0/$V0"0"/a  | cut -c27-34`
 layout_b1_s=`get_layout $B0/$V0"1"/a  | cut -c19-26`
