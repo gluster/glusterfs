@@ -173,8 +173,6 @@ ganesha_mon_monitor()
 	# the remaining ganesha.nfsds into grace before
 	# initiating the VIP fail-over.
 
-	sleep ${OCF_RESKEY_grace_delay}
-
 	attrd_updater -D -n ${OCF_RESKEY_grace_active}
 	if [ $? -ne 0 ]; then
 		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_grace_active} failed"
@@ -183,6 +181,13 @@ ganesha_mon_monitor()
 	crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0
 	if [ $? -ne 0 ]; then
 		ocf_log info "warning: crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0 failed"
+	fi
+
+	sleep ${OCF_RESKEY_grace_delay}
+
+	attrd_updater -D -n ${OCF_RESKEY_ganesha_active}
+	if [ $? -ne 0 ]; then
+		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_ganesha_active} failed"
 	fi
 
 	return ${OCF_SUCCESS}
