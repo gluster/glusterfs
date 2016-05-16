@@ -1887,7 +1887,7 @@ inode_set_need_lookup (inode_t *inode, xlator_t *this)
 {
         uint64_t  need_lookup = LOOKUP_NEEDED;
 
-        if (!inode | !this)
+        if (!inode || !this)
                 return;
 
         inode_ctx_set (inode, this, &need_lookup);
