@@ -1,6 +1,7 @@
 ---
 - hosts: all
-  sudo: true
+  become: yes
+  become_method: sudo
   roles:
     - install-pkgs
     - prepare-brick
@@ -8,13 +9,15 @@
     - iptables
 
 - hosts: all
-  sudo: true
+  become: yes
+  become_method: sudo
   serial: 1
   roles:
     - compile-gluster
     - service
 
 - hosts: origin
-  sudo: true
+  become: yes
+  become_method: sudo
   roles:
     - cluster
