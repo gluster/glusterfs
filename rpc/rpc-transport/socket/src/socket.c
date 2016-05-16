@@ -2537,10 +2537,17 @@ err:
         __socket_shutdown(this);
         close(priv->sock);
         priv->sock = -1;
-        priv->ot_state = OT_IDLE;
-        pthread_mutex_unlock(&priv->lock);
-        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
 
+        sys_close (priv->pipe[0]);
+        sys_close (priv->pipe[1]);
+        priv->pipe[0] = -1;
+        priv->pipe[1] = -1;
+
+        priv->ot_state = OT_IDLE;
+
+        pthread_mutex_unlock(&priv->lock);
+
+        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
 
         rpc_transport_unref (this);
 
