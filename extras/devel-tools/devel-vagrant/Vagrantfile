@@ -13,6 +13,8 @@ node_count = 0
 disk_count = -1
 node_name = "Node"
 ipbase="192.168.99."
+source_path = "/source/glusterfs"
+target_path = "/mnt/src"
 
 if ARGV[0] == "up"
         environment = open('vagrant_env.conf', 'w')
@@ -40,9 +42,16 @@ if ARGV[0] == "up"
                 end
         end
 
+        print "\e[1;37mEnter GlusterFS source location? Default: \"#{source_path}\" : \e[32m"
+        tmploc = $stdin.gets.strip.to_s
+        if tmploc != ""
+                source_path = "#{tmploc}"
+        end
+
         environment.puts("# BEWARE: Do NOT modify ANY settings in here or your vagrant environment will be messed up")
         environment.puts(node_count.to_s)
         environment.puts(disk_count.to_s)
+        environment.puts(source_path)
 
         print "\e[32m\nOK I will provision #{node_count} VMs for you and each one will have #{disk_count} disks for bricks\e[37m\n\n"
         system "sleep 1"
@@ -52,6 +61,7 @@ else # So that we destroy and can connect to all VMs...
         environment.readline # Skip the comment on top
         node_count = environment.readline.to_i
         disk_count = environment.readline.to_i
+        source_path = environment.readline.gsub(/\s+/, "")
 
         if ARGV[0] != "ssh-config"
                 puts "Detected settings from previous vagrant up:"
@@ -85,13 +95,17 @@ def attachDisks(numDisk, provider)
         $devnamecreated = true
 end
 
+
+$ansivar["src_path"].push "#{source_path}"
+$ansivar["trg_path"].push "#{target_path}"
+
 groups = Hash.new{ |hash,key| hash[key] = [] }
 
 groups["origin"].push "#{node_name}1"
 groups["all"].push "#{node_name}1"
 
 (2..node_count).each do |num|
-        groups["group1"].push "#{node_name}#{num}"
+        $ansivar["peer_nodes"].push "#{node_name}#{num}"
         groups["all"].push "#{node_name}#{num}"
 end
 
@@ -99,7 +113,6 @@ hostsFile = "\n"
 (1..node_count).each do |num|
         hostsFile += "#{ipbase}#{( 100 + num).to_s} #{node_name}#{num.to_s}\n"
 end
-
 
 Vagrant.configure("2") do |config|
     (1..node_count).each do |num|
@@ -110,7 +123,7 @@ Vagrant.configure("2") do |config|
             node.vm.box_url = box_url
             node.vm.hostname = "#{node_name}#{num}"
             node.ssh.insert_key = false
-            node.vm.synced_folder "/work/source", "/work/source", type: "nfs"
+            node.vm.synced_folder "#{source_path}", "#{target_path}", type: "nfs"
 
             # Define basic config for VM, memory, cpu, storage pool
             node.vm.provider "libvirt" do |virt|
@@ -124,7 +137,7 @@ Vagrant.configure("2") do |config|
             node.vm.post_up_message = "\e[37mBuilding of this VM is finished \n"
                                       "You can access it now with: \n"
                                       "vagrant ssh #{node_name}#{num.to_s}\n\n"
-                                      "/work/source directory in VM #{node_name}#{num.to_s}"
+                                      "#{target_path} directory in VM #{node_name}#{num.to_s}"
                                       "is synced with Host machine. \nSo any changes done in this"
                                       "directory will be reflected in the host machine as well\n"
                                       "Beware of this when you delete content from this directory\e[32m"

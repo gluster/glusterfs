@@ -1,9 +1,10 @@
 ---
 - name: autogen.sh
-  shell: chdir=/work/source/glusterfs ./autogen.sh
+  shell: chdir={{ item }} ./autogen.sh
+  with_items: "{{ trg_path }}"
 
 - name: configure
-  shell: chdir=/work/source/glusterfs CFLAGS="-g -O0 -Werror -Wall -Wno-error=cpp -Wno-error=maybe-uninitialized" \
+  shell: chdir={{ item }} CFLAGS="-g -O0 -Werror -Wall -Wno-error=cpp -Wno-error=maybe-uninitialized" \
         ./configure \
         --prefix=/usr \
         --exec-prefix=/usr \
@@ -20,7 +21,9 @@
         --infodir=/usr/share/info \
         --libdir=/usr/lib64 \
         --enable-debug
+  with_items: "{{ trg_path }}"
 
 - name: make install
-  shell: chdir=/work/source/glusterfs make install
+  shell: chdir={{ item }} make install
+  with_items: "{{ trg_path }}"
 
