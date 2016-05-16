@@ -78,7 +78,7 @@ fop_table = {
 	"getxattr":		"read",
 #	"inodelk":		"read",
 	"link":			"write",
-#	"lk":			"write",
+	"lk":			"write,queue",
 #	"lookup":		"read",
 	"mkdir":		"write",
 	"mknod":		"write",
@@ -107,7 +107,7 @@ fop_table = {
 # only a few common functions will be generated, and mention those
 # functions. Rest of the functions can be customized
 selective_generate = {
-#	"lk":			"fop,dispatch,call_dispatch",
+	"lk":			"fop,dispatch,call_dispatch",
 }
 
 # Stolen from gen_fdl.py

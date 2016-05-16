@@ -102,4 +102,12 @@
  */
 #define J_MSG_QUORUM_NOT_MET                 (JBR_COMP_BASE + 9)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define J_MSG_LOCK_FAILURE                  (JBR_COMP_BASE + 10)
+
+
 #endif /* _JBR_MESSAGES_H_ */
