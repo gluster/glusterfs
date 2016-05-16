@@ -151,6 +151,7 @@ struct _leases_private {
                                              is qued and waits for unlock/expiry */
         gf_boolean_t      fini;
         pthread_t         recall_thr;
+        gf_boolean_t      inited_recall_thr;
         pthread_mutex_t   mutex;
         pthread_cond_t    cond;
 };

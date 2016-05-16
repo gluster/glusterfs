@@ -947,6 +947,41 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+static int
+leases_init_priv (xlator_t *this)
+{
+        int               ret  = 0;
+        leases_private_t *priv = NULL;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (!priv->timer_wheel) {
+                if (!glusterfs_global_timer_wheel (this)) {
+                        gf_msg_debug (this->name, 0, "Initing the global "
+                                      "timer wheel");
+                        ret = glusterfs_global_timer_wheel_init (this->ctx);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        LEASE_MSG_NO_TIMER_WHEEL,
+                                        "Initing the global timer "
+                                        "wheel failed");
+                                goto out;
+                        }
+                }
+                priv->timer_wheel = glusterfs_global_timer_wheel (this);
+        }
+
+        if (!priv->inited_recall_thr) {
+                pthread_create (&priv->recall_thr, NULL,
+                                expired_recall_cleanup, this);
+                priv->inited_recall_thr = _gf_true;
+        }
+
+out:
+        return ret;
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -956,8 +991,22 @@ reconfigure (xlator_t *this, dict_t *options)
         priv = this->private;
         GF_ASSERT (priv);
 
+        /* TODO: In case of reconfigure, if its enabling the leases
+         * its not an issue, but if its disabling the leases, there
+         * is more to it, like recall all the existing leases, wait
+         * for unlock of all the leases etc., hence not supporting the
+         * reconfigure for now.
+
         GF_OPTION_RECONF ("leases", priv->leases_enabled,
                           options, bool, out);
+
+        if (priv->leases_enabled) {
+                ret = leases_init_priv (this);
+                if (ret)
+                        goto out;
+        }
+        */
+
         GF_OPTION_RECONF ("lease-lock-recall-timeout",
                           priv->recall_lease_timeout,
                           options, int32, out);
@@ -989,26 +1038,20 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&priv->client_list);
         INIT_LIST_HEAD (&priv->recall_list);
 
-        priv->timer_wheel = glusterfs_global_timer_wheel (this);
-        if (!priv->timer_wheel) {
-                gf_msg_debug (this->name, 0, "Initing the global timer wheel");
-                ret = glusterfs_global_timer_wheel_init (this->ctx);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                LEASE_MSG_NO_TIMER_WHEEL,
-                                "Initing the global timer wheel failed");
+        this->private = priv;
+
+        if (priv->leases_enabled) {
+                ret = leases_init_priv (this);
+                if (ret)
                         goto out;
-                }
         }
 
-        pthread_create (&priv->recall_thr, NULL, expired_recall_cleanup, this);
-
-        this->private = priv;
         ret = 0;
 
 out:
         if (ret) {
                 GF_FREE (priv);
+                this->private = NULL;
         }
 
         return ret;
@@ -1025,8 +1068,11 @@ fini (xlator_t *this)
         }
         this->private = NULL;
 
-        priv->fini = _gf_false;
+        priv->fini = _gf_true;
+        pthread_cond_broadcast (&priv->cond);
         pthread_join (priv->recall_thr, NULL);
+
+        priv->inited_recall_thr = _gf_false;
 
         GF_FREE (priv);
 
