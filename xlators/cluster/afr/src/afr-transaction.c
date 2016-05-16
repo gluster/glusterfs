@@ -2086,32 +2086,13 @@ unlock:
         UNLOCK (&local->fd->lock);
 }
 
-
-int
-afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
+void
+afr_transaction_start (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t *   local = NULL;
-        afr_private_t * priv  = NULL;
-        fd_t            *fd   = NULL;
-        int             ret   = -1;
+        afr_local_t   *local = frame->local;
+        afr_private_t *priv  = this->private;
+        fd_t          *fd    = NULL;
 
-        local = frame->local;
-        priv  = this->private;
-
-        local->transaction.resume = afr_transaction_resume;
-        local->transaction.type   = type;
-
-        ret = afr_transaction_local_init (local, this);
-        if (ret < 0)
-            goto out;
-
-        ret = afr_inode_get_readable (frame, local->inode, this, 0, 0, type);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,
-                        "Failing %s on gfid %s: split-brain observed.",
-                        gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
-                goto out;
-        }
         afr_transaction_eager_lock_init (local, this);
 
         if (local->fd && local->transaction.eager_lock_on)
@@ -2134,6 +2115,72 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
                 afr_internal_lock_finish (frame, this);
         } else {
                 afr_lock (frame, this);
+        }
+}
+
+int
+afr_write_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
+{
+        afr_local_t   *local           = frame->local;
+        afr_private_t *priv            = this->private;
+        int           ret              = 0;
+
+        if (err) {
+                local->op_errno = -err;
+                local->op_ret = -1;
+                goto fail;
+        }
+	ret = afr_inode_get_readable (frame, local->inode, this,
+                                      local->readable, NULL,
+				      local->transaction.type);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_SPLIT_BRAIN,
+                        "Failing %s on gfid %s: split-brain observed.",
+                        gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
+                local->op_ret = -1;
+                local->op_errno = -ret;
+                goto fail;
+        }
+        afr_transaction_start (frame, this);
+        return 0;
+fail:
+        local->transaction.unwind (frame, this);
+        AFR_STACK_DESTROY (frame);
+        return 0;
+}
+
+int
+afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
+{
+        afr_local_t   *local           = NULL;
+        afr_private_t *priv            = NULL;
+        int           ret              = -1;
+        int           event_generation = 0;
+
+        local = frame->local;
+        priv  = this->private;
+
+        local->transaction.resume = afr_transaction_resume;
+        local->transaction.type   = type;
+
+        ret = afr_transaction_local_init (local, this);
+        if (ret < 0)
+                goto out;
+
+        if (type == AFR_ENTRY_TRANSACTION ||
+            type == AFR_ENTRY_RENAME_TRANSACTION) {
+                afr_transaction_start (frame, this);
+                ret = 0;
+                goto out;
+        }
+
+        ret = afr_inode_get_readable (frame, local->inode, this,
+                                      local->readable, &event_generation, type);
+        if (ret < 0 || event_generation != priv->event_generation) {
+                afr_inode_refresh (frame, this, local->inode, local->loc.gfid,
+                                   afr_write_txn_refresh_done);
+        } else {
+                afr_transaction_start (frame, this);
         }
         ret = 0;
 out:
