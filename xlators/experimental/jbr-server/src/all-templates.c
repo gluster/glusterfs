@@ -351,6 +351,7 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      @LONG_ARGS@)
 {
+        int32_t          ret       = -1;
         gf_boolean_t     result    = _gf_false;
         jbr_private_t   *priv      = NULL;
         jbr_local_t     *local     = NULL;
@@ -371,43 +372,9 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK(&frame->lock);
 
 #if defined(JBR_CG_QUEUE)
-        jbr_inode_ctx_t *ictx;
-        jbr_local_t     *next;
-
-        if (local->qlinks.next != &local->qlinks) {
-                list_del(&local->qlinks);
-                ictx = jbr_get_inode_ctx(this, local->fd->inode);
-                if (ictx) {
-                        LOCK(&ictx->lock);
-                                if (ictx->pending) {
-                                        /*
-                                         * TBD: dequeue *all* non-conflicting
-                                         * reqs
-                                         *
-                                         * With the stub implementation there
-                                         * can only be one request active at a
-                                         * time (zero here) so it's not an
-                                         * issue.  In a real implementation
-                                         * there might still be other active
-                                         * requests to check against, and
-                                         * multiple pending requests that could
-                                         * continue.
-                                         */
-                                        gf_msg_debug (this->name, 0,
-                                                     "unblocking next request");
-                                        --(ictx->pending);
-                                        next = list_entry (ictx->pqueue.next,
-                                                           jbr_local_t, qlinks);
-                                        list_del(&next->qlinks);
-                                        list_add_tail(&next->qlinks,
-                                                      &ictx->aqueue);
-                                        call_resume(next->qstub);
-                                } else {
-                                        --(ictx->active);
-                                }
-                        UNLOCK(&ictx->lock);
-                }
-        }
+        ret = jbr_remove_from_queue (frame, this);
+        if (ret)
+                goto err;
 #endif
 
 #if defined(JBR_CG_FSYNC)
