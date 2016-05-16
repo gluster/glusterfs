@@ -121,7 +121,7 @@ afr_read_txn_continue (call_frame_t *frame, xlator_t *this, int subvol)
 
 	if (!local->refreshed) {
 		local->refreshed = _gf_true;
-		afr_inode_refresh (frame, this, local->inode,
+		afr_inode_refresh (frame, this, local->inode, NULL,
 				   afr_read_txn_refresh_done);
 	} else {
 		afr_read_txn_next_subvol (frame, this);
@@ -268,7 +268,7 @@ read:
 	return 0;
 
 refresh:
-	afr_inode_refresh (frame, this, inode, afr_read_txn_refresh_done);
+	afr_inode_refresh (frame, this, inode, NULL, afr_read_txn_refresh_done);
 
 	return 0;
 }

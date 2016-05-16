@@ -422,6 +422,9 @@ typedef struct _afr_local {
 	*/
 	inode_t *refreshinode;
 
+        /*To handle setattr/setxattr on yet to be linked inode from dht*/
+        uuid_t  refreshgfid;
+
 	/*
 	  @pre_op_compat:
 
@@ -855,7 +858,7 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
-		   afr_inode_refresh_cbk_t cbk);
+                   uuid_t gfid, afr_inode_refresh_cbk_t cbk);
 
 int32_t
 afr_notify (xlator_t *this, int32_t event, void *data, void *data2);
