@@ -19,18 +19,6 @@ function create_dist_tier_vol () {
         TEST $CLI_1 volume attach-tier $V0 $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3
 }
 
-function tier_detach_commit () {
-	$CLI_1 volume tier $V0 detach commit | grep "success" | wc -l
-}
-
-function tier_detach_status_node_down () {
-        $CLI_1 volume tier $V0 detach status | wc -l
-}
-
-function tier_status_node_down () {
-	$CLI_1 volume tier $V0 status | wc -l
-}
-
 cleanup;
 
 #setup cluster and test volume
@@ -58,10 +46,10 @@ TEST $CLI_1 volume tier $V0 detach status
 TEST kill_node 2
 
 #check if we have the rest of the node available printed in the output of detach status
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "4" tier_detach_status_node_down
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status_node_down
 
 #check if we have the rest of the node available printed in the output of tier status
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "5" tier_status_node_down
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_status_node_down
 
 TEST $glusterd_2;
 
