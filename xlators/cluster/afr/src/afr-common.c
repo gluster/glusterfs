@@ -380,10 +380,6 @@ afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
         int event_generation = 0;
         int ret = 0;
 
-        /* We don't care about split-brains for entry transactions. */
-        if (type == AFR_ENTRY_TRANSACTION || type == AFR_ENTRY_RENAME_TRANSACTION)
-                return 0;
-
         ret = afr_inode_read_subvol_get (inode, this, data, metadata,
                                          &event_generation);
         if (ret == -1)
@@ -926,7 +922,8 @@ afr_inode_refresh_subvol_with_lookup_cbk (call_frame_t *frame, void *cookie,
 
 int
 afr_inode_refresh_subvol_with_lookup (call_frame_t *frame, xlator_t *this,
-                                      int i, inode_t *inode, dict_t *xdata)
+                                      int i, inode_t *inode, uuid_t gfid,
+                                      dict_t *xdata)
 {
 	loc_t loc = {0, };
 	afr_private_t *priv = NULL;
@@ -934,7 +931,13 @@ afr_inode_refresh_subvol_with_lookup (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	loc.inode = inode;
-	gf_uuid_copy (loc.gfid, inode->gfid);
+        if (gf_uuid_is_null (inode->gfid) && gfid) {
+                /* To handle setattr/setxattr on yet to be linked inode from
+                 * dht */
+                gf_uuid_copy (loc.gfid, gfid);
+        } else {
+                gf_uuid_copy (loc.gfid, inode->gfid);
+        }
 
 	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_with_lookup_cbk,
 			   (void *) (long) i, priv->children[i],
@@ -1048,7 +1051,8 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
                                                              xdata);
                 else
                         afr_inode_refresh_subvol_with_lookup (frame, this, i,
-                                                    local->refreshinode, xdata);
+                                                    local->refreshinode,
+                                                    local->refreshgfid, xdata);
 
 		if (!--call_count)
 			break;
@@ -1062,7 +1066,7 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
-		   afr_inode_refresh_cbk_t refreshfn)
+                   uuid_t gfid, afr_inode_refresh_cbk_t refreshfn)
 {
 	afr_local_t *local = NULL;
 
@@ -1076,6 +1080,11 @@ afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	}
 
 	local->refreshinode = inode_ref (inode);
+
+        if (gfid)
+                gf_uuid_copy (local->refreshgfid, gfid);
+        else
+                gf_uuid_clear (local->refreshgfid);
 
 	afr_inode_refresh_do (frame, this);
 
@@ -2408,7 +2417,8 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
-		afr_inode_refresh (frame, this, loc->inode, afr_discover_do);
+		afr_inode_refresh (frame, this, loc->inode, NULL,
+                                   afr_discover_do);
 	else
 		afr_discover_do (frame, this, 0);
 
@@ -2558,7 +2568,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
-		afr_inode_refresh (frame, this, loc->parent, afr_lookup_do);
+		afr_inode_refresh (frame, this, loc->parent, NULL,
+                                   afr_lookup_do);
 	else
 		afr_lookup_do (frame, this, 0);
 
