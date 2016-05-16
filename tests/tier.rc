@@ -134,3 +134,16 @@ function rebalance_run_time () {
 
     echo $total;
 }
+
+function tier_detach_commit () {
+	$CLI_1 volume tier $V0 detach commit | grep "success" | wc -l
+}
+
+function tier_detach_status_node_down () {
+        $CLI_1 volume tier $V0 detach status | grep "WARNING" | wc -l
+}
+
+function tier_status_node_down () {
+	$CLI_1 volume tier $V0 status | grep "WARNING" | wc -l
+}
+

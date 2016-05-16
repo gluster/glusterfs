@@ -1509,7 +1509,8 @@ out:
 }
 
 int
-gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
+gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
+                               gf_boolean_t is_tier)
 {
         int                ret          = -1;
         int                count        = 0;
@@ -1528,6 +1529,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
         int                hrs          = 0;
         int                min          = 0;
         int                sec          = 0;
+        gf_boolean_t       down         = _gf_false;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1562,6 +1564,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get status");
                         gf_log ("cli", GF_LOG_ERROR, "node down and has failed"
                                 " to set dict");
+                        down = _gf_true;
                         continue;
                         /* skip this node if value not available*/
                 } else if (ret) {
@@ -1650,6 +1653,11 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
                 }
                 GF_FREE(size_str);
         }
+        if (is_tier && down)
+                cli_out ("WARNING: glusterd might be down on one or more nodes."
+                         " Please check the nodes that are down using \'gluster"
+                         " peer status\' and start the glusterd on those nodes,"
+                         " else tier detach commit might fail!");
 out:
         return ret;
 }
@@ -1667,6 +1675,7 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
         gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
         char               *status_str  = NULL;
         char               *size_str    = NULL;
+        gf_boolean_t       down         = _gf_false;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1695,6 +1704,7 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                                 "failed to get status", count, i);
                         gf_log ("cli", GF_LOG_ERROR, "node down and has failed"
                                 " to set dict");
+                        down = _gf_true;
                         continue;
                         /*skipping this node as value unavailable*/
                 } else if (ret) {
@@ -1733,8 +1743,11 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 status_str = cli_vol_task_status_str[status_rcd];
                 cli_out ("%-20s %-20"PRIu64" %-20"PRIu64" %-20s",
                          node_name, promoted, demoted, status_str);
-
         }
+        if (down)
+                cli_out ("WARNING: glusterd might be down on one or more nodes."
+                         " Please check the nodes that are down using \'gluster"
+                         " peer status\' and start the glusterd on those nodes.");
 out:
         return ret;
 }
@@ -1893,9 +1906,14 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (cmd == GF_DEFRAG_CMD_STATUS_TIER)
                 ret = gf_cli_print_tier_status (dict, GF_TASK_TYPE_REBALANCE);
+        else if (cmd == GF_DEFRAG_CMD_DETACH_STATUS)
+                ret = gf_cli_print_rebalance_status (dict,
+                                                     GF_TASK_TYPE_REBALANCE,
+                                                     _gf_true);
         else
                 ret = gf_cli_print_rebalance_status (dict,
-                                                     GF_TASK_TYPE_REBALANCE);
+                                                     GF_TASK_TYPE_REBALANCE,
+                                                     _gf_false);
 
         if (ret)
                 gf_log ("cli", GF_LOG_ERROR,
@@ -2491,7 +2509,8 @@ xml_output:
                 goto out;
         }
 
-        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK);
+        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK,
+                                             _gf_true);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to print remove-brick "
                         "rebalance status");
@@ -2669,7 +2688,8 @@ xml_output:
                 goto out;
         }
 
-        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK);
+        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK,
+                                             _gf_false);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to print remove-brick "
                         "rebalance status");
