@@ -213,6 +213,12 @@ struct __fop_stub {
 };
 typedef struct __fop_stub fop_stub_t;
 
+struct __lease_timer_data {
+        inode_t *inode;
+        xlator_t *this;
+};
+typedef struct __lease_timer_data lease_timer_data_t;
+
 gf_boolean_t
 is_leases_enabled (xlator_t *this);
 

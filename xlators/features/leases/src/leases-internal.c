@@ -826,12 +826,15 @@ void
 recall_lease_timer_handler (struct gf_tw_timer_list *timer,
                             void *data, unsigned long calltime)
 {
-        inode_t          *inode       = NULL;
-        lease_inode_t    *lease_inode = NULL;
-        leases_private_t *priv        = NULL;
+        inode_t                *inode       = NULL;
+        lease_inode_t          *lease_inode = NULL;
+        leases_private_t       *priv        = NULL;
+        lease_timer_data_t     *timer_data    = NULL;
 
-        priv = THIS->private;
-        inode = (inode_t *)data;
+        timer_data = data;
+
+        priv = timer_data->this->private;
+        inode = timer_data->inode;
         pthread_mutex_lock (&priv->mutex);
         {
                 lease_inode = new_lease_inode (inode);
@@ -859,6 +862,7 @@ __recall_lease (xlator_t *this, lease_inode_ctx_t *lease_ctx)
         int                                notify_ret    = -1;
         struct gf_tw_timer_list           *timer         = NULL;
         leases_private_t                  *priv          = NULL;
+        lease_timer_data_t                *timer_data    = NULL;
 
         if (lease_ctx->recall_in_progress) {
                 gf_msg_debug (this->name, 0, "Lease recall is already in "
@@ -896,8 +900,18 @@ __recall_lease (xlator_t *this, lease_inode_ctx_t *lease_ctx)
         if (!timer) {
                 goto out;
         }
+        timer_data = GF_CALLOC (1, sizeof (*timer_data),
+                                gf_leases_mt_timer_data_t);
+        if (!timer_data) {
+                GF_FREE (timer);
+                goto out;
+        }
+
+        timer_data->inode = inode_ref (lease_ctx->inode);
+        timer_data->this = this;
+        timer->data = timer_data;
+
         INIT_LIST_HEAD (&timer->entry);
-        timer->data = inode_ref (lease_ctx->inode);
         timer->expires = get_recall_lease_timeout (this);
         timer->function = recall_lease_timer_handler;
         lease_ctx->timer = timer;
