@@ -14,18 +14,18 @@ SLAVEVOL=     #Slave volume
 SLAVEMNT=     #Slave gluster volume mount point
 WORKERS=4     #Default number of worker threads
 
-function out()
+out()
 {
     echo "$@";
 }
 
-function fatal()
+fatal()
 {
     out FATAL "$@";
     exit 1
 }
 
-function ping_host ()
+ping_host ()
 {
     ### Use bash internal socket support
     {
@@ -39,7 +39,7 @@ function ping_host ()
     } 1>&2 2>/dev/null
 }
 
-function mount_slave()
+mount_slave()
 {
     local i; # inode number
     SSH_PORT=22
@@ -59,7 +59,7 @@ function mount_slave()
     [ "x$i" = "x1" ] || fatal "Could not mount volume $2 on $SLAVEMNT Please check host and volume exists";
 }
 
-function parse_cli()
+parse_cli()
 {
     if [[ $# -ne 4 ]]; then
         echo "Usage: gfind_missing_files <brick-path> <slave-host> <slave-vol> <OUTFILE>"
@@ -76,7 +76,7 @@ function parse_cli()
     fi
 }
 
-function main()
+main()
 {
     parse_cli "$@";
 
