@@ -744,7 +744,9 @@ afr_handle_quorum (call_frame_t *frame)
         }
 
         local->op_ret = -1;
-        local->op_errno = afr_quorum_errno (priv);
+        local->op_errno = afr_final_errno (local, priv);
+        if (local->op_errno == 0)
+                local->op_errno = afr_quorum_errno (priv);
 }
 
 int
