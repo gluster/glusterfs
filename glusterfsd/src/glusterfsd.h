@@ -93,6 +93,9 @@ enum argp_option_keys {
         ARGP_GLOBAL_TIMER_WHEEL           = 173,
         ARGP_RESOLVE_GIDS_KEY             = 174,
         ARGP_CAPABILITY_KEY               = 175,
+#ifdef GF_LINUX_HOST_OS
+        ARGP_OOM_SCORE_ADJ_KEY            = 176,
+#endif
 };
 
 struct _gfd_vol_top_priv_t {

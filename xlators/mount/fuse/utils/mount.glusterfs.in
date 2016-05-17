@@ -230,6 +230,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --congestion-threshold=$cong_threshold");
     fi
 
+    if [ -n "$oom_score_adj" ]; then
+        cmd_line=$(echo "$cmd_line --oom-score-adj=$oom_score_adj");
+    fi
+
     if [ -n "$fuse_mountopts" ]; then
         cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
@@ -443,6 +447,9 @@ with_options()
             ;;
         "congestion-threshold")
             cong_threshold=$value
+            ;;
+        "oom-score-adj")
+            oom_score_adj=$value
             ;;
         "xlator-option")
             xlator_option=$value
