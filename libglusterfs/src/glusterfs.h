@@ -340,6 +340,7 @@ struct _cmd_args {
         int              acl;
         int              selinux;
         int              capability;
+        char            *oom_score_adj;
         int              enable_ino32;
         int              worm;
         int              mac_compat;
