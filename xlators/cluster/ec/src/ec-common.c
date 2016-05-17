@@ -456,7 +456,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     {
         gf_msg (ec->xl->name, GF_LOG_ERROR, 0,
                 EC_MSG_CHILDS_INSUFFICIENT,
-                "Insufficient available childs "
+                "Insufficient available children "
                 "for this request (have %d, need "
                 "%d)", num, fop->minimum);
 

@@ -2047,7 +2047,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_GET_FAILED,
-                                "Faild to get hard-limit from dict");
+                                "Failed to get hard-limit from dict");
                         goto out;
                 }
                 ret = gf_string2bytesize_int64 (hard_limit_str, &hard_limit);

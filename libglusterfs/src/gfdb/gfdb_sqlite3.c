@@ -650,7 +650,7 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
                                 &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed to prepare statment %s :"
+                        LG_MSG_PREPARE_FAILED, "Failed to prepare statement %s :"
                         "%s", query_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -726,7 +726,7 @@ gf_sqlite3_find_recently_changed_files(void *db_conn,
                                &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed to prepare statment %s :"
+                        LG_MSG_PREPARE_FAILED, "Failed to prepare statement %s :"
                         " %s", query_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -826,7 +826,7 @@ gf_sqlite3_find_unchanged_for_time (void *db_conn,
                                &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed to prepare statment %s :"
+                        LG_MSG_PREPARE_FAILED, "Failed to prepare statement %s :"
                         " %s", query_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -938,7 +938,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
                                 &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed to prepare statment %s :"
+                        LG_MSG_PREPARE_FAILED, "Failed to prepare statement %s :"
                         " %s", query_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -1099,7 +1099,7 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed to prepare delete "
-                        "statment %s : %s", query_str,
+                        "statement %s : %s", query_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;

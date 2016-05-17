@@ -5618,7 +5618,7 @@ cli_xml_snapshot_config (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
                 }
                 break;
         default:
-                gf_log ("cli", GF_LOG_ERROR, "Uknown config command :%d",
+                gf_log ("cli", GF_LOG_ERROR, "Unknown config command :%d",
                         config_command);
                 ret = -1;
                 goto out;

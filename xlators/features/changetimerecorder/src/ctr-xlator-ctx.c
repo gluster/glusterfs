@@ -156,7 +156,7 @@ ctr_delete_hard_link (xlator_t                *this,
         if (!ctr_hard_link) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_HARDLINK_MISSING_IN_LIST,
-                        "Hard link doesnt exist in the list");
+                        "Hard link doesn't exist in the list");
                 goto out;
         }
 
@@ -195,7 +195,7 @@ ctr_update_hard_link (xlator_t                *this,
         ctr_hard_link = ctr_search_hard_link_ctx (this, ctr_xlator_ctx,
                                                 old_pgfid, old_base_name);
         if (!ctr_hard_link) {
-                gf_msg_trace (this->name, 0, "Hard link doesnt exist"
+                gf_msg_trace (this->name, 0, "Hard link doesn't exist"
                               " in the list");
                 /* Since the hard link is not present in the list
                  * we add it to the list */

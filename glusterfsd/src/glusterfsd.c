@@ -198,10 +198,10 @@ static struct argp_option gf_options[] = {
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
 	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
-	 "Set auxilary group list timeout to SECONDS for fuse translator "
+	 "Set auxiliary group list timeout to SECONDS for fuse translator "
 	 "[default: 300]"},
         {"resolve-gids", ARGP_RESOLVE_GIDS_KEY, 0, 0,
-         "Resolve all auxilary groups in fuse translator (max 32 otherwise)"},
+         "Resolve all auxiliary groups in fuse translator (max 32 otherwise)"},
 	{"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
 	 "Set fuse module's background queue length to N "
 	 "[default: 64]"},

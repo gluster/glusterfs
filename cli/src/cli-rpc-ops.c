@@ -4591,7 +4591,7 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
 notify_cli:
         if (ret) {
                 cli_out ("Failed to run tier start. Please execute tier start "
-                         "command explictly");
+                         "command explicitly");
                 cli_out ("Usage : gluster volume rebalance <volname> tier "
                          "start");
         }

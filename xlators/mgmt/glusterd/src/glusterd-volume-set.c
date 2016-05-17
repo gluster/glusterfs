@@ -2745,7 +2745,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "Its a Change Time Recorder Xlator option to "
                          "enable recording write heat on metadata of the file. "
                          "The default is disabled. "
-                         "Metadata is inode atttributes like atime, mtime,"
+                         "Metadata is inode attributes like atime, mtime,"
                          " permissions etc and "
                          "extended attributes of a file ."
         },
