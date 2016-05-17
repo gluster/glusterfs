@@ -747,7 +747,9 @@ __is_lease_grantable (xlator_t *this, lease_inode_ctx_t *lease_ctx,
                 }
 
                 /* check for conflict with existing leases */
-                if (lease_ctx->lease_type == NONE || lease_ctx->lease_type == GF_RD_LEASE)
+                if (lease_ctx->lease_type == NONE ||
+                    lease_ctx->lease_type == GF_RD_LEASE ||
+                    !(__another_lease_found (lease_ctx, lease->lease_id)))
                         grant = _gf_true;
                 else
                         grant = _gf_false;
