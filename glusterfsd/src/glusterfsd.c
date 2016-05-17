@@ -32,6 +32,10 @@
 #include <errno.h>
 #include <pwd.h>
 
+#ifdef GF_LINUX_HOST_OS
+#include <linux/oom.h>
+#endif
+
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
@@ -208,6 +212,11 @@ static struct argp_option gf_options[] = {
 	{"congestion-threshold", ARGP_FUSE_CONGESTION_THRESHOLD_KEY, "N", 0,
 	 "Set fuse module's congestion threshold to N "
 	 "[default: 48]"},
+#ifdef GF_LINUX_HOST_OS
+        {"oom-score-adj", ARGP_OOM_SCORE_ADJ_KEY, "INTEGER", 0,
+         "Set oom_score_adj value for process"
+         "[default: 0]"},
+#endif
         {"client-pid", ARGP_CLIENT_PID_KEY, "PID", OPTION_HIDDEN,
          "client will authenticate itself with process id PID to server"},
         {"no-root-squash", ARGP_FUSE_NO_ROOT_SQUASH_KEY, "BOOL",
@@ -774,6 +783,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 {
         cmd_args_t   *cmd_args      = NULL;
         uint32_t      n             = 0;
+        int32_t       k             = 0;
         double        d             = 0.0;
         gf_boolean_t  b             = _gf_false;
         char         *pwd           = NULL;
@@ -1121,6 +1131,22 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 argp_failure (state, -1, 0,
                               "unknown congestion threshold option %s", arg);
                 break;
+
+#ifdef GF_LINUX_HOST_OS
+        case ARGP_OOM_SCORE_ADJ_KEY:
+                k = 0;
+
+                if (gf_string2int (arg, &k) == 0 &&
+                    k >= OOM_SCORE_ADJ_MIN && k <= OOM_SCORE_ADJ_MAX) {
+                        cmd_args->oom_score_adj = gf_strdup (arg);
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown oom_score_adj value %s", arg);
+
+                break;
+#endif
 
         case ARGP_FUSE_MOUNTOPTS_KEY:
                 cmd_args->fuse_mountopts = gf_strdup (arg);
@@ -2190,6 +2216,43 @@ out:
 }
 
 
+#ifdef GF_LINUX_HOST_OS
+static int
+set_oom_score_adj (glusterfs_ctx_t *ctx)
+{
+        int ret              = -1;
+        cmd_args_t *cmd_args = NULL;
+        int fd               = -1;
+        size_t oom_score_len = 0;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->oom_score_adj)
+                goto success;
+
+        fd = open ("/proc/self/oom_score_adj", O_WRONLY);
+        if (fd < 0)
+                goto out;
+
+        oom_score_len = strlen (cmd_args->oom_score_adj);
+        if (sys_write (fd,
+                  cmd_args->oom_score_adj, oom_score_len) != oom_score_len) {
+                sys_close (fd);
+                goto out;
+        }
+
+        if (sys_close (fd) < 0)
+                goto out;
+
+success:
+        ret = 0;
+
+out:
+        return ret;
+}
+#endif
+
+
 int
 glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
 {
@@ -2361,6 +2424,12 @@ main (int argc, char *argv[])
         ret = daemonize (ctx);
         if (ret)
                 goto out;
+
+#ifdef GF_LINUX_HOST_OS
+        ret = set_oom_score_adj (ctx);
+        if (ret)
+                goto out;
+#endif
 
 	ctx->env = syncenv_new (0, 0, 0);
         if (!ctx->env) {
