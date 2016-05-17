@@ -196,10 +196,6 @@ setup_cluster()
             logger "warning: pcs property set no-quorum-policy=ignore failed"
         fi
     fi
-    pcs property set stonith-enabled=false
-    if [ $? -ne 0 ]; then
-        logger "warning: pcs property set stonith-enabled=false failed"
-    fi
 }
 
 
@@ -208,14 +204,16 @@ setup_finalize_ha()
     local cibfile=${1}
     local stopped=""
 
+    pcs property set stonith-enabled=false
+    if [ $? -ne 0 ]; then
+        logger "warning: pcs property set stonith-enabled=false failed"
+    fi
+
     stopped=$(pcs status | grep -u "Stopped")
     while [[ "${stopped}X" = "StoppedX" ]]; do
          sleep 1
          stopped=$(pcs status | grep -u "Stopped")
     done
-
-    # pcs resource cleanup
-
 }
 
 
