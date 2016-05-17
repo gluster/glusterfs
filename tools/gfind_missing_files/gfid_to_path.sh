@@ -11,7 +11,7 @@
 E_BADARGS=65
 
 
-function gfid_to_path()
+gfid_to_path ()
 {
     brick_dir=$1;
     gfid_file=$(readlink -e $2);
@@ -29,7 +29,8 @@ function gfid_to_path()
 }
 
 
-function main(){
+main ()
+{
     if [ $# -ne 2 ]
     then
         echo "Usage: `basename $0` BRICK_DIR GFID_FILE";

@@ -4,7 +4,7 @@
 errors=0
 
 # find the mounts and return their pids
-function get_mount_pids()
+get_mount_pids()
 {
     local opts
     local pid
@@ -20,7 +20,7 @@ function get_mount_pids()
 }
 
 # handle mount processes i.e. 'glusterfs'
-function kill_mounts()
+kill_mounts()
 {
     local signal=${1}
     local pid
@@ -33,7 +33,7 @@ function kill_mounts()
 }
 
 # handle brick processes and node services
-function kill_bricks_and_services()
+kill_bricks_and_services()
 {
     local signal=${1}
     local pidfile
@@ -50,7 +50,7 @@ function kill_bricks_and_services()
 # for geo-replication, only 'monitor' has pid file written, other
 # processes are not having a pid file, so get it through 'ps' and
 # handle these processes
-function kill_georep_gsync()
+kill_georep_gsync()
 {
     local signal=${1}
 
@@ -64,7 +64,7 @@ function kill_georep_gsync()
     fi
 }
 
-function main()
+main()
 {
     kill_mounts TERM
     kill_bricks_and_services TERM
