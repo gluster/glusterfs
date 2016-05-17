@@ -321,6 +321,7 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
         dht_lock_t   **lk_array     = NULL;
         dht_layout_t  *dst_layout   = NULL;
         xlator_t      *first_subvol = NULL;
+        loc_t          parent_loc   = {0, };
         int            count        = 1;
         int            i            = 0;
         int            j            = 0;
@@ -337,6 +338,11 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
         count = local->call_cnt = conf->subvolume_cnt;
         if (local->loc2.inode) {
                 dst_layout = dht_layout_get (this, local->loc2.inode);
+                if (dst_layout)
+                        ++count;
+        } else if (gf_uuid_compare (local->loc.parent->gfid,
+                                    local->loc2.parent->gfid)) {
+                dst_layout = dht_layout_get (this, local->loc2.parent);
                 if (dst_layout)
                         ++count;
         }
@@ -379,21 +385,38 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
          * rename completes. To avoid a lookup selfheal to change dst layout
          * during this interval we take a lock on one subvol of dst.
          */
-        if (dst_layout) {
-                for (j = 0; (j < dst_layout->cnt) &&
-                                (dst_layout->list[j].err == 0); j++) {
+        for (j = 0; dst_layout && (j < dst_layout->cnt) &&
+                        (dst_layout->list[j].err == 0); j++) {
 
-                        first_subvol = dst_layout->list[j].xlator;
+                first_subvol = dst_layout->list[j].xlator;
+                if (local->loc2.inode) {
                         lk_array[i] = dht_lock_new (frame->this, first_subvol,
                                                     &local->loc2, F_WRLCK,
                                                     DHT_LAYOUT_HEAL_DOMAIN);
-                        if (lk_array[i] == NULL) {
-                                op_errno = ENOMEM;
+                } else {
+                        ret = dht_build_parent_loc (this, &parent_loc,
+                                                    &local->loc2, &op_errno);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_NO_MEMORY,
+                                        "parent loc build failed");
                                 goto err;
                         }
-                        break;
+
+                        lk_array[i] = dht_lock_new (frame->this, first_subvol,
+                                                    &parent_loc, F_WRLCK,
+                                                    DHT_LAYOUT_HEAL_DOMAIN);
                 }
+
+                if (lk_array[i] == NULL) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+                break;
         }
+
+        if (!lk_array[i])
+                --count;
 
         local->lock.locks = lk_array;
         local->lock.lk_count = count;
@@ -408,6 +431,7 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
                 goto err;
         }
 
+        loc_wipe (&parent_loc);
         return 0;
 
 err:
@@ -416,6 +440,7 @@ err:
                 GF_FREE (lk_array);
         }
 
+        loc_wipe (&parent_loc);
         op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
                           NULL, NULL);
