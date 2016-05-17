@@ -22,6 +22,7 @@ enum gf_leases_mem_types_ {
         gf_leases_mt_lease_inode_ctx_t,
         gf_leases_mt_lease_id_entry_t,
         gf_leases_mt_fop_stub_t,
+        gf_leases_mt_timer_data_t,
         gf_leases_mt_end
 };
 #endif
