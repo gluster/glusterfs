@@ -178,6 +178,63 @@ shard_inode_ctx_set (inode_t *inode, xlator_t *this, struct iatt *stbuf,
 }
 
 int
+__shard_inode_ctx_set_refreshed_flag (inode_t *inode, xlator_t *this)
+{
+        int                 ret = -1;
+        shard_inode_ctx_t  *ctx = NULL;
+
+        ret = __shard_inode_ctx_get (inode, this, &ctx);
+        if (ret)
+                return ret;
+
+        ctx->refreshed = _gf_true;
+        return 0;
+}
+
+int
+shard_inode_ctx_set_refreshed_flag (inode_t *inode, xlator_t *this)
+{
+        int ret = -1;
+
+        LOCK (&inode->lock);
+        {
+                ret = __shard_inode_ctx_set_refreshed_flag (inode, this);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
+}
+
+gf_boolean_t
+__shard_inode_ctx_needs_lookup (inode_t *inode, xlator_t *this)
+{
+        int                 ret = -1;
+        shard_inode_ctx_t  *ctx = NULL;
+
+        ret = __shard_inode_ctx_get (inode, this, &ctx);
+        /* If inode ctx get fails, better to err on the side of caution and
+         * try again? Unless the failure is due to mem-allocation.
+         */
+        if (ret)
+                return _gf_true;
+
+        return !ctx->refreshed;
+}
+
+gf_boolean_t
+shard_inode_ctx_needs_lookup (inode_t *inode, xlator_t *this)
+{
+        gf_boolean_t flag = _gf_false;
+
+        LOCK (&inode->lock);
+        {
+                flag = __shard_inode_ctx_needs_lookup (inode, this);
+        }
+        UNLOCK (&inode->lock);
+
+        return flag;
+}
+int
 __shard_inode_ctx_invalidate (inode_t *inode, xlator_t *this, struct iatt *stbuf)
 {
         int                 ret = -1;
@@ -756,7 +813,7 @@ out:
 
 }
 
-static void
+static inode_t *
 shard_link_dot_shard_inode (shard_local_t *local, inode_t *inode,
                             struct iatt *buf)
 {
@@ -765,10 +822,72 @@ shard_link_dot_shard_inode (shard_local_t *local, inode_t *inode,
 
         priv = THIS->private;
 
-        linked_inode = inode_link (inode, local->dot_shard_loc.parent,
-                                   local->dot_shard_loc.name, buf);
+        linked_inode = inode_link (inode, inode->table->root, ".shard", buf);
         inode_lookup (linked_inode);
         priv->dot_shard_inode = linked_inode;
+        return linked_inode;
+}
+
+
+int
+shard_refresh_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno, inode_t *inode,
+                             struct iatt *buf, dict_t *xdata,
+                             struct iatt *postparent)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret) {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
+                goto out;
+        }
+
+        /* To-Do: Fix refcount increment per call to
+         * shard_link_dot_shard_inode().
+         */
+        shard_link_dot_shard_inode (local, inode, buf);
+        shard_inode_ctx_set_refreshed_flag (inode, this);
+out:
+        shard_common_resolve_shards (frame, this, local->post_res_handler);
+        return 0;
+}
+
+int
+shard_refresh_dot_shard (call_frame_t *frame, xlator_t *this)
+{
+        loc_t          loc       = {0,};
+        inode_t       *inode     = NULL;
+        shard_priv_t  *priv      = NULL;
+        shard_local_t *local     = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        inode = inode_find (this->itable, priv->dot_shard_gfid);
+
+        if (!shard_inode_ctx_needs_lookup (inode, this)) {
+                local->op_ret = 0;
+                goto out;
+        }
+
+        /* Plain assignment because the ref is already taken above through
+         * call to inode_find()
+         */
+        loc.inode = inode;
+        gf_uuid_copy (loc.gfid, priv->dot_shard_gfid);
+
+        STACK_WIND (frame, shard_refresh_dot_shard_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, &loc, NULL);
+        loc_wipe (&loc);
+
+        return 0;
+
+out:
+        shard_common_resolve_shards (frame, this, local->post_res_handler);
+        return 0;
 }
 
 int
@@ -777,7 +896,8 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *buf, dict_t *xdata,
                             struct iatt *postparent)
 {
-        shard_local_t *local = NULL;
+        inode_t       *link_inode = NULL;
+        shard_local_t *local      = NULL;
 
         local = frame->local;
 
@@ -797,8 +917,14 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        shard_link_dot_shard_inode (local, inode, buf);
-        shard_common_resolve_shards (frame, this, local->post_res_handler);
+        link_inode = shard_link_dot_shard_inode (local, inode, buf);
+        if (link_inode != inode) {
+                shard_refresh_dot_shard (frame, this);
+        } else {
+                shard_inode_ctx_set_refreshed_flag (link_inode, this);
+                shard_common_resolve_shards (frame, this,
+                                             local->post_res_handler);
+        }
         return 0;
 
 unwind:
@@ -1843,8 +1969,8 @@ shard_truncate_begin (call_frame_t *frame, xlator_t *this)
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_truncate_handler);
         } else {
-                shard_common_resolve_shards (frame, this,
-                                           shard_post_resolve_truncate_handler);
+                local->post_res_handler = shard_post_resolve_truncate_handler;
+                shard_refresh_dot_shard (frame, this);
         }
         return 0;
 
@@ -2273,8 +2399,8 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_unlink_handler);
         } else {
-                shard_common_resolve_shards (frame, this,
-                                             shard_post_resolve_unlink_handler);
+                local->post_res_handler = shard_post_resolve_unlink_handler;
+                shard_refresh_dot_shard (frame, this);
         }
 
         return 0;
@@ -2621,8 +2747,8 @@ shard_rename_unlink_dst_shards_do (call_frame_t *frame, xlator_t *this)
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_unlink_handler);
         } else {
-                shard_common_resolve_shards (frame, this,
-                                             shard_post_resolve_unlink_handler);
+                local->post_res_handler = shard_post_resolve_unlink_handler;
+                shard_refresh_dot_shard (frame, this);
         }
 
         return 0;
@@ -3385,8 +3511,8 @@ shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_readv_handler);
         } else {
-                shard_common_resolve_shards (frame, this,
-                                             shard_post_resolve_readv_handler);
+                local->post_res_handler = shard_post_resolve_readv_handler;
+                shard_refresh_dot_shard (frame, this);
         }
         return 0;
 
@@ -3846,7 +3972,8 @@ shard_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
                                        struct iatt *buf, struct iatt *preparent,
                                        struct iatt *postparent, dict_t *xdata)
 {
-        shard_local_t *local = NULL;
+        inode_t       *link_inode = NULL;
+        shard_local_t *local      = NULL;
 
         local = frame->local;
 
@@ -3866,8 +3993,15 @@ shard_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
                 }
         }
 
-        shard_link_dot_shard_inode (local, inode, buf);
-
+        link_inode = shard_link_dot_shard_inode (local, inode, buf);
+        if (link_inode != inode) {
+                shard_refresh_dot_shard (frame, this);
+        } else {
+                shard_inode_ctx_set_refreshed_flag (link_inode, this);
+                shard_common_resolve_shards (frame, this,
+                                             local->post_res_handler);
+        }
+        return 0;
 unwind:
         shard_common_resolve_shards (frame, this, local->post_res_handler);
         return 0;
@@ -4635,8 +4769,8 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
                 shard_mkdir_dot_shard (frame, this,
                                  shard_common_inode_write_post_resolve_handler);
         } else {
-                shard_common_resolve_shards (frame, this,
-                                 shard_common_inode_write_post_resolve_handler);
+                local->post_res_handler = shard_common_inode_write_post_resolve_handler;
+                shard_refresh_dot_shard (frame, this);
         }
 
         return 0;

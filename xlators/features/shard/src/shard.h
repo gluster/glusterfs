@@ -268,6 +268,7 @@ typedef struct shard_inode_ctx {
         struct list_head ilist;
         uuid_t base_gfid;
         int block_num;
+        gf_boolean_t refreshed;
 } shard_inode_ctx_t;
 
 #endif /* __SHARD_H__ */
