@@ -446,7 +446,7 @@ fd_lk_insert_and_merge (fd_t *fd, int32_t cmd,
         lk_ctx = fd_lk_ctx_ref (fd->lk_ctx);
         lk     = fd_lk_ctx_node_new (cmd, flock);
 
-        gf_msg_debug ("fd-lk", 0, "new lock requrest: owner = %s, fl_type = %s"
+        gf_msg_debug ("fd-lk", 0, "new lock request: owner = %s, fl_type = %s"
                       ", fs_start = %"PRId64", fs_end = %"PRId64", user_flock:"
                       " l_type = %s, l_start = %"PRId64", l_len = %"PRId64,
                       lkowner_utoa (&flock->l_owner),

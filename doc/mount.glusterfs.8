@@ -80,7 +80,7 @@ Set entry timeout to SECONDS in fuse kernel module [default: 1]
 Set fuse module's background queue length to N [default: 64]
 .TP
 \fBgid\-timeout=\fRSECONDS
-Set auxilary group list timeout to SECONDS for fuse translator [default: 0]
+Set auxiliary group list timeout to SECONDS for fuse translator [default: 0]
 .TP
 \fBnegative\-timeout=\fRSECONDS
 Set negative timeout to SECONDS in fuse kernel module [default: 0]
@@ -99,7 +99,7 @@ Set fuse module's congestion threshold to N [default: 48]
 \fBbackup\-volfile\-servers=\fRSERVERLIST
 Provide list of backup volfile servers in the following format [default: None]
 
-\fB$ mount -t glusterfs -obackup-volfile-servers=<server2>:\fR
+\fB$ mount \-t glusterfs \-obackup\-volfile\-servers=<server2>:\fR
 \fB       <server3>:...:<serverN> <server1>:/<volname> <mount_point>\fR
 
 .TP
@@ -107,7 +107,7 @@ Provide list of backup volfile servers in the following format [default: None]
 \fBbackupvolfile\-server=\fRSERVER
 Provide list of backup volfile servers in the following format [default: None]
 
-\fB $ mount -t glusterfs -obackupvolfile-server=<server2>
+\fB $ mount \-t glusterfs \-obackupvolfile\-server=<server2>
 \fB         <server1>:/<volname> <mount_point>
 
 .TP

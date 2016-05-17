@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #This script is called by glusterd when the user
 #tries to export a volume via NFS-Ganesha.

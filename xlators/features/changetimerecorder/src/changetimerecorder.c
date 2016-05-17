@@ -2056,7 +2056,7 @@ init (xlator_t *this)
         if (!priv) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         CTR_MSG_CALLOC_FAILED,
-                        "Calloc didnt work!!!");
+                        "Calloc did not work!!!");
                 goto error;
         }
 

@@ -159,11 +159,11 @@ def _get_args():
 
     parser_useradd.add_argument('username', help="Username", type=str)
     parser_useradd.add_argument('volumes', type=str, default='',
-                                help="Volumes list. ',' seperated")
+                                help="Volumes list. ',' separated")
 
     parser_volumedel.add_argument('username', help="Username", type=str)
     parser_volumedel.add_argument('volumes', type=str, default='',
-                                help="Volumes list. ',' seperated")
+                                help="Volumes list. ',' separated")
 
     parser_userdel.add_argument('username', help="Username", type=str)
 

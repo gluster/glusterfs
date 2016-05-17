@@ -1104,7 +1104,7 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
         } else {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
-                        "volname recieved (%s) is not prefixed with rebalance.",
+                        "volname received (%s) is not prefixed with rebalance.",
                         volname);
                 ret = -1;
                 goto out;
