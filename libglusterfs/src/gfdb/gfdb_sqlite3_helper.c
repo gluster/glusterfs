@@ -48,7 +48,7 @@ gf_sql_delete_all (gf_sql_connection_t  *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing delete "
-                        "statment %s : %s", delete_link_str,
+                        "statement %s : %s", delete_link_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -88,7 +88,7 @@ gf_sql_delete_all (gf_sql_connection_t  *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing delete "
-                        "statment %s : %s", delete_file_str,
+                        "statement %s : %s", delete_file_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -148,7 +148,7 @@ gf_sql_delete_link (gf_sql_connection_t  *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing delete "
-                        "statment %s : %s", delete_str,
+                        "statement %s : %s", delete_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -243,7 +243,7 @@ gf_sql_update_link_flags (gf_sql_connection_t  *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing update "
-                        "statment %s : %s", update_str,
+                        "statement %s : %s", update_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -345,7 +345,7 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED,
                         "Failed preparing insert "
-                        "statment %s : %s", insert_str,
+                        "statement %s : %s", insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -459,7 +459,7 @@ gf_sql_update_link (gf_sql_connection_t  *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing insert "
-                        "statment %s : %s", insert_str,
+                        "statement %s : %s", insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -542,7 +542,7 @@ gf_sql_insert_write_wind_time (gf_sql_connection_t      *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing insert "
-                        "statment %s : %s", insert_str,
+                        "statement %s : %s", insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -621,7 +621,7 @@ gf_update_time (gf_sql_connection_t    *sql_conn,
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, update_time, out);
 
         /*
-         * Constructing the prepare statment string.
+         * Constructing the prepare statement string.
          *
          * */
         /*For write time*/
@@ -671,7 +671,7 @@ gf_update_time (gf_sql_connection_t    *sql_conn,
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
                         LG_MSG_PREPARE_FAILED, "Failed preparing insert "
-                        "statment %s : %s", update_str,
+                        "statement %s : %s", update_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;

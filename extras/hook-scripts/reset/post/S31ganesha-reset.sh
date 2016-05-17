@@ -1,4 +1,5 @@
-#/bin/bash
+#!/bin/bash
+
 PROGNAME="Sganesha-reset"
 OPTSPEC="volname:,gd-workdir:"
 VOL=

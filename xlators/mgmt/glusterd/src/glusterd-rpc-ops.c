@@ -419,7 +419,7 @@ out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
 
         /* Attempt to start the state machine. Needed as no state machine could
-         * be running at time this RPC reply was recieved
+         * be running at time this RPC reply was received
          */
         if (!ret) {
                 glusterd_friend_sm ();

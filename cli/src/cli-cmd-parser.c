@@ -2448,7 +2448,7 @@ parse_ssh_port (const char **words, int wordcount, dict_t *dict,
                 if (errno == ERANGE || errno == EINVAL || limit <= 0
                                     || strcmp (end_ptr, "") != 0) {
                         ret = -1;
-                        cli_err ("Please enter an interger value for ssh_port ");
+                        cli_err ("Please enter an integer value for ssh_port ");
                         goto out;
                 }
 
