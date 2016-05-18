@@ -27,6 +27,7 @@ typedef enum {
 } index_state_t;
 
 typedef enum {
+        XATTROP_TYPE_UNSET = -1,
         XATTROP,
         DIRTY,
         ENTRY_CHANGES,
