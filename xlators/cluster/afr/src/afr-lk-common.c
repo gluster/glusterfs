@@ -1029,6 +1029,88 @@ _is_lock_wind_needed (afr_local_t *local, int child_index)
         return _gf_true;
 }
 
+static void
+afr_log_entry_locks_failure(xlator_t *this, afr_local_t *local,
+                            afr_internal_lock_t *int_lock)
+{
+        const char *fop = NULL;
+        char *pargfid = NULL;
+        const char *name = NULL;
+
+        fop = gf_fop_list[local->op];
+
+        switch (local->op) {
+        case GF_FOP_LINK:
+                pargfid = uuid_utoa(local->newloc.pargfid);
+                name = local->newloc.name;
+                break;
+        default:
+                pargfid = uuid_utoa(local->loc.pargfid);
+                name = local->loc.name;
+                break;
+        }
+
+        gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_BLOCKING_LKS_FAILED,
+                "Unable to obtain sufficient blocking entry locks on at least "
+                "one child while attempting %s on {pgfid:%s, name:%s}.", fop,
+                pargfid, name);
+}
+
+static gf_boolean_t
+is_blocking_locks_count_sufficient (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t  *local = NULL;
+        afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+        gf_boolean_t is_entrylk = _gf_false;
+        int child = 0;
+        int nlockee = 0;
+        int lockee_count = 0;
+        gf_boolean_t ret = _gf_true;
+
+        local = frame->local;
+        priv = this->private;
+        int_lock = &local->internal_lock;
+        lockee_count = int_lock->lockee_count;
+        is_entrylk = afr_is_entrylk (int_lock, local->transaction.type);
+
+        if (!is_entrylk) {
+                if (int_lock->lock_count == 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_BLOCKING_LKS_FAILED, "Unable to obtain "
+                                "blocking inode lock on even one child for "
+                                "gfid:%s.", uuid_utoa (local->inode->gfid));
+                        return _gf_false;
+                } else {
+                        /*inodelk succeded on atleast one child. */
+                        return _gf_true;
+                }
+
+        } else {
+                if (int_lock->entrylk_lock_count == 0) {
+                        afr_log_entry_locks_failure (this, local, int_lock);
+                        return _gf_false;
+                }
+                /* For FOPS that take multiple sets of locks (mkdir, rename),
+                 * there must be atleast one brick on which the locks from
+                 * all lock sets were successful. */
+                for (child = 0; child < priv->child_count; child++) {
+                        ret = _gf_true;
+                        for (nlockee = 0; nlockee < lockee_count; nlockee++) {
+                                if (!(int_lock->lockee[nlockee].locked_nodes[child] & LOCKED_YES))
+                                        ret = _gf_false;
+                        }
+                        if (ret)
+                                return ret;
+                }
+                if (!ret)
+                        afr_log_entry_locks_failure (this, local, int_lock);
+        }
+
+        return ret;
+
+}
+
 int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 {
@@ -1079,11 +1161,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         }
 
         if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
-                if ((is_entrylk && int_lock->entrylk_lock_count == 0) ||
-                    (!is_entrylk && int_lock->lock_count == 0)) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                AFR_MSG_BLOCKING_LKS_FAILED,
-                                "unable to lock on even one child");
+                if (!is_blocking_locks_count_sufficient (frame, this)) {
 
                         local->op_ret           = -1;
                         int_lock->lock_op_ret   = -1;
