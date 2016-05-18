@@ -36,7 +36,7 @@ def mount_volume(volname, mtype='glusterfs', mpoint='/mnt/glusterfs', \
     if options != '':
         options = "-o %s" % options
     if mtype == 'nfs' and options != '':
-        options = "%s,vers=3" % options
+        options = "%s" % options
     elif mtype == 'nfs' and options == '':
         options = '-o vers=3'
     ret, _, _ = tc.run(mclient, "mount | grep %s | grep %s | grep \"%s\"" \
@@ -45,7 +45,7 @@ def mount_volume(volname, mtype='glusterfs', mpoint='/mnt/glusterfs', \
         tc.logger.debug("Volume %s is already mounted at %s" \
         % (volname, mpoint))
         return (0, '', '')
-    mcmd = "mount -t %s %s %s:%s %s" % \
+    mcmd = "mount -t %s %s %s:/%s %s" % \
             (mtype, options, mserver, volname, mpoint)
     tc.run(mclient, "test -d %s || mkdir -p %s" % (mpoint, mpoint), \
             verbose=False)

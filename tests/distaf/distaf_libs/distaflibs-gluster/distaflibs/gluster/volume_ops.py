@@ -290,6 +290,12 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
     if not ret:
         tc.logger.error("volume start %s failed" % volname)
         return False
+    if tc.global_config["gluster"]["cluster_config"]["nfs_ganesha"]["enable"]:
+        from distaflibs.gluster.ganesha import vol_set_ganesha
+        ret = vol_set_ganesha(volname)
+        if not ret:
+            tc.logger.error("failed to set the ganesha option for %s" % volname)
+            return False
     tc.global_flag[volname] = True
     return True
 
