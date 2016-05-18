@@ -417,7 +417,7 @@ index_dec_link_count (index_priv_t *priv, index_xattrop_type_t type)
 char*
 index_get_subdir_from_type (index_xattrop_type_t type)
 {
-        if ((int)type < 0 || (int)type >= (int)XATTROP_TYPE_END)
+        if (type < XATTROP || type >= XATTROP_TYPE_END)
                 return NULL;
         return index_subdirs[type];
 }
@@ -1558,7 +1558,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         int32_t         op_ret = 0;
         int32_t         op_errno = 0;
         int             ret = 0;
-        int             type = -1;
+        index_xattrop_type_t type = XATTROP_TYPE_UNSET;
         struct  iatt    preparent = {0};
         struct  iatt    postparent = {0};
         char            index_dir[PATH_MAX] = {0};
@@ -1588,7 +1588,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         gf_uuid_copy (preparent.ia_gfid, loc->pargfid);
         preparent.ia_ino = -1;
 
-        if (type < 0) {
+        if (type <= XATTROP_TYPE_UNSET) {
                 ret = index_inode_ctx_get (loc->parent, this, &ictx);
                 if ((ret == 0) && gf_uuid_is_null (ictx->virtual_pargfid)) {
                         ret = -EINVAL;
