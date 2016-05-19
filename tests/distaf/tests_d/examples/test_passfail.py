@@ -17,7 +17,7 @@
 
 
 from distaf.util import tc, testcase
-from distaf.gluster_base_class import GlusterBaseClass
+from distaflibs.gluster.gluster_base_class import GlusterBaseClass
 
 
 @testcase("this_should_pass")
@@ -44,7 +44,7 @@ class GoingToPass(GlusterBaseClass):
         config = self.config_data
         tc.logger.info("Testing connection and command exec")
         tc.logger.debug("Tag 1 is %s" % config["tags"][0])
-        ret, _, _ = tc.run(self.nodes[0], "hostname")
+        ret, _, _ = tc.run(self.servers[0], "hostname")
         if ret != 0:
             tc.logger.error("hostname command failed")
             return False
@@ -80,7 +80,7 @@ class GoingToFail(GlusterBaseClass):
         config = self.config_data
         tc.logger.info("Testing fail output")
         tc.logger.debug("Tag 1 is %s" % config["tags"][0])
-        ret, _, _ = tc.run(self.nodes[0], "false")
+        ret, _, _ = tc.run(self.servers[0], "false")
         if ret != 0:
             tc.logger.error("false command failed")
             return False

@@ -42,7 +42,7 @@ def write_file(filename, file_contents=" ", create_mode='', filesize='', \
               False, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
 
     if create_mode == '':
         create_mode = 'open'
@@ -123,7 +123,7 @@ def remove_file(filename, server=''):
               False, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     try:
         conn = tc.get_connection(server, 'root')
         if conn == -1:
@@ -155,7 +155,7 @@ def calculate_checksum(file_list, server=''):
               None, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
 
     cmd = "sha256sum %s" % ' '.join(file_list)
     ret = tc.run(server, cmd)
@@ -191,7 +191,7 @@ def get_extended_attributes_info(file_list, encoding='hex', attr_name='', \
               None, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
 
     server = socket.gethostbyname(server)
     if attr_name == '':

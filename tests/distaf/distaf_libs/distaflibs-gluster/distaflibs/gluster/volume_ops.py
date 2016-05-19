@@ -26,8 +26,9 @@ try:
 except ImportError:
     import xml.etree.ElementTree as etree
 from distaflibs.gluster.mount_ops import mount_volume
-from distaflibs.gluster.peer_ops import peer_probe, nodes_from_pool_list
 from distaflibs.gluster.gluster_init import env_setup_servers, start_glusterd
+from distaflibs.gluster.peer_ops import ( peer_probe_servers,
+                                          nodes_from_pool_list )
 
 """
     This file contains the gluster volume operations like create volume,
@@ -44,7 +45,7 @@ def create_volume(volname, dist, rep=1, stripe=1, trans='tcp', servers='', \
     if servers == '':
         servers = nodes_from_pool_list()
     if not servers:
-        servers = tc.nodes
+        servers = tc.servers
     dist = int(dist)
     rep = int(rep)
     stripe = int(stripe)
@@ -107,7 +108,7 @@ def start_volume(volname, mnode='', force=False):
         Returns True if success and False if failure
     """
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     frce = ''
     if force:
         frce = 'force'
@@ -123,7 +124,7 @@ def stop_volume(volname, mnode='', force=False):
         Returns True if success and False if failure
     """
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     frce = ''
     if force:
         frce = 'force'
@@ -140,7 +141,7 @@ def delete_volume(volname, mnode=''):
         Returns True if success and False if failure
     """
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     volinfo = get_volume_info(volname, mnode)
     if volinfo is None or volname not in volinfo:
         tc.logger.info("Volume %s does not exist in %s" % (volname, mnode))
@@ -166,7 +167,7 @@ def reset_volume(volname, mnode='', force=False):
         Returns True if success and False if failure
     """
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     frce = ''
     if force:
         frce = 'force'
@@ -185,7 +186,7 @@ def cleanup_volume(volname, mnode=''):
         TODO: Add snapshot cleanup part here
     """
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     ret = stop_volume(volname, mnode, True) | \
             delete_volume(volname, mnode)
     if not ret:
@@ -200,7 +201,7 @@ def setup_meta_vol(servers=''):
         specified.
     """
     if servers == '':
-        servers = tc.nodes
+        servers = tc.servers
     meta_volname = 'gluster_shared_storage'
     mount_point = '/var/run/gluster/shared_storage'
     metav_dist = int(tc.config_data['META_VOL_DIST_COUNT'])
@@ -255,7 +256,7 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
         Returns True on success and False for failure.
     """
     if servers == '':
-        servers = tc.nodes
+        servers = tc.servers
     volinfo = get_volume_info(server=servers[0])
     if volinfo is not None and volname in volinfo.keys():
         tc.logger.debug("volume %s already exists in %s. Returning..." \
@@ -270,7 +271,7 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
         tc.logger.error("glusterd did not start in at least one server")
         return False
     time.sleep(5)
-    ret = peer_probe(servers[0], servers[1:])
+    ret = peer_probe_servers(servers[1:], mnode=servers[0])
     if not ret:
         tc.logger.error("Unable to peer probe one or more machines")
         return False
@@ -342,7 +343,7 @@ def get_volume_status(volname='all', service='', options='', mnode=''):
     """
 
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster vol status %s %s %s --xml" % (volname, service, options)
 
@@ -427,7 +428,7 @@ def get_volume_option(volname, option='all', server=''):
               None, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
 
     cmd = "gluster volume get %s %s" % (volname, option)
     ret = tc.run(server, cmd)
@@ -462,7 +463,7 @@ def get_volume_info(volname='all', server=''):
         -- For bricks, the value is a list of bricks (hostname:/brick_path)
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     ret = tc.run(server, "gluster volume info %s --xml" % volname, \
             verbose=False)
     if ret[0] != 0:
@@ -506,7 +507,7 @@ def set_volume_option(volname, options, server=''):
               False, on failure
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     _rc = True
     for option in options:
         cmd = "gluster volume set %s %s %s" % (volname, option, \

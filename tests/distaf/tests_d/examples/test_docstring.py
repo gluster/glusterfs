@@ -17,7 +17,7 @@
 
 
 from distaf.util import tc, testcase
-from distaf.gluster_base_class import GlusterBaseClass
+from distaflibs.gluster.gluster_base_class import GlusterBaseClass
 
 
 # An example with both doc and config in docstring

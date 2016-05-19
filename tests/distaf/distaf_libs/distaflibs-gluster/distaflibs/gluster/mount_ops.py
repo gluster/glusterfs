@@ -30,7 +30,7 @@ def mount_volume(volname, mtype='glusterfs', mpoint='/mnt/glusterfs', \
     """
     global tc
     if mserver == '':
-        mserver = tc.nodes[0]
+        mserver = tc.servers[0]
     if mclient == '':
         mclient = tc.clients[0]
     if options != '':
