@@ -430,3 +430,45 @@ unlock:
                 afr_replies_wipe (locked_replies, priv->child_count);
 	return ret;
 }
+
+int
+afr_selfheal_metadata_by_stbuf (xlator_t *this, struct iatt *stbuf)
+{
+        inode_t      *inode      = NULL;
+        inode_t      *link_inode = NULL;
+        call_frame_t *frame      = NULL;
+        int          ret         = 0;
+
+        if (gf_uuid_is_null (stbuf->ia_gfid)) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        inode = inode_new (this->itable);
+        if (!inode) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        link_inode = inode_link (inode, NULL, NULL, stbuf);
+        if (!link_inode) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        frame = afr_frame_create (this);
+        if (!frame) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = afr_selfheal_metadata (frame, this, link_inode);
+out:
+        if (inode)
+                inode_unref (inode);
+        if (link_inode)
+                inode_unref (link_inode);
+        if (frame)
+                AFR_STACK_DESTROY (frame);
+        return ret;
+}
