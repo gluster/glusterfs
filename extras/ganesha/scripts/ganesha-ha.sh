@@ -182,7 +182,14 @@ setup_cluster()
         exit 1;
     fi
 
-    sleep 3
+    sleep 1
+    # wait for the cluster to elect a DC before querying or writing
+    # to the CIB. BZ 1334092
+    crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+    while [ $? -ne 0 ]; do
+        crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+    done
+
     unclean=$(pcs status | grep -u "UNCLEAN")
     while [[ "${unclean}X" = "UNCLEANX" ]]; do
          sleep 1
@@ -196,6 +203,11 @@ setup_cluster()
             logger "warning: pcs property set no-quorum-policy=ignore failed"
         fi
     fi
+
+    pcs property set stonith-enabled=false
+    if [ $? -ne 0 ]; then
+        logger "warning: pcs property set stonith-enabled=false failed"
+    fi
 }
 
 
@@ -203,11 +215,6 @@ setup_finalize_ha()
 {
     local cibfile=${1}
     local stopped=""
-
-    pcs property set stonith-enabled=false
-    if [ $? -ne 0 ]; then
-        logger "warning: pcs property set stonith-enabled=false failed"
-    fi
 
     stopped=$(pcs status | grep -u "Stopped")
     while [[ "${stopped}X" = "StoppedX" ]]; do
