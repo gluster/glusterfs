@@ -95,9 +95,16 @@ ganesha_grace_start()
 {
 	local rc=${OCF_ERR_GENERIC}
 	local short_host=$(hostname -s)
+	local long_host=$(hostname)
 
 	ocf_log debug "ganesha_grace_start()"
-	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active})
+	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+        if [ $? -ne 0 ]; then
+	        attr=$(crm_attribute --query --node=${long_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null )
+                if [ $? -ne 0 ]; then
+	                ocf_log info "crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} failed"
+                fi
+        fi
 
 	# Three possibilities:
 	# 1. There is no attribute at all and attr_updater returns
@@ -153,10 +160,17 @@ ganesha_grace_monitor()
 {
 	local rc=${OCF_ERR_GENERIC}
 	local short_host=$(hostname -s)
+	local long_host=$(hostname)
 
 	ocf_log debug "monitor"
 
-	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active})
+	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+        if [ $? -ne 0 ]; then
+	        attr=$(crm_attribute --query --node=${long_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+                if [ $? -ne 0 ]; then
+	                ocf_log info "crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} failed"
+                fi
+        fi
 
 	# if there is no attribute (yet), maybe it's because
 	# this RA started before ganesha_mon (nfs-mon) has had
