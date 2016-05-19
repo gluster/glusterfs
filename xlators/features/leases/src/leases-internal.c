@@ -1033,7 +1033,8 @@ __check_lease_conflict (call_frame_t *frame, lease_inode_ctx_t *lease_ctx,
         /* If the fop is rename or unlink conflict the lease even if its
          * from the same client??
          */
-        if ((frame->op == GF_FOP_RENAME) || (frame->op == GF_FOP_UNLINK)) {
+        if ((frame->root->op == GF_FOP_RENAME) ||
+            (frame->root->op == GF_FOP_UNLINK)) {
                 conflicts = _gf_true;
                 goto recall;
         }
@@ -1096,15 +1097,15 @@ check_lease_conflict (call_frame_t *frame, inode_t *inode,
                 goto out;
         }
 
-        is_blocking_fop = fop_flags & BLOCKING_FOP;
-        is_write_fop = fop_flags & DATA_MODIFY_FOP;
+        is_blocking_fop = ((fop_flags & BLOCKING_FOP) != 0);
+        is_write_fop = ((fop_flags & DATA_MODIFY_FOP) != 0);
 
         pthread_mutex_lock (&lease_ctx->lock);
         {
                 if (lease_ctx->lease_type == NONE) {
                         gf_msg_debug (frame->this->name, 0,
-                                        "No leases found continuing with the"
-                                        " fop:%s", gf_fop_list[frame->op]);
+                                      "No leases found continuing with the"
+                                      " fop:%s", gf_fop_list[frame->root->op]);
                         ret = WIND_FOP;
                         goto unlock;
                 }
@@ -1115,14 +1116,15 @@ check_lease_conflict (call_frame_t *frame, inode_t *inode,
                                 gf_msg_debug (frame->this->name, 0, "Fop: %s "
                                               "conflicting existing "
                                               "lease: %d, blocking the"
-                                              "fop", gf_fop_list[frame->op],
+                                              "fop", gf_fop_list[frame->root->op],
                                               lease_ctx->lease_type);
                                 ret = BLOCK_FOP;
                         } else {
                                 gf_msg_debug (frame->this->name, 0, "Fop: %s "
                                               "conflicting existing "
                                               "lease: %d, sending "
-                                              "EAGAIN", gf_fop_list[frame->op],
+                                              "EAGAIN",
+                                              gf_fop_list[frame->root->op],
                                               lease_ctx->lease_type);
                                 errno = EAGAIN;
                                 ret = -1;
