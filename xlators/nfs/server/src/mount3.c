@@ -1524,6 +1524,7 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         int                   ret = -EFAULT;
         struct nfs3_fh        pfh = GF_NFS3FH_STATIC_INITIALIZER;
         struct sockaddr_in    *sin = NULL;
+        int                   len = -1;
 
         if ((!req) || (!ms) || (!exp) || (!subdir))
                 return ret;
@@ -1551,7 +1552,10 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->exp = exp;
         mres->mstate = ms;
         mres->req = req;
+
         strncpy (mres->remainingdir, subdir, MNTPATHLEN);
+        gf_path_strip_trailing_slashes (mres->remainingdir);
+
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
                 pfh = nfs3_fh_build_indexed_root_fh (
                                             mres->mstate->nfsx->children,
@@ -2493,6 +2497,7 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         if (colon) {
                 *colon= '\0';
         }
+        gf_path_strip_trailing_slashes (dirpath);
         gf_msg_debug (GF_MNT, 0, "dirpath: %s, hostname: %s", dirpath,
                       hostname);
         ret = mnt3svc_umount (ms, dirpath, hostname);
