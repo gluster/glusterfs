@@ -45,7 +45,7 @@ leases_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto err;
         }
 
-        GET_FLAGS (frame->op, flags);
+        GET_FLAGS (frame->root->op, flags);
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
         if (lease_id != NULL)
                 memcpy (fd_ctx->lease_id, lease_id, LEASE_ID_SIZE);
@@ -108,7 +108,7 @@ leases_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -161,7 +161,7 @@ leases_readv (call_frame_t *frame, xlator_t *this,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -293,7 +293,7 @@ leases_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0);
+        GET_FLAGS (frame->root->op, 0);
 
         ret = check_lease_conflict (frame, loc->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -343,7 +343,7 @@ leases_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0);
+        GET_FLAGS (frame->root->op, 0);
 
         ret = check_lease_conflict (frame, loc->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -397,7 +397,7 @@ leases_rename (call_frame_t *frame, xlator_t *this,
 
         /* should the lease be also checked for newloc */
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0);
+        GET_FLAGS (frame->root->op, 0);
 
         ret = check_lease_conflict (frame, oldloc->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -448,7 +448,7 @@ leases_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0);
+        GET_FLAGS (frame->root->op, 0);
 
         ret = check_lease_conflict (frame, loc->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -498,7 +498,7 @@ leases_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0);
+        GET_FLAGS (frame->root->op, 0);
 
         ret = check_lease_conflict (frame, oldloc->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -550,7 +550,7 @@ leases_create (call_frame_t *frame, xlator_t *this,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, flags);
+        GET_FLAGS (frame->root->op, flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -601,7 +601,7 @@ leases_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -649,7 +649,7 @@ leases_ftruncate (call_frame_t *frame, xlator_t *this,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, 0); /* TODO:fd->flags?*/
+        GET_FLAGS (frame->root->op, 0); /* TODO:fd->flags?*/
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -699,7 +699,7 @@ leases_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -750,7 +750,7 @@ leases_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -801,7 +801,7 @@ leases_discard (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -852,7 +852,7 @@ leases_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)
@@ -901,7 +901,7 @@ leases_flush (call_frame_t *frame, xlator_t *this,
         EXIT_IF_LEASES_OFF (this, out);
 
         GET_LEASE_ID (xdata, lease_id, frame->root->client->client_uid);
-        GET_FLAGS (frame->op, fd->flags);
+        GET_FLAGS (frame->root->op, fd->flags);
 
         ret = check_lease_conflict (frame, fd->inode, lease_id, fop_flags);
         if (ret < 0)

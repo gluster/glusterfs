@@ -57,7 +57,7 @@
 
 #define GET_FLAGS(fop, fd_flags)                                               \
 do {                                                                           \
-        if (fd_flags & (O_WRONLY | O_RDWR) && fop == GF_FOP_OPEN)              \
+        if ((fd_flags & (O_WRONLY | O_RDWR)) && fop == GF_FOP_OPEN)            \
                 fop_flags = DATA_MODIFY_FOP;                                   \
                                                                                \
         if (fop == GF_FOP_UNLINK || fop == GF_FOP_RENAME ||                    \
@@ -69,7 +69,7 @@ do {                                                                           \
             fop == GF_FOP_LINK)                                                \
                 fop_flags = DATA_MODIFY_FOP;                                   \
                                                                                \
-        if (fd_flags & (O_NONBLOCK | O_NDELAY))                                \
+        if (!(fd_flags & (O_NONBLOCK | O_NDELAY)))                             \
                 fop_flags |= BLOCKING_FOP;                                     \
                                                                                \
 } while (0)                                                                    \
@@ -99,13 +99,19 @@ do {                                                                           \
         __stub = fop_##fop_name##_stub (frame, default_##fop_name##_resume,    \
                                         params);                               \
         if (!__stub) {                                                         \
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,                    \
+                        LEASE_MSG_NO_MEM,                                      \
+                        "Unable to create stub");                              \
                 ret = -ENOMEM;                                                 \
                 goto __out;                                                    \
         }                                                                      \
                                                                                \
         blk_fop = GF_CALLOC (1, sizeof (*blk_fop),                             \
                              gf_leases_mt_fop_stub_t);                         \
-        if (blk_fop) {                                                         \
+        if (!blk_fop) {                                                        \
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,                    \
+                        LEASE_MSG_NO_MEM,                                      \
+                        "Unable to create lease fop stub");                    \
                 ret = -ENOMEM;                                                 \
                 goto __out;                                                    \
         }                                                                      \
@@ -119,6 +125,7 @@ do {                                                                           \
                 goto __out;                                                    \
         }                                                                      \
                                                                                \
+        blk_fop->stub = __stub;                                                \
         pthread_mutex_lock (&lease_ctx->lock);                                 \
         {                                                                      \
                 /*TODO: If the lease is unlocked btw check lease conflict and  \
@@ -132,8 +139,7 @@ __out:                                                                         \
         if (ret < 0) {                                                         \
                 gf_msg (this->name, GF_LOG_WARNING, ENOMEM, LEASE_MSG_NO_MEM,  \
                         "Unable to create stub for blocking the fop:%s (%s)",  \
-                         gf_fop_list[frame->op], strerror(ENOMEM));            \
-                default_##fop_name##_failure_cbk (frame, -__ret);              \
+                         gf_fop_list[frame->root->op], strerror(ENOMEM));      \
                 if (__stub != NULL) {                                          \
                         call_stub_destroy (__stub);                            \
                 }                                                              \
