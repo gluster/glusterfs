@@ -1957,12 +1957,8 @@ afr_lookup_sh_metadata_wrap (void *opaque)
         if (first == -1)
                 goto out;
 
-        inode = inode_link (local->inode, NULL, NULL, &replies[first].poststat);
-        if(!inode)
+        if (afr_selfheal_metadata_by_stbuf (this, &replies[first].poststat))
                 goto out;
-
-        afr_selfheal_metadata (frame, this, inode);
-        inode_unref (inode);
 
         afr_local_replies_wipe (local, this->private);
 
