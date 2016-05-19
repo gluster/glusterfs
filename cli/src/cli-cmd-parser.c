@@ -1848,7 +1848,7 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         ret = 0;
 out:
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse detach-tier CLI");
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse detach tier CLI");
                 if (dict)
                         dict_unref (dict);
         }

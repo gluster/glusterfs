@@ -1023,7 +1023,7 @@ out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume detach-tier failed");
+                        cli_out ("Volume detach tier failed");
         }
 
         CLI_STACK_DESTROY (frame);
