@@ -59,7 +59,7 @@ def get_rebal_status(volname, server=''):
     if the server pararmeter is empty it takes node info from config file
     '''
     if server == "":
-        server = tc.nodes[0]
+        server = tc.servers[0]
     status = tc.run(server, "gluster v rebalance %s status" %volname)
     if status[0] != 0:
         if "not started" in status[2]:
@@ -105,13 +105,13 @@ def rebal_start(volname, server=''):
         Simple interface to start the gluster rebalance
         @ pararmeter:
             * volname
-            * server - defaults to tc.nodes[0]
+            * server - defaults to tc.servers[0]
         @ returns:
             True on success
             False otherwise
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     ret = tc.run(server, "gluster volume rebalance %s start" % volname)
     if ret[0] != 0:
         tc.logger.error("rebalance start %s failed" % volname)

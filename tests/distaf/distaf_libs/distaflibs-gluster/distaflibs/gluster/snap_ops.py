@@ -65,7 +65,7 @@ def snap_create(volname, snapname, timestamp=False, description='',
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if description != '':
         description = "description '%s'" % description
@@ -110,7 +110,7 @@ def snap_clone(snapname, clonename, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     cmd = "gluster snapshot clone %s %s --mode=script" % (clonename, snapname)
     return tc.run(mnode, cmd)
 
@@ -141,7 +141,7 @@ def snap_restore(snapname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     cmd = "gluster snapshot restore %s --mode=script" % snapname
     return tc.run(mnode, cmd)
 
@@ -164,7 +164,7 @@ def snap_restore_complete(volname, snapname, mnode=None):
         bool: True on success, False on failure
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     # Stopping volume before snap restore
     ret = stop_volume(volname, mnode)
@@ -210,7 +210,7 @@ def snap_status(snapname="", volname="", mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if snapname != "" and volname != "":
         tc.logger.error("Incorrect cmd. snap status cli accepts either "
@@ -251,7 +251,7 @@ def get_snap_status(mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster snapshot status --xml", verbose=False)
     if ret != 0:
@@ -315,7 +315,7 @@ def get_snap_status_by_snapname(snapname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     snap_status_list = get_snap_status(mnode=mnode)
     if not snap_status_list:
@@ -360,7 +360,7 @@ def get_snap_status_by_volname(volname, mnode=None):
         'uuid': 'dcf0cd31-c0db-47ad-92ec-f72af2d7b385'}]
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster snapshot status volume %s --xml" % volname
     ret, out, _ = tc.run(mnode, cmd, verbose=False)
@@ -423,7 +423,7 @@ def snap_info(snapname="", volname="", mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if snapname != "" and volname != "":
         tc.logger.error("Incorrect cmd. snap info cli accepts either "
@@ -461,7 +461,7 @@ def get_snap_info(mnode=None):
         '2016-04-07 13:59:43', 'name': 'snap1'}]
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster snapshot info --xml", verbose=False)
     if ret != 0:
@@ -519,7 +519,7 @@ def get_snap_info_by_snapname(snapname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     snap_info_list = get_snap_info(mnode=mnode)
     if not snap_info_list:
@@ -561,7 +561,7 @@ def get_snap_info_by_volname(volname, mnode=None):
         '2016-04-07 12:03:11', 'name': 'next_snap1'}]}
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster snapshot info volume %s --xml" % volname
     ret, out, _ = tc.run(mnode, cmd, verbose=False)
@@ -633,7 +633,7 @@ def snap_list(mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     cmd = "gluster snapshot list"
     return tc.run(mnode, cmd)
 
@@ -654,7 +654,7 @@ def get_snap_list(mnode=None):
         ['snap1', 'snap2']
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster snapshot list --xml", verbose=False)
     if ret != 0:
@@ -699,7 +699,7 @@ def snap_config(volname=None, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if volname is None:
         volname = ""
@@ -730,7 +730,7 @@ def get_snap_config(volname=None, mnode=None):
         'autoDelete': 'disable'}}
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster snapshot config --xml", verbose=False)
     if ret != 0:
@@ -794,7 +794,7 @@ def set_snap_config(option, volname=None, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if volname is None:
         volname = ""
@@ -829,7 +829,7 @@ def snap_delete(snapname, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster snapshot delete %s --mode=script" % snapname
     return tc.run(mnode, cmd)
@@ -860,7 +860,7 @@ def snap_delete_by_volumename(volname, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster snapshot delete volume %s --mode=script" % volname
     return tc.run(mnode, cmd)
@@ -888,7 +888,7 @@ def snap_delete_all(mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     cmd = "gluster snapshot delete all --mode=script"
     return tc.run(mnode, cmd)
 
@@ -921,7 +921,7 @@ def snap_activate(snapname, force=False, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     frce = ''
     if force:
@@ -956,6 +956,6 @@ def snap_deactivate(snapname, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     cmd = "gluster snapshot deactivate %s --mode=script" % snapname
     return tc.run(mnode, cmd)

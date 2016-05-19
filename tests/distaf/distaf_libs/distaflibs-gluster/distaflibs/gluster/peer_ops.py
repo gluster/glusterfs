@@ -53,7 +53,7 @@ def peer_probe(server, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster peer probe %s" % server
     return tc.run(mnode, cmd)
@@ -82,7 +82,7 @@ def peer_detach(server, force=False, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     if force:
         cmd = "gluster peer detach %s force" % server
@@ -111,7 +111,7 @@ def peer_status(mnode=None):
     """
     tc.logger.info("Inside peer status")
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster peer status"
     return tc.run(mnode, cmd)
@@ -136,7 +136,7 @@ def pool_list(mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster pool list"
     return tc.run(mnode, cmd)
@@ -160,11 +160,11 @@ def peer_probe_servers(servers=None, validate=True, time_delay=10, mnode=None):
         bool: True on success and False on failure.
     """
     if servers is None:
-        servers = tc.nodes[:]
+        servers = tc.servers[:]
     if not isinstance(servers, list):
         servers = [servers]
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     if mnode in servers:
         servers.remove(mnode)
 
@@ -217,11 +217,11 @@ def peer_detach_servers(servers=None, force=False, validate=True,
         bool: True on success and False on failure.
     """
     if servers is None:
-        servers = tc.nodes[:]
+        servers = tc.servers[:]
     if not isinstance(servers, list):
         servers = [servers]
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     if mnode in servers:
         servers.remove(mnode)
 
@@ -255,7 +255,7 @@ def nodes_from_pool_list(mnode=None):
         list: List of nodes in pool on Success, Empty list on failure.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     pool_list_data = get_pool_list(mnode)
     if pool_list_data is None:
@@ -297,7 +297,7 @@ def get_peer_status(mnode=None):
         ]
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster peer status --xml", verbose=False)
     if ret != 0:
@@ -353,7 +353,7 @@ def get_pool_list(mnode=None):
         ]
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     ret, out, _ = tc.run(mnode, "gluster pool list --xml", verbose=False)
     if ret != 0:
@@ -398,11 +398,11 @@ def is_peer_connected(servers=None, mnode=None):
             failure.
     """
     if servers is None:
-        servers = tc.nodes[:]
+        servers = tc.servers[:]
     if not isinstance(servers, list):
         servers = [servers]
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     if mnode in servers:
         servers.remove(mnode)
 

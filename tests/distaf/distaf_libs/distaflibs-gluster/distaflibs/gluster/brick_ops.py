@@ -36,7 +36,7 @@ def add_brick(volname, nbricks, replica=1, stripe=1, peers='', mnode=''):
     if peers == '':
         peers = tc.peers[:]
     if mnode == '':
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
     replica = int(replica)
     stripe = int(stripe)
     volinfo = tc.run(mnode, "gluster volume info | egrep \"^Brick[0-9]+\"", \
@@ -75,7 +75,7 @@ def bring_down_brick(volname, bindex, node=''):
     """
     global tc
     if node == '':
-        node = tc.nodes[0]
+        node = tc.servers[0]
     ret, rnode, _ = tc.run(node, "gluster volume info %s | egrep \"^Brick%d:\""
                                  " | awk '{print $2}' | awk -F : '{print $1}'"
                                  % (volname, bindex))

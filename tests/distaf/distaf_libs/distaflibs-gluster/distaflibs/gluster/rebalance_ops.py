@@ -61,7 +61,7 @@ def rebalance_start(volname, mnode=None, fix_layout=False, force=False):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     flayout = ''
     if fix_layout:
@@ -106,7 +106,7 @@ def rebalance_stop(volname, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster volume rebalance %s stop" % volname
     ret = tc.run(mnode, cmd)
@@ -138,7 +138,7 @@ def rebalance_status(volname, mnode=None):
             of the command execution.
     """
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster volume rebalance %s status" % volname
     ret = tc.run(mnode, cmd)
@@ -183,7 +183,7 @@ def get_rebalance_status(volname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster volume rebalance %s status --xml" % volname
     ret, out, _ = tc.run(mnode, cmd, verbose=False)
@@ -256,7 +256,7 @@ def rebalance_stop_and_get_status(volname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     cmd = "gluster volume rebalance %s stop --xml" % volname
     ret, out, _ = tc.run(mnode, cmd, verbose=False)
@@ -308,7 +308,7 @@ def wait_for_rebalance_to_complete(volname, mnode=None):
     """
 
     if mnode is None:
-        mnode = tc.nodes[0]
+        mnode = tc.servers[0]
 
     count = 0
     flag = 0

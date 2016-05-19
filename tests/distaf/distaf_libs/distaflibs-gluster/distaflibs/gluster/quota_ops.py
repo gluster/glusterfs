@@ -26,7 +26,7 @@ def enable_quota(volname, server=''):
         Returns the output of quota cli command
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     cmd = "gluster volume quota %s enable" % volname
     return tc.run(server, cmd)
 
@@ -39,6 +39,6 @@ def set_quota_limit(volname, path='/', limit='100GB', server=''):
         Returs the output of quota limit-usage command
     """
     if server == '':
-        server = tc.nodes[0]
+        server = tc.servers[0]
     cmd = "gluster volume quota %s limit-usage %s %s" % (volname, path, limit)
     return tc.run(server, cmd)
