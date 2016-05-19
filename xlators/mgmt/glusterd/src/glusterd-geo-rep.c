@@ -420,13 +420,13 @@ parse_slave_url (char *slv_url, char **slave)
         }
         tmp += 2;
         tmp = strchr (tmp, ':');
-        if (!tmp) {
-                goto out;
-        } else
+        if (!tmp)
+                gf_msg_debug (this->name, 0, "old slave: %s!", *slave);
+        else
                 *tmp = '\0';
 
         ret = 0;
-        gf_msg_debug (this->name, 0, "parse slave: %s !!", *slave);
+        gf_msg_debug (this->name, 0, "parsed slave: %s!", *slave);
 out:
         return ret;
 }
@@ -583,8 +583,8 @@ struct dictidxmark {
 
 struct slave_vol_config {
        char      old_slvhost[_POSIX_HOST_NAME_MAX+1];
-       char      slave_voluuid[GF_UUID_BUF_SIZE];
        unsigned  old_slvidx;
+       char      slave_voluuid[GF_UUID_BUF_SIZE];
 };
 
 static int
@@ -1480,6 +1480,152 @@ glusterd_gsync_get_uuid (char *slave, glusterd_volinfo_t *vol,
         return ret;
 }
 
+static int
+update_slave_voluuid (dict_t *dict, char *key, data_t *value, void *data)
+{
+        char                         *slave                = NULL;
+        char                         *slave_url            = NULL;
+        char                         *slave_vol            = NULL;
+        char                         *slave_host           = NULL;
+        char                         *errmsg               = NULL;
+        xlator_t                     *this                 = NULL;
+        int                          ret                   = -1;
+        char                         slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
+        char                         slave_voluuid[GF_UUID_BUF_SIZE] = {0};
+        char                         *slave_info           = NULL;
+        char                         *new_value            = NULL;
+        char                         *same_key             = NULL;
+        int                          cnt                   = 0;
+        gf_boolean_t                 *voluuid_updated      = NULL;
+
+        this = THIS;
+
+        voluuid_updated = data;
+        slave_info = value->data;
+        gf_msg_debug (this->name, 0, "slave_info: %s!", slave_info);
+
+        /* old slave format:
+         * master_node_uuid:ssh://slave_host::slave_vol
+         * New slave format:
+         * master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid */
+        while (slave_info) {
+                slave_info = strchr (slave_info, ':');
+                if (slave_info)
+                        cnt++;
+                else
+                        break;
+
+                slave_info++;
+        }
+
+        gf_msg_debug (this->name, 0, "cnt: %d", cnt);
+        /* check whether old slave format and update vol uuid if old format.
+         * With volume uuid, number of ':' is 5 and is 4 without.
+         */
+        if (cnt == 4) {
+                strncpy (slv_url, value->data, sizeof(slv_url));
+
+                ret = parse_slave_url (slv_url, &slave);
+                if (ret == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                                "Error in parsing slave: %s!", value->data);
+                        goto out;
+                }
+
+                ret = glusterd_get_slave_info (slave, &slave_url,
+                                       &slave_host, &slave_vol, &errmsg);
+                if (ret) {
+                        if (errmsg)
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SLAVEINFO_FETCH_ERROR,
+                                        "Unable to fetch slave details. Error: %s",
+                                        errmsg);
+                        else
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SLAVEINFO_FETCH_ERROR,
+                                        "Unable to fetch slave details.");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_get_slave_voluuid (slave_host, slave_vol,
+                                                  slave_voluuid);
+                if ((ret) || (strlen(slave_voluuid) == 0)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_REMOTE_VOL_UUID_FAIL,
+                                "Unable to get remote volume uuid"
+                                "slavehost:%s slavevol:%s",
+                                 slave_host, slave_vol);
+                        /* Avoiding failure due to remote vol uuid fetch */
+                        ret = 0;
+                        goto out;
+                }
+                ret = gf_asprintf (&new_value,  "%s:%s",
+                                    value->data, slave_voluuid);
+                ret = gf_asprintf (&same_key, "%s", key);
+
+                /* delete old key and add new value */
+                dict_del (dict, key);
+
+                /* set new value for the same key*/
+                ret = dict_set_dynstr (dict, same_key, new_value);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_REMOTE_VOL_UUID_FAIL,
+                                "Error in setting dict value"
+                                "new_value :%s", new_value);
+                        goto out;
+                }
+                *voluuid_updated = _gf_true;
+        }
+
+        ret = 0;
+out:
+        if (errmsg)
+                GF_FREE (errmsg);
+
+        gf_msg_debug (this->name, 0, "Returning %d.", ret);
+        return ret;
+}
+
+static int
+glusterd_update_slave_voluuid_slaveinfo (glusterd_volinfo_t *volinfo)
+{
+        int   ret = -1;
+        xlator_t *this = NULL;
+        gf_boolean_t voluuid_updated = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+
+        ret = dict_foreach (volinfo->gsync_slaves, update_slave_voluuid,
+                            &voluuid_updated);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REMOTE_VOL_UUID_FAIL, "Error in updating"
+                        "volinfo");
+                goto out;
+        }
+
+        if (_gf_true == voluuid_updated) {
+                ret = glusterd_store_volinfo (volinfo,
+                                          GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_STORE_FAIL, "Error in storing"
+                                "volinfo");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        return ret;
+}
+
 int
 glusterd_check_gsync_running_local (char *master, char *slave,
                                     char *conf_path,
@@ -1650,6 +1796,8 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         glusterd_conf_t        *priv = NULL;
         xlator_t               *this = NULL;
         struct stat             stbuf = {0,};
+        char                    statefiledir[PATH_MAX] = {0,};
+        char                    *statedir = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1668,13 +1816,18 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = sys_lstat (statefile, &stbuf);
+        /* check session directory as statefile may not present
+         * during upgrade */
+        strncpy (statefiledir, statefile, sizeof(statefiledir));
+        statedir = dirname (statefiledir);
+
+        ret = sys_lstat (statedir, &stbuf);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Session between %s and %s has"
                           " not been created. Please create session and retry.",
                           volinfo->volname, slave);
                 gf_msg (this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-                        "%s", msg);
+                        "%s statefile: %s", msg, statefile);
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
@@ -2704,6 +2857,8 @@ get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
                 slave_info = strchr (slave_info, ':');
                 if (slave_info)
                         slave_info++;
+                else
+                        break;
         }
 
         if (!(slave_info) || strlen(slave_info) == 0) {
@@ -2808,6 +2963,9 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char                     old_confpath[PATH_MAX]     = {0};
         gf_boolean_t             is_running                 = _gf_false;
         int                      ret_status                 = 0;
+        char                     *statedir                  = NULL;
+        char                     statefiledir[PATH_MAX]     = {0,};
+
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
@@ -3013,7 +3171,10 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = sys_lstat (statefile, &stbuf);
+        strncpy (statefiledir, statefile, sizeof(statefiledir));
+        statedir = dirname (statefiledir);
+
+        ret = sys_lstat (statedir, &stbuf);
         if (!ret && !is_force) {
                 snprintf (errmsg, sizeof (errmsg), "Session between %s"
                           " and %s is already created.",
@@ -3199,6 +3360,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         char               *slave_vol             = NULL;
         char               *down_peerstr          = NULL;
         char               *statefile             = NULL;
+        char               statefiledir[PATH_MAX] = {0,};
+        char               *statedir              = NULL;
         char               *path_list             = NULL;
         char               *conf_path             = NULL;
         gf_boolean_t        exists                = _gf_false;
@@ -3309,7 +3472,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
          * as this command acts as a fail safe method to stop geo-rep
          * session. */
         if (!((type == GF_GSYNC_OPTION_TYPE_STOP) && is_force)) {
-                ret = sys_lstat (statefile, &stbuf);
+
+                /* check session directory as statefile may not present
+                 * during upgrade */
+                strncpy (statefiledir, statefile, sizeof(statefiledir));
+                statedir = dirname (statefiledir);
+
+                ret = sys_lstat (statedir, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
                                   " session between %s and %s does not exist.",
@@ -4032,7 +4201,7 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
         status_fd = open (path, O_RDONLY);
         if (status_fd == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED,
-                        "Unable to read gsyncd status file");
+                        "Unable to read gsyncd status file %s", path);
                 return -1;
         }
         ret = sys_read (status_fd, buf, blen - 1);
@@ -5344,6 +5513,16 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED, "Unable to set key:%s"
                                 " value:running in the dict", key);
+                        goto out;
+                }
+
+                /* If slave volume uuid is not present in gsync_slaves
+                 * update it*/
+                ret = glusterd_update_slave_voluuid_slaveinfo (volinfo);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_REMOTE_VOL_UUID_FAIL, "Error in updating"
+                                " slave volume uuid for old slave info");
                         goto out;
                 }
 

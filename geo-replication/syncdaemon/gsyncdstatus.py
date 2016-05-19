@@ -272,6 +272,9 @@ class GeorepStatus(object):
         if monitor_status in ["Created", "Paused", "Stopped"]:
             data["worker_status"] = monitor_status
 
+        if monitor_status == "":
+            data["worker_status"] = "Stopped"
+
         # Checkpoint adjustments
         if checkpoint_time == 0:
             data["checkpoint_completed"] = DEFAULT_STATUS
