@@ -1964,15 +1964,25 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         }
 
                         if (cmd == GF_OP_CMD_DETACH_COMMIT) {
-                                snprintf (msg, sizeof (msg), "Brick's in Hot "
-                                          "tier is not decommissioned yet. Use "
-                                          "gluster volume detach-tier <VOLNAME>"
-                                          " <start | commit | force>"
-                                          " command instead");
+                                snprintf (msg, sizeof (msg), "Bricks in Hot "
+                                          "tier are not decommissioned yet. Use "
+                                          "gluster volume tier <VOLNAME> "
+                                          "detach start to start the decommission process");
                                 *errstr = gf_strdup (msg);
                                 ret = -1;
                                 goto out;
                         }
+                } else {
+                        if (cmd == GF_OP_CMD_DETACH_COMMIT &&
+                            (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED)) {
+                                        snprintf (msg, sizeof (msg), "Bricks in Hot "
+                                                  "tier are not decommissioned yet. Wait for "
+                                                  "the detach to complete using gluster volume "
+                                                  "tier <VOLNAME> status.");
+                                        *errstr = gf_strdup (msg);
+                                        ret = -1;
+                                        goto out;
+                            }
                 }
 
                 if (glusterd_is_local_brick (THIS, volinfo, brickinfo)) {
@@ -2235,15 +2245,6 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 ret = glusterd_check_geo_rep_running (&param, op_errstr);
                 if (ret || param.is_active) {
                         ret = -1;
-                        goto out;
-                }
-
-                if (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED) {
-                        ret = -1;
-                        errstr = gf_strdup("Detach is in progress. Please "
-                                           "retry after completion");
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_OIP_RETRY_LATER, "%s", errstr);
                         goto out;
                 }
                 break;

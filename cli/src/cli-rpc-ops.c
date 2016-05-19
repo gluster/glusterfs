@@ -2396,7 +2396,7 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
         }
 
-        gf_log ("cli", GF_LOG_INFO, "Received resp to detach-tier");
+        gf_log ("cli", GF_LOG_INFO, "Received resp to detach tier");
 
         if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                 snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
@@ -2418,10 +2418,10 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret) {
-                cli_err ("volume detach-tier %s: failed: %s", cmd_str,
+                cli_err ("volume detach tier %s: failed: %s", cmd_str,
                          msg);
         } else {
-                cli_out ("volume detach-tier %s: success", cmd_str);
+                cli_out ("volume detach tier %s: success", cmd_str);
                 if (GF_OP_CMD_DETACH_START == cmd && task_id_str != NULL)
                         cli_out ("ID: %s", task_id_str);
                 if (GF_OP_CMD_DETACH_COMMIT == cmd)
@@ -2558,10 +2558,10 @@ xml_output:
         }
 
         if ((cmd == GF_OP_CMD_STOP_DETACH_TIER) && (rsp.op_ret == 0)) {
-                cli_out ("'detach-tier' process may be in the middle of a "
+                cli_out ("'detach tier' process may be in the middle of a "
                          "file migration.\nThe process will be fully stopped "
                          "once the migration of the file is complete.\nPlease "
-                         "check detach-tier process for completion before "
+                         "check detach tier process for completion before "
                          "doing any further brick related tasks on the "
                          "volume.");
         }
