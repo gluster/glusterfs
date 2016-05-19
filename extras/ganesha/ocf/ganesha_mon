@@ -125,6 +125,7 @@ ganesha_mon_stop()
 ganesha_mon_monitor()
 {
 	local short_host=$(hostname -s)
+	local long_host=$(hostname)
 	local pid_file="/var/run/ganesha.nfsd.pid"
 
 	# RHEL6 /etc/init.d/nfs-ganesha adds -p /var/run/ganesha.nfsd.pid
@@ -153,10 +154,13 @@ ganesha_mon_monitor()
 		# track grace-active crm_attr (attr != crm_attr)
 		# we can't just use the attr as there's no way to query
 		# its value in RHEL6 pacemaker
-		crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1
-		if [ $? -ne 0 ]; then
-			ocf_log info "warning: crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 failed"
-		fi
+		crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 2> /dev/null
+                if [ $? -ne 0 ]; then
+		        crm_attribute --node=${long_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 2> /dev/null
+		        if [ $? -ne 0 ]; then
+		        	ocf_log info "warning: crm_attribute --node=${short_host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 failed"
+		        fi
+                fi
 
 		return ${OCF_SUCCESS}
 	fi
@@ -178,10 +182,13 @@ ganesha_mon_monitor()
 		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_grace_active} failed"
 	fi
 
-	crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0
+	crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0 2> /dev/null
 	if [ $? -ne 0 ]; then
-		ocf_log info "warning: crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0 failed"
-	fi
+	        crm_attribute --node=${long_host} --name=${OCF_RESKEY_grace_active} --update=0 2> /dev/null
+	        if [ $? -ne 0 ]; then
+		        ocf_log info "warning: crm_attribute --node=${short_host} --name=${OCF_RESKEY_grace_active} --update=0 failed"
+	        fi
+        fi
 
 	sleep ${OCF_RESKEY_grace_delay}
 
