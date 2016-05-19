@@ -3034,10 +3034,11 @@ struct volume_options options[] = {
         { .key   = {"filter-O_DIRECT"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "disable",
-          .description = "If enabled, in open() and creat() calls, O_DIRECT "
-          "flag will be filtered at the client protocol level so server will "
-          "still continue to cache the file. This works similar to NFS's "
-          "behavior of O_DIRECT",
+          .description = "If enabled, in open/creat/readv/writev fops, "
+          "O_DIRECT flag will be filtered at the client protocol level so "
+          "server will still continue to cache the file. This works similar to "
+          "NFS's behavior of O_DIRECT. Anon-fds can choose to readv/writev "
+          "using O_DIRECT",
         },
         { .key   = {"send-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
