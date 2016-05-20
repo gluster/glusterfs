@@ -1271,7 +1271,8 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
                         "dict is NULL, need to make sure gfids are same");
 
         for (i = 0; i < layout->cnt; i++) {
-                if (layout->list[i].err == ENOENT ||
+                if (layout->list[i].err == ESTALE ||
+                    layout->list[i].err == ENOENT ||
                     local->selfheal.force_mkdir) {
                         gf_msg_debug (this->name, 0,
                                       "Creating directory %s on subvol %s",
