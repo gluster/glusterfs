@@ -4202,8 +4202,6 @@ fuse_first_lookup (xlator_t *this)
                 pthread_mutex_unlock (&stub.mutex);
         }
 
-        dict_unref (dict);
-
         pthread_mutex_destroy (&stub.mutex);
         pthread_cond_destroy (&stub.cond);
 
@@ -4211,6 +4209,7 @@ fuse_first_lookup (xlator_t *this)
         STACK_DESTROY (frame->root);
 
 out:
+        dict_unref (dict);
         inode_unref(loc.inode);
 
         return ret;
