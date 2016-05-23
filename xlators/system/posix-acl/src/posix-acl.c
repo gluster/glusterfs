@@ -310,6 +310,10 @@ __posix_acl_ctx_get (inode_t *inode, xlator_t *this, gf_boolean_t create)
                 return NULL;
 
         ret = __inode_ctx_put (inode, this, UINT64 (ctx));
+        if (ret) {
+                GF_FREE (ctx);
+                ctx = NULL;
+        }
 
         return ctx;
 }

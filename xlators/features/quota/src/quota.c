@@ -40,10 +40,11 @@ __quota_init_inode_ctx (inode_t *inode, xlator_t *this,
         INIT_LIST_HEAD (&ctx->parents);
 
         ret = __inode_ctx_put (inode, this, (uint64_t )(long)ctx);
-        if (ret == -1) {
+        if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         Q_MSG_INODE_CTX_SET_FAILED, "cannot set quota context "
                         "in inode (gfid:%s)", uuid_utoa (inode->gfid));
+                GF_FREE (ctx);
         }
 out:
         return ret;

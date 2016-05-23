@@ -434,7 +434,12 @@ pl_inode_get (xlator_t *this, inode_t *inode)
                 INIT_LIST_HEAD (&pl_inode->blocked_calls);
                 gf_uuid_copy (pl_inode->gfid, inode->gfid);
 
-                __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
+                ret = __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
+                if (ret) {
+                        GF_FREE (pl_inode);
+                        pl_inode = NULL;
+                        goto unlock;
+                }
         }
 unlock:
         UNLOCK (&inode->lock);
