@@ -44,7 +44,8 @@ dist-hook: gen-VERSION gen-ChangeLog
 	-rm -fr $(distdir)/contrib/argp-standalone/autom4te.cache
 	-rm -fr $(distdir)/contrib/argp-standalone/.deps
 	-rm -fr $(distdir)/contrib/umountd/.deps
-	-rm -fr $(distdir)/config.{guess,sub}
+	-cp -f $(top_srcdir)/build-aux/config.sub.dist $(distdir)/config.sub
+	-cp -f $(top_srcdir)/build-aux/config.guess.dist $(distdir)/config.guess
 
 .PHONY: gen-VERSION gen-ChangeLog
 
