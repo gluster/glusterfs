@@ -142,10 +142,11 @@ ganesha_grace_stop()
 
 ganesha_grace_notify()
 {
+        # since this is a clone RA we should only ever see pre-start
+        # or post-stop
 	mode="${OCF_RESKEY_CRM_meta_notify_type}-${OCF_RESKEY_CRM_meta_notify_operation}"
-	case "$mode" in
-	post-stop)
-		ocf_log debug "stop_uname:${OCF_RESKEY_CRM_meta_notify_stop_uname}"
+	case "${mode}" in
+	pre-start | post-stop)
 		dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname}
 		if [ $? -ne 0 ]; then
 			ocf_log info "dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname} failed"
