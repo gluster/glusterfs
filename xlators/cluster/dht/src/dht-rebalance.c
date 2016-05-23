@@ -2018,6 +2018,14 @@ gf_defrag_migrate_single_file (void *opaque)
                                 defrag->skipped += 1;
                         }
                         UNLOCK (&defrag->lock);
+                } else if (op_errno == ENOTSUP) {
+                        gf_msg_debug (this->name, 0, "migrate-data skipped for"
+                                      " hardlink %s ", entry_loc.path);
+                        LOCK (&defrag->lock);
+                        {
+                                defrag->skipped += 1;
+                        }
+                        UNLOCK (&defrag->lock);
                 } else if (op_errno != EEXIST) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
