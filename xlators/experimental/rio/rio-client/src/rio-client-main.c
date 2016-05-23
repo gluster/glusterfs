@@ -8,39 +8,31 @@
   cases as published by the Free Software Foundation.
 */
 
-/* File: dht2-server-main.c
+/* File: rio-client-main.c
  * This file contains the xlator loading functions, FOP entry points
  * and options.
  * The entire functionality including comments is TODO.
  */
 
-#include "glusterfs.h"
 #include "xlator.h"
-#include "logging.h"
-#include "statedump.h"
+
+#include "rio-common.h"
 
 int32_t
-dht2_server_init (xlator_t *this)
+rio_client_init (xlator_t *this)
 {
-        if (!this->children) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Missing children in volume graph, this (%s) is"
-                        " not a leaf translator", this->name);
-                return -1;
-        }
-
-        return 0;
+        return rio_common_init (this);
 }
 
 void
-dht2_server_fini (xlator_t *this)
+rio_client_fini (xlator_t *this)
 {
-        return;
+        return rio_common_fini (this);
 }
 
 class_methods_t class_methods = {
-        .init           = dht2_server_init,
-        .fini           = dht2_server_fini,
+        .init           = rio_client_init,
+        .fini           = rio_client_fini,
 };
 
 struct xlator_fops fops = {
@@ -53,7 +45,3 @@ struct xlator_cbks cbks = {
 struct xlator_dumpops dumpops = {
 };
 */
-
-struct volume_options options[] = {
-        { .key  = {NULL} },
-};

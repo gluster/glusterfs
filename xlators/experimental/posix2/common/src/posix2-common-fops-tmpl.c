@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2016 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -8,12 +8,19 @@
   cases as published by the Free Software Foundation.
 */
 
-/* File: dht2-common-map.c
- * This file contains helper routines to store, consult, the volume map
- * for subvolume to GFID relations.
- * The entire functionality including comments is TODO.
+/* File: posix2-common-fops.c
+ * This file contains the POSIX2 FOPs template. This is run through
+ * the code generator, generator.py to generate the required FOPs.
  */
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include "glusterfs.h"
+#include "xlator.h"
 #include "logging.h"
 #include "statedump.h"
+
+#pragma generate

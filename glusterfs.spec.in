@@ -1077,7 +1077,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/rioc.so
 
 %files extra-xlators
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
@@ -1264,7 +1264,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/rios.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
 

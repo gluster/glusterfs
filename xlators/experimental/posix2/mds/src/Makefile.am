@@ -11,7 +11,8 @@ posix2_mds_la_LIBADD += $(top_builddir)/xlators/experimental/posix2/common/src/l
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS)
-AM_CPPFLAGS += -I$(top_srcdir)/xlators/storage/posix2/common/src
+AM_CPPFLAGS += -I$(top_srcdir)/xlators/experimental/posix2/common/src
+AM_CPPFLAGS += -I$(top_builddir)/xlators/experimental/posix2/common/src
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
 AM_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
