@@ -5,6 +5,7 @@ config.*
 configure
 cscope.*
 depcomp
+INSTALL
 install-sh
 ltmain.sh
 Makefile

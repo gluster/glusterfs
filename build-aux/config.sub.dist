@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# This script is intentionally left empty. Distributions that package GlusterFS
+# may want to to replace it with an updated copy from the automake project.
+#
+
+cat << EOM
+It is not expected to execute this script. When you are building from a
+released tarball (generated with 'make dist'), you are expected to pass
+--build=... and --host=... to ./configure or replace this config.sub script in
+the sources with an updated version.
+EOM
+
+exit 0
