@@ -190,13 +190,16 @@ BuildRequires:    systemd-units
 
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 BuildRequires:    bison flex
-BuildRequires:    gcc make automake libtool
+BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    userspace-rcu-devel >= 0.7
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+BuildRequires:    automake
+%endif
 %if ( 0%{?rhel} && 0%{?rhel} <= 5 )
 BuildRequires:    e2fsprogs-devel
 %else
@@ -575,7 +578,12 @@ CFLAGS=-DUSE_INSECURE_OPENSSL
 export CFLAGS
 %endif
 
-./autogen.sh && %configure \
+# RHEL6 and earlier need to manually replace config.guess and config.sub
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+./autogen.sh
+%endif
+
+%configure \
         %{?_with_cmocka} \
         %{?_with_debug} \
         %{?_with_tmpfilesdir} \
