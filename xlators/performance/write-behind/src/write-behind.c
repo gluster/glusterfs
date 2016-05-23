@@ -592,6 +592,7 @@ __wb_inode_create (xlator_t *this, inode_t *inode)
 {
         wb_inode_t *wb_inode = NULL;
         wb_conf_t  *conf     = NULL;
+        int         ret      = 0;
 
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
@@ -613,7 +614,11 @@ __wb_inode_create (xlator_t *this, inode_t *inode)
 
         LOCK_INIT (&wb_inode->lock);
 
-        __inode_ctx_put (inode, this, (uint64_t)(unsigned long)wb_inode);
+        ret = __inode_ctx_put (inode, this, (uint64_t)(unsigned long)wb_inode);
+        if (ret) {
+                GF_FREE (wb_inode);
+                wb_inode = NULL;
+        }
 
 out:
         return wb_inode;
