@@ -612,7 +612,9 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         if (!inode_ctx && !parent_ctx) {
                 if (gf_uuid_is_null (loc->gfid) &&
                     gf_uuid_is_null (loc->inode->gfid)) {
-                        gf_log (this->name, GF_LOG_ERROR, "gfid is NULL");
+                        gf_log (this->name, GF_LOG_DEBUG, "gfid is NULL, "
+                                "either the lookup came on missing entry or "
+                                "the entry is stale");
                         op_ret = -1;
                         op_errno = ESTALE;
                         goto out;
