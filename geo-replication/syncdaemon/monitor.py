@@ -18,11 +18,11 @@ import xml.etree.ElementTree as XET
 from subprocess import PIPE
 from resource import Popen, FILE, GLUSTER, SSH
 from threading import Lock
-from errno import ECHILD
+from errno import ECHILD, ESRCH
 import re
 import random
 from gconf import gconf
-from syncdutils import select, waitpid
+from syncdutils import select, waitpid, errno_wrap
 from syncdutils import set_term_handler, is_host_local, GsyncdError
 from syncdutils import escape, Thread, finalize, memoize
 
@@ -187,7 +187,7 @@ class Monitor(object):
         # standard handler
         set_term_handler(lambda *a: set_term_handler())
         # give a chance to graceful exit
-        os.kill(-os.getpid(), signal.SIGTERM)
+        errno_wrap(os.kill, [-os.getpid(), signal.SIGTERM], [ESRCH])
 
     def monitor(self, w, argv, cpids, agents, slave_vol, slave_host, master):
         """the monitor loop
@@ -324,7 +324,7 @@ class Monitor(object):
                     # Agent is died Kill Worker
                     logging.info("Changelog Agent died, "
                                  "Aborting Worker(%s)" % w[0])
-                    os.kill(cpid, signal.SIGKILL)
+                    errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                     nwait(cpid)
                     nwait(apid)
 
@@ -348,7 +348,7 @@ class Monitor(object):
                             # Agent is died Kill Worker
                             logging.info("Changelog Agent died, Aborting "
                                          "Worker(%s)" % w[0])
-                            os.kill(cpid, signal.SIGKILL)
+                            errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                             nwait(cpid)
                             nwait(apid)
                             break
@@ -357,7 +357,7 @@ class Monitor(object):
             else:
                 logging.info("worker(%s) not confirmed in %d sec, "
                              "aborting it" % (w[0], conn_timeout))
-                os.kill(cpid, signal.SIGKILL)
+                errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                 nwait(apid)  # wait for agent
                 ret = nwait(cpid)
             if ret is None:
@@ -394,9 +394,9 @@ class Monitor(object):
                 time.sleep(1)
                 self.lock.acquire()
                 for cpid in cpids:
-                    os.kill(cpid, signal.SIGKILL)
+                    errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                 for apid in agents:
-                    os.kill(apid, signal.SIGKILL)
+                    errno_wrap(os.kill, [apid, signal.SIGKILL], [ESRCH])
                 self.lock.release()
                 finalize(exval=1)
             t = Thread(target=wmon, args=[wx])
@@ -464,7 +464,7 @@ def monitor(*resources):
     # yes, send SIGSTOP to negative of monitor pid
     # to go back to pause state.
     if gconf.pause_on_start:
-        os.kill(-os.getpid(), signal.SIGSTOP)
+        errno_wrap(os.kill, [-os.getpid(), signal.SIGSTOP], [ESRCH])
 
     """oh yeah, actually Monitor is used as singleton, too"""
     return Monitor().multiplex(*distribute(*resources))
