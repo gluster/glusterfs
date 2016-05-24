@@ -287,12 +287,16 @@ gf_svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 ? GF_LOG_DEBUG:GF_LOG_ERROR,
                                 "Lookup failed on snapview graph with error %s",
                                 strerror (op_errno));
+                        goto out;
                 }
 
                 if ((op_errno == ENOENT || op_errno == ESTALE) &&
                     !gf_uuid_is_null (local->loc.gfid)) {
-                        ret = svc_inode_ctx_get (this, inode, &inode_type);
-                        if (ret < 0 && subvolume == FIRST_CHILD (this)) {
+                        if (inode != NULL)
+                                ret = svc_inode_ctx_get (this, inode,
+                                                                &inode_type);
+
+                        if (ret < 0 || inode == NULL) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "Lookup on normal graph failed. "
                                         "Sending lookup to snapview-server");
