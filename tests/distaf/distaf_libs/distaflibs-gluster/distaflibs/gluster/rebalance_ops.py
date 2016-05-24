@@ -290,7 +290,7 @@ def rebalance_stop_and_get_status(volname, mnode=None):
     return rebal_status
 
 
-def wait_for_rebalance_to_complete(volname, mnode=None):
+def wait_for_rebalance_to_complete(volname, mnode=None, timeout=300):
     """Waits for the rebalance to complete
 
     Args:
@@ -299,6 +299,8 @@ def wait_for_rebalance_to_complete(volname, mnode=None):
     Kwargs:
         mnode (str): Node on which command has to be executed.
             If None, defaults to nodes[0].
+        timeout (int): timeout value in seconds to wait for rebalance
+            to complete
 
     Returns:
         True on success, False otherwise
@@ -312,7 +314,7 @@ def wait_for_rebalance_to_complete(volname, mnode=None):
 
     count = 0
     flag = 0
-    while (count < 300):
+    while (count < timeout):
         status_info = get_rebalance_status(volname, mnode=mnode)
         if status_info is None:
             return False
@@ -323,7 +325,7 @@ def wait_for_rebalance_to_complete(volname, mnode=None):
             break
 
         time.sleep(10)
-        count = count + 5
+        count = count + 10
     if not flag:
         tc.logger.error("rebalance is not completed")
         return False
