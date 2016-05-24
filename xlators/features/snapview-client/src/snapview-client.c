@@ -1662,6 +1662,9 @@ gf_svc_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        if (local->xdata != NULL)
+                dict_unref (xdata);
+
         if (op_ret) {
                 op_ret = 0;
                 op_errno = ENOENT;
@@ -1799,7 +1802,10 @@ gf_svc_readdir_on_special_dir (call_frame_t *frame, void *cookie,
                 }
 
                 local->cookie = cookie;
-                local->xdata = dict_ref (xdata);
+                if (xdata == NULL)
+                        local->xdata = NULL;
+                else
+                        local->xdata = dict_ref (xdata);
                 STACK_WIND (frame, gf_svc_readdirp_lookup_cbk,
                             SECOND_CHILD (this),
                             SECOND_CHILD (this)->fops->lookup, loc, tmp_xdata);
