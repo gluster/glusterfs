@@ -565,9 +565,17 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
 						   source, sources, healed_sinks,
 						   locked_on, replies);
 
-                if ((ret == 0) && (priv->esh_granular) && (!full_crawl))
+                if ((ret == 0) && (priv->esh_granular) && parent_idx_inode) {
                         ret = afr_shd_index_purge (subvol, parent_idx_inode,
                                                    name);
+                        /* Why is ret force-set to 0? We do not care about
+                         * index purge failing for full heal as it is quite
+                         * possible during replace-brick that not all files
+                         * and directories have their name indices present in
+                         * entry-changes/.
+                         */
+                        ret = 0;
+                }
 	}
 
 unlock:
@@ -583,78 +591,6 @@ unlock:
 	return ret;
 }
 
-
-static int
-afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
-                              fd_t *fd, int child)
-{
-	int ret = 0;
-	gf_dirent_t entries;
-	gf_dirent_t *entry = NULL;
-	off_t offset = 0;
-	call_frame_t *iter_frame = NULL;
-	xlator_t *subvol = NULL;
-	afr_private_t *priv = NULL;
-        gf_boolean_t mismatch = _gf_false;
-        afr_local_t *iter_local = NULL;
-        afr_local_t *local = NULL;
-
-	priv = this->private;
-	subvol = priv->children[child];
-
-	INIT_LIST_HEAD (&entries.list);
-
-        local = frame->local;
-
-	iter_frame = afr_copy_frame (frame);
-	if (!iter_frame)
-		return -ENOMEM;
-
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries,
-                                      NULL, NULL))) {
-		if (ret > 0)
-			ret = 0;
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
-
-			if (!strcmp (entry->d_name, ".") ||
-			    !strcmp (entry->d_name, ".."))
-				continue;
-
-			if (__is_root_gfid (fd->inode->gfid) &&
-			    !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR))
-				continue;
-
-			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
-                                                         entry->d_name, NULL,
-                                                         NULL,
-                                                        local->need_full_crawl);
-			AFR_STACK_RESET (iter_frame);
-			if (iter_frame->local == NULL) {
-                                ret = -ENOTCONN;
-                                break;
-                        }
-
-                        if (ret == -1) {
-                                /* gfid or type mismatch. */
-                                mismatch = _gf_true;
-                                ret = 0;
-                        }
-			if (ret)
-				break;
-		}
-
-		gf_dirent_free (&entries);
-		if (ret)
-			break;
-	}
-
-	AFR_STACK_DESTROY (iter_frame);
-        if (mismatch == _gf_true)
-                /* undo pending will be skipped */
-                ret = -1;
-	return ret;
-}
 
 static inode_t *
 afr_shd_entry_changes_index_inode (xlator_t *this, xlator_t *subvol,
@@ -709,6 +645,84 @@ out:
         loc_wipe (&loc);
 
         return inode;
+}
+
+static int
+afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
+                              fd_t *fd, int child)
+{
+	int ret = 0;
+	gf_dirent_t entries;
+	gf_dirent_t *entry = NULL;
+	off_t offset = 0;
+	call_frame_t *iter_frame = NULL;
+	xlator_t *subvol = NULL;
+	afr_private_t *priv = NULL;
+        gf_boolean_t mismatch = _gf_false;
+        afr_local_t *iter_local = NULL;
+        afr_local_t *local = NULL;
+        loc_t loc = {0,};
+
+	priv = this->private;
+	subvol = priv->children[child];
+
+	INIT_LIST_HEAD (&entries.list);
+
+        local = frame->local;
+
+	iter_frame = afr_copy_frame (frame);
+	if (!iter_frame)
+		return -ENOMEM;
+
+        loc.inode = afr_shd_entry_changes_index_inode (this, subvol,
+                                                       fd->inode->gfid);
+
+	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries,
+                                      NULL, NULL))) {
+		if (ret > 0)
+			ret = 0;
+		list_for_each_entry (entry, &entries.list, list) {
+			offset = entry->d_off;
+
+			if (!strcmp (entry->d_name, ".") ||
+			    !strcmp (entry->d_name, ".."))
+				continue;
+
+			if (__is_root_gfid (fd->inode->gfid) &&
+			    !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR))
+				continue;
+
+			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
+                                                         entry->d_name,
+                                                         loc.inode, subvol,
+                                                        local->need_full_crawl);
+			AFR_STACK_RESET (iter_frame);
+			if (iter_frame->local == NULL) {
+                                ret = -ENOTCONN;
+                                break;
+                        }
+
+                        if (ret == -1) {
+                                /* gfid or type mismatch. */
+                                mismatch = _gf_true;
+                                ret = 0;
+                        }
+			if (ret)
+				break;
+		}
+
+		gf_dirent_free (&entries);
+		if (ret)
+			break;
+	}
+
+        loc_wipe (&loc);
+
+	AFR_STACK_DESTROY (iter_frame);
+        if (mismatch == _gf_true)
+                /* undo pending will be skipped */
+                ret = -1;
+	return ret;
 }
 
 static int
