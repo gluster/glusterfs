@@ -878,7 +878,7 @@ struct volume_options options[] = {
 	},
 	{ .key = {"afr-pending-xattr"},
 	  .type = GF_OPTION_TYPE_STR,
-          .description = "Comma seperated list of xattrs that are used to  "
+          .description = "Comma separated list of xattrs that are used to  "
                          "capture information on pending heals."
 	},
 	{ .key = {"metadata-splitbrain-forced-heal"},
