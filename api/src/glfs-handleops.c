@@ -1810,7 +1810,6 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 struct glfs_object *
 glfs_h_find_handle (struct glfs *fs, unsigned char *handle, int len)
 {
-        int                 ret = -1;
         inode_t            *newinode = NULL;
         xlator_t           *subvol = NULL;
         struct glfs_object *object = NULL;
@@ -1847,7 +1846,6 @@ glfs_h_find_handle (struct glfs *fs, unsigned char *handle, int len)
                             glfs_mt_glfs_object_t);
         if (object == NULL) {
                 errno = ENOMEM;
-                ret = -1;
                 goto out;
         }
 
