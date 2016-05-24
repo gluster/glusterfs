@@ -216,7 +216,6 @@ struct glusterd_brickinfo {
          * a replica 3 volume with arbiter enabled.
          */
         uint16_t           group;
-        uuid_t             jbr_uuid;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;

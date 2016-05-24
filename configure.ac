@@ -119,8 +119,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/Makefile
                 xlators/features/arbiter/Makefile
                 xlators/features/arbiter/src/Makefile
-                xlators/experimental/fdl/Makefile
-                xlators/experimental/fdl/src/Makefile
                 xlators/features/changelog/Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
@@ -191,10 +189,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
                 xlators/experimental/Makefile
-                xlators/experimental/jbr-client/Makefile
-                xlators/experimental/jbr-client/src/Makefile
-                xlators/experimental/jbr-server/Makefile
-                xlators/experimental/jbr-server/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
                 doc/Makefile

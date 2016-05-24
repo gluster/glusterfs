@@ -115,19 +115,6 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         return NULL;
 }
 
-static xlator_t *
-xlator_instantiate (const char *type, const char *format, ...)
-{
-        va_list arg;
-        xlator_t *xl;
-
-        va_start (arg, format);
-        xl = xlator_instantiate_va (type, format, arg);
-        va_end (arg);
-
-        return xl;
-}
-
 static int
 volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
 {
@@ -1759,30 +1746,6 @@ out:
         return ret;
 }
 
-/* Add this before (above) io-threads because it's not thread-safe yet. */
-static int
-brick_graph_add_fdl (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
-{
-
-        xlator_t        *xl = NULL;
-        int             ret = -1;
-
-        if (!graph || !volinfo || !set_dict)
-                goto out;
-
-        if (dict_get_str_boolean (set_dict, "features.fdl", 0)) {
-                xl = volgen_graph_add (graph, "experimental/fdl",
-                                       volinfo->volname);
-                if (!xl)
-                        goto out;
-        }
-        ret = 0;
-
-out:
-        return ret;
-}
-
 static int
 brick_graph_add_iot (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
@@ -1851,79 +1814,6 @@ add_one_peer (volgen_graph_t *graph, glusterd_brickinfo_t *peer,
         return kid;
 }
 
-int
-add_jbr_stuff (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-               glusterd_brickinfo_t *brickinfo)
-{
-        xlator_t                *me;
-        glusterd_brickinfo_t    *peer;
-        glusterd_brickinfo_t    *prev_peer;
-        char                    *leader_opt;
-        uint16_t                index   = 0;
-        xlator_t                *kid;
-
-        /* Create the JBR xlator, but defer linkage for now. */
-        me = xlator_instantiate ("experimental/jbr", "%s-jbr",
-                                 volinfo->volname);
-        if (!me || volgen_xlator_link(me, first_of(graph))) {
-                return -1;
-        }
-
-        /* Figure out if we should start as leader, mark appropriately. */
-        peer = list_prev (brickinfo, &volinfo->bricks,
-                          glusterd_brickinfo_t, brick_list);
-        leader_opt = (!peer || (peer->group != brickinfo->group)) ? "yes"
-                                                                  : "no";
-        if (xlator_set_option(me, "leader", leader_opt)) {
-                /*
-                 * TBD: fix memory leak ("me" and associated dictionary)
-                 * There seems to be no function already to clean up a
-                 * just-allocated translator object if something else fails.
-                 * Apparently the convention elsewhere in this file is to return
-                 * without freeing anything, but we can't keep being that sloppy
-                 * forever.
-                 */
-                return -1;
-        }
-
-        /*
-         * Make sure we're at the beginning of the list of bricks in this
-         * replica set.  This way all bricks' volfiles have peers in a
-         * consistent order.
-         */
-        peer = brickinfo;
-        for (;;) {
-                prev_peer = list_prev (peer, &volinfo->bricks,
-                                       glusterd_brickinfo_t, brick_list);
-                if (!prev_peer || (prev_peer->group != brickinfo->group)) {
-                        break;
-                }
-                peer = prev_peer;
-        }
-
-        /* Actually add the peers. */
-        do {
-                if (peer != brickinfo) {
-                        gf_log ("glusterd", GF_LOG_INFO,
-                                "%s:%s needs client for %s:%s",
-                                brickinfo->hostname, brickinfo->path,
-                                peer->hostname, peer->path);
-                        kid = add_one_peer (graph, peer,
-                                            volinfo->volname, index++);
-                        if (!kid || volgen_xlator_link(me, kid)) {
-                                return -1;
-                        }
-                }
-                peer = list_next (peer, &volinfo->bricks,
-                                  glusterd_brickinfo_t, brick_list);
-        } while (peer && (peer->group == brickinfo->group));
-
-        /* Finish linkage to client file. */
-        glusterfs_graph_set_first(&graph->graph, me);
-
-        return 0;
-}
-
 static int
 brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
@@ -1935,11 +1825,6 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         if (!graph || !volinfo || !brickinfo || !set_dict)
                 goto out;
-
-        /* For JBR we don't need/want index. */
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
-                return add_jbr_stuff (graph, volinfo, brickinfo);
-        }
 
         xl = volgen_graph_add (graph, "features/index", volinfo->volname);
         if (!xl)
@@ -2384,7 +2269,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
         {brick_graph_add_marker, "marker"},
-        {brick_graph_add_fdl, "fdl"},
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
         {brick_graph_add_pump, NULL},
@@ -3450,17 +3334,11 @@ volgen_graph_build_afr_clusters (volgen_graph_t *graph,
         int             i                    = 0;
         int             ret                  = 0;
         int             clusters             = 0;
-        char            *replicate_type      = NULL;
+        char            *replicate_type      = "cluster/replicate";
         char            *replicate_name      = "%s-replicate-%d";
         xlator_t        *afr                 = NULL;
         char            option[32]           = {0};
         int             start_count = 0;
-
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
-                replicate_type = "experimental/jbrc";
-        } else {
-                replicate_type = "cluster/replicate";
-        }
 
         if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_REPLICATE)
                 start_count = volinfo->tier_info.cold_brick_count /
@@ -5189,22 +5067,6 @@ get_parent_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
                  PATH_MAX - strlen(filename) - 1);
 }
 
-void
-assign_jbr_uuids (glusterd_volinfo_t *volinfo)
-{
-        glusterd_brickinfo_t    *brickinfo      = NULL;
-        int                     in_group        = 0;
-        uuid_t                  tmp_uuid;
-
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (in_group == 0)
-                        gf_uuid_generate(tmp_uuid);
-                gf_uuid_copy(brickinfo->jbr_uuid, tmp_uuid);
-                if (++in_group >= volinfo->replica_count)
-                        in_group = 0;
-        }
-}
-
 int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
@@ -5271,10 +5133,6 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                                 "%s", tstamp_file);
                         return -1;
                 }
-        }
-
-        if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
-                assign_jbr_uuids(volinfo);
         }
 
         ret = glusterd_volume_brick_for_each (volinfo, NULL,

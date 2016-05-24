@@ -1226,11 +1226,6 @@ should_call_fini (glusterfs_ctx_t *ctx, xlator_t *trav)
                 return _gf_true;
         }
 
-        /* This is the only one known to be safe in glusterfsd. */
-        if (!strcmp(trav->type,"experimental/fdl")) {
-                return _gf_true;
-        }
-
         return _gf_false;
 }
 

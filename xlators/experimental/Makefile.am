@@ -1,3 +1,3 @@
-SUBDIRS = jbr-client jbr-server fdl
+SUBDIRS = 
 
 CLEANFILES =
