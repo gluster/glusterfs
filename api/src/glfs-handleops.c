@@ -1901,7 +1901,8 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
                 goto out;
         }
 
-        up_inode_arg = calloc (1, sizeof (struct callback_inode_arg));
+        up_inode_arg = GF_CALLOC (1, sizeof (struct callback_inode_arg),
+                                  glfs_mt_upcall_entry_t);
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
                              up_inode_arg, out);
 
