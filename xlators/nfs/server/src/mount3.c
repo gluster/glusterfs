@@ -3712,9 +3712,11 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 {
         char                     *path             = NULL;
         char                     *host_addr_ip     = NULL;
+        char                     *host_addr_fqdn   = NULL;
         char                     *keydup           = NULL;
         char                     *colon            = NULL;
         struct mnt3_auth_params  *auth_params      = NULL;
+        int                       ret              = 0;
         int                       auth_status_code = 0;
 
         gf_msg_trace (GF_MNT, 0, "Checking if key %s is authorized.", key);
@@ -3740,14 +3742,44 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 
         /* Host is one character after ':' */
         host_addr_ip = colon + 1;
-        auth_status_code = mnt3_auth_host (auth_params, host_addr_ip, NULL,
-                                           path, _gf_false, NULL);
-        if (auth_status_code != 0) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_AUTH_ERROR,
-                        "%s is no longer authorized for %s",
-                        host_addr_ip, path);
-                mnt3svc_umount (auth_params->ms, path, host_addr_ip);
+
+        /* Check if the IP is authorized */
+        auth_status_code = mnt3_auth_host (auth_params, host_addr_ip,
+                                           NULL, path, FALSE, NULL);
+        if (auth_status_code == 0) {
+                goto out;
         }
+
+        ret = gf_get_hostname_from_ip (host_addr_ip, &host_addr_fqdn);
+        if (ret != 0) {
+                gf_msg (GF_MNT, GF_LOG_DEBUG, 0, NFS_MSG_AUTH_ERROR ,
+                        "Authorization failed for IP [%s], but name "
+                        "resolution also failed!", host_addr_ip);
+                goto unmount;
+        }
+
+        /* If not, check if the FQDN is authorized */
+        gf_msg (GF_MNT, GF_LOG_DEBUG, 0, NFS_MSG_AUTH_ERROR,
+                "Authorization failed for IP [%s], attempting to"
+                " auth hostname [%s]...", host_addr_ip, host_addr_fqdn);
+
+        auth_status_code = mnt3_auth_host (auth_params, host_addr_fqdn,
+                                           NULL, path, FALSE, NULL);
+        if (auth_status_code == 0) {
+                gf_msg (GF_MNT, GF_LOG_DEBUG, 0, NFS_MSG_AUTH_ERROR,
+                        "Authorization succeeded for "
+                        "Client [IP=%s, Hostname=%s].",
+                        host_addr_ip, host_addr_fqdn);
+                goto out;
+        }
+
+unmount:
+         gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_AUTH_ERROR,
+                 "Client [IP=%s, Hostname=%s] not authorized for this mount. "
+                 "Unmounting!", host_addr_ip, host_addr_fqdn);
+         mnt3svc_umount (auth_params->ms, path, host_addr_ip);
+out:
+        GF_FREE (host_addr_fqdn);
         return 0;
 }
 
