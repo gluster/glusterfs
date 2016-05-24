@@ -1661,7 +1661,7 @@ struct volume_options options[] = {
         },
         { .key = {"etcd-servers"},
           .type = GF_OPTION_TYPE_STR,
-          .description = "list of comma seperated etc servers"
+          .description = "list of comma separated etc servers"
         },
         { .key = {"subvol-uuid"},
           .type = GF_OPTION_TYPE_STR,
