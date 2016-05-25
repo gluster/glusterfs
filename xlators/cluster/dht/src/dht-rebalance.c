@@ -1917,7 +1917,6 @@ dht_build_root_loc (inode_t *inode, loc_t *loc)
         loc->gfid[15] = 1;
 }
 
-
 /* return values: 1 -> error, bug ignore and continue
                   0 -> proceed
                  -1 -> error, handle it */

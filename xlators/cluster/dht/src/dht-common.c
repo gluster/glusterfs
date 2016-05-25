@@ -4387,7 +4387,7 @@ unlock:
 /*
  * dht_normalize_stats -
  */
-static void
+void
 dht_normalize_stats (struct statvfs *buf, unsigned long bsize,
                      unsigned long frsize)
 {
@@ -4535,6 +4535,10 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         dht_conf_t   *conf = NULL;
         int           op_errno = -1;
         int           i = -1;
+        inode_t          *inode         = NULL;
+        inode_table_t    *itable        = NULL;
+        uuid_t            root_gfid     = {0, };
+        loc_t         newloc = {0, };
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4549,31 +4553,34 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto err;
         }
 
-        if (!loc->inode || IA_ISDIR (loc->inode->ia_type)) {
-                local->call_cnt = conf->subvolume_cnt;
-
-                for (i = 0; i < conf->subvolume_cnt; i++) {
-                        STACK_WIND (frame, dht_statfs_cbk,
-                                    conf->subvolumes[i],
-                                    conf->subvolumes[i]->fops->statfs, loc,
-                                    xdata);
+        if (loc->inode && !IA_ISDIR (loc->inode->ia_type)) {
+                itable = loc->inode->table;
+                if (!itable) {
+                        op_errno = EINVAL;
+                        goto err;
                 }
-                return 0;
+
+                loc = &local->loc2;
+                root_gfid[15] = 1;
+
+                inode = inode_find (itable, root_gfid);
+                if (!inode) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                dht_build_root_loc (inode, &newloc);
+                loc = &newloc;
         }
 
-        subvol = dht_subvol_get_cached (this, loc->inode);
-        if (!subvol) {
-                gf_msg_debug (this->name, 0,
-                              "no cached subvolume for path=%s", loc->path);
-                op_errno = EINVAL;
-                goto err;
+        local->call_cnt = conf->subvolume_cnt;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                STACK_WIND (frame, dht_statfs_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->statfs, loc,
+                            xdata);
         }
-
-        local->call_cnt = 1;
-
-        STACK_WIND (frame, dht_statfs_cbk,
-                    subvol, subvol->fops->statfs, loc, xdata);
-
         return 0;
 
 err:
