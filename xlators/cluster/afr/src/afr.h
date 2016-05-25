@@ -50,6 +50,16 @@ typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
 #define AFR_INTERSECT(dst,src1,src2,max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i];})
 #define AFR_CMP(a1,a2,len) ({int __cmp = 0; int __i; for (__i = 0; __i < len; __i++) if (a1[__i] != a2[__i]) { __cmp = 1; break;} __cmp;})
 #define AFR_IS_ARBITER_BRICK(priv, index) ((priv->arbiter_count == 1) && (index == ARBITER_BRICK_INDEX))
+
+typedef enum {
+        AFR_FAV_CHILD_NONE,
+        AFR_FAV_CHILD_BY_SIZE,
+        AFR_FAV_CHILD_BY_CTIME,
+        AFR_FAV_CHILD_BY_MTIME,
+        AFR_FAV_CHILD_BY_MAJORITY,
+        AFR_FAV_CHILD_POLICY_MAX,
+} afr_favorite_child_policy;
+
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
         unsigned int child_count;     /* total number of children   */
@@ -93,6 +103,9 @@ typedef struct _afr_private {
         unsigned int hash_mode;       /* for when read_child is not set */
         int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
+
+        afr_favorite_child_policy fav_child_policy;/*Policy to use for automatic
+                                                 resolution of split-brains.*/
 
         gf_boolean_t inodelk_trace;
         gf_boolean_t entrylk_trace;
