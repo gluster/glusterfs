@@ -2465,7 +2465,7 @@ struct xlator_fops fops = {
         .mknod       = dht_mknod,
 
         .open        = dht_open,
-        .statfs      = dht_statfs,
+        .statfs      = tier_statfs,
         .opendir     = dht_opendir,
         .readdir     = tier_readdir,
         .readdirp    = tier_readdirp,

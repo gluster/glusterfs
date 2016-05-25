@@ -58,5 +58,11 @@ tier_readdir (call_frame_t *frame,
 int
 tier_link (call_frame_t *frame, xlator_t *this,
           loc_t *oldloc, loc_t *newloc, dict_t *xdata);
+
+
+int
+tier_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata);
+
+
 #endif
 

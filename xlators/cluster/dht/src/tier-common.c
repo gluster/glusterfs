@@ -1082,3 +1082,216 @@ tier_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         tier_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIRP, dict);
         return 0;
 }
+
+int
+tier_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int op_ret, int op_errno, struct statvfs *statvfs,
+                dict_t *xdata)
+{
+        gf_boolean_t            event              = _gf_false;
+        qdstatfs_action_t       action             = qdstatfs_action_OFF;
+        dht_local_t             *local             = NULL;
+        int                     this_call_cnt      = 0;
+        int                     bsize              = 0;
+        int                     frsize             = 0;
+        GF_UNUSED int           ret                = 0;
+        unsigned long           new_usage          = 0;
+        unsigned long           cur_usage          = 0;
+        call_frame_t            *prev              = NULL;
+        dht_conf_t              *conf              = NULL;
+        tier_statvfs_t          *tier_stat         = NULL;
+
+        prev = cookie;
+        local = frame->local;
+        GF_ASSERT (local);
+
+        conf = this->private;
+
+        if (xdata)
+                ret = dict_get_int8 (xdata, "quota-deem-statfs",
+                                     (int8_t *)&event);
+
+        tier_stat = &local->tier_statvfs;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        local->op_errno = op_errno;
+                        goto unlock;
+                }
+                if (!statvfs) {
+                        op_errno = EINVAL;
+                        local->op_ret = -1;
+                        goto unlock;
+                }
+                local->op_ret = 0;
+
+                switch (local->quota_deem_statfs) {
+                case _gf_true:
+                        if (event == _gf_true)
+                                action = qdstatfs_action_COMPARE;
+                        else
+                                action = qdstatfs_action_NEGLECT;
+                        break;
+
+                case _gf_false:
+                        if (event == _gf_true) {
+                                action = qdstatfs_action_REPLACE;
+                                local->quota_deem_statfs = _gf_true;
+                        }
+                        break;
+
+                default:
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_INVALID_VALUE,
+                                "Encountered third "
+                                "value for boolean variable %d",
+                                local->quota_deem_statfs);
+                        break;
+                }
+
+                if (local->quota_deem_statfs) {
+                        switch (action) {
+                        case qdstatfs_action_NEGLECT:
+                                goto unlock;
+
+                        case qdstatfs_action_REPLACE:
+                                local->statvfs = *statvfs;
+                                goto unlock;
+
+                        case qdstatfs_action_COMPARE:
+                                new_usage = statvfs->f_blocks -
+                                             statvfs->f_bfree;
+                                cur_usage = local->statvfs.f_blocks -
+                                             local->statvfs.f_bfree;
+
+                                /* Take the max of the usage from subvols */
+                                if (new_usage >= cur_usage)
+                                        local->statvfs = *statvfs;
+                                goto unlock;
+
+                        default:
+                                break;
+                        }
+                }
+
+                if (local->statvfs.f_bsize != 0) {
+                        bsize = max(local->statvfs.f_bsize, statvfs->f_bsize);
+                        frsize = max(local->statvfs.f_frsize, statvfs->f_frsize);
+                        dht_normalize_stats(&local->statvfs, bsize, frsize);
+                        dht_normalize_stats(statvfs, bsize, frsize);
+                } else {
+                        local->statvfs.f_bsize    = statvfs->f_bsize;
+                        local->statvfs.f_frsize   = statvfs->f_frsize;
+                }
+
+                if (prev->this == TIER_HASHED_SUBVOL) {
+                        local->statvfs.f_blocks   = statvfs->f_blocks;
+                        local->statvfs.f_files    = statvfs->f_files;
+                        local->statvfs.f_fsid     = statvfs->f_fsid;
+                        local->statvfs.f_flag     = statvfs->f_flag;
+                        local->statvfs.f_namemax  = statvfs->f_namemax;
+                        tier_stat->blocks_used    = (statvfs->f_blocks - statvfs->f_bfree);
+                        tier_stat->pblocks_used   = (statvfs->f_blocks - statvfs->f_bavail);
+                        tier_stat->files_used     = (statvfs->f_files - statvfs->f_ffree);
+                        tier_stat->pfiles_used    = (statvfs->f_files - statvfs->f_favail);
+                        tier_stat->hashed_fsid    = statvfs->f_fsid;
+                } else {
+                        tier_stat->unhashed_fsid      = statvfs->f_fsid;
+                        tier_stat->unhashed_blocks_used    = (statvfs->f_blocks - statvfs->f_bfree);
+                        tier_stat->unhashed_pblocks_used   = (statvfs->f_blocks - statvfs->f_bavail);
+                        tier_stat->unhashed_files_used     = (statvfs->f_files - statvfs->f_ffree);
+                        tier_stat->unhashed_pfiles_used    = (statvfs->f_files - statvfs->f_favail);
+                }
+
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                if (tier_stat->unhashed_fsid != tier_stat->hashed_fsid) {
+                        tier_stat->blocks_used    += tier_stat->unhashed_blocks_used;
+                        tier_stat->pblocks_used   += tier_stat->unhashed_pblocks_used;
+                        tier_stat->files_used     += tier_stat->unhashed_files_used;
+                        tier_stat->pfiles_used    += tier_stat->unhashed_pfiles_used;
+                }
+                local->statvfs.f_bfree = local->statvfs.f_blocks -
+                        tier_stat->blocks_used;
+                local->statvfs.f_bavail = local->statvfs.f_blocks -
+                        tier_stat->pblocks_used;
+                local->statvfs.f_ffree = local->statvfs.f_files -
+                        tier_stat->files_used;
+                local->statvfs.f_favail = local->statvfs.f_files -
+                        tier_stat->pfiles_used;
+                DHT_STACK_UNWIND (statfs, frame, local->op_ret, local->op_errno,
+                                  &local->statvfs, xdata);
+        }
+
+        return 0;
+}
+
+
+int
+tier_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        xlator_t         *subvol = NULL;
+        dht_local_t      *local  = NULL;
+        dht_conf_t       *conf = NULL;
+        int               op_errno = -1;
+        int               i = -1;
+        inode_t          *inode         = NULL;
+        inode_table_t    *itable        = NULL;
+        uuid_t            root_gfid     = {0, };
+        loc_t             newloc        = {0, };
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (this->private, err);
+
+        conf = this->private;
+
+        local = dht_local_init (frame, NULL, NULL, GF_FOP_STATFS);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        if (loc->inode && !IA_ISDIR (loc->inode->ia_type)) {
+                itable = loc->inode->table;
+                if (!itable) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                loc = &local->loc2;
+                root_gfid[15] = 1;
+
+                inode = inode_find (itable, root_gfid);
+                if (!inode) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                dht_build_root_loc (inode, &newloc);
+                loc = &newloc;
+        }
+
+        local->call_cnt = conf->subvolume_cnt;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                STACK_WIND (frame, tier_statfs_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->statfs, loc,
+                            xdata);
+        }
+
+        return 0;
+
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (statfs, frame, -1, op_errno, NULL, NULL);
+
+        return 0;
+}

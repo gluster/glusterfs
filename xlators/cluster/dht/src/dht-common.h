@@ -177,6 +177,19 @@ typedef
 gf_boolean_t (*dht_need_heal_t)(call_frame_t *frame, dht_layout_t **inmem,
                                 dht_layout_t **ondisk);
 
+typedef struct {
+        uint64_t                 blocks_used;
+        uint64_t                 pblocks_used;
+        uint64_t                 files_used;
+        uint64_t                 pfiles_used;
+        uint64_t                 unhashed_blocks_used;
+        uint64_t                 unhashed_pblocks_used;
+        uint64_t                 unhashed_files_used;
+        uint64_t                 unhashed_pfiles_used;
+        uint64_t                 unhashed_fsid;
+        uint64_t                 hashed_fsid;
+} tier_statvfs_t;
+
 struct dht_local {
         int                      call_cnt;
         loc_t                    loc;
@@ -193,6 +206,7 @@ struct dht_local {
         struct iatt              preparent;
         struct iatt              postparent;
         struct statvfs           statvfs;
+        tier_statvfs_t           tier_statvfs;
         fd_t                    *fd;
         inode_t                 *inode;
         dict_t                  *params;
@@ -1228,5 +1242,9 @@ dht_get_lock_subvolume (xlator_t *this, struct gf_flock *lock,
 
 int
 dht_lk_inode_unref (call_frame_t *frame, int32_t op_ret);
+
+void
+dht_normalize_stats (struct statvfs *buf, unsigned long bsize,
+                     unsigned long frsize);
 
 #endif/* _DHT_H */
