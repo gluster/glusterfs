@@ -708,7 +708,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                   int flags, mode_t mode, struct stat *stat)
 {
         int                 ret = -1;
-        struct glfs_fd     *glfd = NULL;
+        fd_t               *fd = NULL;
         xlator_t           *subvol = NULL;
         inode_t            *inode = NULL;
         loc_t               loc = {0, };
@@ -737,6 +737,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
         /* get/refresh the in arg objects inode in correlation to the xlator */
         inode = glfs_resolve_inode (fs, subvol, parent);
         if (!inode) {
+                ret = -1;
                 errno = ESTALE;
                 goto out;
         }
@@ -758,24 +759,17 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
         GLFS_LOC_FILL_PINODE (inode, loc, ret, errno, out, path);
 
-        glfd = glfs_fd_new (fs);
-        if (!glfd) {
-                 ret = -1;
-                 errno = ENOMEM;
-                 goto out;
-        }
-
-        glfd->fd = fd_create (loc.inode, getpid());
-        if (!glfd->fd) {
+        fd = fd_create (loc.inode, getpid());
+        if (!fd) {
                 ret = -1;
                 errno = ENOMEM;
                 goto out;
         }
-        glfd->fd->flags = flags;
+        fd->flags = flags;
 
         /* fop/op */
-        ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
-                             &iatt, xattr_req, NULL);
+        ret = syncop_create (subvol, &loc, flags, mode, fd, &iatt,
+                             xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */
@@ -790,10 +784,6 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
                 ret = glfs_create_object (&loc, &object);
         }
-
-        glfd->fd->flags = flags;
-        fd_bind (glfd->fd);
-        glfs_fd_bind (glfd);
 
 out:
         if (ret && object != NULL) {
@@ -810,12 +800,8 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
 
-        if (ret && glfd) {
-                GF_REF_PUT (glfd);
-                glfd = NULL;
-        } else if (glfd) {
-                glfd->state = GLFD_OPEN;
-        }
+        if (fd)
+                fd_unref(fd);
 
         glfs_subvol_done (fs, subvol);
 
