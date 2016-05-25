@@ -534,17 +534,21 @@ class Server(object):
     @_pathguard
     def set_stime(cls, path, uuid, mark):
         """set @mark as stime for @uuid on @path"""
-        Xattr.lsetxattr(
-            path, '.'.join([cls.GX_NSPACE, uuid, 'stime']),
-            struct.pack('!II', *mark))
+        errno_wrap(Xattr.lsetxattr,
+                   [path,
+                    '.'.join([cls.GX_NSPACE, uuid, 'stime']),
+                    struct.pack('!II', *mark)],
+                   [ENOENT])
 
     @classmethod
     @_pathguard
     def set_xtime(cls, path, uuid, mark):
         """set @mark as xtime for @uuid on @path"""
-        Xattr.lsetxattr(
-            path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
-            struct.pack('!II', *mark))
+        errno_wrap(Xattr.lsetxattr,
+                   [path,
+                    '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
+                    struct.pack('!II', *mark)],
+                   [ENOENT])
 
     @classmethod
     @_pathguard
