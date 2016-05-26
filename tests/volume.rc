@@ -677,3 +677,8 @@ function get_gfid_string {
 function file_all_zeroes {
         < $1 tr -d '\0' | read -n 1 || echo 1
 }
+
+function get_hard_link_count {
+        local path=$1;
+        stat -c %h $path
+}
