@@ -2122,7 +2122,6 @@ int
 afr_write_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
         afr_local_t   *local           = frame->local;
-        afr_private_t *priv            = this->private;
         int           ret              = 0;
 
         if (err) {
