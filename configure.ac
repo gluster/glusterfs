@@ -41,6 +41,7 @@ AC_CONFIG_FILES([Makefile
                 libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
+                geo-replication/src/peer_mountbroker.py
                 extras/peer_add_secret_pub
                 geo-replication/syncdaemon/configinterface.py
                 glusterfsd/Makefile

@@ -63,6 +63,7 @@ geo-replication/.tox
 geo-replication/src/gsyncd
 geo-replication/src/peer_gsec_create
 geo-replication/src/peer_mountbroker
+geo-replication/src/peer_mountbroker.py
 geo-replication/src/set_geo_rep_pem_keys.sh
 geo-replication/syncdaemon.egg-info
 geo-replication/syncdaemon/configinterface.py
