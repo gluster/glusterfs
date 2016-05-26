@@ -1,0 +1,387 @@
+#!/usr/bin/env python
+import os
+from errno import EEXIST, ENOENT
+
+from gluster.cliutils import (execute, Cmd, node_output_ok,
+                              node_output_notok, execute_in_peers,
+                              runcli, oknotok)
+from prettytable import PrettyTable
+
+LOG_DIR = "@localstatedir@/log/glusterfs/geo-replication-slaves"
+GEOREP_DIR = "@GLUSTERD_WORKDIR@/geo-replication"
+GLUSTERD_VOLFILE = "@GLUSTERD_VOLFILE@"
+
+
+class MountbrokerUserMgmt(object):
+    def __init__(self, volfile):
+        self.volfile = volfile
+        self._options = {}
+        self.commented_lines = []
+        self.user_volumes = {}
+        self._parse()
+
+    def _parse(self):
+        """ Example glusterd.vol
+        volume management
+            type mgmt/glusterd
+            option working-directory /var/lib/glusterd
+            option transport-type socket,rdma
+            option transport.socket.keepalive-time 10
+            option transport.socket.keepalive-interval 2
+            option transport.socket.read-fail-log off
+            option rpc-auth-allow-insecure on
+            option ping-timeout 0
+            option event-threads 1
+            # option base-port 49152
+            option mountbroker-root /var/mountbroker-root
+            option mountbroker-geo-replication.user1 vol1,vol2,vol3
+            option geo-replication-log-group geogroup
+            option rpc-auth-allow-insecure on
+        end-volume
+        """
+        with open(self.volfile, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("option "):
+                    key, value = line.split(" ")[1:]
+                    self._options[key] = value
+                if line.startswith("#"):
+                    self.commented_lines.append(line)
+
+        for k, v in self._options.iteritems():
+            if k.startswith("mountbroker-geo-replication."):
+                user = k.split(".")[-1]
+                self.user_volumes[user] = set(v.split(","))
+
+    def get_group(self):
+        return self._options.get("geo-replication-log-group", None)
+
+    def _get_write_data(self):
+        op = "volume management\n"
+        op += "    type mgmt/glusterd\n"
+        for k, v in self._options.iteritems():
+            if k.startswith("mountbroker-geo-replication."):
+                # Users will be added seperately
+                continue
+
+            op += "    option %s %s\n" % (k, v)
+
+        for k, v in self.user_volumes.items():
+            if v:
+                op += ("    option mountbroker-geo-replication."
+                       "%s %s\n" % (k, ",".join(v)))
+
+        for line in self.commented_lines:
+            op += "    %s\n" % line
+
+        op += "end-volume"
+        return op
+
+    def save(self):
+        with open(self.volfile + "_tmp", "w") as f:
+            f.write(self._get_write_data())
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(self.volfile + "_tmp", self.volfile)
+
+    def set_mount_root_and_group(self, mnt_root, group):
+        self._options["mountbroker-root"] = mnt_root
+        self._options["geo-replication-log-group"] = group
+
+    def add(self, volume, user):
+        user_volumes = self.user_volumes.get(user, None)
+
+        if user_volumes is not None and volume in user_volumes:
+            # User and Volume already exists
+            return
+
+        if user_volumes is None:
+            # User not exists
+            self.user_volumes[user] = set()
+
+        self.user_volumes[user].add(volume)
+
+    def remove(self, volume=None, user=None):
+        if user is not None:
+            if volume is None:
+                self.user_volumes[user] = set()
+            else:
+                try:
+                    self.user_volumes.get(user, set()).remove(volume)
+                except KeyError:
+                    pass
+        else:
+            if volume is None:
+                return
+
+            for k, v in self.user_volumes.items():
+                try:
+                    self.user_volumes[k].remove(volume)
+                except KeyError:
+                    pass
+
+    def info(self):
+        # Convert Volumes set into Volumes list
+        users = {}
+        for k, v in self.user_volumes.items():
+            users[k] = list(v)
+
+        data = {
+            "mountbroker-root": self._options.get("mountbroker-root", "None"),
+            "geo-replication-log-group": self._options.get(
+                "geo-replication-log-group", ""),
+            "users": users
+        }
+
+        return data
+
+
+class NodeSetup(Cmd):
+    # Test if group exists using `getent group <grp>`
+    # and then group add using `groupadd <grp>`
+    # chgrp -R <grp> /var/log/glusterfs/geo-replication-slaves
+    # chgrp -R <grp> /var/lib/glusterd/geo-replication
+    # chmod -R 770 /var/log/glusterfs/geo-replication-slaves
+    # chmod -R 770 /var/lib/glusterd/geo-replication
+    # mkdir -p <mnt_root>
+    # chmod 0711 <mnt_root>
+    # If selinux,
+    # semanage fcontext -a -e /home /var/mountbroker-root
+    # restorecon -Rv /var/mountbroker-root
+    name = "node-setup"
+
+    def args(self, parser):
+        parser.add_argument("mount_root")
+        parser.add_argument("group")
+
+    def run(self, args):
+        m = MountbrokerUserMgmt(GLUSTERD_VOLFILE)
+
+        try:
+            os.makedirs(args.mount_root)
+        except OSError as e:
+            if e.errno == EEXIST:
+                pass
+            else:
+                node_output_notok("Unable to Create {0}".format(
+                    args.mount_root))
+
+        execute(["chmod", "0711", args.mount_root])
+        try:
+            execute(["semanage", "fcontext", "-a", "-e",
+                     "/home", args.mount_root])
+        except OSError as e:
+            if e.errno == ENOENT:
+                pass
+            else:
+                node_output_notok(
+                    "Unable to run semanage: {0}".format(e))
+
+        try:
+            execute(["restorecon", "-Rv", args.mount_root])
+        except OSError as e:
+            if e.errno == ENOENT:
+                pass
+            else:
+                node_output_notok(
+                    "Unable to run restorecon: {0}".format(e))
+
+        rc, out, err = execute(["getent", "group", args.group])
+        if rc != 0:
+            node_output_notok("User Group not exists")
+
+        execute(["chgrp", "-R", args.group, GEOREP_DIR])
+        execute(["chgrp", "-R", args.group, LOG_DIR])
+        execute(["chmod", "-R", "770", GEOREP_DIR])
+        execute(["chmod", "-R", "770", args.group, LOG_DIR])
+
+        m.set_mount_root_and_group(args.mount_root, args.group)
+        m.save()
+
+        node_output_ok()
+
+
+def color_status(value):
+    if value.lower() in ("up", "ok", "yes"):
+        return "green"
+    else:
+        return "red"
+
+
+class CliSetup(Cmd):
+    # gluster-mountbroker setup <MOUNT_ROOT> <GROUP>
+    name = "setup"
+
+    def args(self, parser):
+        parser.add_argument("mount_root")
+        parser.add_argument("group")
+
+    def run(self, args):
+        out = execute_in_peers("node-setup", [args.mount_root,
+                                              args.group])
+        table = PrettyTable(["NODE", "NODE STATUS", "SETUP STATUS"])
+        table.align["NODE STATUS"] = "r"
+        table.align["SETUP STATUS"] = "r"
+        for p in out:
+            table.add_row([p.hostname,
+                           "UP" if p.node_up else "DOWN",
+                           "OK" if p.ok else "NOT OK: {0}".format(
+                               p.error)])
+
+        print(table)
+
+
+class NodeStatus(Cmd):
+    # Check if Group exists
+    # Check if user exists
+    # Check directory permission /var/log/glusterfs/geo-replication-slaves
+    # and /var/lib/glusterd/geo-replication
+    # Check mount root and its permissions
+    # Check glusterd.vol file for user, group, dir existance
+    name = "node-status"
+
+    def run(self, args):
+        m = MountbrokerUserMgmt(GLUSTERD_VOLFILE)
+        data = m.info()
+        data["group_exists"] = False
+        data["path_exists"] = False
+
+        rc, out, err = execute(["getent", "group",
+                                data["geo-replication-log-group"]])
+
+        if rc == 0:
+            data["group_exists"] = True
+
+        if os.path.exists(data["mountbroker-root"]):
+            data["path_exists"] = True
+
+        node_output_ok(data)
+
+
+class CliStatus(Cmd):
+    # gluster-mountbroker status
+    name = "status"
+
+    def run(self, args):
+        out = execute_in_peers("node-status")
+        table = PrettyTable(["NODE", "NODE STATUS", "MOUNT ROOT",
+                             "GROUP", "USERS"])
+        table.align["NODE STATUS"] = "r"
+
+        for p in out:
+            node_data = p.output
+            if node_data == "":
+                node_data = {}
+
+            users_row_data = ""
+            for k, v in node_data.get("users", {}).items():
+                users_row_data += "{0}({1}) ".format(k, ", ".join(v))
+
+            if not users_row_data:
+                users_row_data = "None"
+
+            mount_root = node_data.get("mountbroker-root", "None")
+            if mount_root != "None":
+                mount_root += "({0})".format(oknotok(
+                    node_data.get("path_exists", False)))
+
+            grp = node_data.get("geo-replication-log-group", "None")
+            if grp != "None":
+                grp += "({0})".format(oknotok(
+                    node_data.get("group_exists", False)))
+
+            table.add_row([p.hostname,
+                           "UP" if p.node_up else "DOWN",
+                           mount_root,
+                           grp,
+                           users_row_data])
+
+        print(table)
+
+
+class NodeAdd(Cmd):
+    # useradd -m -g <grp> <usr>
+    # useradd to glusterd.vol
+    name = "node-add"
+
+    def args(self, parser):
+        parser.add_argument("volume")
+        parser.add_argument("user")
+
+    def run(self, args):
+        m = MountbrokerUserMgmt(GLUSTERD_VOLFILE)
+        grp = m.get_group()
+        if grp is None:
+            node_output_notok("Group is not available")
+
+        m.add(args.volume, args.user)
+        m.save()
+        node_output_ok()
+
+
+class CliAdd(Cmd):
+    # gluster-mountbroker add <VOLUME> <USER>
+    name = "add"
+
+    def args(self, parser):
+        parser.add_argument("volume")
+        parser.add_argument("user")
+
+    def run(self, args):
+        out = execute_in_peers("node-add", [args.volume,
+                                            args.user])
+        table = PrettyTable(["NODE", "NODE STATUS", "ADD STATUS"])
+        table.align["NODE STATUS"] = "r"
+        table.align["ADD STATUS"] = "r"
+
+        for p in out:
+            table.add_row([p.hostname,
+                           "UP" if p.node_up else "DOWN",
+                           "OK" if p.ok else "NOT OK: {0}".format(
+                               p.error)])
+
+        print(table)
+
+
+class NodeRemove(Cmd):
+    # userremove from glusterd.vol file
+    name = "node-remove"
+
+    def args(self, parser):
+        parser.add_argument("volume")
+        parser.add_argument("user")
+
+    def run(self, args):
+        m = MountbrokerUserMgmt(GLUSTERD_VOLFILE)
+        volume = None if args.volume == "." else args.volume
+        user = None if args.user == "." else args.user
+        m.remove(volume=volume, user=user)
+        m.save()
+        node_output_ok()
+
+
+class CliRemove(Cmd):
+    # gluster-mountbroker remove --volume <VOLUME> --user <USER>
+    name = "remove"
+
+    def args(self, parser):
+        parser.add_argument("--volume", default=".")
+        parser.add_argument("--user", default=".")
+
+    def run(self, args):
+        out = execute_in_peers("node-remove", [args.volume,
+                                               args.user])
+        table = PrettyTable(["NODE", "NODE STATUS", "REMOVE STATUS"])
+        table.align["NODE STATUS"] = "r"
+        table.align["REMOVE STATUS"] = "r"
+
+        for p in out:
+            table.add_row([p.hostname,
+                           "UP" if p.node_up else "DOWN",
+                           "OK" if p.ok else "NOT OK: {0}".format(
+                               p.error)])
+
+        print(table)
+
+if __name__ == "__main__":
+    runcli()
