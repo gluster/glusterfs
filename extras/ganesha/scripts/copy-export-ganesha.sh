@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #This script is called by glusterd when in case of
 #reboot.An export file specific to a volume
