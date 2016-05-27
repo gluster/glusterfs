@@ -55,4 +55,8 @@ gf_boolean_t afr_has_quorum (unsigned char *subvols, xlator_t *this);
 gf_boolean_t afr_needs_changelog_update (afr_local_t *local);
 void afr_zero_fill_stat (afr_local_t *local);
 
+void
+afr_pick_error_xdata (afr_local_t *local, afr_private_t *priv,
+                      inode_t *inode1, unsigned char *readable1,
+                      inode_t *inode2, unsigned char *readable2);
 #endif /* __TRANSACTION_H__ */

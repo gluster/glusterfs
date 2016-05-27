@@ -153,7 +153,8 @@ afr_validate_read_subvol (inode_t *inode, xlator_t *this, int par_read_subvol)
          * -1 above due to gen being 0, which is why it is OK to pass NULL for
          *  read_subvol_args here.
          */
-        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0, NULL);
+        entry_read_subvol = afr_data_subvol_get (inode, this, NULL, NULL,
+                                                 NULL, NULL);
         if (entry_read_subvol != par_read_subvol)
                 return -1;
 

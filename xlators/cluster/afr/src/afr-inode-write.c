@@ -84,7 +84,7 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
                                                                &args);
 		else
 			read_subvol = afr_data_subvol_get (local->inode, this,
-							   NULL, NULL, &args);
+                                                       NULL, NULL, NULL, &args);
 	}
 
 	local->op_ret = -1;
@@ -164,8 +164,8 @@ __afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
 			local->replies[child_index].poststat = *postbuf;
 		if (xattr)
 			local->replies[child_index].xattr = dict_ref (xattr);
-		if (xdata)
-			local->replies[child_index].xdata = dict_ref (xdata);
+                if (xdata)
+                        local->replies[child_index].xdata = dict_ref (xdata);
 	} else {
 		afr_transaction_fop_failed (frame, this, child_index);
 	}
