@@ -3746,6 +3746,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         dict_del (dict, GFID_XATTR_KEY);
         dict_del (dict, GF_XATTR_VOL_ID_KEY);
+        /* the io-stats-dump key should not reach disk */
+        dict_del (dict, GF_XATTR_IOSTATS_DUMP_KEY);
 
         filler.real_path = real_path;
         filler.this = this;
