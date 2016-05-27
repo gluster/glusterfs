@@ -511,7 +511,7 @@ preprocess (FILE *srcfp, FILE *dstfp)
 
 	if (in_backtick) {
 		gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
-			"Unterminated backtick in volume specfication file at "
+			"Unterminated backtick in volume specification file at "
                         "line (%d), column (%d).", line, column);
                 ret = -1;
 	}
