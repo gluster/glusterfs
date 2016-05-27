@@ -21,7 +21,8 @@
  *  d) counts of write IO block size - since process start, last interval and per fd
  *  e) counts of all FOP types passing through it
  *
- *  Usage: setfattr -n io-stats-dump /tmp/filename /mnt/gluster
+ *  Usage: setfattr -n trusted.io-stats-dump /tmp/filename /mnt/gluster
+ *      output is written to /tmp/filename.<iostats xlator instance name>
  *
  */
 
@@ -2827,15 +2828,32 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         char                 *filename = NULL;
         FILE                 *logfp = NULL;
         struct ios_dump_args args = {0};
-        int                   pid;
+        int                   pid, namelen;
         char                  dump_key[100];
+        char                 *slash_ptr = NULL;
 
         stub  = data;
         this  = stub->this;
 
-        filename = alloca (value->len + 1);
-        memset (filename, 0, value->len + 1);
+        /* Create a file name that is appended with the io-stats instance
+        name as well. This helps when there is more than a single io-stats
+        instance in the graph, or the client and server processes are running
+        on the same node */
+        /* hmmm... no check for this */
+        /* name format: <passed in path/filename>.<xlator name slashes to -> */
+        namelen = value->len + strlen (this->name) + 2; /* '.' and '\0' */
+        filename = alloca (namelen);
+        memset (filename, 0, namelen);
         memcpy (filename, data_to_str (value), value->len);
+        memcpy (filename + value->len, ".", 1);
+        memcpy (filename + value->len + 1, this->name, strlen(this->name));
+
+        /* convert any slashes to '-' so that fopen works correctly */
+        slash_ptr = strchr (filename + value->len + 1, '/');
+        while (slash_ptr) {
+                *slash_ptr = '-';
+                slash_ptr = strchr (slash_ptr, '/');
+        }
 
         pid = getpid ();
 
@@ -3018,11 +3036,6 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
 
         ret = dict_foreach_match (dict, match_special_xattr, NULL,
                                   conditional_dump, &stub);
-        if (ret > 0) {
-                /* Setxattr was on key 'io-stat-dump', hence dump and unwind
-                 * from here */
-                goto out;
-        }
 
         START_FOP_LATENCY (frame);
 
@@ -3030,10 +3043,6 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     loc, dict, flags, xdata);
-        return 0;
-
-out:
-        STACK_UNWIND_STRICT (setxattr, frame, 0, 0, NULL);
         return 0;
 }
 

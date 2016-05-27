@@ -90,6 +90,7 @@
 #define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
+#define GF_XATTR_IOSTATS_DUMP_KEY "trusted.io-stats-dump"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 #define GF_MDC_LOADED_KEY_NAMES     "glusterfs.mdc.loaded.key.names"
