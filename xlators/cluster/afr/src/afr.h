@@ -426,6 +426,7 @@ typedef struct _afr_local {
 	   performed. This is the output of afr_inode_refresh()
 	*/
 	unsigned char *readable;
+	unsigned char *readable2; /*For rename transaction*/
 
 	afr_inode_refresh_cbk_t refreshfn;
 
@@ -860,14 +861,15 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 				int type);
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
+                     unsigned char *readables,
 		     int *event_p, afr_transaction_type type,
                      afr_read_subvol_args_t *args);
 
-#define afr_data_subvol_get(i, t, s, e, a) \
-	afr_read_subvol_get(i, t, s, e, AFR_DATA_TRANSACTION, a)
+#define afr_data_subvol_get(i, t, s, r, e, a) \
+	afr_read_subvol_get(i, t, s, r, e, AFR_DATA_TRANSACTION, a)
 
 #define afr_metadata_subvol_get(i, t, s, e, a) \
-	afr_read_subvol_get(i, t, s, e, AFR_METADATA_TRANSACTION, a)
+	afr_read_subvol_get(i, t, s, NULL, e, AFR_METADATA_TRANSACTION, a)
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,

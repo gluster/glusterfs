@@ -1269,6 +1269,7 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
+                     unsigned char *readables,
 		     int *event_p, afr_transaction_type type,
                      afr_read_subvol_args_t *args)
 {
@@ -1305,6 +1306,9 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 		*subvol_p = subvol;
 	if (event_p)
 		*event_p = event;
+        if (readables)
+                memcpy (readables, readable,
+                        sizeof (*readables) * priv->child_count);
 	return subvol;
 }
 
@@ -1434,6 +1438,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         GF_FREE (local->read_attempted);
 
         GF_FREE (local->readable);
+        GF_FREE (local->readable2);
 
 	if (local->inode)
 		inode_unref (local->inode);
@@ -1593,8 +1598,8 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
         priv = this->private;
 
         if (parent)
-                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0,
-                                                       NULL);
+                par_read_subvol = afr_data_subvol_get (parent, this, NULL, NULL,
+                                                       NULL, NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!replies[i].valid)
@@ -1633,8 +1638,7 @@ afr_read_subvol_decide (inode_t *inode, xlator_t *this,
         int data_subvol  = -1;
         int mdata_subvol = -1;
 
-        data_subvol = afr_data_subvol_get (inode, this,
-                                           0, 0, args);
+        data_subvol = afr_data_subvol_get (inode, this, NULL, NULL, NULL, args);
         mdata_subvol = afr_metadata_subvol_get (inode, this,
                                                 0, 0, args);
         if (data_subvol == -1 || mdata_subvol == -1)
@@ -1782,7 +1786,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 			goto cant_interpret;
 		} else {
                         read_subvol = afr_data_subvol_get (local->inode, this,
-                                                           0, 0, &args);
+                                                       NULL, NULL, NULL, &args);
 		}
 	} else {
 	cant_interpret:
@@ -2409,7 +2413,7 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 		return 0;
 	}
 
-	afr_read_subvol_get (loc->inode, this, NULL, &event,
+	afr_read_subvol_get (loc->inode, this, NULL, NULL, &event,
 			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
@@ -2560,7 +2564,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 }
         }
 
-	afr_read_subvol_get (loc->parent, this, NULL, &event,
+	afr_read_subvol_get (loc->parent, this, NULL, NULL, &event,
 			     AFR_DATA_TRANSACTION, NULL);
 
 	if (event != local->event_generation)
@@ -2883,7 +2887,8 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
+	read_subvol = afr_data_subvol_get (local->inode, this, NULL, NULL,
+                                           NULL, NULL);
 
         LOCK (&frame->lock);
         {
@@ -4282,6 +4287,14 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 			*op_errno = ENOMEM;
 		goto out;
 	}
+
+        local->readable2 = GF_CALLOC (priv->child_count, sizeof (char),
+                                      gf_afr_mt_char);
+        if (!local->readable2) {
+                if (op_errno)
+                        *op_errno = ENOMEM;
+                goto out;
+        }
 
 	local->replies = GF_CALLOC(priv->child_count, sizeof(*local->replies),
 				   gf_afr_mt_reply_t);

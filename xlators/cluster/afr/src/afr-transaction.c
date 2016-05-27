@@ -57,6 +57,66 @@ afr_zero_fill_stat (afr_local_t *local)
         }
 }
 
+/* In case of errors afr needs to choose which xdata from lower xlators it needs
+ * to unwind with. The way it is done is by checking if there are
+ * any good subvols which failed. Give preference to errnos other than
+ * ENOTCONN even if the child is source */
+void
+afr_pick_error_xdata (afr_local_t *local, afr_private_t *priv,
+                      inode_t *inode1, unsigned char *readable1,
+                      inode_t *inode2, unsigned char *readable2)
+{
+        int     s = -1;/*selection*/
+        int     i = 0;
+        unsigned char *readable = NULL;
+
+        if (local->xdata_rsp) {
+                dict_unref (local->xdata_rsp);
+                local->xdata_rsp = NULL;
+        }
+
+        readable = alloca0 (priv->child_count * sizeof (*readable));
+        if (inode2 && readable2) {/*rename fop*/
+                AFR_INTERSECT (readable, readable1, readable2,
+                               priv->child_count);
+        } else {
+                memcpy (readable, readable1,
+                        sizeof (*readable) * priv->child_count);
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+
+                if (local->replies[i].op_ret >= 0)
+                        continue;
+
+                if (local->replies[i].op_errno == ENOTCONN)
+                        continue;
+
+                /*Order is important in the following condition*/
+                if ((s < 0) || (!readable[s] && readable[i]))
+                        s = i;
+        }
+
+        if (s != -1 && local->replies[s].xdata) {
+                local->xdata_rsp = dict_ref (local->replies[s].xdata);
+        } else if (s == -1) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->replies[i].valid)
+                                continue;
+
+                        if (local->replies[i].op_ret >= 0)
+                                continue;
+
+                        if (!local->replies[i].xdata)
+                                continue;
+                        local->xdata_rsp = dict_ref (local->replies[i].xdata);
+                        break;
+                }
+        }
+}
+
 gf_boolean_t
 afr_needs_changelog_update (afr_local_t *local)
 {
@@ -747,6 +807,17 @@ afr_handle_quorum (call_frame_t *frame)
         local->op_errno = afr_final_errno (local, priv);
         if (local->op_errno == 0)
                 local->op_errno = afr_quorum_errno (priv);
+        switch (local->transaction.type) {
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+                afr_pick_error_xdata (local, priv, local->parent,
+                                      local->readable, local->parent2,
+                                      local->readable2);
+                break;
+        default:
+                /*TBD*/
+                break;
+        }
 }
 
 int
