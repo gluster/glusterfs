@@ -108,6 +108,35 @@ def upgrade_config_file(path):
             config_change = True
             config.set(sec, opt, newval)
 
+    # To convert from old peers section format to new peers section format.
+    # Old format: peers gluster://<master ip>:<master vol> \
+    #              ssh://root@<slave ip>:gluster://<master ip>:<slave vol>
+    # New format: peers <master vol name> <slave vol name>
+    for old_sect in config.sections():
+        if old_sect.startswith("peers "):
+            peers_data = old_sect.split(" ")
+            mvol = peers_data[1].split("%3A")[-1]
+            svol = peers_data[2].split("%3A")[-1]
+            new_sect = "peers {0} {1}".format(mvol, svol)
+
+            if old_sect == new_sect:
+                # Already in new format "peers mastervol slavevol"
+                continue
+
+            # Create new section if not exists
+            try:
+                config.add_section(new_sect)
+            except ConfigParser.DuplicateSectionError:
+                pass
+
+            config_change = True
+            # Add all the items of old_sect to new_sect
+            for key, val in config.items(old_sect):
+                config.set(new_sect, key, val)
+
+            # Delete old section
+            config.remove_section(old_sect)
+
     if config_change:
         tempConfigFile = tempfile.NamedTemporaryFile(mode="wb", delete=False)
         with open(tempConfigFile.name, 'wb') as configFile:
@@ -215,10 +244,9 @@ class GConffile(object):
             peers = ['.', '.']
             rx = True
         if rx:
-            st = 'peersrx'
+            return ' '.join(['peersrx'] + [escape(u) for u in peers])
         else:
-            st = 'peers'
-        return ' '.join([st] + [escape(u) for u in peers])
+            return ' '.join(['peers'] + [u.split(':')[-1] for u in peers])
 
     @staticmethod
     def parse_section(section):
