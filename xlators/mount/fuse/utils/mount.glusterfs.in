@@ -588,13 +588,16 @@ main ()
         ## `mount` specifies options as a last argument
         shift 2;
     fi
-    while getopts "Vo:hn" opt; do
+    while getopts "Vo:hns" opt; do
         case "${opt}" in
             o)
                 parse_options ${OPTARG};
 		shift 2;
                 ;;
             n)
+                ;;
+            s)
+                # accept+ignore sloppy mount, passed by autofs
                 ;;
             V)
                 ${cmd_line} -V;
