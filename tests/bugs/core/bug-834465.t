@@ -33,8 +33,13 @@ build_tester $(dirname $0)/bug-834465.c
 TEST $(dirname $0)/bug-834465 $M0/testfile
 
 sdump2=$(generate_mount_statedump $V0);
+nalloc2=0
+grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2
+if [ $? -eq '0' ]
+then
+        nalloc2=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2 | grep -E "^num_allocs" | cut -d '=' -f2`
+fi
 
-nalloc2=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2 | grep -E "^num_allocs" | cut -d '=' -f2`
 TEST [ $nalloc1 -eq $nalloc2 ];
 
 TEST rm -rf $MOUNTDIR/*

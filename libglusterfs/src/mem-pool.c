@@ -318,6 +318,10 @@ __gf_free (void *free_ptr)
         {
                 mem_acct->rec[header->type].size -= header->size;
                 mem_acct->rec[header->type].num_allocs--;
+                /* If all the instances are freed up then ensure typestr is set
+                 * to NULL */
+                if (!mem_acct->rec[header->type].num_allocs)
+                        mem_acct->rec[header->type].typestr = NULL;
         }
         UNLOCK (&mem_acct->rec[header->type].lock);
 
