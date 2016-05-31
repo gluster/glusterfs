@@ -815,7 +815,8 @@ afr_handle_quorum (call_frame_t *frame)
                                       local->readable2);
                 break;
         default:
-                /*TBD*/
+                afr_pick_error_xdata (local, priv, local->inode,
+                                      local->readable, NULL, NULL);
                 break;
         }
 }

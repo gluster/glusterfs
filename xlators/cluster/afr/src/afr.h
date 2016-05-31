@@ -868,8 +868,8 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 #define afr_data_subvol_get(i, t, s, r, e, a) \
 	afr_read_subvol_get(i, t, s, r, e, AFR_DATA_TRANSACTION, a)
 
-#define afr_metadata_subvol_get(i, t, s, e, a) \
-	afr_read_subvol_get(i, t, s, NULL, e, AFR_METADATA_TRANSACTION, a)
+#define afr_metadata_subvol_get(i, t, s, r, e, a) \
+	afr_read_subvol_get(i, t, s, r, e, AFR_METADATA_TRANSACTION, a)
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
