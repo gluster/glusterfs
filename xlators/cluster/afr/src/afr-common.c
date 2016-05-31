@@ -1640,7 +1640,7 @@ afr_read_subvol_decide (inode_t *inode, xlator_t *this,
 
         data_subvol = afr_data_subvol_get (inode, this, NULL, NULL, NULL, args);
         mdata_subvol = afr_metadata_subvol_get (inode, this,
-                                                0, 0, args);
+                                                NULL, NULL, NULL, args);
         if (data_subvol == -1 || mdata_subvol == -1)
                 return -1;
 

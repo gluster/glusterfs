@@ -79,16 +79,17 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 
 	if (local->inode) {
 		if (local->transaction.type == AFR_METADATA_TRANSACTION)
-			read_subvol = afr_metadata_subvol_get (local->inode, this,
-							       NULL, NULL,
-                                                               &args);
+                        read_subvol = afr_metadata_subvol_get (local->inode,
+                                      this, NULL, local->readable, NULL, &args);
 		else
 			read_subvol = afr_data_subvol_get (local->inode, this,
-                                                       NULL, NULL, NULL, &args);
+                                            NULL, local->readable, NULL, &args);
 	}
 
 	local->op_ret = -1;
 	local->op_errno = afr_final_errno (local, priv);
+        afr_pick_error_xdata (local, priv, local->inode, local->readable, NULL,
+                              NULL);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
@@ -156,6 +157,8 @@ __afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
 
 	local->replies[child_index].op_ret = op_ret;
 	local->replies[child_index].op_errno = op_errno;
+        if (xdata)
+                local->replies[child_index].xdata = dict_ref (xdata);
 
 	if (op_ret >= 0) {
 		if (prebuf)
@@ -164,8 +167,6 @@ __afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
 			local->replies[child_index].poststat = *postbuf;
 		if (xattr)
 			local->replies[child_index].xattr = dict_ref (xattr);
-                if (xdata)
-                        local->replies[child_index].xdata = dict_ref (xdata);
 	} else {
 		afr_transaction_fop_failed (frame, this, child_index);
 	}
