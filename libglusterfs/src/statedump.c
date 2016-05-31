@@ -234,7 +234,7 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
         for (i = 0; i < xl->mem_acct->num_types; i++) {
-                if (xl->mem_acct->rec[i].total_allocs == 0)
+                if (xl->mem_acct->rec[i].num_allocs == 0)
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %s memusage",
