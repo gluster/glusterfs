@@ -1046,6 +1046,7 @@ exit 0
 # introducing glusterfs module in site packages.
 # so that all other gluster submodules can reside in the same namespace.
 %{python_sitelib}/gluster/__init__.*
+%{python_sitelib}/gluster/cliutils
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
@@ -1186,6 +1187,9 @@ exit 0
 # Extra utility script
 %{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
 
+# CLI utils
+%{_libexecdir}/glusterfs/cliutils
+
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
@@ -1199,6 +1203,9 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Mon Jul 11 2016 Aravinda VK <avishwan@redhat.com>
+- Added Python subpackage "cliutils" under gluster
+
 * Tue May 31 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - broken brp-python-bytecompile in RHEL7 results in installed
   but unpackaged files.

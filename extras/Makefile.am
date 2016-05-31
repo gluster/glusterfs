@@ -5,7 +5,7 @@ EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
 SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM \
-          $(GEOREP_EXTRAS_SUBDIR) ganesha snap_scheduler firewalld
+          $(GEOREP_EXTRAS_SUBDIR) ganesha snap_scheduler firewalld cliutils
 
 confdir = $(sysconfdir)/glusterfs
 conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf \
