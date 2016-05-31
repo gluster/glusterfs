@@ -212,6 +212,7 @@ AC_CONFIG_FILES([Makefile
                 doc/Makefile
                 extras/Makefile
                 extras/glusterd.vol
+                extras/cliutils/Makefile
                 extras/init.d/Makefile
                 extras/init.d/glusterd.plist
                 extras/init.d/glusterd-Debian
