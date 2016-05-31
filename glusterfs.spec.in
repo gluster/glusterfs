@@ -1142,6 +1142,10 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
                             %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
+%if ( 0%{?rhel} && 0%{?rhel} > 6 )
+%exclude                    %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyc
+%exclude                    %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyo
+%endif
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
@@ -1192,6 +1196,10 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Tue May 31 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- broken brp-python-bytecompile in RHEL7 results in installed
+  but unpackaged files.
+
 * Fri May 6 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - additional dirs and files in /var/lib/glusterd/... (#1326410)
 
