@@ -1478,9 +1478,16 @@ index_get_gfid_type (void *opaque)
         int                      ret    = 0;
 
         list_for_each_entry (entry, &args->entries->list, list) {
+                if (strcmp (entry->d_name, ".") == 0 ||
+                    strcmp (entry->d_name, "..") == 0)
+                        continue;
+
                 loc_wipe (&loc);
-                gf_uuid_parse (entry->d_name, loc.gfid);
+
                 entry->d_type = IA_INVAL;
+                if (gf_uuid_parse (entry->d_name, loc.gfid))
+                        continue;
+
                 loc.inode = inode_find (args->parent->table, loc.gfid);
                 if (loc.inode) {
                         entry->d_type = loc.inode->ia_type;
