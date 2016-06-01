@@ -511,6 +511,11 @@ setup_create_resources()
         logger "warning: pcs resource create nfs-mon ocf:heartbeat:ganesha_mon --clone failed"
     fi
 
+    # see comment in (/usr/lib/ocf/resource.d/heartbeat/ganesha_grace
+    # start method. Allow time for ganesha_mon to start and set the
+    # ganesha-active crm_attribute
+    sleep 5
+
     pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone meta notify=true
     if [ $? -ne 0 ]; then
         logger "warning: pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone failed"

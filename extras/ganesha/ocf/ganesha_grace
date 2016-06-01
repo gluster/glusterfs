@@ -94,15 +94,20 @@ esac
 ganesha_grace_start()
 {
 	local rc=${OCF_ERR_GENERIC}
-	local short_host=$(hostname -s)
-	local long_host=$(hostname)
+	local host=$(hostname -s)
 
 	ocf_log debug "ganesha_grace_start()"
-	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+	# give ganesha_mon RA a chance to set the crm_attr first
+	# I mislike the sleep, but it's not clear that looping
+	# with a small sleep is necessarily better
+	# start has a 40sec timeout, so a 5sec sleep here is okay
+        sleep 5
+	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
         if [ $? -ne 0 ]; then
-	        attr=$(crm_attribute --query --node=${long_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null )
+		host=$(hostname)
+		attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null )
                 if [ $? -ne 0 ]; then
-	                ocf_log info "crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} failed"
+	                ocf_log info "grace start: crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
                 fi
         fi
 
@@ -160,16 +165,16 @@ ganesha_grace_notify()
 ganesha_grace_monitor()
 {
 	local rc=${OCF_ERR_GENERIC}
-	local short_host=$(hostname -s)
-	local long_host=$(hostname)
+	local host=$(hostname -s)
 
 	ocf_log debug "monitor"
 
-	attr=$(crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
         if [ $? -ne 0 ]; then
-	        attr=$(crm_attribute --query --node=${long_host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+		host=$(hostname)
+	        attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
                 if [ $? -ne 0 ]; then
-	                ocf_log info "crm_attribute --query --node=${short_host} --name=${OCF_RESKEY_grace_active} failed"
+	                ocf_log info "crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
                 fi
         fi
 
