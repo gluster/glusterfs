@@ -646,14 +646,10 @@ afr_handle_symmetric_errors (call_frame_t *frame, xlator_t *this)
 		}
 		i_errno = local->replies[i].op_errno;
 
-		if (i_errno == ENOTCONN || i_errno == EDQUOT ||
-                    i_errno == ENOSPC) {
+		if (i_errno == ENOTCONN) {
 			/* ENOTCONN is not a symmetric error. We do not
 			   know if the operation was performed on the
 			   backend or not.
-			*  Before reaching EDQUOT and ENOSPC, each brick would
-			*  have written some amount of data, hence this is not
-			*  symmetric error.
 			*/
 			matching_errors = _gf_false;
 			break;
