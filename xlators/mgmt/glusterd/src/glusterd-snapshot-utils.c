@@ -3530,6 +3530,9 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
                 goto out;
         }
 
+        /* geo-rep session string format being parsed:
+         * "master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid"
+         */
         token = strtok_r (temp, "/", &save_ptr);
 
         token = strtok_r (NULL, ":", &save_ptr);
@@ -3546,12 +3549,11 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
         }
         ip_i = ip;
 
-        token = strtok_r (NULL, "\0", &save_ptr);
+        token = strtok_r (NULL, ":", &save_ptr);
         if (!token) {
                 ret = -1;
                 goto out;
         }
-        token++;
 
         slave_temp = gf_strdup (token);
         if (!slave) {
