@@ -74,6 +74,15 @@ struct snap_create_args_ {
         int32_t               brickcount;
         int32_t               brickorder;
 };
+
+/* This structure is used to store unsupported options and thier values
+ * for snapshotted volume.
+ */
+struct gd_snap_unsupported_opt_t {
+        char                  *key;
+        char                  *value;
+};
+
 typedef struct snap_create_args_ snap_create_args_t;
 
 /* This function is called to get the device path of the snap lvm. Usually
@@ -5144,24 +5153,113 @@ out:
         return ret;
 }
 
+static int
+glusterd_snap_clear_unsupported_opt (glusterd_volinfo_t *volinfo,
+                              struct gd_snap_unsupported_opt_t *unsupported_opt)
+{
+        int      ret          = -1;
+        int      i            = 0;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+
+        for (i = 0; unsupported_opt[i].key; i++) {
+                glusterd_volinfo_get (volinfo, unsupported_opt[i].key,
+                                      &unsupported_opt[i].value);
+
+                if (unsupported_opt[i].value) {
+                        unsupported_opt[i].value = gf_strdup (
+                                                      unsupported_opt[i].value);
+                        if (!unsupported_opt[i].value) {
+                                ret = -1;
+                                goto out;
+                        }
+                        dict_del (volinfo->dict, unsupported_opt[i].key);
+                }
+        }
+
+        ret = 0;
+out:
+        if (ret) {
+                for (i = 0; unsupported_opt[i].key; i++) {
+                        if (unsupported_opt[i].value) {
+                                /* Freeing the memory */
+                                GF_FREE (unsupported_opt[i].value);
+                                unsupported_opt[i].value = NULL;
+                        }
+                }
+        }
+
+        return ret;
+}
+
+static int
+glusterd_snap_set_unsupported_opt (glusterd_volinfo_t *volinfo,
+                              struct gd_snap_unsupported_opt_t *unsupported_opt)
+{
+        int       ret       = -1;
+        int       i         = 0;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+
+        for (i = 0; unsupported_opt[i].key; i++) {
+                if (!unsupported_opt[i].value)
+                        continue;
+
+                ret = dict_set_dynstr (volinfo->dict, unsupported_opt[i].key,
+                                       unsupported_opt[i].value);
+                if (ret) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_SET_FAILED, "dict set failed");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        if (ret) {
+                for (; unsupported_opt[i].key; i++) {
+                        if (unsupported_opt[i].value) {
+                                /* Freeing the memory */
+                                GF_FREE (unsupported_opt[i].value);
+                                unsupported_opt[i].value = NULL;
+                        }
+                }
+        }
+
+        return ret;
+}
+
 glusterd_volinfo_t *
 glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                       dict_t *dict, dict_t *rsp_dict, int64_t volcount,
                       int clone)
 {
-        char                    key[PATH_MAX]                   = "";
-        char                   *username                        = NULL;
-        char                   *password                        = NULL;
-        glusterd_brickinfo_t   *brickinfo                       = NULL;
-        glusterd_conf_t        *priv                            = NULL;
-        glusterd_volinfo_t     *snap_vol                        = NULL;
-        uuid_t                 *snap_volid                      = NULL;
-        int32_t                 ret                             = -1;
-        int32_t                 brick_count                     = 0;
-        xlator_t               *this                            = NULL;
-        int64_t                 brick_order                     = 0;
-        char                    *clonename                      = NULL;
-        gf_boolean_t            conf_present                    = _gf_false;
+        char                         key[PATH_MAX]           = "";
+        char                        *username                = NULL;
+        char                        *password                = NULL;
+        glusterd_brickinfo_t        *brickinfo               = NULL;
+        glusterd_conf_t             *priv                    = NULL;
+        glusterd_volinfo_t          *snap_vol                = NULL;
+        uuid_t                      *snap_volid              = NULL;
+        int32_t                      ret                     = -1;
+        int32_t                      brick_count             = 0;
+        xlator_t                    *this                    = NULL;
+        int64_t                      brick_order             = 0;
+        char                        *clonename               = NULL;
+        gf_boolean_t                 conf_present            = _gf_false;
+
+       struct  gd_snap_unsupported_opt_t  unsupported_opt[]  = {
+                                         {.key   = VKEY_FEATURES_QUOTA,
+                                          .value = NULL},
+                                         {.key   = VKEY_FEATURES_INODE_QUOTA,
+                                          .value = NULL},
+                                         {.key   = "feature.deem-statfs",
+                                          .value = NULL},
+                                         {.key   = "features.quota-deem-statfs",
+                                          .value = NULL},
+                                         {.key   = NULL,
+                                          .value = NULL}
+                                                         };
 
         this = THIS;
         GF_ASSERT (this);
@@ -5318,13 +5416,25 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
+        if (snap_vol->is_snap_volume) {
+                ret = glusterd_snap_clear_unsupported_opt (snap_vol,
+                                                           unsupported_opt);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_OP_FAILED, "Failed to clear quota "
+                                "option for the snap %s (volume: %s)",
+                                snap->snapname, origin_vol->volname);
+                        goto out;
+                }
+        }
+
         ret = generate_brick_volfiles (snap_vol);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLFILE_CREATE_FAIL, "generating the brick "
                         "volfiles for the snap %s (volume: %s) failed",
                         snap->snapname, origin_vol->volname);
-                goto out;
+                goto reset_option;
         }
 
         ret = generate_client_volfiles (snap_vol, GF_CLIENT_TRUSTED);
@@ -5333,7 +5443,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                         GD_MSG_VOLFILE_CREATE_FAIL, "generating the trusted "
                         "client volfiles for the snap %s (volume: %s) failed",
                         snap->snapname, origin_vol->volname);
-                goto out;
+                goto reset_option;
         }
 
         ret = generate_client_volfiles (snap_vol, GF_CLIENT_OTHER);
@@ -5342,9 +5452,20 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                         GD_MSG_VOLFILE_CREATE_FAIL, "generating the client "
                         "volfiles for the snap %s (volume: %s) failed",
                         snap->snapname, origin_vol->volname);
-                goto out;
+                goto reset_option;
         }
 
+reset_option:
+        if (snap_vol->is_snap_volume) {
+                if (glusterd_snap_set_unsupported_opt (snap_vol,
+                                                       unsupported_opt)) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_OP_FAILED, "Failed to reset quota "
+                                "option for the snap %s (volume: %s)",
+                                snap->snapname, origin_vol->volname);
+                }
+        }
 out:
         if (ret) {
                 if (snap_vol)
