@@ -3317,8 +3317,6 @@ int
 shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
 {
         int                ret         = 0;
-        size_t             read_size   = 0;
-        size_t             actual_size = 0;
         struct iobuf      *iobuf       = NULL;
         shard_local_t     *local       = NULL;
         shard_priv_t      *priv        = NULL;
@@ -3353,21 +3351,10 @@ shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        read_size = (local->offset + local->req_size);
-        actual_size = local->prebuf.ia_size;
-
         local->first_block = get_lowest_block (local->offset,
                                                local->block_size);
 
-        /* If the end of read surpasses the file size, only resolve and read
-         * till the end of the file size. If the read is confined within the
-         * size of the file, read only the requested size.
-         */
-
-        if (read_size >= actual_size)
-                local->total_size = actual_size - local->offset;
-        else
-                local->total_size = local->req_size;
+        local->total_size = local->req_size;
 
         local->last_block = get_highest_block (local->offset, local->total_size,
                                                local->block_size);
