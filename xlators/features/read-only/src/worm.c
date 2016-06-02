@@ -370,8 +370,11 @@ worm_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
         ret = worm_get_state (this, _gf_true, fd, &reten_state);
-        if (ret)
+        if (ret) {
+                if (ret == -1)
+                        op_errno = 0;
                 goto out;
+        }
         if (!reten_state.worm)
                 op_errno = 0;
 

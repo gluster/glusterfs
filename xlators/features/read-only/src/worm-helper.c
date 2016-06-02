@@ -305,7 +305,6 @@ gf_worm_state_transition (xlator_t *this, gf_boolean_t fop_with_fd,
         int op_errno                      =       EROFS;
         int ret                           =       -1;
         uint64_t com_period               =       0;
-        uint64_t ret_period               =       0;
         uint64_t start_time               =       0;
         dict_t *dict                      =       NULL;
         worm_reten_state_t reten_state    =       {0,};
@@ -356,8 +355,7 @@ gf_worm_state_transition (xlator_t *this, gf_boolean_t fop_with_fd,
         }
 
         if (ret == -1 && (time (NULL) - start_time) >= com_period) {
-                ret_period = priv->reten_period;
-                if ((time (NULL) - stbuf.ia_mtime) >= ret_period) {
+                if ((time (NULL) - stbuf.ia_mtime) >= com_period) {
                         ret = worm_set_state(this, fop_with_fd, file_ptr,
                                              &reten_state, &stbuf);
                         if (ret) {
