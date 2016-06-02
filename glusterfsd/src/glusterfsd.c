@@ -234,7 +234,7 @@ static struct argp_option gf_options[] = {
          "Extra mount options to pass to FUSE"},
         {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Use readdirp mode in fuse kernel module"
-         " [default: \"off\"]"},
+         " [default: \"yes\"]"},
         {"secure-mgmt", ARGP_SECURE_MGMT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Override default for secure (SSL) management connections"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
