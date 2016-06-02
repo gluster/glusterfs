@@ -3042,6 +3042,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         int32_t                op_ret     = -1;
         int32_t                op_errno   = 0;
         int                    _fd        = -1;
+        char                 *buf         = NULL;
+        char                 *alloc_buf   = NULL;
         struct posix_private * priv       = NULL;
         struct iobuf         * iobuf      = NULL;
         struct iobref        * iobref     = NULL;
@@ -3080,14 +3082,35 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         }
 
         _fd = pfd->fd;
-        op_ret = sys_pread (_fd, iobuf->ptr, size, offset);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READ_FAILED,
-                        "read failed on gfid=%s, fd=%p, offset=%"PRIu64" "
-                        "size=%"GF_PRI_SIZET"", uuid_utoa (fd->inode->gfid), fd,
-                        offset, size);
-                goto out;
+        if (pfd->flags & O_DIRECT) {
+                alloc_buf = _page_aligned_alloc (size, &buf);
+                if (!alloc_buf) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        goto out;
+                }
+
+                op_ret = sys_pread (_fd, buf, size, offset);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_READ_FAILED, "read failed on gfid=%s, "
+                                "fd=%p, offset=%"PRIu64" size=%"GF_PRI_SIZET", "
+                                "buf=%p", uuid_utoa (fd->inode->gfid), fd,
+                                offset, size, buf);
+                        goto out;
+                }
+                memcpy(iobuf->ptr, buf, size);
+        } else {
+                op_ret = sys_pread (_fd, iobuf->ptr, size, offset);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_READ_FAILED,
+                                "read failed on gfid=%s, fd=%p, offset=%"PRIu64" "
+                                "size=%"GF_PRI_SIZET"", uuid_utoa (fd->inode->gfid), fd,
+                                offset, size);
+                        goto out;
+                }
         }
 
         LOCK (&priv->lock);
@@ -3130,6 +3153,7 @@ out:
                 iobref_unref (iobref);
         if (iobuf)
                 iobuf_unref (iobuf);
+        GF_FREE (alloc_buf);
 
         return 0;
 }
