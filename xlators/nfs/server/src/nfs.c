@@ -1885,7 +1885,7 @@ struct volume_options options[] = {
           .default_value = "none",
           .description = "Reject a comma separated list of addresses and/or"
                          " hostnames from connecting to the server. By default,"
-                         " all connections are allowed. This allows users to"
+                         " all connections are allowed. This allows users to "
                          "define a general rule for all exported volumes."
         },
         { .key  = {"rpc-auth.addr.*.allow"},
