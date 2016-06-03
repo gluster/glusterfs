@@ -1092,6 +1092,9 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
+%{_libdir}/libposix2common.so
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
 %endif

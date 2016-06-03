@@ -200,6 +200,13 @@ AC_CONFIG_FILES([Makefile
                 xlators/experimental/dht2/dht2-client/src/Makefile
                 xlators/experimental/dht2/dht2-server/Makefile
                 xlators/experimental/dht2/dht2-server/src/Makefile
+                xlators/experimental/posix2/Makefile
+                xlators/experimental/posix2/ds/Makefile
+                xlators/experimental/posix2/ds/src/Makefile
+                xlators/experimental/posix2/mds/Makefile
+                xlators/experimental/posix2/mds/src/Makefile
+                xlators/experimental/posix2/common/Makefile
+                xlators/experimental/posix2/common/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
                 doc/Makefile
