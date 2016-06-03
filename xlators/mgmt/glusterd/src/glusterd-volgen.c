@@ -3490,7 +3490,7 @@ set_afr_pending_xattrs_option (volgen_graph_t *graph,
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        if (conf->op_version < GD_OP_VERSION_3_7_7)
+        if (conf->op_version < GD_OP_VERSION_3_9_0)
                 return ret;
 
         /* (brick_id x rep.count) + (rep.count-1 commas) + NULL*/
