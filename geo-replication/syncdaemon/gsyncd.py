@@ -411,6 +411,18 @@ def main_i():
     # the parser with virgin values container.
     defaults = op.get_default_values()
     opts, args = op.parse_args(values=optparse.Values())
+    # slave url cleanup, if input comes with vol uuid as follows
+    # 'ssh://fvm1::gv2:07dfddca-94bb-4841-a051-a7e582811467'
+    temp_args = []
+    for arg in args:
+        # Split based on ::
+        data = arg.split("::")
+        if len(data)>1:
+            slavevol_name = data[1].split(":")[0]
+            temp_args.append("%s::%s" % (data[0], slavevol_name))
+        else:
+            temp_args.append(data[0])
+    args = temp_args
     args_orig = args[:]
 
     voluuid_get = rconf.get('slavevoluuid_get')
