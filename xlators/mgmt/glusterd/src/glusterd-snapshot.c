@@ -5179,16 +5179,6 @@ glusterd_snap_clear_unsupported_opt (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 out:
-        if (ret) {
-                for (i = 0; unsupported_opt[i].key; i++) {
-                        if (unsupported_opt[i].value) {
-                                /* Freeing the memory */
-                                GF_FREE (unsupported_opt[i].value);
-                                unsupported_opt[i].value = NULL;
-                        }
-                }
-        }
-
         return ret;
 }
 
@@ -5212,20 +5202,11 @@ glusterd_snap_set_unsupported_opt (glusterd_volinfo_t *volinfo,
                                 GD_MSG_DICT_SET_FAILED, "dict set failed");
                         goto out;
                 }
+                unsupported_opt[i].value = NULL;
         }
 
         ret = 0;
 out:
-        if (ret) {
-                for (; unsupported_opt[i].key; i++) {
-                        if (unsupported_opt[i].value) {
-                                /* Freeing the memory */
-                                GF_FREE (unsupported_opt[i].value);
-                                unsupported_opt[i].value = NULL;
-                        }
-                }
-        }
-
         return ret;
 }
 
@@ -5247,8 +5228,9 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         int64_t                      brick_order             = 0;
         char                        *clonename               = NULL;
         gf_boolean_t                 conf_present            = _gf_false;
+        int                          i                       = 0;
 
-       struct  gd_snap_unsupported_opt_t  unsupported_opt[]  = {
+        struct  gd_snap_unsupported_opt_t  unsupported_opt[] = {
                                          {.key   = VKEY_FEATURES_QUOTA,
                                           .value = NULL},
                                          {.key   = VKEY_FEATURES_INODE_QUOTA,
@@ -5259,7 +5241,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                                           .value = NULL},
                                          {.key   = NULL,
                                           .value = NULL}
-                                                         };
+                                                               };
 
         this = THIS;
         GF_ASSERT (this);
@@ -5468,6 +5450,9 @@ reset_option:
         }
 out:
         if (ret) {
+                for (i = 0; unsupported_opt[i].key; i++)
+                        GF_FREE (unsupported_opt[i].value);
+
                 if (snap_vol)
                         glusterd_snap_volume_remove (rsp_dict, snap_vol,
                                                      _gf_true, _gf_true);
