@@ -274,6 +274,67 @@ static const char *favorite_child_warning_str = "You have specified subvolume '%
         "WILL BE LOST.";
 
 
+static int
+afr_pending_xattrs_init (afr_private_t *priv, xlator_t *this)
+{
+        int ret = -1;
+        int i = 0;
+        char *ptr = NULL;
+        char *ptr1 = NULL;
+        char *xattrs_list = NULL;
+        xlator_list_t *trav = NULL;
+
+        trav = this->children;
+
+        GF_OPTION_INIT ("afr-pending-xattr", xattrs_list, str, out);
+        priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key),
+                                       priv->child_count, gf_afr_mt_char);
+        if (!priv->pending_key) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        if (!xattrs_list) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_NO_CHANGELOG,
+                        "Unable to fetch afr-pending-xattr option from volfile."
+                        " Falling back to using client translator names. ");
+
+                while (i < priv->child_count) {
+                        ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
+                                           AFR_XATTR_PREFIX,
+                                           trav->xlator->name);
+                        if (ret == -1) {
+                                ret = -ENOMEM;
+                                goto out;
+                        }
+                        trav = trav->next;
+                        i++;
+                }
+                ret = 0;
+                goto out;
+        }
+
+        ptr = ptr1 = gf_strdup (xattrs_list);
+        if (!ptr) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        for (i = 0, ptr = strtok (ptr, ","); ptr; ptr = strtok (NULL, ",")) {
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
+                                   AFR_XATTR_PREFIX, ptr);
+                if (ret == -1) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
+                i++;
+        }
+        ret = 0;
+
+out:
+        GF_FREE (ptr1);
+        return ret;
+
+}
+
 int32_t
 init (xlator_t *this)
 {
@@ -287,8 +348,6 @@ init (xlator_t *this)
         int            read_subvol_index = -1;
         xlator_t      *fav_child   = NULL;
         char          *qtype       = NULL;
-        char          *xattrs_list = NULL;
-        char          *ptr         = NULL;
         char          *fav_child_policy = NULL;
 
         if (!this->children) {
@@ -466,35 +525,9 @@ init (xlator_t *this)
                 goto out;
         }
 
-        GF_OPTION_INIT ("afr-pending-xattr", xattrs_list, str, out);
-        priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key),
-                                       child_count,
-                                       gf_afr_mt_char);
-        if (!priv->pending_key) {
-                ret = -ENOMEM;
+        ret = afr_pending_xattrs_init (priv, this);
+        if (ret)
                 goto out;
-        }
-        if (!xattrs_list) {
-                ret = -EINVAL;
-                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_NO_CHANGELOG,
-                        "Unable to fetch afr pending changelogs. Is op-version"
-                        " >= 30707?");
-                goto out;
-        }
-        ptr = gf_strdup (xattrs_list);
-        if (!ptr) {
-                ret = -ENOMEM;
-                goto out;
-        }
-        for (i = 0, ptr = strtok (ptr, ","); ptr; ptr = strtok (NULL, ",")) {
-                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
-                                   AFR_XATTR_PREFIX, ptr);
-                if (ret  == -1) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
-                i++;
-        }
 
         trav = this->children;
         i = 0;
@@ -535,7 +568,6 @@ init (xlator_t *this)
 
         ret = 0;
 out:
-        GF_FREE (ptr);
         return ret;
 }
 
