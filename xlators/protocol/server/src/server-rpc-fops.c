@@ -35,6 +35,10 @@
 void
 forget_inode_if_no_dentry (inode_t *inode)
 {
+        if (!inode) {
+                return;
+        }
+
         if (!inode_has_dentry (inode))
                 inode_forget (inode, 0);
 
