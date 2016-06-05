@@ -78,8 +78,10 @@ struct gf_upcall_cache_invalidation {
 };
 
 struct gf_upcall_recall_lease {
-        uint32_t  lease_type;
-        /* TODO: Add the lease type it can be downgraded to */
+        uint32_t  lease_type; /* Lease type to which client can downgrade to*/
+        uuid_t    tid;        /* transaction id of the fop that caused
+                                 the recall */
+        dict_t   *dict;
 };
 
 #endif /* _UPCALL_UTILS_H */
