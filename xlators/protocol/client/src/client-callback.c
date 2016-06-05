@@ -63,7 +63,10 @@ client_cbk_recall_lease (struct rpc_clnt *rpc, void *mydata, void *data)
         }
 
         upcall_data.data = &rl_data;
-        gf_proto_recall_lease_to_upcall (&recall_lease, &upcall_data);
+        ret = gf_proto_recall_lease_to_upcall (&recall_lease, &upcall_data);
+        if (ret < 0)
+                goto out;
+
         upcall_data.event_type = GF_UPCALL_RECALL_LEASE;
 
         gf_msg_trace (THIS->name, 0, "Upcall gfid = %s, ret = %d",
@@ -72,6 +75,12 @@ client_cbk_recall_lease (struct rpc_clnt *rpc, void *mydata, void *data)
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 
 out:
+        if (recall_lease.xdata.xdata_val)
+                free (recall_lease.xdata.xdata_val);
+
+        if (rl_data.dict)
+                dict_unref (rl_data.dict);
+
         return ret;
 }
 
