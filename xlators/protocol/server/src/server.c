@@ -1210,7 +1210,11 @@ server_process_event_upcall (xlator_t *this, void *data)
                 xdrproc = (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req;
                 break;
         case GF_UPCALL_RECALL_LEASE:
-                gf_proto_recall_lease_from_upcall (&gf_recall_lease, upcall_data);
+                ret = gf_proto_recall_lease_from_upcall (this, &gf_recall_lease,
+                                                         upcall_data);
+                if (ret < 0)
+                        goto out;
+
                 up_req = &gf_recall_lease;
                 cbk_procnum = GF_CBK_RECALL_LEASE;
                 xdrproc = (xdrproc_t)xdr_gfs3_recall_lease_req;
@@ -1247,6 +1251,9 @@ server_process_event_upcall (xlator_t *this, void *data)
 out:
         if ((gf_c_req.xdata).xdata_val)
                 GF_FREE ((gf_c_req.xdata).xdata_val);
+
+        if ((gf_recall_lease.xdata).xdata_val)
+                GF_FREE ((gf_recall_lease.xdata).xdata_val);
 
         return ret;
 }

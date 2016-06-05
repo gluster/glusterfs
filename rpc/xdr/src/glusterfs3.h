@@ -204,11 +204,12 @@ gf_proto_lease_from_lease (struct gf_proto_lease *gf_proto_lease, struct gf_leas
         memcpy (gf_proto_lease->lease_id, gf_lease->lease_id, LEASE_ID_SIZE);
 }
 
-static inline void
+static inline int
 gf_proto_recall_lease_to_upcall (struct gfs3_recall_lease_req *recall_lease,
                                  struct gf_upcall *gf_up_data)
 {
         struct gf_upcall_recall_lease *tmp = NULL;
+        int    ret                         = 0;
 
         GF_VALIDATE_OR_GOTO(THIS->name, recall_lease, out);
         GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
@@ -216,25 +217,40 @@ gf_proto_recall_lease_to_upcall (struct gfs3_recall_lease_req *recall_lease,
         tmp = (struct gf_upcall_recall_lease *)gf_up_data->data;
         tmp->lease_type = recall_lease->lease_type;
         memcpy (gf_up_data->gfid, recall_lease->gfid, 16);
+        memcpy (tmp->tid, recall_lease->tid, 16);
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (THIS, tmp->dict,
+                                      (recall_lease->xdata).xdata_val,
+                                      (recall_lease->xdata).xdata_len, ret,
+                                      errno, out);
 out:
-        return;
+        return ret;
 
 }
 
-static inline void
-gf_proto_recall_lease_from_upcall (struct gfs3_recall_lease_req *recall_lease,
+static inline int
+gf_proto_recall_lease_from_upcall (xlator_t *this,
+                                   struct gfs3_recall_lease_req *recall_lease,
                                    struct gf_upcall *gf_up_data)
 {
         struct gf_upcall_recall_lease *tmp = NULL;
+        int    ret                         = 0;
 
-        GF_VALIDATE_OR_GOTO(THIS->name, recall_lease, out);
-        GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+        GF_VALIDATE_OR_GOTO(this->name, recall_lease, out);
+        GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
 
         tmp = (struct gf_upcall_recall_lease *)gf_up_data->data;
         recall_lease->lease_type = tmp->lease_type;
         memcpy (recall_lease->gfid, gf_up_data->gfid, 16);
+        memcpy (recall_lease->tid, tmp->tid, 16);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, tmp->dict,
+                                    &(recall_lease->xdata).xdata_val,
+                                    (recall_lease->xdata).xdata_len, ret, out);
+        if (ret > 0)
+                ret = -ret;
 out:
-        return;
+        return ret;
 
 }
 

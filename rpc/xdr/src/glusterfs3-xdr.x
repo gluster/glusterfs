@@ -330,6 +330,8 @@ struct gfs3_lease_rsp {
 struct gfs3_recall_lease_req {
         opaque       gfid[16];
         unsigned int lease_type;
+        opaque       tid[16];
+        opaque       xdata<>; /* Extra data */
 }  ;
 
  struct gfs3_inodelk_req {
