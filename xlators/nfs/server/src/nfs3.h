@@ -230,6 +230,7 @@ struct nfs3_local {
         cookie3                 cookie;
         struct iovec            datavec;
         mode_t                  mode;
+        struct iatt             attr_in;
 
         /* NFSv3 FH resolver state */
         int                     hardresolved;
