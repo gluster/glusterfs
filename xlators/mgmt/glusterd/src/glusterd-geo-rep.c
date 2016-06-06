@@ -583,6 +583,7 @@ struct dictidxmark {
 
 struct slave_vol_config {
        char      old_slvhost[_POSIX_HOST_NAME_MAX+1];
+       char      old_slvuser[_POSIX_LOGIN_NAME_MAX];
        unsigned  old_slvidx;
        char      slave_voluuid[GF_UUID_BUF_SIZE];
 };
@@ -2879,8 +2880,14 @@ get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
 
                         /* To go past username in non-root geo-rep session */
                         tmp = strchr (slave_host, '@');
-                        if (tmp)
+                        if (tmp) {
+                                strncpy (slave_vol->old_slvuser, slave_host,
+                                                 (tmp - slave_host));
+                                slave_vol->old_slvuser[(tmp - slave_host) + 1]
+                                                        = '\0';
                                 slave_host = tmp + 1;
+                        } else
+                                strcpy (slave_vol->old_slvuser, "root");
 
                         tmp = strchr (slave_host, ':');
                         if (!tmp) {
@@ -2893,7 +2900,7 @@ get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
 
                         strncpy (slave_vol->old_slvhost, slave_host,
                                                  (tmp - slave_host));
-                        slave_vol->old_slvhost[(tmp - slave_host)+1] = '\0';
+                        slave_vol->old_slvhost[(tmp - slave_host) + 1] = '\0';
 
                         goto out;
                 }
@@ -2965,6 +2972,11 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         int                      ret_status                 = 0;
         char                     *statedir                  = NULL;
         char                     statefiledir[PATH_MAX]     = {0,};
+        gf_boolean_t             is_different_slavehost     = _gf_false;
+        gf_boolean_t             is_different_username      = _gf_false;
+        char                     *slave_user                = NULL;
+        char                     *save_ptr                  = NULL;
+        char                     *slave_url_buf             = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3226,32 +3238,57 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                   slave_vol, slave_host);
                         goto out;
                 }
-                /* Now, check whether session is already started, if so, warn!*/
-                ret = snprintf (old_confpath, sizeof(old_confpath) - 1,
-                                "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
-                                conf->workdir, volinfo->volname,
-                                slave1.old_slvhost, slave_vol);
 
-                /* construct old slave url with (old) slave host */
-                old_slave_url = old_slave_url_info;
-                strncpy (old_slave_url, slave1.old_slvhost,
-                                        sizeof(old_slave_url_info));
-                old_slave_url = strcat (old_slave_url, "::");
-                old_slave_url = strncat (old_slave_url, slave_vol,
-                                                  sizeof(old_slave_url_info));
+                /* Now, check whether session is already started.If so, warn!*/
+                is_different_slavehost =
+                        (strcmp (slave_host, slave1.old_slvhost) != 0)
+                                                     ? _gf_true : _gf_false;
 
-                ret = glusterd_check_gsync_running_local (volinfo->volname,
-                                                          old_slave_url,
-                                                          old_confpath,
-                                                          &is_running);
-                if (_gf_true == is_running) {
-                        snprintf (errmsg, sizeof(errmsg), "Geo"
-                                  " -replication session between %s and %s"
-                                  " is still active. Please stop the "
-                                  "session and retry.",
-                                  volinfo->volname, old_slave_url);
-                        ret = -1;
-                        goto out;
+                if (strstr (slave_url, "@")) {
+                        slave_url_buf = gf_strdup (slave_url);
+                        if (!slave_url_buf) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        GD_MSG_NO_MEMORY,
+                                        "Unable to allocate memory");
+                                ret = -1;
+                                goto out;
+                        }
+                        slave_user = strtok_r (slave_url_buf, "@", &save_ptr);
+                } else
+                        slave_user = "root";
+                is_different_username =
+                        (strcmp (slave_user, slave1.old_slvuser) != 0)
+                                                   ? _gf_true : _gf_false;
+
+                /* Do the check, only if different slave host/slave user */
+                if (is_different_slavehost || is_different_username) {
+                        ret = snprintf (old_confpath, sizeof(old_confpath) - 1,
+                                        "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
+                                        conf->workdir, volinfo->volname,
+                                        slave1.old_slvhost, slave_vol);
+
+                        /* construct old slave url with (old) slave host */
+                        old_slave_url = old_slave_url_info;
+                        strncpy (old_slave_url, slave1.old_slvhost,
+                                                sizeof(old_slave_url_info));
+                        old_slave_url = strcat (old_slave_url, "::");
+                        old_slave_url = strncat (old_slave_url, slave_vol,
+                                                 sizeof(old_slave_url_info));
+
+                        ret = glusterd_check_gsync_running_local (
+                                                              volinfo->volname,
+                                                              old_slave_url,
+                                                              old_confpath,
+                                                              &is_running);
+                        if (_gf_true == is_running) {
+                                snprintf (errmsg, sizeof(errmsg), "Geo"
+                                    "-replication session between %s and %s"
+                                    " is still active. Please stop the "
+                                    "session and retry.",
+                                    volinfo->volname, old_slave_url);
+                                ret = -1;
+                                goto out;
+                        }
                 }
 
                 ret = dict_set_dynstr_with_alloc (dict, "old_slavehost",
@@ -3292,6 +3329,8 @@ out:
 
         if (ret && errmsg[0] != '\0')
                 *op_errstr = gf_strdup (errmsg);
+        if (slave_url_buf)
+                GF_FREE (slave_url_buf);
 
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
