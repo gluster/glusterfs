@@ -1019,10 +1019,11 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         if ((gf_attr_size_set (cs->setattr_valid)) &&
             (!IA_ISDIR (postop->ia_type)) &&
-            (preop->ia_size != cs->stbuf.ia_size)) {
+            (preop->ia_size != cs->attr_in.ia_size)) {
                 nfs_request_user_init (&nfu, cs->req);
                 ret = nfs_truncate (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                                    cs->stbuf.ia_size, nfs3svc_truncate_cbk,cs);
+                                    cs->attr_in.ia_size, nfs3svc_truncate_cbk,
+                                    cs);
 
                 if (ret < 0)
                         stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -1105,7 +1106,7 @@ nfs3_setattr_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                           &cs->stbuf, cs->setattr_valid,
+                           &cs->attr_in, cs->setattr_valid,
                            nfs3svc_setattr_cbk, cs);
 
         if (ret < 0)
@@ -1147,7 +1148,7 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
-        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
+        cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->attr_in,
                                                           NULL);
         if (guard->check) {
                 gf_msg_trace (GF_NFS3, 0, "Guard check required");
