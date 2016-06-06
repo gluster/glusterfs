@@ -105,7 +105,6 @@ notify (xlator_t *this, int event, void *data, ...)
                         pthread_cond_broadcast (&fs->child_down_cond);
                 }
                 pthread_mutex_unlock (&fs->mutex);
-		graph_setup (fs, graph);
 		glfs_init_done (fs, 1);
 		break;
 	case GF_EVENT_CHILD_CONNECTING:
