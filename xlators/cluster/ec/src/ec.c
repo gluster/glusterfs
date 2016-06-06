@@ -519,7 +519,8 @@ unlock:
         }
 
         if (ec->shd.iamshd &&
-            ec->xl_notify_count == ec->nodes) {
+            ec->xl_notify_count == ec->nodes &&
+            event == GF_EVENT_CHILD_UP) {
                 ec_launch_replace_heal (ec);
         }
 out:
