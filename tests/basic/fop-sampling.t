@@ -12,7 +12,7 @@ function check_path {
         op=$1
         path=$2
         file=$3
-        grep $op $file | awk -F, '{print $NF}' | grep $path 2>&1 > /dev/null
+        grep $op $file | awk -F, '{print $11}' | grep $path 2>&1 > /dev/null
         if [ $? -eq 0 ]; then
           echo "Y"
         else
