@@ -2632,27 +2632,75 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 }
                 strcpy (elist->ex_dir, ent->expname);
 
-                addrstr = rpcsvc_volume_allowed (svc->options,
-                                                 ent->vol->name);
-                elist->ex_groups = GF_CALLOC (1, sizeof (struct groupnode),
-                                              gf_nfs_mt_groupnode);
-                if (!elist->ex_groups) {
-                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
-                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
-                        goto free_list;
-                }
-                /*This check has to be done after checking
-                 * elist->ex_groups allocation check to avoid resource leak;
-                */
-                if (addrstr)
-                        addrstr = gf_strdup (addrstr);
-                else
-                        addrstr = gf_strdup ("No Access");
+                addrstr = rpcsvc_volume_allowed (svc->options, ent->vol->name);
+                if (addrstr) {
+                        /* create a groupnode per allowed client */
+                        char             *pos        = NULL;
+                        char             *addr       = NULL;
+                        char             *addrs      = NULL;
+                        struct groupnode *group      = NULL;
+                        struct groupnode *prev_group = NULL;
 
-                if (!addrstr) {
-                        goto free_list;
+                        /* strtok_r() modifies the string, dup it */
+                        addrs = gf_strdup (addrstr);
+                        if (!addrs)
+                                goto free_list;
+
+                        while (1) {
+                                /* only pass addrs on the 1st call */
+                                addr = strtok_r (group ? NULL : addrs, ",",
+                                                 &pos);
+                                if (addr == NULL)
+                                        /* no mode clients */
+                                        break;
+
+                                group = GF_CALLOC (1, sizeof (struct groupnode),
+                                                   gf_nfs_mt_groupnode);
+                                if (!group) {
+                                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                                NFS_MSG_NO_MEMORY, "Memory "
+                                                "allocation failed");
+                                        GF_FREE (addrs);
+                                        goto free_list;
+                                }
+
+                                group->gr_name = gf_strdup (addr);
+                                if (!group->gr_name) {
+                                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                                NFS_MSG_NO_MEMORY, "Memory "
+                                                "allocation failed");
+                                        GF_FREE (group);
+                                        GF_FREE (addrs);
+                                        goto free_list;
+                                }
+
+                                /* chain the groups together */
+                                if (!elist->ex_groups)
+                                        elist->ex_groups = group;
+                                else
+                                        prev_group->gr_next = group;
+                                prev_group = group;
+                        }
+
+                        GF_FREE (addrs);
+                } else {
+                        elist->ex_groups = GF_CALLOC (1,
+                                                      sizeof (struct groupnode),
+                                                      gf_nfs_mt_groupnode);
+                        if (!elist->ex_groups) {
+                                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                        NFS_MSG_NO_MEMORY, "Memory allocation "
+                                        "failed");
+                                goto free_list;
+                        }
+
+                        addrstr = gf_strdup ("No Access");
+                        if (!addrstr)
+                                goto free_list;
+
+                        elist->ex_groups->gr_name = addrstr;
                 }
-                elist->ex_groups->gr_name = addrstr;
+
                 if (prev) {
                         prev->ex_next = elist;
                         prev = elist;
