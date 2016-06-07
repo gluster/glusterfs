@@ -453,7 +453,10 @@ resolve_anonfd_simple (call_frame_t *frame)
 
         ret = 0;
 
-        state->fd = fd_anonymous_with_flags (inode, state->flags);
+        if (frame->root->op == GF_FOP_READ || frame->root->op == GF_FOP_WRITE)
+                state->fd = fd_anonymous_with_flags (inode, state->flags);
+        else
+                state->fd = fd_anonymous (inode);
 out:
         if (inode)
                 inode_unref (inode);
