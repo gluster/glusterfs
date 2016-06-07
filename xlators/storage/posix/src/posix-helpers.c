@@ -1608,7 +1608,8 @@ out:
 }
 
 static int
-__posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
+__posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
+                    int *op_errno_p)
 {
         uint64_t          tmp_pfd = 0;
         struct posix_fd  *pfd = NULL;
@@ -1616,6 +1617,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         char             *real_path = NULL;
         char             *unlink_path = NULL;
         int               _fd = -1;
+        int               op_errno = 0;
         DIR              *dir = NULL;
 
         struct posix_private    *priv      = NULL;
@@ -1633,6 +1635,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                         "Failed to get fd context for a non-anonymous fd, "
                         "file: %s, gfid: %s", real_path,
                         uuid_utoa (fd->inode->gfid));
+                op_errno = EINVAL;
                 goto out;
         }
 
@@ -1643,10 +1646,12 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                         "Failed to create handle path (%s)",
                         uuid_utoa (fd->inode->gfid));
                 ret = -1;
+                op_errno = EINVAL;
                 goto out;
         }
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
         if (!pfd) {
+                op_errno = ENOMEM;
                 goto out;
         }
         pfd->fd = -1;
@@ -1654,6 +1659,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
         if (fd->inode->ia_type == IA_IFDIR) {
                 dir = sys_opendir (real_path);
                 if (!dir) {
+                        op_errno = errno;
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
@@ -1674,7 +1680,8 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                         _fd = open (unlink_path, fd->flags);
                 }
                 if (_fd == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 P_MSG_READ_FAILED,
                                 "Failed to get anonymous "
                                 "real_path: %s _fd = %d", real_path, _fd);
@@ -1690,6 +1697,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
 
         ret = __fd_ctx_set (fd, this, (uint64_t) (long) pfd);
         if (ret != 0) {
+                op_errno = ENOMEM;
                 if (_fd != -1)
                         sys_close (_fd);
                 if (dir)
@@ -1701,6 +1709,9 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
 
         ret = 0;
 out:
+        if (ret < 0 && op_errno_p)
+                *op_errno_p = op_errno;
+
         if (pfd_p)
                 *pfd_p = pfd;
         return ret;
@@ -1708,13 +1719,14 @@ out:
 
 
 int
-posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd)
+posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd,
+                  int *op_errno)
 {
         int   ret;
 
         LOCK (&fd->inode->lock);
         {
-                ret = __posix_fd_ctx_get (fd, this, pfd);
+                ret = __posix_fd_ctx_get (fd, this, pfd, op_errno);
         }
         UNLOCK (&fd->inode->lock);
 
@@ -1925,16 +1937,17 @@ posix_fsyncer_process (xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
         struct posix_fd *pfd = NULL;
         int ret = -1;
         struct posix_private *priv = NULL;
+        int op_errno = 0;
 
         priv = this->private;
 
-        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
+        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd, &op_errno);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
                         P_MSG_GET_FDCTX_FAILED,
                         "could not get fdctx for fd(%s)",
                         uuid_utoa (stub->args.fd->inode->gfid));
-                call_unwind_error (stub, -1, EINVAL);
+                call_unwind_error (stub, -1, op_errno);
                 return;
         }
 
@@ -1967,7 +1980,7 @@ posix_fsyncer_syncfs (xlator_t *this, struct list_head *head)
         int ret = -1;
 
         stub = list_entry (head->prev, call_stub_t, list);
-        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd);
+        ret = posix_fd_ctx_get (stub->args.fd, this, &pfd, NULL);
         if (ret)
                 return;
 
