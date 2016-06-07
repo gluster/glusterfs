@@ -679,6 +679,36 @@ unlock:
 }
 
 struct iobuf *
+iobuf_get_page_aligned (struct iobuf_pool *iobuf_pool, size_t page_size,
+                        size_t align_size)
+{
+        size_t              req_size     = 0;
+        struct iobuf       *iobuf        = NULL;
+
+        req_size = page_size;
+
+        if (req_size == 0) {
+                req_size = iobuf_pool->default_page_size;
+        }
+
+        iobuf = iobuf_get2 (iobuf_pool, req_size + align_size);
+        /* If std allocation was used, then free_ptr will be non-NULL. In this
+         * case, we do not want to modify the original free_ptr.
+         * On the other hand, if the buf was gotten through the available
+         * arenas, then we use iobuf->free_ptr to store the original
+         * pointer to the offset into the mmap'd block of memory and in turn
+         * reuse iobuf->ptr to hold the page-aligned address. And finally, in
+         * iobuf_put(), we copy iobuf->free_ptr into iobuf->ptr - back to where
+         * it was originally when __iobuf_get() returned this iobuf.
+         */
+        if (!iobuf->free_ptr)
+                iobuf->free_ptr = iobuf->ptr;
+        iobuf->ptr = GF_ALIGN_BUF (iobuf->ptr, align_size);
+
+        return iobuf;
+}
+
+struct iobuf *
 iobuf_get (struct iobuf_pool *iobuf_pool)
 {
         struct iobuf       *iobuf        = NULL;
@@ -744,6 +774,11 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 
         list_del_init (&iobuf->list);
         iobuf_arena->active_cnt--;
+
+        if (iobuf->free_ptr) {
+                iobuf->ptr = iobuf->free_ptr;
+                iobuf->free_ptr = NULL;
+        }
 
         list_add (&iobuf->list, &iobuf_arena->passive.list);
         iobuf_arena->passive_cnt++;

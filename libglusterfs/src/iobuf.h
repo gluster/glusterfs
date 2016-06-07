@@ -169,4 +169,8 @@ void   iobuf_stats_dump (struct iobuf_pool *iobuf_pool);
 
 struct iobuf *
 iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size);
+
+struct iobuf *
+iobuf_get_page_aligned (struct iobuf_pool *iobuf_pool, size_t page_size,
+                        size_t align_size);
 #endif /* !_IOBUF_H_ */
