@@ -812,17 +812,11 @@ fd_anonymous_with_flags (inode_t *inode, int32_t flags)
 
         LOCK (&inode->lock);
         {
-                if (flags == 0)
+                if (flags & O_DIRECT)
+                        flags = GF_ANON_FD_FLAGS | O_DIRECT;
+                else
                         flags = GF_ANON_FD_FLAGS;
-                /* If this API is ever called with O_SYNC or O_DSYNC in @flags,
-                 * reset the bits associated with these flags before calling
-                 * __fd_anonymous(). That way, posix will do the open() without
-                 * these flags. And subsequently, posix_writev() (mostly) will
-                 * do the write within inode->lock on an fd without O_SYNC or
-                 * O_DSYNC and in its place to an fsync() outside of the locks
-                 * to simulate the effect of using these flags.
-                 */
-                flags &= (~(O_SYNC|O_DSYNC));
+
                 fd = __fd_anonymous (inode, flags);
         }
         UNLOCK (&inode->lock);
