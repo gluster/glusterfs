@@ -174,9 +174,8 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ret = posix_fd_ctx_get (fd, this, &pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
-                op_errno = -ret;
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
                 goto err;
@@ -332,9 +331,8 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        ret = posix_fd_ctx_get (fd, this, &pfd);
+        ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
-                op_errno = -ret;
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
                 goto err;
