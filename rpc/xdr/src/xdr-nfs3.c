@@ -1836,6 +1836,19 @@ xdr_exportnode (XDR *xdrs, exportnode *objp)
 	return TRUE;
 }
 
+static void
+xdr_free_groupnode (struct groupnode *group)
+{
+        if (!group)
+                return;
+
+        if (group->gr_next)
+                xdr_free_groupnode (group->gr_next);
+
+        GF_FREE (group->gr_name);
+        GF_FREE (group);
+}
+
 void
 xdr_free_exports_list (struct exportnode *first)
 {
@@ -1848,10 +1861,7 @@ xdr_free_exports_list (struct exportnode *first)
                 elist = first->ex_next;
                 GF_FREE (first->ex_dir);
 
-                if (first->ex_groups) {
-                        GF_FREE (first->ex_groups->gr_name);
-                        GF_FREE (first->ex_groups);
-                }
+                xdr_free_groupnode (first->ex_groups);
 
                 GF_FREE (first);
                 first = elist;
