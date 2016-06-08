@@ -253,16 +253,19 @@ def log_raise_exception(excont):
             if hasattr(gconf, 'transport'):
                 gconf.transport.wait()
                 if gconf.transport.returncode == 127:
-                    logging.warn("!!!!!!!!!!!!!")
-                    logging.warn('!!! getting "No such file or directory" '
-                                 "errors is most likely due to "
-                                 "MISCONFIGURATION"
-                                 ", please consult https://access.redhat.com"
-                                 "/site/documentation/en-US/Red_Hat_Storage"
-                                 "/2.1/html/Administration_Guide"
-                                 "/chap-User_Guide-Geo_Rep-Preparation-"
-                                 "Settingup_Environment.html")
-                    logging.warn("!!!!!!!!!!!!!")
+                    logging.error("getting \"No such file or directory\""
+                                  "errors is most likely due to "
+                                  "MISCONFIGURATION, please remove all "
+                                  "the public keys added by geo-replication "
+                                  "from authorized_keys file in slave nodes "
+                                  "and run Geo-replication create "
+                                  "command again.")
+                    logging.error("If `gsec_create container` was used, then "
+                                  "run `gluster volume geo-replication "
+                                  "<MASTERVOL> [<SLAVEUSER>@]<SLAVEHOST>::"
+                                  "<SLAVEVOL> config remote-gsyncd "
+                                  "<GSYNCD_PATH> (Example GSYNCD_PATH: "
+                                  "`/usr/libexec/glusterfs/gsyncd`)")
                 gconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno in (ENOTCONN,
                                                         ECONNABORTED):
