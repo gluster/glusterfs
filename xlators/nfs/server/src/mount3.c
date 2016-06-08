@@ -696,6 +696,9 @@ __mnt3_build_mountid_from_path (const char *path, uuid_t mountid)
         uint32_t hashed_path = 0;
         int      ret = -1;
 
+        if (!path)
+                goto out;
+
         while (strlen (path) > 0 && path[0] == '/')
                 path++;
 
