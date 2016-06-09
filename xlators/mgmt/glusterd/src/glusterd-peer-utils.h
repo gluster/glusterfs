@@ -43,6 +43,9 @@ char*
 gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo);
 
 gf_boolean_t
+glusterd_are_all_peers_up ();
+
+gf_boolean_t
 glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                struct cds_list_head *peers,
                                char **down_peerstr);
