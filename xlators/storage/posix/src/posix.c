@@ -4388,7 +4388,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 	}
 
         if (loc->inode && name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
-                if (!list_empty (&loc->inode->fd_list)) {
+                if (!fd_list_empty (loc->inode)) {
                         ret = dict_set_uint32 (dict, (char *)name, 1);
                         if (ret < 0)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
