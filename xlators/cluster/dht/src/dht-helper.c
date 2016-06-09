@@ -1103,6 +1103,7 @@ dht_migration_complete_check_task (void *data)
         dht_conf_t         *conf        = NULL;
         inode_t            *inode       = NULL;
         fd_t               *iter_fd     = NULL;
+        fd_t               *tmp         = NULL;
         uint64_t            tmp_miginfo = 0;
         dht_migrate_info_t *miginfo     = NULL;
         int                 open_failed = 0;
@@ -1228,26 +1229,45 @@ dht_migration_complete_check_task (void *data)
                 goto out;
         }
 
+        /* perform 'open()' on all the fd's present on the inode */
+        if (tmp_loc.path == NULL) {
+                inode_path (inode, NULL, &path);
+                if (path)
+                        tmp_loc.path = path;
+        }
+
+        LOCK(&inode->lock);
+
         if (list_empty (&inode->fd_list))
-                goto out;
+                goto unlock;
 
         /* perform open as root:root. There is window between linkfile
          * creation(root:root) and setattr with the correct uid/gid
          */
         SYNCTASK_SETID(0, 0);
 
-        /* perform 'open()' on all the fd's present on the inode */
-        tmp_loc.inode = inode;
-        inode_path (inode, NULL, &path);
-        if (path)
-                tmp_loc.path = path;
-
-        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+        /* It's possible that we are the last user of iter_fd after each
+         * iteration. In this case the fd_unref() of iter_fd at the end of
+         * the loop will cause the destruction of the fd. So we need to
+         * iterate the list safely because iter_fd cannot be trusted.
+         */
+        list_for_each_entry_safe (iter_fd, tmp, &inode->fd_list, inode_list) {
 
                 if (fd_is_anonymous (iter_fd))
                         continue;
+
                 if (dht_fd_open_on_dst (this, iter_fd, dst_node))
                         continue;
+
+                /* We need to release the inode->lock before calling
+                 * syncop_open() to avoid possible deadlocks. However this
+                 * can cause the iter_fd to be released by other threads.
+                 * To avoid this, we take a reference before releasing the
+                 * lock.
+                 */
+                __fd_ref(iter_fd);
+
+                UNLOCK(&inode->lock);
 
                 /* flags for open are stripped down to allow following the
                  * new location of the file, otherwise we can get EEXIST or
@@ -1270,15 +1290,23 @@ dht_migration_complete_check_task (void *data)
                 } else {
                         dht_fd_ctx_set (this, iter_fd, dst_node);
                 }
+
+                fd_unref(iter_fd);
+
+                LOCK(&inode->lock);
         }
 
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
 
         if (open_failed) {
                 ret = -1;
-                goto out;
+                goto unlock;
         }
         ret = 0;
+
+unlock:
+        UNLOCK(&inode->lock);
+
 out:
 
         loc_wipe (&tmp_loc);
@@ -1351,6 +1379,7 @@ dht_rebalance_inprogress_task (void *data)
         dht_conf_t   *conf            = NULL;
         inode_t      *inode           = NULL;
         fd_t         *iter_fd         = NULL;
+        fd_t         *tmp             = NULL;
         int           open_failed     = 0;
         uint64_t      tmp_miginfo     = 0;
         dht_migrate_info_t *miginfo   = NULL;
@@ -1461,24 +1490,44 @@ dht_rebalance_inprogress_task (void *data)
         }
         ret = 0;
 
+        if (tmp_loc.path == NULL) {
+                inode_path (inode, NULL, &path);
+                if (path)
+                        tmp_loc.path = path;
+        }
+
+        LOCK(&inode->lock);
+
         if (list_empty (&inode->fd_list))
-                goto done;
+                goto unlock;
 
         /* perform open as root:root. There is window between linkfile
          * creation(root:root) and setattr with the correct uid/gid
          */
         SYNCTASK_SETID (0, 0);
 
-        inode_path (inode, NULL, &path);
-        if (path)
-                tmp_loc.path = path;
-
-        list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+        /* It's possible that we are the last user of iter_fd after each
+         * iteration. In this case the fd_unref() of iter_fd at the end of
+         * the loop will cause the destruction of the fd. So we need to
+         * iterate the list safely because iter_fd cannot be trusted.
+         */
+        list_for_each_entry_safe (iter_fd, tmp, &inode->fd_list, inode_list) {
                 if (fd_is_anonymous (iter_fd))
                         continue;
 
                 if (dht_fd_open_on_dst (this, iter_fd, dst_node))
                         continue;
+
+                /* We need to release the inode->lock before calling
+                 * syncop_open() to avoid possible deadlocks. However this
+                 * can cause the iter_fd to be released by other threads.
+                 * To avoid this, we take a reference before releasing the
+                 * lock.
+                 */
+                __fd_ref(iter_fd);
+
+                UNLOCK(&inode->lock);
+
                 /* flags for open are stripped down to allow following the
                  * new location of the file, otherwise we can get EEXIST or
                  * truncate the file again as rebalance is moving the data */
@@ -1501,16 +1550,21 @@ dht_rebalance_inprogress_task (void *data)
                         dht_fd_ctx_set (this, iter_fd, dst_node);
                 }
 
+                fd_unref(iter_fd);
+
+                LOCK(&inode->lock);
         }
 
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+
+unlock:
+        UNLOCK(&inode->lock);
 
         if (open_failed) {
                 ret = -1;
                 goto out;
         }
 
-done:
         ret = dht_inode_ctx_set_mig_info (this, inode, src_node, dst_node);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
