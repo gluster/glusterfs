@@ -1304,10 +1304,7 @@ ec_lock_update_fd(ec_lock_t *lock, ec_fop_data_t *fop)
 {
     /* If the fop has an fd available, attach it to the lock structure to be
      * able to do fxattrop calls instead of xattrop. */
-    if (fop->use_fd) {
-        if (lock->fd != NULL) {
-            __fd_unref(lock->fd);
-        }
+    if (fop->use_fd && (lock->fd == NULL)) {
         lock->fd = __fd_ref(fop->fd);
     }
 }
