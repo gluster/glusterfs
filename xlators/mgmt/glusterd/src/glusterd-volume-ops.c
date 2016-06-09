@@ -1781,6 +1781,12 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (!glusterd_are_all_peers_up ()) {
+                ret = -1;
+                snprintf (msg, sizeof(msg), "Some of the peers are down");
+                goto out;
+        }
+
         ret = 0;
 
 out:

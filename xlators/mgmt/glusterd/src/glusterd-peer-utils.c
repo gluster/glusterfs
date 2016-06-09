@@ -394,6 +394,35 @@ gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
 }
 
 gf_boolean_t
+glusterd_are_all_peers_up ()
+{
+        glusterd_peerinfo_t *peerinfo = NULL;
+        xlator_t            *this = NULL;
+        glusterd_conf_t     *conf = NULL;
+        gf_boolean_t         peers_up = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                if (!peerinfo->connected) {
+                        rcu_read_unlock ();
+                        goto out;
+                }
+        }
+        rcu_read_unlock ();
+
+        peers_up = _gf_true;
+
+out:
+        return peers_up;
+}
+
+gf_boolean_t
 glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                struct cds_list_head *peers,
                                char **down_peerstr)
