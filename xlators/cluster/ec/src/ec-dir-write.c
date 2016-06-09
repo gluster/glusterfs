@@ -46,11 +46,11 @@ ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,
         if (!cbk)
                 goto out;
 
-        if (op_ret < 0)
-                goto out;
-
         if (xdata)
                 cbk->xdata = dict_ref (xdata);
+
+        if (op_ret < 0)
+                goto out;
 
         if (poststat)
                 cbk->iatt[i++] = *poststat;
@@ -584,12 +584,14 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
+            cbk = fop->answer;
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.mkdir != NULL)
             {
                 fop->cbks.mkdir(fop->req_frame, fop, fop->xl, -1, fop->error,
-                                NULL, NULL, NULL, NULL, NULL);
+                                NULL, NULL, NULL, NULL,
+                                ((cbk) ? cbk->xdata : NULL));
             }
 
             return EC_STATE_LOCK_REUSE;
