@@ -21,7 +21,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-build_tester -lgfapi $(dirname $0)/libgfapi-fini-hang.c -o $M0/libgfapi-fini-hang
+TEST build_tester $(dirname $0)/libgfapi-fini-hang.c -o $M0/libgfapi-fini-hang -lgfapi
 TEST cd $M0
  ./libgfapi-fini-hang $V0 &
 lpid=$!
