@@ -126,8 +126,9 @@ ctr_lookup_wind(call_frame_t                    *frame,
                 /* Copy hard link info*/
                 gf_uuid_copy (CTR_DB_REC(ctr_local).pargfid,
                         *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
-                strcpy (CTR_DB_REC(ctr_local).file_name,
-                        NEW_LINK_CX(ctr_inode_cx)->basename);
+                strncpy (CTR_DB_REC(ctr_local).file_name,
+                         NEW_LINK_CX(ctr_inode_cx)->basename,
+                         sizeof(CTR_DB_REC(ctr_local).file_name));
 
                 /* Since we are in lookup we can ignore errors while
                  * Inserting in the DB, because there may be many
