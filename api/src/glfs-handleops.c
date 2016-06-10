@@ -1866,7 +1866,7 @@ invalid_fs:
 
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
-                                struct callback_arg *up_arg,
+                                struct glfs_callback_arg *up_arg,
                                 struct gf_upcall *upcall_data)
 {
         int                                 ret           = -1;
@@ -1874,7 +1874,7 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         struct glfs_object                  *oldp_object  = NULL;
         struct glfs_object                  *object       = NULL;
         struct gf_upcall_cache_invalidation *ca_data      = NULL;
-        struct callback_inode_arg           *up_inode_arg = NULL;
+        struct glfs_callback_inode_arg      *up_inode_arg = NULL;
 
         ca_data = upcall_data->data;
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
@@ -1899,7 +1899,7 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
                 goto out;
         }
 
-        up_inode_arg = GF_CALLOC (1, sizeof (struct callback_inode_arg),
+        up_inode_arg = GF_CALLOC (1, sizeof (struct glfs_callback_inode_arg),
                                   glfs_mt_upcall_entry_t);
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
                              up_inode_arg, out);
@@ -1975,7 +1975,7 @@ out:
  * This API is used to poll for upcall events stored in the
  * upcall list. Current users of this API is NFS-Ganesha.
  * Incase of any event received, it will be mapped appropriately
- * into 'callback_arg' along with the handle object  to be passed
+ * into 'glfs_callback_arg' along with the handle object  to be passed
  * to NFS-Ganesha.
  *
  * On success, applications need to check for 'reason' to decide
@@ -1983,7 +1983,7 @@ out:
  *
  * Current supported upcall_events -
  *      GFAPI_INODE_INVALIDATE -
- *              'arg - callback_inode_arg
+ *              'arg - glfs_callback_inode_arg
  *
  * After processing the event, applications need to free 'event_arg'.
  *
@@ -1995,7 +1995,7 @@ out:
  * 'fs' & ctx structures cannot be freed while in this routine.
  */
 int
-pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
+pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *up_arg)
 {
         upcall_entry                        *u_list         = NULL;
         upcall_entry                        *tmp            = NULL;

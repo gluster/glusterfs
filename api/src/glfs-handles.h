@@ -110,7 +110,7 @@ typedef struct glfs_object glfs_object_t;
  *
  * Currently supported upcall_events -
  *      GFAPI_INODE_INVALIDATE -
- *              'event_arg' - callback_inode_arg
+ *              'event_arg' - glfs_callback_inode_arg
  *
  * After processing the event, applications need to free 'event_arg'.
  *
@@ -118,7 +118,7 @@ typedef struct glfs_object glfs_object_t;
  * before calling glfs_fini(..). Hence making an assumption that
  * 'fs' & ctx structures cannot be freed while in this routine.
  */
-struct callback_arg {
+struct glfs_callback_arg {
         struct glfs             *fs; /* glfs object */
         int                     reason;  /* Upcall event type */
         void                    *event_arg; /* changes based in the event type */
@@ -128,7 +128,7 @@ struct callback_arg {
  * After processing upcall event, they need to free "object" , "p_object",
  * "oldp_object" using glfs_h_close(..).
  */
-struct callback_inode_arg {
+struct glfs_callback_inode_arg {
         struct glfs_object      *object; /* Object which need to be acted upon */
         int                     flags; /* Cache UPDATE/INVALIDATE flags */
         struct stat             buf; /* Latest stat of this entry */
@@ -144,7 +144,7 @@ struct callback_inode_arg {
                                            * dir handle */
 };
 
-/* reason list in callback_arg */
+/* reason list in glfs_callback_arg */
 enum gfapi_callback_type {
         GFAPI_CBK_EVENT_NULL,
         GFAPI_INODE_INVALIDATE, /* invalidate cache entry */
@@ -273,7 +273,7 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
   This API is used to poll for upcall events stored in the
   upcall list. Current users of this API is NFS-Ganesha.
   Incase of any event received, it will be mapped appropriately
-  into 'callback_arg' along with the handle('glfs_object') to be
+  into 'glfs_callback_arg' along with the handle('glfs_object') to be
   passed to NFS-Ganesha.
 
   In case of success, applications need to check the value of
@@ -297,7 +297,7 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
 */
 
 int
-glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *cbk) __THROW
+glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *cbk) __THROW
         GFAPI_PUBLIC(glfs_h_poll_upcall, 3.7.0);
 
 int

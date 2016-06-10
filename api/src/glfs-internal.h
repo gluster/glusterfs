@@ -414,7 +414,7 @@ int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
                                         struct gf_upcall *from_up_data);
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
-                                struct callback_arg *up_arg,
+                                struct glfs_callback_arg *up_arg,
                                 struct gf_upcall *upcall_data);
 
 ssize_t

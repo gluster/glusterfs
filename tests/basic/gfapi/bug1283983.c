@@ -38,11 +38,11 @@ main (int argc, char *argv[])
         char      *filename = "/a1";
         char      *filename2 = "/a2";
         struct     stat sb = {0, };
-        struct    callback_arg cbk;
+        struct    glfs_callback_arg cbk;
         char      *logfile = NULL;
         char      *volname = NULL;
         int       cnt = 1;
-        struct callback_inode_arg *in_arg = NULL;
+        struct glfs_callback_inode_arg *in_arg = NULL;
         struct glfs_object *root = NULL, *leaf = NULL;
 
         cbk.reason = 0;
