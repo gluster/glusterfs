@@ -38,10 +38,10 @@ main (int argc, char *argv[])
         char      *writebuf = NULL;
         char      *vol_id  = NULL;
         unsigned int       cnt = 1;
-        struct    callback_arg cbk;
+        struct    glfs_callback_arg cbk;
         char      *logfile = NULL;
         char      *volname = NULL;
-        struct callback_inode_arg *in_arg = NULL;
+        struct glfs_callback_inode_arg *in_arg = NULL;
 
         cbk.reason = 0;
 

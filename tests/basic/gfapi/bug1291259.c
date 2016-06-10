@@ -41,12 +41,12 @@ main (int argc, char *argv[])
         char      *filename = "/a1";
         char      *filename2 = "/a2";
         struct     stat sb = {0, };
-        struct    callback_arg cbk;
+        struct    glfs_callback_arg cbk;
         char      *logfile = NULL;
         char      *volname = NULL;
         int        cnt = 1;
         int       upcall_received = 0;
-        struct callback_inode_arg *in_arg = NULL;
+        struct glfs_callback_inode_arg *in_arg = NULL;
         struct glfs_object *root = NULL, *leaf = NULL;
         unsigned char   globjhdl[GFAPI_HANDLE_LENGTH];
         unsigned char   globjhdl2[GFAPI_HANDLE_LENGTH];
@@ -124,7 +124,7 @@ main (int argc, char *argv[])
                 if (cbk.reason == GFAPI_INODE_INVALIDATE) {
                         fprintf (stderr, "Upcall received(%d)\n",
                                  cbk.reason);
-                        in_arg = (struct callback_inode_arg *)(cbk.event_arg);
+                        in_arg = (struct glfs_callback_inode_arg *)(cbk.event_arg);
 
                         ret = glfs_h_extract_handle (root,
                                                      globjhdl+GLAPI_UUID_LENGTH,
