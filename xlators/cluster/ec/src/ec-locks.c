@@ -197,10 +197,11 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_PREPARE_ANSWER:
             if (fop->entrylk_cmd != ENTRYLK_UNLOCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &mask);
+                ec_fop_set_error (fop, ec_lock_check(fop, &mask));
                 if (fop->error != 0) {
                     if (mask != 0) {
                         if (fop->id == GF_FOP_ENTRYLK) {
@@ -258,7 +259,6 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
-        case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
@@ -590,10 +590,11 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_PREPARE_ANSWER:
             if (fop->flock.l_type != F_UNLCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &mask);
+                ec_fop_set_error (fop, ec_lock_check(fop, &mask));
                 if (fop->error != 0) {
                     if (mask != 0) {
                         ec_t *ec = fop->xl->private;
@@ -659,7 +660,6 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
-        case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
@@ -1026,10 +1026,11 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_PREPARE_ANSWER:
             if (fop->flock.l_type != F_UNLCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &mask);
+                ec_fop_set_error (fop, ec_lock_check(fop, &mask));
                 if (fop->error != 0) {
                     if (mask != 0) {
                         ec_t *ec = fop->xl->private;
@@ -1077,7 +1078,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
-        case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
