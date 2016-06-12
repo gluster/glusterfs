@@ -851,7 +851,7 @@ gf_client_dump_inodes (xlator_t *this)
         client_t       *client        = NULL;
         clienttable_t  *clienttable   = NULL;
         xlator_t       *prev_bound_xl = NULL;
-        int             count         = 1;
+        int             count         = 0;
         int             ret           = -1;
         char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
 
