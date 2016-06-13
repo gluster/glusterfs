@@ -5284,10 +5284,10 @@ struct volume_options options[] = {
         {.key = {"limit-set"}},
         {.key = {"deem-statfs"},
          .type = GF_OPTION_TYPE_BOOL,
-         .default_value = "off",
+         .default_value = "on",
          .description = "If set to on, it takes quota limits into"
-                        "consideration while estimating fs size. (df command)"
-                        " (Default is off)."
+                        " consideration while estimating fs size. (df command)"
+                        " (Default is on)."
         },
         {.key = {"server-quota"},
          .type = GF_OPTION_TYPE_BOOL,
