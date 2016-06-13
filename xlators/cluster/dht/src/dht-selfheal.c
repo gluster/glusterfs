@@ -2012,17 +2012,42 @@ int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                         loc_t *loc, dht_layout_t *layout)
 {
-        dht_local_t *local    = NULL;
-        uint32_t     down     = 0;
-        uint32_t     misc     = 0;
-        int          ret      = 0;
-        xlator_t    *this     = NULL;
-        char         gfid[GF_UUID_BUF_SIZE] = {0};
+        dht_local_t *local                   = NULL;
+        uint32_t     down                    = 0;
+        uint32_t     misc                    = 0;
+        int          ret                     = 0;
+        xlator_t    *this                    = NULL;
+        inode_t     *linked_inode            = NULL, *inode = NULL;
+        char         gfid[GF_UUID_BUF_SIZE]  = {0};
+        char         pgfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
         this = frame->this;
 
         gf_uuid_unparse(loc->gfid, gfid);
+
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (this, layout);
+
+        if (!__is_root_gfid (local->stbuf.ia_gfid)) {
+                gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+                gf_uuid_unparse(loc->parent->gfid, pgfid);
+
+                linked_inode = inode_link (loc->inode, loc->parent, loc->name,
+                                           &local->stbuf);
+                if (!linked_inode) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_DIR_SELFHEAL_FAILED,
+                                "linking inode failed (%s/%s) => %s",
+                                pgfid, loc->name, gfid);
+                        ret = 0;
+                        goto sorry_no_fix;
+                }
+
+                inode = loc->inode;
+                loc->inode = linked_inode;
+                inode_unref (inode);
+        }
 
         dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
@@ -2032,9 +2057,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
         down     = local->selfheal.down;
         misc     = local->selfheal.misc;
-
-        local->selfheal.dir_cbk = dir_cbk;
-        local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
