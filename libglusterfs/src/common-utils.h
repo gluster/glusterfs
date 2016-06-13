@@ -766,6 +766,9 @@ int gf_set_timestamp  (const char *src, const char* dest);
 
 int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
                       void *(*start_routine)(void *), void *arg);
+int gf_thread_create_detached (pthread_t *thread,
+                      void *(*start_routine)(void *), void *arg);
+
 gf_boolean_t
 gf_is_service_running (char *pidfile, int *pid);
 int
