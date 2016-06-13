@@ -41,7 +41,7 @@
 
 #define GLFS_GFAPI_BASE             GLFS_MSGID_COMP_API
 #define GLFS_NUM_MESSAGES           48
-#define GLFS_MSGID_END              (GLFS_GFAPI_BASE + GLFS_NUM_MESSAGESi + 1)
+#define GLFS_MSGID_END              (GLFS_GFAPI_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messages with message IDs */
 #define glfs_msg_start_x GLFS_GFAPI_BASE, "Invalid: Start of messages"
 /*------------*/
