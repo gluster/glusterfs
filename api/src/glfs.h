@@ -72,7 +72,6 @@ __BEGIN_DECLS
 struct glfs;
 typedef struct glfs glfs_t;
 
-
 /*
   SYNOPSIS
 
@@ -770,12 +769,10 @@ glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_dup, 3.4.0);
 
 /*
- * No xdata support for now.  Nobody needs this call at all yet except for the
- * test script, and that doesn't need xdata.  Adding dict_t support and a new
- * header-file requirement doesn't seem worth it until the need is greater.
+ * Nobody needs this call at all yet except for the test script.
  */
-int glfs_ipc (glfs_fd_t *fd, int cmd) __THROW
-        GFAPI_PUBLIC(glfs_ipc, 3.7.0);
+int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW
+        GFAPI_PUBLIC(glfs_ipc, 4.0.0);
 
 __END_DECLS
 
