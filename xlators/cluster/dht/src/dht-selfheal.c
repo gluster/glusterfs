@@ -2046,6 +2046,9 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local = frame->local;
         this = frame->this;
 
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (this, layout);
+
         if (!__is_root_gfid (local->stbuf.ia_gfid)) {
                 gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
                 gf_uuid_unparse(loc->parent->gfid, pgfid);
@@ -2074,9 +2077,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
         down     = local->selfheal.down;
         misc     = local->selfheal.misc;
-
-        local->selfheal.dir_cbk = dir_cbk;
-        local->selfheal.layout = dht_layout_ref (this, layout);
 
         if (down) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
