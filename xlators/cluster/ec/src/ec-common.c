@@ -1529,8 +1529,23 @@ ec_lock_assign_owner(ec_lock_link_t *link)
         timer_link = lock->timer->data;
         GF_ASSERT(timer_link != NULL);
 
-        gf_timer_call_cancel(fop->xl->ctx, lock->timer);
-        ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
+        if (gf_timer_call_cancel(fop->xl->ctx, lock->timer) < 0) {
+            /* It's too late to avoid the execution of the timer callback.
+             * Since we need to be sure that the callback has access to all
+             * needed resources, we cannot resume the execution of the timer
+             * fop now. This will be done in the callback.
+             */
+            timer_link = NULL;
+        } else {
+            /* The timer has been cancelled, so we need to release the owner
+             * reference that was held by the fop waiting for the timer. This
+             * can be the last reference, but we'll immediately increment it
+             * for the current fop, so no need to check it.
+             */
+            lock->refs_owners--;
+
+            ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
+        }
 
         /* We have two options here:
          *
@@ -1548,13 +1563,8 @@ ec_lock_assign_owner(ec_lock_link_t *link)
          *    safe until we release it. In this case we can safely clear
          *    lock->timer. This will cause that the timer callback does nothing
          *    once it acquires the mutex.
-         *
-         * In both cases we must release the owner reference assigned to the
-         * fop that was handling the unlock because ec_unlock_now() won't be
-         * called for that fop.
          */
         lock->timer = NULL;
-        lock->refs_owners--;
     }
 
     lock->exclusive |= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
@@ -1965,6 +1975,8 @@ ec_unlock_now(ec_lock_link_t *link)
     ec_resume(link->fop, 0);
 }
 
+void ec_unlock_timer_add(ec_lock_link_t *link);
+
 void
 ec_unlock_timer_del(ec_lock_link_t *link)
 {
@@ -1972,17 +1984,21 @@ ec_unlock_timer_del(ec_lock_link_t *link)
         inode_t *inode;
         gf_boolean_t now = _gf_false;
 
+        /* If we are here, it means that the timer has expired before having
+         * been cancelled. This guarantees that 'link' is still valid because
+         * the fop that contains it must be pending (if timer cancellation in
+         * ec_lock_assign_owner() fails, the fop is left sleeping).
+         *
+         * At the same time, the fop still has a reference to the lock, so
+         * it must also be valid.
+         */
         lock = link->lock;
 
-        /* A race condition can happen if timer expires, calls this function
-         * and the lock is released (lock->loc is wiped) but the fop is not
-         * fully completed yet (it's still on the list of pending fops). In
-         * this case, this function can also be called if ec_unlock_force() is
-         * called. */
+        /* 'lock' must have a valid inode since it can only be destroyed
+         * when the lock itself is destroyed, but we have a reference to the
+         * lock to avoid this.
+         */
         inode = lock->loc.inode;
-        if (inode == NULL) {
-                return;
-        }
 
         LOCK(&inode->lock);
 
@@ -2013,6 +2029,31 @@ ec_unlock_timer_del(ec_lock_link_t *link)
 
         if (now) {
                 ec_unlock_now(link);
+        } else {
+                /* The timer has been cancelled just after firing it but before
+                 * getting here. This means that another fop has used the lock
+                 * and everything should be handled as if this callback were
+                 * have not been executed. However we still have an owner
+                 * reference.
+                 *
+                 * We need to release our reference. If this is not the last
+                 * reference (the most common case because another fop has
+                 * taken another ref) we only need to decrement the counter.
+                 * Otherwise we have been delayed enough so that the other fop
+                 * has had time to acquire the reference, do its operation and
+                 * release it. At the time of releasing it, the fop did found
+                 * that the ref counter was > 1 (our reference), so the delayed
+                 * unlock timer wasn't started. We need to start it again if we
+                 * are the last reference.
+                 *
+                 * ec_unlock_timer_add() handles both cases.
+                 */
+                ec_unlock_timer_add(link);
+
+                /* We need to resume the fop that was waiting for the delayed
+                 * unlock.
+                 */
+                ec_resume(link->fop, 0);
         }
 }
 
