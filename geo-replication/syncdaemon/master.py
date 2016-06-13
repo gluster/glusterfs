@@ -981,7 +981,8 @@ class GMasterChangelogMixin(GMasterCommon):
 
                 # Remove Unlinked GFIDs from Queue
                 for unlinked_gfid in self.unlinked_gfids:
-                    self.datas_in_batch.remove(unlinked_gfid)
+                    if unlinked_gfid in self.datas_in_batch:
+                        self.datas_in_batch.remove(unlinked_gfid)
 
                 # Retry only Sync. Do not retry entry ops
                 if self.datas_in_batch:
