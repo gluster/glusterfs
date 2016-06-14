@@ -3050,14 +3050,10 @@ int
 glusterd_spawn_daemons (void *opaque)
 {
         glusterd_conf_t *conf = THIS->private;
-        gf_boolean_t    start_bricks = !conf->restart_done;
         int             ret             = -1;
 
         synclock_lock (&conf->big_lock);
-        if (start_bricks) {
-                glusterd_restart_bricks (conf);
-                conf->restart_done = _gf_true;
-        }
+        glusterd_restart_bricks (conf);
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
         ret = glusterd_snapdsvc_restart ();
@@ -4214,6 +4210,24 @@ out:
 }
 
 int
+glusterd_get_global_server_quorum_ratio (dict_t *opts, double *quorum)
+{
+        int      ret        = -1;
+        char    *quorum_str = NULL;
+
+        ret = dict_get_str (opts, GLUSTERD_QUORUM_RATIO_KEY, &quorum_str);
+        if (ret)
+                goto out;
+
+        ret = gf_string2percent (quorum_str, quorum);
+        if (ret)
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 glusterd_get_global_opt_version (dict_t *opts, uint32_t *version)
 {
         int     ret = -1;
@@ -4260,6 +4274,8 @@ glusterd_import_global_opts (dict_t *friend_data)
         int             count = 0;
         uint32_t        local_version = 0;
         uint32_t        remote_version = 0;
+        double          old_quorum = 0.0;
+        double          new_quorum = 0.0;
 
         this = THIS;
         conf = this->private;
@@ -4283,19 +4299,41 @@ glusterd_import_global_opts (dict_t *friend_data)
                 goto out;
         }
 
+        /* Not handling ret since server-quorum-ratio might not yet be set */
+        ret = glusterd_get_global_server_quorum_ratio (conf->opts,
+                                                       &old_quorum);
+        ret = glusterd_get_global_server_quorum_ratio (import_options,
+                                                       &new_quorum);
+
         ret = glusterd_get_global_opt_version (conf->opts, &local_version);
         if (ret)
                 goto out;
         ret = glusterd_get_global_opt_version (import_options, &remote_version);
         if (ret)
                 goto out;
+
         if (remote_version > local_version) {
                 ret = glusterd_store_options (this, import_options);
                 if (ret)
                         goto out;
                 dict_unref (conf->opts);
                 conf->opts = dict_ref (import_options);
+
+                /* If server quorum ratio has changed, restart bricks to
+                 * recompute if quorum is met. If quorum is not met bricks are
+                 * not started and those already running are stopped
+                 */
+                if (old_quorum != new_quorum) {
+                        ret = glusterd_restart_bricks (conf);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                                        GD_MSG_SERVER_QUORUM_NOT_MET,
+                                        "Restarting bricks failed");
+                                goto out;
+                        }
+                }
         }
+
         ret = 0;
 out:
         if (import_options)
@@ -4321,7 +4359,6 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
 
         priv = this->private;
         GF_ASSERT (priv);
-
         ret = glusterd_import_global_opts (peer_data);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -4883,7 +4920,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         volinfo->volname);
 
                 /* Check the quorum, if quorum is not met, don't start the
-                   bricks
+                   bricks. Stop bricks in case they are running.
                 */
                 ret = check_quorum_for_brick_start (volinfo, node_quorum);
                 if (ret == 0) {
@@ -4891,11 +4928,22 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 GD_MSG_SERVER_QUORUM_NOT_MET, "Skipping brick "
                                 "restart for volume %s as quorum is not met",
                                 volinfo->volname);
+                        (void) glusterd_stop_bricks (volinfo);
                         continue;
-                }
-                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
-                                         brick_list) {
-                        glusterd_brick_start (volinfo, brickinfo, _gf_false);
+                } else if (ret == 2 && conf->restart_done == _gf_true) {
+                        /* If glusterd has been restarted and quorum is not
+                         * applicable then do not restart the bricks as this
+                         * might start bricks brought down purposely, say for
+                         * maintenance
+                         */
+                        continue;
+                } else {
+                        cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                                 brick_list) {
+                                glusterd_brick_start (volinfo, brickinfo,
+                                                     _gf_false);
+                        }
+                        conf->restart_done = _gf_true;
                 }
         }
 

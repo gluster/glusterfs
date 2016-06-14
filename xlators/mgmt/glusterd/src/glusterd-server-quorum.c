@@ -397,9 +397,11 @@ out:
         return ret;
 }
 
-/* ret = 1 represents quorum is met or quorum not applicable,
-   ret = 0 represents quorum is not met
-*/
+/* ret = 0 represents quorum is not met
+ * ret = 1 represents quorum is met
+ * ret = 2 represents quorum not applicable
+ */
+
 int
 check_quorum_for_brick_start (glusterd_volinfo_t *volinfo,
                               gf_boolean_t node_quorum)
@@ -412,7 +414,7 @@ check_quorum_for_brick_start (glusterd_volinfo_t *volinfo,
                 if (node_quorum)
                         ret = 1;
         } else {
-                ret = 1;
+                ret = 2;
         }
         return ret;
 }
