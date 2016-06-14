@@ -1064,7 +1064,7 @@ glusterd_gsync_volinfo_dict_set (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 static int
@@ -1794,7 +1794,6 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         gf_boolean_t            is_template_in_use = _gf_false;
         char                    msg[2048] = {0};
         uuid_t                  uuid = {0};
-        glusterd_conf_t        *priv = NULL;
         xlator_t               *this = NULL;
         struct stat             stbuf = {0,};
         char                    statefiledir[PATH_MAX] = {0,};
@@ -1808,8 +1807,6 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         GF_ASSERT (op_errstr);
         GF_ASSERT (conf_path);
         GF_ASSERT (this && this->private);
-
-        priv  = this->private;
 
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started "
@@ -2964,7 +2961,6 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char                     *georep_session_wrkng_dir  = NULL;
         struct slave_vol_config  slave1                     = {{0},};
         int                      type                       = 0;
-        char                     monitor_status[NAME_MAX]   = {0,};
         char                     old_slave_url_info[SLAVE_URL_INFO_MAX] = {0};
         char                     *old_slave_url             = NULL;
         char                     old_confpath[PATH_MAX]     = {0};
@@ -6229,7 +6225,6 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                old_working_dir[PATH_MAX] = {0};
         char                new_working_dir[PATH_MAX] = {0};
         char               *slave_info                = NULL;
-        char                slave_url_info[SLAVE_URL_INFO_MAX] = {0};
         char               *slave_voluuid             = NULL;
         char               *old_slavehost             = NULL;
         gf_boolean_t        is_existing_session       = _gf_false;
