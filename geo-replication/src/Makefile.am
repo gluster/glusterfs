@@ -1,11 +1,13 @@
 gsyncddir = $(libexecdir)/glusterfs
 
 gsyncd_SCRIPTS = gverify.sh peer_gsec_create \
-	set_geo_rep_pem_keys.sh peer_mountbroker peer_mountbroker.py
+	set_geo_rep_pem_keys.sh peer_mountbroker peer_mountbroker.py \
+	peer_georep-sshkey.py
 
 # peer_gsec_create and peer_add_secret_pub are not added to
 # EXTRA_DIST as it's derived from a .in file
-EXTRA_DIST = gverify.sh set_geo_rep_pem_keys.sh peer_mountbroker.py.in
+EXTRA_DIST = gverify.sh set_geo_rep_pem_keys.sh peer_mountbroker.py.in \
+	peer_georep-sshkey.py.in
 
 gsyncd_PROGRAMS = gsyncd
 
@@ -38,5 +40,11 @@ install-exec-hook:
 	ln -s $(libexecdir)/glusterfs/peer_mountbroker.py \
 		$(DESTDIR)$(sbindir)/gluster-mountbroker
 
+	rm -f $(DESTDIR)$(sbindir)/gluster-georep-sshkey
+	ln -s $(libexecdir)/glusterfs/peer_georep-sshkey.py \
+		$(DESTDIR)$(sbindir)/gluster-georep-sshkey
+
+
 uninstall-hook:
 	rm -f $(DESTDIR)$(sbindir)/gluster-mountbroker
+	rm -f $(DESTDIR)$(sbindir)/gluster-georep-sshkey
