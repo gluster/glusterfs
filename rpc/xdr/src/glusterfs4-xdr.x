@@ -86,3 +86,20 @@ struct gfs4_namelink_req {
        string bname<>;
        opaque xdata<>;
 };
+
+struct gfs4_inodelk_contention_req {
+        opaque                gfid[16];
+        struct gf_proto_flock flock;
+        unsigned int          pid;
+        string                domain<>;
+        opaque                xdata<>;
+};
+
+struct gfs4_entrylk_contention_req {
+        opaque                gfid[16];
+        unsigned int          type;
+        unsigned int          pid;
+        string                name<>;
+        string                domain<>;
+        opaque                xdata<>;
+};

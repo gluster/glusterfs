@@ -1847,6 +1847,67 @@ gf_boolean_t ec_lock_acquire(ec_lock_link_t *link)
     return _gf_true;
 }
 
+static ec_lock_link_t *
+ec_lock_timer_cancel(xlator_t *xl, ec_lock_t *lock)
+{
+        ec_lock_link_t *timer_link;
+
+        /* If we don't have any timer, there's nothing to cancel. */
+        if (lock->timer == NULL) {
+                return NULL;
+        }
+
+        /* We are trying to access a lock that has an unlock timer active.
+         * This means that the lock must be idle, i.e. no fop can be in the
+         * owner, waiting or frozen lists. It also means that the lock cannot
+         * have been marked as being released (this is done without timers).
+         * There should only be one owner reference, but it's possible that
+         * some fops are being prepared to use this lock. */
+        GF_ASSERT ((lock->refs_owners == 1) &&
+                   list_empty(&lock->owners) && list_empty(&lock->waiting));
+
+        /* We take the timer_link before cancelling the timer, since a
+         * successful cancellation will destroy it. It must not be NULL
+         * because it references the fop responsible for the delayed unlock
+         * that we are currently trying to cancel. */
+        timer_link = lock->timer->data;
+        GF_ASSERT(timer_link != NULL);
+
+        if (gf_timer_call_cancel(xl->ctx, lock->timer) < 0) {
+                /* It's too late to avoid the execution of the timer callback.
+                 * Since we need to be sure that the callback has access to all
+                 * needed resources, we cannot resume the execution of the
+                 * timer fop now. This will be done in the callback. */
+                timer_link = NULL;
+        } else {
+                /* The timer has been cancelled. The fop referenced by
+                 * timer_link holds the last reference. The caller is
+                 * responsible to release it when not needed anymore. */
+                ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
+        }
+
+        /* We have two options here:
+         *
+         * 1. The timer has been successfully cancelled.
+         *
+         *    This is the easiest case and we can continue with the currently
+         *    acquired lock.
+         *
+         * 2. The timer callback has already been fired.
+         *
+         *    In this case we have not been able to cancel the timer before
+         *    the timer callback has been fired, but we also know that
+         *    lock->timer != NULL. This means that the timer callback is still
+         *    trying to acquire the inode mutex that we currently own. We are
+         *    safe until we release it. In this case we can safely clear
+         *    lock->timer. This will cause that the timer callback does nothing
+         *    once it acquires the mutex.
+         */
+        lock->timer = NULL;
+
+        return timer_link;
+}
+
 static gf_boolean_t
 ec_lock_assign_owner(ec_lock_link_t *link)
 {
@@ -1891,61 +1952,7 @@ ec_lock_assign_owner(ec_lock_link_t *link)
      * empty. */
     GF_ASSERT(list_empty(&lock->frozen));
 
-    if (lock->timer != NULL) {
-        /* We are trying to acquire a lock that has an unlock timer active.
-         * This means that the lock must be idle, i.e. no fop can be in the
-         * owner, waiting or frozen lists. It also means that the lock cannot
-         * have been marked as being released (this is done without timers).
-         * There should only be one owner reference, but it's possible that
-         * some fops are being prepared to use this lock.
-         */
-        GF_ASSERT ((lock->refs_owners == 1) &&
-                   list_empty(&lock->owners) && list_empty(&lock->waiting));
-
-        /* We take the timer_link before cancelling the timer, since a
-         * successful cancellation will destroy it. It must not be NULL
-         * because it references the fop responsible for the delayed unlock
-         * that we are currently trying to cancel. */
-        timer_link = lock->timer->data;
-        GF_ASSERT(timer_link != NULL);
-
-        if (gf_timer_call_cancel(fop->xl->ctx, lock->timer) < 0) {
-            /* It's too late to avoid the execution of the timer callback.
-             * Since we need to be sure that the callback has access to all
-             * needed resources, we cannot resume the execution of the timer
-             * fop now. This will be done in the callback.
-             */
-            timer_link = NULL;
-        } else {
-            /* The timer has been cancelled, so we need to release the owner
-             * reference that was held by the fop waiting for the timer. This
-             * can be the last reference, but we'll immediately increment it
-             * for the current fop, so no need to check it.
-             */
-            lock->refs_owners--;
-
-            ec_trace("UNLOCK_CANCELLED", timer_link->fop, "lock=%p", lock);
-        }
-
-        /* We have two options here:
-         *
-         * 1. The timer has been successfully cancelled.
-         *
-         *    This is the easiest case and we can continue with the currently
-         *    acquired lock.
-         *
-         * 2. The timer callback has already been fired.
-         *
-         *    In this case we have not been able to cancel the timer before
-         *    the timer callback has been fired, but we also know that
-         *    lock->timer != NULL. This means that the timer callback is still
-         *    trying to acquire the inode mutex that we currently own. We are
-         *    safe until we release it. In this case we can safely clear
-         *    lock->timer. This will cause that the timer callback does nothing
-         *    once it acquires the mutex.
-         */
-        lock->timer = NULL;
-    }
+    timer_link = ec_lock_timer_cancel(fop->xl, lock);
 
     if (!list_empty(&lock->owners)) {
         /* There are other owners of this lock. We can only take ownership if
@@ -1965,7 +1972,13 @@ ec_lock_assign_owner(ec_lock_link_t *link)
     }
 
     list_add_tail(&link->owner_list, &lock->owners);
-    lock->refs_owners++;
+
+    /* If timer_link is not NULL, it means that we have inherited the owner
+     * reference assigned to the timer fop. In this case we simply reuse it.
+     * Otherwise we need to increase the number of owners. */
+    if (timer_link == NULL) {
+            lock->refs_owners++;
+    }
 
     assigned = _gf_true;
 
@@ -2383,6 +2396,48 @@ ec_unlock_now(ec_lock_link_t *link)
     ec_resume(link->fop, 0);
 }
 
+void
+ec_lock_release(ec_t *ec, inode_t *inode)
+{
+        ec_lock_t *lock;
+        ec_inode_t *ctx;
+        ec_lock_link_t *timer_link = NULL;
+
+        LOCK(&inode->lock);
+
+        ctx = __ec_inode_get(inode, ec->xl);
+        if (ctx == NULL) {
+                goto done;
+        }
+        lock = ctx->inode_lock;
+        if ((lock == NULL) || !lock->acquired || lock->release) {
+                goto done;
+        }
+
+        gf_msg_debug(ec->xl->name, 0,
+                     "Releasing inode %p due to lock contention", inode);
+
+        /* The lock is not marked to be released, so the frozen list should be
+         * empty. */
+        GF_ASSERT(list_empty(&lock->frozen));
+
+        timer_link = ec_lock_timer_cancel(ec->xl, lock);
+
+        /* We mark the lock to be released as soon as possible. */
+        lock->release = _gf_true;
+
+done:
+        UNLOCK(&inode->lock);
+
+        /* If we have cancelled the timer, we need to start the unlock of the
+         * inode. If there was a timer but we have been unable to cancel it
+         * because it was just triggered, the timer callback will take care
+         * of releasing the inode. */
+        if (timer_link != NULL) {
+                ec_unlock_now(timer_link);
+        }
+}
+
 void ec_unlock_timer_add(ec_lock_link_t *link);
 
 void
@@ -2470,9 +2525,60 @@ void ec_unlock_timer_cbk(void *data)
         ec_unlock_timer_del(data);
 }
 
+static gf_boolean_t
+ec_eager_lock_used(ec_t *ec, ec_fop_data_t *fop)
+{
+        /* Fops with no locks at this point mean that they are sent as sub-fops
+         * of other higher level fops. In this case we simply assume that the
+         * parent fop will take correct care of the eager lock. */
+        if (fop->lock_count == 0) {
+                return _gf_true;
+        }
+
+        /* We may have more than one lock, but this only happens in the rename
+         * fop, and both locks will reference an inode of the same type (a
+         * directory in this case), so we only need to check the first lock. */
+        if (fop->locks[0].lock->loc.inode->ia_type == IA_IFREG) {
+                return ec->eager_lock;
+        }
+
+        return ec->other_eager_lock;
+}
+
+static uint32_t
+ec_eager_lock_timeout(ec_t *ec, ec_lock_t *lock)
+{
+        if (lock->loc.inode->ia_type == IA_IFREG) {
+                return ec->eager_lock_timeout;
+        }
+
+        return ec->other_eager_lock_timeout;
+}
+
+static gf_boolean_t
+ec_lock_delay_create(ec_lock_link_t *link)
+{
+        struct timespec delay;
+        ec_fop_data_t *fop = link->fop;
+        ec_lock_t *lock = link->lock;
+
+        delay.tv_sec = ec_eager_lock_timeout(fop->xl->private, lock);
+        delay.tv_nsec = 0;
+        lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
+                                          ec_unlock_timer_cbk, link);
+        if (lock->timer == NULL) {
+                gf_msg(fop->xl->name, GF_LOG_WARNING, ENOMEM,
+                       EC_MSG_UNLOCK_DELAY_FAILED,
+                       "Unable to delay an unlock");
+
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 void ec_unlock_timer_add(ec_lock_link_t *link)
 {
-    struct timespec delay;
     ec_fop_data_t *fop = link->fop;
     ec_lock_t *lock = link->lock;
     gf_boolean_t now = _gf_false;
@@ -2526,19 +2632,12 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
             ec_trace("UNLOCK_DELAY", fop, "lock=%p, release=%d", lock,
                      lock->release);
 
-            delay.tv_sec = 1;
-            delay.tv_nsec = 0;
-            lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
-                                              ec_unlock_timer_cbk, link);
-            if (lock->timer == NULL) {
-                gf_msg(fop->xl->name, GF_LOG_WARNING, ENOMEM,
-                       EC_MSG_UNLOCK_DELAY_FAILED,
-                       "Unable to delay an unlock");
-
+            if (!ec_lock_delay_create(link)) {
                 /* We are unable to create a new timer. We immediately release
                  * the lock. */
                 lock->release = now = _gf_true;
             }
+
         } else {
             ec_trace("UNLOCK_FORCE", fop, "lock=%p, release=%d", lock,
                      lock->release);
@@ -2581,26 +2680,6 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 {
     GF_ASSERT(fop->lock_count == 1);
     ec_update_info(&fop->locks[0]);
-}
-
-static gf_boolean_t
-ec_use_eager_lock(ec_t *ec, ec_fop_data_t *fop)
-{
-        /* Fops with no locks at this point mean that they are sent as sub-fops
-         * of other higher level fops. In this case we simply assume that the
-         * parent fop will take correct care of the eager lock. */
-        if (fop->lock_count == 0) {
-                return _gf_true;
-        }
-
-        /* We may have more than one lock, but this only happens in the rename
-         * fop, and both locks will reference an inode of the same type (a
-         * directory in this case), so we only need to check the first lock. */
-        if (fop->locks[0].lock->loc.inode->ia_type == IA_IFREG) {
-                return ec->eager_lock;
-        }
-
-        return ec->other_eager_lock;
 }
 
 static void
@@ -2708,7 +2787,7 @@ void ec_lock_reuse(ec_fop_data_t *fop)
     ec = fop->xl->private;
     cbk = fop->answer;
 
-    if (ec_use_eager_lock(ec, fop) && cbk != NULL) {
+    if (ec_eager_lock_used(ec, fop) && cbk != NULL) {
         if (cbk->xdata != NULL) {
             if ((dict_get_int32(cbk->xdata, GLUSTERFS_INODELK_COUNT,
                                 &count) == 0) && (count > 1)) {

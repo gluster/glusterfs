@@ -155,8 +155,12 @@ xdr_gfs3_xattrop_req
 xdr_gfs3_xattrop_rsp
 xdr_gfs3_zerofill_req
 xdr_gfs3_zerofill_rsp
+xdr_gfs4_entrylk_contention_req
+xdr_gfs4_entrylk_contention_rsp
 xdr_gfs4_icreate_req
 xdr_gfs4_icreate_rsp
+xdr_gfs4_inodelk_contention_req
+xdr_gfs4_inodelk_contention_rsp
 xdr_gfs4_namelink_req
 xdr_gfs4_namelink_rsp
 xdr_gf_set_lk_ver_req

@@ -102,6 +102,7 @@ void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags,
 void ec_lock(ec_fop_data_t * fop);
 void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
+void ec_lock_release(ec_t *ec, inode_t *inode);
 
 gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
                                uint64_t *size);

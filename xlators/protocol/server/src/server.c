@@ -1349,6 +1349,8 @@ server_process_event_upcall (xlator_t *this, void *data)
         enum gf_cbk_procnum             cbk_procnum     = GF_CBK_NULL;
         gfs3_cbk_cache_invalidation_req gf_c_req        = {0,};
         gfs3_recall_lease_req           gf_recall_lease = {{0,},};
+        gfs4_inodelk_contention_req     gf_inodelk_contention = {{0},};
+        gfs4_entrylk_contention_req     gf_entrylk_contention = {{0},};
         xdrproc_t                       xdrproc;
 
         GF_VALIDATE_OR_GOTO(this->name, data, out);
@@ -1358,7 +1360,16 @@ server_process_event_upcall (xlator_t *this, void *data)
 
         upcall_data = (struct gf_upcall *)data;
         client_uid = upcall_data->client_uid;
-        GF_VALIDATE_OR_GOTO(this->name, client_uid, out);
+        /* client_uid could be NULL if the upcall was intended for a server's
+         * child xlator (so no client_uid available) but it hasn't handled
+         * the notification. For this reason we silently ignore any upcall
+         * request with a NULL client_uid, but -1 will be returned.
+         */
+        if (client_uid == NULL) {
+                gf_msg_debug(this->name, 0,
+                             "NULL client_uid for an upcall request");
+                goto out;
+        }
 
         switch (upcall_data->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
@@ -1380,6 +1391,28 @@ server_process_event_upcall (xlator_t *this, void *data)
                 up_req = &gf_recall_lease;
                 cbk_procnum = GF_CBK_RECALL_LEASE;
                 xdrproc = (xdrproc_t)xdr_gfs3_recall_lease_req;
+                break;
+        case GF_UPCALL_INODELK_CONTENTION:
+                ret = gf_proto_inodelk_contention_from_upcall (this,
+                                                        &gf_inodelk_contention,
+                                                         upcall_data);
+                if (ret < 0)
+                        goto out;
+
+                up_req = &gf_inodelk_contention;
+                cbk_procnum = GF_CBK_INODELK_CONTENTION;
+                xdrproc = (xdrproc_t)xdr_gfs4_inodelk_contention_req;
+                break;
+        case GF_UPCALL_ENTRYLK_CONTENTION:
+                ret = gf_proto_entrylk_contention_from_upcall (this,
+                                                        &gf_entrylk_contention,
+                                                         upcall_data);
+                if (ret < 0)
+                        goto out;
+
+                up_req = &gf_entrylk_contention;
+                cbk_procnum = GF_CBK_ENTRYLK_CONTENTION;
+                xdrproc = (xdrproc_t)xdr_gfs4_entrylk_contention_req;
                 break;
         default:
                 gf_msg (this->name, GF_LOG_WARNING, EINVAL,
@@ -1417,11 +1450,10 @@ server_process_event_upcall (xlator_t *this, void *data)
         pthread_mutex_unlock (&conf->mutex);
         ret = 0;
 out:
-        if ((gf_c_req.xdata).xdata_val)
-                GF_FREE ((gf_c_req.xdata).xdata_val);
-
-        if ((gf_recall_lease.xdata).xdata_val)
-                GF_FREE ((gf_recall_lease.xdata).xdata_val);
+        GF_FREE ((gf_c_req.xdata).xdata_val);
+        GF_FREE ((gf_recall_lease.xdata).xdata_val);
+        GF_FREE ((gf_inodelk_contention.xdata).xdata_val);
+        GF_FREE ((gf_entrylk_contention.xdata).xdata_val);
 
         return ret;
 }

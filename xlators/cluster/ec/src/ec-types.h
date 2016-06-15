@@ -669,6 +669,8 @@ struct _ec {
     uint32_t           background_heals;
     uint32_t           heal_wait_qlen;
     uint32_t           self_heal_window_size; /* max size of read/writes */
+    uint32_t           eager_lock_timeout;
+    uint32_t           other_eager_lock_timeout;
     struct list_head   pending_fops;
     struct list_head   heal_waiting;
     struct list_head   healing;

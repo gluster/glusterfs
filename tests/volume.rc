@@ -93,7 +93,8 @@ function remove_brick_status_completed_field {
 
 function get_mount_process_pid {
         local vol=$1
-        ps auxww | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
+        local mnt=$2
+        ps auxww | grep glusterfs | grep -E "volfile-id[ =]/?$vol .*$mnt" | awk '{print $2}' | head -1
 }
 
 function get_nfs_pid ()
@@ -126,7 +127,8 @@ function generate_statedump {
 
 function generate_mount_statedump {
         local vol=$1
-        generate_statedump $(get_mount_process_pid $vol)
+        local mnt=$2
+        generate_statedump $(get_mount_process_pid $vol $mnt)
 }
 
 function cleanup_mount_statedump {
@@ -205,14 +207,16 @@ function ec_child_up_status {
         local vol=$1
         local dist_id=$2
         local brick_id=$(($3 + 1))
-        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_mount_statedump $vol))
+        local mnt=$4
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask" $(generate_mount_statedump $vol $mnt))
         echo "${mask: -$brick_id:1}"
 }
 
 function ec_child_up_count {
         local vol=$1
         local dist_id=$2
-        ec_get_info $vol $dist_id "childs_up" $(generate_mount_statedump $vol)
+        local mnt=$3
+        ec_get_info $vol $dist_id "childs_up" $(generate_mount_statedump $vol $mnt)
 }
 
 function ec_child_up_status_shd {

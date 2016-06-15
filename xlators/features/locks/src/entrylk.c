@@ -13,17 +13,19 @@
 #include "logging.h"
 #include "common-utils.h"
 #include "list.h"
+#include "upcall-utils.h"
 
 #include "locks.h"
 #include "clear.h"
 #include "common.h"
+#include "pl-messages.h"
 
 void
 __pl_entrylk_unref (pl_entry_lock_t *lock)
 {
         lock->ref--;
         if (!lock->ref) {
-		GF_FREE ((char *)lock->basename);
+                GF_FREE ((char *)lock->basename);
                 GF_FREE (lock->connection_id);
                 GF_FREE (lock);
         }
@@ -39,7 +41,7 @@ __pl_entrylk_ref (pl_entry_lock_t *lock)
 
 static pl_entry_lock_t *
 new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
-		  const char *domain, call_frame_t *frame, char *conn_id)
+                  const char *domain, call_frame_t *frame, char *conn_id)
 {
         pl_entry_lock_t *newlock = NULL;
 
@@ -55,7 +57,7 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
         newlock->client_pid = frame->root->pid;
         newlock->volume     = domain;
         newlock->owner      = frame->root->lk_owner;
-	newlock->frame      = frame;
+        newlock->frame      = frame;
         newlock->this       = frame->this;
 
         if (conn_id) {
@@ -64,9 +66,9 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
         INIT_LIST_HEAD (&newlock->domain_list);
         INIT_LIST_HEAD (&newlock->blocked_locks);
-	INIT_LIST_HEAD (&newlock->client_list);
+        INIT_LIST_HEAD (&newlock->client_list);
 
-	__pl_entrylk_ref (newlock);
+        __pl_entrylk_ref (newlock);
 out:
         return newlock;
 }
@@ -201,6 +203,113 @@ out:
         return revoke_lock;
 }
 
+static gf_boolean_t
+__entrylk_needs_contention_notify(xlator_t *this, pl_entry_lock_t *lock,
+                                  struct timespec *now)
+{
+        posix_locks_private_t *priv;
+        int64_t elapsed;
+
+        priv = this->private;
+
+        /* If this lock is in a list, it means that we are about to send a
+         * notification for it, so no need to do anything else. */
+        if (!list_empty(&lock->contend)) {
+                return _gf_false;
+        }
+
+        elapsed = now->tv_sec;
+        elapsed -= lock->contention_time.tv_sec;
+        if (now->tv_nsec < lock->contention_time.tv_nsec) {
+                elapsed--;
+        }
+        if (elapsed < priv->notify_contention_delay) {
+                return _gf_false;
+        }
+
+        /* All contention notifications will be sent outside of the locked
+         * region. This means that currently granted locks might have already
+         * been unlocked by that time. To avoid the lock or the inode to be
+         * destroyed before we process them, we take an additional reference
+         * on both. */
+        inode_ref(lock->pinode->inode);
+        __pl_entrylk_ref(lock);
+
+        lock->contention_time = *now;
+
+        return _gf_true;
+}
+
+void
+entrylk_contention_notify(xlator_t *this, struct list_head *contend)
+{
+        struct gf_upcall up;
+        struct gf_upcall_entrylk_contention lc;
+        pl_entry_lock_t *lock;
+        pl_inode_t *pl_inode;
+        client_t *client;
+        gf_boolean_t notify;
+
+        while (!list_empty(contend)) {
+                lock = list_first_entry(contend, pl_entry_lock_t, contend);
+
+                pl_inode = lock->pinode;
+
+                pthread_mutex_lock(&pl_inode->mutex);
+
+                /* If the lock has already been released, no notification is
+                 * sent. We clear the notification time in this case. */
+                notify = !list_empty(&lock->domain_list);
+                if (!notify) {
+                        lock->contention_time.tv_sec = 0;
+                        lock->contention_time.tv_nsec = 0;
+                } else {
+                        lc.type = lock->type;
+                        lc.name = lock->basename;
+                        lc.pid = lock->client_pid;
+                        lc.domain = lock->volume;
+                        lc.xdata = NULL;
+
+                        gf_uuid_copy(up.gfid, lock->pinode->gfid);
+                        client = (client_t *)lock->client;
+                        if (client == NULL) {
+                                /* A NULL client can be found if the entrylk
+                                 * was issued by a server side xlator. */
+                                up.client_uid = NULL;
+                        } else {
+                                up.client_uid = client->client_uid;
+                        }
+                }
+
+                pthread_mutex_unlock(&pl_inode->mutex);
+
+                if (notify) {
+                        up.event_type = GF_UPCALL_ENTRYLK_CONTENTION;
+                        up.data = &lc;
+
+                        if (this->notify(this, GF_EVENT_UPCALL, &up) < 0) {
+                                gf_msg_debug(this->name, 0,
+                                             "Entrylk contention notification "
+                                             "failed");
+                        } else {
+                                gf_msg_debug(this->name, 0,
+                                             "Entrylk contention notification "
+                                             "sent");
+                        }
+                }
+
+                pthread_mutex_lock(&pl_inode->mutex);
+
+                list_del_init(&lock->contend);
+                __pl_entrylk_unref(lock);
+
+                pthread_mutex_unlock(&pl_inode->mutex);
+
+                inode_unref(pl_inode->inode);
+        }
+}
+
+
 /**
  * entrylk_grantable - is this lock grantable?
  * @inode: inode in which to look
@@ -208,28 +317,33 @@ out:
  * @type: type of lock
  */
 static pl_entry_lock_t *
-__entrylk_grantable (pl_dom_list_t *dom, pl_entry_lock_t *lock)
+__entrylk_grantable (xlator_t *this, pl_dom_list_t *dom, pl_entry_lock_t *lock,
+                     struct timespec *now, struct list_head *contend)
 {
         pl_entry_lock_t *tmp = NULL;
-
-        if (list_empty (&dom->entrylk_list))
-                return NULL;
+        pl_entry_lock_t *ret = NULL;
 
         list_for_each_entry (tmp, &dom->entrylk_list, domain_list) {
-                if (__conflicting_entrylks (tmp, lock))
-                        return tmp;
+                if (__conflicting_entrylks (tmp, lock)) {
+                        if (ret == NULL) {
+                                ret = tmp;
+                                if (contend == NULL) {
+                                        break;
+                                }
+                        }
+                        if (__entrylk_needs_contention_notify(this, tmp, now)) {
+                                list_add_tail(&tmp->contend, contend);
+                        }
+                }
         }
 
-        return NULL;
+        return ret;
 }
 
 static pl_entry_lock_t *
 __blocked_entrylk_conflict (pl_dom_list_t *dom, pl_entry_lock_t *lock)
 {
         pl_entry_lock_t *tmp = NULL;
-
-        if (list_empty (&dom->blocked_entrylks))
-                return NULL;
 
         list_for_each_entry (tmp, &dom->blocked_entrylks, blocked_locks) {
                 if (names_conflict (tmp->basename, lock->basename))
@@ -426,6 +540,27 @@ __find_matching_lock (pl_dom_list_t *dom, pl_entry_lock_t *lock)
         return NULL;
 }
 
+static int
+__lock_blocked_add(xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
+                   pl_entry_lock_t *lock, int nonblock)
+{
+        struct timeval now;
+
+        gettimeofday(&now, NULL);
+
+        if (nonblock)
+                goto out;
+
+        lock->blkd_time = now;
+        list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
+
+        gf_msg_trace (this->name, 0, "Blocking lock: {pinode=%p, basename=%s}",
+                      pinode, lock->basename);
+
+out:
+        return -EAGAIN;
+}
+
 /**
  * __lock_entrylk - lock a name in a directory
  * @inode: inode for the directory in which to lock
@@ -439,24 +574,15 @@ __find_matching_lock (pl_dom_list_t *dom, pl_entry_lock_t *lock)
 
 int
 __lock_entrylk (xlator_t *this, pl_inode_t *pinode, pl_entry_lock_t *lock,
-		int nonblock, pl_dom_list_t *dom)
+                int nonblock, pl_dom_list_t *dom, struct timespec *now,
+                struct list_head *contend)
 {
         pl_entry_lock_t *conf = NULL;
         int              ret  = -EAGAIN;
 
-        conf = __entrylk_grantable (dom, lock);
+        conf = __entrylk_grantable (this, dom, lock, now, contend);
         if (conf) {
-                ret = -EAGAIN;
-                if (nonblock)
-                        goto out;
-
-                gettimeofday (&lock->blkd_time, NULL);
-                list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Blocking lock: {pinode=%p, basename=%s}",
-                        pinode, lock->basename);
-
+                ret = __lock_blocked_add(this, pinode, dom, lock, nonblock);
                 goto out;
         }
 
@@ -471,20 +597,15 @@ __lock_entrylk (xlator_t *this, pl_inode_t *pinode, pl_entry_lock_t *lock,
          * granted, without which self-heal can't progress.
          * TODO: Find why 'owner_has_lock' is checked even for blocked locks.
          */
-        if (__blocked_entrylk_conflict (dom, lock) && !(__owner_has_lock (dom, lock))) {
-                ret = -EAGAIN;
-                if (nonblock)
-                        goto out;
+        if (__blocked_entrylk_conflict (dom, lock) &&
+            !(__owner_has_lock (dom, lock))) {
+                if (nonblock == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Lock is grantable, but blocking to prevent "
+                                "starvation");
+                }
 
-                gettimeofday (&lock->blkd_time, NULL);
-                list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Lock is grantable, but blocking to prevent starvation");
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Blocking lock: {pinode=%p, basename=%s}",
-                        pinode, lock->basename);
-
+                ret = __lock_blocked_add(this, pinode, dom, lock, nonblock);
                 goto out;
         }
 
@@ -551,7 +672,8 @@ out:
 
 void
 __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
-                             pl_dom_list_t *dom, struct list_head *granted)
+                             pl_dom_list_t *dom, struct list_head *granted,
+                             struct timespec *now, struct list_head *contend)
 {
         int              bl_ret = 0;
         pl_entry_lock_t *bl   = NULL;
@@ -566,7 +688,8 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
                 list_del_init (&bl->blocked_locks);
 
-                bl_ret = __lock_entrylk (bl->this, pl_inode, bl, 0, dom);
+                bl_ret = __lock_entrylk (bl->this, pl_inode, bl, 0, dom, now,
+                                         contend);
 
                 if (bl_ret == 0) {
                         list_add (&bl->blocked_locks, granted);
@@ -578,7 +701,8 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 /* Grants locks if possible which are blocked on a lock */
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
-			   pl_dom_list_t *dom)
+                           pl_dom_list_t *dom, struct timespec *now,
+                           struct list_head *contend)
 {
         struct list_head  granted_list;
         pl_entry_lock_t  *tmp = NULL;
@@ -589,7 +713,7 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
         pthread_mutex_lock (&pl_inode->mutex);
         {
                 __grant_blocked_entry_locks (this, pl_inode, dom,
-                                             &granted_list);
+                                             &granted_list, now, contend);
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
@@ -610,8 +734,6 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 		}
 	}
         pthread_mutex_unlock (&pl_inode->mutex);
-
-        return;
 }
 
 
@@ -637,8 +759,17 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 	int              nonblock         =  0;
         gf_boolean_t     need_inode_unref =  _gf_false;
         posix_locks_private_t  *priv = NULL;
+        struct list_head *pcontend = NULL;
+        struct list_head contend;
+        struct timespec  now = { };
 
         priv = this->private;
+
+        if (priv->notify_contention) {
+                pcontend = &contend;
+                INIT_LIST_HEAD(pcontend);
+                timespec_now(&now);
+        }
 
         if (xdata)
                 dict_ret = dict_get_str (xdata, "connection-id", &conn_id);
@@ -722,7 +853,8 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 {
 			reqlock->pinode = pinode;
 
-                        ret = __lock_entrylk (this, pinode, reqlock, nonblock, dom);
+                        ret = __lock_entrylk (this, pinode, reqlock, nonblock,
+                                              dom, &now, pcontend);
 			if (ret == 0) {
 				reqlock->frame = NULL;
 				op_ret = 0;
@@ -778,7 +910,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		if (ctx)
 			pthread_mutex_unlock (&ctx->lock);
 
-		grant_blocked_entry_locks (this, pinode, dom);
+		grant_blocked_entry_locks (this, pinode, dom, &now, pcontend);
 
                 break;
 
@@ -808,6 +940,10 @@ unwind:
         } else {
                 entrylk_trace_block (this, frame, volume, fd, loc, basename,
                                      cmd, type);
+        }
+
+        if (pcontend != NULL) {
+                entrylk_contention_notify(this, pcontend);
         }
 
         return 0;
@@ -868,27 +1004,37 @@ pl_entrylk_log_cleanup (pl_entry_lock_t *lock)
 int
 pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 {
+        posix_locks_private_t *priv;
         pl_entry_lock_t *tmp = NULL;
         pl_entry_lock_t *l = NULL;
-	pl_dom_list_t *dom = NULL;
+        pl_dom_list_t *dom = NULL;
         pl_inode_t *pinode = NULL;
-
+        struct list_head *pcontend = NULL;
         struct list_head released;
         struct list_head unwind;
+        struct list_head contend;
+        struct timespec now = { };
 
         INIT_LIST_HEAD (&released);
         INIT_LIST_HEAD (&unwind);
 
-	pthread_mutex_lock (&ctx->lock);
+        priv = this->private;
+        if (priv->notify_contention) {
+                pcontend = &contend;
+                INIT_LIST_HEAD (pcontend);
+                timespec_now(&now);
+        }
+
+        pthread_mutex_lock (&ctx->lock);
         {
                 list_for_each_entry_safe (l, tmp, &ctx->entrylk_lockers,
-					  client_list) {
-			pl_entrylk_log_cleanup (l);
+                                          client_list) {
+                        pl_entrylk_log_cleanup (l);
 
-			pinode = l->pinode;
+                        pinode = l->pinode;
 
-			pthread_mutex_lock (&pinode->mutex);
-			{
+                        pthread_mutex_lock (&pinode->mutex);
+                        {
                         /* If the entrylk object is part of granted list but not
                          * blocked list, then perform the following actions:
                          * i.   delete the object from granted list;
@@ -931,36 +1077,40 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
                                                        &unwind);
                                 }
                         }
-			pthread_mutex_unlock (&pinode->mutex);
+                        pthread_mutex_unlock (&pinode->mutex);
                 }
-	}
+        }
         pthread_mutex_unlock (&ctx->lock);
 
         list_for_each_entry_safe (l, tmp, &unwind, client_list) {
                 list_del_init (&l->client_list);
 
-		if (l->frame)
-			STACK_UNWIND_STRICT (entrylk, l->frame, -1, EAGAIN,
-					     NULL);
+                if (l->frame)
+                        STACK_UNWIND_STRICT (entrylk, l->frame, -1, EAGAIN,
+                                             NULL);
                 list_add_tail (&l->client_list, &released);
         }
 
         list_for_each_entry_safe (l, tmp, &released, client_list) {
                 list_del_init (&l->client_list);
 
-		pinode = l->pinode;
+                pinode = l->pinode;
 
-		dom = get_domain (pinode, l->volume);
+                dom = get_domain (pinode, l->volume);
 
-		grant_blocked_entry_locks (this, pinode, dom);
+                grant_blocked_entry_locks (this, pinode, dom, &now, pcontend);
 
-		pthread_mutex_lock (&pinode->mutex);
-		{
-			__pl_entrylk_unref (l);
-		}
-		pthread_mutex_unlock (&pinode->mutex);
+                pthread_mutex_lock (&pinode->mutex);
+                {
+                        __pl_entrylk_unref (l);
+                }
+                pthread_mutex_unlock (&pinode->mutex);
 
                 inode_unref (pinode->inode);
+        }
+
+        if (pcontend != NULL) {
+                entrylk_contention_notify(this, pcontend);
         }
 
         return 0;

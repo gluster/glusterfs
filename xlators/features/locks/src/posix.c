@@ -3641,6 +3641,13 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("revocation-max-blocked",
                           priv->revocation_max_blocked, options,
                           uint32, out);
+
+        GF_OPTION_RECONF ("notify-contention", priv->notify_contention,
+                          options, bool, out);
+
+        GF_OPTION_RECONF ("notify-contention-delay",
+                          priv->notify_contention_delay, options, uint32, out);
+
         ret = 0;
 
 out:
@@ -3704,6 +3711,12 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("revocation-max-blocked", priv->revocation_max_blocked,
                         uint32, out);
+
+        GF_OPTION_INIT ("notify-contention", priv->notify_contention, bool,
+                        out);
+
+        GF_OPTION_INIT ("notify-contention-delay",
+                        priv->notify_contention_delay, uint32, out);
 
         this->local_pool = mem_pool_new (pl_local_t, 32);
         if (!this->local_pool) {
@@ -4460,6 +4473,33 @@ struct volume_options options[] = {
           .description = "A number of blocked lock requests after which a lock "
                          "will be revoked to allow the others to proceed.  Can "
                          "be used in conjunction w/ revocation-clear-all."
+        },
+        { .key = {"notify-contention"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .op_version = { GD_OP_VERSION_4_0_0 },
+          .tags = { "locks", "contention" },
+          .description = "When this option is enabled and a lock request "
+                         "conflicts with a currently granted lock, an upcall "
+                         "notification will be sent to the current owner of "
+                         "the lock to request it to be released as soon as "
+                         "possible."
+        },
+        { .key = {"notify-contention-delay"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0, /* An upcall notification is sent every time a conflict is
+                     * detected. */
+          .max = 60,
+          .default_value = "5",
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .op_version = { GD_OP_VERSION_4_0_0 },
+          .tags = { "locks", "contention", "timeout" },
+          .description = "This value determines the minimum amount of time "
+                         "(in seconds) between upcall contention notifications "
+                         "on the same inode. If multiple lock requests are "
+                         "received during this period, only one upcall will "
+                         "be sent."
         },
         { .key = {NULL} },
 };

@@ -69,7 +69,11 @@ get_domain (pl_inode_t *pl_inode, const char *volume);
 
 void
 grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode,
-                           pl_dom_list_t *dom);
+                           pl_dom_list_t *dom, struct timespec *now,
+                           struct list_head *contend);
+
+void
+inodelk_contention_notify (xlator_t *this, struct list_head *contend);
 
 void
 __delete_inode_lock (pl_inode_lock_t *lock);
@@ -79,7 +83,11 @@ __pl_inodelk_unref (pl_inode_lock_t *lock);
 
 void
 grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
-                           pl_dom_list_t *dom);
+                           pl_dom_list_t *dom, struct timespec *now,
+                           struct list_head *contend);
+
+void
+entrylk_contention_notify (xlator_t *this, struct list_head *contend);
 
 void pl_update_refkeeper (xlator_t *this, inode_t *inode);
 
