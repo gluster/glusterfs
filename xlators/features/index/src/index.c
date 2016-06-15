@@ -791,6 +791,8 @@ index_entry_create (xlator_t *this, uuid_t gfid, char *filename)
                 }
         }
 
+        op_errno = 0;
+
         snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
                   filename);
         index_get_index (priv, index);
@@ -800,6 +802,8 @@ index_entry_create (xlator_t *this, uuid_t gfid, char *filename)
                                   sizeof (entry_base_index_path),
                                   entry_path, ENTRY_CHANGES_SUBDIR);
 out:
+        if (op_errno)
+                ret = -op_errno;
         return ret;
 }
 
@@ -836,24 +840,23 @@ out:
 }
 
 int
-index_entry_action (xlator_t *this, inode_t *inode, dict_t *xdata)
+index_entry_action (xlator_t *this, inode_t *inode, dict_t *xdata, char *key)
 {
-        char *filename = NULL;
-        char *pargfid = NULL;
-        int ret = 0;
+        int        ret      = 0;
+        char      *filename = NULL;
+        char      *pargfid  = NULL;
 
-        ret = dict_get_str (xdata, GF_XATTROP_ENTRY_IN_KEY, &filename);
-        if (ret == 0) {
+        ret = dict_get_str (xdata, key, &filename);
+        if (ret != 0) {
+                ret = 0;
+                goto out;
+        }
+
+        if (strcmp (key, GF_XATTROP_ENTRY_IN_KEY) == 0)
                 ret = index_entry_create (this, inode->gfid, filename);
-                goto out;
-        }
-
-        ret = dict_get_str (xdata, GF_XATTROP_ENTRY_OUT_KEY, &filename);
-        if (ret == 0) {
+        else if (strcmp (key, GF_XATTROP_ENTRY_OUT_KEY) == 0)
                 ret = index_entry_delete (this, inode->gfid, filename);
-                goto out;
-        }
-        ret = 0;
+
 out:
         return ret;
 }
@@ -894,17 +897,27 @@ out:
 }
 
 void
-xattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr,
+xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
                       dict_match_t match, void *match_data)
 {
-        gf_boolean_t      zero_xattr = _gf_true;
-        int               ret = 0, i = 0;
-        int               zfilled[XATTROP_TYPE_END] = {0,};
+        int              i                       = 0;
+        int            ret                       = 0;
+        int            zfilled[XATTROP_TYPE_END] = {0,};
+        dict_t        *req_xdata                 = NULL;
+        inode_t       *inode                     = NULL;
+        gf_boolean_t   zero_xattr                = _gf_true;
+
+        inode = local->inode;
+        req_xdata = local->xdata;
 
         memset (zfilled, -1, sizeof (zfilled));
         ret = dict_foreach_match (xattr, match, match_data,
                                   _check_key_is_zero_filled, zfilled);
         _index_action (this, inode, zfilled);
+
+        if (req_xdata)
+                ret = index_entry_action (this, inode, req_xdata,
+                                          GF_XATTROP_ENTRY_OUT_KEY);
         return;
 }
 
@@ -1092,13 +1105,16 @@ xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, dict_t *xattr,
              dict_t *xdata, dict_match_t match, dict_t *matchdata)
 {
-        inode_t *inode = NULL;
+        inode_t       *inode = NULL;
+        index_local_t *local = NULL;
 
-        inode = inode_ref (frame->local);
+        local = frame->local;
+        inode = inode_ref (local->inode);
+
         if (op_ret < 0)
                 goto out;
 
-        xattrop_index_action (this, frame->local, xattr, match, matchdata);
+        xattrop_index_action (this, local, xattr, match, matchdata);
 out:
         INDEX_STACK_UNWIND (xattrop, frame, op_ret, op_errno, xattr, xdata);
         index_queue_process (this, inode, NULL);
@@ -1136,10 +1152,15 @@ index_xattrop_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
                   fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr,
                   dict_t *xdata)
 {
-        fop_xattrop_cbk_t x_cbk = NULL;
-        int     zfilled[XATTROP_TYPE_END] = {0,};
-        int     ret = -1, i = 0;
-        index_priv_t *priv = this->private;
+        int                  i                       = 0;
+        int                ret                       = -1;
+        int                zfilled[XATTROP_TYPE_END] = {0,};
+        index_priv_t      *priv                      = NULL;
+        index_local_t     *local                     = NULL;
+        fop_xattrop_cbk_t  x_cbk                     = NULL;
+
+        local = frame->local;
+        priv = this->private;
 
         if (optype == GF_XATTROP_ADD_ARRAY)
                 x_cbk = index_xattrop_cbk;
@@ -1165,9 +1186,10 @@ index_xattrop_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
          */
         ret = dict_foreach (xattr, index_fill_zero_array, zfilled);
 
-        _index_action (this, frame->local, zfilled);
+        _index_action (this, local->inode, zfilled);
         if (xdata)
-                ret = index_entry_action (this, frame->local, xdata);
+                ret = index_entry_action (this, local->inode, xdata,
+                                          GF_XATTROP_ENTRY_IN_KEY);
         if (ret < 0) {
                 x_cbk (frame, NULL, this, -1, -ret, NULL, NULL);
                 return;
@@ -1203,15 +1225,25 @@ int32_t
 index_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	       gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        call_stub_t     *stub = NULL;
+        call_stub_t     *stub  = NULL;
+        index_local_t   *local = NULL;
 
         if (!index_xattrop_track (this, flags, dict))
                 goto out;
 
-        frame->local = inode_ref (loc->inode);
+        local = mem_get0 (this->local_pool);
+        if (!local)
+                goto err;
+
+        frame->local = local;
+        local->inode = inode_ref (loc->inode);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
         stub = fop_xattrop_stub (frame, index_xattrop_wrapper,
                                  loc, flags, dict, xdata);
-        if (!stub) {
+
+err:
+        if ((!local) || (!stub)) {
                 INDEX_STACK_UNWIND (xattrop, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
@@ -1228,15 +1260,25 @@ int32_t
 index_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        call_stub_t    *stub = NULL;
+        call_stub_t     *stub  = NULL;
+        index_local_t   *local = NULL;
 
         if (!index_xattrop_track (this, flags, dict))
                 goto out;
 
-        frame->local = inode_ref (fd->inode);
+        local = mem_get0 (this->local_pool);
+        if (!local)
+                goto err;
+
+        frame->local = local;
+        local->inode = inode_ref (fd->inode);
+        if (xdata)
+                local->xdata = dict_ref (xdata);
         stub = fop_fxattrop_stub (frame, index_fxattrop_wrapper,
                                   fd, flags, dict, xdata);
-        if (!stub) {
+
+err:
+        if ((!local) || (!stub)) {
                 INDEX_STACK_UNWIND (fxattrop, frame, -1, ENOMEM, NULL, xdata);
                 return 0;
         }
@@ -2086,6 +2128,12 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&priv->callstubs);
 
+        this->local_pool = mem_pool_new (index_local_t, 64);
+        if (!this->local_pool) {
+                ret = -1;
+                goto out;
+        }
+
         this->private = priv;
 
         ret = index_dir_create (this, XATTROP_SUBDIR);
@@ -2129,6 +2177,7 @@ out:
                 if (priv)
                         GF_FREE (priv);
                 this->private = NULL;
+                mem_pool_destroy (this->local_pool);
         }
 
         if (attr_inited)
@@ -2155,6 +2204,8 @@ fini (xlator_t *this)
         if (priv->complete_watchlist)
                 dict_unref (priv->complete_watchlist);
         GF_FREE (priv);
+        mem_pool_destroy (this->local_pool);
+        this->local_pool = NULL;
 out:
         return;
 }

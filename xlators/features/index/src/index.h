@@ -62,14 +62,25 @@ typedef struct index_priv {
         int64_t  pending_count;
 } index_priv_t;
 
+typedef struct index_local {
+        inode_t *inode;
+        dict_t *xdata;
+} index_local_t;
+
 #define INDEX_STACK_UNWIND(fop, frame, params ...)      \
 do {                                                    \
+        index_local_t *__local = NULL;                  \
         if (frame) {                                    \
-                inode_t *_inode = frame->local;         \
+                __local = frame->local;                 \
                 frame->local = NULL;                    \
-                inode_unref (_inode);                   \
         }                                               \
         STACK_UNWIND_STRICT (fop, frame, params);       \
+        if (__local) {                                  \
+                inode_unref (__local->inode);           \
+                if (__local->xdata)                     \
+                        dict_unref (__local->xdata);    \
+                mem_put (__local);                      \
+        }                                               \
 } while (0)
 
 #endif
