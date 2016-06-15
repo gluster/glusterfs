@@ -391,7 +391,8 @@ Summary:          GlusterFS Geo-replication
 Group:            Applications/File
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         python python-ctypes
+Requires:         python python-ctypes python-prettytable
+Requires:         python-gluster = %{version}-%{release}
 Requires:         rsync
 
 %description geo-replication
@@ -1045,6 +1046,8 @@ exit 0
 %{_libexecdir}/glusterfs/peer_mountbroker
 %{_libexecdir}/glusterfs/peer_mountbroker.py*
 %{_libexecdir}/glusterfs/gfind_missing_files
+%{_libexecdir}/glusterfs/peer_georep-sshkey.py*
+%{_sbindir}/gluster-georep-sshkey
 
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
 %ghost      %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
@@ -1238,8 +1241,11 @@ exit 0
 %endif
 
 %changelog
+* Wed Aug 31 2016 Aravinda VK <avishwan@redhat.com>
+- Added new Geo-replication utility "gluster-georep-sshkey" (#1356508)
+
 * Thu Aug 25 2016 Aravinda VK <avishwan@redhat.com>
-* Added gluster-mountbroker utility for geo-rep mountbroker setup (#1343333)
+- Added gluster-mountbroker utility for geo-rep mountbroker setup (#1343333)
 
 * Mon Aug 22 2016 Milind Changire <mchangir@redhat.com>
 - Add psmisc as dependency for glusterfs-fuse for killall command (#1367665)
