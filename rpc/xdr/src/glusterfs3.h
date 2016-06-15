@@ -419,6 +419,162 @@ gf_proto_cache_invalidation_to_upcall (xlator_t *this,
         return ret;
 }
 
+static inline int
+gf_proto_inodelk_contention_to_upcall (struct gfs4_inodelk_contention_req *lc,
+                                       struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_inodelk_contention *tmp = NULL;
+        xlator_t *this                           = NULL;
+        int    ret                               = -1;
+        int    op_errno                          = EINVAL;
+
+        this = THIS;
+
+        GF_VALIDATE_OR_GOTO(this->name, lc, out);
+        GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_inodelk_contention *)gf_up_data->data;
+
+        gf_uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
+
+        gf_proto_flock_to_flock(&lc->flock, &tmp->flock);
+        tmp->pid = lc->pid;
+        tmp->domain = lc->domain;
+        if ((tmp->domain != NULL) && (*tmp->domain == 0)) {
+                tmp->domain = NULL;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, tmp->xdata, lc->xdata.xdata_val,
+                                      lc->xdata.xdata_len, ret, op_errno, out);
+
+        ret = 0;
+
+out:
+        if (ret < 0) {
+                ret = -op_errno;
+        }
+
+        return ret;
+}
+
+static inline int
+gf_proto_inodelk_contention_from_upcall (xlator_t *this,
+                                         struct gfs4_inodelk_contention_req *lc,
+                                         struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_inodelk_contention *tmp = NULL;
+        int    ret                               = -1;
+        int    op_errno                          = EINVAL;
+
+        GF_VALIDATE_OR_GOTO(this->name, lc, out);
+        GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_inodelk_contention *)gf_up_data->data;
+
+        gf_uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
+
+        gf_proto_flock_from_flock(&lc->flock, &tmp->flock);
+        lc->pid = tmp->pid;
+        lc->domain = (char *)tmp->domain;
+        if (lc->domain == NULL) {
+                lc->domain = "";
+        }
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, tmp->xdata, &lc->xdata.xdata_val,
+                                    lc->xdata.xdata_len, op_errno, out);
+
+        ret = 0;
+
+out:
+        if (ret < 0) {
+                ret = -op_errno;
+        }
+
+        return ret;
+}
+
+static inline int
+gf_proto_entrylk_contention_to_upcall (struct gfs4_entrylk_contention_req *lc,
+                                       struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_entrylk_contention *tmp = NULL;
+        xlator_t *this                           = NULL;
+        int    ret                               = -1;
+        int    op_errno                          = EINVAL;
+
+        this = THIS;
+
+        GF_VALIDATE_OR_GOTO(this->name, lc, out);
+        GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_entrylk_contention *)gf_up_data->data;
+
+        gf_uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
+
+        tmp->type = lc->type;
+        tmp->name = lc->name;
+        if ((tmp->name != NULL) && (*tmp->name == 0)) {
+                tmp->name = NULL;
+        }
+        tmp->pid = lc->pid;
+        tmp->domain = lc->domain;
+        if ((tmp->domain != NULL) && (*tmp->domain == 0)) {
+                tmp->domain = NULL;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, tmp->xdata, lc->xdata.xdata_val,
+                                      lc->xdata.xdata_len, ret, op_errno, out);
+
+        ret = 0;
+
+out:
+        if (ret < 0) {
+                ret = -op_errno;
+        }
+
+        return ret;
+}
+
+static inline int
+gf_proto_entrylk_contention_from_upcall (xlator_t *this,
+                                         struct gfs4_entrylk_contention_req *lc,
+                                         struct gf_upcall *gf_up_data)
+{
+        struct gf_upcall_entrylk_contention *tmp = NULL;
+        int    ret                               = -1;
+        int    op_errno                          = EINVAL;
+
+        GF_VALIDATE_OR_GOTO(this->name, lc, out);
+        GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
+
+        tmp = (struct gf_upcall_entrylk_contention *)gf_up_data->data;
+
+        gf_uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
+
+        lc->type = tmp->type;
+        lc->name = (char *)tmp->name;
+        if (lc->name == NULL) {
+                lc->name = "";
+        }
+        lc->pid = tmp->pid;
+        lc->domain = (char *)tmp->domain;
+        if (lc->domain == NULL) {
+                lc->domain = "";
+        }
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, tmp->xdata, &lc->xdata.xdata_val,
+                                    lc->xdata.xdata_len, op_errno, out);
+
+        ret = 0;
+
+out:
+        if (ret < 0) {
+                ret = -op_errno;
+        }
+
+        return ret;
+}
+
 extern int dict_to_xdr (dict_t *this, gfx_dict *xdict);
 extern int xdr_to_dict (gfx_dict *xdict, dict_t **to);
 

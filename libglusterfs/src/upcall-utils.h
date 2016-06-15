@@ -63,6 +63,8 @@ typedef enum {
         GF_UPCALL_EVENT_NULL,
         GF_UPCALL_CACHE_INVALIDATION,
         GF_UPCALL_RECALL_LEASE,
+        GF_UPCALL_INODELK_CONTENTION,
+        GF_UPCALL_ENTRYLK_CONTENTION,
 } gf_upcall_event_t;
 
 struct gf_upcall {
@@ -86,6 +88,21 @@ struct gf_upcall_recall_lease {
         uuid_t    tid;        /* transaction id of the fop that caused
                                  the recall */
         dict_t   *dict;
+};
+
+struct gf_upcall_inodelk_contention {
+        struct gf_flock  flock;
+        pid_t            pid;
+        const char      *domain;
+        dict_t          *xdata;
+};
+
+struct gf_upcall_entrylk_contention {
+        uint32_t    type;
+        pid_t       pid;
+        const char *name;
+        const char *domain;
+        dict_t     *xdata;
 };
 
 #endif /* _UPCALL_UTILS_H */

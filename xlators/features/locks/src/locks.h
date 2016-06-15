@@ -70,6 +70,7 @@ typedef struct __posix_lock posix_lock_t;
 struct __pl_inode_lock {
         struct list_head   list;
         struct list_head   blocked_locks; /* list_head pointing to blocked_inodelks */
+        struct list_head   contend; /* list of contending locks */
         int                ref;
 
         short              fl_type;
@@ -86,6 +87,8 @@ struct __pl_inode_lock {
 
         struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
         struct timeval     granted_time; /*time at which lock was queued into active list*/
+        /*last time at wich lock contention was detected and notified*/
+        struct timespec    contention_time;
 
         /* These two together serve to uniquely identify each process
            across nodes */
@@ -120,6 +123,7 @@ typedef struct _pl_dom_list pl_dom_list_t;
 struct __entry_lock {
         struct list_head  domain_list;    /* list_head back to pl_dom_list_t */
         struct list_head  blocked_locks; /* list_head back to blocked_entrylks */
+        struct list_head  contend;       /* list of contending locks */
 	int ref;
 
         call_frame_t     *frame;
@@ -133,6 +137,8 @@ struct __entry_lock {
 
         struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
         struct timeval     granted_time; /*time at which lock was queued into active list*/
+        /*last time at wich lock contention was detected and notified*/
+        struct timespec    contention_time;
 
         void             *client;
         gf_lkowner_t      owner;
@@ -194,6 +200,8 @@ typedef struct {
         uint32_t        revocation_secs;
         gf_boolean_t    revocation_clear_all;
         uint32_t        revocation_max_blocked;
+        gf_boolean_t    notify_contention;
+        uint32_t        notify_contention_delay;
 } posix_locks_private_t;
 
 

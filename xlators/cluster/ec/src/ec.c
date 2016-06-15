@@ -271,6 +271,11 @@ reconfigure (xlator_t *this, dict_t *options)
                           bool, failed);
         GF_OPTION_RECONF ("other-eager-lock", ec->other_eager_lock, options,
                           bool, failed);
+        GF_OPTION_RECONF ("eager-lock-timeout", ec->eager_lock_timeout,
+                          options, uint32, failed);
+        GF_OPTION_RECONF ("other-eager-lock-timeout",
+                          ec->other_eager_lock_timeout, options, uint32,
+                          failed);
         GF_OPTION_RECONF ("background-heals", background_heals, options,
                           uint32, failed);
         GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
@@ -453,6 +458,43 @@ ec_set_up_state(ec_t *ec, uintptr_t index_mask, uintptr_t new_state)
         }
 }
 
+static gf_boolean_t
+ec_upcall(ec_t *ec, struct gf_upcall *upcall)
+{
+        struct gf_upcall_cache_invalidation *ci = NULL;
+        struct gf_upcall_inodelk_contention *lc = NULL;
+        inode_t *inode;
+
+        switch (upcall->event_type) {
+        case GF_UPCALL_CACHE_INVALIDATION:
+                ci = upcall->data;
+                ci->flags |= UP_INVAL_ATTR;
+                return _gf_true;
+
+        case GF_UPCALL_INODELK_CONTENTION:
+                lc = upcall->data;
+                if (strcmp(lc->domain, ec->xl->name) != 0) {
+                        /* The lock is not owned by EC, ignore it. */
+                        return _gf_true;
+                }
+                inode = inode_find(((xlator_t *)ec->xl->graph->top)->itable,
+                                   upcall->gfid);
+                /* If inode is not found, it means that it's already released,
+                 * so we can ignore it. Probably it has been released and
+                 * destroyed while the contention notification was being sent.
+                 */
+                if (inode != NULL) {
+                        ec_lock_release(ec, inode);
+                        inode_unref(inode);
+                }
+
+                return _gf_false;
+
+        default:
+                return _gf_true;
+        }
+}
+
 int32_t
 ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 {
@@ -464,19 +506,13 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         dict_t            *output   = NULL;
         gf_boolean_t      propagate = _gf_true;
         int32_t           orig_event = event;
-        struct gf_upcall *up_data   = NULL;
-        struct gf_upcall_cache_invalidation *up_ci = NULL;
         uintptr_t mask = 0;
 
         gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
 
         if (event == GF_EVENT_UPCALL) {
-                up_data = (struct gf_upcall *)data;
-                if (up_data->event_type == GF_UPCALL_CACHE_INVALIDATION) {
-                        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
-                        up_ci->flags |= UP_INVAL_ATTR;
-                }
+                propagate = ec_upcall(ec, data);
                 goto done;
         }
 
@@ -664,6 +700,10 @@ init (xlator_t *this)
     GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
     GF_OPTION_INIT ("eager-lock", ec->eager_lock, bool, failed);
     GF_OPTION_INIT ("other-eager-lock", ec->other_eager_lock, bool, failed);
+    GF_OPTION_INIT ("eager-lock-timeout", ec->eager_lock_timeout, uint32,
+                    failed);
+    GF_OPTION_INIT ("other-eager-lock-timeout", ec->other_eager_lock_timeout,
+                    uint32, failed);
     GF_OPTION_INIT ("background-heals", ec->background_heals, uint32, failed);
     GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
     GF_OPTION_INIT ("self-heal-window-size", ec->self_heal_window_size, uint32,
@@ -1455,6 +1495,29 @@ struct volume_options options[] =
       .tags = { "disperse" },
       .description = "It's equivalent to the eager-lock option but for non "
                      "regular files."
+    },
+    { .key = {"eager-lock-timeout"},
+      .type = GF_OPTION_TYPE_INT,
+      .min = 1,
+      .max = 60,
+      .default_value = "1",
+      .op_version = { GD_OP_VERSION_4_0_0 },
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = { "disperse", "locks", "timeout" },
+      .description = "Maximum time (in seconds) that a lock on an inode is "
+                     "kept held if no new operations on the inode are "
+                     "received."
+    },
+    { .key = {"other-eager-lock-timeout"},
+      .type = GF_OPTION_TYPE_INT,
+      .min = 1,
+      .max = 60,
+      .default_value = "1",
+      .op_version = { GD_OP_VERSION_4_0_0 },
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = { "disperse", "locks", "timeout" },
+      .description = "It's equivalent ot eager-lock-timeout option but for "
+                     "non regular files."
     },
     { .key = {"background-heals"},
       .type = GF_OPTION_TYPE_INT,

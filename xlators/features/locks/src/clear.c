@@ -200,6 +200,7 @@ int
 clrlk_clear_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
                      clrlk_args *args, int *blkd, int *granted, int *op_errno)
 {
+        posix_locks_private_t   *priv;
         pl_inode_lock_t         *ilock          = NULL;
         pl_inode_lock_t         *tmp            = NULL;
         struct gf_flock         ulock           = {0, };
@@ -207,9 +208,20 @@ clrlk_clear_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
         int                     bcount          = 0;
         int                     gcount          = 0;
         gf_boolean_t            chk_range       = _gf_false;
+        struct list_head        *pcontend       = NULL;
         struct list_head        released;
+        struct list_head        contend;
+        struct timespec         now = { };
 
         INIT_LIST_HEAD (&released);
+
+        priv = this->private;
+        if (priv->notify_contention) {
+                pcontend = &contend;
+                INIT_LIST_HEAD (pcontend);
+                timespec_now(&now);
+        }
+
         if (clrlk_get_lock_range (args->opts, &ulock, &chk_range)) {
                 *op_errno = EINVAL;
                 goto out;
@@ -283,7 +295,10 @@ granted:
 
         ret = 0;
 out:
-        grant_blocked_inode_locks (this, pl_inode, dom);
+        grant_blocked_inode_locks (this, pl_inode, dom, &now, pcontend);
+        if (pcontend != NULL) {
+                inodelk_contention_notify(this, pcontend);
+        }
         *blkd    = bcount;
         *granted = gcount;
         return ret;
@@ -294,15 +309,27 @@ int
 clrlk_clear_entrylk (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
                      clrlk_args *args, int *blkd, int *granted, int *op_errno)
 {
+        posix_locks_private_t   *priv;
         pl_entry_lock_t         *elock          = NULL;
         pl_entry_lock_t         *tmp            = NULL;
         int                     bcount          = 0;
         int                     gcount          = 0;
         int                     ret             = -1;
+        struct list_head        *pcontend       = NULL;
         struct list_head        removed;
         struct list_head        released;
+        struct list_head        contend;
+        struct timespec         now;
 
         INIT_LIST_HEAD (&released);
+
+        priv = this->private;
+        if (priv->notify_contention) {
+                pcontend = &contend;
+                INIT_LIST_HEAD (pcontend);
+                timespec_now(&now);
+        }
+
         if (args->kind & CLRLK_BLOCKED)
                 goto blkd;
 
@@ -361,12 +388,15 @@ granted:
                         list_del_init (&elock->domain_list);
                         list_add_tail (&elock->domain_list, &removed);
 
-			__pl_entrylk_unref (elock);
+                        __pl_entrylk_unref (elock);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
-	grant_blocked_entry_locks (this, pl_inode, dom);
+        grant_blocked_entry_locks (this, pl_inode, dom, &now, pcontend);
+        if (pcontend != NULL) {
+                entrylk_contention_notify(this, pcontend);
+        }
 
         ret = 0;
 out:

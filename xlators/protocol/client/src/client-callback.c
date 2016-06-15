@@ -173,6 +173,101 @@ out:
         return 0;
 }
 
+int
+client_cbk_inodelk_contention (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        int                                  ret         = -1;
+        struct iovec                        *iov         = NULL;
+        struct gf_upcall                     upcall_data = {0,};
+        struct gf_upcall_inodelk_contention  lc          = {{0,},};
+        gfs4_inodelk_contention_req          proto_lc    = {{0,},};
+
+        GF_VALIDATE_OR_GOTO ("client-callback", rpc, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", mydata, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", data, out);
+
+        iov = (struct iovec *)data;
+        ret = xdr_to_generic (*iov, &proto_lc,
+                              (xdrproc_t)xdr_gfs4_inodelk_contention_req);
+
+        if (ret < 0) {
+                gf_msg (THIS->name, GF_LOG_WARNING, -ret,
+                        PC_MSG_INODELK_CONTENTION_FAIL,
+                        "XDR decode of inodelk contention failed.");
+                goto out;
+        }
+
+        upcall_data.data = &lc;
+        ret = gf_proto_inodelk_contention_to_upcall (&proto_lc, &upcall_data);
+        if (ret < 0)
+                goto out;
+
+        upcall_data.event_type = GF_UPCALL_INODELK_CONTENTION;
+
+        default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
+
+out:
+        if (proto_lc.domain)
+                free (proto_lc.domain);
+
+        if (proto_lc.xdata.xdata_val)
+                free (proto_lc.xdata.xdata_val);
+
+        if (lc.xdata)
+                dict_unref (lc.xdata);
+
+        return ret;
+}
+
+int
+client_cbk_entrylk_contention (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        int                                  ret         = -1;
+        struct iovec                        *iov         = NULL;
+        struct gf_upcall                     upcall_data = {0,};
+        struct gf_upcall_entrylk_contention  lc          = {0,};
+        gfs4_entrylk_contention_req          proto_lc    = {{0,},};
+
+        GF_VALIDATE_OR_GOTO ("client-callback", rpc, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", mydata, out);
+        GF_VALIDATE_OR_GOTO ("client-callback", data, out);
+
+        iov = (struct iovec *)data;
+        ret = xdr_to_generic (*iov, &proto_lc,
+                              (xdrproc_t)xdr_gfs4_entrylk_contention_req);
+
+        if (ret < 0) {
+                gf_msg (THIS->name, GF_LOG_WARNING, -ret,
+                        PC_MSG_ENTRYLK_CONTENTION_FAIL,
+                        "XDR decode of entrylk contention failed.");
+                goto out;
+        }
+
+        upcall_data.data = &lc;
+        ret = gf_proto_entrylk_contention_to_upcall (&proto_lc, &upcall_data);
+        if (ret < 0)
+                goto out;
+
+        upcall_data.event_type = GF_UPCALL_ENTRYLK_CONTENTION;
+
+        default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
+
+out:
+        if (proto_lc.name)
+                free (proto_lc.name);
+
+        if (proto_lc.domain)
+                free (proto_lc.domain);
+
+        if (proto_lc.xdata.xdata_val)
+                free (proto_lc.xdata.xdata_val);
+
+        if (lc.xdata)
+                dict_unref (lc.xdata);
+
+        return ret;
+}
+
 rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_NULL]               = {"NULL",               GF_CBK_NULL,               client_cbk_null },
         [GF_CBK_FETCHSPEC]          = {"FETCHSPEC",          GF_CBK_FETCHSPEC,          client_cbk_fetchspec },
@@ -181,6 +276,8 @@ rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_CHILD_UP]           = {"CHILD_UP",           GF_CBK_CHILD_UP,           client_cbk_child_up },
         [GF_CBK_CHILD_DOWN]         = {"CHILD_DOWN",         GF_CBK_CHILD_DOWN,         client_cbk_child_down },
         [GF_CBK_RECALL_LEASE]       = {"RECALL_LEASE",       GF_CBK_RECALL_LEASE,       client_cbk_recall_lease },
+        [GF_CBK_INODELK_CONTENTION] = {"INODELK_CONTENTION", GF_CBK_INODELK_CONTENTION, client_cbk_inodelk_contention },
+        [GF_CBK_ENTRYLK_CONTENTION] = {"ENTRYLK_CONTENTION", GF_CBK_ENTRYLK_CONTENTION, client_cbk_entrylk_contention },
 };
 
 
