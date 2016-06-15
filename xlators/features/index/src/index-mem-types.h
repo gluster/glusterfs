@@ -17,6 +17,7 @@ enum gf_index_mem_types_ {
         gf_index_mt_priv_t = gf_common_mt_end + 1,
         gf_index_inode_ctx_t = gf_common_mt_end + 2,
         gf_index_fd_ctx_t = gf_common_mt_end + 3,
+        gf_index_mt_local_t = gf_common_mt_end + 4,
         gf_index_mt_end
 };
 #endif
