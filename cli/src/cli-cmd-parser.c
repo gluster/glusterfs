@@ -628,6 +628,11 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 goto out;
                         index += ret;
                         type = GF_CLUSTER_TYPE_DISPERSE;
+                } else if ((strcmp (w, "arbiter") == 0)) {
+                        cli_err ("arbiter option must be preceded by replica "
+                                 "option.");
+                        ret = -1;
+                        goto out;
                 } else {
                         GF_ASSERT (!"opword mismatch");
                         ret = -1;
