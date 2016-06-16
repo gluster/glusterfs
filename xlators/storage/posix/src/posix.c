@@ -6186,8 +6186,11 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
 
                 ret = posix_pstat (this, gfid, hpath, &stbuf);
 
-                if (ret == -1)
+                if (ret == -1) {
+                        if (inode)
+                                inode_unref (inode);
                       continue;
+                }
 
 		if (!inode)
 			inode = inode_find (itable, stbuf.ia_gfid);
