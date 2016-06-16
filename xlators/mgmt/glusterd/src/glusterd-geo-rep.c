@@ -2961,8 +2961,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char                     *georep_session_wrkng_dir  = NULL;
         struct slave_vol_config  slave1                     = {{0},};
         int                      type                       = 0;
-        char                     old_slave_url_info[SLAVE_URL_INFO_MAX] = {0};
-        char                     *old_slave_url             = NULL;
+        char                     old_slave_url[SLAVE_URL_INFO_MAX] = {0};
         char                     old_confpath[PATH_MAX]     = {0};
         gf_boolean_t             is_running                 = _gf_false;
         int                      ret_status                 = 0;
@@ -3258,26 +3257,21 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 
                 /* Do the check, only if different slave host/slave user */
                 if (is_different_slavehost || is_different_username) {
-                        ret = snprintf (old_confpath, sizeof(old_confpath) - 1,
-                                        "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
-                                        conf->workdir, volinfo->volname,
-                                        slave1.old_slvhost, slave_vol);
+                        (void) snprintf (old_confpath, sizeof(old_confpath) - 1,
+                                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
+                                         conf->workdir, volinfo->volname,
+                                         slave1.old_slvhost, slave_vol);
 
                         /* construct old slave url with (old) slave host */
-                        old_slave_url = old_slave_url_info;
-                        strncpy (old_slave_url, slave1.old_slvhost,
-                                                sizeof(old_slave_url_info));
-                        old_slave_url = strcat (old_slave_url, "::");
-                        old_slave_url = strncat (old_slave_url, slave_vol,
-                                                 sizeof(old_slave_url_info));
+                        (void) snprintf (old_slave_url,
+                                         sizeof(old_slave_url) - 1,
+                                         "%s::%s", slave1.old_slvhost,
+                                         slave_vol);
 
-                        ret = glusterd_check_gsync_running_local (
-                                                              volinfo->volname,
-                                                              old_slave_url,
-                                                              old_confpath,
-                                                              &is_running);
+                        ret = glusterd_check_gsync_running_local (volinfo->volname,
+                                 old_slave_url, old_confpath, &is_running);
                         if (_gf_true == is_running) {
-                                snprintf (errmsg, sizeof(errmsg), "Geo"
+                                (void) snprintf (errmsg, sizeof(errmsg), "Geo"
                                     "-replication session between %s and %s"
                                     " is still active. Please stop the "
                                     "session and retry.",
