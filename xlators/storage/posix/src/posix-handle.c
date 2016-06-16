@@ -989,6 +989,8 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
                 }
 unlock:
                 UNLOCK (&inode->lock);
+
+                inode_unref (inode);
         }
 
         return ret;
