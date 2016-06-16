@@ -496,6 +496,28 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_volfile_server, 3.4.0);
 
+/* *
+ * Used to free the arguments allocated by glfs_set_volfile_server()
+ */
+void
+glfs_free_volfile_servers (cmd_args_t *cmd_args)
+{
+        server_cmdline_t *server = NULL;
+        server_cmdline_t *tmp = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, cmd_args, out);
+
+        list_for_each_entry_safe (server, tmp, &cmd_args->volfile_servers,
+                                  list) {
+                list_del_init (&server->list);
+                GF_FREE (server->volfile_server);
+                GF_FREE (server->transport);
+                GF_FREE (server);
+        }
+        cmd_args->curr_server = NULL;
+out:
+        return;
+}
 
 int
 pub_glfs_setfsuid (uid_t fsuid)
@@ -1019,6 +1041,9 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
 
         if (ctx == NULL)
                 return 0;
+
+        if (ctx->cmd_args.curr_server)
+                glfs_free_volfile_servers (&ctx->cmd_args);
 
         /* For all the graphs, crawl through the xlator_t structs and free
          * all its members except for the mem_acct member,
