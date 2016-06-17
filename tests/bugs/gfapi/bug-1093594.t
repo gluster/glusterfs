@@ -13,8 +13,8 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 TEST $CLI volume start $V0;
 logdir=`gluster --print-logdir`
 
-build_tester $(dirname $0)/glfs_vol_set_IO_ERR.c -lgfapi
-TEST $(dirname $0)/glfs_vol_set_IO_ERR $V0 $logdir/glfs_vol_set_IO_ERR.log
+TEST build_tester $(dirname $0)/bug-1093594.c -lgfapi
+TEST $(dirname $0)/bug-1093594 $H0 $V0 $logdir/bug-1093594.log
 
-cleanup_tester $(dirname $0)/glfs_vol_set_IO_ERR
+cleanup_tester $(dirname $0)/bug-1093594
 cleanup;

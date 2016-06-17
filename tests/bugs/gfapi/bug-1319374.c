@@ -7,7 +7,7 @@
 #define NO_INIT 1
 
 glfs_t *
-setup_new_client(char *volname, char *log_file, int flag)
+setup_new_client(char *hostname, char *volname, char *log_file, int flag)
 {
         int ret = 0;
         glfs_t *fs = NULL;
@@ -19,7 +19,7 @@ setup_new_client(char *volname, char *log_file, int flag)
                 goto error;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
         if (ret < 0) {
                 fprintf (stderr, "\nglfs_set_volfile_server failed ret:%d (%s)\n",
                                  ret, strerror (errno));
@@ -58,32 +58,34 @@ main (int argc, char *argv[])
         glfs_t    *fs3         = NULL;
         char      *volname     = NULL;
         char      *log_file    = NULL;
+        char      *hostname    = NULL;
 
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr,
-                                "Expect following args %s <Vol> <log file location>\n"
+                                "Expect following args %s <hostname> <Vol> <log file location>\n"
                                 , argv[0]);
                 return -1;
         }
 
-        volname = argv[1];
-        log_file = argv[2];
+        hostname = argv[1];
+        volname = argv[2];
+        log_file = argv[3];
 
-        fs1 = setup_new_client (volname, log_file, NO_INIT);
+        fs1 = setup_new_client (hostname, volname, log_file, NO_INIT);
         if (!fs1) {
                 fprintf (stderr, "\nsetup_new_client: returned NULL (%s)\n",
                                  strerror (errno));
                 goto error;
         }
 
-        fs2 = setup_new_client (volname, log_file, 0);
+        fs2 = setup_new_client (hostname, volname, log_file, 0);
         if (!fs2) {
                 fprintf (stderr, "\nsetup_new_client: returned NULL (%s)\n",
                                  strerror (errno));
                 goto error;
         }
 
-        fs3 = setup_new_client (volname, log_file, 0);
+        fs3 = setup_new_client (hostname, volname, log_file, 0);
         if (!fs3) {
                 fprintf (stderr, "\nsetup_new_client: returned NULL (%s)\n",
                                  strerror (errno));

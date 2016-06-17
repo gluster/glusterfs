@@ -2,12 +2,11 @@
 #include <unistd.h>
 #include <time.h>
 #include <limits.h>
-#include <alloca.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "api/glfs.h"
-#include "api/glfs-handles.h"
+#include <glusterfs/api/glfs.h>
+#include <glusterfs/api/glfs-handles.h>
 
 #define LOG_ERR(func, ret) do { \
         if (ret != 0) {            \
@@ -26,21 +25,26 @@ main (int argc, char *argv[])
         glfs_fd_t *fd = NULL;
         char       readbuf[32];
         char      *filename = "a1";
+        char      *hostname = NULL;
+        char      *volname = NULL;
 
         fprintf (stderr, "Starting libgfapi_fini\n");
 
-        if (argc < 2) {
+        if (argc < 3) {
                 fprintf (stderr, "Invalid argument\n");
                 exit(1);
         }
 
-        fs = glfs_new (argv[1]);
+        hostname = argv[1];
+        volname = argv[2];
+
+        fs = glfs_new (volname);
         if (!fs) {
                 fprintf (stderr, "glfs_new: returned NULL\n");
                 exit(1);
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 0);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 0);
         LOG_ERR("glfs_set_volfile_server", ret);
 
         ret = glfs_set_logging (fs, "/dev/stderr", 7);

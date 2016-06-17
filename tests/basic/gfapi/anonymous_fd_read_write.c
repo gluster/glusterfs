@@ -30,14 +30,16 @@ main (int argc, char *argv[])
         char                    *filename      = "file.txt";
         char                    *logfile       = NULL;
         char                    *volname       = NULL;
+        char                    *hostname      = NULL;
 
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr, "Invalid argument\n");
                 exit(1);
         }
 
-        volname = argv[1];
-        logfile = argv[2];
+        hostname = argv[1];
+        volname = argv[2];
+        logfile = argv[3];
 
         fs = glfs_new (volname);
         if (!fs) {
@@ -45,7 +47,7 @@ main (int argc, char *argv[])
                 ret = -1;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
         LOG_ERR("glfs_set_volfile_server", ret);
 
         ret = glfs_set_logging (fs, logfile, 7);

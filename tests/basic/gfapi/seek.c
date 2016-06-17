@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <api/glfs.h>
-#include <api/glfs-handles.h>
+#include <glusterfs/api/glfs.h>
+#include <glusterfs/api/glfs-handles.h>
 
 int
 main (int argc, char **argv)
@@ -25,18 +25,20 @@ main (int argc, char **argv)
         glfs_fd_t   *fd       = NULL;
         char        *filename = NULL;
         char        *volname  = NULL;
+        char        *hostname = NULL;
         struct stat  st       = { 0, };
         off_t        hole_start = 0;
         off_t        hole_end   = 0;
 
-        if (argc != 3) {
-                fprintf (stderr, "Invalid argument, use %s <vol> <file>\n",
+        if (argc != 4) {
+                fprintf (stderr, "Invalid argument, use %s <hostname> <vol> <file>\n",
                                  argv[0]);
                 exit (1);
         }
 
-        volname = argv[1];
-        filename = argv[2];
+        hostname = argv[1];
+        volname = argv[2];
+        filename = argv[3];
 
         fs = glfs_new (volname);
         if (!fs) {
@@ -44,7 +46,7 @@ main (int argc, char **argv)
                 return 1;
         }
 
-        if (glfs_set_volfile_server (fs, "tcp", "localhost", 24007)) {
+        if (glfs_set_volfile_server (fs, "tcp", hostname, 24007)) {
                 perror ("glfs_set_volfile_server");
                 return 1;
         }

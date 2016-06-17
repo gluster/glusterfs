@@ -22,23 +22,25 @@ main (int argc, char *argv[])
         glfs_fd_t      *fd2 = NULL;
         char           *volname = NULL;
         char           *logfile = NULL;
+        char           *hostname = NULL;
         const char     *filename = "file_tmp";
         const char     *buff = "An opinion should be the result of thought, "
                                 "not a substitute for it.";
 
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr, "Invalid argument\n");
                 return 1;
         }
 
-        volname = argv[1];
-        logfile = argv[2];
+        hostname = argv[1];
+        volname = argv[2];
+        logfile = argv[3];
 
         fs = glfs_new (volname);
         if (!fs)
                 VALIDATE_AND_GOTO_LABEL_ON_ERROR ("glfs_new", ret, out);
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
         VALIDATE_AND_GOTO_LABEL_ON_ERROR ("glfs_set_volfile_server", ret, out);
 
         ret = glfs_set_logging (fs, logfile, 7);

@@ -19,8 +19,8 @@ TEST $CLI volume set $V0 diagnostics.client-log-flush-timeout 30
 
 logdir=`gluster --print-logdir`
 
-build_tester $(dirname $0)/bug-1319374.c -lgfapi
-TEST $(dirname $0)/bug-1319374 $V0 $logdir/bug-1319374.log
+TEST build_tester $(dirname $0)/bug-1319374.c -lgfapi
+TEST $(dirname $0)/bug-1319374 $H0 $V0 $logdir/bug-1319374.log
 
 cleanup_tester $(dirname $0)/bug-1319374
 

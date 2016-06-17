@@ -1240,7 +1240,7 @@ pub_glfs_fini (struct glfs *fs)
                 syncenv_destroy (ctx->env);
 
                 /* Join the poller thread */
-                if (event_dispatch_destroy (ctx->event_pool) != 0)
+                if (event_dispatch_destroy (ctx->event_pool) < 0)
                         ret = -1;
         }
 
