@@ -230,6 +230,9 @@ gf_boolean_t
 ec_xattr_match (dict_t *dict, char *key, data_t *value, void *arg)
 {
         if ((fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
+            (strcmp(key, GET_LINK_COUNT) == 0) ||
+            (strcmp(key, GLUSTERFS_INODELK_COUNT) == 0) ||
+            (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0) ||
             (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)) {
                 return _gf_false;
         }
@@ -270,8 +273,8 @@ ec_dict_compare (dict_t *dict1, dict_t *dict2)
 int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
                      int32_t which, char * key)
 {
-    ec_cbk_data_t * ans;
-    dict_t * dict;
+    ec_cbk_data_t *ans = NULL;
+    dict_t *dict = NULL;
     int32_t i, max;
 
     max = *count;
@@ -657,6 +660,10 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
         return ec_dict_data_merge(data->cbk, data->which, key);
     }
 
+    if (strcmp(key, GET_LINK_COUNT) == 0) {
+        return ec_dict_data_max32(data->cbk, data->which, key);
+    }
+
     if (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)
     {
         return ec_dict_data_max32(data->cbk, data->which, key);
@@ -693,7 +700,7 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
 
 int32_t ec_dict_combine(ec_cbk_data_t * cbk, int32_t which)
 {
-    dict_t * dict;
+    dict_t *dict = NULL;
     ec_dict_combine_t data;
     int32_t err = 0;
 
