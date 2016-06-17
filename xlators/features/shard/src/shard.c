@@ -3013,6 +3013,9 @@ shard_readv_do (call_frame_t *frame, xlator_t *this)
 
         SHARD_SET_ROOT_FS_ID (frame, local);
 
+        if (fd->flags & O_DIRECT)
+                local->flags = O_DIRECT;
+
         while (cur_block <= last_block) {
                 if (wind_failed) {
                         shard_readv_do_cbk (frame, (void *) (long) 0,  this, -1,
