@@ -34,7 +34,7 @@ TEST mv $M0/file1 $M0/file2
 TEST ! stat $M0/file1
 TEST stat $M0/file2
 
-TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/bug-1161886 $(dirname $0)/bug-1161886.c -lgfapi
+TEST build_tester $(dirname $0)/bug-1161886.c -lgfapi -Wall -O2
 TEST $(dirname $0)/bug-1161886 $H0 $V0 /file2
 EXPECT "^0$" stat -c "%s" $M0/file2
 EXPECT "^Y$" check_ec_size file2 0

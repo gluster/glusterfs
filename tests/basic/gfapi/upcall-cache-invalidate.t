@@ -5,9 +5,16 @@
 
 cleanup;
 
+# Upcall feature is disable for now. A new xlator option
+# will be introduced to turn it on. Skipping this test
+# till then.
+
+SKIP_TESTS;
+exit 0
+
 TEST glusterd
 
-TEST $CLI volume create $V0 localhost:$B0/brick1;
+TEST $CLI volume create $V0 $H0:$B0/brick1;
 EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume start $V0;
@@ -18,11 +25,11 @@ logdir=`gluster --print-logdir`
 ## Enable Upcall cache-invalidation feature
 TEST $CLI volume set $V0 features.cache-invalidation on;
 
-build_tester $(dirname $0)/bug-1241104.c -lgfapi -o $(dirname $0)/bug-1241104
+TEST build_tester $(dirname $0)/upcall-cache-invalidate.c -lgfapi
 
-TEST ./$(dirname $0)/bug-1241104 $V0  $logdir/bug-1241104.log
+TEST ./$(dirname $0)/upcall-cache-invalidate $H0 $V0  $logdir/upcall-cache-invalidate.log
 
-cleanup_tester $(dirname $0)/bug1241104
+cleanup_tester $(dirname $0)/upcall-cache-invalidate
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

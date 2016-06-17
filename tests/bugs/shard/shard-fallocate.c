@@ -2,8 +2,8 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "glfs.h"
-#include "glfs-handles.h"
+#include <glusterfs/api/glfs.h>
+#include <glusterfs/api/glfs-handles.h>
 
 enum fallocate_flag {
         TEST_FALLOCATE_NONE,

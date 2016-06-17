@@ -617,6 +617,10 @@ function build_tester ()
     local execname="${fname%.*}"
     shift
     local cflags=$*
+    if [ `echo $cflags | grep -c "lgfapi" ` -gt 0 ]
+    then
+       cflags="$cflags $(pkg-config glusterfs-api --cflags-only-I --libs-only-L)"
+    fi
     $CC -g -o $(dirname $cfile)/$execname $cfile $cflags
 }
 

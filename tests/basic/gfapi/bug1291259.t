@@ -15,10 +15,14 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 logdir=`gluster --print-logdir`
 
-TEST build_tester $(dirname $0)/anonymous_fd_read_write.c -lgfapi -o $(dirname $0)/anonymous_fd
-TEST ./$(dirname $0)/anonymous_fd $V0  $logdir/anonymous_fd.log
+## Enable Upcall cache-invalidation feature
+TEST $CLI volume set $V0 features.cache-invalidation on;
 
-cleanup_tester $(dirname $0)/anonymous_fd
+TEST build_tester $(dirname $0)/bug1291259.c -lgfapi
+
+TEST ./$(dirname $0)/bug1291259 $H0 $V0 $logdir/bug1291259.log
+
+cleanup_tester $(dirname $0)/bug1291259
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

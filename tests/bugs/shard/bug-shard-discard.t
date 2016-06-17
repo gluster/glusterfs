@@ -28,7 +28,7 @@ EXPECT '10485760' stat -c %s $M0/foo
 
 gfid_foo=$(get_gfid_string $M0/foo)
 
-TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/bug-shard-discard $(dirname $0)/bug-shard-discard.c -lgfapi
+TEST build_tester $(dirname $0)/bug-shard-discard.c -lgfapi -Wall -O2
 #Call discard on the file at off=7M and len=3M
 TEST $(dirname $0)/bug-shard-discard $H0 $V0 /foo 7340032 3145728 `gluster --print-logdir`/glfs-$V0.log
 
