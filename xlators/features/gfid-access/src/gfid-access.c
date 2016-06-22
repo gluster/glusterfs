@@ -791,6 +791,16 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         inode_t      *true_inode    = NULL;
         int32_t       op_errno = ENOENT;
 
+        priv = this->private;
+
+        /* Handle nameless lookup on ".gfid" */
+        if (!loc->parent && __is_gfid_access_dir(loc->gfid)) {
+                STACK_UNWIND_STRICT (lookup, frame, 0, 0, loc->inode,
+                                     &priv->gfiddir_stbuf, xdata,
+                                     &priv->root_stbuf);
+                return 0;
+        }
+
         /* if its discover(), no need for any action here */
         if (!loc->name)
                 goto wind;
@@ -822,8 +832,6 @@ ga_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 /* not something to bother, continue the flow */
                 goto wind;
         }
-
-        priv = this->private;
 
         /* need to check if the lookup is on virtual dir */
         if ((loc->name && !strcmp (GF_GFID_DIR, loc->name)) &&
