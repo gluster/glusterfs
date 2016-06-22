@@ -126,14 +126,13 @@ TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir/f1
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir3/f1
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir2/f1
 
-# To be uncommented once index xl is made to purge the parent gfid dir
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID
-#TEST ! stat $B0/${V0}0/.glusterfs/indices/entry-changes/$ROOT_GFID
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir
-#TEST ! stat $B0/${V0}0/.glusterfs/indices/entry-changes/$gfid_dir
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir2
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir3
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir2
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID
+TEST ! stat $B0/${V0}0/.glusterfs/indices/entry-changes/$ROOT_GFID
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir
+TEST ! stat $B0/${V0}0/.glusterfs/indices/entry-changes/$gfid_dir
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir2
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir3
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_subdir2
 
 cleanup
