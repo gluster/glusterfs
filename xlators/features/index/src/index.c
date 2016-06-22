@@ -652,14 +652,19 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir, int type)
                                        out, op_errno, EINVAL);
         make_gfid_path (priv->index_basepath, subdir, gfid,
                         gfid_path, sizeof (gfid_path));
-        ret = sys_unlink (gfid_path);
+
+        if ((strcmp (subdir, ENTRY_CHANGES_SUBDIR)) == 0)
+                ret = sys_rmdir (gfid_path);
+        else
+                ret = sys_unlink (gfid_path);
+
         if (ret && (errno != ENOENT)) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to delete from index (%s)",
-                        gfid_path, strerror (errno));
+                gf_log (this->name, GF_LOG_ERROR, "%s: failed to delete"
+                        " from index (%s)", gfid_path, strerror (errno));
                 ret = -errno;
                 goto out;
         }
+
         index_dec_link_count (priv, type);
         ret = 0;
 out:
@@ -758,37 +763,47 @@ _check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
 }
 
 int
-index_entry_create (xlator_t *this, uuid_t gfid, char *filename)
+index_entry_create (xlator_t *this, inode_t *inode, char *filename)
 {
-        char entry_base_index_path[PATH_MAX] = {0};
-        char pgfid_path[PATH_MAX] = {0};
-        char entry_path[PATH_MAX] = {0};
-        struct stat st = {0};
-        uuid_t index = {0};
-        index_priv_t *priv = NULL;
-        int ret = -1;
-        int op_errno = 0;
-        int fd = 0;
+        int                 fd                              = 0;
+        int                 ret                             = -1;
+        int                 op_errno                        = 0;
+        char               *subdir                          = NULL;
+        char                pgfid_path[PATH_MAX]            = {0};
+        char                entry_path[PATH_MAX]            = {0};
+        char                entry_base_index_path[PATH_MAX] = {0};
+        uuid_t              index                           = {0};
+        struct stat         st                              = {0};
+        index_priv_t       *priv                            = NULL;
+        index_inode_ctx_t  *ctx                             = NULL;
 
-        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
-                                       out, op_errno, EINVAL);
+        priv = this->private;
+
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                       !gf_uuid_is_null (inode->gfid), out,
+                                       op_errno, EINVAL);
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, filename, out, op_errno,
                                        EINVAL);
 
-        priv = this->private;
-        make_gfid_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR, gfid,
-                        pgfid_path, sizeof (pgfid_path));
+        ret = index_inode_ctx_get (inode, this, &ctx);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Not able to get inode ctx "
+                        "for %s", uuid_utoa (inode->gfid));
+                op_errno = ENOMEM;
+                goto out;
+        }
 
-        ret = stat (pgfid_path, &st);
-        if (ret != 0) {
-                op_errno = errno;
-                if (op_errno != ENOENT)
-                        goto out;
+        make_gfid_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR,
+                        inode->gfid, pgfid_path, sizeof (pgfid_path));
+        subdir = index_get_subdir_from_type (ENTRY_CHANGES);
+
+        if (ctx->state[ENTRY_CHANGES] != IN) {
                 ret = sys_mkdir (pgfid_path, 0600);
                 if (ret != 0 && errno != EEXIST) {
                         op_errno = errno;
                         goto out;
                 }
+                ctx->state[ENTRY_CHANGES] = IN;
         }
 
         op_errno = 0;
@@ -810,22 +825,25 @@ out:
 int
 index_entry_delete (xlator_t *this, uuid_t pgfid, char *filename)
 {
-        char entry_base_index_path[PATH_MAX] = {0};
-        char pgfid_path[PATH_MAX] = {0};
-        char entry_path[PATH_MAX] = {0};
-        index_priv_t *priv = NULL;
-        int op_errno = 0;
-        int ret = 0;
+        int                 ret                             = 0;
+        int                 op_errno                        = 0;
+        char                entry_base_index_path[PATH_MAX] = {0};
+        char                pgfid_path[PATH_MAX]            = {0};
+        char                entry_path[PATH_MAX]            = {0};
+        index_priv_t       *priv                            = NULL;
+
+        priv = this->private;
 
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (pgfid),
                                        out, op_errno, EINVAL);
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, filename, out, op_errno,
                                        EINVAL);
-        priv = this->private;
+
         make_gfid_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR, pgfid,
                         pgfid_path, sizeof (pgfid_path));
         snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
                   filename);
+
         ret = sys_unlink (entry_path);
         if (ret && (errno != ENOENT)) {
                 op_errno = errno;
@@ -836,7 +854,6 @@ index_entry_delete (xlator_t *this, uuid_t pgfid, char *filename)
 
 out:
         return -op_errno;
-
 }
 
 int
@@ -853,7 +870,7 @@ index_entry_action (xlator_t *this, inode_t *inode, dict_t *xdata, char *key)
         }
 
         if (strcmp (key, GF_XATTROP_ENTRY_IN_KEY) == 0)
-                ret = index_entry_create (this, inode->gfid, filename);
+                ret = index_entry_create (this, inode, filename);
         else if (strcmp (key, GF_XATTROP_ENTRY_OUT_KEY) == 0)
                 ret = index_entry_delete (this, inode->gfid, filename);
 
@@ -896,6 +913,29 @@ out:
         return;
 }
 
+static void
+index_init_state (xlator_t *this, inode_t *inode, index_inode_ctx_t *ctx,
+                  char *subdir)
+{
+        int                 ret                             = -1;
+        char                pgfid_path[PATH_MAX]            = {0};
+        struct stat         st                              = {0};
+        index_priv_t       *priv                            = NULL;
+
+        priv = this->private;
+
+        make_gfid_path (priv->index_basepath, subdir, inode->gfid, pgfid_path,
+                        sizeof (pgfid_path));
+
+        ret = sys_stat (pgfid_path, &st);
+        if (ret == 0)
+                ctx->state[ENTRY_CHANGES] = IN;
+        else if (ret != 0 && errno == ENOENT)
+                ctx->state[ENTRY_CHANGES] = NOTIN;
+
+        return;
+}
+
 void
 xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
                       dict_match_t match, void *match_data)
@@ -903,9 +943,11 @@ xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
         int              i                       = 0;
         int            ret                       = 0;
         int            zfilled[XATTROP_TYPE_END] = {0,};
+        char          *subdir                    = NULL;
         dict_t        *req_xdata                 = NULL;
         inode_t       *inode                     = NULL;
         gf_boolean_t   zero_xattr                = _gf_true;
+        index_inode_ctx_t *ctx                   = NULL;
 
         inode = local->inode;
         req_xdata = local->xdata;
@@ -918,6 +960,19 @@ xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
         if (req_xdata)
                 ret = index_entry_action (this, inode, req_xdata,
                                           GF_XATTROP_ENTRY_OUT_KEY);
+
+        if (zfilled[XATTROP] == 1) {
+                subdir = index_get_subdir_from_type (ENTRY_CHANGES);
+                ret = index_inode_ctx_get (inode, this, &ctx);
+                if (ctx->state[ENTRY_CHANGES] == UNKNOWN)
+                        index_init_state (this, inode, ctx, subdir);
+                if (ctx->state[ENTRY_CHANGES] == IN) {
+                        ret = index_del (this, inode->gfid, subdir,
+                                         ENTRY_CHANGES);
+                        ctx->state[ENTRY_CHANGES] = NOTIN;
+                }
+        }
+
         return;
 }
 
