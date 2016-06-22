@@ -2395,6 +2395,9 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
         glusterd_conf_t *priv                   = NULL;
         struct stat      stbuf                  = {0,};
         xlator_t         *this                  = NULL;
+        char             workdir[PATH_MAX]      = {0,};
+        char             realpath_filename[PATH_MAX] = {0,};
+        char             realpath_workdir[PATH_MAX]  = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -2438,6 +2441,37 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
                 }
                 snprintf (abs_filename, sizeof(abs_filename),
                           "%s/%s", priv->workdir, filename);
+
+                if (!realpath (priv->workdir, realpath_workdir)) {
+                        snprintf (errmsg, sizeof (errmsg), "Failed to get "
+                                  "realpath of %s: %s", priv->workdir,
+                                  strerror (errno));
+                        *op_errstr = gf_strdup (errmsg);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (!realpath (abs_filename, realpath_filename)) {
+                        snprintf (errmsg, sizeof (errmsg), "Failed to get "
+                                  "realpath of %s: %s", filename,
+                                  strerror (errno));
+                        *op_errstr = gf_strdup (errmsg);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Add Trailing slash to workdir, without slash strncmp
+                   will succeed for /var/lib/glusterd_bad */
+                snprintf (workdir, sizeof(workdir), "%s/", realpath_workdir);
+
+                /* Protect against file copy outside $workdir */
+                if (strncmp (workdir, realpath_filename, strlen (workdir))) {
+                        snprintf (errmsg, sizeof (errmsg), "Source file"
+                                  " is outside of %s directory", priv->workdir);
+                        *op_errstr = gf_strdup (errmsg);
+                        ret = -1;
+                        goto out;
+                }
 
                 ret = sys_lstat (abs_filename, &stbuf);
                 if (ret) {
