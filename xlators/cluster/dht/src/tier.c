@@ -31,6 +31,7 @@ static void *libhandle;
 static gfdb_methods_t gfdb_methods;
 
 #define DB_QUERY_RECORD_SIZE 4096
+#define GF_PERCENTAGE(val, total) (((val)*100)/(total))
 
 /*
  * Closes all the fds and frees the qfile_array
@@ -240,30 +241,35 @@ out:
 }
 
 int
-tier_check_watermark (xlator_t *this, loc_t *root_loc)
+tier_get_fs_stat (xlator_t *this, loc_t *root_loc)
 {
-        tier_watermark_op_t     wm = TIER_WM_NONE;
-        int                     ret = -1;
+        int                     ret = 0;
         gf_defrag_info_t       *defrag = NULL;
         dht_conf_t             *conf   = NULL;
         dict_t                 *xdata  = NULL;
         struct statvfs          statfs = {0, };
         gf_tier_conf_t         *tier_conf = NULL;
 
+
         conf = this->private;
-        if (!conf)
-                goto exit;
-
-        defrag = conf->defrag;
-        if (!defrag)
-                goto exit;
-
-        tier_conf = &defrag->tier_conf;
-
-        if (tier_conf->mode != TIER_MODE_WM) {
-                ret = 0;
+        if (!conf) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "conf is NULL");
+                ret = -1;
                 goto exit;
         }
+
+        defrag = conf->defrag;
+        if (!defrag) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "defrag is NULL");
+                ret = -1;
+                goto exit;
+        }
+
+        tier_conf = &defrag->tier_conf;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -301,12 +307,38 @@ tier_check_watermark (xlator_t *this, loc_t *root_loc)
 
         pthread_mutex_lock (&dm_stat_mutex);
 
+        tier_conf->block_size = statfs.f_bsize;
         tier_conf->blocks_total = statfs.f_blocks;
         tier_conf->blocks_used = statfs.f_blocks - statfs.f_bfree;
 
-        tier_conf->percent_full = (100 * tier_conf->blocks_used) /
-                statfs.f_blocks;
+        tier_conf->percent_full = GF_PERCENTAGE(tier_conf->blocks_used,
+                                                statfs.f_blocks);
         pthread_mutex_unlock (&dm_stat_mutex);
+
+exit:
+        if (xdata)
+                dict_unref (xdata);
+        return ret;
+}
+
+int
+tier_check_watermark (xlator_t *this)
+{
+        int                     ret       = -1;
+        gf_defrag_info_t       *defrag    = NULL;
+        dht_conf_t             *conf      = NULL;
+        gf_tier_conf_t         *tier_conf = NULL;
+        tier_watermark_op_t     wm        = TIER_WM_NONE;
+
+        conf = this->private;
+        if (!conf)
+                goto exit;
+
+        defrag = conf->defrag;
+        if (!defrag)
+                goto exit;
+
+        tier_conf = &defrag->tier_conf;
 
         if (tier_conf->percent_full < tier_conf->watermark_low) {
                 wm = TIER_WM_LOW;
@@ -326,9 +358,9 @@ tier_check_watermark (xlator_t *this, loc_t *root_loc)
                         "Tier watermark now %d", wm);
         }
 
+        ret = 0;
+
 exit:
-        if (xdata)
-                dict_unref (xdata);
         return ret;
 }
 
@@ -344,8 +376,9 @@ is_hot_tier_full (gf_tier_conf_t *tier_conf)
 }
 
 int
-tier_do_migration (xlator_t *this, int promote, loc_t *root_loc)
+tier_do_migration (xlator_t *this, int promote)
 {
+        int                     ret = -1;
         gf_defrag_info_t       *defrag = NULL;
         dht_conf_t             *conf   = NULL;
         long                    rand = 0;
@@ -360,12 +393,7 @@ tier_do_migration (xlator_t *this, int promote, loc_t *root_loc)
         if (!defrag)
                 goto exit;
 
-        if (defrag->tier_conf.mode != TIER_MODE_WM) {
-                migrate = 1;
-                goto exit;
-        }
-
-        if (tier_check_watermark (this, root_loc) != 0) {
+        if (tier_check_watermark (this) != 0) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         DHT_MSG_LOG_TIER_ERROR,
                         "Failed to get watermark");
@@ -419,6 +447,61 @@ tier_migrate (xlator_t *this, int is_promotion, dict_t *migrate_data,
                 tier_conf->demote_in_progress = 0;
         pthread_mutex_unlock (&tier_conf->pause_mutex);
 
+        return ret;
+}
+
+/* returns  _gf_true: if file can be promoted
+ * returns _gf_false: if file cannot be promoted
+ */
+static gf_boolean_t
+tier_can_promote_file (xlator_t *this, char const *file_name,
+                       struct iatt *current, gf_defrag_info_t *defrag)
+{
+        gf_boolean_t ret = _gf_false;
+        fsblkcnt_t estimated_usage = 0;
+
+        if (defrag->tier_conf.tier_max_promote_size &&
+            (current->ia_size > defrag->tier_conf.tier_max_promote_size)) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "File %s (gfid:%s) with size (%lu) exceeds maxsize "
+                        "(%d) for promotion. File will not be promoted.",
+                        file_name,
+                        uuid_utoa(current->ia_gfid),
+                        current->ia_size,
+                        defrag->tier_conf.tier_max_promote_size);
+                goto abort;
+        }
+
+        /* bypass further validations for TEST mode */
+        if (defrag->tier_conf.mode != TIER_MODE_WM) {
+                ret = _gf_true;
+                goto abort;
+        }
+
+        /* convert the file size to blocks as per the block size of the
+         * destination tier
+         * NOTE: add (block_size - 1) to get the correct block size when
+         *       there is a remainder after a modulo
+         */
+        estimated_usage = ((current->ia_size + defrag->tier_conf.block_size - 1) /
+                                defrag->tier_conf.block_size) +
+                                defrag->tier_conf.blocks_used;
+
+        /* test if the estimated block usage goes above HI watermark */
+        if (GF_PERCENTAGE (estimated_usage, defrag->tier_conf.blocks_total) >
+                        defrag->tier_conf.watermark_hi) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Estimated block count consumption on "
+                        "hot tier (%lu) exceeds hi watermark (%d%%). "
+                        "File will not be promoted.",
+                        estimated_usage,
+                        defrag->tier_conf.watermark_hi);
+                goto abort;
+        }
+        ret = _gf_true;
+abort:
         return ret;
 }
 
@@ -553,25 +636,38 @@ tier_migrate_using_query_file (void *_args)
                         break;
                 }
 
-                if (!tier_do_migration (this, query_cbk_args->is_promotion, &root_loc)) {
-                        gfdb_methods.gfdb_query_record_free (query_record);
-                        query_record = NULL;
-
-                        /* We have crossed the high watermark. Stop processing
-                         * files if this is a promotion cycle so demotion gets
-                         * a chance to start if not already running*/
-
-                        if (query_cbk_args->is_promotion &&
-                            is_hot_tier_full (&defrag->tier_conf)) {
-
-                                gf_msg (this->name, GF_LOG_INFO, 0,
+                if (defrag->tier_conf.mode == TIER_MODE_WM) {
+                        ret = tier_get_fs_stat (this, &root_loc);
+                        if (ret != 0) {
+                                gfdb_methods.gfdb_query_record_free (query_record);
+                                query_record = NULL;
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
-                                        "High watermark crossed during "
-                                        "promotion. Exiting "
-                                        "tier_migrate_using_query_file");
+                                        "tier_get_fs_stat() FAILED ... "
+                                        "skipping file migrations until next cycle");
                                 break;
                         }
-                        continue;
+
+                        if (!tier_do_migration (this, query_cbk_args->is_promotion)) {
+                                gfdb_methods.gfdb_query_record_free (query_record);
+                                query_record = NULL;
+
+                                /* We have crossed the high watermark. Stop processing
+                                 * files if this is a promotion cycle so demotion gets
+                                 * a chance to start if not already running*/
+
+                                if (query_cbk_args->is_promotion &&
+                                    is_hot_tier_full (&defrag->tier_conf)) {
+
+                                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                                DHT_MSG_LOG_TIER_STATUS,
+                                                "High watermark crossed during "
+                                                "promotion. Exiting "
+                                                "tier_migrate_using_query_file");
+                                        break;
+                                }
+                                continue;
+                        }
                 }
 
                 if (!list_empty (&query_record->link_list)) {
@@ -725,14 +821,14 @@ tier_migrate_using_query_file (void *_args)
                                 goto abort;
                         }
 
-                        if (query_cbk_args->is_promotion &&
-                            defrag->tier_conf.tier_max_promote_size &&
-                            (current.ia_size > defrag->tier_conf.tier_max_promote_size)) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        DHT_MSG_LOG_TIER_STATUS,
-                                        "File size exceeds maxsize for promotion. ");
-                                per_link_status = 1;
-                                goto abort;
+                        if (query_cbk_args->is_promotion) {
+                                if (!tier_can_promote_file (this,
+                                                            link_info->file_name,
+                                                            &current,
+                                                            defrag)) {
+                                        per_link_status = 1;
+                                        goto abort;
+                                }
                         }
 
                         linked_inode = inode_link (loc.inode, NULL, NULL,
@@ -1839,12 +1935,18 @@ static void
 
                 if (check_watermark >= WM_INTERVAL) {
                         check_watermark = 0;
-                        ret = tier_check_watermark (this, &root_loc);
-                        if (ret != 0) {
-                                gf_msg (this->name, GF_LOG_CRITICAL, errno,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed to get watermark");
-                                continue;
+                        if (tier_conf->mode == TIER_MODE_WM) {
+                                ret = tier_get_fs_stat (this, &root_loc);
+                                if (ret != 0) {
+                                        continue;
+                                }
+                                ret = tier_check_watermark (this);
+                                if (ret != 0) {
+                                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                                DHT_MSG_LOG_TIER_ERROR,
+                                                "Failed to get watermark");
+                                        continue;
+                                }
                         }
                 }
 

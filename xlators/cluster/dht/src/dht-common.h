@@ -391,6 +391,7 @@ typedef struct gf_tier_conf {
         int                          watermark_hi;
         int                          watermark_low;
         int                          watermark_last;
+        unsigned long                block_size;
         fsblkcnt_t                   blocks_total;
         fsblkcnt_t                   blocks_used;
         int                          percent_full;
