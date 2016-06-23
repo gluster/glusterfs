@@ -624,6 +624,12 @@ ganesha_manage_export (char *volname, char *value, char **op_errstr,
                 if (ret && op_errstr)
                         gf_asprintf (op_errstr, "Cache-invalidation could not"
                                                 " be set to %s.", value);
+                ret = glusterd_store_volinfo (volinfo,
+                                GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret && op_errstr)
+                        gf_asprintf (op_errstr, "failed to store volinfo for %s"
+                                     , volinfo->volname);
+
         }
 out:
         return ret;
@@ -696,12 +702,29 @@ teardown (char **op_errstr)
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 vol_opts = volinfo->dict;
                 /* All the volumes exported via NFS-Ganesha will be
-                unexported, hence setting the appropriate key */
+                unexported, hence setting the appropriate keys */
+                ret = dict_set_str (vol_opts, "features.cache-invalidation",
+                                    "off");
+                if (ret)
+                        gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Could not set features.cache-invalidation "
+                                "to off for %s", volinfo->volname);
+
                 ret = dict_set_str (vol_opts, "ganesha.enable", "off");
                 if (ret)
                         gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                 GD_MSG_DICT_SET_FAILED,
-                                "Could not set ganesha.enable to off");
+                                "Could not set ganesha.enable to off for %s",
+                                volinfo->volname);
+
+                ret = glusterd_store_volinfo (volinfo,
+                                GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret)
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                GD_MSG_VOLINFO_SET_FAIL,
+                                "failed to store volinfo for %s",
+                                volinfo->volname);
         }
 out:
         return ret;
