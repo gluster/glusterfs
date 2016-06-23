@@ -865,6 +865,8 @@ __socket_keepalive (int fd, int family, int keepalive_intvl,
         }
 
 #if defined(TCP_USER_TIMEOUT)
+        if (timeout_ms < 0)
+                goto done;
         ret = setsockopt (fd, IPPROTO_TCP , TCP_USER_TIMEOUT, &timeout_ms,
                           sizeof (timeout_ms));
         if (ret == -1) {
