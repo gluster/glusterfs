@@ -3,13 +3,7 @@
 . $(dirname $0)/../traps.rc
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
-
-log_base=$($CLI --print-logdir)
-log_id=${B0}/${V0}-0
-log_id=${log_id:1}     # Remove initial slash
-log_id=${log_id//\//-} # Replace remaining slashes with dashes
-FDL_META_FILE=${log_base}/${log_id}-meta-1.jnl
-FDL_DATA_FILE=${log_base}/${log_id}-data-1.jnl
+. $(dirname $0)/../fdl.rc
 
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
 push_trapfunc "rm -rf $tmpdir"

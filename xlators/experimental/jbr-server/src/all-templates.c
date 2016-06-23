@@ -105,6 +105,7 @@ jbr_@NAME@ (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto err;
 
+        local->xdata = dict_ref(xdata);
         local->stub = fop_@NAME@_stub (frame, jbr_@NAME@_continue,
                                        @SHORT_ARGS@);
         if (!local->stub) {
@@ -248,7 +249,6 @@ jbr_@NAME@_dispatch (call_frame_t *frame, xlator_t *this,
          */
 
         local->call_count = priv->n_children - 1;
-        local->successful_acks = 0;
         for (trav = this->children->next; trav; trav = trav->next) {
                 STACK_WIND (frame, jbr_@NAME@_fan_in,
                             trav->xlator, trav->xlator->fops->@NAME@,
@@ -307,9 +307,12 @@ int32_t
 jbr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                      @LONG_ARGS@)
 {
-        gf_boolean_t     result   = _gf_false;
-        jbr_local_t     *local    = NULL;
-        jbr_private_t   *priv     = NULL;
+        int32_t          ret       = -1;
+        gf_boolean_t     result    = _gf_false;
+        jbr_local_t     *local     = NULL;
+        jbr_local_t     *new_local = NULL;
+        jbr_private_t   *priv      = NULL;
+        int32_t          op_errno  = 0;
 
         GF_VALIDATE_OR_GOTO ("jbr", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -330,6 +333,58 @@ jbr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                         J_MSG_QUORUM_NOT_MET, "Didn't receive enough acks "
                         "to meet quorum. Failing the operation without trying "
                         "it on the leader.");
+
+#if defined(JBR_CG_QUEUE)
+                /*
+                 * In case of a fop failure, before unwinding need to *
+                 * remove it from queue                               *
+                 */
+                ret = jbr_remove_from_queue (frame, this);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                J_MSG_GENERIC, "Failed to remove from queue.");
+                }
+#endif
+
+                /*
+                 * In this case, the quorum is not met on the followers  *
+                 * So the operation will not be performed on the leader  *
+                 * and a rollback will be sent via GF_FOP_IPC to all the *
+                 * followers, where this particular fop's term and index *
+                 * numbers will be journaled, and later used to rollback *
+                 */
+                call_frame_t    *new_frame;
+
+                new_frame = copy_frame (frame);
+
+                if (new_frame) {
+                        new_local = mem_get0(this->local_pool);
+                        if (new_local) {
+                                INIT_LIST_HEAD(&new_local->qlinks);
+                                ret = dict_set_int32 (local->xdata,
+                                                      "rollback-fop",
+                                                      GF_FOP_@UPNAME@);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                J_MSG_DICT_FLR,
+                                                "failed to set rollback-fop");
+                                } else {
+                                        new_local->xdata = dict_ref(local->xdata);
+                                        new_frame->local = new_local;
+                                        jbr_ipc_call_dispatch (new_frame,
+                                                               this, &op_errno,
+                                                               FDL_IPC_JBR_SERVER_ROLLBACK,
+                                                               new_local->xdata);
+                                }
+                        } else {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Could not create local for new_frame");
+                        }
+                } else {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Could not send rollback ipc");
+                }
+
                 STACK_UNWIND_STRICT (@NAME@, frame, -1, EROFS,
                                      @ERROR_ARGS@);
         } else {
@@ -348,12 +403,11 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      @LONG_ARGS@)
 {
-#if defined(JBR_CG_QUEUE)
         int32_t          ret       = -1;
-#endif
         gf_boolean_t     result    = _gf_false;
         jbr_private_t   *priv      = NULL;
         jbr_local_t     *local     = NULL;
+        jbr_local_t     *new_local = NULL;
 
         GF_VALIDATE_OR_GOTO ("jbr", this, err);
         GF_VALIDATE_OR_GOTO (this->name, frame, err);
@@ -404,6 +458,59 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_msg (this->name, GF_LOG_ERROR, EROFS,
                                 J_MSG_QUORUM_NOT_MET, "Quorum is not met. "
                                 "The operation has failed.");
+                        /*
+                         * In this case, the quorum is not met after the      *
+                         * operation is performed on the leader. Hence a      *
+                         * rollback will be sent via GF_FOP_IPC to the leader *
+                         * where this particular fop's term and index numbers *
+                         * will be journaled, and later used to rollback.     *
+                         * The same will be done on all the followers         *
+                         */
+                        call_frame_t    *new_frame;
+
+                        new_frame = copy_frame (frame);
+                        if (new_frame) {
+                                new_local = mem_get0(this->local_pool);
+                                if (new_local) {
+                                        INIT_LIST_HEAD(&new_local->qlinks);
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                J_MSG_DICT_FLR, "op = %d",
+                                                new_frame->op);
+                                        ret = dict_set_int32 (local->xdata,
+                                                              "rollback-fop",
+                                                              GF_FOP_@UPNAME@);
+                                        if (ret) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        J_MSG_DICT_FLR,
+                                                        "failed to set "
+                                                        "rollback-fop");
+                                        } else {
+                                                new_local->xdata = dict_ref (local->xdata);
+                                                new_frame->local = new_local;
+                                                /*
+                                                 * Calling STACK_WIND instead *
+                                                 * of jbr_ipc as it will not  *
+                                                 * unwind to the previous     *
+                                                 * translators like it will   *
+                                                 * in case of jbr_ipc.        *
+                                                 */
+                                                STACK_WIND (new_frame,
+                                                            jbr_ipc_complete,
+                                                            FIRST_CHILD(this),
+                                                            FIRST_CHILD(this)->fops->ipc,
+                                                            FDL_IPC_JBR_SERVER_ROLLBACK,
+                                                            new_local->xdata);
+                                        }
+                                } else {
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "Could not create local "
+                                                "for new_frame");
+                                }
+                        } else {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Could not send rollback ipc");
+                        }
                 } else {
 #if defined(JBR_CG_NEED_FD)
                         op_ret = local->successful_op_ret;
@@ -415,6 +522,11 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                                       "Quorum has met. The operation has succeeded.");
                 }
         }
+
+        /*
+         * Unrefing the reference taken in jbr_@NAME@ () *
+         */
+        dict_unref (local->xdata);
 
         STACK_UNWIND_STRICT (@NAME@, frame, op_ret, op_errno,
                              @SHORT_ARGS@);

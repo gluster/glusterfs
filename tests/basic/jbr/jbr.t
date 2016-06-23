@@ -4,6 +4,7 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../cluster.rc
 . $(dirname $0)/../../snapshot.rc
+. $(dirname $0)/../../fdl.rc
 
 cleanup;
 
@@ -18,6 +19,8 @@ EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
 TEST $CLI_1 volume create $V0 replica 3 $H1:$L1 $H2:$L2 $H3:$L3
 TEST $CLI_1 volume set $V0 cluster.jbr on
+TEST $CLI_1 volume set $V0 cluster.jbr.quorum-percent 100
+TEST $CLI_1 volume set $V0 features.fdl on
 #TEST $CLI_1 volume set $V0 diagnostics.brick-log-level DEBUG
 TEST $CLI_1 volume start $V0
 

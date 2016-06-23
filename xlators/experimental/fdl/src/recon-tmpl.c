@@ -11,7 +11,7 @@
 #include "xlator.h"
 #include "glfs-internal.h"
 
-#include "jnl-types.h"
+#include "fdl.h"
 
 #define GFAPI_SUCCESS 0
 

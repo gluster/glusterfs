@@ -2,17 +2,42 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
+#include <ctype.h>
 #endif
 
 #include "glfs.h"
 #include "iatt.h"
 #include "xlator.h"
-#include "jnl-types.h"
+#include "fdl.h"
+
+/*
+ * Returns 0 if the string is ASCII printable *
+ * and -1 if it's not ASCII printable         *
+ */
+int str_isprint (char *s)
+{
+        int ret = -1;
+
+        if (!s)
+                goto out;
+
+        while (s[0] != '\0') {
+                if (!isprint(s[0]))
+                        goto out;
+                else
+                        s++;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
 
 #pragma fragment DICT
         {
                 int key_len, data_len;
                 char *key_ptr;
+                char *key_val;
                 printf ("@ARGNAME@ = dict {\n");
                 for (;;) {
                         key_len = *((int *)new_meta);
@@ -23,8 +48,14 @@
                         key_ptr = new_meta;
                         new_meta += key_len;
                         data_len = *((int *)new_meta);
+                        key_val = new_meta + sizeof(int);
                         new_meta += sizeof(int) + data_len;
-                        printf (" %s = <%d bytes>\n", key_ptr, data_len);
+                        if (str_isprint(key_val))
+                                printf (" %s = <%d bytes>\n",
+                                        key_ptr, data_len);
+                        else
+                                printf (" %s = %s <%d bytes>\n",
+                                        key_ptr, key_val, data_len);
                 }
                 printf ("}\n");
         }

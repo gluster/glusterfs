@@ -2,11 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
-
-log_base=$($CLI --print-logdir)
-log_id=${B0}/${V0}-0
-log_id=${log_id:1}     # Remove initial slash
-log_id=${log_id//\//-} # Replace remaining slashes with dashes
+. $(dirname $0)/../fdl.rc
 
 _check_sizes () {
 	local n=0

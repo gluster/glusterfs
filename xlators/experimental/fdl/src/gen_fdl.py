@@ -300,19 +300,44 @@ def get_special_subs (args):
 			ser_code += ser_tmpl.replace("@SRC@",src)
 	return len_code, ser_code
 
+# Mention those fops in the selective_generate table, for which
+# only a few common functions will be generated, and mention those
+# functions. Rest of the functions can be customized
+selective_generate = {
+		"ipc":			"len,serialize",
+	}
+
 def gen_fdl ():
 	entrypoints = []
 	for name, value in ops.iteritems():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
+
+		# generate all functions for all the fops
+		# except for the ones in selective_generate for which
+		# generate only the functions mentioned in the
+		# selective_generate table
+		gen_funcs = "len,serialize,callback,continue,fop"
+		if name in selective_generate:
+			gen_funcs = selective_generate[name].split(",")
+
 		len_code, ser_code = get_special_subs(value)
 		fop_subs[name]["@LEN_CODE@"] = len_code[:-1]
 		fop_subs[name]["@SER_CODE@"] = ser_code[:-1]
-		print generate(LEN_TEMPLATE,name,fop_subs)
-		print generate(SER_TEMPLATE,name,fop_subs)
-		print generate(CBK_TEMPLATE,name,cbk_subs)
-		print generate(CONTINUE_TEMPLATE,name,fop_subs)
-		print generate(FOP_TEMPLATE,name,fop_subs)
+		if 'len' in gen_funcs:
+			print generate(LEN_TEMPLATE,name,fop_subs)
+		if 'serialize' in gen_funcs:
+			print generate(SER_TEMPLATE,name,fop_subs)
+		if name == 'writev':
+			print "#define DESTAGE_ASYNC"
+		if 'callback' in gen_funcs:
+			print generate(CBK_TEMPLATE,name,cbk_subs)
+		if 'continue' in gen_funcs:
+			print generate(CONTINUE_TEMPLATE,name,fop_subs)
+		if 'fop' in gen_funcs:
+			print generate(FOP_TEMPLATE,name,fop_subs)
+		if name == 'writev':
+			print "#undef DESTAGE_ASYNC"
 		entrypoints.append(name)
 	print "struct xlator_fops fops = {"
 	for ep in entrypoints:

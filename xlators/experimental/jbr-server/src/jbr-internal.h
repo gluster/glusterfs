@@ -86,6 +86,7 @@ typedef struct {
         uint32_t                successful_op_ret;
         fd_t                    *fd;
         struct list_head        qlinks;
+        dict_t                  *xdata;
 } jbr_local_t;
 
 /*
