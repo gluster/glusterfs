@@ -30,6 +30,7 @@ config_version = 2.0
 
 re_type = type(re.compile(''))
 
+TMPL_CONFIG_FILE = "@GLUSTERD_WORKDIR@/geo-replication/gsyncd_template.conf"
 
 # (SECTION, OPTION, OLD VALUE, NEW VALUE)
 CONFIGS = (
@@ -79,10 +80,17 @@ CONFIGS = (
 )
 
 
-def upgrade_config_file(path):
+def upgrade_config_file(path, confdata):
     config_change = False
     config = ConfigParser.RawConfigParser()
-    config.read(path)
+    # If confdata.rx present then glusterd is adding config values,
+    # it will create config file if not exists. config.read is fine in
+    # this case since any other error will be raised during write.
+    if getattr(confdata, "rx", False):
+        config.read(path)
+    else:
+        with open(path) as fp:
+            config.readfp(fp)
 
     for sec, opt, oldval, newval in CONFIGS:
         try:
@@ -190,7 +198,7 @@ class GConffile(object):
                 s2[k] = v
             self.config._sections[n] = s2
 
-    def __init__(self, path, peers, *dd):
+    def __init__(self, path, peers, confdata, *dd):
         """
         - .path: location of config file
         - .config: underlying ConfigParser instance
@@ -202,7 +210,12 @@ class GConffile(object):
         self.path = path
         self.auxdicts = dd
         self.config = ConfigParser.RawConfigParser()
-        self.config.read(path)
+        if getattr(confdata, "rx", False):
+            self.config.read(path)
+        else:
+            with open(path) as fp:
+                self.config.readfp(fp)
+
         self.dev, self.ino, self.mtime = -1, -1, -1
         self._normconfig()
 
@@ -217,7 +230,8 @@ class GConffile(object):
                 sres = None
 
         self.config = ConfigParser.RawConfigParser()
-        self.config.read(self.path)
+        with open(self.path) as fp:
+            self.config.readfp(fp)
         self._normconfig()
 
     def get_realtime(self, opt):
