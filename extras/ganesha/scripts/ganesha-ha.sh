@@ -421,6 +421,7 @@ cleanup_ganesha_config ()
        rm -rf /etc/cluster/cluster.conf*
        rm -rf /var/lib/pacemaker/cib/*
        sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' ${GANESHA_CONF}
+       rm -rf ${HA_VOL_MNT}/nfs-ganesha
 }
 
 do_create_virt_ip_constraints()
