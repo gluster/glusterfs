@@ -29,7 +29,7 @@ from gconf import gconf
 from syncdutils import FreeObject, norm, grabpidfile, finalize
 from syncdutils import log_raise_exception, privileged, boolify
 from syncdutils import GsyncdError, select, set_term_handler
-from configinterface import GConffile, upgrade_config_file
+from configinterface import GConffile, upgrade_config_file, TMPL_CONFIG_FILE
 import resource
 from monitor import monitor
 import xml.etree.ElementTree as XET
@@ -536,12 +536,11 @@ def main_i():
                 if name == 'remote':
                     namedict['remotehost'] = x.remotehost
     if not 'config_file' in rconf:
-        rconf['config_file'] = os.path.join(
-            os.path.dirname(sys.argv[0]), "conf/gsyncd_template.conf")
+        rconf['config_file'] = TMPL_CONFIG_FILE
 
-    upgrade_config_file(rconf['config_file'])
+    upgrade_config_file(rconf['config_file'], confdata)
     gcnf = GConffile(
-        rconf['config_file'], canon_peers,
+        rconf['config_file'], canon_peers, confdata,
         defaults.__dict__, opts.__dict__, namedict)
 
     checkpoint_change = False
