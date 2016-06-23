@@ -21,7 +21,7 @@
 #include "defaults.h"
 #include "syscall.h"
 #include "xlator.h"
-#include "jnl-types.h"
+#include "fdl.h"
 
 /* TBD: make tunable */
 #define META_FILE_SIZE  (1 << 20)
@@ -54,6 +54,9 @@ typedef struct {
         int                     term;
         int                     first_term;
 } fdl_private_t;
+
+int32_t
+fdl_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata);
 
 void
 fdl_enqueue (xlator_t *this, call_stub_t *stub)
@@ -341,8 +344,21 @@ err_unlocked:
 }
 
 int32_t
+fdl_ipc_continue (call_frame_t *frame, xlator_t *this,
+                  int32_t op, dict_t *xdata)
+{
+        /*
+         * Nothing to be done here. Just Unwind. *
+         */
+        STACK_UNWIND_STRICT (ipc, frame, 0, 0, xdata);
+
+        return 0;
+}
+
+int32_t
 fdl_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 {
+        call_stub_t     *stub;
         fdl_private_t   *priv   = this->private;
         dict_t          *tdict;
         int32_t         gt_err  = EIO;
@@ -379,6 +395,20 @@ fdl_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
                 if (tdict) {
                         dict_unref (tdict);
                 }
+                break;
+
+        case FDL_IPC_JBR_SERVER_ROLLBACK:
+                /*
+                 * In case of a rollback from jbr-server, dump  *
+                 * the term and index number in the journal,    *
+                 * which will later be used to rollback the fop *
+                 */
+                stub = fop_ipc_stub (frame, fdl_ipc_continue,
+                                     op, xdata);
+                fdl_len_ipc (stub);
+                stub->serialize = fdl_serialize_ipc;
+                fdl_enqueue (this, stub);
+
                 break;
 
         default:
@@ -423,7 +453,6 @@ fdl_init (xlator_t *this)
          * bit cleaner than messing with the generation to add a hand-written
          * exception.
          */
-        this->fops->ipc = fdl_ipc;
 
         if (pthread_create(&priv->worker,NULL,fdl_worker,this) != 0) {
                 gf_log (this->name, GF_LOG_ERROR,

@@ -101,6 +101,7 @@ fop_table = {
 	"unlink":		"write",
 	"writev":		"write,fsync,queue",
 	"xattrop":		"write",
+	"ipc":			"write",
 }
 
 # Mention those fops in the selective_generate table, for which
@@ -108,6 +109,7 @@ fop_table = {
 # functions. Rest of the functions can be customized
 selective_generate = {
 	"lk":			"fop,dispatch,call_dispatch",
+	"ipc":			"dispatch,call_dispatch",
 }
 
 # Stolen from gen_fdl.py

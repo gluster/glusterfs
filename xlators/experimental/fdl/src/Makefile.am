@@ -1,7 +1,7 @@
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 xlator_LTLIBRARIES = fdl.la
 
-noinst_HEADERS = jnl-types.h
+noinst_HEADERS = fdl.h
 
 nodist_fdl_la_SOURCES = fdl.c
 fdl_la_LDFLAGS = -module -avoid-version

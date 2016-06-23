@@ -24,6 +24,7 @@
 #include "syncop.h"
 #include "syscall.h"
 #include "compat-errno.h"
+#include "fdl.h"
 
 #include "jbr-internal.h"
 #include "jbr-messages.h"
@@ -51,6 +52,15 @@ int32_t
 jbr_lk_dispatch (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, int32_t cmd, struct gf_flock *lock,
                  dict_t *xdata);
+
+int32_t
+jbr_ipc_call_dispatch (call_frame_t *frame, xlator_t *this, int *op_errno,
+                       int32_t op, dict_t *xdata);
+
+int32_t
+jbr_ipc_complete (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  dict_t *xdata);
 
 /* Used to check the quorum of acks received after the fop
  * confirming the status of the fop on all the brick processes
@@ -277,6 +287,7 @@ jbr_leader_checks_and_init (call_frame_t *frame, xlator_t *this, int *op_errno,
                 local->fd = NULL;
 
         INIT_LIST_HEAD(&local->qlinks);
+        local->successful_acks = 0;
         frame->local = local;
 
         ret = 0;
@@ -717,8 +728,6 @@ jbr_lk_continue (call_frame_t *frame, xlator_t *this,
 out:
         return ret;
 }
-
-#pragma generate
 
 uint8_t
 jbr_count_up_kids (jbr_private_t *priv)
@@ -1285,6 +1294,65 @@ err:
         STACK_UNWIND_STRICT (ipc, frame, -1, op_errno, NULL);
 }
 
+int32_t
+jbr_ipc_fan_in (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        jbr_local_t   *local  = NULL;
+        int32_t        ret    = -1;
+        uint8_t        call_count;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+
+        gf_msg_trace (this->name, 0, "op_ret = %d, op_errno = %d\n",
+                      op_ret, op_errno);
+
+        LOCK(&frame->lock);
+        call_count = --(local->call_count);
+        UNLOCK(&frame->lock);
+
+        if (call_count == 0) {
+#if defined(JBR_CG_QUEUE)
+                ret = jbr_remove_from_queue (frame, this);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                J_MSG_GENERIC, "Failed to remove from queue.");
+                }
+#endif
+                /*
+                 * Unrefing the reference taken in continue() or complete() *
+                 */
+                dict_unref (local->xdata);
+                STACK_DESTROY (frame->root);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+jbr_ipc_complete (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno,
+                  dict_t *xdata)
+{
+        jbr_local_t     *local     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("jbr", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        local = frame->local;
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+
+        jbr_ipc_call_dispatch (frame,
+                               this, &op_errno,
+                               FDL_IPC_JBR_SERVER_ROLLBACK,
+                               local->xdata);
+out:
+        return 0;
+}
 
 int32_t
 jbr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
@@ -1299,6 +1367,13 @@ jbr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
         case JBR_SERVER_NEXT_ENTRY:
                 jbr_next_entry(frame, this);
                 break;
+        case FDL_IPC_JBR_SERVER_ROLLBACK:
+                /*
+                 * Just send the fop down to fdl. Need not *
+                 * dispatch it to other bricks in the sub- *
+                 * volume, as it will be done where the op *
+                 * has failed.                             *
+                 */
         default:
                 STACK_WIND_TAIL (frame,
                                  FIRST_CHILD(this),
@@ -1309,6 +1384,7 @@ jbr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
         return 0;
 }
 
+#pragma generate
 
 int32_t
 jbr_forget (xlator_t *this, inode_t *inode)
@@ -1556,7 +1632,6 @@ jbr_init (xlator_t *this)
          */
         this->fops->getxattr = jbr_getxattr_special;
         this->fops->fsync = jbr_fsync;
-        this->fops->ipc = jbr_ipc;
 
         local = this->children;
         if (!local) {

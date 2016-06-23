@@ -515,8 +515,9 @@ ops['zerofill'] = (
 
 ops['ipc'] = (
 	('fop-arg',	'op',			'int32_t'),
-	('fop-arg',	'xdata',		'dict_t *'),
+	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'xdata',		'dict_t *'),
+	('journal',	'fd-op'),
 )
 
 ops['seek'] = (
