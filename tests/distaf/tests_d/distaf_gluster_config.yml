@@ -81,24 +81,25 @@ gluster:
 
     volume_types:
         distribute: &distribute
+            type: distribute
             dist_count: 4
             transport: tcp
-
         replicate: &replicate
+            type: replicate
             replica_count: 3
             transport: tcp
-
         dist_rep: &dist_rep
+            type: dist_rep
             dist_count: 2
             replica_count: 2
             transport: tcp
-
         disperse: &disperse
+            type: disperse
             disperse_count: 4
             redundancy_count: 2
             transport: tcp
-
         dist_disperse: &dist_disperse
+            type: dist_disperse
             dist_count: 2
             disperse_count: 4
             redundancy_count: 2
