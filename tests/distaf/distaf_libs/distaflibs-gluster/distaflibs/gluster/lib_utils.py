@@ -25,6 +25,7 @@ from distaflibs.gluster.volume_ops import get_volume_info
 from distaflibs.gluster.mount_ops import mount_volume, umount_volume
 import re
 import time
+from collections import OrderedDict
 
 try:
     import xml.etree.cElementTree as etree
@@ -95,8 +96,8 @@ def search_pattern_in_file(mnode, search_pattern, filename, start_str_to_parse,
     """
 
     cmd = ("awk '{a[NR]=$0}/" + start_str_to_parse + "/{s=NR}/" +
-           end_str_to_parse + "/{e=NR}END{for(i=s;i<=e;++i)print a[i]}' "
-           + filename)
+           end_str_to_parse + "/{e=NR}END{for(i=s;i<=e;++i)print "
+           "a[i]}' " + filename)
 
     ret, out, err = tc.run(mnode, cmd)
     if ret != 0:
@@ -231,9 +232,9 @@ def get_pathinfo(filename, volname, client=None):
     server = get_volume_info(volname)[volname]['bricks'][0].split(':')[0]
     mount_point = '/mnt/tmp_fuse'
 
-    #Performing glusterfs mount because only with glusterfs mount
-    #the file location in gluster server can be identified from client
-    #machine
+    # Performing glusterfs mount because only with glusterfs mount
+    # the file location in gluster server can be identified from client
+    # machine
     ret, _, _ = mount_volume(volname, mtype='glusterfs',
                              mpoint=mount_point,
                              mserver=server,
@@ -304,3 +305,162 @@ def list_files(dir_path, parse_str="", mnode=None):
 
     finally:
         conn.close()
+
+
+def get_servers_bricks_dict(servers):
+    """This module returns servers_bricks dictionary.
+    Args:
+        servers (list): List of servers for which we need the
+            list of bricks available on it.
+    Returns:
+        OrderedDict: key - server
+              value - list of bricks
+    Example:
+        get_servers_bricks_dict(tc.servers)
+    """
+    servers_bricks_dict = OrderedDict()
+    if not isinstance(servers, list):
+        servers = [servers]
+    for server in servers:
+        for server_list in tc.global_config["servers"]:
+            if server_list["host"] == server:
+                brick_root = server_list["brick_root"]
+                ret, out, err = tc.run(server, "cat /proc/mounts | grep %s"
+                                       " | awk '{ print $2}'" % brick_root)
+                if ret != 0:
+                    tc.logger.error("bricks not available on %s" % server)
+                else:
+                    servers_bricks_dict[server] = out.strip().split("\n")
+
+    for key, value in servers_bricks_dict.items():
+        value.sort()
+
+    return servers_bricks_dict
+
+
+def get_servers_used_bricks_dict(servers, mnode):
+    """This module returns servers_used_bricks dictionary.
+       This information is fetched from gluster volume info command.
+    Args:
+        servers (list): List of servers for which we need the
+            list of unused bricks on it.
+        mnode (str): The node on which gluster volume info command has
+            to be executed.
+    Returns:
+        OrderedDict: key - server
+              value - list of used bricks
+                      or empty list(if all bricks are free)
+    Example:
+        get_servers_used_bricks_dict(tc.servers[:], tc.servers[0])
+    """
+    if not isinstance(servers, list):
+        servers = [servers]
+
+    servers_used_bricks_dict = OrderedDict()
+    for server in servers:
+        servers_used_bricks_dict[server] = []
+
+    ret, out, err = tc.run(mnode, "gluster volume info | egrep "
+                           "\"^Brick[0-9]+\" | grep -v \"ss_brick\"",
+                           verbose=False)
+    if ret != 0:
+        tc.logger.error("error in getting bricklist using gluster v info")
+    else:
+        list1 = list2 = []
+        list1 = out.strip().split('\n')
+        for item in list1:
+            x = re.search(':(.*)/(.*)', item)
+            list2 = x.group(1).strip().split(':')
+            if servers_used_bricks_dict.has_key(list2[0]):
+                value = servers_used_bricks_dict[list2[0]]
+                value.append(list2[1])
+            else:
+                servers_used_bricks_dict[list2[0]] = [list2[1]]
+
+    for key, value in servers_used_bricks_dict.items():
+        value.sort()
+
+    return servers_used_bricks_dict
+
+
+def get_servers_unused_bricks_dict(servers, mnode):
+    """This module returns servers_unused_bricks dictionary.
+    Gets a list of unused bricks for each server by using functions,
+    get_servers_bricks_dict() and get_servers_used_bricks_dict()
+    Args:
+        servers (list): List of servers for which we need the
+            list of unused bricks available on it.
+        mnode (str): The node on which gluster volume info command has
+            to be executed.
+     Returns:
+        OrderedDict: key - server
+              value - list of unused bricks
+    Example:
+        get_servers_unused_bricks_dict(tc.servers, tc.servers[0])
+    """
+    if not isinstance(servers, list):
+        servers = [servers]
+    dict1 = get_servers_bricks_dict(servers)
+    dict2 = get_servers_used_bricks_dict(servers, mnode)
+    servers_unused_bricks_dict = OrderedDict()
+    for key, value in dict1.items():
+        if dict2.has_key(key):
+            unused_bricks = list(set(value) - set(dict2[key]))
+            servers_unused_bricks_dict[key] = unused_bricks
+        else:
+            servers_unused_bricks_dict[key] = value
+
+    for key, value in servers_unused_bricks_dict.items():
+        value.sort()
+
+    return servers_unused_bricks_dict
+
+
+def form_bricks_path(number_of_bricks, servers, mnode, volname):
+    """Forms complete bricks path for create-volume/add-brick
+       given the num_of_bricks
+    Args:
+        number_of_bricks (int): The number of bricks for which brick list
+            has to be created.
+        servers (list): The list of servers from which the bricks
+            needs to be selected for creating the brick list.
+        mnode (str): The node on which the command has to be run.
+        volname (str): Volume name for which we require brick-list.
+    Returns:
+        str - complete brick path.
+        None - if number_of_bricks is greater than unused bricks.
+    Example:
+        form_bricks_path(6, tc.servers, tc.servers(0), "testvol")
+    """
+    if not isinstance(servers, list):
+        servers = [servers]
+    dict_index = 0
+    bricks_path = ''
+
+    server_bricks_dict = get_servers_unused_bricks_dict(servers, servers[0])
+    num_of_unused_bricks = 0
+    for server_brick in server_bricks_dict.values():
+        num_of_unused_bricks = num_of_unused_bricks + len(server_brick)
+
+    if num_of_unused_bricks < number_of_bricks:
+        tc.logger.error("Not enough bricks available for creating the bricks")
+        return None
+
+    brick_index = 0
+    vol_info_dict = get_volume_info(volname, mnode)
+    if vol_info_dict:
+        brick_index = int(vol_info_dict[volname]['brickCount'])
+
+    for num in range(brick_index, brick_index + number_of_bricks):
+        if server_bricks_dict.values()[dict_index]:
+            bricks_path = ("%s %s:%s/%s_brick%s" % (bricks_path,
+                           server_bricks_dict.keys()[dict_index],
+                           server_bricks_dict.values()[dict_index][0],
+                           volname, num))
+            server_bricks_dict.values()[dict_index].pop(0)
+        if dict_index < len(server_bricks_dict) - 1:
+            dict_index = dict_index + 1
+        else:
+            dict_index = 0
+
+    return bricks_path
