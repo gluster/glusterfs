@@ -1993,6 +1993,10 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         /* Check if the IP is authorized */
         auth_status_code = mnt3_auth_host (ms->auth_params, host_addr_ip,
                                            fh, pathdup, is_write_op, &expitem);
+
+        gf_msg_debug (GF_MNT, 0, "access from IP %s is %s", host_addr_ip,
+                      auth_status_code ? "denied" : "allowed");
+
         if (auth_status_code != 0) {
                 /* If not, check if the FQDN is authorized */
                 host_addr_fqdn = gf_rev_dns_lookup (host_addr_ip);
@@ -2000,6 +2004,11 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
                                                    host_addr_fqdn,
                                                    fh, pathdup, is_write_op,
                                                    &expitem);
+
+                gf_msg_debug (GF_MNT, 0, "access from FQDN %s is %s",
+                              host_addr_fqdn, auth_status_code ? "denied" :
+                                                                 "allowed");
+
                 if (auth_status_code == 0)
                         auth_host = host_addr_fqdn;
         } else

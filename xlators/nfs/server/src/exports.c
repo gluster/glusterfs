@@ -753,6 +753,8 @@ __exp_line_ng_host_str_parse (char *str, struct export_item **exp_item)
         item_name = gf_strdup (str);
         GF_CHECK_ALLOC (item_name, ret, out);
 
+        gf_msg_trace (GF_EXP, 0, "found hostname/netgroup: %s", item_name);
+
         /* Initialize an export item for this */
         item = _export_item_init ();
         GF_CHECK_ALLOC (item, ret, free_and_out);
@@ -832,6 +834,8 @@ __exp_line_ng_parse (const char *line, dict_t **ng_dict)
                 goto out;
         }
 
+        gf_msg_trace (GF_EXP, 0, "parsing line: %s", line);
+
         while ((strmatch = parser_get_next_match (netgroup_parser))) {
                 if (!netgroups) {
                         /* Allocate a new dict to store the netgroups. */
@@ -841,6 +845,8 @@ __exp_line_ng_parse (const char *line, dict_t **ng_dict)
                                 goto free_and_out;
                         }
                 }
+
+                gf_msg_trace (GF_EXP, 0, "parsing netgroup: %s", strmatch);
 
                 ret = __exp_line_ng_host_str_parse (strmatch, &exp_ng);
 
@@ -927,12 +933,16 @@ __exp_line_host_parse (const char *line, dict_t **host_dict)
                 goto out;
         }
 
+        gf_msg_trace (GF_EXP, 0, "parsing line: %s", line);
+
         while ((strmatch = parser_get_next_match (hostname_parser))) {
                 if (!hosts) {
                         /* Allocate a new dictto store the netgroups. */
                         hosts = dict_new ();
                         GF_CHECK_ALLOC (hosts, ret, free_and_out);
                 }
+
+                gf_msg_trace (GF_EXP, 0, "parsing hostname: %s", strmatch);
 
                 ret = __exp_line_ng_host_str_parse (strmatch, &exp_host);
 
