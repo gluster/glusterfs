@@ -17,7 +17,7 @@
 
 
 from distaf.util import tc
-
+import re
 """
     This file contains the glusterd and other initial gluster
     options like start/stop glusterd and env_setup_servers for
@@ -67,4 +67,11 @@ def env_setup_servers(snap=True, servers=''):
     """
     tc.logger.info("The function isn't implemented yet")
     tc.logger.info("Please setup the bricks manually.")
+
+    if servers == '':
+        servers = tc.servers
+
+    if not start_glusterd(servers):
+        return False
+
     return True
