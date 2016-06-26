@@ -19,7 +19,13 @@
 typedef void (*gf_timer_cbk_t) (void *);
 
 struct _gf_timer {
-        struct _gf_timer *next, *prev;
+        union {
+                struct list_head list;
+                struct {
+                        struct _gf_timer *next;
+                        struct _gf_timer *prev;
+                };
+        };
         struct timespec   at;
         gf_timer_cbk_t    callbk;
         void             *data;
@@ -30,7 +36,7 @@ struct _gf_timer {
 struct _gf_timer_registry {
         pthread_t        th;
         char             fin;
-        struct _gf_timer active;
+        struct list_head active;
         gf_lock_t        lock;
 };
 

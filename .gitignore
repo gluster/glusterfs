@@ -4,6 +4,7 @@ build
 config.*
 configure
 cscope.*
+tags
 depcomp
 INSTALL
 install-sh

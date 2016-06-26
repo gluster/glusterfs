@@ -57,16 +57,11 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
         event->xl = THIS;
         LOCK (&reg->lock);
         {
-                trav = reg->active.prev;
-                while (trav != &reg->active) {
+                list_for_each_entry_reverse (trav, &reg->active, list) {
                         if (TS (trav->at) < at)
                                 break;
-                        trav = trav->prev;
                 }
-                event->prev = trav;
-                event->next = event->prev->next;
-                event->prev->next = event;
-                event->next->prev = event;
+                list_add (&event->list, &trav->list);
         }
         UNLOCK (&reg->lock);
         return event;
@@ -105,9 +100,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
                 fired = event->fired;
                 if (fired)
                         goto unlock;
-
-                event->next->prev = event->prev;
-                event->prev->next = event->next;
+                list_del (&event->list);
         }
 unlock:
         UNLOCK (&reg->lock);
@@ -120,20 +113,13 @@ unlock:
 }
 
 
-static void
-__delete_entry (gf_timer_t *event) {
-        event->next->prev = event->prev;
-        event->prev->next = event->next;
-        GF_FREE (event);
-}
-
-
 static void *
 gf_timer_proc (void *data)
 {
         gf_timer_registry_t *reg = data;
         const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
         gf_timer_t *event = NULL;
+        gf_timer_t *tmp = NULL;
         xlator_t   *old_THIS = NULL;
 
         while (!reg->fin) {
@@ -148,13 +134,15 @@ gf_timer_proc (void *data)
 
                         LOCK (&reg->lock);
                         {
-                                event = reg->active.next;
-                                at = TS (event->at);
-                                if (event != &reg->active && now >= at) {
-                                        need_cbk = 1;
-                                        event->next->prev = event->prev;
-                                        event->prev->next = event->next;
-                                        event->fired = _gf_true;
+                                list_for_each_entry_safe (event,
+                                             tmp, &reg->active, list) {
+                                        at = TS (event->at);
+                                        if (now >= at) {
+                                                need_cbk = 1;
+                                                event->fired = _gf_true;
+                                                list_del (&event->list);
+                                                break;
+                                        }
                                 }
                         }
                         UNLOCK (&reg->lock);
@@ -181,11 +169,9 @@ gf_timer_proc (void *data)
                 /* Do not call gf_timer_call_cancel(),
                  * it will lead to deadlock
                  */
-                while (reg->active.next != &reg->active) {
-                        event = reg->active.next;
-                        /* cannot call list_del as the event doesnt have
-                         * list_head*/
-                        __delete_entry (event);
+                list_for_each_entry_safe (event, tmp, &reg->active, list) {
+                        list_del (&event->list);
+                        GF_FREE (event);
                 }
         }
         UNLOCK (&reg->lock);
@@ -216,26 +202,23 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
         LOCK (&ctx->lock);
         {
                 reg = ctx->timer;
+                if (reg) {
+                        UNLOCK (&ctx->lock);
+                        goto out;
+                }
+                reg = GF_CALLOC (1, sizeof (*reg),
+                              gf_common_mt_gf_timer_registry_t);
+                if (!reg) {
+                        UNLOCK (&ctx->lock);
+                        goto out;
+                }
+                ctx->timer = reg;
+                LOCK_INIT (&reg->lock);
+                INIT_LIST_HEAD (&reg->active);
         }
         UNLOCK (&ctx->lock);
-        if (!reg) {
-                reg = GF_CALLOC (1, sizeof (*reg),
-                                 gf_common_mt_gf_timer_registry_t);
-                if (!reg)
-                        return NULL;
-
-                LOCK_INIT (&reg->lock);
-                reg->active.next = &reg->active;
-                reg->active.prev = &reg->active;
-
-                LOCK (&ctx->lock);
-                {
-                        ctx->timer = reg;
-                }
-                UNLOCK (&ctx->lock);
-                gf_thread_create (&reg->th, NULL, gf_timer_proc, reg);
-        }
-
+        gf_thread_create (&reg->th, NULL, gf_timer_proc, reg);
+out:
         return reg;
 }
 
