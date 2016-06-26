@@ -41,6 +41,10 @@ def ctdb_firewall_settings(servers=None):
         servers = tc.global_config['cluster_config']['smb']['ctdb_servers']
     if not isinstance(servers, list):
         servers = [servers]
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     _rc = True
     for server in servers:
         ret, out, _ = tc.run(server, "cat /etc/redhat-release")
@@ -98,6 +102,10 @@ def update_smb_conf(servers=None):
     file_path = "/etc/samba/smb.conf"
     if not isinstance(servers, list):
         servers = [servers]
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     _rc = True
     for server in servers:
         ret, _, _ = tc.run(server, "grep 'clustering=yes' %s" % file_path)
@@ -129,6 +137,10 @@ def update_hook_scripts(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     file1_path = "/var/lib/glusterd/hooks/1/start/post/S29CTDBsetup.sh"
     file2_path = "/var/lib/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh"
     _rc = True
@@ -160,6 +172,10 @@ def create_ctdb_nodes_file(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     file_path = "/etc/ctdb/nodes"
     _rc = True
     ctdb_ips_list = []
@@ -202,10 +218,14 @@ def create_ctdb_meta_volume(mnode=None, servers=None, meta_volname=None):
     '''
     if mnode is None:
         mnode = (tc.global_config['gluster']['cluster_config']
-                 ['smb']['ctdb_servers'][0])
+                 ['smb']['ctdb_servers'][0]['host'])
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     if meta_volname is None:
         meta_volname = "ctdb"
     replica_count = len(servers)
@@ -241,6 +261,10 @@ def check_if_gluster_lock_mount_exists(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     if not isinstance(servers, list):
         servers = [servers]
     _rc = True
@@ -268,6 +292,10 @@ def check_if_ctdb_file_exists(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     file_path = "/etc/sysconfig/ctdb"
     if not isinstance(servers, list):
         servers = [servers]
@@ -298,6 +326,10 @@ def create_ctdb_public_addresses(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     ctdb_vips = (tc.global_config['gluster']['cluster_config']
                  ['smb']['ctdb_vips'])
     if not isinstance(servers, list):
@@ -337,6 +369,10 @@ def start_ctdb_service(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     if not isinstance(servers, list):
         servers = [servers]
     _rc = True
@@ -363,7 +399,7 @@ def verify_ctdb_status(mnode=None):
     '''
     if mnode is None:
         mnode = (tc.global_config['gluster']['cluster_config']
-                 ['smb']['ctdb_servers'][0])
+                 ['smb']['ctdb_servers'][0]['host'])
     _rc = True
     ret, out, _ = tc.run(mnode, "cat /etc/ctdb/nodes")
     if ret != 0:
@@ -404,10 +440,14 @@ def ctdb_gluster_setup(mnode=None, servers=None, meta_volname=None):
     '''
     if mnode is None:
         mnode = (tc.global_config['gluster']['cluster_config']
-                 ['smb']['ctdb_servers'][0])
+                 ['smb']['ctdb_servers'][0]['host'])
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     if not isinstance(servers, list):
         servers = [servers]
     no_of_ctdb_servers = len(servers)
@@ -530,6 +570,10 @@ def stop_ctdb_service(servers=None):
     if servers is None:
         servers = (tc.global_config['gluster']['cluster_config']
                    ['smb']['ctdb_servers'])
+        server_host_list = []
+        for server in servers:
+            server_host_list.append(server['host'])
+        servers = server_host_list
     if not isinstance(servers, list):
         servers = [servers]
     _rc = True
