@@ -27,8 +27,8 @@ except ImportError:
     import xml.etree.ElementTree as etree
 from distaflibs.gluster.mount_ops import mount_volume
 from distaflibs.gluster.gluster_init import env_setup_servers, start_glusterd
-from distaflibs.gluster.peer_ops import ( peer_probe_servers,
-                                          nodes_from_pool_list )
+from distaflibs.gluster.peer_ops import (peer_probe_servers,
+                                         nodes_from_pool_list)
 
 """
     This file contains the gluster volume operations like create volume,
@@ -36,16 +36,50 @@ from distaflibs.gluster.peer_ops import ( peer_probe_servers,
 """
 
 
-def create_volume(volname, dist, rep=1, stripe=1, trans='tcp', servers='', \
-        snap=True, disp=1, dispd=1, red=1):
+def create_volume(volname, mnode=None, dist=1, rep=1, stripe=1, trans='tcp',
+                  servers=None, disp=1, dispd=1, red=1):
+    """Create the gluster volume specified configuration
+       volname and distribute count are mandatory argument
+    Args:
+        volname(str): volume name that has to be created
+
+    Kwargs:
+        mnode(str): server on which command has to be execeuted,
+            defaults to tc.servers[0]
+        dist(int): distribute count, defaults to 1
+        rep(int): replica count, defaults to 1
+        stripe(int): stripe count, defaults to 1
+        trans(str): transport type, defaults to tcp
+        servers(list): servers on which volume has to be created,
+            defaults to number of servers in pool list, if that is None,
+            then takes tc.servers
+        disp(int): disperse count, defaults to 1
+        dispd(int): disperse-data count, defaults to 1
+        red(int): rdundancy count, defaults to 1
+
+    Returns:
+        tuple: Tuple containing three elements (ret, out, err).
+            The first element 'ret' is of type 'int' and is the return value
+            of command execution.
+
+            The second element 'out' is of type 'str' and is the stdout value
+            of the command execution.
+
+            The third element 'err' is of type 'str' and is the stderr value
+            of the command execution.
+
+           (-1, '', ''): If not enough bricks are available to create volume.
+           (ret, out, err): As returned by volume create command execution.
+
+    Example:
+        create_volume(volname)
     """
-        Create the gluster volume specified configuration
-        volname and distribute count are mandatory argument
-    """
-    if servers == '':
+    if servers is None:
         servers = nodes_from_pool_list()
     if not servers:
-        servers = tc.servers
+        servers = tc.servers[:]
+    if mnode is None:
+        mnode = tc.servers[0]
     dist = int(dist)
     rep = int(rep)
     stripe = int(stripe)
@@ -64,25 +98,14 @@ def create_volume(volname, dist, rep=1, stripe=1, trans='tcp', servers='', \
 
     number_of_bricks = dist * rep * stripe * dispc
     replica = stripec = disperse = disperse_data = redundancy = ''
-    brick_root = '/bricks'
-    n = 0
-    tempn = 0
-    bricks_list = ''
-    rc = tc.run(servers[0], "gluster volume info | egrep \"^Brick[0-9]+\"", \
-            verbose=False)
-    for i in range(0, number_of_bricks):
-        if not snap:
-            bricks_list = "%s %s:%s/%s_brick%d" % \
-                (bricks_list, servers[n], brick_root, volname, i)
-        else:
-            sn = len(re.findall(servers[n], rc[1])) + tempn
-            bricks_list = "%s %s:%s/brick%d/%s_brick%d" % \
-            (bricks_list, servers[n], brick_root, sn, volname, i)
-        if n < len(servers[:]) - 1:
-            n = n + 1
-        else:
-            n = 0
-            tempn = tempn + 1
+
+    from distaflibs.gluster.lib_utils import form_bricks_path
+    bricks_path = form_bricks_path(number_of_bricks, servers[:],
+                                   mnode, volname)
+    if bricks_path is None:
+        tc.logger.error("number of bricks required are greater than "
+                        "unused bricks")
+        return (-1, '', '')
 
     if rep != 1:
         replica = "replica %d" % rep
@@ -96,9 +119,11 @@ def create_volume(volname, dist, rep=1, stripe=1, trans='tcp', servers='', \
         disperse_data = "disperse-data %d" % dispd
         redundancy = "redundancy %d" % red
 
-    ret = tc.run(servers[0], "gluster volume create %s %s %s %s %s %s %s %s \
---mode=script" % (volname, replica, stripec, disperse, disperse_data, \
-redundancy, ttype, bricks_list))
+    ret = tc.run(mnode, "gluster volume create %s %s %s %s %s %s %s %s "
+                 "--mode=script" % (volname, replica, stripec, disperse,
+                                    disperse_data, redundancy, ttype,
+                                    bricks_path))
+
     return ret
 
 
@@ -240,8 +265,8 @@ def setup_meta_vol(servers=''):
     return True
 
 
-def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
-        trans='', servers=''):
+def setup_vol(volname, mnode=None, dist=1, rep=1, dispd=1, red=1,
+              stripe=1, trans="tcp", servers=None):
     """
         Setup a gluster volume for testing.
         It first formats the back-end bricks and then creates a
@@ -252,12 +277,31 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
         that the volume is created. If another testcase calls this
         function for the second time with same volume name, the function
         checks for the flag and if found, will return True.
+    Args:
+        volname(str): volume name that has to be created
 
-        Returns True on success and False for failure.
+    Kwargs:
+        mnode(str): server on which command has to be execeuted,
+            defaults to tc.servers[0]
+        dist(int): distribute count, defaults to 1
+        rep(int): replica count, defaults to 1
+        stripe(int): stripe count, defaults to 1
+        trans(str): transport type, defaults to tcp
+        servers(list): servers on which volume has to be created,
+            defaults to number of servers in pool list, if that is None,
+            then takes tc.servers
+        disp(int): disperse count, defaults to 1
+        dispd(int): disperse-data count, defaults to 1
+        red(int): rdundancy count, defaults to 1
+
+    Returns:
+        bool: True on success and False for failure.
     """
-    if servers == '':
-        servers = tc.servers
-    volinfo = get_volume_info(server=servers[0])
+    if servers is None:
+        servers = tc.servers[:]
+    if mnode is None:
+        mnode = tc.servers[0]
+    volinfo = get_volume_info(mnode=mnode)
     if volinfo is not None and volname in volinfo.keys():
         tc.logger.debug("volume %s already exists in %s. Returning..." \
                 % (volname, servers[0]))
@@ -271,7 +315,7 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
         tc.logger.error("glusterd did not start in at least one server")
         return False
     time.sleep(5)
-    ret = peer_probe_servers(servers[1:], mnode=servers[0])
+    ret = peer_probe_servers(servers[1:], mnode=mnode)
     if not ret:
         tc.logger.error("Unable to peer probe one or more machines")
         return False
@@ -280,13 +324,13 @@ def setup_vol(volname='', dist='', rep='', dispd='', red='', stripe='', \
         tc.logger.warning("Ignoring the disperse and using the replica count")
         dispd = 1
         red = 1
-    ret = create_volume(volname, dist, rep, stripe, trans, servers, \
-            dispd=dispd, red=red)
+    ret = create_volume(volname, mnode, dist, rep, stripe, trans, servers,
+                        dispd=dispd, red=red)
     if ret[0] != 0:
         tc.logger.error("Unable to create volume %s" % volname)
         return False
     time.sleep(2)
-    ret = start_volume(volname, servers[0])
+    ret = start_volume(volname, mnode)
     if not ret:
         tc.logger.error("volume start %s failed" % volname)
         return False
