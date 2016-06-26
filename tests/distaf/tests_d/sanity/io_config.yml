@@ -1,0 +1,14 @@
+gluster:
+    tests:
+        io:
+            dd_writes:
+                num_of_files: 1
+                num_of_process_per_file: 1
+                input_file: /dev/urandom
+                block_size: random
+                count: 1
+              #  oflag: append,direct,nonblock
+              #  conv: fsync
+
+
+
