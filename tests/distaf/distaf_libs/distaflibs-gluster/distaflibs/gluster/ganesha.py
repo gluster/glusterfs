@@ -26,7 +26,7 @@ import time
 import socket
 from collections import OrderedDict
 from distaf.util import tc
-from distaflibs.gluster.volume_ops import get_volume_info, setup_meta_vol
+from distaflibs.gluster.volume_ops import get_volume_info
 from distaflibs.gluster.peer_ops import (peer_probe_servers,
                                          nodes_from_pool_list)
 
