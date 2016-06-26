@@ -26,6 +26,7 @@ from distaflibs.gluster.mount_ops import mount_volume, umount_volume
 import re
 import time
 from collections import OrderedDict
+import tempfile
 
 try:
     import xml.etree.cElementTree as etree
@@ -208,7 +209,7 @@ def get_extended_attributes_info(file_list, encoding='hex', attr_name='',
     return attr_dict
 
 
-def get_pathinfo(filename, volname, client=None):
+def get_pathinfo(filename, volname, mnode=None):
     """This module gets filepath of the given file in gluster server.
 
     Example:
@@ -219,44 +220,44 @@ def get_pathinfo(filename, volname, client=None):
         volname (str): volume name
 
     Kwargs:
-        client (str): client on which cmd has to be executed.
+        mnode (str): Node on which cmd has to be executed. Defaults
+            to tc.servers[0].
 
     Returns:
         NoneType: None if command execution fails, parse errors.
         list: file path for the given file in gluster server
     """
 
-    if client is None:
-        client = tc.clients[0]
+    if mnode is None:
+        mnode = tc.servers[0]
 
-    server = get_volume_info(volname)[volname]['bricks'][0].split(':')[0]
-    mount_point = '/mnt/tmp_fuse'
+    mount_point = tempfile.mkdtemp()
 
     # Performing glusterfs mount because only with glusterfs mount
-    # the file location in gluster server can be identified from client
-    # machine
+    # the file location in gluster server can be identified
     ret, _, _ = mount_volume(volname, mtype='glusterfs',
                              mpoint=mount_point,
-                             mserver=server,
-                             mclient=client)
+                             mserver=mnode,
+                             mclient=mnode)
     if ret != 0:
         tc.logger.error("Failed to do gluster mount on volume %s to fetch"
-                        "pathinfo from client %s"
-                        % (volname, client))
+                        "pathinfo from server %s"
+                        % (volname, mnode))
         return None
 
     filename = mount_point + '/' + filename
     attr_name = 'trusted.glusterfs.pathinfo'
     output = get_extended_attributes_info([filename],
                                           attr_name=attr_name,
-                                          mnode=client)
+                                          mnode=mnode)
     if output is None:
         tc.logger.error("Failed to get path info for %s" % filename)
         return None
 
     pathinfo = output[filename][attr_name]
 
-    umount_volume(client, mount_point)
+    umount_volume(mnode, mount_point)
+    tc.run(mnode, "rm -rf " + mount_point)
 
     return re.findall(".*?POSIX.*?:(\S+)\>", pathinfo)
 
