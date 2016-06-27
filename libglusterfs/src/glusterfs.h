@@ -178,6 +178,8 @@
 #define GF_XATTROP_DIRTY_COUNT "glusterfs.xattrop_dirty_count"
 #define GF_XATTROP_ENTRY_IN_KEY "glusterfs.xattrop-entry-create"
 #define GF_XATTROP_ENTRY_OUT_KEY "glusterfs.xattrop-entry-delete"
+#define GF_INDEX_IA_TYPE_GET_REQ "glusterfs.index-ia-type-get-req"
+#define GF_INDEX_IA_TYPE_GET_RSP "glusterfs.index-ia-type-get-rsp"
 
 #define GF_HEAL_INFO "glusterfs.heal-info"
 #define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"

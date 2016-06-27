@@ -567,7 +567,7 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
 
                 if ((ret == 0) && (priv->esh_granular) && parent_idx_inode) {
                         ret = afr_shd_index_purge (subvol, parent_idx_inode,
-                                                   name);
+                                                   name, inode->ia_type);
                         /* Why is ret force-set to 0? We do not care about
                          * index purge failing for full heal as it is quite
                          * possible during replace-brick that not all files
@@ -748,7 +748,11 @@ afr_selfheal_entry_granular_dirent (xlator_t *subvol, gf_dirent_t *entry,
 
         ret = syncop_lookup (args->xl, &loc, &iatt, NULL, NULL, NULL);
         if ((ret == -ENOENT) || (ret == -ESTALE)) {
-                afr_shd_index_purge (subvol, parent->inode, entry->d_name);
+                /* The name indices under the pgfid index dir are guaranteed
+                 * to be regular files. Hence the hardcoding.
+                 */
+                afr_shd_index_purge (subvol, parent->inode, entry->d_name,
+                                     IA_IFREG);
                 ret = 0;
                 goto out;
         }

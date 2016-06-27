@@ -153,10 +153,13 @@ unlock:
 inode_t *
 afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 {
-	inode_t *inode = NULL;
-	int ret = 0;
-	loc_t loc = {0, };
-	struct iatt iatt = {0, };
+	int           ret      = 0;
+        uint64_t       val     = IA_INVAL;
+	loc_t         loc      = {0, };
+        dict_t       *xdata    = NULL;
+        dict_t       *rsp_dict = NULL;
+	inode_t      *inode    = NULL;
+	struct iatt   iatt     = {0, };
 
 	inode = inode_find (this->itable, gfid);
 	if (inode)
@@ -167,12 +170,32 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 		goto out;
 	gf_uuid_copy (loc.gfid, gfid);
 
-	ret = syncop_lookup (subvol, &loc, &iatt, NULL, NULL, NULL);
+        xdata = dict_new ();
+        if (!xdata)
+                goto out;
+
+        ret = dict_set_int8 (xdata, GF_INDEX_IA_TYPE_GET_REQ, 1);
+        if (ret)
+                goto out;
+
+	ret = syncop_lookup (subvol, &loc, &iatt, NULL, xdata, &rsp_dict);
 	if (ret < 0)
 		goto out;
 
+        if (rsp_dict) {
+                ret = dict_get_uint64 (rsp_dict, GF_INDEX_IA_TYPE_GET_RSP,
+                                       &val);
+                if (ret)
+                        goto out;
+        }
+
 	inode = inode_link (loc.inode, NULL, NULL, &iatt);
+        ret = inode_ctx_set2 (inode, subvol, 0, &val);
 out:
+        if (xdata)
+                dict_unref (xdata);
+        if (rsp_dict)
+                dict_unref (rsp_dict);
 	loc_wipe (&loc);
 	return inode;
 }
@@ -215,15 +238,19 @@ out:
 }
 
 int
-afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
+afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name,
+                     ia_type_t type)
 {
-	loc_t loc = {0, };
-	int ret = 0;
+	int    ret = 0;
+	loc_t  loc = {0,};
 
 	loc.parent = inode_ref (inode);
 	loc.name = name;
 
-	ret = syncop_unlink (subvol, &loc, NULL, NULL);
+        if (IA_ISDIR (type))
+                ret = syncop_rmdir (subvol, &loc, 1, NULL, NULL);
+        else
+                ret = syncop_unlink (subvol, &loc, NULL, NULL);
 
 	loc_wipe (&loc);
 	return ret;
@@ -395,6 +422,7 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         afr_private_t        *priv   = NULL;
         uuid_t               gfid    = {0};
         int                  ret     = 0;
+        uint64_t             val     = IA_INVAL;
 
         priv = healer->this->private;
         if (!priv->shd.enabled)
@@ -407,10 +435,13 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (ret)
                 return 0;
 
+        inode_ctx_get2 (parent->inode, subvol, NULL, &val);
+
         ret = afr_shd_selfheal (healer, healer->subvol, gfid);
 
         if (ret == -ENOENT || ret == -ESTALE)
-                afr_shd_index_purge (subvol, parent->inode, entry->d_name);
+                afr_shd_index_purge (subvol, parent->inode, entry->d_name, val);
+
         if (ret == 2)
                 /* If bricks crashed in pre-op after creating indices/xattrop
                  * link but before setting afr changelogs, we end up with stale
@@ -489,6 +520,10 @@ afr_shd_index_sweep_all (struct subvol_healer *healer)
                 goto out;
         count += ret;
 
+        ret = afr_shd_index_sweep (healer, GF_XATTROP_ENTRY_CHANGES_GFID);
+        if (ret < 0)
+                goto out;
+        count += ret;
 out:
         if (ret < 0)
                 return ret;

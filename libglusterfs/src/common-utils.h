@@ -37,6 +37,7 @@ void trap (void);
 #include "locking.h"
 #include "mem-pool.h"
 #include "compat-uuid.h"
+#include "iatt.h"
 #include "uuid.h"
 #include "libglusterfs-messages.h"
 
@@ -838,4 +839,6 @@ gf_zero_fill_stat (struct iatt *buf);
 gf_boolean_t
 is_virtual_xattr (const char *k);
 
+const char *
+gf_inode_type_to_str (ia_type_t type);
 #endif /* _COMMON_UTILS_H */

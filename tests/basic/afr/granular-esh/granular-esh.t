@@ -149,10 +149,9 @@ TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID/dir
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID/newdir
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID/file_stale
 
-# To be uncommented once index xl is made to purge the parent gfid dir on rm -rf
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f1
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f2
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f3
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f1
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f2
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir/f3
 
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_newdir/f1
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_newdir/f2
@@ -164,7 +163,6 @@ TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_newsubdir/f3
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_newdir
 TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_newsubdir
-# To be uncommented once index xl is made to purge the parent gfid dir on rm -rf
-#TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir
+TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$gfid_dir
 
 cleanup
