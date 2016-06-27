@@ -283,6 +283,13 @@ sys_utimensat (int dirfd, const char *filename, const struct timespec times[2],
 
 
 int
+sys_futimes (int fd, const struct timeval times[2])
+{
+        return futimes (fd, times);
+}
+
+
+int
 sys_creat (const char *pathname, mode_t mode)
 {
         return sys_open(pathname, O_CREAT | O_TRUNC | O_WRONLY, mode);

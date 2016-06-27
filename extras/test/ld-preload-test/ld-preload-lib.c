@@ -293,6 +293,14 @@ utimes (const char *path, const struct timeval times[2])
 }
 
 int
+futimes (int fd, const struct timeval times[2])
+{
+        intercept ("futimes", 2);
+        set_errno ();
+        return -1;
+}
+
+int
 utime (const char *path, const struct utimbuf *buf)
 {
         intercept ("utime", 2);
