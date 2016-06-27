@@ -2321,12 +2321,30 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 conf->connected = 0;
                 conf->skip_notify = 0;
 
-                if (conf->quick_reconnect) {
-                        conf->quick_reconnect = 0;
-                        rpc_clnt_start (rpc);
-
-                } else {
+                if (conf->rpc->conn.connected) {
+                        /* Having conf->connected false and
+                        * conf->rpc->conn.connected true is an
+                        * unrecoverable state, since rpc_clnt_reconnect
+                        * will do nothing for an already connected connection.
+                        * A good fix would be to ensure serialized
+                        * delivery of transport messages, but that is super hard
+                        * and this is rare. So... ghetto "fix", disconnect the
+                        * RPC and start the race again. Maybe we'll win
+                        * next time!
+                        */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Client %s reconnect race detected, "
+                                "restarting.", conf->rpc->conn.name);
+                        conf->quick_reconnect = 1;
+                        rpc_transport_disconnect (rpc->conn.trans);
                         rpc->conn.config.remote_port = 0;
+                } else {
+                        if (conf->quick_reconnect) {
+                                conf->quick_reconnect = 0;
+                                rpc_clnt_start (rpc);
+                        } else {
+                                rpc->conn.config.remote_port = 0;
+                        }
                 }
 
                 break;
