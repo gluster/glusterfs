@@ -137,6 +137,9 @@ sys_utimensat (int dirfd, const char *filename, const struct timespec times[2],
 #endif
 
 int
+sys_futimes (int fd, const struct timeval times[2]);
+
+int
 sys_creat (const char *pathname, mode_t mode);
 
 ssize_t

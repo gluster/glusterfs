@@ -640,15 +640,44 @@ posix_do_fchmod (xlator_t *this,
 }
 
 static int
-posix_do_futimes (xlator_t *this,
-                  int fd,
-                  struct iatt *stbuf)
+posix_do_futimes (xlator_t *this, int fd, struct iatt *stbuf, int valid)
 {
-        gf_msg (this->name, GF_LOG_WARNING, ENOSYS, P_MSG_UNKNOWN_OP,
-                "function not implemented fd(%d)", fd);
+        int32_t ret              =     -1;
+        struct timeval tv[2]     =     { {0,}, {0,} };
+        struct stat stat         =     {0,};
 
-        errno = ENOSYS;
-        return -1;
+        ret = sys_fstat (fd, &stat);
+        if (ret != 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_FILE_OP_FAILED, "%d", fd);
+                goto out;
+        }
+
+        if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
+                tv[0].tv_sec  = stbuf->ia_atime;
+                tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        } else {
+                /* atime is not given, use current values */
+                tv[0].tv_sec  = ST_ATIM_SEC (&stat);
+                tv[0].tv_usec = ST_ATIM_NSEC (&stat) / 1000;
+        }
+
+        if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
+                tv[1].tv_sec  = stbuf->ia_mtime;
+                tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        } else {
+                /* mtime is not given, use current values */
+                tv[1].tv_sec  = ST_MTIM_SEC (&stat);
+                tv[1].tv_usec = ST_MTIM_NSEC (&stat) / 1000;
+        }
+
+        ret = sys_futimes (fd, tv);
+        if (ret == -1)
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_FUTIMES_FAILED,
+                        "%d", fd);
+
+out:
+        return ret;
 }
 
 int
@@ -709,7 +738,7 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                op_ret = posix_do_futimes (this, pfd->fd, stbuf);
+                op_ret = posix_do_futimes (this, pfd->fd, stbuf, valid);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
