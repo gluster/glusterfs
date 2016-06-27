@@ -114,30 +114,22 @@ def tier_attach(volname, num_bricks_to_add, peers, replica=1, force=False,
     if force:
         frce = 'force'
 
-    # To Do
-    # For now, assuming brick root path is /bricks in all the servers.
-    # Later on, this will be made configurable
+    num_bricks_to_add = int(num_bricks_to_add)
 
-    brick_root = "/bricks"
-    volinfo = distaflibs.gluster.volume_ops.get_volume_info(volname, mnode)
-    bricks_present = volinfo[volname]['bricks']
-    _n = 0
-    _temp = 0
-    _si = len(re.findall(r"%s_tier[0-9]+" % volname, ' '.join(bricks_present)))
-    add_tier = ''
-    for i in range(_si, _si + int(num_bricks_to_add)):
-        sn = (len(re.findall(r"%s" % peers[_n], ' '.join(bricks_present))) +
-              _temp)
-        add_tier = ("%s %s:%s/brick%d/%s_tier%d" %
-                    (add_tier, peers[_n], brick_root, sn, volname, i))
-        if _n < len(peers) - 1:
-            _n = _n + 1
-        else:
-            _n = 0
-            _temp = _temp + 1
+    from distaflibs.gluster.lib_utils import form_bricks_path
+    bricks_path = form_bricks_path(num_bricks_to_add, peers[:],
+                                   mnode, volname)
+    if bricks_path is None:
+        tc.logger.error("number of bricks required are greater than "
+                        "unused bricks")
+        return (-1, '', '')
 
+    bricks_path = [re.sub(r"(.*\/\S+\_)brick(\d+)", r"\1tier\2", item)
+                   for item in bricks_path.split() if item]
+    tier_bricks_path = " ".join(bricks_path)
     cmd = ("gluster volume tier %s attach %s %s %s --mode=script"
-           % (volname, repc, add_tier, frce))
+           % (volname, repc, tier_bricks_path, frce))
+
     return tc.run(mnode, cmd)
 
 
