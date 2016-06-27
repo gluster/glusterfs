@@ -187,4 +187,4 @@ gluster:
             mountpoint: ''
             options: ''
 
-    global_mode: True
+global_mode: True
