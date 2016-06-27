@@ -13,6 +13,7 @@
 #include "syscall.h"
 #include "syncop.h"
 #include "common-utils.h"
+#include <ftw.h>
 
 #define XATTROP_SUBDIR "xattrop"
 #define DIRTY_SUBDIR "dirty"
@@ -21,6 +22,7 @@
 struct index_syncop_args {
         inode_t *parent;
         gf_dirent_t *entries;
+        char *path;
 };
 
 static char *index_vgfid_xattrs[XATTROP_TYPE_END] = {
@@ -1482,6 +1484,7 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         int             ret = 0;
         int32_t         op_errno = EINVAL;
         int32_t         op_ret = -1;
+        uint64_t        val = IA_INVAL;
         char            path[PATH_MAX] = {0};
         struct iatt     stbuf        = {0, };
         struct iatt     postparent = {0,};
@@ -1509,6 +1512,15 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
                 make_index_dir_path (priv->index_basepath, subdir,
                                      path, sizeof (path));
                 is_dir = _gf_true;
+
+                if ((xattr_req) &&
+                    (dict_get (xattr_req, GF_INDEX_IA_TYPE_GET_REQ))) {
+                        if (0 == strcmp (subdir,
+                                    index_get_subdir_from_type(ENTRY_CHANGES)))
+                                val = IA_IFDIR;
+                        else
+                                val = IA_IFREG;
+                }
         } else {
                 if (!inode_is_linked (loc->inode)) {
                         inode_unref (iloc.inode);
@@ -1524,12 +1536,12 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         ret = sys_lstat (path, &lstatbuf);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "Stat failed on %s dir "
-                        "(%s)", subdir, strerror (errno));
+                        "(%s)", path, strerror (errno));
                 op_errno = errno;
                 goto done;
         } else if (!S_ISDIR (lstatbuf.st_mode) && is_dir) {
                 gf_log (this->name, GF_LOG_DEBUG, "Stat failed on %s dir, "
-                        "not a directory", subdir);
+                        "not a directory", path);
                 op_errno = ENOENT;
                 goto done;
         }
@@ -1537,6 +1549,15 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         if (!xattr) {
                 op_errno = ENOMEM;
                 goto done;
+        }
+
+        if (val != IA_INVAL) {
+                ret = dict_set_uint64 (xattr, GF_INDEX_IA_TYPE_GET_RSP, val);
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = -ret;
+                        goto done;
+                }
         }
 
         iatt_from_stat (&stbuf, &lstatbuf);
@@ -1654,6 +1675,116 @@ done:
 }
 
 int
+deletion_handler (const char *fpath, const struct stat *sb, int typeflag,
+               struct FTW *ftwbuf)
+{
+        int          ret  = -1;
+        ia_type_t    type = IA_INVAL;
+
+        switch (sb->st_mode & S_IFMT) {
+        case S_IFREG:
+                sys_unlink (fpath);
+                break;
+
+        case S_IFDIR:
+                sys_rmdir (fpath);
+                break;
+        default:
+                type = ia_type_from_st_mode (sb->st_mode);
+                gf_log (THIS->name, GF_LOG_WARNING, "%s neither a regular file "
+                        "nor a directory - type:%s", fpath,
+                        gf_inode_type_to_str (type));
+                break;
+        }
+        return 0;
+}
+
+static int
+index_wipe_index_subdir (void *opaque)
+{
+        struct index_syncop_args *args  = opaque;
+
+        nftw (args->path, deletion_handler, 1, FTW_DEPTH | FTW_PHYS);
+        return 0;
+}
+
+static void
+index_get_parent_iatt (struct iatt *parent, char *path, loc_t *loc,
+                       int32_t *op_ret, int32_t *op_errno)
+{
+        int         ret      = -1;
+        struct stat lstatbuf = {0,};
+
+        ret = sys_lstat (path, &lstatbuf);
+        if (ret < 0) {
+                *op_ret = -1;
+                *op_errno = errno;
+                return;
+        }
+
+        iatt_from_stat (parent, &lstatbuf);
+        gf_uuid_copy (parent->ia_gfid, loc->pargfid);
+        parent->ia_ino = -1;
+
+        return;
+}
+
+int
+index_rmdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
+                     dict_t *xdata)
+{
+        int                        ret                    = 0;
+        int32_t                    op_ret                 = 0;
+        int32_t                    op_errno               = 0;
+        char                      *subdir                 = NULL;
+        char                       index_dir[PATH_MAX]    = {0};
+        char                       index_subdir[PATH_MAX] = {0};
+        uuid_t                     gfid                   = {0};
+        struct  iatt               preparent              = {0};
+        struct  iatt               postparent             = {0};
+        index_priv_t              *priv                   = NULL;
+        index_xattrop_type_t       type                   = XATTROP_TYPE_UNSET;
+        struct index_syncop_args   args                   = {0,};
+
+        priv = this->private;
+
+        type = index_get_type_from_vgfid (priv, loc->pargfid);
+        subdir = index_get_subdir_from_vgfid (priv, loc->pargfid);
+        make_index_dir_path (priv->index_basepath, subdir,
+                             index_dir, sizeof (index_dir));
+
+        index_get_parent_iatt (&preparent, index_dir, loc, &op_ret, &op_errno);
+        if (op_ret < 0)
+                goto done;
+
+        gf_uuid_parse (loc->name, gfid);
+        make_gfid_path (priv->index_basepath, subdir, gfid, index_subdir,
+                        sizeof (index_subdir));
+
+        if (flag == 0) {
+                ret = index_del (this, gfid, subdir, type);
+                if (ret < 0) {
+                        op_ret = -1;
+                        op_errno = -ret;
+                        goto done;
+                }
+        } else {
+                args.path = index_subdir;
+                ret = synctask_new (this->ctx->env, index_wipe_index_subdir,
+                                    NULL, NULL, &args);
+        }
+
+        index_get_parent_iatt (&postparent, index_dir, loc, &op_ret, &op_errno);
+        if (op_ret < 0)
+                goto done;
+
+done:
+        INDEX_STACK_UNWIND (rmdir, frame, op_ret, op_errno, &preparent,
+                            &postparent, xdata);
+        return 0;
+}
+
+int
 index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                       dict_t *xdata)
 {
@@ -1667,7 +1798,6 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         struct  iatt    postparent = {0};
         char            index_dir[PATH_MAX] = {0};
         char            filepath[PATH_MAX] = {0};
-        struct  stat    lstatbuf = {0};
         uuid_t          gfid = {0};
         char            *subdir = NULL;
 
@@ -1681,16 +1811,9 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 goto done;
         }
 
-        ret = sys_lstat (index_dir, &lstatbuf);
-        if (ret < 0) {
-                op_ret = -1;
-                op_errno = errno;
+        index_get_parent_iatt (&preparent, index_dir, loc, &op_ret, &op_errno);
+        if (op_ret < 0)
                 goto done;
-        }
-
-        iatt_from_stat (&preparent, &lstatbuf);
-        gf_uuid_copy (preparent.ia_gfid, loc->pargfid);
-        preparent.ia_ino = -1;
 
         if (type <= XATTROP_TYPE_UNSET) {
                 ret = index_inode_ctx_get (loc->parent, this, &ictx);
@@ -1716,16 +1839,9 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 goto done;
         }
 
-        memset (&lstatbuf, 0, sizeof (lstatbuf));
-        ret = sys_lstat (index_dir, &lstatbuf);
-        if (ret < 0) {
-                op_ret = -1;
-                op_errno = errno;
+        index_get_parent_iatt (&postparent, index_dir, loc, &op_ret, &op_errno);
+        if (op_ret < 0)
                 goto done;
-        }
-        iatt_from_stat (&postparent, &lstatbuf);
-        gf_uuid_copy (postparent.ia_gfid, loc->pargfid);
-        postparent.ia_ino = -1;
 done:
         INDEX_STACK_UNWIND (unlink, frame, op_ret, op_errno, &preparent,
                             &postparent, xdata);
@@ -2006,6 +2122,31 @@ index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 out:
         STACK_WIND (frame, default_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
+        return 0;
+}
+
+int
+index_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+             dict_t *xdata)
+{
+        call_stub_t     *stub = NULL;
+        index_priv_t    *priv = NULL;
+
+        priv = this->private;
+        if (!index_is_fop_on_internal_inode (this, loc->parent, NULL))
+                goto out;
+
+        stub = fop_rmdir_stub (frame, index_rmdir_wrapper, loc, flags, xdata);
+        if (!stub) {
+                STACK_UNWIND_STRICT (rmdir, frame, -1, ENOMEM, NULL, NULL,
+                                     NULL);
+                return 0;
+        }
+        worker_enqueue (this, stub);
+        return 0;
+out:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
         return 0;
 }
 
@@ -2333,6 +2474,7 @@ struct xlator_fops fops = {
         .opendir     = index_opendir,
         .readdir     = index_readdir,
         .unlink      = index_unlink,
+        .rmdir       = index_rmdir,
         .fstat       = index_fstat,
 };
 
