@@ -341,35 +341,15 @@ string:"EXPORT(Path=/$VOL)" 2>&1)
 copy_export_config ()
 {
     local new_node=${1}
-    local tganesha_conf=$(mktemp)
-    local tganesha_exports=$(mktemp -d)
-    local short_host=$(hostname -s)
-    # avoid prompting for password, even with password-less scp
-    # scp $host1:$file $host2:$file prompts for the password
-    # Ideally all the existing nodes in the cluster should have same
-    # copy of the configuration files. Maybe for sanity check, copy
-    # the state from HA_VOL_SERVER?
-    if [ "${HA_VOL_SERVER}" == $(hostname) ]
-    then
-        cp ${GANESHA_CONF} ${tganesha_conf}
-    else
-        scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_VOL_SERVER}:${GANESHA_CONF} $short_host:${tganesha_conf}
-    fi
-    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${tganesha_conf} ${new_node}:${GANESHA_CONF}
-    rm -f ${tganesha_conf}
 
-    if [ "${HA_VOL_SERVER}" == $(hostname) ]
-    then
-        cp -r ${HA_CONFDIR}/exports ${tganesha_exports}
-    else
-        scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_VOL_SERVER}:${HA_CONFDIR}/exports/ $short_host:${tganesha_exports}
-    fi
+    # The add node should be executed from one of the nodes in ganesha
+    # cluster. So all the configuration file will be available in that
+    # node itself. So just copy that to new node
+    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} ${GANESHA_CONF} ${new_node}:${GANESHA_CONF}
+
     scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${tganesha_exports}/exports ${new_node}:${HA_CONFDIR}/
-    rm -rf ${tganesha_exports}
+${SECRET_PEM} ${HA_CONFDIR}/exports/ ${new_node}:${HA_CONFDIR}/
 }
 
 
@@ -885,8 +865,6 @@ main()
         # ignore any comment lines
         cfgline=$(grep  ^HA_NAME= ${ha_conf})
         eval $(echo ${cfgline} | grep -F HA_NAME=)
-        cfgline=$(grep  ^HA_VOL_SERVER= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
         cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
         eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
     fi

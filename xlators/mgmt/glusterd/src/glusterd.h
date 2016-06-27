@@ -1072,7 +1072,7 @@ int ganesha_manage_export (char *volname, char *value, char **op_errstr,
                            gf_boolean_t reboot);
 gf_boolean_t glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo);
 int stop_ganesha (char **op_errstr);
-int tear_down_cluster (void);
+int tear_down_cluster (gf_boolean_t run_teardown);
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,

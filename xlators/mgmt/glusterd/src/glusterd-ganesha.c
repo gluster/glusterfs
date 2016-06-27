@@ -364,45 +364,13 @@ out:
        return ret;
 }
 
-/* Following 2 functions parse GANESHA_HA_CONF
+/* Following function parse GANESHA_HA_CONF
  * The sample file looks like below,
  * HA_NAME="ganesha-ha-360"
  * HA_VOL_NAME="ha-state"
- * HA_VOL_MNT="/mount-point"
- * HA_VOL_SERVER="server1"
  * HA_CLUSTER_NODES="server1,server2"
  * VIP_rhs_1="10.x.x.x"
  * VIP_rhs_2="10.x.x.x." */
-
-gf_boolean_t
-is_ganesha_host (void)
-{
-        char    *host_from_file          = NULL;
-        gf_boolean_t    ret              = _gf_false;
-        xlator_t        *this            = NULL;
-
-        this = THIS;
-
-        host_from_file = parsing_ganesha_ha_conf ("HA_VOL_SERVER");
-        if (host_from_file == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, errno,
-                        GD_MSG_GET_CONFIG_INFO_FAILED,
-                        "couldn't get HA_VOL_SERVER from file %s",
-                        GANESHA_HA_CONF);
-                return _gf_false;
-        }
-
-        ret = gf_is_local_addr (host_from_file);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        GD_MSG_NFS_GNS_HOST_FOUND,
-                        "ganesha host found "
-                        "Hostname is %s", host_from_file);
-        }
-
-        GF_FREE (host_from_file);
-        return ret;
-}
 
 /* Check if the localhost is listed as one of nfs-ganesha nodes */
 gf_boolean_t
@@ -411,7 +379,7 @@ check_host_list (void)
 
         glusterd_conf_t     *priv        = NULL;
         char    *hostname, *hostlist;
-        int     ret                      = _gf_false;
+        gf_boolean_t    ret              = _gf_false;
         xlator_t        *this            = NULL;
 
         this = THIS;
@@ -639,7 +607,7 @@ out:
 }
 
 int
-tear_down_cluster(void)
+tear_down_cluster(gf_boolean_t run_teardown)
 {
         int     ret                     = 0;
         runner_t runner                 = {0,};
@@ -649,7 +617,7 @@ tear_down_cluster(void)
         struct dirent   scratch[2]      = {{0,},};
         char            path[PATH_MAX]  = {0,};
 
-        if (is_ganesha_host()) {
+        if (run_teardown) {
                 runinit (&runner);
                 runner_add_args (&runner, "sh",
                                 GANESHA_PREFIX"/ganesha-ha.sh", "teardown",
@@ -709,12 +677,12 @@ out:
 
 
 int
-setup_cluster(void)
+setup_cluster(gf_boolean_t run_setup)
 {
         int ret         = 0;
         runner_t runner = {0,};
 
-        if (is_ganesha_host()) {
+        if (run_setup) {
                 runinit (&runner);
                 runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
                                  "setup", CONFDIR,  NULL);
@@ -725,7 +693,7 @@ setup_cluster(void)
 
 
 static int
-teardown (char **op_errstr)
+teardown (gf_boolean_t run_teardown, char **op_errstr)
 {
         runner_t                runner                     = {0,};
         int                     ret                        = 1;
@@ -735,7 +703,7 @@ teardown (char **op_errstr)
 
         priv = THIS->private;
 
-        ret = tear_down_cluster();
+        ret = tear_down_cluster (run_teardown);
         if (ret == -1) {
                 gf_asprintf (op_errstr, "Cleanup of NFS-Ganesha"
                              " HA config failed.");
@@ -873,14 +841,14 @@ out:
 }
 
 static int
-pre_setup (char **op_errstr)
+pre_setup (gf_boolean_t run_setup, char **op_errstr)
 {
         int    ret = 0;
 
         ret = check_host_list();
 
         if (ret) {
-                ret = setup_cluster();
+                ret = setup_cluster(run_setup);
                 if (ret == -1)
                         gf_asprintf (op_errstr, "Failed to set up HA "
                                      "config for NFS-Ganesha. "
@@ -927,12 +895,18 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
         }
 
         if (strcmp (key, GLUSTERD_STORE_KEY_GANESHA_GLOBAL) == 0) {
+                /* *
+                 * The set up/teardown of pcs cluster should be performed only
+                 * once. This will done on the node in which the cli command
+                 * 'gluster nfs-ganesha <enable/disable>' got executed. So that
+                 * node should part of ganesha HA cluster
+                 */
                 if (option) {
-                        ret = pre_setup (op_errstr);
+                        ret = pre_setup (is_origin_glusterd (dict), op_errstr);
                         if (ret < 0)
                                 goto out;
                 } else {
-                        ret = teardown (op_errstr);
+                        ret = teardown (is_origin_glusterd (dict), op_errstr);
                         if (ret < 0)
                                 goto out;
                 }

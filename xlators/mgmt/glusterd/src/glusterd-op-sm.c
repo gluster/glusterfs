@@ -2047,7 +2047,7 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         option = dict_get_str_boolean (conf->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
                             _gf_false);
         if (option) {
-                ret = tear_down_cluster();
+                ret = tear_down_cluster (is_origin_glusterd (dict));
                 if (ret == -1)
                         gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                 GD_MSG_DICT_GET_FAILED,

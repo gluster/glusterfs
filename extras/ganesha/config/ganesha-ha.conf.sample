@@ -2,9 +2,6 @@
 # must be unique within the subnet
 HA_NAME="ganesha-ha-360"
 #
-# The gluster server from which to mount the shared data volume.
-HA_VOL_SERVER="server1"
-#
 # N.B. you may use short names or long names; you may not use IP addrs.
 # Once you select one, stay with it as it will be mildly unpleasant to
 # clean up if you switch later on. Ensure that all names - short and/or
