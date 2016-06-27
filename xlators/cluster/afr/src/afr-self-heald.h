@@ -75,5 +75,6 @@ afr_shd_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid,
                       char **path_p);
 
 int
-afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name);
+afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name,
+                     ia_type_t type);
 #endif /* !_AFR_SELF_HEALD_H */

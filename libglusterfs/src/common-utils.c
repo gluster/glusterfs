@@ -4467,6 +4467,21 @@ fop_enum_to_string (glusterfs_fop_t fop)
         return "UNKNOWNFOP";
 }
 
+const char *
+gf_inode_type_to_str (ia_type_t type)
+{
+        static const char *const str_ia_type[] = {
+                "UNKNOWN",
+                "REGULAR FILE",
+                "DIRECTORY",
+                "LINK",
+                "BLOCK DEVICE",
+                "CHARACTER DEVICE",
+                "PIPE",
+                "SOCKET"};
+        return str_ia_type[type];
+}
+
 gf_boolean_t
 gf_is_zero_filled_stat (struct iatt *buf)
 {
