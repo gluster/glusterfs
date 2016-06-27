@@ -1172,9 +1172,14 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 
         ret = dict_get_uint32 (reply, "child_up", &conf->child_up);
         if (ret) {
+                /*
+                 * This would happen in cases where the server trying to     *
+                 * connect to this client is running an older version. Hence *
+                 * setting the child_up to _gf_true in this case.            *
+                 */
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
                         "failed to find key 'child_up' in the options");
-                goto out;
+                conf->child_up = _gf_true;
         }
 
         ret = dict_get_uint32 (reply, "clnt-lk-version", &lk_ver);
