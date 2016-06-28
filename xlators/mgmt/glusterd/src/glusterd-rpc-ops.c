@@ -559,7 +559,7 @@ __glusterd_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         glusterd_peerinfo_t             *peerinfo = NULL;
         int32_t                         op_ret = -1;
-        int32_t                         op_errno = -1;
+        int32_t                         op_errno = 0;
         glusterd_probe_ctx_t            *ctx = NULL;
         gf_boolean_t                    move_sm_now = _gf_true;
 
