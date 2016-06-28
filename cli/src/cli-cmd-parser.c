@@ -1778,9 +1778,6 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
                         ret = -1;
                         goto out;
                 }
-        } else {
-                ret = -1;
-                goto out;
         }
 
         ret = dict_set_int32 (dict, "rebalance-command", command);
