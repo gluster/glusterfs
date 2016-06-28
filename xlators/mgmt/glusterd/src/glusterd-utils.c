@@ -3455,7 +3455,7 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         ret = glusterd_volinfo_new (&new_volinfo);
         if (ret)
                 goto out;
-        strncpy (new_volinfo->volname, volname, sizeof (new_volinfo->volname));
+        strncpy (new_volinfo->volname, volname, strlen (volname));
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.type", prefix, count);
@@ -7129,19 +7129,6 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
 
         cds_list_for_each_entry_safe (volinfo, tmp_volinfo, &priv->volumes,
                                       vol_list) {
-                if (glusterd_friend_contains_vol_bricks (volinfo, uuid) == 2) {
-                        gf_msg (THIS->name, GF_LOG_INFO, 0,
-                                GD_MSG_STALE_VOL_DELETE_INFO,
-                                "Deleting stale volume %s", volinfo->volname);
-                        ret = glusterd_delete_volume (volinfo);
-                        if (ret) {
-                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_STALE_VOL_REMOVE_FAIL,
-                                        "Error deleting stale volume");
-                                goto out;
-                        }
-                }
-
                 if (!glusterd_friend_contains_vol_bricks (volinfo,
                                                           MY_UUID)) {
                         /*Stop snapd daemon service if snapd daemon is running*/
@@ -7155,6 +7142,20 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
                                 }
                         }
                 }
+
+                if (glusterd_friend_contains_vol_bricks (volinfo, uuid) == 2) {
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_STALE_VOL_DELETE_INFO,
+                                "Deleting stale volume %s", volinfo->volname);
+                        ret = glusterd_delete_volume (volinfo);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_STALE_VOL_REMOVE_FAIL,
+                                        "Error deleting stale volume");
+                                goto out;
+                        }
+                }
+
         }
 
         /* Reconfigure all daemon services upon peer detach */
@@ -7386,7 +7387,7 @@ glusterd_defrag_info_set (glusterd_volinfo_t *volinfo, dict_t *dict, int cmd,
         rebal->defrag_status = status;
         rebal->op = op;
 
-        if (!rebal->rebalance_id)
+        if (gf_uuid_is_null (rebal->rebalance_id))
                 return;
 
         if (is_origin_glusterd (dict)) {

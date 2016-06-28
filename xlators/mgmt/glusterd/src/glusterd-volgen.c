@@ -3728,7 +3728,8 @@ build_distribute:
                 goto out;
         }
         if (volinfo->tier_info.hot_brick_count) {
-                strcpy (tmp_volname, volinfo->volname);
+                strncpy (tmp_volname, volinfo->volname,
+                         strlen (volinfo->volname));
                 if (volinfo->tier_info.cur_tier_hot)
                         strcat (volinfo->volname, "-hot");
                 else
@@ -5170,7 +5171,7 @@ glusterd_is_valid_volfpath (char *volname, char *brick)
                 ret = 0;
                 goto out;
         }
-        strncpy (volinfo->volname, volname, sizeof (volinfo->volname));
+        strncpy (volinfo->volname, volname, strlen (volname));
         get_brick_filepath (volfpath, volinfo, brickinfo, NULL);
 
         ret = ((strlen(volfpath) < PATH_MAX) &&
