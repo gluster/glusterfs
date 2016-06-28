@@ -1192,7 +1192,7 @@ exit 0
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 
 %if ( 0%{?_with_firewalld:1} )
-/usr/lib/firewalld/services/glusterfs.xml
+%{_prefix}/lib/firewalld/services/glusterfs.xml
 %endif
 
 %{_sbindir}/gf_logdump
