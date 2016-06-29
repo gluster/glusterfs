@@ -1654,8 +1654,9 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "client.ssl",
           .voltype    = "protocol/client",
           .option     = "transport.socket.ssl-enabled",
-          .type       = NO_DOC,
           .op_version = 2,
+          .description = "enable/disable client.ssl flag in the "
+                         "volume.",
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key        = "network.remote-dio",
@@ -1754,7 +1755,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "server.ssl",
           .voltype     = "protocol/server",
           .option      = "transport.socket.ssl-enabled",
-          .type        = NO_DOC,
+          .description = "enable/disable server.ssl flag in the "
+                         "volume.",
           .op_version  = 2
         },
         { .key         = "auth.ssl-allow",
