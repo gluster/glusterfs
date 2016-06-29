@@ -5091,7 +5091,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         }
 
         ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
-        if (ret < 0) {
+        if (ret <= 0) {
                 gf_msg (this1->name, GF_LOG_ERROR, 0,
                         GD_MSG_STAT_FILE_READ_FAILED,
                         "Unable to read the status");
@@ -5102,9 +5102,9 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         if ((key1 = strchr (slave, '/')))
                 key1 = key1 + 2;
 
-        /* Looks for the last status, to find if the sessiom was running
-         * when the node went down. If the session was not started or
-         * not started, do not restart the geo-rep session */
+        /* Looks for the last status, to find if the session was running
+         * when the node went down. If the session was just created or
+         * stopped, do not restart the geo-rep session */
         if ((!strcmp (buf, "Created")) ||
             (!strcmp (buf, "Stopped"))) {
                 gf_msg (this1->name, GF_LOG_INFO, 0,
