@@ -103,6 +103,13 @@ typedef enum glusterd_store_ver_ac_{
 
 #define GLUSTERD_STORE_KEY_VOL_CAPS             "caps"
 
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES "rebalanced-files"
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE      "size"
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED   "scanned"
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES  "failures"
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED   "skipped"
+#define GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME  "run-time"
+
 int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);
 

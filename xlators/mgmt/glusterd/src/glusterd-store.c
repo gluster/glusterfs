@@ -1392,6 +1392,41 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->rebal.rebalance_files);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->rebal.rebalance_data);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->rebal.lookedup_files);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->rebal.rebalance_failures);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->rebal.skipped_files);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%lf", volinfo->rebal.rebalance_time);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME,
+                                   buf);
+        if (ret)
+                goto out;
+
         if (volinfo->rebal.dict) {
                 dict_foreach (volinfo->rebal.dict, _gd_store_rebalance_dict,
                               &fd);
@@ -2503,8 +2538,26 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
                                      strlen (GF_REBALANCE_TID_KEY))) {
                         gf_uuid_parse (value, volinfo->rebal.rebalance_id);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
-                                        strlen (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
+                                     strlen (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
                         volinfo->rebal.op = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES))) {
+                        volinfo->rebal.rebalance_files = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE))) {
+                                volinfo->rebal.rebalance_data = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED,
+                              strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED))) {
+                        volinfo->rebal.lookedup_files = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES))) {
+                        volinfo->rebal.rebalance_failures = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED))) {
+                                volinfo->rebal.skipped_files = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME,
+                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME))) {
+                                volinfo->rebal.rebalance_time = atoi (value);
                 } else {
                         if (!tmp_dict) {
                                 tmp_dict = dict_new ();
