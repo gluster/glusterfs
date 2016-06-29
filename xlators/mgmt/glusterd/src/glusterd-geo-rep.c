@@ -4278,7 +4278,10 @@ glusterd_gsync_read_frm_status (char *path, char *buf, size_t blen)
                         while (isspace (*p))
                                 *p-- = '\0';
                 }
-        } else if (ret < 0)
+        } else if (ret == 0)
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_GSYNCD_ERROR,
+                        "Status file of gsyncd is empty");
+        else /* ret < 0 */
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_GSYNCD_ERROR,
                         "Status file of gsyncd is corrupt");
 
