@@ -33,6 +33,7 @@ struct mdc_conf {
 	gf_boolean_t cache_selinux;
 	gf_boolean_t force_readdirp;
         gf_boolean_t cache_swift_metadata;
+        gf_boolean_t cache_samba_metadata;
 };
 
 
@@ -68,6 +69,16 @@ static struct mdc_key {
 	},
         {
                 .name = "user.swift.metadata",
+                .load = 0,
+                .check = 1,
+        },
+        {
+                .name = "user.DOSATTRIB",
+                .load = 0,
+                .check = 1,
+        },
+        {
+                .name = "security.NTACL",
                 .load = 0,
                 .check = 1,
         },
@@ -2314,6 +2325,12 @@ reconfigure (xlator_t *this, dict_t *options)
         mdc_key_load_set (mdc_keys, "user.swift.metadata",
                           conf->cache_swift_metadata);
 
+        GF_OPTION_RECONF ("cache-samba-metadata", conf->cache_samba_metadata,
+                          options, bool, out);
+        mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "security.NTACL",
+                          conf->cache_samba_metadata);
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
 
@@ -2355,6 +2372,13 @@ init (xlator_t *this)
                         conf->cache_swift_metadata, bool, out);
         mdc_key_load_set (mdc_keys, "user.swift.metadata",
                           conf->cache_swift_metadata);
+
+        GF_OPTION_INIT ("cache-samba-metadata", conf->cache_samba_metadata,
+                        bool, out);
+        mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "security.NTACL",
+                          conf->cache_samba_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 out:
@@ -2418,6 +2442,12 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
           .description = "Cache swift metadata (user.swift.metadata xattr)",
+        },
+        { .key = {"cache-samba-metadata"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "Cache samba metadata (user.DOSATTRIB, security.NTACL"
+                         " xattrs)",
         },
 	{ .key = {"cache-posix-acl"},
 	  .type = GF_OPTION_TYPE_BOOL,
