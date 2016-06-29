@@ -1586,7 +1586,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "Cache swift metadata (user.swift.metadata xattr)",
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
+        { .key        = "performance.cache-samba-metadata",
+          .voltype    = "performance/md-cache",
+          .option     = "cache-samba-metadata",
+          .op_version = GD_OP_VERSION_3_9_0,
+          .description = "Cache samba metadata (user.DOSATTRIB, security.NTACL"
+                         " xattr)",
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
  	/* Crypt xlator options */
 
