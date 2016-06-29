@@ -84,13 +84,16 @@ struct upcall_local {
         upcall_inode_ctx_t *upcall_inode_ctx;
         inode_t   *inode;
         loc_t     rename_oldloc;
+        loc_t     loc;  /* required for stat in *xattr_cbk */
+        fd_t      *fd;  /* required for fstat in *xattr_cbk */
         dict_t    *xattr;
 };
 typedef struct upcall_local upcall_local_t;
 
 void upcall_local_wipe (xlator_t *this, upcall_local_t *local);
 upcall_local_t *upcall_local_init (call_frame_t *frame, xlator_t *this,
-                                   inode_t *inode, dict_t *xattr);
+                                   loc_t *loc, fd_t *fd, inode_t *inode,
+                                   dict_t *xattr);
 
 upcall_client_t *add_upcall_client (call_frame_t *frame, client_t *client,
                                     upcall_inode_ctx_t *up_inode_ctx);
