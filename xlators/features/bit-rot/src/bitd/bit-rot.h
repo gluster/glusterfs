@@ -50,6 +50,7 @@ typedef enum scrub_freq {
         BR_FSSCRUB_FREQ_WEEKLY,
         BR_FSSCRUB_FREQ_BIWEEKLY,
         BR_FSSCRUB_FREQ_MONTHLY,
+        BR_FSSCRUB_FREQ_MINUTE,
         BR_FSSCRUB_FREQ_STALLED,
 } scrub_freq_t;
 
