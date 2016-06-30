@@ -5181,7 +5181,7 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
         char               *scrub_freq_values[]   = {"hourly",
                                                      "daily", "weekly",
                                                      "biweekly", "monthly",
-                                                      NULL};
+                                                     "minute",  NULL};
         char               *scrub_values[]        = {"pause", "resume",
                                                      "status", NULL};
         dict_t             *dict                  = NULL;
