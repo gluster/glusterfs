@@ -836,6 +836,7 @@ br_fsscan_calculate_delta (uint32_t times)
         return times;
 }
 
+#define BR_SCRUB_MINUTE     (60)
 #define BR_SCRUB_HOURLY     (60 * 60)
 #define BR_SCRUB_DAILY      (1 * 24 * 60 * 60)
 #define BR_SCRUB_WEEKLY     (7 * 24 * 60 * 60)
@@ -848,6 +849,9 @@ br_fsscan_calculate_timeout (scrub_freq_t freq)
         uint32_t timo = 0;
 
         switch (freq) {
+        case BR_FSSCRUB_FREQ_MINUTE:
+                timo = br_fsscan_calculate_delta (BR_SCRUB_MINUTE);
+                break;
         case BR_FSSCRUB_FREQ_HOURLY:
                 timo = br_fsscan_calculate_delta (BR_SCRUB_HOURLY);
                 break;
@@ -1421,6 +1425,8 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv,
                 frequency = BR_FSSCRUB_FREQ_BIWEEKLY;
         } else if (strcasecmp (tmp, "monthly") == 0) {
                 frequency = BR_FSSCRUB_FREQ_MONTHLY;
+        } else if (strcasecmp (tmp, "minute") == 0) {
+                frequency = BR_FSSCRUB_FREQ_MINUTE;
         } else if (strcasecmp (tmp, BR_SCRUB_STALLED) == 0) {
                 frequency = BR_FSSCRUB_FREQ_STALLED;
         } else
@@ -1453,6 +1459,7 @@ static void br_scrubber_log_option (xlator_t *this,
                 [BR_FSSCRUB_FREQ_WEEKLY]   = "weekly",
                 [BR_FSSCRUB_FREQ_BIWEEKLY] = "biweekly",
                 [BR_FSSCRUB_FREQ_MONTHLY]  = "monthly (30 days)",
+                [BR_FSSCRUB_FREQ_MINUTE]  = "every minute",
         };
 
         if (scrubstall)
