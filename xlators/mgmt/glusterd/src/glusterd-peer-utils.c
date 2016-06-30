@@ -1034,3 +1034,25 @@ glusterd_peerinfo_find_by_generation (uint32_t generation) {
                         generation);
         return found;
 }
+
+int
+glusterd_get_peers_count () {
+        int                  count = 0;
+        xlator_t            *this  = NULL;
+        glusterd_conf_t     *conf  = NULL;
+        glusterd_peerinfo_t *peer  = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peer, &conf->peers, uuid_list)
+                count++;
+        rcu_read_unlock ();
+
+out:
+        return count;
+}
