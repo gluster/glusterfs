@@ -6950,29 +6950,33 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
         index_max = brick_index_max + other_count;
 
         for (i = 0; i <= index_max; i++) {
+                hostname = NULL;
+                path = NULL;
+                online = -1;
+                client_count = 0;
+                clientname = NULL;
+                bytesread = 0;
+                byteswrite = 0;
+
                 cli_out ("----------------------------------------------");
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
-                if (ret)
-                        goto out;
+
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
-                if (ret)
-                        goto out;
 
-                if (notbrick)
-                        cli_out ("%s : %s", hostname, path);
-                else
-                        cli_out ("Brick : %s:%s", hostname, path);
-
+                if (hostname && path) {
+                        if (notbrick)
+                                cli_out ("%s : %s", hostname, path);
+                        else
+                                cli_out ("Brick : %s:%s", hostname, path);
+                }
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
-                if (ret)
-                        goto out;
                 if (!online) {
                         if (notbrick)
                                 cli_out ("%s is offline", hostname);
@@ -6984,10 +6988,9 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.clientcount", i);
                 ret = dict_get_int32 (dict, key, &client_count);
-                if (ret)
-                        goto out;
 
-                cli_out ("Clients connected : %d", client_count);
+                if (hostname && path)
+                        cli_out ("Clients connected : %d", client_count);
                 if (client_count == 0)
                         continue;
 
@@ -7000,22 +7003,16 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                         snprintf (key, sizeof (key),
                                   "brick%d.client%d.hostname", i, j);
                         ret = dict_get_str (dict, key, &clientname);
-                        if (ret)
-                                goto out;
 
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                   "brick%d.client%d.bytesread", i, j);
                         ret = dict_get_uint64 (dict, key, &bytesread);
-                        if (ret)
-                                goto out;
 
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                  "brick%d.client%d.byteswrite", i, j);
                         ret = dict_get_uint64 (dict, key, &byteswrite);
-                        if (ret)
-                                goto out;
 
                         cli_out ("%-48s %15"PRIu64" %15"PRIu64,
                                  clientname, bytesread, byteswrite);
