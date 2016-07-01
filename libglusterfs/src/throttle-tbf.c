@@ -24,10 +24,9 @@
  */
 
 #include "mem-pool.h"
-#include "bit-rot-tbf.h"
-#include "bit-rot-stub-mem-types.h"
+#include "throttle-tbf.h"
 
-typedef struct br_tbf_throttle {
+typedef struct tbf_throttle {
         char done;
 
         pthread_mutex_t mutex;
@@ -36,32 +35,15 @@ typedef struct br_tbf_throttle {
         unsigned long tokens;
 
         struct list_head list;
-} br_tbf_throttle_t;
+} tbf_throttle_t;
 
-/**
- * OK. Most implementations of TBF I've come across generate tokens
- * every second (UML, etc..) and some chose sub-second granularity
- * (blk-iothrottle cgroups). TBF algorithm itself does not enforce
- * any logic for choosing generation interval and it seems pretty
- * logical as one could jack up token count per interval w.r.t.
- * generation rate.
- *
- * Value used here is chosen based on a series of test(s) performed
- * to balance object signing time and not maxing out on all available
- * CPU cores. It's obvious to have seconds granularity and jack up
- * token count per interval, thereby achieving close to similar
- * results. Let's stick to this as it seems to be working fine for
- * the set of ops that are throttled.
- */
-#define BR_TBF_TOKENGEN_INTERVAL_USEC  600000
-
-static br_tbf_throttle_t *
-br_tbf_init_throttle (unsigned long tokens_required)
+static tbf_throttle_t *
+tbf_init_throttle (unsigned long tokens_required)
 {
-        br_tbf_throttle_t *throttle = NULL;
+        tbf_throttle_t *throttle = NULL;
 
         throttle = GF_CALLOC (1, sizeof (*throttle),
-                              gf_br_mt_br_tbf_throttle_t);
+                              gf_common_mt_tbf_throttle_t);
         if (!throttle)
                 return NULL;
 
@@ -76,11 +58,11 @@ br_tbf_init_throttle (unsigned long tokens_required)
 }
 
 void
-_br_tbf_dispatch_queued (br_tbf_bucket_t *bucket)
+_tbf_dispatch_queued (tbf_bucket_t *bucket)
 {
         gf_boolean_t xcont = _gf_false;
-        br_tbf_throttle_t *tmp = NULL;
-        br_tbf_throttle_t *throttle = NULL;
+        tbf_throttle_t *tmp = NULL;
+        tbf_throttle_t *throttle = NULL;
 
         list_for_each_entry_safe (throttle, tmp, &bucket->queued, list) {
 
@@ -105,17 +87,19 @@ _br_tbf_dispatch_queued (br_tbf_bucket_t *bucket)
         }
 }
 
-void *br_tbf_tokengenerator (void *arg)
+void *tbf_tokengenerator (void *arg)
 {
         unsigned long tokenrate = 0;
         unsigned long maxtokens = 0;
-        br_tbf_bucket_t *bucket = arg;
+        unsigned long token_gen_interval = 0;
+        tbf_bucket_t *bucket = arg;
 
         tokenrate = bucket->tokenrate;
         maxtokens = bucket->maxtokens;
+        token_gen_interval = bucket->token_gen_interval;
 
         while (1) {
-                usleep (BR_TBF_TOKENGEN_INTERVAL_USEC);
+                usleep (token_gen_interval);
 
                 LOCK (&bucket->lock);
                 {
@@ -124,7 +108,7 @@ void *br_tbf_tokengenerator (void *arg)
                                 bucket->tokens = maxtokens;
 
                         if (!list_empty (&bucket->queued))
-                                _br_tbf_dispatch_queued (bucket);
+                                _tbf_dispatch_queued (bucket);
                 }
                 UNLOCK (&bucket->lock);
         }
@@ -134,18 +118,18 @@ void *br_tbf_tokengenerator (void *arg)
 
 /**
  * There is lazy synchronization between this routine (when invoked
- * under br_tbf_mod() context) and br_tbf_throttle(). *bucket is
+ * under tbf_mod() context) and tbf_throttle(). *bucket is
  * updated _after_ all the required variables are initialized.
  */
 static int32_t
-br_tbf_init_bucket (br_tbf_t *tbf, br_tbf_opspec_t *spec)
+tbf_init_bucket (tbf_t *tbf, tbf_opspec_t *spec)
 {
         int ret = 0;
-        br_tbf_bucket_t *curr = NULL;
-        br_tbf_bucket_t **bucket = NULL;
+        tbf_bucket_t *curr = NULL;
+        tbf_bucket_t **bucket = NULL;
 
-        GF_ASSERT (spec->op >= BR_TBF_OP_MIN);
-        GF_ASSERT (spec->op <= BR_TBF_OP_MAX);
+        GF_ASSERT (spec->op >= TBF_OP_MIN);
+        GF_ASSERT (spec->op <= TBF_OP_MAX);
 
         /* no rate? no throttling. */
         if (!spec->rate)
@@ -153,7 +137,7 @@ br_tbf_init_bucket (br_tbf_t *tbf, br_tbf_opspec_t *spec)
 
         bucket = tbf->bucket + spec->op;
 
-        curr = GF_CALLOC (1, sizeof (*curr), gf_br_mt_br_tbf_bucket_t);
+        curr = GF_CALLOC (1, sizeof (*curr), gf_common_mt_tbf_bucket_t);
         if (!curr)
                 goto error_return;
 
@@ -163,9 +147,10 @@ br_tbf_init_bucket (br_tbf_t *tbf, br_tbf_opspec_t *spec)
         curr->tokens = 0;
         curr->tokenrate = spec->rate;
         curr->maxtokens = spec->maxlimit;
+        curr->token_gen_interval = spec->token_gen_interval;
 
         ret = gf_thread_create (&curr->tokener,
-                                NULL, br_tbf_tokengenerator, curr);
+                                NULL, tbf_tokengenerator, curr);
         if (ret != 0)
                 goto freemem;
 
@@ -179,30 +164,30 @@ br_tbf_init_bucket (br_tbf_t *tbf, br_tbf_opspec_t *spec)
         return -1;
 }
 
-#define BR_TBF_ALLOC_SIZE                                               \
-        (sizeof (br_tbf_t) + (BR_TBF_OP_MAX * sizeof (br_tbf_bucket_t)))
+#define TBF_ALLOC_SIZE                                               \
+        (sizeof (tbf_t) + (TBF_OP_MAX * sizeof (tbf_bucket_t)))
 
-br_tbf_t *
-br_tbf_init (br_tbf_opspec_t *tbfspec, unsigned int count)
+tbf_t *
+tbf_init (tbf_opspec_t *tbfspec, unsigned int count)
 {
         int32_t i = 0;
         int32_t ret = 0;
-        br_tbf_t *tbf = NULL;
-        br_tbf_opspec_t *opspec = NULL;
+        tbf_t *tbf = NULL;
+        tbf_opspec_t *opspec = NULL;
 
-        tbf = GF_CALLOC (1, BR_TBF_ALLOC_SIZE, gf_br_mt_br_tbf_t);
+        tbf = GF_CALLOC (1, TBF_ALLOC_SIZE, gf_common_mt_tbf_t);
         if (!tbf)
                 goto error_return;
 
-        tbf->bucket = (br_tbf_bucket_t **) ((char *)tbf + sizeof (*tbf));
-        for (i = 0; i < BR_TBF_OP_MAX; i++) {
+        tbf->bucket = (tbf_bucket_t **) ((char *)tbf + sizeof (*tbf));
+        for (i = 0; i < TBF_OP_MAX; i++) {
                 *(tbf->bucket + i) = NULL;
         }
 
         for (i = 0; i < count; i++) {
                 opspec = tbfspec + i;
 
-                ret = br_tbf_init_bucket (tbf, opspec);
+                ret = tbf_init_bucket (tbf, opspec);
                 if (ret)
                         break;
         }
@@ -217,7 +202,7 @@ br_tbf_init (br_tbf_opspec_t *tbfspec, unsigned int count)
 }
 
 static void
-br_tbf_mod_bucket (br_tbf_bucket_t *bucket, br_tbf_opspec_t *spec)
+tbf_mod_bucket (tbf_bucket_t *bucket, tbf_opspec_t *spec)
 {
         LOCK (&bucket->lock);
         {
@@ -231,39 +216,39 @@ br_tbf_mod_bucket (br_tbf_bucket_t *bucket, br_tbf_opspec_t *spec)
 }
 
 int
-br_tbf_mod (br_tbf_t *tbf, br_tbf_opspec_t *tbfspec)
+tbf_mod (tbf_t *tbf, tbf_opspec_t *tbfspec)
 {
         int              ret    = 0;
-        br_tbf_bucket_t *bucket = NULL;
-        br_tbf_ops_t     op     = BR_TBF_OP_MIN;
+        tbf_bucket_t *bucket = NULL;
+        tbf_ops_t     op     = TBF_OP_MIN;
 
         if (!tbf || !tbfspec)
                 return -1;
 
         op = tbfspec->op;
 
-        GF_ASSERT (op >= BR_TBF_OP_MIN);
-        GF_ASSERT (op <= BR_TBF_OP_MAX);
+        GF_ASSERT (op >= TBF_OP_MIN);
+        GF_ASSERT (op <= TBF_OP_MAX);
 
         bucket = *(tbf->bucket + op);
         if (bucket) {
-                br_tbf_mod_bucket (bucket, tbfspec);
+                tbf_mod_bucket (bucket, tbfspec);
         } else {
-                ret = br_tbf_init_bucket (tbf, tbfspec);
+                ret = tbf_init_bucket (tbf, tbfspec);
         }
 
         return ret;
 }
 
 void
-br_tbf_throttle (br_tbf_t *tbf, br_tbf_ops_t op, unsigned long tokens_requested)
+tbf_throttle (tbf_t *tbf, tbf_ops_t op, unsigned long tokens_requested)
 {
         char waitq = 0;
-        br_tbf_bucket_t *bucket = NULL;
-        br_tbf_throttle_t *throttle = NULL;
+        tbf_bucket_t *bucket = NULL;
+        tbf_throttle_t *throttle = NULL;
 
-        GF_ASSERT (op >= BR_TBF_OP_MIN);
-        GF_ASSERT (op <= BR_TBF_OP_MAX);
+        GF_ASSERT (op >= TBF_OP_MIN);
+        GF_ASSERT (op <= TBF_OP_MAX);
 
         bucket = *(tbf->bucket + op);
         if (!bucket)
@@ -279,7 +264,7 @@ br_tbf_throttle (br_tbf_t *tbf, br_tbf_ops_t op, unsigned long tokens_requested)
                 if (tokens_requested <= bucket->tokens) {
                         bucket->tokens -= tokens_requested;
                 } else {
-                        throttle = br_tbf_init_throttle (tokens_requested);
+                        throttle = tbf_init_throttle (tokens_requested);
                         if (!throttle) /* let it slip through for now.. */
                                 goto unblock;
 

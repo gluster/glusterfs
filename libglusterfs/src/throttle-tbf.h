@@ -12,32 +12,34 @@
 #include "xlator.h"
 #include "locking.h"
 
-#ifndef __BIT_ROT_TBF_H__
-#define __BIT_ROT_TBF_H__
+#ifndef THROTTLE_TBF_H__
+#define THROTTLE_TBF_H__
 
-typedef enum br_tbf_ops {
-        BR_TBF_OP_MIN     = -1,
-        BR_TBF_OP_HASH    = 0,    /* checksum calculation  */
-        BR_TBF_OP_READ    = 1,    /* inode read(s)         */
-        BR_TBF_OP_READDIR = 2,    /* dentry read(s)        */
-        BR_TBF_OP_MAX     = 3,
-} br_tbf_ops_t;
+typedef enum tbf_ops {
+        TBF_OP_MIN     = -1,
+        TBF_OP_HASH    = 0,    /* checksum calculation  */
+        TBF_OP_READ    = 1,    /* inode read(s)         */
+        TBF_OP_READDIR = 2,    /* dentry read(s)        */
+        TBF_OP_MAX     = 3,
+} tbf_ops_t;
 
 /**
  * Operation rate specification
  */
-typedef struct br_tbf_opspec {
-        br_tbf_ops_t op;
+typedef struct tbf_opspec {
+        tbf_ops_t op;
 
         unsigned long rate;
 
         unsigned long maxlimit;
-} br_tbf_opspec_t;
+
+        unsigned long token_gen_interval;/* Token generation interval in usec */
+} tbf_opspec_t;
 
 /**
  * Token bucket for each operation type
  */
-typedef struct br_tbf_bucket {
+typedef struct tbf_bucket {
         gf_lock_t lock;
 
         pthread_t tokener;         /* token generator thread          */
@@ -49,22 +51,24 @@ typedef struct br_tbf_bucket {
         unsigned long maxtokens;   /* maximum token in the bucket     */
 
         struct list_head queued;   /* list of non-conformant requests */
-} br_tbf_bucket_t;
 
-typedef struct br_tbf {
-        br_tbf_bucket_t **bucket;
-} br_tbf_t;
+        unsigned long token_gen_interval;/* Token generation interval in usec */
+} tbf_bucket_t;
 
-br_tbf_t *
-br_tbf_init (br_tbf_opspec_t *, unsigned int);
+typedef struct tbf {
+        tbf_bucket_t **bucket;
+} tbf_t;
+
+tbf_t *
+tbf_init (tbf_opspec_t *, unsigned int);
 
 int
-br_tbf_mod (br_tbf_t *, br_tbf_opspec_t *);
+tbf_mod (tbf_t *, tbf_opspec_t *);
 
 void
-br_tbf_throttle (br_tbf_t *, br_tbf_ops_t, unsigned long);
+tbf_throttle (tbf_t *, tbf_ops_t, unsigned long);
 
-#define TBF_THROTTLE_BEGIN(tbf, op, tokens) (br_tbf_throttle (tbf, op, tokens))
-#define TBF_THROTTLE_END(tbf, op, tokens) (void)
+#define TBF_THROTTLE_BEGIN(tbf, op, tokens) (tbf_throttle (tbf, op, tokens))
+#define TBF_THROTTLE_END(tbf, op, tokens)
 
-#endif /** __BIT_ROT_TBF_H__ */
+#endif /** THROTTLE_TBF_H__ */

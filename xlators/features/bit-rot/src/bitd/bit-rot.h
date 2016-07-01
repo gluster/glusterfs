@@ -21,7 +21,7 @@
 #include "changelog.h"
 #include "timer-wheel.h"
 
-#include "bit-rot-tbf.h"
+#include "throttle-tbf.h"
 #include "bit-rot-ssm.h"
 
 #include "bit-rot-common.h"
@@ -209,7 +209,7 @@ struct br_private {
 
         uint32_t expiry_time;              /* objects "wait" time */
 
-        br_tbf_t *tbf;                    /* token bucket filter */
+        tbf_t *tbf;                    /* token bucket filter */
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
 

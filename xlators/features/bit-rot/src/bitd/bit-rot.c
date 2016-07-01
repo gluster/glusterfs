@@ -278,7 +278,7 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
                                off_t offset, size_t size, SHA256_CTX *sha256)
 {
         int32_t        ret    = -1;
-        br_tbf_t      *tbf    = NULL;
+        tbf_t      *tbf    = NULL;
         struct iovec  *iovec  = NULL;
         struct iobref *iobref = NULL;
         br_private_t  *priv   = NULL;
@@ -311,12 +311,12 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
                 goto out;
 
         for (i = 0; i < count; i++) {
-                TBF_THROTTLE_BEGIN (tbf, BR_TBF_OP_HASH, iovec[i].iov_len);
+                TBF_THROTTLE_BEGIN (tbf, TBF_OP_HASH, iovec[i].iov_len);
                 {
                         SHA256_Update (sha256, (const unsigned char *)
                                        (iovec[i].iov_base), iovec[i].iov_len);
                 }
-                TBF_THROTTLE_BEGIN (tbf, BR_TBF_OP_HASH, iovec[i].iov_len);
+                TBF_THROTTLE_BEGIN (tbf, TBF_OP_HASH, iovec[i].iov_len);
         }
 
  out:
@@ -1756,13 +1756,31 @@ static int32_t
 br_rate_limit_signer (xlator_t *this, int child_count, int numbricks)
 {
         br_private_t *priv = NULL;
-        br_tbf_opspec_t spec = {0,};
+        tbf_opspec_t spec = {0,};
 
         priv = this->private;
 
-        spec.op       = BR_TBF_OP_HASH;
+        spec.op       = TBF_OP_HASH;
         spec.rate     = 0;
         spec.maxlimit = 0;
+
+/**
+ * OK. Most implementations of TBF I've come across generate tokens
+ * every second (UML, etc..) and some chose sub-second granularity
+ * (blk-iothrottle cgroups). TBF algorithm itself does not enforce
+ * any logic for choosing generation interval and it seems pretty
+ * logical as one could jack up token count per interval w.r.t.
+ * generation rate.
+ *
+ * Value used here is chosen based on a series of test(s) performed
+ * to balance object signing time and not maxing out on all available
+ * CPU cores. It's obvious to have seconds granularity and jack up
+ * token count per interval, thereby achieving close to similar
+ * results. Let's stick to this as it seems to be working fine for
+ * the set of ops that are throttled.
+ **/
+        spec.token_gen_interval = 600000; /* In usec */
+
 
 #ifdef BR_RATE_LIMIT_SIGNER
 
@@ -1783,7 +1801,7 @@ br_rate_limit_signer (xlator_t *this, int child_count, int numbricks)
                         "[Rate Limit Info] \"tokens/sec (rate): %lu, "
                         "maxlimit: %lu\"", spec.rate, spec.maxlimit);
 
-        priv->tbf = br_tbf_init (&spec, 1);
+        priv->tbf = tbf_init (&spec, 1);
         return priv->tbf ? 0 : -1;
 }
 
