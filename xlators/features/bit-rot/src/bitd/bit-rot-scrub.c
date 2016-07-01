@@ -1938,7 +1938,7 @@ br_scrubber_init (xlator_t *this, br_private_t *priv)
         struct br_scrubber *fsscrub = NULL;
         int                 ret     = 0;
 
-        priv->tbf = br_tbf_init (NULL, 0);
+        priv->tbf = tbf_init (NULL, 0);
         if (!priv->tbf)
                 return -1;
 
