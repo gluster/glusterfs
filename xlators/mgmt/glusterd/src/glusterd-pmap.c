@@ -416,8 +416,7 @@ __gluster_pmap_signin (rpcsvc_request_t *req)
         rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
                                          GF_PMAP_PORT_BRICKSERVER, req->trans);
 
-        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
-                                      &brickinfo);
+        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, &brickinfo);
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signin_rsp);
@@ -457,8 +456,7 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
                                            GF_PMAP_PORT_BRICKSERVER, req->trans);
 
-        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
-                                      &brickinfo);
+        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, &brickinfo);
         if (args.rdma_port) {
                 snprintf(brick_path, PATH_MAX, "%s.rdma", args.brick);
                 rsp.op_ret = pmap_registry_remove (THIS, args.rdma_port,
