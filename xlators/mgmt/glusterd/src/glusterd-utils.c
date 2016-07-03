@@ -5163,7 +5163,7 @@ glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
 
 int
 glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
-                        gf_boolean_t localhost, glusterd_brickinfo_t **brickinfo)
+                        glusterd_brickinfo_t **brickinfo)
 {
         glusterd_conf_t         *priv = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
@@ -5177,7 +5177,7 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 cds_list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
                                          brick_list) {
-                        if (localhost && !gf_is_local_addr (tmpbrkinfo->hostname))
+                        if (gf_uuid_compare (tmpbrkinfo->uuid, MY_UUID))
                                 continue;
                         if (!strcmp(tmpbrkinfo->path, brickname) &&
                             (tmpbrkinfo->port == port)) {
