@@ -8711,6 +8711,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         glusterd_volinfo_t      *volinfo            = NULL;
         int                      src_count          = 0;
         int                      dst_count          = 0;
+        int8_t                   scrub_running      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -8756,6 +8757,19 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_dynstr (aggr, key, node_uuid_str);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "failed to set node-uuid");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "scrub-running-%d", src_count);
+        ret = dict_get_int8 (rsp_dict, key, &scrub_running);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-running-%d", src_count+dst_count);
+                ret = dict_set_int8 (aggr, key, scrub_running);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-running value");
                 }
         }
 
@@ -8930,6 +8944,7 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
         xlator_t                *this               = NULL;
         glusterd_conf_t         *priv               = NULL;
         glusterd_volinfo_t      *volinfo            = NULL;
+        int8_t                   scrub_running      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -9036,6 +9051,17 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Failed to set "
                                       "scrub state value to dictionary");
+                }
+        }
+
+        ret = dict_get_int8 (rsp_dict, "scrub-running", &scrub_running);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-running-%d", i);
+                ret = dict_set_uint64 (aggr, key, scrub_running);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-running value");
                 }
         }
 
