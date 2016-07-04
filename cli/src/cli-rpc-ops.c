@@ -10940,6 +10940,8 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         uint64_t       seconds          = 0;
         char          *last_scrub       = NULL;
         uint64_t       error_count      = 0;
+        int8_t         scrub_running    = 0;
+        char          *scrub_state_op   = NULL;
 
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -10976,9 +10978,25 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 goto out;
         }
 
+        for (i = 1; i <= count; i++) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-running-%d", i);
+                ret = dict_get_int8 (dict, key, &scrub_running);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get scrubbed "
+                                "files");
+                if (scrub_running)
+                        break;
+        }
+
+        if (scrub_running)
+                gf_asprintf (&scrub_state_op, "%s (In Progress)", state_scrub);
+        else
+                gf_asprintf (&scrub_state_op, "%s (Idle)", state_scrub);
+
         cli_out ("\n%s: %s\n", "Volume name ", volname);
 
-        cli_out ("%s: %s\n", "State of scrub", state_scrub);
+        cli_out ("%s: %s\n", "State of scrub", scrub_state_op);
 
         cli_out ("%s: %s\n", "Scrub impact", scrub_impact);
 
@@ -11088,6 +11106,7 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                  "===============");
 
 out:
+        GF_FREE (scrub_state_op);
         return 0;
 }
 

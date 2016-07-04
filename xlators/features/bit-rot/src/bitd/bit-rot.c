@@ -1536,7 +1536,6 @@ br_scrubber_status_get (xlator_t *this, dict_t **dict)
 {
 
         int                    ret          = -1;
-        char                   key[256]     = {0,};
         br_private_t          *priv         = NULL;
         struct br_scrub_stats *scrub_stats  = NULL;
 
@@ -1552,33 +1551,35 @@ br_scrubber_status_get (xlator_t *this, dict_t **dict)
                               "files");
         }
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "scrubbed-files");
-        ret = dict_set_uint64 (*dict, key, scrub_stats->scrubbed_files);
+        ret = dict_set_int8 (*dict, "scrub-running",
+                             scrub_stats->scrub_running);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Failed setting scrub_running "
+                              "entry to the dictionary");
+        }
+
+        ret = dict_set_uint64 (*dict, "scrubbed-files",
+                               scrub_stats->scrubbed_files);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to setting scrubbed file "
                               "entry to the dictionary");
         }
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "unsigned-files");
-        ret = dict_set_uint64 (*dict, key, scrub_stats->unsigned_files);
+        ret = dict_set_uint64 (*dict, "unsigned-files",
+                               scrub_stats->unsigned_files);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to set unsigned file count"
                               " entry to the dictionary");
         }
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "scrub-duration");
-        ret = dict_set_uint64 (*dict, key, scrub_stats->scrub_duration);
+        ret = dict_set_uint64 (*dict, "scrub-duration",
+                               scrub_stats->scrub_duration);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to set scrub duration"
                               " entry to the dictionary");
         }
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "last-scrub-time");
-        ret = dict_set_dynstr_with_alloc (*dict, key,
+        ret = dict_set_dynstr_with_alloc (*dict, "last-scrub-time",
                                           scrub_stats->last_scrub_time);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Failed to set "
