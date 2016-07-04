@@ -25,7 +25,7 @@ class Xattr(object):
          sizes we expect
     """
 
-    libc = CDLL(find_library("libc"), use_errno=True)
+    libc = CDLL(find_library("c"), use_errno=True)
 
     @classmethod
     def geterrno(cls):
