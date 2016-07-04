@@ -28,6 +28,8 @@ struct br_scrub_stats {
 
         struct         timeval scrub_end_tv;     /* Scrubbing finishing time */
 
+        int8_t         scrub_running;           /* Scrub running or not */
+
         pthread_mutex_t  lock;
 };
 

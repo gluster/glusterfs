@@ -664,6 +664,7 @@ br_scrubber_entry_control (xlator_t *this)
                 if (scrub_monitor->state == BR_SCRUB_STATE_PENDING)
                         scrub_monitor->state = BR_SCRUB_STATE_ACTIVE;
                 br_scrubber_log_time (this, "started");
+                priv->scrub_stat.scrub_running = 1;
         }
         UNLOCK (&scrub_monitor->lock);
 }
@@ -680,6 +681,7 @@ br_scrubber_exit_control (xlator_t *this)
         LOCK (&scrub_monitor->lock);
         {
                 br_scrubber_log_time (this, "finished");
+                priv->scrub_stat.scrub_running = 0;
 
                 if (scrub_monitor->state == BR_SCRUB_STATE_ACTIVE) {
                         (void) br_fsscan_activate (this);
