@@ -1216,12 +1216,13 @@ pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
 
         gio->op     = GF_FOP_WRITE;
         gio->glfd   = glfd;
-        gio->count  = count;
         gio->offset = offset;
         gio->flags  = flags;
         gio->fn     = fn;
         gio->data   = data;
-        gio->iov = GF_CALLOC (1, sizeof (*(gio->iov)), gf_common_mt_iovec);
+        gio->count  = 1;
+        gio->iov = GF_CALLOC (gio->count, sizeof (*(gio->iov)),
+                              gf_common_mt_iovec);
         if (!gio->iov) {
                 errno = ENOMEM;
                 goto out;
