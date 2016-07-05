@@ -1832,6 +1832,10 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)xdr_gd1_mgmt_v3_lock_req);
 out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
+        if (dict)
+                dict_unref (dict);
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
         return ret;
 }
 
@@ -1909,6 +1913,11 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
                                        xdr_gd1_mgmt_v3_unlock_req);
 out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
+        if (dict)
+                dict_unref(dict);
+
+        if (req.dict.dict_val)
+                GF_FREE (req.dict.dict_val);
         return ret;
 }
 
