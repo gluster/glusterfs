@@ -69,7 +69,7 @@ sys_openat (int dirfd, const char *pathname, int flags, ...);
 DIR *sys_opendir (const char *name);
 
 struct dirent *
-sys_readdir (DIR *dir);
+sys_readdir (DIR *dir, struct dirent *de);
 
 ssize_t
 sys_readlink (const char *path, char *buf, size_t bufsiz);

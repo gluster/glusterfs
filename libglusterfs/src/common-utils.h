@@ -396,15 +396,15 @@ union gf_sock_union {
 
 #define IOV_MIN(n) min(IOV_MAX,n)
 
-#define GF_FOR_EACH_ENTRY_IN_DIR(entry, dir) \
+#define GF_FOR_EACH_ENTRY_IN_DIR(entry, dir, scr) \
         do {\
                 entry = NULL;\
                 if (dir) { \
-                        entry = sys_readdir (dir); \
+                        entry = sys_readdir (dir, scr); \
                         while (entry && (!strcmp (entry->d_name, ".") || \
                             !fnmatch ("*.tmp", entry->d_name, 0) || \
                             !strcmp (entry->d_name, ".."))) { \
-                                entry = sys_readdir (dir); \
+                                entry = sys_readdir (dir, scr); \
                         } \
                 } \
         } while (0)

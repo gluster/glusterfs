@@ -94,9 +94,26 @@ int sys_mkdirat(int dirfd, const char *pathname, mode_t mode)
 }
 
 struct dirent *
-sys_readdir (DIR *dir)
+sys_readdir (DIR *dir, struct dirent *de)
 {
+#if !defined(__GLIBC__)
+        /*
+         * World+Dog says glibc's readdir(3) is MT-SAFE as long as
+         * two threads are not accessing the same DIR; there's a
+         * potential buffer overflow in glibc's readdir_r(3); and
+         * glibc's readdir_r(3) is deprecated after version 2.22
+         * with presumed eventual removal.
+         * Given all that, World+Dog says everyone should just use
+         * readdir(3). But it's unknown, unclear whether the same
+         * is also true for *BSD, MacOS, and, etc.
+        */
+        struct dirent *entry = NULL;
+
+        (void) readdir_r (dir, de, &entry);
+        return entry;
+#else
         return readdir (dir);
+#endif
 }
 
 

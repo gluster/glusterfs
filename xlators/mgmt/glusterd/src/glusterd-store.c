@@ -626,14 +626,15 @@ out:
 int32_t
 glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
 {
-        int32_t                 ret = 0;
-        glusterd_brickinfo_t    *tmp = NULL;
-        glusterd_conf_t         *priv = NULL;
-        char                    brickdir [PATH_MAX] = {0,};
-        DIR                     *dir = NULL;
-        struct dirent           *entry = NULL;
-        char                    path[PATH_MAX] = {0,};
-        xlator_t                *this = NULL;
+        int32_t                ret = 0;
+        glusterd_brickinfo_t  *tmp = NULL;
+        glusterd_conf_t       *priv = NULL;
+        xlator_t              *this = NULL;
+        DIR                   *dir = NULL;
+        struct dirent         *entry = NULL;
+        struct dirent          scratch[2] = {{0,},};
+        char                   path[PATH_MAX] = {0,};
+        char                   brickdir[PATH_MAX] = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -654,7 +655,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
 
         dir = sys_opendir (brickdir);
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
 
         while (entry) {
                 snprintf (path, sizeof (path), "%s/%s",
@@ -664,7 +665,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
                         gf_msg_debug (this->name, 0, "Unable to unlink %s",
                                       path);
                 }
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         sys_closedir (dir);
@@ -1772,6 +1773,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
         glusterd_conf_t *priv                  = NULL;
         DIR             *dir                   = NULL;
         struct dirent   *entry                 = NULL;
+        struct dirent    scratch[2]            = {{0,},};
         char             path[PATH_MAX]        = {0,};
         char             delete_path[PATH_MAX] = {0,};
         char             trashdir[PATH_MAX]    = {0,};
@@ -1819,7 +1821,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         while (entry) {
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
                 ret = sys_stat (path, &st);
@@ -1844,7 +1846,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                                 entry->d_name);
 stat_failed:
                 memset (path, 0, sizeof(path));
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         ret = sys_closedir (dir);
@@ -3111,6 +3113,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
         glusterd_conf_t       *priv             = NULL;
         DIR                   *dir              = NULL;
         struct dirent         *entry            = NULL;
+        struct dirent          scratch[2]       = {{0,},};
         glusterd_volinfo_t    *volinfo          = NULL;
 
         GF_ASSERT (this);
@@ -3133,7 +3136,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
 
         while (entry) {
                 if (snap && ((!strcmp (entry->d_name, "geo-replication")) ||
@@ -3161,7 +3164,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
 
                 }
 next:
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         ret = 0;
@@ -3678,6 +3681,7 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
         glusterd_conf_t       *priv             = NULL;
         DIR                   *dir              = NULL;
         struct dirent         *entry            = NULL;
+        struct dirent          scratch[2]       = {{0,},};
 
         GF_ASSERT (this);
         priv = this->private;
@@ -3700,7 +3704,7 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
 
         while (entry) {
                 if (strcmp (entry->d_name, GLUSTERD_MISSED_SNAPS_LIST_FILE)) {
@@ -3713,7 +3717,7 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
                                 goto out;
                         }
                 }
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         /* Retrieve missed_snaps_list */
@@ -4109,6 +4113,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
         glusterd_conf_t          *priv               = NULL;
         DIR                      *dir                = NULL;
         struct dirent            *entry              = NULL;
+        struct dirent             scratch[2]         = {{0,},};
         char                      path[PATH_MAX]     = {0,};
         glusterd_peerinfo_t      *peerinfo           = NULL;
         gf_store_handle_t        *shandle            = NULL;
@@ -4138,7 +4143,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
 
         while (entry) {
                 snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
@@ -4216,7 +4221,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 peerinfo->shandle = shandle;
                 peerinfo = NULL;
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         args.mode = GD_MODE_ON;

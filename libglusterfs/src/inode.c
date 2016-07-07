@@ -852,10 +852,7 @@ inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
 gf_boolean_t
 __is_root_gfid (uuid_t gfid)
 {
-        uuid_t  root;
-
-        memset (root, 0, 16);
-        root[15] = 1;
+        static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         if (gf_uuid_compare (gfid, root) == 0)
                 return _gf_true;

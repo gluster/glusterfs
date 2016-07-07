@@ -4084,6 +4084,7 @@ recursive_rmdir (const char *delete_path)
         struct stat     st              = {0,};
         DIR            *dir             = NULL;
         struct dirent  *entry           = NULL;
+        struct dirent   scratch[2]      = {{0,},};
         xlator_t       *this            = NULL;
 
         this = THIS;
@@ -4098,7 +4099,7 @@ recursive_rmdir (const char *delete_path)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         while (entry) {
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
                 ret = sys_lstat (path, &st);
@@ -4121,7 +4122,7 @@ recursive_rmdir (const char *delete_path)
                 gf_msg_debug (this->name, 0, "%s %s", ret ?
                               "Failed to remove" : "Removed", entry->d_name);
 
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         ret = sys_closedir (dir);

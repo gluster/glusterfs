@@ -913,58 +913,59 @@ out:
 static void
 volgen_apply_filters (char *orig_volfile)
 {
-        DIR           *filterdir = NULL;
-        struct dirent  entry = {0,};
-        struct dirent *next = NULL;
-        char          *filterpath = NULL;
-        struct stat    statbuf = {0,};
+        DIR           *filterdir  = NULL;
+        struct dirent *entry      = NULL;
+        struct dirent  scratch[2] = {{0,},};
+        struct stat    statbuf    = {0,};
+        char           filterpath[PATH_MAX] = {0,};
 
         filterdir = sys_opendir (FILTERDIR);
-        if (!filterdir) {
-                return;
-        }
 
-        while ((readdir_r(filterdir,&entry,&next) == 0) && next) {
-                if (!strncmp(entry.d_name,".",sizeof(entry.d_name))) {
+        if (!filterdir)
+                return;
+
+        for (;;) {
+
+                errno = 0;
+
+                entry = sys_readdir (filterdir, scratch);
+
+                if (!entry || errno != 0)
+                        break;
+
+                if (strcmp (entry->d_name, ".") == 0 ||
+                    strcmp (entry->d_name, "..") == 0)
                         continue;
-                }
-                if (!strncmp(entry.d_name,"..",sizeof(entry.d_name))) {
-                        continue;
-                }
                 /*
                  * d_type isn't guaranteed to be present/valid on all systems,
                  * so do an explicit stat instead.
                  */
-                if (gf_asprintf(&filterpath,"%s/%.*s",FILTERDIR,
-                                sizeof(entry.d_name), entry.d_name) == (-1)) {
-                        continue;
-                }
+                (void) snprintf (filterpath, sizeof(filterpath), "%s/%s",
+                                 FILTERDIR, entry->d_name);
+
                 /* Deliberately use stat instead of lstat to allow symlinks. */
-                if (sys_stat(filterpath, &statbuf) == (-1)) {
-                        goto free_fp;
-                }
-                if (!S_ISREG(statbuf.st_mode)) {
-                        goto free_fp;
-                }
+                if (sys_stat (filterpath, &statbuf) == -1)
+                        continue;
+
+                if (!S_ISREG (statbuf.st_mode))
+                        continue;
                 /*
                  * We could check the mode in statbuf directly, or just skip
                  * this entirely and check for EPERM after exec fails, but this
                  * is cleaner.
                  */
-                if (sys_access(filterpath, X_OK) != 0) {
-                        goto free_fp;
-                }
-                if (runcmd(filterpath,orig_volfile,NULL)) {
+                if (sys_access (filterpath, X_OK) != 0)
+                        continue;
+
+                if (runcmd (filterpath, orig_volfile, NULL)) {
                         gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                 GD_MSG_FILTER_RUN_FAILED,
-                                "failed to run filter %.*s",
-                                (int)sizeof(entry.d_name), entry.d_name);
+                                "failed to run filter %s",
+                                entry->d_name);
                 }
-free_fp:
-                GF_FREE(filterpath);
         }
 
-        sys_closedir (filterdir);
+        (void) sys_closedir (filterdir);
 }
 
 static int
@@ -979,7 +980,6 @@ volgen_write_volfile (volgen_graph_t *graph, char *filename)
 
         if (gf_asprintf (&ftmp, "%s.tmp", filename) == -1) {
                 ftmp = NULL;
-
                 goto error;
         }
 
