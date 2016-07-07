@@ -4198,28 +4198,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        ret = dict_get_str_boolean (set_dict, "ganesha.enable", _gf_false);
-
-        if (ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        GD_MSG_DICT_GET_FAILED, "setting ganesha.enable"
-                        "option failed.");
-                goto out;
-        }
-
-        if (ret) {
-                xl = volgen_graph_add (graph, "features/ganesha", volname);
-
-                if (!xl) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_GRAPH_FEATURE_ADD_FAIL,
-                                "failed to add"
-                                "add features/ganesha to graph");
-                        ret = -1;
-                        goto out;
-                }
-        }
-
         /* add debug translators depending on the options */
         ret = check_and_add_debug_xl (graph, set_dict, volname,
                                       "client");
