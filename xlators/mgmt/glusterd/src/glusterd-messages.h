@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       583
+#define GLFS_NUM_MESSAGES       585
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4712,6 +4712,22 @@
  *
  */
 #define GD_MSG_SYSCALL_FAIL                          (GLUSTERD_COMP_BASE + 583)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendation
+ *
+ */
+#define GD_MSG_DAEMON_STATE_REQ_RCVD              (GLUSTERD_COMP_BASE + 584)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendation
+ *
+ */
+#define GD_MSG_STATE_STR_GET_FAILED               (GLUSTERD_COMP_BASE + 585)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

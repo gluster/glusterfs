@@ -46,12 +46,25 @@
 #include "globals.h"
 #include "lkowner.h"
 #include "syscall.h"
+#include "cli1-xdr.h"
 #include <ifaddrs.h>
 #include "libglusterfs-messages.h"
 
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
 #endif /* AI_ADDRCONFIG */
+
+char *vol_type_str[] = {"Distribute",
+                        "Stripe",
+                        "Replicate",
+                        "Striped-Replicate",
+                        "Disperse",
+                        "Tier",
+                        "Distributed-Stripe",
+                        "Distributed-Replicate",
+                        "Distributed-Striped-Replicate",
+                        "Distributed-Disperse",
+                       };
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
@@ -2720,6 +2733,16 @@ gf_roundup_next_power_of_two (int32_t nr)
 
 out:
         return result;
+}
+
+int
+get_vol_type (int type, int dist_count, int brick_count)
+{
+        if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
+             (dist_count < brick_count))
+              type = type + GF_CLUSTER_TYPE_MAX - 1;
+
+        return type;
 }
 
 int

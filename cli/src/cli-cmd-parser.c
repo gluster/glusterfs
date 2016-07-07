@@ -931,6 +931,120 @@ out:
 }
 
 int32_t
+cli_cmd_get_state_parse (struct cli_state *state,
+                         const char **words, int wordcount,
+                         dict_t **options, char **op_errstr)
+{
+        dict_t    *dict                 = NULL;
+        int        ret                  = -1;
+        uint32_t   cmd                  = 0;
+        char      *odir                 = NULL;
+        char      *filename             = NULL;
+        char      *daemon_name          = NULL;
+        int        count                = 0;
+
+        GF_VALIDATE_OR_GOTO ("cli", options, out);
+        GF_VALIDATE_OR_GOTO ("cli", words, out);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount < 1 || wordcount > 6) {
+                *op_errstr = gf_strdup ("Problem parsing arguments."
+                                        " Check usage.");
+                goto out;
+        }
+
+        if (wordcount >= 1) {
+                gf_asprintf (&daemon_name, "%s", "glusterd");
+
+                for (count = 1; count < wordcount; count++) {
+                        if (strcmp (words[count], "odir") == 0 ||
+                                        strcmp (words[count], "file") == 0) {
+                                if (strcmp (words[count], "odir") == 0) {
+                                        if (++count < wordcount) {
+                                                odir = (char *) words[count];
+                                                continue;
+                                        } else {
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                } else if (strcmp (words[count], "file") == 0) {
+                                        if (++count < wordcount) {
+                                                filename = (char *) words[count];
+                                                continue;
+                                        } else {
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                }
+                        } else {
+                                if (count > 1) {
+                                        *op_errstr = gf_strdup ("Problem "
+                                                        "parsing arguments. "
+                                                        "Check usage.");
+                                        ret = -1;
+                                        goto out;
+
+                                }
+                                if (strcmp (words[count], "glusterd") == 0) {
+                                        continue;
+                                } else {
+                                        *op_errstr = gf_strdup ("glusterd is "
+                                                 "the only supported daemon.");
+                                        ret = -1;
+                                        goto out;
+                                }
+                        }
+                }
+
+                ret = dict_set_str (dict, "daemon", daemon_name);
+                if (ret) {
+                        *op_errstr = gf_strdup ("Command failed. Please check "
+                                                " log file for more details.");
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Setting daemon name to dictionary failed");
+                        goto out;
+                }
+
+                if (odir) {
+                        ret = dict_set_str (dict, "odir", odir);
+                        if (ret) {
+                                *op_errstr = gf_strdup ("Command failed. Please"
+                                                        " check log file for"
+                                                        " more details.");
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Setting output directory to"
+                                        "dictionary failed");
+                                goto out;
+                        }
+                }
+
+                if (filename) {
+                        ret = dict_set_str (dict, "filename", filename);
+                        if (ret) {
+                                *op_errstr = gf_strdup ("Command failed. Please"
+                                                        " check log file for"
+                                                        " more  details.");
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "Setting filename to dictionary failed");
+                                goto out;
+                        }
+                }
+        }
+
+ out:
+        if (dict)
+                *options = dict;
+
+        if (ret && dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int32_t
 cli_cmd_inode_quota_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t          *dict    = NULL;

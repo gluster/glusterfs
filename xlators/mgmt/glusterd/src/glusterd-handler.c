@@ -4947,6 +4947,521 @@ glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
 {
         return glusterd_big_locked_handler (req, __glusterd_handle_get_vol_opt);
 }
+
+static int
+glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
+{
+        FILE *fp = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, key, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, val, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, data, out);
+
+        fp = (FILE *) data;
+        fprintf (fp, "%s: %s\n", key, val->data);
+out:
+        return 0;
+}
+
+static int
+glusterd_print_snapinfo_by_vol (FILE *fp, glusterd_volinfo_t *volinfo, int volcount)
+{
+        int                     ret = -1;
+        glusterd_volinfo_t      *snap_vol = NULL;
+        glusterd_volinfo_t      *tmp_vol = NULL;
+        glusterd_snap_t         *snapinfo = NULL;
+        int                     snapcount = 0;
+        char                    timestr[64] = {0,};
+        char                    snap_status_str[STATUS_STRLEN] = {0,};
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, fp, out);
+
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
+                                      snapvol_list) {
+                snapcount++;
+                snapinfo = snap_vol->snapshot;
+
+                ret = glusterd_get_snap_status_str (snapinfo, snap_status_str);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get status for snapshot: %s",
+                                snapinfo->snapname);
+
+                        goto out;
+                }
+                gf_time_fmt (timestr, sizeof timestr, snapinfo->time_stamp,
+                             gf_timefmt_FT);
+
+                fprintf (fp, "Volume%d.snapshot%d.name: %s\n",
+                         volcount, snapcount, snapinfo->snapname);
+                fprintf (fp, "Volume%d.snapshot%d.id: %s\n", volcount, snapcount,
+                         gf_strdup (uuid_utoa (snapinfo->snap_id)));
+                fprintf (fp, "Volume%d.snapshot%d.time: %s\n",
+                         volcount, snapcount, timestr);
+
+                if (snapinfo->description)
+                        fprintf (fp, "Volume%d.snapshot%d.description: %s\n",
+                         volcount, snapcount, snapinfo->description);
+                fprintf (fp, "Volume%d.snapshot%d.status: %s\n",
+                         volcount, snapcount, snap_status_str);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t                      ret = -1;
+        gf_cli_rsp                   rsp = {0,};
+        int                          fd = -1;
+        FILE                        *fp = NULL;
+        DIR                         *dp = NULL;
+        char                         err_str[2048] = {0,};
+        glusterd_conf_t             *priv = NULL;
+        glusterd_peerinfo_t         *peerinfo = NULL;
+        glusterd_peer_hostname_t    *peer_hostname_info = NULL;
+        glusterd_volinfo_t          *volinfo = NULL;
+        glusterd_brickinfo_t        *brickinfo = NULL;
+        glusterd_snap_t             *snapinfo = NULL;
+        xlator_t                    *this = NULL;
+        char                        *odir = NULL;
+        char                        *filename = NULL;
+        char                        *ofilepath = NULL;
+        int                          count = 0;
+        int                          count_bkp = 0;
+        int                          odirlen = 0;
+        time_t                       now = 0;
+        char                         timestamp[16] = {0,};
+
+        char    *vol_type_str = NULL;
+        char    *hot_tier_type_str = NULL;
+        char    *cold_tier_type_str = NULL;
+
+        char     transport_type_str[STATUS_STRLEN] = {0,};
+        char     quorum_status_str[STATUS_STRLEN] = {0,};
+        char     rebal_status_str[STATUS_STRLEN] = {0,};
+        char     peer_state_str[STATUS_STRLEN] = {0,};
+        char     vol_status_str[STATUS_STRLEN] = {0,};
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+
+        priv = THIS->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+
+        ret = dict_get_str (dict, "odir", &odir);
+        if (ret) {
+                gf_asprintf (&odir, "%s", "/var/run/gluster/");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Default output directory: %s", odir);
+        }
+
+        dp = sys_opendir (odir);
+        if (dp) {
+                sys_closedir (dp);
+        } else {
+                if (errno == ENOENT) {
+                        snprintf (err_str, sizeof (err_str),
+                                  "Output directory %s does not exist.", odir);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                } else if (errno == ENOTDIR) {
+                        snprintf (err_str, sizeof (err_str), "Output directory "
+                                  "does not exist. %s points to a file.", odir);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                }
+
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "filename", &filename);
+        if (ret) {
+                now = time (NULL);
+                strftime (timestamp, sizeof (timestamp),
+                          "%Y%m%d_%H%M%S", localtime (&now));
+                gf_asprintf (&filename, "%s_%s", "glusterd_state", timestamp);
+
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Default filename: %s", filename);
+        }
+
+        odirlen = strlen (odir);
+        if (odir[odirlen-1] != '/')
+                strcat (odir, "/");
+
+        gf_asprintf (&ofilepath, "%s%s", odir, filename);
+
+        ret = dict_set_str (dict, "ofilepath", ofilepath);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Unable to set output path");
+                goto out;
+        }
+
+        fp = fopen (ofilepath, "w");
+        if (!fp) {
+                snprintf (err_str, sizeof (err_str),
+                          "Failed to open file at %s", ofilepath);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                ret = -1;
+                goto out;
+        }
+
+        fprintf (fp, "[Global]\n");
+
+        fprintf (fp, "MYUUID: %s\n", gf_strdup (uuid_utoa (priv->uuid)));
+        fprintf (fp, "op-version: %d\n", priv->op_version);
+
+        fprintf (fp, "\n[Global options]\n");
+
+        if (priv->opts)
+                dict_foreach (priv->opts, glusterd_print_global_options, fp);
+
+        rcu_read_lock ();
+        fprintf (fp, "\n[Peers]\n");
+
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                ret = gd_peer_state_str (peerinfo, peer_state_str);
+                if (ret) {
+                        rcu_read_unlock ();
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get peer state");
+                        goto out;
+                }
+
+                fprintf (fp, "Peer%d.primary_hostname: %s\n", ++count,
+                         peerinfo->hostname);
+                fprintf (fp, "Peer%d.uuid: %s\n", count, gd_peer_uuid_str (peerinfo));
+                fprintf (fp, "Peer%d.state: %s\n", count, peer_state_str);
+                fprintf (fp, "Peer%d.connected: %d\n", count, peerinfo->connected);
+
+                fprintf (fp, "Peer%d.hostnames: ", count);
+                cds_list_for_each_entry (peer_hostname_info,
+                                         &peerinfo->hostnames, hostname_list)
+                        fprintf (fp, "%s, ", peer_hostname_info->hostname);
+                fprintf (fp, "\n");
+        }
+        rcu_read_unlock ();
+
+        count = 0;
+        fprintf (fp, "\n[Volumes]\n");
+
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                ret = glusterd_volume_get_type_str (volinfo, &vol_type_str);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get type for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                ret = glusterd_volume_get_status_str (volinfo, vol_status_str);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get status for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                ret = glusterd_volume_get_transport_type_str (volinfo,
+                                                              transport_type_str);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get transport type for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                ret = glusterd_volume_get_quorum_status_str (volinfo,
+                                                             quorum_status_str);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get quorum status for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                ret = glusterd_volume_get_rebalance_status_str (volinfo,
+                                                                rebal_status_str);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATE_STR_GET_FAILED,
+                                "Failed to get rebalance status for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
+
+                fprintf (fp, "Volume%d.name: %s\n", ++count, volinfo->volname);
+                fprintf (fp, "Volume%d.id: %s\n", count,
+                         gf_strdup (uuid_utoa (volinfo->volume_id)));
+                fprintf (fp, "Volume%d.type: %s\n", count, vol_type_str);
+                fprintf (fp, "Volume%d.transport_type: %s\n", count,
+                         transport_type_str);
+                fprintf (fp, "Volume%d.status: %s\n", count, vol_status_str);
+                fprintf (fp, "Volume%d.brickcount: %d\n", count,
+                         volinfo->brick_count);
+
+                count_bkp = count;
+                count = 0;
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        fprintf (fp, "Volume%d.Brick%d.path: %s:%s\n",
+                                 count_bkp, ++count, brickinfo->hostname,
+                                 brickinfo->path);
+                        fprintf (fp, "Volume%d.Brick%d.hostname: %s\n",
+                                 count_bkp, count, brickinfo->hostname);
+
+                        /* Add following information only for bricks
+                         *  local to current node */
+                        if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
+                                continue;
+                        fprintf (fp, "Volume%d.Brick%d.port: %d\n", count_bkp,
+                                 count, brickinfo->port);
+                        fprintf (fp, "Volume%d.Brick%d.rdma_port: %d\n", count_bkp,
+                                 count, brickinfo->rdma_port);
+                        fprintf (fp, "Volume%d.Brick%d.status: %s\n", count_bkp,
+                                 count, brickinfo->status ? "Started" : "Stopped");
+                        fprintf (fp, "Volume%d.Brick%d.filesystem_type: %s\n",
+                                 count_bkp, count, brickinfo->fstype);
+                        fprintf (fp, "Volume%d.Brick%d.mount_options: %s\n",
+                                 count_bkp, count, brickinfo->mnt_opts);
+                        fprintf (fp, "Volume%d.Brick%d.signedin: %s\n", count_bkp,
+                                 count, brickinfo->signed_in ? "True" : "False");
+                }
+
+                count = count_bkp;
+
+                ret = glusterd_print_snapinfo_by_vol (fp, volinfo, count);
+                if (ret)
+                        goto out;
+
+                fprintf (fp, "Volume%d.snap_count: %"PRIu64"\n", count,
+                         volinfo->snap_count);
+                fprintf (fp, "Volume%d.stripe_count: %d\n", count,
+                         volinfo->stripe_count);
+                fprintf (fp, "Volume%d.subvol_count: %d\n", count,
+                         volinfo->subvol_count);
+                fprintf (fp, "Volume%d.arbiter_count: %d\n", count,
+                         volinfo->arbiter_count);
+                fprintf (fp, "Volume%d.disperse_count: %d\n", count,
+                         volinfo->disperse_count);
+                fprintf (fp, "Volume%d.redundancy_count: %d\n", count,
+                         volinfo->redundancy_count);
+                fprintf (fp, "Volume%d.quorum_status: %s\n", count,
+                                quorum_status_str);
+
+                fprintf (fp, "Volume%d.snapd_svc.online_status: %s\n", count,
+                         volinfo->snapd.svc.online ? "Online" : "Offline");
+                fprintf (fp, "Volume%d.snapd_svc.inited: %s\n", count,
+                         volinfo->snapd.svc.inited ? "True" : "False");
+
+                fprintf (fp, "Volume%d.rebalance.id: %s\n", count,
+                         gf_strdup (uuid_utoa (volinfo->rebal.rebalance_id)));
+                fprintf (fp, "Volume%d.rebalance.status: %s\n", count,
+                         rebal_status_str);
+                fprintf (fp, "Volume%d.rebalance.failures: %"PRIu64"\n", count,
+                         volinfo->rebal.rebalance_failures);
+                fprintf (fp, "Volume%d.rebalance.skipped: %"PRIu64"\n", count,
+                         volinfo->rebal.skipped_files);
+                fprintf (fp, "Volume%d.rebalance.lookedup: %"PRIu64"\n", count,
+                         volinfo->rebal.lookedup_files);
+                fprintf (fp, "Volume%d.rebalance.files: %"PRIu64"\n", count,
+                         volinfo->rebal.rebalance_files);
+                fprintf (fp, "Volume%d.rebalance.data: %"PRIu64"\n", count,
+                         volinfo->rebal.rebalance_data);
+                fprintf (fp, "Volume%d.rebalance.data: %"PRIu64"\n", count,
+                         volinfo->rebal.rebalance_data);
+
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        ret = glusterd_volume_get_hot_tier_type_str (
+                                                volinfo, &hot_tier_type_str);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_STATE_STR_GET_FAILED,
+                                        "Failed to get hot tier type for "
+                                        "volume: %s", volinfo->volname);
+                                goto out;
+                        }
+
+                        ret = glusterd_volume_get_cold_tier_type_str (
+                                                volinfo, &cold_tier_type_str);
+                        if (ret) {
+                               gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_STATE_STR_GET_FAILED,
+                                        "Failed to get cold tier type for "
+                                        "volume: %s", volinfo->volname);
+                               goto out;
+                        }
+
+                        fprintf (fp, "Volume%d.tier_info.cold_tier_type: %s\n",
+                                 count, cold_tier_type_str);
+                        fprintf (fp, "Volume%d.tier_info.cold_brick_count: %d\n",
+                                 count, volinfo->tier_info.cold_brick_count);
+                        fprintf (fp, "Volume%d.tier_info.cold_replica_count: %d\n",
+                                 count, volinfo->tier_info.cold_replica_count);
+                        fprintf (fp, "Volume%d.tier_info.cold_disperse_count: %d\n",
+                                 count, volinfo->tier_info.cold_disperse_count);
+                        fprintf (fp, "Volume%d.tier_info.cold_dist_leaf_count: %d\n",
+                                 count, volinfo->tier_info.cold_dist_leaf_count);
+                        fprintf (fp, "Volume%d.tier_info.cold_redundancy_count: %d\n",
+                                 count, volinfo->tier_info.cold_redundancy_count);
+                        fprintf (fp, "Volume%d.tier_info.hot_tier_type: %s\n",
+                                 count, hot_tier_type_str);
+                        fprintf (fp, "Volume%d.tier_info.hot_brick_count: %d\n",
+                                 count, volinfo->tier_info.hot_brick_count);
+                        fprintf (fp, "Volume%d.tier_info.hot_replica_count: %d\n",
+                                 count, volinfo->tier_info.hot_replica_count);
+                        fprintf (fp, "Volume%d.tier_info.promoted: %d\n",
+                                 count, volinfo->tier_info.promoted);
+                        fprintf (fp, "Volume%d.tier_info.demoted: %d\n",
+                                 count, volinfo->tier_info.demoted);
+                }
+
+                if (volinfo->rep_brick.src_brick && volinfo->rep_brick.dst_brick) {
+                        fprintf (fp, "Volume%d.replace_brick.src: %s:%s\n", count,
+                                 volinfo->rep_brick.src_brick->hostname,
+                                 volinfo->rep_brick.src_brick->path);
+                        fprintf (fp, "Volume%d.replace_brick.dest: %s:%s\n", count,
+                                 volinfo->rep_brick.dst_brick->hostname,
+                                 volinfo->rep_brick.dst_brick->path);
+                }
+
+                fprintf (fp, "\n");
+        }
+
+        count = 0;
+
+        fprintf (fp, "\n[Services]\n");
+
+        if (priv->shd_svc.inited) {
+                fprintf (fp, "svc%d.name: %s\n", ++count, priv->shd_svc.name);
+                fprintf (fp, "svc%d.online_status: %s\n\n", count,
+                         priv->shd_svc.online ? "Online" : "Offline");
+        }
+
+        if (priv->nfs_svc.inited) {
+                fprintf (fp, "svc%d.name: %s\n", ++count, priv->nfs_svc.name);
+                fprintf (fp, "svc%d.online_status: %s\n\n", count,
+                         priv->nfs_svc.online ? "Online" : "Offline");
+        }
+
+        if (priv->bitd_svc.inited) {
+                fprintf (fp, "svc%d.name: %s\n", ++count, priv->bitd_svc.name);
+                fprintf (fp, "svc%d.online_status: %s\n\n", count,
+                         priv->bitd_svc.online ? "Online" : "Offline");
+        }
+
+        if (priv->scrub_svc.inited) {
+                fprintf (fp, "svc%d.name: %s\n", ++count, priv->scrub_svc.name);
+                fprintf (fp, "svc%d.online_status: %s\n\n", count,
+                         priv->scrub_svc.online ? "Online" : "Offline");
+        }
+
+        if (priv->quotad_svc.inited) {
+                fprintf (fp, "svc%d.name: %s\n", ++count, priv->quotad_svc.name);
+                fprintf (fp, "svc%d.online_status: %s\n\n", count,
+                         priv->quotad_svc.online ? "Online" : "Offline");
+        }
+
+        fprintf (fp, "\n[Misc]\n");
+        if (priv->pmap) {
+                fprintf (fp, "Base port: %d\n", priv->pmap->base_port);
+                fprintf (fp, "Last allocated port: %d\n",
+                         priv->pmap->last_alloc);
+        }
+out:
+
+        if (fp)
+                fclose(fp);
+
+        rsp.op_ret = ret;
+        rsp.op_errstr = err_str;
+
+        ret = dict_allocate_and_serialize (dict, &rsp.dict.dict_val,
+                                           &rsp.dict.dict_len);
+        glusterd_to_cli (req, &rsp, NULL, 0, NULL,
+                         (xdrproc_t)xdr_gf_cli_rsp, dict);
+
+        return ret;
+}
+
+static int
+__glusterd_handle_get_state (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf_cli_req                      cli_req = {{0,},};
+        dict_t                          *dict = NULL;
+        char                            err_str[2048] = {0,};
+        xlator_t                        *this = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, req, out);
+
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
+                snprintf (err_str, sizeof (err_str), "Failed to decode "
+                          "request received from cli");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL, "%s", err_str);
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (err_str, sizeof (err_str), "Unable to decode"
+                                  " the command");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+
+        gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_DAEMON_STATE_REQ_RCVD,
+                "Received request to get state for glusterd");
+
+        ret = glusterd_get_state (req, dict);
+
+out:
+        if (dict)
+                dict_unref (dict);
+        return ret;
+}
+
+int
+glusterd_handle_get_state (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_get_state);
+}
+
 static int
 get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
 {
@@ -5410,6 +5925,7 @@ rpcsvc_actor_t gd_svc_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GANESHA]            = { "GANESHA"  ,         GLUSTER_CLI_GANESHA,          glusterd_handle_ganesha_cmd,           NULL, 0, DRC_NA},
         [GLUSTER_CLI_GET_VOL_OPT]        = {"GET_VOL_OPT",        GLUSTER_CLI_GET_VOL_OPT,      glusterd_handle_get_vol_opt,           NULL, 0, DRC_NA},
         [GLUSTER_CLI_BITROT]             = {"BITROT",             GLUSTER_CLI_BITROT,           glusterd_handle_bitrot,                NULL, 0, DRC_NA},
+        [GLUSTER_CLI_GET_STATE]          = {"GET_STATE",          GLUSTER_CLI_GET_STATE,        glusterd_handle_get_state,             NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

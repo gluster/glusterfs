@@ -393,6 +393,57 @@ gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
         return peerinfo->uuid_str;
 }
 
+int
+gd_peer_state_str (glusterd_peerinfo_t *peerinfo, char *state_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, peerinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, state_str, out);
+
+        switch (peerinfo->state.state) {
+        case GD_FRIEND_STATE_DEFAULT:
+                gf_asprintf (&state_str, "%s", "default");
+                break;
+        case GD_FRIEND_STATE_REQ_SENT:
+                gf_asprintf (&state_str, "%s", "request sent");
+                break;
+        case GD_FRIEND_STATE_REQ_RCVD:
+                gf_asprintf (&state_str, "%s", "request received");
+                break;
+        case GD_FRIEND_STATE_BEFRIENDED:
+                gf_asprintf (&state_str, "%s", "befriended");
+                break;
+        case GD_FRIEND_STATE_REQ_ACCEPTED:
+                gf_asprintf (&state_str, "%s", "request accepted");
+                break;
+        case GD_FRIEND_STATE_REQ_SENT_RCVD:
+                gf_asprintf (&state_str, "%s", "request sent received");
+                break;
+        case GD_FRIEND_STATE_REJECTED:
+                gf_asprintf (&state_str, "%s", "rejected");
+                break;
+        case GD_FRIEND_STATE_UNFRIEND_SENT:
+                gf_asprintf (&state_str, "%s", "unfriend sent");
+                break;
+        case GD_FRIEND_STATE_PROBE_RCVD:
+                gf_asprintf (&state_str, "%s", "probe received");
+                break;
+        case GD_FRIEND_STATE_CONNECTED_RCVD:
+                gf_asprintf (&state_str, "%s", "connected received");
+                break;
+        case GD_FRIEND_STATE_CONNECTED_ACCEPTED:
+                gf_asprintf (&state_str, "%s", "connected accepted");
+                break;
+        case GD_FRIEND_STATE_MAX:
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 gf_boolean_t
 glusterd_are_all_peers_up ()
 {

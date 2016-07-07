@@ -56,6 +56,7 @@
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
 #define GLUSTERD_SERVER_QUORUM "server"
+#define STATUS_STRLEN   128
 
 #define FMTSTR_CHECK_VOL_EXISTS "Volume %s does not exist"
 #define FMTSTR_RESOLVE_BRICK "Could not find peer on which brick %s:%s resides"

@@ -55,17 +55,6 @@ int32_t
 gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
                      void *data);
 
-char *cli_vol_type_str[] = {"Distribute",
-                            "Stripe",
-                            "Replicate",
-                            "Striped-Replicate",
-                            "Disperse",
-                            "Tier",
-                            "Distributed-Stripe",
-                            "Distributed-Replicate",
-                            "Distributed-Striped-Replicate",
-                            "Distributed-Disperse",
-                           };
 
 char *cli_vol_status_str[] = {"Created",
                               "Started",
@@ -503,6 +492,73 @@ out:
         return ret;
 }
 
+int
+gf_cli_get_state_cbk (struct rpc_req *req, struct iovec *iov,
+                      int count, void *myframe)
+{
+        gf_cli_rsp           rsp            = {0,};
+        int                  ret            = -1;
+        dict_t               *dict          = NULL;
+        char                 *daemon_name   = NULL;
+        char                 *ofilepath     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("cli", myframe, out);
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+        if (ret)
+                goto out;
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        cli_err ("Failed to get daemon state: %s", rsp.op_errstr);
+                else
+                        cli_err ("Failed to get daemon state. Check glusterd"
+                                 " log file for more details");
+        } else {
+                ret = dict_get_str (dict, "daemon", &daemon_name);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR, "Couldn't get daemon name");
+
+                ret = dict_get_str (dict, "ofilepath", &ofilepath);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR, "Couldn't get filepath");
+
+                if (daemon_name && ofilepath)
+                        cli_out ("%s state dumped to %s",
+                                 daemon_name, ofilepath);
+        }
+
+        ret = rsp.op_ret;
+
+out:
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+
+        if (dict)
+                dict_unref (dict);
+
+        cli_cmd_broadcast_response (ret);
+
+        return ret;
+}
+
 void
 cli_out_options ( char *substr, char *optstr, char *valstr)
 {
@@ -725,13 +781,11 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
         vol_type = hot_type;
         hot_dist_count = (hot_replica_count ?
                           hot_replica_count : 1);
-        if ((hot_type != GF_CLUSTER_TYPE_TIER) &&
-            (hot_type > 0) &&
-            (hot_dist_count < hot_brick_count))
-                vol_type = hot_type + GF_CLUSTER_TYPE_MAX - 1;
 
+        vol_type = get_vol_type (hot_type, hot_dist_count, hot_brick_count);
         cli_out ("Hot Tier Type : %s",
-                 cli_vol_type_str[vol_type]);
+                 vol_type_str[vol_type]);
+
         gf_cli_print_number_of_bricks (hot_type,
                         hot_brick_count, hot_dist_count, 0,
                         hot_replica_count, 0, 0, 0);
@@ -742,14 +796,11 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
                 goto out;
 
         cli_out ("Cold Tier:");
-        vol_type = cold_type;
-        if ((cold_type != GF_CLUSTER_TYPE_TIER) &&
-            (cold_type > 0) &&
-            (cold_dist_count < cold_brick_count))
-                vol_type = cold_type + GF_CLUSTER_TYPE_MAX - 1;
 
+        vol_type = get_vol_type (cold_type, cold_dist_count, cold_brick_count);
         cli_out ("Cold Tier Type : %s",
-                        cli_vol_type_str[vol_type]);
+                        vol_type_str[vol_type]);
+
         gf_cli_print_number_of_bricks (cold_type,
                 cold_brick_count,
                 cold_dist_count, 0, cold_replica_count,
@@ -973,15 +1024,11 @@ xml_output:
                 if (ret)
                         goto out;
 
-                vol_type = type;
-
                 // Distributed (stripe/replicate/stripe-replica) setups
-                if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
-                    (dist_count < brick_count))
-                       vol_type = type + GF_CLUSTER_TYPE_MAX - 1;
+                vol_type = get_vol_type (type, dist_count, brick_count);
 
                 cli_out ("Volume Name: %s", volname);
-                cli_out ("Type: %s", cli_vol_type_str[vol_type]);
+                cli_out ("Type: %s", vol_type_str[vol_type]);
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
                 cli_out ("Snapshot Count: %d", snap_count);
@@ -4147,6 +4194,32 @@ out:
                 frame->local = NULL;
         }
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+gf_cli_get_state (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req              req =  {{0,},};
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+
+        char                    *odir       =  NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_get_state_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_GET_STATE, this, cli_rpc_prog,
+                               NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 
@@ -10918,7 +10991,6 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
 
         ret = cli_cmd_submit (NULL, req, frame, prog, procnum, iobref, this,
                               cbkfn, (xdrproc_t) xdrproc);
-
 out:
         return ret;
 
@@ -11256,7 +11328,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_DEPROBE]          = {"DEPROBE_QUERY", gf_cli_deprobe},
         [GLUSTER_CLI_LIST_FRIENDS]     = {"LIST_FRIENDS", gf_cli_list_friends},
         [GLUSTER_CLI_UUID_RESET]       = {"UUID_RESET", gf_cli3_1_uuid_reset},
-        [GLUSTER_CLI_UUID_GET]       = {"UUID_GET", gf_cli3_1_uuid_get},
+        [GLUSTER_CLI_UUID_GET]         = {"UUID_GET", gf_cli3_1_uuid_get},
         [GLUSTER_CLI_CREATE_VOLUME]    = {"CREATE_VOLUME", gf_cli_create_volume},
         [GLUSTER_CLI_DELETE_VOLUME]    = {"DELETE_VOLUME", gf_cli_delete_volume},
         [GLUSTER_CLI_START_VOLUME]     = {"START_VOLUME", gf_cli_start_volume},
@@ -11297,7 +11369,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot},
         [GLUSTER_CLI_ATTACH_TIER]      = {"ATTACH_TIER", gf_cli_attach_tier},
         [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier},
-        [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier}
+        [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier},
+        [GLUSTER_CLI_GET_STATE]        = {"GET_STATE", gf_cli_get_state}
 };
 
 struct rpc_clnt_program cli_prog = {

@@ -71,7 +71,6 @@ struct cli_cmd_word;
 struct cli_cmd_tree;
 struct cli_cmd;
 
-extern char *cli_vol_type_str[];
 extern char *cli_vol_status_str[];
 extern char *cli_vol_task_status_str[];
 
@@ -259,6 +258,10 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
 int32_t
 cli_cmd_ganesha_parse (struct cli_state *state, const char **words,
                        int wordcount, dict_t **options, char **op_errstr);
+
+int32_t
+cli_cmd_get_state_parse (struct cli_state *state, const char **words,
+                         int wordcount, dict_t **options, char **op_errstr);
 
 int32_t
 cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
