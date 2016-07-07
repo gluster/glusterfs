@@ -84,6 +84,11 @@ enum gf_pmap_procnum {
         GF_PMAP_NULL = 0,
         GF_PMAP_PORTBYBRICK,
         GF_PMAP_BRICKBYPORT,
+        /*
+         * SIGNUP is not used, and shouldn't be used.  It was kept here only
+         * to avoid changing the numbers for things that come after it in this
+         * list.
+         */
         GF_PMAP_SIGNUP,
         GF_PMAP_SIGNIN,
         GF_PMAP_SIGNOUT,

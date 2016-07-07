@@ -1443,7 +1443,7 @@ char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
         [GF_PMAP_BRICKBYPORT] = "BRICKBYPORT",
         [GF_PMAP_SIGNIN]      = "SIGNIN",
         [GF_PMAP_SIGNOUT]     = "SIGNOUT",
-        [GF_PMAP_SIGNUP]      = "SIGNUP",
+        [GF_PMAP_SIGNUP]      = "SIGNUP",       /* DEPRECATED - DON'T USE! */
 };
 
 
