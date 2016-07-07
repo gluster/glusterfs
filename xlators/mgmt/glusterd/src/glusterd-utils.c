@@ -59,6 +59,7 @@
 #include "glusterd-bitd-svc.h"
 #include "glusterd-server-quorum.h"
 #include "quota-common-utils.h"
+#include "common-utils.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -11223,6 +11224,199 @@ glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
 {
         GF_ASSERT (volinfo);
         return (volinfo->status == GLUSTERD_STATUS_STARTED);
+}
+
+int
+glusterd_volume_get_type_str (glusterd_volinfo_t *volinfo, char **voltype_str)
+{
+        int ret = -1;
+        int type = 0;
+        int brick_count = 0;
+        int dist_count = 0;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+
+        type = get_vol_type (volinfo->type, volinfo->brick_count,
+                             volinfo->dist_leaf_count);
+
+        *voltype_str = vol_type_str[type];
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_status_str (glusterd_volinfo_t *volinfo, char *status_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, status_str, out);
+
+        switch (volinfo->status) {
+        case GLUSTERD_STATUS_NONE:
+                sprintf (status_str, "%s", "Created");
+                break;
+        case GLUSTERD_STATUS_STARTED:
+                sprintf (status_str, "%s", "Started");
+                break;
+        case GLUSTERD_STATUS_STOPPED:
+                sprintf (status_str, "%s", "Stopped");
+                break;
+        default:
+                goto out;
+
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_transport_type_str (glusterd_volinfo_t *volinfo,
+                                        char *transport_type_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, transport_type_str, out);
+
+        switch (volinfo->transport_type) {
+        case GF_TRANSPORT_TCP:
+                sprintf (transport_type_str, "%s", "tcp");
+                break;
+        case GF_TRANSPORT_RDMA:
+                sprintf (transport_type_str, "%s", "rdma");
+                break;
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                sprintf (transport_type_str, "%s", "tcp_rdma_both");
+                break;
+        default:
+                goto out;
+
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_quorum_status_str (glusterd_volinfo_t *volinfo,
+                                       char *quorum_status_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, quorum_status_str, out);
+
+        switch (volinfo->quorum_status) {
+        case NOT_APPLICABLE_QUORUM:
+                sprintf (quorum_status_str, "%s", "not_applicable");
+                break;
+        case MEETS_QUORUM:
+                sprintf (quorum_status_str, "%s", "meets");
+                break;
+        case DOESNT_MEET_QUORUM:
+                sprintf (quorum_status_str, "%s", "does_not_meet");
+                break;
+        default:
+                goto out;
+
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_rebalance_status_str (glusterd_volinfo_t *volinfo,
+                                          char *rebal_status_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, rebal_status_str, out);
+
+        switch (volinfo->rebal.defrag_status) {
+        case GF_DEFRAG_STATUS_NOT_STARTED:
+                sprintf (rebal_status_str, "%s", "not_started");
+                break;
+        case GF_DEFRAG_STATUS_STARTED:
+                sprintf (rebal_status_str, "%s", "started");
+                break;
+        case GF_DEFRAG_STATUS_STOPPED:
+                sprintf (rebal_status_str, "%s", "stopped");
+                break;
+        case GF_DEFRAG_STATUS_COMPLETE:
+                sprintf (rebal_status_str, "%s", "completed");
+                break;
+        case GF_DEFRAG_STATUS_FAILED:
+                sprintf (rebal_status_str, "%s", "failed");
+                break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
+                sprintf (rebal_status_str, "%s", "layout_fix_started");
+                break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_STOPPED:
+                sprintf (rebal_status_str, "%s", "layout_fix_stopped");
+                break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+                sprintf (rebal_status_str, "%s", "layout_fix_complete");
+                break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED:
+                sprintf (rebal_status_str, "%s", "layout_fix_failed");
+                break;
+        default:
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_hot_tier_type_str (glusterd_volinfo_t *volinfo,
+                                       char **hot_tier_type_str)
+{
+        int ret = -1;
+        int hot_tier_type = 0;
+        int hot_dist_count = 0;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, hot_tier_type_str, out);
+
+        hot_dist_count = volinfo->tier_info.hot_replica_count ?
+                                volinfo->tier_info.hot_replica_count : 1;
+
+        hot_tier_type = get_vol_type (volinfo->tier_info.hot_type, hot_dist_count,
+                                      volinfo->tier_info.hot_brick_count);
+
+        *hot_tier_type_str = vol_type_str[hot_tier_type];
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_volume_get_cold_tier_type_str (glusterd_volinfo_t *volinfo,
+                                        char **cold_tier_type_str)
+{
+        int ret = -1;
+        int cold_tier_type = 0;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, cold_tier_type_str, out);
+
+        cold_tier_type = get_vol_type (volinfo->tier_info.cold_type,
+                                       volinfo->tier_info.cold_dist_leaf_count,
+                                       volinfo->tier_info.cold_brick_count);
+
+        *cold_tier_type_str = vol_type_str[cold_tier_type];
+
+        ret = 0;
+out:
+        return ret;
 }
 
 /* This function will insert the element to the list in a order.

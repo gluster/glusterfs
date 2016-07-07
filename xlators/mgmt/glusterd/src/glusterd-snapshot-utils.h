@@ -161,6 +161,8 @@ glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
 void
 gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
                                     uint64_t *sys_soft_limit);
+int
+glusterd_get_snap_status_str (glusterd_snap_t *snapinfo, char *snap_status_str);
 
 #endif
 

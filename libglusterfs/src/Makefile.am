@@ -6,9 +6,10 @@ libglusterfs_la_CFLAGS = $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-DXLATORPARENTDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)\" \
-	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
-	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
+	-I$(top_srcdir)/rpc/xdr/src/ -I$(top_srcdir)/rpc/rpc-lib/src/ \
+	-I$(CONTRIBDIR)/rbtree -I$(CONTRIBDIR)/libexecinfo \
+	${ARGP_STANDALONE_CPPFLAGS} -DSBIN_DIR=\"$(sbindir)\" \
+	-I$(CONTRIBDIR)/timer-wheel
 
 libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
@@ -35,9 +36,9 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	compound-fop-utils.c throttle-tbf.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
-nodist_libglusterfs_la_HEADERS = y.tab.h glusterfs-fops.h
+nodist_libglusterfs_la_HEADERS = y.tab.h glusterfs-fops.h cli1-xdr.h
 
-BUILT_SOURCES = graph.lex.c defaults.c glusterfs-fops.h eventtypes.h
+BUILT_SOURCES = graph.lex.c defaults.c glusterfs-fops.h eventtypes.h cli1-xdr.h
 
 libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
@@ -98,6 +99,12 @@ $(top_srcdir)/rpc/xdr/src/glusterfs-fops.h: $(top_srcdir)/rpc/xdr/src/glusterfs-
 
 glusterfs-fops.h: $(top_srcdir)/rpc/xdr/src/glusterfs-fops.h
 	cp $(top_srcdir)/rpc/xdr/src/glusterfs-fops.h .
+
+$(top_srcdir)/rpc/xdr/src/cli1-xdr.h: $(top_srcdir)/rpc/xdr/src/cli1-xdr.x
+	$(MAKE) -C $(top_builddir)/rpc/xdr/src/ `basename $@`
+
+cli1-xdr.h: $(top_srcdir)/rpc/xdr/src/cli1-xdr.h
+	cp $(top_srcdir)/rpc/xdr/src/cli1-xdr.h .
 
 CLEANFILES = $(nodist_libglusterfs_la_SOURCES) $(nodist_libglusterfs_la_HEADERS)
 

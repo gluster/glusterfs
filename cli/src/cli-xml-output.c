@@ -2720,9 +2720,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
                    types
                  */
-                if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
-                    (dist_count < brick_count))
-                       type = type + GF_CLUSTER_TYPE_MAX - 1;
+                type = get_vol_type (type, dist_count, brick_count);
 
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"type",
@@ -2732,7 +2730,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"typeStr",
                                                        "%s",
-                                                       cli_vol_type_str[type]);
+                                                       vol_type_str[type]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 memset (key, 0, sizeof (key));
@@ -2819,9 +2817,13 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                         goto out;
                         }
 
-                        tier_vol_type = value[HOT_TYPE];
                         hot_dist_count = (value[HOT_REPLICA_COUNT] ?
                                           value[HOT_REPLICA_COUNT] : 1);
+
+                        tier_vol_type = get_vol_type (value[HOT_TYPE],
+                                                      hot_dist_count,
+                                                      value[HOT_BRICK_COUNT]);
+
                         if ((value[HOT_TYPE] != GF_CLUSTER_TYPE_TIER) &&
                             (value[HOT_TYPE] > 0) &&
                             (hot_dist_count < value[HOT_BRICK_COUNT]))
@@ -2835,7 +2837,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
 
                         ret = xmlTextWriterWriteFormatElement
                                 (local->writer, (xmlChar *)"hotBrickType",
-                                 "%s", cli_vol_type_str[tier_vol_type]);
+                                 "%s", vol_type_str[tier_vol_type]);
 
                         ret = xmlTextWriterWriteFormatElement (local->writer,
                                                    (xmlChar *)"hotreplicaCount",
@@ -2912,13 +2914,9 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                         ret = xmlTextWriterEndElement (local->writer);
                         XML_RET_CHECK_AND_GOTO (ret, out);
 
-                        tier_vol_type = value[COLD_TYPE];
-                        if ((value[COLD_TYPE] != GF_CLUSTER_TYPE_TIER) &&
-                            (value[COLD_TYPE] > 0) &&
-                            (value[COLD_DIST_COUNT] < value[COLD_BRICK_COUNT]))
-                                tier_vol_type = value[COLD_TYPE] +
-                                        GF_CLUSTER_TYPE_MAX - 1;
-
+                        tier_vol_type = get_vol_type (value[COLD_TYPE],
+                                                      value[COLD_DIST_COUNT],
+                                                      value[COLD_BRICK_COUNT]);
 
                         ret = xmlTextWriterStartElement (local->writer,
                                                          (xmlChar *)
@@ -2927,7 +2925,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
 
                         ret = xmlTextWriterWriteFormatElement
                                 (local->writer, (xmlChar *)"coldBrickType",
-                                 "%s", cli_vol_type_str[tier_vol_type]);
+                                 "%s", vol_type_str[tier_vol_type]);
 
                         ret = xmlTextWriterWriteFormatElement (local->writer,
                                         (xmlChar *)"coldreplicaCount",

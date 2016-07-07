@@ -4093,3 +4093,39 @@ gd_get_snap_conf_values_if_present (dict_t *dict, uint64_t *sys_hard_limit,
                         GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
         }
 }
+
+int
+glusterd_get_snap_status_str (glusterd_snap_t *snapinfo, char *snap_status_str)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, snapinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, snap_status_str, out);
+
+        switch (snapinfo->snap_status) {
+        case GD_SNAP_STATUS_NONE:
+                sprintf (snap_status_str, "%s", "none");
+                break;
+        case GD_SNAP_STATUS_INIT:
+                sprintf (snap_status_str, "%s", "init");
+                break;
+        case GD_SNAP_STATUS_IN_USE:
+                sprintf (snap_status_str, "%s", "in_use");
+                break;
+        case GD_SNAP_STATUS_DECOMMISSION:
+                sprintf (snap_status_str, "%s", "decommissioned");
+                break;
+        case GD_SNAP_STATUS_UNDER_RESTORE:
+                sprintf (snap_status_str, "%s", "under_restore");
+                break;
+        case GD_SNAP_STATUS_RESTORED:
+                sprintf (snap_status_str, "%s", "restored");
+                break;
+        default:
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
