@@ -945,6 +945,7 @@ xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
         int              i                       = 0;
         int            ret                       = 0;
         int            zfilled[XATTROP_TYPE_END] = {0,};
+        int8_t         value                     = 0;
         char          *subdir                    = NULL;
         dict_t        *req_xdata                 = NULL;
         inode_t       *inode                     = NULL;
@@ -959,22 +960,32 @@ xattrop_index_action (xlator_t *this, index_local_t *local, dict_t *xattr,
                                   _check_key_is_zero_filled, zfilled);
         _index_action (this, inode, zfilled);
 
-        if (req_xdata)
+        if (req_xdata) {
                 ret = index_entry_action (this, inode, req_xdata,
                                           GF_XATTROP_ENTRY_OUT_KEY);
 
-        if (zfilled[XATTROP] == 1) {
-                subdir = index_get_subdir_from_type (ENTRY_CHANGES);
-                ret = index_inode_ctx_get (inode, this, &ctx);
-                if (ctx->state[ENTRY_CHANGES] == UNKNOWN)
-                        index_init_state (this, inode, ctx, subdir);
-                if (ctx->state[ENTRY_CHANGES] == IN) {
-                        ret = index_del (this, inode->gfid, subdir,
-                                         ENTRY_CHANGES);
-                        ctx->state[ENTRY_CHANGES] = NOTIN;
-                }
+                ret = dict_get_int8 (req_xdata, GF_XATTROP_PURGE_INDEX, &value);
+                if ((ret) || (value == 0))
+                        goto out;
         }
 
+        if (zfilled[XATTROP] != 1)
+                goto out;
+
+        if (inode->ia_type != IA_IFDIR)
+                goto out;
+
+        subdir = index_get_subdir_from_type (ENTRY_CHANGES);
+        ret = index_inode_ctx_get (inode, this, &ctx);
+        if (ctx->state[ENTRY_CHANGES] == UNKNOWN)
+                index_init_state (this, inode, ctx, subdir);
+        if (ctx->state[ENTRY_CHANGES] == IN) {
+                ret = index_del (this, inode->gfid, subdir,
+                                 ENTRY_CHANGES);
+                ctx->state[ENTRY_CHANGES] = NOTIN;
+        }
+
+out:
         return;
 }
 
