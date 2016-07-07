@@ -367,38 +367,6 @@ glusterd_brick_update_signin (glusterd_brickinfo_t *brickinfo,
 }
 
 int
-__gluster_pmap_signup (rpcsvc_request_t *req)
-{
-        pmap_signup_req    args = {0,};
-        pmap_signup_rsp    rsp  = {0,};
-        int                ret = -1;
-
-
-        ret = xdr_to_generic (req->msg[0], &args,
-                              (xdrproc_t)xdr_pmap_signup_req);
-        if (ret < 0) {
-                req->rpc_err = GARBAGE_ARGS;
-                goto fail;
-        }
-
-        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
-                                         GF_PMAP_PORT_BRICKSERVER, req->trans);
-
-fail:
-        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
-                               (xdrproc_t)xdr_pmap_signup_rsp);
-        free (args.brick);//malloced by xdr
-
-        return 0;
-}
-
-int
-gluster_pmap_signup (rpcsvc_request_t *req)
-{
-        return glusterd_big_locked_handler (req, __gluster_pmap_signup);
-}
-
-int
 __gluster_pmap_signin (rpcsvc_request_t *req)
 {
         pmap_signin_req    args = {0,};
@@ -485,7 +453,6 @@ rpcsvc_actor_t gluster_pmap_actors[GF_PMAP_MAXVALUE] = {
         [GF_PMAP_NULL]        = {"NULL",        GF_PMAP_NULL,        NULL,                     NULL, 0, DRC_NA},
         [GF_PMAP_PORTBYBRICK] = {"PORTBYBRICK", GF_PMAP_PORTBYBRICK, gluster_pmap_portbybrick, NULL, 0, DRC_NA},
         [GF_PMAP_BRICKBYPORT] = {"BRICKBYPORT", GF_PMAP_BRICKBYPORT, gluster_pmap_brickbyport, NULL, 0, DRC_NA},
-        [GF_PMAP_SIGNUP]      = {"SIGNUP",      GF_PMAP_SIGNUP,      gluster_pmap_signup,      NULL, 0, DRC_NA},
         [GF_PMAP_SIGNIN]      = {"SIGNIN",      GF_PMAP_SIGNIN,      gluster_pmap_signin,      NULL, 0, DRC_NA},
         [GF_PMAP_SIGNOUT]     = {"SIGNOUT",     GF_PMAP_SIGNOUT,     gluster_pmap_signout,     NULL, 0, DRC_NA},
 };

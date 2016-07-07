@@ -23,17 +23,6 @@ struct pmap_brick_by_port_rsp {
 };
 
 
-struct pmap_signup_req {
-       string brick<>;
-       int port;
-};
-
-struct pmap_signup_rsp {
-       int      op_ret;
-       int      op_errno;
-};
-
-
 struct pmap_signin_req {
        string brick<>;
        int port;
