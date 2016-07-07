@@ -152,16 +152,16 @@ out:
 ssize_t
 gf_changelog_scan ()
 {
-        int             ret        = 0;
-        int             tracker_fd = 0;
-        size_t          len        = 0;
-        size_t          off        = 0;
-        xlator_t       *this       = NULL;
-        size_t          nr_entries = 0;
+        int             ret         = 0;
+        int             tracker_fd  = 0;
+        size_t          len         = 0;
+        size_t          off         = 0;
+        xlator_t       *this        = NULL;
+        size_t          nr_entries  = 0;
         gf_changelog_journal_t *jnl = NULL;
-        struct dirent  *entryp     = NULL;
-        struct dirent  *result     = NULL;
-        char buffer[PATH_MAX]      = {0,};
+        struct dirent  *entry       = NULL;
+        struct dirent   scratch[2]  = {{0,},};
+        char            buffer[PATH_MAX] = {0,};
 
         this = THIS;
         if (!this)
@@ -183,19 +183,17 @@ gf_changelog_scan ()
 
         len = offsetof(struct dirent, d_name)
                 + pathconf(jnl->jnl_processing_dir, _PC_NAME_MAX) + 1;
-        entryp = GF_CALLOC (1, len,
-                            gf_changelog_mt_libgfchangelog_dirent_t);
-        if (!entryp)
-                goto out;
 
         rewinddir (jnl->jnl_dir);
-        while (1) {
-                ret = readdir_r (jnl->jnl_dir, entryp, &result);
-                if (ret || !result)
+
+        for (;;) {
+                errno = 0;
+                entry = sys_readdir (jnl->jnl_dir, scratch);
+                if (!entry || errno != 0)
                         break;
 
-                if (!strcmp (basename (entryp->d_name), ".")
-                     || !strcmp (basename (entryp->d_name), ".."))
+                if (!strcmp (basename (entry->d_name), ".")
+                     || !strcmp (basename (entry->d_name), ".."))
                         continue;
 
                 nr_entries++;
@@ -203,8 +201,8 @@ gf_changelog_scan ()
                 GF_CHANGELOG_FILL_BUFFER (jnl->jnl_processing_dir,
                                           buffer, off,
                                           strlen (jnl->jnl_processing_dir));
-                GF_CHANGELOG_FILL_BUFFER (entryp->d_name, buffer,
-                                          off, strlen (entryp->d_name));
+                GF_CHANGELOG_FILL_BUFFER (entry->d_name, buffer,
+                                          off, strlen (entry->d_name));
                 GF_CHANGELOG_FILL_BUFFER ("\n", buffer, off, 1);
 
                 if (gf_changelog_write (tracker_fd, buffer, off) != off) {
@@ -217,9 +215,7 @@ gf_changelog_scan ()
                 off = 0;
         }
 
-        GF_FREE (entryp);
-
-        if (!result) {
+        if (!entry) {
                 if (gf_lseek (tracker_fd, 0, SEEK_SET) != -1)
                         return nr_entries;
         }

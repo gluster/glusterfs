@@ -86,6 +86,7 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
         char *name        = NULL;
         DIR *d            = NULL;
         struct dirent *de = NULL;
+        struct dirent scratch[2] = {{0,},};
         pid_t pid         = -1;
         pid_t ppid        = -1;
         int ret           = 0;
@@ -93,7 +94,13 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
         d = sys_opendir (PROC);
         if (!d)
                 return -1;
-        while (errno = 0, de = sys_readdir (d)) {
+
+        for (;;) {
+                errno = 0;
+                de = sys_readdir (d, scratch);
+                if (!de || errno != 0)
+                        break;
+
                 if (gf_string2int (de->d_name, &pid) != -1 && pid >= 0) {
                         ppid = pidinfo (pid, &name);
                         switch (ppid) {

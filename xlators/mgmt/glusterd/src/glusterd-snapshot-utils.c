@@ -3443,12 +3443,13 @@ out:
 int32_t
 glusterd_copy_folder (const char *source, const char *destination)
 {
-        DIR             *dir_ptr                =       NULL;
-        struct dirent   *direntp                =       NULL;
-        int32_t         ret                     =       -1;
-        char            src_path[PATH_MAX]      =       "";
-        char            dest_path[PATH_MAX]     =       "";
-        xlator_t        *this                   =       NULL;
+        int32_t         ret                 = -1;
+        xlator_t       *this                = NULL;
+        DIR            *dir_ptr             = NULL;
+        struct dirent  *entry               = NULL;
+        struct dirent   scratch[2]          = {{0,},};
+        char            src_path[PATH_MAX]  = {0,};
+        char            dest_path[PATH_MAX] = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -3463,17 +3464,22 @@ glusterd_copy_folder (const char *source, const char *destination)
                 goto out;
         }
 
-        while ((direntp = sys_readdir (dir_ptr)) != NULL) {
-                if (strcmp (direntp->d_name, ".") == 0 ||
-                    strcmp (direntp->d_name, "..") == 0)
+        for (;;) {
+                errno = 0;
+                entry = sys_readdir (dir_ptr, scratch);
+                if (!entry || errno != 0)
+                        break;
+
+                if (strcmp (entry->d_name, ".") == 0 ||
+                    strcmp (entry->d_name, "..") == 0)
                         continue;
                 ret = snprintf (src_path, sizeof (src_path), "%s/%s",
-                                source, direntp->d_name);
+                                source, entry->d_name);
                 if (ret < 0)
                         goto out;
 
                 ret = snprintf (dest_path, sizeof (dest_path), "%s/%s",
-                                destination, direntp->d_name);
+                                destination, entry->d_name);
                 if (ret < 0)
                         goto out;
 
@@ -3487,7 +3493,7 @@ glusterd_copy_folder (const char *source, const char *destination)
         }
 out:
         if (dir_ptr)
-                sys_closedir (dir_ptr);
+                (void) sys_closedir (dir_ptr);
 
         return ret;
 }

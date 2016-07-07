@@ -306,12 +306,12 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
         int             ret = -1;
         int             boff;
         int             plen;
-        struct dirent  *result;
-        char            dbuf[512];
         char           *path = NULL;
         struct dirjob  *cjob = NULL;
         struct stat     statbuf = {0,};
-        char            gfid_path[4096] = {0,};
+        struct dirent  *entry;
+        struct dirent   scratch[2] = {{0,},};
+        char            gfid_path[PATH_MAX] = {0,};
 
 
         plen = strlen (job->dirname) + 256 + 2;
@@ -329,27 +329,29 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
         boff = sprintf (path, "%s/", job->dirname);
 
         for (;;) {
-                ret = readdir_r (dirp, (struct dirent *)dbuf, &result);
-                if (ret) {
-                        err ("readdir_r(%s): %s\n", job->dirname,
-                             strerror (errno));
-                        goto out;
+                errno = 0;
+                entry = sys_readdir (dirp, scratch);
+                if (!entry || errno != 0) {
+                        if (errno != 0) {
+                                err ("readdir(%s): %s\n", job->dirname,
+                                     strerror (errno));
+                                ret = errno;
+                                goto out;
+                        }
+                        break;
                 }
 
-                if (!result) /* EOF */
-                        break;
-
-                if (result->d_ino == 0)
+                if (entry->d_ino == 0)
                         continue;
 
-                if (skip_name (job->dirname, result->d_name))
+                if (skip_name (job->dirname, entry->d_name))
                         continue;
 
                 /* It is sure that, children and grandchildren of .glusterfs
                  * are directories, just add them to global queue.
                  */
-                if (skip_stat (job, result->d_name)) {
-                        strncpy (path + boff, result->d_name, (plen-boff));
+                if (skip_stat (job, entry->d_name)) {
+                        strncpy (path + boff, entry->d_name, (plen-boff));
                         cjob = dirjob_new (path, job);
                         if (!cjob) {
                                 err ("dirjob_new(%s): %s\n",
@@ -361,13 +363,12 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
                         continue;
                 }
 
-                strcpy (gfid_path, slavemnt);
-                strcat (gfid_path, "/.gfid/");
-                strcat (gfid_path, result->d_name);
+                (void) snprintf (gfid_path, sizeof(gfid_path), "%s/.gfid/%s",
+                                 slavemnt, entry->d_name);
                 ret = sys_lstat (gfid_path, &statbuf);
 
                 if (ret && errno == ENOENT) {
-                        out ("%s\n", result->d_name);
+                        out ("%s\n", entry->d_name);
                         BUMP (skipped_gfids);
                 }
 
@@ -381,7 +382,7 @@ xworker_do_crawl (struct xwork *xwork, struct dirjob *job)
         ret = 0;
 out:
         if (dirp)
-                sys_closedir (dirp);
+                (void) sys_closedir (dirp);
 
         return ret;
 }

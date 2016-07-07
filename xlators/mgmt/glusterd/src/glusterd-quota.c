@@ -392,10 +392,11 @@ void
 glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
                                        glusterd_volinfo_t *volinfo, int type)
 {
-        char                       pid_dir[PATH_MAX]  = {0, };
-        char                       pidfile[PATH_MAX]  = {0,};
-        struct dirent             *entry              = NULL;
         DIR                       *dir                = NULL;
+        struct dirent             *entry              = NULL;
+        struct dirent              scratch[2]         = {{0,},};
+        char                       pid_dir[PATH_MAX]  = {0,};
+        char                       pidfile[PATH_MAX]  = {0,};
 
         GLUSTERD_GET_QUOTA_CRAWL_PIDDIR (pid_dir, volinfo, type);
 
@@ -403,7 +404,7 @@ glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
         if (dir == NULL)
                 return;
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         while (entry) {
                 snprintf (pidfile, sizeof (pidfile), "%s/%s",
                           pid_dir, entry->d_name);
@@ -412,7 +413,7 @@ glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
                                               _gf_true);
                 sys_unlink (pidfile);
 
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
         sys_closedir (dir);
 }

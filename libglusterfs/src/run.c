@@ -277,11 +277,16 @@ runner_start (runner_t *runner)
 #ifdef GF_LINUX_HOST_OS
                         DIR *d = NULL;
                         struct dirent *de = NULL;
+                        struct dirent  scratch[2] = {{0,},};
                         char *e = NULL;
 
                         d = sys_opendir ("/proc/self/fd");
                         if (d) {
-                                while ((de = sys_readdir (d))) {
+                                for (;;) {
+                                        errno = 0;
+                                        de = sys_readdir (d, scratch);
+                                        if (!de || errno != 0)
+                                                break;
                                         i = strtoul (de->d_name, &e, 10);
                                         if (*e == '\0' && i > 2 &&
                                             i != dirfd (d) && i != xpi[1])

@@ -989,29 +989,23 @@ jbr_get_changelog_dir (xlator_t *this, char **cl_dir_p)
 void
 jbr_get_terms (call_frame_t *frame, xlator_t *this)
 {
-        int32_t         op_errno;
-        char            *cl_dir;
-        DIR             *fp             = NULL;
-        struct dirent   *rd_entry;
-        struct dirent   *rd_result;
-        int32_t         term_first      = -1;
-        int32_t         term_contig     = -1;
-        int32_t         term_last       = -1;
-        int             term_num;
-        char            *probe_str;
-        dict_t          *my_xdata       = NULL;
+        int32_t        op_errno      = 0;
+        char          *cl_dir        = NULL;
+        int32_t        term_first    = -1;
+        int32_t        term_contig   = -1;
+        int32_t        term_last     = -1;
+        int            term_num      = 0;
+        char          *probe_str     = NULL;
+        dict_t        *my_xdata      = NULL;
+        DIR           *fp            = NULL;
+        struct dirent *entry         = NULL;
+        struct dirent  scratch[2]    = {{0,},};
 
         op_errno = jbr_get_changelog_dir(this, &cl_dir);
         if (op_errno) {
                 goto err;       /* Error was already logged. */
         }
         op_errno = ENODATA;     /* Most common error after this. */
-
-        rd_entry = alloca (offsetof(struct dirent, d_name) +
-                           pathconf(cl_dir, _PC_NAME_MAX) + 1);
-        if (!rd_entry) {
-                goto err;
-        }
 
         fp = sys_opendir (cl_dir);
         if (!fp) {
@@ -1021,25 +1015,28 @@ jbr_get_terms (call_frame_t *frame, xlator_t *this)
 
         /* Find first and last terms. */
         for (;;) {
-                if (readdir_r(fp, rd_entry, &rd_result) != 0) {
-                        op_errno = errno;
-                        goto err;
-                }
-                if (!rd_result) {
+                errno = 0;
+                entry = sys_readdir (fp, scratch);
+                if (!entry || errno != 0) {
+                        if (errno != 0) {
+                                op_errno = errno;
+                                goto err;
+                        }
                         break;
                 }
-                if (fnmatch("TERM.*", rd_entry->d_name, FNM_PATHNAME) != 0) {
+
+                if (fnmatch("TERM.*", entry->d_name, FNM_PATHNAME) != 0) {
                         continue;
                 }
                 /* +5 points to the character after the period */
-                term_num = atoi(rd_entry->d_name+5);
+                term_num = atoi(entry->d_name+5);
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         J_MSG_GENERIC,
-                        "%s => %d", rd_entry->d_name, term_num);
+                        "%s => %d", entry->d_name, term_num);
                 if (term_num < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 J_MSG_INVALID,
-                                "invalid term file name %s", rd_entry->d_name);
+                                "invalid term file name %s", entry->d_name);
                         op_errno = EINVAL;
                         goto err;
                 }
@@ -1058,7 +1055,7 @@ jbr_get_terms (call_frame_t *frame, xlator_t *this)
                 goto err;
         }
 
-        sys_closedir (fp);
+        (void) sys_closedir (fp);
         fp = NULL;
 
         /*
@@ -1119,7 +1116,7 @@ jbr_get_terms (call_frame_t *frame, xlator_t *this)
 
 err:
         if (fp) {
-                sys_closedir (fp);
+                (void) sys_closedir (fp);
         }
         if (my_xdata) {
                 dict_unref(my_xdata);

@@ -437,15 +437,15 @@ static int
 index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                     size_t size, gf_dirent_t *entries)
 {
-        off_t     in_case = -1;
-        off_t     last_off = 0;
-        size_t    filled = 0;
-        int       count = 0;
-        char      entrybuf[sizeof(struct dirent) + 256 + 8];
-        struct dirent  *entry          = NULL;
-        int32_t              this_size      = -1;
-        gf_dirent_t          *this_entry     = NULL;
-        xlator_t             *this = NULL;
+        off_t           in_case = -1;
+        off_t           last_off = 0;
+        size_t          filled = 0;
+        int             count = 0;
+        struct dirent  *entry = NULL;
+        struct dirent   scratch[2] = {{0,},};
+        int32_t         this_size = -1;
+        gf_dirent_t    *this_entry = NULL;
+        xlator_t       *this = NULL;
 
         this = THIS;
         if (!off) {
@@ -477,10 +477,8 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 }
 
                 errno = 0;
-                entry = NULL;
-                readdir_r (dir, (struct dirent *)entrybuf, &entry);
-
-                if (!entry) {
+                entry = sys_readdir (dir, scratch);
+                if (!entry || errno != 0) {
                         if (errno == EBADF) {
                                 gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                         INDEX_MSG_INDEX_READDIR_FAILED,
@@ -550,7 +548,9 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 count ++;
         }
 
-        if ((!sys_readdir (dir) && (errno == 0))) {
+        errno = 0;
+
+        if ((!sys_readdir (dir, scratch) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
                 /* Remember EOF offset for later detection */
@@ -1107,7 +1107,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long)fctx);
         if (ret) {
-                sys_closedir (fctx->dir);
+                (void) sys_closedir (fctx->dir);
                 GF_FREE (fctx);
                 fctx = NULL;
                 ret = -EINVAL;
@@ -1374,12 +1374,12 @@ out:
 uint64_t
 index_entry_count (xlator_t *this, char *subdir)
 {
-	index_priv_t *priv = NULL;
-	char index_dir[PATH_MAX];
-	DIR *dirp = NULL;
-	uint64_t count = 0;
-	struct dirent buf;
-	struct dirent *entry = NULL;
+	uint64_t       count      = 0;
+	index_priv_t  *priv       = NULL;
+	DIR           *dirp       = NULL;
+	struct dirent *entry      = NULL;
+	struct dirent  scratch[2] = {{0,},};
+	char           index_dir[PATH_MAX] = {0,};
 
 	priv = this->private;
 
@@ -1390,17 +1390,23 @@ index_entry_count (xlator_t *this, char *subdir)
 	if (!dirp)
 		return 0;
 
-	while (readdir_r (dirp, &buf, &entry) == 0) {
-		if (!entry)
+        for (;;) {
+                errno = 0;
+                entry = sys_readdir (dirp, scratch);
+		if (!entry || errno != 0)
 			break;
-		if (!strcmp (entry->d_name, ".") ||
-		    !strcmp (entry->d_name, ".."))
+
+		if (strcmp (entry->d_name, ".") == 0 ||
+		    strcmp (entry->d_name, "..") == 0)
 			continue;
+
                 if (!strncmp (entry->d_name, subdir, strlen (subdir)))
 			continue;
+
 		count++;
 	}
-	sys_closedir (dirp);
+
+	(void) sys_closedir (dirp);
 
 	return count;
 }
@@ -1909,53 +1915,56 @@ out:
 int64_t
 index_fetch_link_count (xlator_t *this, index_xattrop_type_t type)
 {
-	char            index_dir[PATH_MAX] = {0};
-	char            index_path[PATH_MAX] = {0};
-        index_priv_t    *priv    = this->private;
-        char            *subdir  = NULL;
-	DIR             *dirp    = NULL;
-	struct dirent   *entry   = NULL;
-        struct stat     lstatbuf = {0};
-        int             ret      = -1;
-        int64_t         count    = -1;
-        struct dirent   buf;
+        index_priv_t   *priv       = this->private;
+        char           *subdir     = NULL;
+        struct stat     lstatbuf   = {0,};
+        int             ret        = -1;
+        int64_t         count      = -1;
+        DIR            *dirp       = NULL;
+        struct dirent  *entry      = NULL;
+        struct dirent   scratch[2] = {{0,},};
+        char            index_dir[PATH_MAX] = {0,};
+        char            index_path[PATH_MAX] = {0,};
 
         subdir = index_get_subdir_from_type (type);
-	make_index_dir_path (priv->index_basepath, subdir,
-			     index_dir, sizeof (index_dir));
+        make_index_dir_path (priv->index_basepath, subdir,
+                             index_dir, sizeof (index_dir));
 
-	dirp = sys_opendir (index_dir);
-	if (!dirp)
+        dirp = sys_opendir (index_dir);
+        if (!dirp)
                 goto out;
 
-	while (readdir_r (dirp, &buf, &entry) == 0) {
-		if (!entry) {
+        for (;;) {
+                errno = 0;
+                entry = sys_readdir (dirp, scratch);
+                if (!entry || errno != 0) {
                         if (count == -1)
                                 count = 0;
                         goto out;
-                } else if (!strcmp (entry->d_name, ".") ||
-		           !strcmp (entry->d_name, "..")) {
-			continue;
-                } else {
-                        make_file_path (priv->index_basepath, subdir,
-                                        entry->d_name, index_path,
-                                        sizeof (index_path));
-                        ret = sys_lstat (index_path, &lstatbuf);
-                        if (ret < 0) {
-                                count = -2;
-                                continue;
-                        } else {
-                                count = lstatbuf.st_nlink - 1;
-                                if (count == 0)
-                                        continue;
-                                else
-                                        break;
-                        }
                 }
-	}
+
+                if (strcmp (entry->d_name, ".") == 0 ||
+                    strcmp (entry->d_name, "..") == 0)
+                        continue;
+
+                make_file_path (priv->index_basepath, subdir,
+                                entry->d_name, index_path, sizeof(index_path));
+
+                ret = sys_lstat (index_path, &lstatbuf);
+                if (ret < 0) {
+                        count = -2;
+                        continue;
+                } else {
+                        count = lstatbuf.st_nlink - 1;
+                        if (count == 0)
+                                continue;
+                        else
+                                break;
+                }
+        }
 out:
         if (dirp)
-                sys_closedir (dirp);
+                (void) sys_closedir (dirp);
         return count;
 }
 

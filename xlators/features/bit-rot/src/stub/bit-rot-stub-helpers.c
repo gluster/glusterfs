@@ -465,15 +465,15 @@ static int
 br_stub_fill_readdir (fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
                       size_t size, gf_dirent_t *entries)
 {
-        off_t     in_case = -1;
-        off_t     last_off = 0;
-        size_t    filled = 0;
-        int       count = 0;
-        char      entrybuf[sizeof(struct dirent) + 256 + 8];
-        struct dirent  *entry          = NULL;
-        int32_t              this_size      = -1;
-        gf_dirent_t          *this_entry     = NULL;
-        xlator_t             *this = NULL;
+        off_t          in_case = -1;
+        off_t          last_off = 0;
+        size_t         filled = 0;
+        int            count = 0;
+        int32_t        this_size      = -1;
+        gf_dirent_t   *this_entry     = NULL;
+        xlator_t      *this           = NULL;
+        struct dirent *entry          = NULL;
+        struct dirent  scratch[2]     = {{0,},};
 
         this = THIS;
         if (!off) {
@@ -507,10 +507,8 @@ br_stub_fill_readdir (fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
                 }
 
                 errno = 0;
-                entry = NULL;
-                readdir_r (dir, (struct dirent *)entrybuf, &entry);
-
-                if (!entry) {
+                entry = sys_readdir (dir, scratch);
+                if (!entry || errno != 0) {
                         if (errno == EBADF) {
                                 gf_msg (THIS->name, GF_LOG_WARNING, 0,
                                         BRS_MSG_BAD_OBJECT_DIR_READ_FAIL,
@@ -579,7 +577,7 @@ br_stub_fill_readdir (fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
                 count++;
         }
 
-        if ((!sys_readdir (dir) && (errno == 0))) {
+        if ((!sys_readdir (dir, scratch) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
                 /* Remember EOF offset for later detection */

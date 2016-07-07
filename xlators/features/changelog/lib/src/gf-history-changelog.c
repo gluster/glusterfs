@@ -222,8 +222,8 @@ gf_history_changelog_scan ()
         size_t                  nr_entries   = 0;
         gf_changelog_journal_t *jnl          = NULL;
         gf_changelog_journal_t *hist_jnl     = NULL;
-        struct dirent          *entryp       = NULL;
-        struct dirent          *result       = NULL;
+        struct dirent          *entry        = NULL;
+        struct dirent           scratch[2]   = {{0,},};
         char buffer[PATH_MAX]                = {0,};
         static int              is_last_scan;
 
@@ -260,19 +260,17 @@ gf_history_changelog_scan ()
 
         len = offsetof (struct dirent, d_name)
                 + pathconf (hist_jnl->jnl_processing_dir, _PC_NAME_MAX) + 1;
-        entryp = GF_CALLOC (1, len,
-                            gf_changelog_mt_libgfchangelog_dirent_t);
-        if (!entryp)
-                goto out;
 
         rewinddir (hist_jnl->jnl_dir);
-        while (1) {
-                ret = readdir_r (hist_jnl->jnl_dir, entryp, &result);
-                if (ret || !result)
+
+        for (;;) {
+                errno = 0;
+                entry = sys_readdir (hist_jnl->jnl_dir, scratch);
+                if (!entry || errno != 0)
                         break;
 
-                if ( !strcmp (basename (entryp->d_name), ".")
-                     || !strcmp (basename (entryp->d_name), "..") )
+                if (strcmp (basename (entry->d_name), ".") == 0 ||
+                    strcmp (basename (entry->d_name), "..") == 0)
                         continue;
 
                 nr_entries++;
@@ -280,8 +278,8 @@ gf_history_changelog_scan ()
                 GF_CHANGELOG_FILL_BUFFER (hist_jnl->jnl_processing_dir,
                                           buffer, off,
                                           strlen (hist_jnl->jnl_processing_dir));
-                GF_CHANGELOG_FILL_BUFFER (entryp->d_name, buffer,
-                                          off, strlen (entryp->d_name));
+                GF_CHANGELOG_FILL_BUFFER (entry->d_name, buffer,
+                                          off, strlen (entry->d_name));
                 GF_CHANGELOG_FILL_BUFFER ("\n", buffer, off, 1);
 
                 if (gf_changelog_write (tracker_fd, buffer, off) != off) {
@@ -294,13 +292,11 @@ gf_history_changelog_scan ()
                 off = 0;
         }
 
-        GF_FREE (entryp);
-
         gf_msg_debug (this->name, 0,
                       "hist_done %d, is_last_scan: %d",
                       hist_jnl->hist_done, is_last_scan);
 
-        if (!result) {
+        if (!entry) {
                 if (gf_lseek (tracker_fd, 0, SEEK_SET) != -1) {
                         if (nr_entries > 0)
                                 return nr_entries;
@@ -678,7 +674,7 @@ gf_history_consume (void * data)
 
 out:
         if (fd != -1)
-                sys_close (fd);
+                (void) sys_close (fd);
         GF_FREE (hist_data);
         return NULL;
 }
@@ -794,12 +790,13 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
         unsigned long                   to                      = 0;
         unsigned long                   from                    = 0;
         unsigned long                   total_changelog         = 0;
-        xlator_t                        *this                   = NULL;
-        gf_changelog_journal_t                  *jnl                    = NULL;
-        gf_changelog_journal_t                  *hist_jnl               = NULL;
-        gf_changelog_history_data_t     *hist_data              = NULL;
-        DIR                             *dirp                   = NULL;
-        struct dirent                   *dp                     = NULL;
+        xlator_t                       *this                    = NULL;
+        gf_changelog_journal_t         *jnl                     = NULL;
+        gf_changelog_journal_t         *hist_jnl                = NULL;
+        gf_changelog_history_data_t    *hist_data               = NULL;
+        DIR                            *dirp                    = NULL;
+        struct dirent                  *entry                   = NULL;
+        struct dirent                   scratch[2]              = {{0,},};
         pthread_t                       consume_th              = 0;
         char                            htime_dir[PATH_MAX]     = {0,};
         char                            buffer[PATH_MAX]        = {0,};
@@ -851,8 +848,16 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                 goto out;
         }
 
-        while ((dp = sys_readdir (dirp)) != NULL) {
-                ret = gf_changelog_extract_min_max (dp->d_name, htime_dir,
+        for (;;) {
+
+                errno = 0;
+
+                entry = sys_readdir (dirp, scratch);
+
+                if (!entry || errno != 0)
+                        break;
+
+                ret = gf_changelog_extract_min_max (entry->d_name, htime_dir,
                                                     &fd, &total_changelog,
                                                     &min_ts, &max_ts);
                 if (ret) {
@@ -968,11 +973,11 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
 out:
         if (dirp != NULL)
-                sys_closedir (dirp);
+                (void) sys_closedir (dirp);
 
         if (ret < 0) {
                 if (fd != -1)
-                        sys_close (fd);
+                        (void) sys_close (fd);
                 GF_FREE (hist_data);
                 (void) pthread_attr_destroy (&attr);
 
