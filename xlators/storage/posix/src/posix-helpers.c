@@ -96,6 +96,57 @@ out:
         return flag;
 }
 
+int
+posix_handle_georep_xattrs (call_frame_t *frame, const char *name,
+                            int *op_errno, gf_boolean_t is_getxattr)
+{
+
+        int                i                = 0;
+        int                ret              = 0;
+        int                pid              = 1;
+        gf_boolean_t       filter_xattr     = _gf_true;
+        static const char *georep_xattr[]   = { "*.glusterfs.*.stime",
+                                                "*.glusterfs.*.xtime",
+                                                "*.glusterfs.*.entry_stime",
+                                                NULL
+                                              };
+        if (frame && frame->root) {
+                pid = frame->root->pid;
+        }
+
+        if (!name) {
+                /* No need to do anything here */
+                ret = 0;
+                goto out;
+        }
+
+        if (pid == GF_CLIENT_PID_GSYNCD && is_getxattr) {
+                filter_xattr = _gf_false;
+
+                /* getxattr from gsyncd process should return all the
+                 * internal xattr. In other cases ignore such xattrs
+                 */
+        }
+
+        for (i = 0; filter_xattr && georep_xattr[i]; i++) {
+                if (fnmatch (georep_xattr[i] , name, FNM_PERIOD) == 0) {
+                        ret = -1;
+                        if (op_errno)
+                               *op_errno = ENOATTR;
+
+                        gf_msg_debug ("posix", ENOATTR,
+                                      "Ignoring the key %s as an internal "
+                                      "xattrs.", name);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
 static gf_boolean_t
 _is_in_array (char **str_array, char *str)
 {
@@ -720,7 +771,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                 if (posix_special_xattr (marker_xattrs, key))
                         goto next;
 
-                if (!fnmatch (GF_XATTR_STIME_PATTERN, key, 0))
+                if (posix_handle_georep_xattrs (NULL, key, NULL, _gf_false))
                         goto next;
 
                 if (dict_get (filler->xattr, key))
