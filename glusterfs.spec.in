@@ -369,6 +369,8 @@ Requires:         nfs-ganesha-gluster, pcs, dbus
 %if ( 0%{?rhel} && 0%{?rhel} == 6 )
 Requires:         cman, pacemaker, corosync
 %endif
+# we need portblock resource-agent
+Requires:         %{_prefix}/lib/ocf/resource.d/portblock
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
@@ -1234,6 +1236,9 @@ exit 0
 %endif
 
 %changelog
+* Sun Jul 31 2016 Soumya Koduri <skoduri@redhat.com>
+- Add dependency on portblock resource agent for ganesha package (#1354439)
+
 * Wed Jul 15 2016 Aravinda VK <avishwan@redhat.com>
 - Added new subpackage events(glusterfs-events) (#1334044)
 

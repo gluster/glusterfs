@@ -432,17 +432,17 @@ do_create_virt_ip_constraints()
 
     # first a constraint location rule that says the VIP must be where
     # there's a ganesha.nfsd running
-    pcs -f ${cibfile} constraint location ${primary}-cluster_ip-1 rule score=-INFINITY ganesha-active ne 1
+    pcs -f ${cibfile} constraint location ${primary}-group rule score=-INFINITY ganesha-active ne 1
     if [ $? -ne 0 ]; then
-        logger "warning: pcs constraint location ${primary}-cluster_ip-1 rule score=-INFINITY ganesha-active ne 1 failed"
+        logger "warning: pcs constraint location ${primary}-group rule score=-INFINITY ganesha-active ne 1 failed"
     fi
 
     # then a set of constraint location prefers to set the prefered order
     # for where a VIP should move
     while [[ ${1} ]]; do
-        pcs -f ${cibfile} constraint location ${primary}-cluster_ip-1 prefers ${1}=${weight}
+        pcs -f ${cibfile} constraint location ${primary}-group prefers ${1}=${weight}
         if [ $? -ne 0 ]; then
-            logger "warning: pcs constraint location ${primary}-cluster_ip-1 prefers ${1}=${weight} failed"
+            logger "warning: pcs constraint location ${primary}-group prefers ${1}=${weight} failed"
         fi
         weight=$(expr ${weight} + 1000)
         shift
@@ -452,9 +452,9 @@ do_create_virt_ip_constraints()
     # on Fedora setting appears to be additive, so to get the desired
     # value we adjust the weight
     # weight=$(expr ${weight} - 100)
-    pcs -f ${cibfile} constraint location ${primary}-cluster_ip-1 prefers ${primary}=${weight}
+    pcs -f ${cibfile} constraint location ${primary}-group prefers ${primary}=${weight}
     if [ $? -ne 0 ]; then
-        logger "warning: pcs constraint location ${primary}-cluster_ip-1 prefers ${primary}=${weight} failed"
+        logger "warning: pcs constraint location ${primary}-group prefers ${primary}=${weight} failed"
     fi
 }
 
@@ -549,15 +549,30 @@ setup_create_resources()
         eval tmp_ipaddr=\$${clean_name}
         ipaddr=${tmp_ipaddr//_/.}
 
-        pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
+        pcs -f ${cibfile} resource create ${1}-nfs_block ocf:heartbeat:portblock protocol=tcp \
+        portno=2049 action=block ip=${ipaddr} --group ${1}-group
         if [ $? -ne 0 ]; then
-            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s failed"
+            logger "warning pcs resource create ${1}-nfs_block failed"
+        fi
+        pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} \
+        cidr_netmask=32 op monitor interval=15s --group ${1}-group --after ${1}-nfs_block
+        if [ $? -ne 0 ]; then
+            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} \
+            cidr_netmask=32 op monitor interval=15s failed"
         fi
 
         pcs -f ${cibfile} constraint order nfs-grace-clone then ${1}-cluster_ip-1
         if [ $? -ne 0 ]; then
             logger "warning: pcs constraint order nfs-grace-clone then ${1}-cluster_ip-1 failed"
         fi
+
+        pcs -f ${cibfile} resource create ${1}-nfs_unblock ocf:heartbeat:portblock protocol=tcp \
+        portno=2049 action=unblock ip=${ipaddr} reset_local_on_unblock_stop=true \
+        tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${1}-group --after ${1}-cluster_ip-1
+        if [ $? -ne 0 ]; then
+            logger "warning pcs resource create ${1}-nfs_unblock failed"
+        fi
+
 
         shift
     done
@@ -597,9 +612,9 @@ teardown_resources()
     fi
 
     while [[ ${1} ]]; do
-        pcs resource delete ${1}-cluster_ip-1
+        pcs resource delete ${1}-group
         if [ $? -ne 0 ]; then
-            logger "warning: pcs resource delete ${1}-cluster_ip-1 failed"
+            logger "warning: pcs resource delete ${1}-group failed"
         fi
         shift
     done
@@ -765,6 +780,9 @@ setup_state_volume()
         fi
 
 
+        if [ ! -d ${mnt}/nfs-ganesha/tickle_dir ]; then
+            mkdir ${mnt}/nfs-ganesha/tickle_dir
+        fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname} ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}
         fi
