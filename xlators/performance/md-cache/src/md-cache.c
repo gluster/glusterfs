@@ -2068,8 +2068,7 @@ int
 mdc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
-        gf_dirent_t     *entry      = NULL;
-        struct md_cache *mdc        = NULL;
+        gf_dirent_t *entry      = NULL;
 
 	if (op_ret <= 0)
 		goto unwind;
@@ -2077,8 +2076,6 @@ mdc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry (entry, &entries->list, list) {
                 if (!entry->inode)
 			continue;
-                if (mdc_inode_ctx_get (this, entry->inode, &mdc) != 0)
-                        continue;
                 mdc_inode_iatt_set (this, entry->inode, &entry->d_stat);
                 mdc_inode_xatt_set (this, entry->inode, entry->dict);
         }
