@@ -4419,11 +4419,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         priv = this->private;
 
-        /* Allow access to stime xattr only to geo-rep worker */
-        if (frame->root->pid != GF_CLIENT_PID_GSYNCD && name &&
-            fnmatch ("*.glusterfs.*.stime", name, FNM_PERIOD) == 0) {
+        ret = posix_handle_georep_xattrs (frame, name, &op_errno, _gf_true);
+        if (ret == -1) {
                 op_ret = -1;
-                op_errno = ENOATTR;
+                /* errno should be set from the above function*/
                 goto out;
         }
 
@@ -4736,8 +4735,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         list_offset = 0;
         while (remaining_size > 0) {
                 strncpy (keybuffer, list + list_offset, sizeof(keybuffer));
-                if (frame->root->pid != GF_CLIENT_PID_GSYNCD &&
-                    fnmatch ("*.glusterfs.*.stime", keybuffer, FNM_PERIOD) == 0)
+
+                ret = posix_handle_georep_xattrs (frame, keybuffer, NULL,
+                                                  _gf_false);
+                if (ret == -1)
                         goto ignore;
 
                 size = sys_lgetxattr (real_path, keybuffer, NULL, 0);

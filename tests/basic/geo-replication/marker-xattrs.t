@@ -24,11 +24,11 @@ TEST touch $M0
 vol_uuid=$(get_volume_mark $M1)
 xtime=trusted.glusterfs.$vol_uuid.xtime
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 
 TEST kill_brick $V0 $H0 $B0/${V0}-0
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 
 TEST getfattr -d -m. -e hex $M1
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
@@ -61,13 +61,13 @@ vol_uuid=$(get_volume_mark $M1)
 xtime=trusted.glusterfs.$vol_uuid.xtime
 stime=trusted.glusterfs.$vol_uuid.stime
 
-stime_val=$(getfattr -e hex -n $xtime $M1 | grep ${xtime}= | cut -f2 -d'=')
+stime_val=$(getfattr -e hex -n $xtime $B0/${V0}-1 | grep ${xtime}= | cut -f2 -d'=')
 TEST "setfattr -n $stime -v $stime_val $B0/${V0}-1"
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 
 TEST kill_brick $V0 $H0 $B0/${V0}-0
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 TEST "getfattr -n $stime $M1 | grep -q ${stime}="
 
 TEST getfattr -d -m. -e hex $M1
@@ -98,12 +98,9 @@ TEST touch $M0
 vol_uuid=$(get_volume_mark $M1)
 xtime=trusted.glusterfs.$vol_uuid.xtime
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-0 | grep -q ${xtime}="
 
-TEST kill_brick $V0 $H0 $B0/${V0}-0
-
-#Stripe doesn't tolerate ENOTCONN
-TEST ! "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
