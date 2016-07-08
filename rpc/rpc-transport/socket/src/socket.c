@@ -3142,11 +3142,13 @@ err:
                 arg->this = THIS;
                 arg->trans = this;
                 arg->refd = refd;
-                th_ret = pthread_create (&th_id, NULL, socket_connect_error_cbk,
-                                         arg);
+                th_ret = gf_thread_create_detached (&th_id,
+                                                    socket_connect_error_cbk,
+                                                    arg);
                 if (th_ret) {
-                       gf_log (this->name, GF_LOG_ERROR, "pthread_create"
-                               "failed: %s", strerror(errno));
+                        /* Error will be logged by gf_thread_create_attached */
+                        gf_log (this->name, GF_LOG_ERROR, "Thread creation "
+                               "failed");
                         GF_FREE (arg);
                         GF_ASSERT (0);
                 }
