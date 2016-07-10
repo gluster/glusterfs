@@ -617,8 +617,10 @@ rpc_transport_unix_options_build (dict_t **options, char *filepath,
         }
 
         ret = dict_set_dynstr (dict, "transport.socket.connect-path", fpath);
-        if (ret)
+        if (ret) {
+                GF_FREE (fpath);
                 goto out;
+        }
 
         ret = dict_set_str (dict, "transport.address-family", "unix");
         if (ret)
@@ -644,10 +646,8 @@ rpc_transport_unix_options_build (dict_t **options, char *filepath,
 
         *options = dict;
 out:
-        if (ret) {
-                GF_FREE (fpath);
-                if (dict)
-                        dict_unref (dict);
+        if (ret && dict) {
+                dict_unref (dict);
         }
         return ret;
 }
@@ -676,6 +676,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
 
         ret = dict_set_dynstr (dict, "remote-host", host);
         if (ret) {
+                GF_FREE (host);
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set remote-host with %s", host);
                 goto out;
@@ -697,10 +698,8 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
 
         *options = dict;
 out:
-        if (ret) {
-                GF_FREE (host);
-                if (dict)
-                        dict_unref (dict);
+        if (ret && dict) {
+                dict_unref (dict);
         }
 
         return ret;

@@ -258,8 +258,6 @@ data_copy (data_t *old)
         return newdata;
 
 err_out:
-
-        FREE (newdata->data);
         mem_put (newdata);
 
         return NULL;
