@@ -6717,40 +6717,16 @@ glusterd_recreate_volfiles (glusterd_conf_t *conf)
 }
 
 int32_t
-glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
+glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf,
+                                   gf_boolean_t upgrade, gf_boolean_t downgrade)
 {
         int              ret                            = 0;
         char            *type                           = NULL;
-        gf_boolean_t     upgrade                        = _gf_false;
-        gf_boolean_t     downgrade                      = _gf_false;
         gf_boolean_t     regenerate_volfiles            = _gf_false;
         gf_boolean_t     terminate                      = _gf_false;
 
-        ret = dict_get_str (options, "upgrade", &type);
-        if (!ret) {
-                ret = gf_string2boolean (type, &upgrade);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                                GD_MSG_STR_TO_BOOL_FAIL, "upgrade option "
-                                "%s is not a valid boolean type", type);
-                        ret = -1;
-                        goto out;
-                }
-                if (_gf_true == upgrade)
-                        regenerate_volfiles = _gf_true;
-        }
-
-        ret = dict_get_str (options, "downgrade", &type);
-        if (!ret) {
-                ret = gf_string2boolean (type, &downgrade);
-                if (ret) {
-                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                                GD_MSG_STR_TO_BOOL_FAIL, "downgrade option "
-                                "%s is not a valid boolean type", type);
-                        ret = -1;
-                        goto out;
-                }
-        }
+        if (_gf_true == upgrade)
+                regenerate_volfiles = _gf_true;
 
         if (upgrade && downgrade) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
