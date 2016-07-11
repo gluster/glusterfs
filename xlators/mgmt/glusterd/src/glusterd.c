@@ -1290,8 +1290,52 @@ glusterd_svcs_build ()
 
         priv->scrub_svc.build = glusterd_scrubsvc_build;
         priv->scrub_svc.build (&(priv->scrub_svc));
-
 }
+
+static int
+is_upgrade (dict_t *options, gf_boolean_t *upgrade)
+{
+        int              ret              = 0;
+        char            *type             = NULL;
+
+        ret = dict_get_str (options, "upgrade", &type);
+        if (!ret) {
+                ret = gf_string2boolean (type, upgrade);
+                if (ret) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_STR_TO_BOOL_FAIL, "upgrade option "
+                                "%s is not a valid boolean type", type);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+is_downgrade (dict_t *options, gf_boolean_t *downgrade)
+{
+        int              ret              = 0;
+        char            *type             = NULL;
+
+        ret = dict_get_str (options, "downgrade", &type);
+        if (!ret) {
+                ret = gf_string2boolean (type, downgrade);
+                if (ret) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_STR_TO_BOOL_FAIL, "downgrade option "
+                                "%s is not a valid boolean type", type);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -1318,6 +1362,8 @@ init (xlator_t *this)
         char              *transport_type             = NULL;
         char               var_run_dir[PATH_MAX]      = {0,};
         int32_t            workers                    = 0;
+        gf_boolean_t       upgrade                    = _gf_false;
+        gf_boolean_t       downgrade                  = _gf_false;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1722,9 +1768,19 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
-        ret = configure_syncdaemon (conf);
+        ret = is_upgrade (this->options, &upgrade);
         if (ret)
                 goto out;
+
+        ret = is_downgrade (this->options, &downgrade);
+        if (ret)
+                goto out;
+
+        if (!upgrade && !downgrade) {
+                ret = configure_syncdaemon (conf);
+                if (ret)
+                        goto out;
+        }
 
         /* Restoring op-version needs to be done before initializing the
          * services as glusterd_svc_init_common () invokes
@@ -1758,7 +1814,8 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
-        ret = glusterd_handle_upgrade_downgrade (this->options, conf);
+        ret = glusterd_handle_upgrade_downgrade (this->options, conf, upgrade,
+                                                 downgrade);
         if (ret)
                 goto out;
 
