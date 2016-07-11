@@ -1596,8 +1596,12 @@ up_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_local_t   *local         = NULL;
         int              ret            = 0;
         struct iatt      stbuf          = {0, };
+        upcall_private_t *priv          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -1607,11 +1611,19 @@ up_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         flags = UP_XATTR;
-        /* Remove the virtual xattrs from the dict */
-        ret = dict_foreach (local->xattr, up_filter_virtual_xattr, NULL);
+        /* Remove the xattrs from the dict, if they are not registered for
+         * cache invalidation */
+        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
+        }
+
+        if (dict_key_count(local->xattr) == 0) {
+                gf_msg_trace (this->name, 0, "None of xattrs requested for"
+                              " invalidation, were changed. Nothing to "
+                              "invalidate");
+                goto out; /* nothing to invalidate */
         }
 
         ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf,
@@ -1677,8 +1689,12 @@ up_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_local_t   *local         = NULL;
         int              ret            = 0;
         struct iatt      stbuf          = {0,};
+        upcall_private_t *priv          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -1688,11 +1704,19 @@ up_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         flags = UP_XATTR;
-        /* Remove the virtual xattrs from the dict */
-        ret = dict_foreach (local->xattr, up_filter_virtual_xattr, NULL);
+         /* Remove the xattrs from the dict, if they are not registered for
+         * cache invalidation */
+        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
+        }
+
+        if (dict_key_count(local->xattr) == 0) {
+                gf_msg_trace (this->name, 0, "None of xattrs requested for"
+                              " invalidation, were changed. Nothing to "
+                              "invalidate");
+                goto out; /* nothing to invalidate */
         }
 
         ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
@@ -1758,8 +1782,12 @@ up_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_local_t   *local         = NULL;
         struct iatt      stbuf          = {0,};
         int              ret            = 0;
+        upcall_private_t *priv          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -1768,6 +1796,21 @@ up_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_XATTR_RM;
+
+        /* Remove the xattrs from the dict, if they are not registered for
+         * cache invalidation */
+        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+        if (ret < 0) {
+                op_ret = ret;
+                goto out;
+        }
+
+        if (dict_key_count(local->xattr) == 0) {
+                gf_msg_trace (this->name, 0, "None of xattrs requested for"
+                              " invalidation, were changed. Nothing to "
+                              "invalidate");
+                goto out; /* nothing to invalidate */
+        }
 
         ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
                             NULL);
@@ -1828,8 +1871,12 @@ up_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_local_t   *local         = NULL;
         struct iatt      stbuf          = {0,};
         int              ret            = 0;
+        upcall_private_t *priv          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -1838,6 +1885,21 @@ up_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_XATTR_RM;
+
+         /* Remove the xattrs from the dict, if they are not registered for
+         * cache invalidation */
+        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+        if (ret < 0) {
+                op_ret = ret;
+                goto out;
+        }
+
+        if (dict_key_count(local->xattr) == 0) {
+                gf_msg_trace (this->name, 0, "None of xattrs requested for"
+                              " invalidation, were changed. Nothing to "
+                              "invalidate");
+                goto out; /* nothing to invalidate */
+        }
 
         ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf, NULL,
                            NULL);
@@ -2064,6 +2126,47 @@ out:
         return local;
 }
 
+static int32_t
+update_xattrs (dict_t *dict, char *key, data_t *value, void *data)
+{
+        dict_t *xattrs = data;
+        int     ret    = 0;
+
+        ret = dict_set_int8 (xattrs, key, 0);
+        return ret;
+}
+
+int32_t
+up_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        upcall_private_t *priv  = NULL;
+        int               ret   = 0;
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        if (op != GF_IPC_TARGET_UPCALL)
+                goto wind;
+
+        /* TODO: Bz-1371622 Along with the xattrs also store list of clients
+         * that are interested in notifications, so that the notification
+         * can be sent to the clients that have registered.
+         * Once this implemented there can be unregister of xattrs for
+         * notifications. Until then there is no unregister of xattrs*/
+        if (xdata && priv->xattrs) {
+                ret = dict_foreach (xdata, update_xattrs, priv->xattrs);
+        }
+
+out:
+        STACK_UNWIND_STRICT (ipc, frame, ret, 0, NULL);
+        return 0;
+
+wind:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+        return 0;
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -2071,7 +2174,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int              ret                    = -1;
 
         priv = this->private;
-        GF_ASSERT (priv);
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         GF_OPTION_RECONF ("cache-invalidation", priv->cache_invalidation_enabled,
                           options, bool, out);
@@ -2120,6 +2223,7 @@ init (xlator_t *this)
 
         LOCK_INIT (&priv->inode_ctx_lk);
         INIT_LIST_HEAD (&priv->inode_ctx_list);
+        priv->xattrs = dict_new ();
 
         this->private = priv;
         priv->fini = 0;
@@ -2142,6 +2246,7 @@ init (xlator_t *this)
         }
 out:
         if (ret) {
+                dict_unref (priv->xattrs);
                 GF_FREE (priv);
         }
 
@@ -2164,6 +2269,7 @@ fini (xlator_t *this)
         if (priv->reaper_init_done)
                 pthread_join (priv->reaper_thr, NULL);
 
+        dict_unref (priv->xattrs);
         LOCK_DESTROY (&priv->inode_ctx_lk);
 
         /* Do we need to cleanup the inode_ctxs? IMO not required
@@ -2226,6 +2332,7 @@ out:
 }
 
 struct xlator_fops fops = {
+        .ipc         = up_ipc,
         /* fops which change only "ATIME" do not result
          * in any cache invalidation. Hence upcall
          * notifications are not sent in this case.

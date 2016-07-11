@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "syncop.h"
 #include "md-cache-mem-types.h"
 #include "compat-errno.h"
 #include "glusterfs-acl.h"
@@ -2455,6 +2456,18 @@ is_strpfx (const char *str1, const char *str2)
 }
 
 
+static int
+mdc_key_unload_all (struct mdc_key *keys)
+{
+        struct mdc_key *key = NULL;
+
+        for (key = keys; key->name; key++) {
+                key->load = 0;
+        }
+
+        return 0;
+}
+
 int
 mdc_key_load_set (struct mdc_key *keys, char *pattern, gf_boolean_t val)
 {
@@ -2545,12 +2558,129 @@ out:
         return ret;
 }
 
+struct mdc_ipc {
+       xlator_t *this;
+       dict_t   *xattr;
+};
+
+static int
+mdc_send_xattrs_cbk (int ret, call_frame_t *frame, void *data)
+{
+        struct mdc_ipc *tmp = data;
+
+        if (ret < 0) {
+                mdc_key_unload_all (mdc_keys);
+                gf_msg ("md-cache", GF_LOG_INFO, 0, MD_CACHE_MSG_NO_XATTR_CACHE,
+                        "Disabled cache for all xattrs, as registering for "
+                        "xattr cache invalidation failed");
+        }
+        STACK_DESTROY (frame->root);
+        dict_unref (tmp->xattr);
+        GF_FREE (tmp);
+
+        return 0;
+}
+
+static int
+mdc_send_xattrs (void *data)
+{
+        int             ret = 0;
+        struct mdc_ipc *tmp = data;
+
+        ret = syncop_ipc (FIRST_CHILD (tmp->this), GF_IPC_TARGET_UPCALL,
+                          tmp->xattr, NULL);
+        DECODE_SYNCOP_ERR (ret);
+        if (ret < 0) {
+                gf_msg (tmp->this->name, GF_LOG_WARNING, errno,
+                        MD_CACHE_MSG_IPC_UPCALL_FAILED, "Registering the list "
+                        "of xattrs that needs invalidaton, with upcall, failed");
+        }
+
+        return ret;
+}
+
+
+static int
+mdc_register_xattr_inval (xlator_t *this)
+{
+        dict_t          *xattr = NULL;
+        int              ret   = 0;
+        struct mdc_conf *conf  = NULL;
+        call_frame_t    *frame = NULL;
+        struct mdc_ipc  *data  = NULL;
+
+        conf = this->private;
+
+        LOCK (&conf->lock);
+        {
+                if (!conf->mdc_invalidation) {
+                        UNLOCK (&conf->lock);
+                        goto out;
+                }
+        }
+        UNLOCK (&conf->lock);
+
+        xattr = dict_new ();
+        if (!xattr) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        MD_CACHE_MSG_NO_MEMORY, "dict_new failed");
+                ret = -1;
+                goto out;
+        }
+
+        mdc_load_reqs (this, xattr);
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        MD_CACHE_MSG_NO_MEMORY,
+                        "failed to create the frame");
+                ret = -1;
+                goto out;
+        }
+
+        data = GF_CALLOC (1, sizeof (struct mdc_ipc), gf_mdc_mt_mdc_ipc);
+        if (!data) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        MD_CACHE_MSG_NO_MEMORY,
+                        "failed to allocate memory");
+                ret = -1;
+                goto out;
+        }
+
+        data->this = this;
+        data->xattr = xattr;
+        ret = synctask_new (this->ctx->env, mdc_send_xattrs, mdc_send_xattrs_cbk,
+                            frame, data);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        MD_CACHE_MSG_IPC_UPCALL_FAILED, "Registering the list "
+                        "of xattrs that needs invalidaton, with upcall, failed");
+        }
+
+out:
+        if (ret < 0) {
+                mdc_key_unload_all (mdc_keys);
+                if (xattr)
+                        dict_unref (xattr);
+                if (frame)
+                        STACK_DESTROY (frame->root);
+                GF_FREE (data);
+                gf_msg (this->name, GF_LOG_INFO, 0, MD_CACHE_MSG_NO_XATTR_CACHE,
+                        "Disabled cache for all xattrs, as registering for "
+                        "xattr cache invalidation failed");
+        }
+
+        return ret;
+}
+
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
+        int    ret     = 0;
 
 	conf = this->private;
 
@@ -2589,6 +2719,8 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
         }
         conf->timeout = timeout;
+
+        ret = mdc_register_xattr_inval (this);
 out:
 	return 0;
 }
@@ -2686,21 +2818,27 @@ notify (xlator_t *this, int event, void *data, ...)
         switch (event) {
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_SOME_CHILD_DOWN:
-        case GF_EVENT_CHILD_MODIFIED:
                 time (&now);
                 mdc_update_child_down_time (this, &now);
-                ret = default_notify (this, event, data);
                 break;
         case GF_EVENT_UPCALL:
                 if (conf->mdc_invalidation)
                         ret = mdc_invalidate (this, data);
-                if (default_notify (this, event, data) != 0)
-                        ret = -1;
+                break;
+        case GF_EVENT_CHILD_MODIFIED:
+                time (&now);
+                mdc_update_child_down_time (this, &now);
+                ret = mdc_register_xattr_inval (this);
+                break;
+        case GF_EVENT_CHILD_UP:
+                ret = mdc_register_xattr_inval (this);
                 break;
         default:
-                ret = default_notify (this, event, data);
                 break;
         }
+
+        if (default_notify (this, event, data) != 0)
+                ret = -1;
 
         return ret;
 }

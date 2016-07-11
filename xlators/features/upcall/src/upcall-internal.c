@@ -435,10 +435,16 @@ upcall_reaper_thread_init (xlator_t *this)
 }
 
 int
-up_filter_virtual_xattr (dict_t *d, char *k, data_t *v, void *tmp)
+up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
+                        void *regd_xattrs)
 {
-        if (is_virtual_xattr (k) == _gf_true) {
-                dict_del (d, k);
+        int ret = 0;
+
+        if (dict_get ((dict_t *)regd_xattrs, xattr) == NULL) {
+                /* xattr was not found in the registered xattr, hence do not
+                 * send notification for its change
+                 */
+                dict_del (xattrs, xattr);
         }
 
         return 0;
