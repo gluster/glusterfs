@@ -154,10 +154,10 @@ char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);
 
-data_t *get_new_data ();
+data_t *get_new_data (void);
 data_t * data_copy (data_t *old);
 dict_t *get_new_dict_full (int size_hint);
-dict_t *get_new_dict ();
+dict_t *get_new_dict (void);
 
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,

@@ -80,24 +80,24 @@
 #define THIS (*__glusterfs_this_location())
 #define DECLARE_OLD_THIS        xlator_t *old_THIS = THIS
 
-xlator_t **__glusterfs_this_location ();
-xlator_t *glusterfs_this_get ();
+xlator_t **__glusterfs_this_location (void);
+xlator_t *glusterfs_this_get (void);
 int glusterfs_this_set (xlator_t *);
 
 /* syncopctx */
-void *syncopctx_getctx ();
+void *syncopctx_getctx (void);
 int syncopctx_setctx (void *ctx);
 
 /* task */
-void *synctask_get ();
+void *synctask_get (void);
 int synctask_set (void *);
 
 /* uuid_buf */
-char *glusterfs_uuid_buf_get ();
+char *glusterfs_uuid_buf_get (void);
 /* lkowner_buf */
-char *glusterfs_lkowner_buf_get ();
+char *glusterfs_lkowner_buf_get (void);
 /* leaseid buf */
-char *glusterfs_leaseid_buf_get ();
+char *glusterfs_leaseid_buf_get (void);
 
 /* init */
 int glusterfs_globals_init (glusterfs_ctx_t *ctx);
