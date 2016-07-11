@@ -473,6 +473,26 @@ dict_get (dict_t *this, char *key)
         return NULL;
 }
 
+int
+dict_key_count (dict_t *this)
+{
+        int ret = -1;
+
+        if (!this) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "dict passed is NULL");
+                return ret;
+        }
+
+        LOCK (&this->lock);
+        {
+                ret = this->count;
+        }
+        UNLOCK (&this->lock);
+
+        return ret;
+}
+
 void
 dict_del (dict_t *this, char *key)
 {

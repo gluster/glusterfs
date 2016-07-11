@@ -258,6 +258,29 @@ struct syncopctx {
         } while (0)
 
 
+/*
+ * syncop_xxx() calls are executed in two ways, one is inside a synctask where
+ * the executing function will do 'swapcontext' and the other is without
+ * synctask where the executing thread is made to wait using pthread_cond_wait.
+ * Executing thread may change when syncop_xxx() is executed inside a synctask.
+ * This leads to errno_location change i.e. errno may give errno of
+ * non-executing thread. So errno is not touched inside a synctask execution.
+ * All gfapi calls are executed using the second way of executing syncop_xxx()
+ * where the executing thread waits using pthread_cond_wait so it is ok to set
+ * errno in these cases. The following macro makes syncop_xxx() behave just
+ * like a system call, where -1 is returned and errno is set when a failure
+ * occurs.
+ */
+#define DECODE_SYNCOP_ERR(ret) do {  \
+        if (ret < 0) {          \
+                errno = -ret;   \
+                ret = -1;       \
+        } else {                \
+                errno = 0;      \
+        }                       \
+        } while (0)
+
+
 #define SYNCENV_DEFAULT_STACKSIZE (2 * 1024 * 1024)
 
 struct syncenv * syncenv_new (size_t stacksize, int procmin, int procmax);

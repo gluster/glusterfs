@@ -40,7 +40,7 @@
  */
 
 #define GLFS_MD_CACHE_BASE                   GLFS_MSGID_COMP_MD_CACHE
-#define GLFS_MD_CACHE_NUM_MESSAGES           3
+#define GLFS_MD_CACHE_NUM_MESSAGES           5
 #define GLFS_MSGID_END  (GLFS_MD_CACHE_BASE + GLFS_MD_CACHE_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -67,7 +67,32 @@
 
 #define MD_CACHE_MSG_DISCARD_UPDATE    (GLFS_MD_CACHE_BASE + 2)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
 #define MD_CACHE_MSG_CACHE_UPDATE      (GLFS_MD_CACHE_BASE + 3)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define MD_CACHE_MSG_IPC_UPCALL_FAILED  (GLFS_MD_CACHE_BASE + 4)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction  None
+ *
+ */
+
+#define MD_CACHE_MSG_NO_XATTR_CACHE     (GLFS_MD_CACHE_BASE + 5)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

@@ -52,6 +52,8 @@ struct _upcall_private_t {
         gf_boolean_t     reaper_init_done;
         pthread_t        reaper_thr;
         int32_t          fini;
+        dict_t          *xattrs; /* list of xattrs registered by clients
+                                    for receiving invalidation */
 };
 typedef struct _upcall_private_t upcall_private_t;
 
@@ -130,6 +132,6 @@ void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      struct iatt *p_stbuf,
                                      struct iatt *oldp_stbuf, dict_t *xattr);
 
-int up_filter_virtual_xattr (dict_t *d, char *k, data_t *v, void *tmp);
-
+int up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
+                            void *regd_xattrs);
 #endif /* __UPCALL_H__ */
