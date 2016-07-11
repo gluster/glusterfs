@@ -55,7 +55,7 @@ fd_lk_ctx_t *
 fd_lk_ctx_try_ref (fd_lk_ctx_t *lk_ctx);
 
 fd_lk_ctx_t *
-fd_lk_ctx_create ();
+fd_lk_ctx_create (void);
 
 int
 fd_lk_insert_and_merge (struct _fd *lk_ctx, int32_t cmd,

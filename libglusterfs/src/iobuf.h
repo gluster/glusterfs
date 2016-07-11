@@ -156,7 +156,7 @@ struct iobref {
 	int                used;
 };
 
-struct iobref *iobref_new ();
+struct iobref *iobref_new (void);
 struct iobref *iobref_ref (struct iobref *iobref);
 void iobref_unref (struct iobref *iobref);
 int iobref_add (struct iobref *iobref, struct iobuf *iobuf);

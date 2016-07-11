@@ -555,7 +555,7 @@ int glusterfs_graph_destroy (glusterfs_graph_t *graph);
 int glusterfs_get_leaf_count (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
-glusterfs_graph_t *glusterfs_graph_new ();
+glusterfs_graph_t *glusterfs_graph_new (void);
 int glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                                   glusterfs_graph_t *newgraph);
 

@@ -210,7 +210,7 @@ struct list_node *list_node_add_order (void *ptr, struct list_head *list,
 void list_node_del (struct list_node *node);
 
 struct dnscache *gf_dnscache_init (time_t ttl);
-struct dnscache_entry *gf_dnscache_entry_init ();
+struct dnscache_entry *gf_dnscache_entry_init (void);
 void gf_dnscache_entry_deinit (struct dnscache_entry *entry);
 char *gf_rev_dns_lookup_cached (const char *ip, struct dnscache *dnscache);
 
@@ -757,11 +757,11 @@ int validate_brick_name (char *brick);
 char *get_host_name (char *word, char **host);
 char *get_path_name (char *word, char **path);
 void gf_path_strip_trailing_slashes (char *path);
-uint64_t get_mem_size ();
+uint64_t get_mem_size (void);
 int gf_strip_whitespace (char *str, int len);
 int gf_canonicalize_path (char *path);
 char *generate_glusterfs_ctx_id (void);
-char *gf_get_reserved_ports();
+char *gf_get_reserved_ports(void);
 int gf_process_reserved_ports (gf_boolean_t ports[], uint32_t ceiling);
 gf_boolean_t
 gf_ports_reserved (char *blocked_port, gf_boolean_t *ports, uint32_t ceiling);
