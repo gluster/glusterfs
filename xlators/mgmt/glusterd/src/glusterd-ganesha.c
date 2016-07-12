@@ -427,42 +427,23 @@ create_export_config (char *volname, char **op_errstr)
                         CONFDIR, volname, NULL);
         ret = runner_run(&runner);
 
-        if (ret && op_errstr)
+        if (ret)
                 gf_asprintf (op_errstr, "Failed to create"
                             " NFS-Ganesha export config file.");
 
         return ret;
 }
 
-int
-copy_export_config (char *volname, char **op_errstr)
-{
-        runner_t                runner                     = {0,};
-        int                     ret                        = -1;
-
-        GF_ASSERT(volname);
-        runinit (&runner);
-        runner_add_args (&runner, "sh",
-                        GANESHA_PREFIX"/copy-export-ganesha.sh",
-                        CONFDIR, volname, NULL);
-        ret = runner_run(&runner);
-
-        if (ret && op_errstr)
-                gf_asprintf (op_errstr, "Failed to copy"
-                            " NFS-Ganesha export config file.");
-
-        return ret;
-}
 /* Exports and unexports a particular volume via NFS-Ganesha */
 int
-ganesha_manage_export (char *volname, char *value, char **op_errstr,
-                       gf_boolean_t reboot)
+ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
 {
         runner_t                 runner = {0,};
         int                      ret = -1;
         char                     str[1024];
         glusterd_volinfo_t      *volinfo = NULL;
         dict_t                  *vol_opts = NULL;
+        char                    *volname = NULL;
         xlator_t                *this    = NULL;
         glusterd_conf_t         *priv    = NULL;
         gf_boolean_t             option  = _gf_false;
@@ -474,10 +455,16 @@ ganesha_manage_export (char *volname, char *value, char **op_errstr,
         priv = this->private;
 
         GF_ASSERT (value);
+        GF_ASSERT (dict);
         GF_ASSERT (priv);
-        GF_VALIDATE_OR_GOTO (this->name, volname, out);
 
-
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
+                goto out;
+        }
         ret = gf_string2boolean (value, &option);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -485,77 +472,54 @@ ganesha_manage_export (char *volname, char *value, char **op_errstr,
                 goto out;
         }
 
-        /* *
-         * Incase of reboot, following checks are already made before calling
-         * ganesha_manage_export. So it will be reductant do it again
-         */
-        if (!reboot) {
-                ret = glusterd_volinfo_find (volname, &volinfo);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                                GD_MSG_VOL_NOT_FOUND,
-                                FMTSTR_CHECK_VOL_EXISTS, volname);
-                        goto out;
-                }
-
-                ret = glusterd_check_ganesha_export (volinfo);
-                if (ret && option) {
-                        if (op_errstr)
-                                gf_asprintf (op_errstr, "ganesha.enable "
-                                                     "is already 'on'.");
-                        ret = -1;
-                        goto out;
-
-                }  else if (!option && !ret) {
-                        if (op_errstr)
-                                gf_asprintf (op_errstr, "ganesha.enable "
-                                                    "is already 'off'.");
-                        ret = -1;
-                        goto out;
-                }
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND,
+                        FMTSTR_CHECK_VOL_EXISTS, volname);
+                goto out;
         }
 
-        ret = 0;
+        ret = glusterd_check_ganesha_export (volinfo);
+        if (ret && option) {
+                gf_asprintf (op_errstr, "ganesha.enable "
+                             "is already 'on'.");
+                ret = -1;
+                goto out;
 
-        /* *
-         * Incase of restart, there is chance that global option turned off
-         * with volume set command. Still we may need to clean up the
-         * configuration files.
-         * Otherwise check if global option is enabled, only then proceed
-         * */
-        if (!(reboot && !option)) {
-                ret = dict_get_str_boolean (priv->opts,
+        }  else if (!option && !ret) {
+                gf_asprintf (op_errstr, "ganesha.enable "
+                                    "is already 'off'.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Check if global option is enabled, proceed only then */
+        ret = dict_get_str_boolean (priv->opts,
                             GLUSTERD_STORE_KEY_GANESHA_GLOBAL, _gf_false);
-                if (ret == -1) {
-                        gf_msg_debug (this->name, 0, "Failed to get "
-                                                "global option dict.");
-                        if (op_errstr)
-                                gf_asprintf (op_errstr, "The option "
-                                             "nfs-ganesha should be "
-                                             "enabled before setting "
-                                             "ganesha.enable.");
-                        goto out;
-                }
-                if (!ret) {
-                        if (op_errstr)
-                                gf_asprintf (op_errstr, "The option "
-                                             "nfs-ganesha should be "
-                                             "enabled before setting "
-                                             "ganesha.enable.");
-                        ret = -1;
-                        goto out;
-                }
+        if (ret == -1) {
+                gf_msg_debug (this->name, 0, "Failed to get "
+                        "global option dict.");
+                gf_asprintf (op_errstr, "The option "
+                             "nfs-ganesha should be "
+                             "enabled before setting ganesha.enable.");
+                goto out;
         }
+        if (!ret) {
+                gf_asprintf (op_errstr, "The option "
+                             "nfs-ganesha should be "
+                             "enabled before setting ganesha.enable.");
+                ret = -1;
+                goto out;
+        }
+
         /* Create the export file only when ganesha.enable "on" is executed */
          if (option) {
-                if (reboot)
-                       ret  =  copy_export_config (volname, op_errstr);
-                else
-                       ret  =  create_export_config (volname, op_errstr);
+                ret  =  create_export_config (volname, op_errstr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_EXPORT_FILE_CREATE_FAIL,
-                                "Failed to create/copy "
+                                "Failed to create"
                                 "export file for NFS-Ganesha\n");
                         goto out;
                 }
@@ -566,42 +530,25 @@ ganesha_manage_export (char *volname, char *value, char **op_errstr,
                          CONFDIR, value, volname, NULL);
                 ret = runner_run (&runner);
                 if (ret) {
-                        if (op_errstr)
-                                gf_asprintf(op_errstr, "Dynamic export"
-                                            " addition/deletion failed."
-                                            " Please see log file for details");
-                        /* *
-                         * Incase of reboot scenarios, we cannot guarantee
-                         * nfs-ganesha to be running on that node, so that
-                         * dynamic export may fail
-                         */
-                        if (reboot)
-                                ret = 0;
-                        else
-                                goto out;
+                        gf_asprintf(op_errstr, "Dynamic export"
+                                    " addition/deletion failed."
+                                    " Please see log file for details");
+                        goto out;
                 }
         }
 
+        vol_opts = volinfo->dict;
+        ret = dict_set_dynstr_with_alloc (vol_opts,
+                                 "features.cache-invalidation", value);
+        if (ret)
+                gf_asprintf (op_errstr, "Cache-invalidation could not"
+                                        " be set to %s.", value);
+        ret = glusterd_store_volinfo (volinfo,
+                        GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret)
+                gf_asprintf (op_errstr, "failed to store volinfo for %s"
+                             , volinfo->volname);
 
-        /* *
-         * cache-invalidation should be on when a volume is exported
-         * and off when a volume is unexported. It is not required
-         * for reboot scenarios, already it will be copied.
-         * */
-        if (!reboot) {
-                vol_opts = volinfo->dict;
-                ret = dict_set_dynstr_with_alloc (vol_opts,
-                                         "features.cache-invalidation", value);
-                if (ret && op_errstr)
-                        gf_asprintf (op_errstr, "Cache-invalidation could not"
-                                                " be set to %s.", value);
-                ret = glusterd_store_volinfo (volinfo,
-                                GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-                if (ret && op_errstr)
-                        gf_asprintf (op_errstr, "failed to store volinfo for %s"
-                                     , volinfo->volname);
-
-        }
 out:
         return ret;
 }
@@ -863,9 +810,12 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
                             char *key, char *value)
 {
 
-        int32_t                ret           = -1;
+        int32_t                 ret          = -1;
         char                   *volname      = NULL;
+        xlator_t               *this         = NULL;
         gf_boolean_t           option        = _gf_false;
+        static int             export_id     = 1;
+        glusterd_volinfo_t     *volinfo      = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
@@ -874,15 +824,7 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
 
 
         if (strcmp (key, "ganesha.enable") == 0) {
-                ret = dict_get_str (dict, "volname", &volname);
-                if (ret) {
-                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                                GD_MSG_DICT_GET_FAILED,
-                                "Unable to get volume name");
-                        goto out;
-                }
-                ret =  ganesha_manage_export (volname, value, op_errstr,
-                                              _gf_false);
+                ret =  ganesha_manage_export (dict, value, op_errstr);
                 if (ret < 0)
                         goto out;
         }
