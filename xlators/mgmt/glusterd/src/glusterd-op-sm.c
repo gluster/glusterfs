@@ -1421,9 +1421,13 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
         char                                    *key_fixed = NULL;
         glusterd_volinfo_t                      *volinfo       = NULL;
         xlator_t                                *this = NULL;
+        glusterd_conf_t                         *priv    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1451,6 +1455,16 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 ret = glusterd_validate_volume_id (dict, volinfo);
                 if (ret)
                         goto out;
+                ret = dict_get_str_boolean (priv->opts,
+                            GLUSTERD_STORE_KEY_GANESHA_GLOBAL, _gf_false);
+                if (ret) {
+                        ret =  stop_ganesha (op_errstr);
+                        if (ret)
+                                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_NFS_GNS_STOP_FAIL,
+                                        "Could not stop NFS-Ganesha service");
+                }
+
         }
 
         ret = dict_get_str (dict, "key", &key);
@@ -2037,11 +2051,6 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
                         gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                 GD_MSG_DICT_GET_FAILED,
                                 "Could not tear down NFS-Ganesha cluster");
-                ret =  stop_ganesha (&op_errstr);
-                if (ret)
-                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
-                                GD_MSG_NFS_GNS_STOP_FAIL,
-                                "Could not stop NFS-Ganesha service");
         }
 
         ret = -1;

@@ -22,9 +22,9 @@
 
 HA_NUM_SERVERS=0
 HA_SERVERS=""
-HA_CONFDIR="/etc/ganesha"
 HA_VOL_NAME="gluster_shared_storage"
 HA_VOL_MNT="/var/run/gluster/shared_storage"
+HA_CONFDIR=$HA_VOL_MNT"/nfs-ganesha"
 SERVICE_MAN="DISTRO_NOT_FOUND"
 
 RHEL6_PCS_CNAME_OPTION="--name"
@@ -416,12 +416,8 @@ teardown_cluster()
 
 cleanup_ganesha_config ()
 {
-       rm -rf ${HA_CONFDIR}/exports/*.conf
-       rm -rf ${HA_CONFDIR}/.export_added
        rm -rf /etc/cluster/cluster.conf*
        rm -rf /var/lib/pacemaker/cib/*
-       sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' ${GANESHA_CONF}
-       rm -rf ${HA_VOL_MNT}/nfs-ganesha
 }
 
 do_create_virt_ip_constraints()
@@ -848,6 +844,29 @@ status()
     rm -f ${status_file}
 }
 
+create_ganesha_conf_file()
+{
+        if [ $1 == "yes" ];
+        then
+                if [  -e $GANESHA_CONF ];
+                then
+                        rm -rf $GANESHA_CONF
+                fi
+        # The symlink /etc/ganesha/ganesha.conf need to be
+        # created using ganesha conf file mentioned in the
+        # shared storage. Every node will only have this
+        # link and actual file will stored in shared storage,
+        # so that ganesha conf editing of ganesha conf will
+        # be easy as well as it become more consistent.
+
+                ln -s $HA_CONFDIR/ganesha.conf $GANESHA_CONF
+        else
+        # Restoring previous file
+                rm -rf $GANESHA_CONF
+                sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $HA_CONFDIR/ganesha.conf
+                cp $HA_CONFDIR/ganesha.conf $GANESHA_CONF
+        fi
+}
 
 main()
 {
@@ -987,6 +1006,11 @@ $HA_CONFDIR/ganesha-ha.conf
         determine_servers "refresh-config"
 
         refresh_config ${VOL} ${HA_CONFDIR} ${HA_SERVERS}
+        ;;
+
+    setup-ganesha-conf-files | --setup-ganesha-conf-files)
+
+        create_ganesha_conf_file ${1}
         ;;
 
     *)
