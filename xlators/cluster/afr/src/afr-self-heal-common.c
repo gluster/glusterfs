@@ -1839,7 +1839,10 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
         gf_boolean_t dataheal_enabled   = _gf_false;
 
         priv = this->private;
-        gf_string2boolean (priv->data_self_heal, &dataheal_enabled);
+
+        ret = gf_string2boolean (priv->data_self_heal, &dataheal_enabled);
+        if (ret)
+                goto out;
 
 	ret = afr_selfheal_unlocked_inspect (frame, this, gfid, &inode,
 					     &data_selfheal,

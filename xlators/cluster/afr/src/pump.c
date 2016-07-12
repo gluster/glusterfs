@@ -2252,6 +2252,8 @@ init (xlator_t *this)
                         0, AFR_MSG_CHILD_MISCONFIGURED,
                         "There should be exactly 2 children - one source "
                         "and one sink");
+                LOCK_DESTROY (&priv->lock);
+                GF_FREE (priv);
                 return -1;
         }
 	priv->child_count = child_count;

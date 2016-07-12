@@ -89,9 +89,15 @@ __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	priv = this->private;
 	local = frame->local;
+
         xdata = dict_new();
-        if (xdata)
-                i = dict_set_int32 (xdata, "check-zero-filled", 1);
+        if (!xdata)
+                goto out;
+        if (dict_set_int32 (xdata, "check-zero-filled", 1)) {
+                dict_unref (xdata);
+                goto out;
+        }
+
 	wind_subvols = alloca0 (priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || healed_sinks[i])
@@ -130,7 +136,7 @@ __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 else
                         return _gf_true;
         }
-
+out:
         return _gf_false;
 }
 
