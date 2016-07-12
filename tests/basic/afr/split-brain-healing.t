@@ -124,7 +124,7 @@ subvolume=$(get_replicate_subvol_number file3)
 if [ $subvolume == 0 ]
 then
         $CLI volume heal $V0 split-brain source-brick $H0:$B0/${V0}2 /file3
-elif [ $subvolume == 1]
+elif [ $subvolume == 1 ]
 then
         $CLI volume heal $V0 split-brain source-brick $H0:$B0/${V0}4 /file3
 fi
@@ -139,7 +139,7 @@ then
         GFID=$(gf_get_gfid_xattr $B0/${V0}1/file4)
         GFIDSTR="gfid:$(gf_gfid_xattr_to_str $GFID)"
         $CLI volume heal $V0 split-brain source-brick $H0:$B0/${V0}2 $GFIDSTR
-elif [ $subvolume == 1]
+elif [ $subvolume == 1 ]
 then
         GFID=$(gf_get_gfid_xattr $B0/${V0}3/file4)
         GFIDSTR="gfid:$(gf_gfid_xattr_to_str $GFID)"

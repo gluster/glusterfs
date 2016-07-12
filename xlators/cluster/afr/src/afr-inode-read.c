@@ -620,10 +620,9 @@ unlock:
                         goto unwind;
                 }
 
-        unwind:
-                // Updating child_errno with more recent 'events'
                 op_errno = afr_final_errno (local, priv);
 
+unwind:
                 AFR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, xattr,
                                   xdata);
                 if (xattr)
@@ -707,10 +706,9 @@ unlock:
                         goto unwind;
                 }
 
-        unwind:
-                // Updating child_errno with more recent 'events'
                 op_errno = afr_final_errno (local, priv);
 
+unwind:
                 AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr, xdata);
 
                 if (xattr)
