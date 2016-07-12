@@ -22,8 +22,6 @@
 
 #include <ctype.h>
 
-#define SHARED_STORAGE_MNT "/var/run/gluster/shared_storage/nfs-ganesha"
-
 int start_ganesha (char **op_errstr);
 
 
@@ -267,6 +265,11 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
                                 "Could not start NFS-Ganesha");
 
                 }
+        } else {
+                ret =  stop_ganesha (op_errstr);
+                if (ret)
+                        gf_msg_debug (THIS->name, 0, "Could not stop "
+                                                "NFS-Ganesha.");
         }
 
 out:
@@ -638,8 +641,13 @@ out:
 int
 tear_down_cluster(void)
 {
-        int     ret     =       0;
-        runner_t runner =       {0,};
+        int     ret                     = 0;
+        runner_t runner                 = {0,};
+        struct stat     st              = {0,};
+        DIR            *dir             = NULL;
+        struct dirent  *entry           = NULL;
+        struct dirent   scratch[2]      = {{0,},};
+        char            path[PATH_MAX]  = {0,};
 
         if (is_ganesha_host()) {
                 runinit (&runner);
@@ -647,7 +655,55 @@ tear_down_cluster(void)
                                 GANESHA_PREFIX"/ganesha-ha.sh", "teardown",
                                 CONFDIR, NULL);
                 ret = runner_run(&runner);
+                /* *
+                 * Remove all the entries in CONFDIR expect ganesha.conf and
+                 * ganesha-ha.conf
+                 */
+                dir = sys_opendir (CONFDIR);
+                if (!dir) {
+                        gf_msg_debug (THIS->name, 0, "Failed to open directory %s. "
+                                      "Reason : %s", CONFDIR, strerror (errno));
+                        ret = 0;
+                        goto out;
+                }
+
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
+                while (entry) {
+                        snprintf (path, PATH_MAX, "%s/%s", CONFDIR, entry->d_name);
+                        ret = sys_lstat (path, &st);
+                        if (ret == -1) {
+                                gf_msg_debug (THIS->name, 0, "Failed to stat entry %s :"
+                                              " %s", path, strerror (errno));
+                                goto out;
+                        }
+
+                        if (strcmp(entry->d_name, "ganesha.conf") == 0 ||
+                            strcmp(entry->d_name, "ganesha-ha.conf") == 0)
+                                gf_msg_debug (THIS->name, 0, " %s is not required"
+                                                " to remove", path);
+                        else if (S_ISDIR (st.st_mode))
+                                ret = recursive_rmdir (path);
+                        else
+                                ret = sys_unlink (path);
+
+                        if (ret) {
+                                gf_msg_debug (THIS->name, 0, " Failed to remove %s. "
+                                      "Reason : %s", path, strerror (errno));
+                        }
+
+                        gf_msg_debug (THIS->name, 0, "%s %s", ret ?
+                                      "Failed to remove" : "Removed", entry->d_name);
+                        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
+                }
+
+                ret = sys_closedir (dir);
+                if (ret) {
+                        gf_msg_debug (THIS->name, 0, "Failed to close dir %s. Reason :"
+                                      " %s", CONFDIR, strerror (errno));
+                }
         }
+
+out:
         return ret;
 }
 
@@ -683,11 +739,6 @@ teardown (char **op_errstr)
         if (ret == -1) {
                 gf_asprintf (op_errstr, "Cleanup of NFS-Ganesha"
                              " HA config failed.");
-                goto out;
-        }
-        ret =  stop_ganesha (op_errstr);
-        if (ret) {
-                gf_asprintf (op_errstr, "Could not stop NFS-Ganesha.");
                 goto out;
         }
 
@@ -733,7 +784,17 @@ out:
 int
 stop_ganesha (char **op_errstr) {
 
-        int ret = 0;
+        int ret                 = 0;
+        runner_t runner         = {0,};
+
+        runinit (&runner);
+        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+                         "--setup-ganesha-conf-files", CONFDIR, "no", NULL);
+        ret =  runner_run (&runner);
+        if (ret) {
+                gf_asprintf (op_errstr, "removal of symlink ganesha.conf "
+                             "in /etc/ganesha failed");
+        }
 
         if (check_host_list ()) {
                 ret = manage_service ("stop");
@@ -755,6 +816,7 @@ start_ganesha (char **op_errstr)
         int count                                          = 0;
         char *volname                                      = NULL;
         glusterd_conf_t *priv                              = NULL;
+        runner_t runner                                    = {0,};
 
         priv =  THIS->private;
         GF_ASSERT (priv);
@@ -789,6 +851,16 @@ start_ganesha (char **op_errstr)
                         goto out;
                 }
         }
+
+        runinit (&runner);
+        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+                         "--setup-ganesha-conf-files", CONFDIR, "yes", NULL);
+        ret =  runner_run (&runner);
+        if (ret) {
+                gf_asprintf (op_errstr, "creation of symlink ganesha.conf "
+                             "in /etc/ganesha failed");
+                goto out;
+        }
         if (check_host_list()) {
                 ret = manage_service ("start");
                 if (ret)
@@ -805,15 +877,6 @@ pre_setup (char **op_errstr)
 {
         int    ret = 0;
 
-        ret = sys_mkdir (SHARED_STORAGE_MNT, 0775);
-
-        if ((-1 == ret) && (EEXIST != errno)) {
-                gf_msg ("THIS->name", GF_LOG_ERROR, errno,
-                        GD_MSG_CREATE_DIR_FAILED, "mkdir() failed on path %s,",
-                        SHARED_STORAGE_MNT);
-                goto out;
-        }
-
         ret = check_host_list();
 
         if (ret) {
@@ -824,7 +887,6 @@ pre_setup (char **op_errstr)
                                      "Please check the log file for details");
         }
 
-out:
         return ret;
 }
 
