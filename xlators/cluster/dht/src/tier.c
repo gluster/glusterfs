@@ -2452,7 +2452,8 @@ static void
                         goto out;
                 }
 
-                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER ||
+                    defrag->cmd == GF_DEFRAG_CMD_DETACH_START) {
                         ret = 0;
                         defrag->defrag_status =
                                 GF_DEFRAG_STATUS_COMPLETE;

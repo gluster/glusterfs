@@ -119,6 +119,9 @@ cd /tmp
 umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
+
+wait_for_tier_start
+
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 cd $M0
 

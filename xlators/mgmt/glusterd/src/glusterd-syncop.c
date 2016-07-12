@@ -318,6 +318,10 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                 ret = glusterd_max_opversion_use_rsp_dict (aggr, rsp);
         break;
 
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_REMOVE_TIER_BRICK:
+                ret = glusterd_volume_tier_use_rsp_dict (aggr, rsp);
         default:
         break;
         }
@@ -1705,17 +1709,28 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 ret = dict_get_int32 (req_dict, "command", &cmd);
                 if (!ret) {
                         if (cmd == GF_OP_CMD_DETACH_START) {
+                                /* this change is left to support backward
+                                 * compatibility. */
                                 op = GD_OP_REBALANCE;
-                                ret = dict_set_int32 (req_dict, "rebalance-command",
+                                ret = dict_set_int32 (req_dict,
+                                                      "rebalance-command",
                                                       GF_DEFRAG_CMD_START_DETACH_TIER);
-                                if (ret)
-                                        goto out;
+                        } else if (cmd == GF_DEFRAG_CMD_DETACH_START) {
+                                op = GD_OP_REMOVE_TIER_BRICK;
+                                ret = dict_set_int32 (req_dict,
+                                                      "rebalance-command",
+                                                      GF_DEFRAG_CMD_DETACH_START);
                         }
+                        if (ret)
+                                goto out;
                 }
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
                 if (cmd == GF_OP_CMD_DETACH_START) {
                         op = GD_OP_REMOVE_BRICK;
+                        dict_del (req_dict, "rebalance-command");
+                } else if (cmd == GF_DEFRAG_CMD_DETACH_START) {
+                        op = GD_OP_REMOVE_TIER_BRICK;
                         dict_del (req_dict, "rebalance-command");
                 }
                 if (ret)

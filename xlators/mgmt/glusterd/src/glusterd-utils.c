@@ -576,6 +576,9 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         new_volinfo->snapd.svc.build = glusterd_snapdsvc_build;
         new_volinfo->snapd.svc.build (&(new_volinfo->snapd.svc));
 
+        new_volinfo->tierd.svc.build = glusterd_tierdsvc_build;
+        new_volinfo->tierd.svc.build (&(new_volinfo->tierd.svc));
+
         pthread_mutex_init (&new_volinfo->reflock, NULL);
         *volinfo = glusterd_volinfo_ref (new_volinfo);
 
@@ -3075,6 +3078,7 @@ glusterd_spawn_daemons (void *opaque)
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
         ret = glusterd_snapdsvc_restart ();
+        ret = glusterd_tierdsvc_restart ();
 
         return ret;
 }
@@ -4455,6 +4459,9 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
         } else if (pending_node->type == GD_NODE_SNAPD) {
                 volinfo = pending_node->node;
                 rpc = volinfo->snapd.svc.conn.rpc;
+        } else if (pending_node->type == GD_NODE_TIERD) {
+                volinfo = pending_node->node;
+                rpc = volinfo->tierd.svc.conn.rpc;
         } else {
                 GF_ASSERT (0);
         }
@@ -4474,6 +4481,10 @@ glusterd_pending_node_put_rpc (glusterd_pending_node_t *pending_node)
                 glusterd_defrag_rpc_put (volinfo->rebal.defrag);
                 break;
 
+        case GD_NODE_TIERD:
+                volinfo = pending_node->node;
+                glusterd_defrag_rpc_put (volinfo->tier.defrag);
+                break;
         default:
                 break;
         }
@@ -7175,6 +7186,15 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
                                                 "to stop snapd daemon service");
                                 }
                         }
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                svc = &(volinfo->tierd.svc);
+                                ret = svc->stop (svc, SIGTERM);
+                                if (ret) {
+                                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SVC_STOP_FAIL, "Failed "
+                                                "to stop tierd daemon service");
+                                }
+                        }
                 }
 
                 if (glusterd_friend_contains_vol_bricks (volinfo, uuid) == 2) {
@@ -7590,7 +7610,7 @@ out:
 
 int
 glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
-                                      dict_t *rsp_dict)
+                                      dict_t *rsp_dict, int32_t cmd)
 {
         int                             ret = 0;
         uint64_t                        files = 0;
@@ -7651,24 +7671,42 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 gf_msg_trace (this->name, 0,
                         "failed to get run-time");
 
-        if (files)
-                volinfo->rebal.rebalance_files = files;
-        if (size)
-                volinfo->rebal.rebalance_data = size;
-        if (lookup)
-                volinfo->rebal.lookedup_files = lookup;
-        if (status)
-                volinfo->rebal.defrag_status = status;
-        if (failures)
-                volinfo->rebal.rebalance_failures = failures;
-        if (skipped)
-                volinfo->rebal.skipped_files = skipped;
-        if (run_time)
-                volinfo->rebal.rebalance_time = run_time;
+        if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+                if (files)
+                        volinfo->tier.rebalance_files = files;
+                if (size)
+                        volinfo->tier.rebalance_data = size;
+                if (lookup)
+                        volinfo->tier.lookedup_files = lookup;
+                if (status)
+                        volinfo->tier.defrag_status = status;
+                if (failures)
+                        volinfo->tier.rebalance_failures = failures;
+                if (skipped)
+                        volinfo->tier.skipped_files = skipped;
+                if (run_time)
+                        volinfo->tier.rebalance_time = run_time;
+        } else {
+                if (files)
+                        volinfo->rebal.rebalance_files = files;
+                if (size)
+                        volinfo->rebal.rebalance_data = size;
+                if (lookup)
+                        volinfo->rebal.lookedup_files = lookup;
+                if (status)
+                        volinfo->rebal.defrag_status = status;
+                if (failures)
+                        volinfo->rebal.rebalance_failures = failures;
+                if (skipped)
+                        volinfo->rebal.skipped_files = skipped;
+                if (run_time)
+                        volinfo->rebal.rebalance_time = run_time;
+        }
         if (promoted)
                 volinfo->tier_info.promoted = promoted;
         if (demoted)
                 volinfo->tier_info.demoted = demoted;
+
 
         return ret;
 }
@@ -9373,6 +9411,212 @@ out:
 }
 
 int
+glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        char                 key[256]      = {0,};
+        char                *node_uuid     = NULL;
+        char                *node_uuid_str = NULL;
+        char                *volname       = NULL;
+        dict_t              *ctx_dict      = NULL;
+        double               elapsed_time  = 0;
+        glusterd_volinfo_t  *volinfo       = NULL;
+        int                  ret           = 0;
+        int32_t              index         = 0;
+        int32_t              count         = 0;
+        int32_t              value32       = 0;
+        uint64_t             value         = 0;
+        xlator_t            *this           = NULL;
+        char                *task_id_str   = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, rsp_dict, out);
+
+        if (aggr) {
+                ctx_dict = aggr;
+
+        } else {
+                 gf_msg (this->name, GF_LOG_ERROR, 0,
+                         GD_MSG_OPCTX_GET_FAIL,
+                         "Operation Context is not present");
+                goto out;
+        }
+
+        if (!ctx_dict)
+                goto out;
+
+        ret = dict_get_str (ctx_dict, "volname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
+                goto out;
+        }
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (rsp_dict, "count", &index);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "failed to get index");
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "node-uuid-%d", index);
+        ret = dict_get_str (rsp_dict, key, &node_uuid);
+        if (!ret) {
+                node_uuid_str = gf_strdup (node_uuid);
+
+        }
+        ret = dict_get_int32 (ctx_dict, "count", &count);
+        count++;
+        ret = dict_set_int32 (ctx_dict, "count", count);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set count");
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "node-uuid-%d", count);
+        ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
+        if (ret) {
+                gf_msg_debug (this->name, 0,
+                                "failed to set node-uuid");
+        }
+
+        snprintf (key, 256, "files-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "files-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set the file count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "size-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "size-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set the size of migration");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "lookups-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "lookups-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set lookuped file count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "status-%d", index);
+        ret = dict_get_int32 (rsp_dict, key, &value32);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", count);
+                ret = dict_set_int32 (ctx_dict, key, value32);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set status");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "failures-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set failure count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "skipped-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "skipped-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set skipped count");
+                }
+        }
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", index);
+        ret = dict_get_double (rsp_dict, key, &elapsed_time);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", count);
+                ret = dict_set_double (ctx_dict, key, elapsed_time);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set run-time");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "demoted-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "demoted-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set demoted count");
+                }
+        }
+        memset (key, 0, 256);
+        snprintf (key, 256, "promoted-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "promoted-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                "failed to set promoted count");
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, GF_REMOVE_BRICK_TID_KEY,
+                                &task_id_str);
+        if (ret) {
+                gf_msg_debug (this->name, errno,
+                                "Missing remove-brick-id");
+        } else
+                ret = dict_set_str (ctx_dict, GF_REMOVE_BRICK_TID_KEY,
+                                task_id_str);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
 glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
 {
         char           output_name[PATH_MAX] = "";
@@ -9892,6 +10136,71 @@ out:
 }
 
 int
+glusterd_tier_or_rebalance_rsp (dict_t *op_ctx, glusterd_rebalance_t *index, int32_t i)
+{
+        int                             ret = 0;
+        char                            key[256] = {0,};
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "files-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, index->rebalance_files);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set file count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "size-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, index->rebalance_data);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set size of xfer");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "lookups-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, index->lookedup_files);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set lookedup file count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "status-%d", i);
+        ret = dict_set_int32 (op_ctx, key, index->defrag_status);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set status");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "failures-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, index->rebalance_failures);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set failure count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "skipped-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, index->skipped_files);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set skipped count");
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "run-time-%d", i);
+        ret = dict_set_double (op_ctx, key, index->rebalance_time);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set run-time");
+
+        return ret;
+}
+
+int
 glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                                  dict_t *op_ctx)
 {
@@ -9902,6 +10211,7 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         int32_t                         i = 0;
         char                            buf[1024] = {0,};
         char                            *node_str = NULL;
+        int32_t                         cmd       = 0;
 
         GF_ASSERT (req_dict);
 
@@ -9915,12 +10225,20 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
 
+        ret = dict_get_int32 (req_dict, "rebalance-command", &cmd);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get the cmd");
+                goto out;
+        }
+
         if (ret)
                 goto out;
 
         if (rsp_dict) {
                 ret = glusterd_defrag_volume_status_update (volinfo,
-                                                            rsp_dict);
+                                                            rsp_dict,
+                                                            cmd);
         }
 
         if (!op_ctx) {
@@ -9947,61 +10265,10 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                         GD_MSG_DICT_SET_FAILED,
                         "failed to set node-uuid");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "files-%d", i);
-        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_files);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set file count");
-
-        memset (key, 0 , 256);
-        snprintf (key, 256, "size-%d", i);
-        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_data);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set size of xfer");
-
-        memset (key, 0 , 256);
-        snprintf (key, 256, "lookups-%d", i);
-        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.lookedup_files);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set lookedup file count");
-
-        memset (key, 0 , 256);
-        snprintf (key, 256, "status-%d", i);
-        ret = dict_set_int32 (op_ctx, key, volinfo->rebal.defrag_status);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set status");
-
-        memset (key, 0 , 256);
-        snprintf (key, 256, "failures-%d", i);
-        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_failures);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set failure count");
-
-        memset (key, 0 , 256);
-        snprintf (key, 256, "skipped-%d", i);
-        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.skipped_files);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set skipped count");
-
-        memset (key, 0, 256);
-        snprintf (key, 256, "run-time-%d", i);
-        ret = dict_set_double (op_ctx, key, volinfo->rebal.rebalance_time);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_SET_FAILED,
-                        "failed to set run-time");
+        if (cmd == GF_DEFRAG_CMD_STATUS_TIER)
+                glusterd_tier_or_rebalance_rsp (op_ctx, &volinfo->tier, i);
+        else
+                glusterd_tier_or_rebalance_rsp (op_ctx, &volinfo->rebal, i);
 
         memset (key, 0 , 256);
         snprintf (key, 256, "promoted-%d", i);
@@ -10041,7 +10308,8 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
                 ret = glusterd_status_volume_brick_rsp (rsp_dict, op_ctx,
                                                         op_errstr);
                 break;
-
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 glusterd_defrag_volume_node_rsp (req_dict,
                                                  rsp_dict, op_ctx);
@@ -10404,6 +10672,12 @@ glusterd_is_volume_inode_quota_enabled (glusterd_volinfo_t *volinfo)
 {
         return (glusterd_volinfo_get_boolean (volinfo,
                                               VKEY_FEATURES_INODE_QUOTA));
+}
+
+int
+glusterd_is_tierd_enabled (glusterd_volinfo_t *volinfo)
+{
+        return volinfo->is_tier_enabled;
 }
 
 int
@@ -11666,6 +11940,11 @@ glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
                 case GF_DEFRAG_CMD_STOP_DETACH_TIER:
                 case GF_DEFRAG_CMD_STATUS:
                 case GF_DEFRAG_CMD_DETACH_STATUS:
+                case GF_DEFRAG_CMD_STOP_TIER:
+                case GF_DEFRAG_CMD_DETACH_START:
+                case GF_DEFRAG_CMD_DETACH_COMMIT:
+                case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
+                case GF_DEFRAG_CMD_DETACH_STOP:
                         ret = 0;
                         break;
                 default:
@@ -11679,6 +11958,7 @@ glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
                 break;
         case GD_OP_REMOVE_BRICK:
                 switch (cmd) {
+                case GF_DEFRAG_CMD_DETACH_START:
                 case GF_OP_CMD_DETACH_COMMIT_FORCE:
                 case GF_OP_CMD_DETACH_COMMIT:
                 case GF_OP_CMD_DETACH_START:

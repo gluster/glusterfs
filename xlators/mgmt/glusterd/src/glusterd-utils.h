@@ -268,6 +268,13 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
 gf_boolean_t
 glusterd_is_tier_daemon_running (glusterd_volinfo_t *volinfo);
 
+int32_t
+glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
+                            dict_t  *dict, int32_t count);
+
+int
+glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
+                glusterd_op_t op);
 
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
@@ -445,7 +452,7 @@ glusterd_validate_volume_id (dict_t *op_dict, glusterd_volinfo_t *volinfo);
 
 int
 glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
-                                      dict_t *rsp_dict);
+                                      dict_t *rsp_dict, int32_t cmd);
 
 int
 glusterd_check_files_identical (char *filename1, char *filename2,
@@ -473,6 +480,8 @@ int
 glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+int
+glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
@@ -540,6 +549,11 @@ gf_boolean_t
 gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo);
 
 int
+glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
+                                       dict_t *dict,
+                                       glusterd_volinfo_t *volinfo,
+                                       char **errstr);
+int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,
                                      dict_t *dict, char **slave_url,
                                      char **slave_host, char **slave_vol,
@@ -577,6 +591,9 @@ glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict);
 
 gf_boolean_t
 gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_is_tierd_enabled (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo);

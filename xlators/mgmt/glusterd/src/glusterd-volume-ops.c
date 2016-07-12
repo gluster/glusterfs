@@ -2654,9 +2654,9 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
                                 glusterd_defrag_info_set (volinfo, dict,
-                                          GF_DEFRAG_CMD_START_TIER,
-                                          GF_DEFRAG_CMD_START,
-                                          GD_OP_REBALANCE);
+                                                GF_DEFRAG_CMD_START_TIER,
+                                                GF_DEFRAG_CMD_START,
+                                                GD_OP_REBALANCE);
                         }
                         glusterd_restart_rebalance_for_volume (volinfo);
                 }
@@ -2730,6 +2730,13 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
 
         if (!volinfo->is_snap_volume) {
                 svc = &(volinfo->snapd.svc);
+                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                svc = &(volinfo->tierd.svc);
                 ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
                 if (ret)
                         goto out;

@@ -4738,7 +4738,7 @@ out:
         return shd_enabled;
 }
 
-static int
+int
 build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
                          dict_t *mod_dict)
 {

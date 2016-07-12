@@ -1239,7 +1239,7 @@ do_cli_cmd_volume_detach_tier (struct cli_state *state,
                 }
         }
 
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DETACH_TIER];
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_REMOVE_TIER_BRICK];
 
         CLI_LOCAL_INIT (local, words, frame, options);
 
@@ -3179,8 +3179,9 @@ struct cli_cmd volume_cmds[] = {
 #if !defined(__NetBSD__)
         { "volume tier <VOLNAME> status\n"
         "volume tier <VOLNAME> start [force]\n"
+        "volume tier <VOLNAME> stop\n"
         "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... [force]\n"
-        "volume tier <VOLNAME> detach <start|stop|status|commit|force>\n",
+        "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
         cli_cmd_volume_tier_cbk,
         "Tier translator specific operations."},
 
@@ -3276,7 +3277,7 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_top_cbk,
            "volume top operations"},
 
-        { "volume status [all | <VOLNAME> [nfs|shd|<BRICK>|quotad]]"
+        { "volume status [all | <VOLNAME> [nfs|shd|<BRICK>|quotad|tierd]]"
           " [detail|clients|mem|inode|fd|callpool|tasks]",
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},

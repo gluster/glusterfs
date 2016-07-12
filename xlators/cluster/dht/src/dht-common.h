@@ -331,6 +331,12 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
         GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
         GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
+        GF_DEFRAG_CMD_DETACH_STATUS = 1 + 11,
+        GF_DEFRAG_CMD_DETACH_START = 1 + 12,
+        GF_DEFRAG_CMD_DETACH_STOP = 1 + 13,
+        /* new labels are used so it will help
+         * while removing old labels by easily differentiating
+         */
 };
 typedef enum gf_defrag_type gf_defrag_type;
 

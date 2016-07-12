@@ -40,7 +40,7 @@ EXPECT "Tier command failed" $CLI_1 volume tier $V0 detach status
 
 TEST $CLI_1 volume tier $V0 detach start
 
-TEST $CLI_1 volume tier $V0 detach status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status
 
 #kill a node
 TEST kill_node 2
@@ -55,7 +55,7 @@ TEST $glusterd_2;
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 
-TEST $CLI_1 volume tier $V0 detach status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status
 
 TEST $CLI_1 volume tier $V0 detach stop
 

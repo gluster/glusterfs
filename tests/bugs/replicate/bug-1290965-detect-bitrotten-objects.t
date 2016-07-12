@@ -44,7 +44,7 @@ stat $M0/FILE
 # Remove hot-tier
 TEST $CLI volume tier $V0  detach start
 sleep 1
-EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" detach_tier_status_field $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" detach_tier_status_field_complete $V0
 TEST $CLI volume tier $V0  detach commit
 #Test that file has migrated to cold tier.
 EXPECT "1024" stat -c "%s" $B0/brick0/FILE

@@ -61,6 +61,8 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION "client-op-version"
 #define GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION    "quota-version"
 
+#define GLUSTERD_STORE_KEY_VOL_TIER_STATUS      "tier_status"
+#define GLUSTERD_STORE_KEY_TIER_DETACH_OP       "tier_op"
 #define GLUSTERD_STORE_KEY_COLD_TYPE            "cold_type"
 #define GLUSTERD_STORE_KEY_COLD_COUNT           "cold_count"
 #define GLUSTERD_STORE_KEY_COLD_REPLICA_COUNT   "cold_replica_count"
@@ -109,6 +111,13 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES  "failures"
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED   "skipped"
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME  "run-time"
+
+#define GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES           "migrated-files"
+#define GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE            "migration-size"
+#define GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED       "migration-scanned"
+#define GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES      "migration-failures"
+#define GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED       "migration-skipped"
+#define GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME       "migration-run-time"
 
 int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);

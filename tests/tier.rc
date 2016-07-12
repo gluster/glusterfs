@@ -39,7 +39,7 @@ function check_counters {
     ret=0
     rm -f /tmp/tc*.txt
     echo "0" > /tmp/tc2.txt
-    $CLI volume rebalance $V0 tier status | grep localhost > /tmp/tc.txt
+    $CLI volume tier $V0 status | grep localhost > /tmp/tc.txt
 
     promote=`cat /tmp/tc.txt |awk '{print $2}'`
     demote=`cat /tmp/tc.txt |awk '{print $3}'`
@@ -121,17 +121,16 @@ function sleep_until_mid_cycle {
 }
 
 function tier_daemon_check () {
-    pgrep -f "rebalance/$V0"
+    pgrep -f "tierd/$V0"
     echo "$?"
 }
 
 function rebalance_run_time () {
-    local time=$($CLI volume rebalance $1  status | awk '{print $9}' | sed -n 3p);
+    local time=$($CLI volume tier $1 status | awk '{print $6}' | sed -n 3p);
     local hh=$(echo $time | cut -d ':' -f1);
     local mm=$(echo $time | cut -d ':' -f2);
     local ss=$(echo $time | cut -d ':' -f3);
     local total=$(($hh * 3600 + $mm * 60 + $ss));
-
     echo $total;
 }
 
@@ -144,6 +143,13 @@ function tier_detach_status_node_down () {
 }
 
 function tier_status_node_down () {
-	$CLI_1 volume tier $V0 status | grep "WARNING" | wc -l
+        $CLI_1 volume tier $V0 status | grep "WARNING" | wc -l
 }
 
+function tier_detach_status () {
+        $CLI_1 volume tier $V0 detach status | grep "success" | wc -l
+}
+
+function wait_for_tier_start () {
+        sleep 5
+}

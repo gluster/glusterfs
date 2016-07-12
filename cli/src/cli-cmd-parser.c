@@ -1883,6 +1883,8 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
                         command = GF_DEFRAG_CMD_STATUS_TIER;
                 else if (!strcmp(words[3], "start"))
                         command = GF_DEFRAG_CMD_START_TIER;
+                else if (!strcmp(words[3], "stop"))
+                        command = GF_DEFRAG_CMD_STOP_TIER;
                 else {
                         ret = -1;
                         goto out;
@@ -1948,17 +1950,17 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         ret = -1;
 
         if (!strcmp(word, "start")) {
-                command = GF_OP_CMD_DETACH_START;
+                command = GF_DEFRAG_CMD_DETACH_START;
         } else if (!strcmp(word, "commit")) {
                 *question = 1;
-                command = GF_OP_CMD_DETACH_COMMIT;
+                command = GF_DEFRAG_CMD_DETACH_COMMIT;
         } else if (!strcmp(word, "force")) {
                 *question = 1;
-                command = GF_OP_CMD_DETACH_COMMIT_FORCE;
+                command = GF_DEFRAG_CMD_DETACH_COMMIT_FORCE;
         } else if (!strcmp(word, "stop"))
-                command = GF_OP_CMD_STOP_DETACH_TIER;
+                command = GF_DEFRAG_CMD_DETACH_STOP;
         else if (!strcmp(word, "status"))
-                command = GF_OP_CMD_STATUS;
+                command = GF_DEFRAG_CMD_DETACH_STATUS;
         else
                 goto out;
 
@@ -3386,6 +3388,8 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                         cmd |= GF_CLI_STATUS_QUOTAD;
                                 } else if (!strcmp (words[3], "snapd")) {
                                         cmd |= GF_CLI_STATUS_SNAPD;
+                                } else if (!strcmp (words[3], "tierd")) {
+                                        cmd |= GF_CLI_STATUS_TIERD;
                                 } else if (!strcmp (words[3], "bitd")) {
                                         cmd |= GF_CLI_STATUS_BITD;
                                 } else if (!strcmp (words[3], "scrub")) {
@@ -3467,6 +3471,17 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                 goto out;
                         }
                         cmd |= GF_CLI_STATUS_SNAPD;
+                } else if  (!strcmp (words[3], "tierd")) {
+                        if (cmd == GF_CLI_STATUS_FD ||
+                            cmd == GF_CLI_STATUS_CLIENTS ||
+                            cmd == GF_CLI_STATUS_DETAIL ||
+                            cmd == GF_CLI_STATUS_INODE) {
+                                cli_err ("Detail/FD/Clients/Inode status not "
+                                         "available for tier daemon");
+                                ret = -1;
+                                goto out;
+                        }
+                        cmd |= GF_CLI_STATUS_TIERD;
                 } else {
                         if (cmd == GF_CLI_STATUS_TASKS) {
                                 cli_err ("Tasks status not available for "

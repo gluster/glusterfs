@@ -79,6 +79,10 @@ int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
                                          struct cds_list_head *selected);
 
+int
+glusterd_bricks_select_tier_volume (dict_t *dict, char **op_errstr,
+                                         struct cds_list_head *selected);
+
 
 int32_t
 glusterd_txn_opinfo_dict_init ()
@@ -593,6 +597,8 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         }
                 break;
         case GD_OP_REBALANCE:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_TIER_STATUS:
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 brick_req = GF_CALLOC (1, sizeof (*brick_req),
                                        gf_gld_mt_mop_brick_req_t);
@@ -1662,6 +1668,16 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if ((cmd & GF_CLI_STATUS_TIERD) &&
+            (priv->op_version < GD_OP_VERSION_3_10_0)) {
+                snprintf (msg, sizeof (msg), "The cluster is operating at "
+                          "version less than %d. Getting the "
+                          "status of tierd is not allowed in this state.",
+                          GD_OP_VERSION_3_10_0);
+                ret = -1;
+                goto out;
+        }
+
         if ((cmd & GF_CLI_STATUS_SNAPD) &&
             (priv->op_version < GD_OP_VERSION_3_6_0)) {
                 snprintf (msg, sizeof (msg), "The cluster is operating at "
@@ -1741,6 +1757,13 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         ret = -1;
                         snprintf (msg, sizeof (msg), "Volume %s does not have "
                                   "bitrot enabled", volname);
+                        goto out;
+                }
+        } else if ((cmd & GF_CLI_STATUS_TIERD) != 0) {
+                if (!glusterd_is_tierd_enabled (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s does not have "
+                                  "tierd enabled.", volname);
                         goto out;
                 }
         } else if ((cmd & GF_CLI_STATUS_SCRUB) != 0) {
@@ -1994,6 +2017,12 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         if (!volinfo->is_snap_volume) {
                 svc = &(volinfo->snapd.svc);
                 ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                svc = &(volinfo->tierd.svc);
+                ret = svc->reconfigure (volinfo);
                 if (ret)
                         goto out;
         }
@@ -2780,6 +2809,12 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         if (ret)
                                 goto out;
                 }
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        svc = &(volinfo->tierd.svc);
+                        ret = svc->reconfigure (volinfo);
+                        if (ret)
+                                goto out;
+                }
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2813,6 +2848,13 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                                 svc = &(volinfo->snapd.svc);
                                 ret = svc->manager (svc, volinfo,
                                                     PROC_START_NO_WAIT);
+                                if (ret)
+                                        goto out;
+                        }
+
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                svc = &(volinfo->tierd.svc);
+                                ret = svc->reconfigure (volinfo);
                                 if (ret)
                                         goto out;
                         }
@@ -3144,7 +3186,7 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         GF_ASSERT (this);
 
         switch (op) {
-        case GD_OP_DETACH_TIER:
+        case GD_OP_REMOVE_TIER_BRICK:
         case GD_OP_REMOVE_BRICK:
                 snprintf (key, sizeof (key), "task%d", index);
                 ret = _add_remove_bricks_to_dict (dict, volinfo, key);
@@ -3213,20 +3255,26 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
         int        ret   = -1;
         int        tasks = 0;
         xlator_t  *this  = NULL;
+        glusterd_conf_t    *conf    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        conf = this->private;
 
         if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        if (conf->op_version > GD_OP_VERSION_3_10_0)
+                                goto done;
                         if (volinfo->rebal.op == GD_OP_REMOVE_BRICK)
-                                ret = _add_task_to_dict (rsp_dict, volinfo,
-                                                         GD_OP_DETACH_TIER,
-                                                         tasks);
+                                ret = _add_task_to_dict (rsp_dict,
+                                                volinfo,
+                                                GD_OP_REMOVE_TIER_BRICK,
+                                                tasks);
                         else if (volinfo->rebal.op == GD_OP_REBALANCE)
-                                ret = _add_task_to_dict (rsp_dict, volinfo,
-                                                         GD_OP_TIER_MIGRATE,
-                                                         tasks);
+                                ret = _add_task_to_dict (rsp_dict,
+                                                volinfo,
+                                                GD_OP_TIER_MIGRATE,
+                                                tasks);
                 } else
                 ret = _add_task_to_dict (rsp_dict, volinfo,
                                          volinfo->rebal.op, tasks);
@@ -3239,7 +3287,7 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
                 }
                 tasks++;
         }
-
+done:
         ret = dict_set_int32 (rsp_dict, "tasks", tasks);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3358,6 +3406,13 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 other_count++;
                 node_count++;
+        } else if ((cmd & GF_CLI_STATUS_TIERD) != 0) {
+                ret = glusterd_add_tierd_to_dict (volinfo, rsp_dict,
+                                                 other_index);
+                if (ret)
+                        goto out;
+                other_count++;
+                node_count++;
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
                 ret = glusterd_add_snapd_to_dict (volinfo, rsp_dict,
                                                   other_index);
@@ -3415,6 +3470,17 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         other_index = brick_index + 1;
                         if (glusterd_is_snapd_enabled (volinfo)) {
                                 ret = glusterd_add_snapd_to_dict (volinfo,
+                                                                  rsp_dict,
+                                                                  other_index);
+                                if (ret)
+                                        goto out;
+                                other_count++;
+                                other_index++;
+                                node_count++;
+                        }
+
+                        if (glusterd_is_tierd_enabled (volinfo)) {
+                                ret = glusterd_add_tierd_to_dict (volinfo,
                                                                   rsp_dict,
                                                                   other_index);
                                 if (ret)
@@ -4181,6 +4247,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                         break;
 
                 case GD_OP_REMOVE_BRICK:
+                case GD_OP_DETACH_TIER_STATUS:
+                case GD_OP_REMOVE_TIER_BRICK:
                         {
                                 dict_t *dict = ctx;
                                 ret = dict_get_str (dict, "volname", &volname);
@@ -4240,6 +4308,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                 case GD_OP_BARRIER:
                 case GD_OP_BITROT:
+                case GD_OP_TIER_START_STOP:
+                case GD_OP_TIER_STATUS:
                 case GD_OP_SCRUB_STATUS:
                 case GD_OP_SCRUB_ONDEMAND:
                 case GD_OP_RESET_BRICK:
@@ -4840,6 +4910,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
          * same
          */
         case GD_OP_DEFRAG_BRICK_VOLUME:
+        case GD_OP_TIER_STATUS:
+        case GD_OP_REMOVE_TIER_BRICK:
+        case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_SCRUB_STATUS:
         case GD_OP_SCRUB_ONDEMAND:
                 ret = dict_get_int32 (op_ctx, "count", &count);
@@ -5557,6 +5630,8 @@ glusterd_need_brick_op (glusterd_op_t op)
         switch (op) {
         case GD_OP_PROFILE_VOLUME:
         case GD_OP_STATUS_VOLUME:
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_HEAL_VOLUME:
         case GD_OP_SCRUB_STATUS:
@@ -6069,8 +6144,9 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        if (command == GF_OP_CMD_DETACH_START)
-                return glusterd_bricks_select_rebalance_volume(dict, op_errstr, selected);
+        if (command == GF_DEFRAG_CMD_DETACH_START)
+                return glusterd_bricks_select_tier_volume(dict, op_errstr,
+                                                          selected);
 
         ret = dict_get_int32 (dict, "force", &force);
         if (ret) {
@@ -6825,6 +6901,67 @@ out:
 }
 
 int
+glusterd_bricks_select_tier_volume (dict_t *dict, char **op_errstr,
+                                    struct cds_list_head *selected)
+{
+        int                                     ret = -1;
+        char                                    *volname = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        xlator_t                                *this = NULL;
+        char                                    msg[2048] = {0,};
+        glusterd_pending_node_t                 *pending_node = NULL;
+        glusterd_brickinfo_t                    *brick  = NULL;
+        gf_boolean_t                            retval  = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume name get failed");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+
+                *op_errstr = gf_strdup (msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
+                goto out;
+        }
+                /*check if this node needs tierd*/
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                if (gf_uuid_compare (MY_UUID, brick->uuid) == 0) {
+                        retval = _gf_true;
+                        break;
+                }
+        }
+
+        if (!retval)
+                goto out;
+
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        } else {
+                pending_node->node = volinfo;
+                pending_node->type = GD_NODE_TIERD;
+                cds_list_add_tail (&pending_node->list, selected);
+                pending_node = NULL;
+        }
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
                                          struct cds_list_head *selected)
 {
@@ -6913,6 +7050,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         case GF_CLI_STATUS_SHD:
         case GF_CLI_STATUS_QUOTAD:
         case GF_CLI_STATUS_SNAPD:
+        case GF_CLI_STATUS_TIERD:
         case GF_CLI_STATUS_BITD:
         case GF_CLI_STATUS_SCRUB:
                 break;
@@ -7057,6 +7195,30 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 }
                 pending_node->node = &(priv->scrub_svc);
                 pending_node->type = GD_NODE_SCRUB;
+                pending_node->index = 0;
+                cds_list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        } else if ((cmd & GF_CLI_STATUS_TIERD) != 0) {
+                if (!volinfo->tierd.svc.online) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TIERD_NOT_RUNNING, "tierd is not "
+                                "running");
+                        ret = -1;
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "failed to allocate "
+                                "memory for pending node");
+                        ret = -1;
+                        goto out;
+                }
+
+                pending_node->node = (void *)(&volinfo->tierd);
+                pending_node->type = GD_NODE_TIERD;
                 pending_node->index = 0;
                 cds_list_add_tail (&pending_node->list, selected);
 
@@ -7384,7 +7546,12 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 ret = glusterd_bricks_select_status_volume (dict, op_errstr,
                                                             selected);
                 break;
+        case GD_OP_TIER_STATUS:
+                ret = glusterd_bricks_select_tier_volume (dict, op_errstr,
+                                                          selected);
+                break;
 
+        case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 ret = glusterd_bricks_select_rebalance_volume (dict, op_errstr,
                                                                selected);
@@ -7971,11 +8138,13 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_PROFILE_VOLUME:
                 case GD_OP_STATUS_VOLUME:
                 case GD_OP_REBALANCE:
+                case GD_OP_TIER_START_STOP:
                 case GD_OP_HEAL_VOLUME:
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                 case GD_OP_MAX_OPVERSION:
+                case GD_OP_TIER_STATUS:
                         dict_unref (ctx);
                         break;
                 default:

@@ -2146,7 +2146,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_NEVER_RESET,
           .op_version  = 1
         },
-
         { .key         = VKEY_FEATURES_BITROT,
           .voltype     = "features/bit-rot",
           .option      = "bitrot",

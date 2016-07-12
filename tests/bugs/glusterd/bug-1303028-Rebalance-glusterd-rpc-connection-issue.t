@@ -40,7 +40,7 @@ TEST $CLI volume status
 #Create and start a tiered volume
 create_dist_tier_vol
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_daemon_check
-sleep 2   #wait for some time to run tier daemon
+sleep 5   #wait for some time to run tier daemon
 time_before_restarting=$(rebalance_run_time $V0);
 
 #checking for elapsed time after sleeping for two seconds.

@@ -53,8 +53,8 @@ function fix-layout_status_field {
         $CLI volume rebalance $1 status | awk '{print $2,$3,$4}' |sed -n 3p |tr -d '[^0-9+\.]'|sed 's/ *$//g'
 }
 
-function detach_tier_status_field {
-        $CLI volume tier  $1 detach status | awk '{print $7,$8,$9}' |sed -n 3p |tr -d '[^0-9+\.]'|sed 's/ *$//g'
+function detach_tier_status_field_complete {
+        $CLI volume tier  $1 detach status | awk '{print $7}' |sed -n 4p
 }
 
 function remove_brick_status_completed_field {
