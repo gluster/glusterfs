@@ -21,9 +21,10 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-snapd-svc-helper.h"
+#include "glusterd-tierd-svc-helper.h"
+#include "glusterd-volgen.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-messages.h"
-
 #include "glusterfs3.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
@@ -219,6 +220,28 @@ build_volfile_path (char *volume_id, char *path,
                         goto out;
                 }
                 glusterd_svc_build_snapd_volfile (volinfo, path, path_len);
+                ret = 0;
+                goto out;
+
+        }
+
+        volid_ptr = strstr (volume_id, "tierd/");
+        if (volid_ptr) {
+                volid_ptr = strchr (volid_ptr, '/');
+                if (!volid_ptr) {
+                        ret = -1;
+                        goto out;
+                }
+                volid_ptr++;
+
+                ret = glusterd_volinfo_find (volid_ptr, &volinfo);
+                if (ret == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL,
+                                "Couldn't find volinfo");
+                        goto out;
+                }
+                glusterd_svc_build_tierd_volfile_path (volinfo, path, path_len);
                 ret = 0;
                 goto out;
 

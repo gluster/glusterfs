@@ -1058,18 +1058,25 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
         volname_ptr = strstr (volname, "rebalance/");
         if (volname_ptr) {
                 volname_ptr = strchr (volname_ptr, '/');
-                if (!volname_ptr) {
+                volname = volname_ptr + 1;
+        } else {
+                volname_ptr = strstr (volname, "tierd/");
+                if (volname_ptr) {
+                        volname_ptr = strchr (volname_ptr, '/');
+                        if (!volname_ptr) {
+                                ret = -1;
+                                goto out;
+                        }
+                        volname = volname_ptr + 1;
+                } else {
+
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
+                                "volname recieved (%s) is not prefixed with "
+                                "rebalance or tierd.", volname);
                         ret = -1;
                         goto out;
                 }
-                volname = volname_ptr + 1;
-        } else {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
-                        "volname received (%s) is not prefixed with rebalance.",
-                        volname);
-                ret = -1;
-                goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -1081,7 +1088,7 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
                 return ret;
         }
 
-        ret = glusterd_defrag_volume_status_update (volinfo, dict);
+        ret = glusterd_defrag_volume_status_update (volinfo, dict, 0);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,

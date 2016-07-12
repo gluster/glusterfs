@@ -1034,6 +1034,12 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                                            buf);
                 if (ret)
                         goto out;
+
+                snprintf (buf, sizeof (buf), "%d", volinfo->is_tier_enabled);
+                ret = gf_store_save_value (fd, GF_TIER_ENABLED, buf);
+                if (ret)
+                        goto out;
+
         }
 
         ret = glusterd_volume_write_tier_details (fd, volinfo);
@@ -1358,6 +1364,91 @@ _gd_store_rebalance_dict (dict_t *dict, char *key, data_t *value, void *data)
 }
 
 int32_t
+glusterd_store_state_tier_write (int fd, glusterd_volinfo_t *volinfo)
+{
+        int     ret             = -1;
+        char    buf[PATH_MAX]   = {0, };
+
+        GF_VALIDATE_OR_GOTO (THIS->name, (fd > 0), out);
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+
+        /*tier counter values are stored here. so that after restart
+         * of glusterd tier resumes at the state is was brought down
+         */
+
+        if (volinfo->tier.defrag_cmd == GF_DEFRAG_CMD_STATUS) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier.defrag_status);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_TIER_STATUS,
+                                   buf);
+        if (ret)
+                goto out;
+
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier.op);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_TIER_DETACH_OP, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->tier.rebalance_files);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->tier.rebalance_data);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->tier.lookedup_files);
+        ret = gf_store_save_value (fd,
+                                   GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64,
+                        volinfo->tier.rebalance_failures);
+        ret = gf_store_save_value (fd,
+                                   GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->tier.skipped_files);
+        ret = gf_store_save_value (fd,
+                                   GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%f", volinfo->tier.rebalance_time);
+        ret = gf_store_save_value (fd,
+                                   GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME,
+                                   buf);
+        if (ret)
+                goto out;
+
+        gf_uuid_unparse (volinfo->tier.rebalance_id, buf);
+        ret = gf_store_save_value (fd, GF_TIER_TID_KEY, buf);
+        if (ret)
+                goto out;
+
+        if (volinfo->tier.dict) {
+                dict_foreach (volinfo->tier.dict, _gd_store_rebalance_dict,
+                              &fd);
+        }
+out:
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
 {
         int     ret             = -1;
@@ -1453,6 +1544,12 @@ glusterd_store_perform_node_state_store (glusterd_volinfo_t *volinfo)
         ret = glusterd_store_node_state_write (fd, volinfo);
         if (ret)
                 goto out;
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = glusterd_store_state_tier_write (fd, volinfo);
+                if (ret)
+                        goto out;
+        }
 
         ret = gf_store_rename_tmppath (volinfo->node_state_shandle);
         if (ret)
@@ -2559,6 +2656,41 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME,
                            strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME))) {
                                 volinfo->rebal.rebalance_time = atoi (value);
+
+                /* if none of the above keys match then its related to tier
+                 * so we get the values and store it on volinfo->tier
+                 */
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TIER_STATUS,
+                           strlen (GLUSTERD_STORE_KEY_VOL_TIER_STATUS))) {
+                                volinfo->tier.defrag_status = atoi (value);
+                } else if (!strncmp (key, GF_TIER_TID_KEY,
+                                     strlen (GF_TIER_TID_KEY))) {
+                        gf_uuid_parse (value, volinfo->tier.rebalance_id);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_TIER_DETACH_OP,
+                           strlen (GLUSTERD_STORE_KEY_TIER_DETACH_OP))) {
+                        volinfo->tier.op = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES))) {
+                        volinfo->tier.rebalance_files = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE))) {
+                                volinfo->tier.rebalance_data = atoi (value);
+                } else if (!strncmp (key,
+                           GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED))) {
+                        volinfo->tier.lookedup_files = atoi (value);
+                } else if (!strncmp (key,
+                           GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES))) {
+                        volinfo->tier.rebalance_failures = atoi (value);
+                } else if (!strncmp (key,
+                           GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED))) {
+                                volinfo->tier.skipped_files = atoi (value);
+                } else if (!strncmp (key,
+                           GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME,
+                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME))) {
+                                volinfo->tier.rebalance_time = atoi (value);
                 } else {
                         if (!tmp_dict) {
                                 tmp_dict = dict_new ();
@@ -2593,8 +2725,12 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
 
                 ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
         }
-        if (tmp_dict)
-                volinfo->rebal.dict = dict_ref (tmp_dict);
+        if (tmp_dict) {
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                        volinfo->tier.dict = dict_ref (tmp_dict);
+                else
+                        volinfo->rebal.dict = dict_ref (tmp_dict);
+        }
 
         if (op_errno != GD_STORE_EOF) {
                 ret = -1;
@@ -2609,8 +2745,12 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
 out:
         if (dup_value)
                 GF_FREE (dup_value);
-        if (ret && volinfo->rebal.dict)
-                dict_unref (volinfo->rebal.dict);
+        if (ret) {
+                if (volinfo->rebal.dict)
+                        dict_unref (volinfo->rebal.dict);
+                else if (volinfo->tier.dict)
+                        dict_unref (volinfo->tier.dict);
+        }
         if (tmp_dict)
                 dict_unref (tmp_dict);
 
@@ -2757,6 +2897,9 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                 strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
                         strncpy (volinfo->parent_volname, value,
                                  sizeof(volinfo->parent_volname) - 1);
+                } else if (!strncmp (key, GF_TIER_ENABLED,
+                                     strlen (GF_TIER_ENABLED))) {
+                        volinfo->is_tier_enabled = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_COUNT,
                                      strlen (key))) {
                         volinfo->tier_info.cold_brick_count = atoi (value);

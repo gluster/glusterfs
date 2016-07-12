@@ -188,6 +188,18 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                         goto out;
                 }
                 break;
+        case GD_OP_TIER_START_STOP:
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_REMOVE_TIER_BRICK:
+                ret = glusterd_op_stage_tier (dict, op_errstr, rsp_dict);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_COMMAND_NOT_FOUND, "tier "
+                                "prevalidation failed");
+                        goto out;
+                }
+                break;
 
         case GD_OP_RESET_BRICK:
                ret = glusterd_reset_brick_prevalidate (dict, op_errstr,
@@ -256,6 +268,7 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
 {
         int32_t       ret = -1;
         xlator_t     *this = NULL;
+        int32_t       cmd  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -336,6 +349,49 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                         }
                         break;
                 }
+                case GD_OP_TIER_START_STOP:
+                {
+                        ret = glusterd_op_tier_start_stop (dict, op_errstr,
+                                                           rsp_dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "tier commit failed.");
+                                goto out;
+                        }
+                        break;
+                }
+                case GD_OP_REMOVE_TIER_BRICK:
+                {
+                        ret = glusterd_op_remove_tier_brick (dict, op_errstr,
+                                                       rsp_dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "tier detach commit failed.");
+                                goto out;
+                        }
+                        ret = dict_get_int32 (dict, "rebalance-command", &cmd);
+                        if (ret) {
+                                gf_msg_debug (this->name, 0, "cmd not found");
+                                goto out;
+                        }
+
+                        if (cmd != GF_DEFRAG_CMD_DETACH_STOP)
+                                break;
+                }
+                case GD_OP_DETACH_TIER_STATUS:
+                case GD_OP_TIER_STATUS:
+                {
+                        ret = glusterd_op_tier_status (dict, op_errstr,
+                                                       rsp_dict, op);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "tier status commit failed");
+                                goto out;
+                        }
+                }
 
                default:
                        break;
@@ -355,6 +411,7 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
         xlator_t                *this      = NULL;
         char                    *volname   = NULL;
         glusterd_volinfo_t      *volinfo   = NULL;
+        glusterd_svc_t          *svc       = NULL;
 
 
         this = THIS;
@@ -427,13 +484,11 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                         }
 
                         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                                if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                                        glusterd_defrag_info_set (volinfo, dict,
-                                                  GF_DEFRAG_CMD_START_TIER,
-                                                  GF_DEFRAG_CMD_START,
-                                                  GD_OP_REBALANCE);
-                                }
-                                glusterd_restart_rebalance_for_volume (volinfo);
+                                svc = &(volinfo->tierd.svc);
+                                ret = svc->manager (svc, volinfo,
+                                                    PROC_START_NO_WAIT);
+                                if (ret)
+                                        goto out;
                         }
                         break;
                }
@@ -717,6 +772,10 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                                 "response dictionaries.");
                         goto out;
                 }
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_TIER_START_STOP:
+        case GD_OP_REMOVE_TIER_BRICK:
                 break;
         case GD_OP_MAX_OPVERSION:
                 break;
@@ -1046,8 +1105,14 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                         dict_copy (dict, req_dict);
                 }
                         break;
+        case GD_OP_TIER_START_STOP:
+        case GD_OP_REMOVE_TIER_BRICK:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_TIER_STATUS:
+                        dict_copy (dict, req_dict);
+                        break;
         default:
-                break;
+                        break;
         }
 
         *req = req_dict;
@@ -1435,6 +1500,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
         glusterd_conf_t     *conf       = NULL;
+        int32_t              count      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1488,6 +1554,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 goto out;
         }
 
+
         dict_unref (rsp_dict);
         rsp_dict = NULL;
 
@@ -1504,8 +1571,25 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 if (peerinfo->generation > txn_generation)
                         continue;
 
-                if (!peerinfo->connected)
+                if (!peerinfo->connected) {
+                        if (op == GD_OP_TIER_STATUS || op ==
+                                        GD_OP_DETACH_TIER_STATUS) {
+                                ret = dict_get_int32 (args.dict, "count",
+                                                      &count);
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_GET_FAILED,
+                                                "failed to get index");
+                                count++;
+                                ret = dict_set_int32 (args.dict, "count",
+                                                      count);
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_GET_FAILED,
+                                                "failed to set index");
+                        }
                         continue;
+                }
                 if (op != GD_OP_SYNC_VOLUME &&
                     peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
@@ -1538,6 +1622,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         gf_msg_debug (this->name, 0, "Sent commit req for %s to %d "
                 "peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
+        glusterd_op_modify_op_ctx (op, op_ctx);
         return ret;
 }
 
@@ -1684,7 +1769,12 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
         }
 
         /* Copy the contents of dict like missed snaps info to req_dict */
-        dict_copy (dict, req_dict);
+        if (op != GD_OP_REMOVE_TIER_BRICK)
+                /* dict and req_dict has the same values during remove tier
+                 * brick (detach start) So this rewrite make the remove brick
+                 * id to become empty.
+                 * Avoiding to copy it retains the value. */
+                dict_copy (dict, req_dict);
 
         /* Post Validation on local node */
         ret = gd_mgmt_v3_post_validate_fn (op, op_ret, req_dict, op_errstr,

@@ -25,7 +25,13 @@
         GF_DEFRAG_CMD_STOP_DETACH_TIER,
         GF_DEFRAG_CMD_PAUSE_TIER,
         GF_DEFRAG_CMD_RESUME_TIER,
-        GF_DEFRAG_CMD_DETACH_STATUS
+        GF_DEFRAG_CMD_DETACH_STATUS,
+        GF_DEFRAG_CMD_STOP_TIER,
+        GF_DEFRAG_CMD_DETACH_START,
+        GF_DEFRAG_CMD_DETACH_COMMIT,
+        GF_DEFRAG_CMD_DETACH_COMMIT_FORCE,
+        GF_DEFRAG_CMD_DETACH_STOP,
+        GF_DEFRAG_CMD_TYPE_MAX
 };
 
  enum gf_defrag_status_t {
@@ -41,7 +47,7 @@
         GF_DEFRAG_STATUS_MAX
 };
 
- enum gf1_cluster_type {
+enum gf1_cluster_type {
         GF_CLUSTER_TYPE_NONE = 0,
         GF_CLUSTER_TYPE_STRIPE,
         GF_CLUSTER_TYPE_REPLICATE,
@@ -177,7 +183,8 @@ enum gf_cli_status_type {
         GF_CLI_STATUS_QUOTAD       = 0x002000,    /*00010000000000000*/
         GF_CLI_STATUS_SNAPD        = 0x004000,    /*00100000000000000*/
         GF_CLI_STATUS_BITD         = 0x008000,    /*01000000000000000*/
-        GF_CLI_STATUS_SCRUB        = 0x010000     /*10000000000000000*/
+        GF_CLI_STATUS_SCRUB        = 0x010000,    /*10000000000000000*/
+        GF_CLI_STATUS_TIERD        = 0x020000     /*100000000000000000*/
 };
 
 /* Identifiers for snapshot clis */

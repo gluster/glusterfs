@@ -28,6 +28,7 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-tierd-svc.h"
 #include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
 #include "protocol-common.h"
@@ -125,6 +126,11 @@ typedef enum glusterd_op_ {
         GD_OP_SCRUB_ONDEMAND,
         GD_OP_RESET_BRICK,
         GD_OP_MAX_OPVERSION,
+        GD_OP_TIER_START_STOP,
+        GD_OP_TIER_STATUS,
+        GD_OP_DETACH_TIER_STATUS,
+        GD_OP_DETACH_NOT_STARTED,
+        GD_OP_REMOVE_TIER_BRICK,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -300,7 +306,6 @@ struct glusterd_bitrot_scrub_ {
 
 typedef struct glusterd_bitrot_scrub_ glusterd_bitrot_scrub_t;
 
-
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;
         uint64_t                 rebalance_files;
@@ -354,6 +359,7 @@ struct glusterd_volinfo_ {
         glusterd_snap_t          *snapshot;
         uuid_t                    restored_from_snap;
         gd_tier_info_t            tier_info;
+        gf_boolean_t              is_tier_enabled;
         char                      parent_volname[GD_VOLUME_NAME_MAX];
                                          /* In case of a snap volume
                                             i.e (is_snap_volume == TRUE) this
@@ -410,6 +416,8 @@ struct glusterd_volinfo_ {
         /* Bitrot scrub status*/
         glusterd_bitrot_scrub_t   bitrot_scrub;
 
+        glusterd_rebalance_t      tier;
+
         int                       version;
         uint32_t                  quota_conf_version;
         uint32_t                  cksum;
@@ -438,6 +446,7 @@ struct glusterd_volinfo_ {
         gd_quorum_status_t        quorum_status;
 
         glusterd_snapdsvc_t       snapd;
+        glusterd_tierdsvc_t       tierd;
         int32_t                   quota_xattr_version;
 };
 
@@ -489,6 +498,7 @@ typedef enum gd_node_type_ {
         GD_NODE_SNAPD,
         GD_NODE_BITD,
         GD_NODE_SCRUB,
+        GD_NODE_TIERD
 } gd_node_type;
 
 typedef enum missed_snap_stat {
@@ -574,6 +584,17 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,     \
                           volinfo->volname);                               \
         }
+#define GLUSTERD_GET_TIER_DIR(path, volinfo, priv) do {                 \
+                snprintf (path, PATH_MAX, "%s/tier/%s", priv->workdir,  \
+                          volinfo->volname);                            \
+        } while (0)
+
+#define GLUSTERD_GET_TIER_PID_FILE(path, volinfo, priv) do {            \
+                char tier_path[PATH_MAX];                               \
+                GLUSTERD_GET_TIER_DIR(tier_path, volinfo, priv);        \
+                snprintf (path, PATH_MAX, "%s/run/%s-tierd.pid", tier_path,\
+                          volinfo->volname);                            \
+        } while (0)
 
 #define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                           \
                 snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,   \
@@ -895,6 +916,9 @@ int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
 
 int
+glusterd_handle_tier (rpcsvc_request_t *req);
+
+int
 glusterd_handle_attach_tier (rpcsvc_request_t *req);
 
 int
@@ -911,6 +935,15 @@ glusterd_handle_log_rotate (rpcsvc_request_t *req);
 
 int
 glusterd_handle_sync_volume (rpcsvc_request_t *req);
+
+int
+glusterd_defrag_start_validate (glusterd_volinfo_t *volinfo, char *op_errstr,
+                                size_t len, glusterd_op_t op);
+
+int
+glusterd_rebalance_cmd_validate (int cmd, char *volname,
+                                 glusterd_volinfo_t **volinfo,
+                                 char *op_errstr, size_t len);
 
 int32_t
 glusterd_log_filename (rpcsvc_request_t *req, dict_t *dict);
@@ -1207,7 +1240,16 @@ glusterd_should_i_stop_bitd ();
 int
 glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                                    gf_defrag_status_t status);
+/* tier */
 
 int
 __glusterd_handle_reset_brick (rpcsvc_request_t *req);
+int glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+int glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr,
+                dict_t *rsp_dict);
+int glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr,
+                                   dict_t *rsp_dict);
+int
+glusterd_tier_prevalidate (dict_t *dict, char **op_errstr,
+                               dict_t *rsp_dict, uint32_t *op_errno);
 #endif

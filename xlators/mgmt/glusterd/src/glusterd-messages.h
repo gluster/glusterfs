@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       589
+#define GLFS_NUM_MESSAGES       595
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4760,6 +4760,61 @@
  *
  */
 #define GD_MSG_NFS_GANESHA_DISABLED                (GLUSTERD_COMP_BASE + 589)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_STOP_FAIL                      (GLUSTERD_COMP_BASE + 590)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_CREATE_FAIL                    (GLUSTERD_COMP_BASE + 591)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_START_FAIL                     (GLUSTERD_COMP_BASE + 592)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_OBJ_GET_FAIL                   (GLUSTERD_COMP_BASE + 593)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_NOT_RUNNING                     (GLUSTERD_COMP_BASE + 594)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TIERD_INIT_FAIL                       (GLUSTERD_COMP_BASE + 595)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

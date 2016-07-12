@@ -773,7 +773,7 @@ subvol_matcher_destroy (int *subvols)
         GF_FREE (subvols);
 }
 
-static int
+int
 glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
 {
         char key[256] = {0,};
@@ -1934,7 +1934,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                        dict_t *dict,
                                        glusterd_volinfo_t *volinfo,
@@ -1983,7 +1983,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                 goto out;
                         }
 
-                        if (cmd == GF_OP_CMD_DETACH_COMMIT) {
+                        if (cmd == GF_OP_CMD_DETACH_COMMIT ||
+                            cmd == GF_DEFRAG_CMD_DETACH_COMMIT) {
                                 snprintf (msg, sizeof (msg), "Bricks in Hot "
                                           "tier are not decommissioned yet. Use "
                                           "gluster volume tier <VOLNAME> "
@@ -1993,7 +1994,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                 goto out;
                         }
                 } else {
-                        if (cmd == GF_OP_CMD_DETACH_COMMIT &&
+                        if ((cmd == GF_OP_CMD_DETACH_COMMIT ||
+                            (cmd == GF_DEFRAG_CMD_DETACH_COMMIT)) &&
                             (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED)) {
                                         snprintf (msg, sizeof (msg), "Bricks in Hot "
                                                   "tier are not decommissioned yet. Wait for "
@@ -2007,7 +2009,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
 
                 if (glusterd_is_local_brick (THIS, volinfo, brickinfo)) {
                         if (((cmd == GF_OP_CMD_START) ||
-                            (cmd == GF_OP_CMD_DETACH_START))  &&
+                            (cmd == GF_OP_CMD_DETACH_START) ||
+                            (cmd == GF_DEFRAG_CMD_DETACH_START))  &&
                             brickinfo->status != GF_BRICK_STARTED) {
                                 snprintf (msg, sizeof (msg), "Found stopped "
                                           "brick %s", brick);
@@ -2529,7 +2532,7 @@ out:
         return ret;
 }
 
-static void
+void
 glusterd_op_perform_detach_tier (glusterd_volinfo_t *volinfo)
 {
         volinfo->type             = volinfo->tier_info.cold_type;

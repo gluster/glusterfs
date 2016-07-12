@@ -24,7 +24,7 @@ function tier_status () {
 }
 
 function tier_deamon_kill () {
-pkill -f "rebalance/$V0"
+pkill -f "tierd/$V0"
 echo "$?"
 }
 
@@ -40,6 +40,8 @@ EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 #Create and start a tiered volume
 create_dist_tier_vol
 
+wait_for_tier_start
+
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_daemon_check
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" tier_status
@@ -48,6 +50,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_deamon_kill
 
 TEST $CLI_1 volume tier $V0 start
 
+wait_for_tier_start
+
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" tier_status
@@ -55,6 +59,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" tier_status
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_kill
 
 TEST $CLI_3 volume tier $V0 start force
+
+wait_for_tier_start
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check
 
@@ -78,6 +84,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" tier_status
 TEST $CLI_3 volume stop $V0
 
 TEST $CLI_3 volume start $V0
+
+wait_for_tier_start
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" tier_status
 

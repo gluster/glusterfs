@@ -23,6 +23,10 @@ function read_all {
     done
 }
 
+function tier_status () {
+        $CLI volume tier $V0 status | grep "success" | wc -l
+}
+
 cleanup
 
 TEST glusterd
@@ -47,7 +51,6 @@ wait
 
 # Attach tier
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
-TEST $CLI volume rebalance $V0 tier status
 
 TEST $CLI volume set $V0 cluster.tier-mode test
 TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
@@ -56,7 +59,9 @@ TEST $CLI volume set $V0 cluster.read-freq-threshold 0
 TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 
 # wait a little for lookup heal to finish
-sleep 10
+wait_for_tier_start
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_status
 
 # make sure fix layout completed
 CPATH=$B0/${V0}0

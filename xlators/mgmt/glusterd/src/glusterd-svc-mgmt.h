@@ -23,6 +23,7 @@ typedef int (*glusterd_svc_manager_t) (glusterd_svc_t *svc,
                                        void *data, int flags);
 typedef int (*glusterd_svc_start_t) (glusterd_svc_t *svc, int flags);
 typedef int (*glusterd_svc_stop_t) (glusterd_svc_t *svc, int sig);
+typedef int (*glusterd_svc_reconfigure_t) (void *data);
 
 struct glusterd_svc_ {
         char                      name[PATH_MAX];
@@ -34,6 +35,7 @@ struct glusterd_svc_ {
         glusterd_svc_stop_t       stop;
         gf_boolean_t              online;
         gf_boolean_t              inited;
+        glusterd_svc_reconfigure_t    reconfigure;
 };
 
 int

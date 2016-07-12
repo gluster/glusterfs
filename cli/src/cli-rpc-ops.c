@@ -1789,6 +1789,10 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
         gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
         char               *status_str  = NULL;
         gf_boolean_t       down         = _gf_false;
+        double             elapsed      = 0;
+        int                hrs          = 0;
+        int                min          = 0;
+        int                sec          = 0;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1796,10 +1800,10 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 goto out;
         }
 
-        cli_out ("%-20s %-20s %-20s %-20s", "Node", "Promoted files",
-                 "Demoted files", "Status");
-        cli_out ("%-20s %-20s %-20s %-20s", "---------", "---------",
-                 "---------", "---------");
+        cli_out ("%-20s %-20s %-20s %-20s %-20s", "Node", "Promoted files",
+                 "Demoted files", "Status", "run time in h:m:s");
+        cli_out ("%-20s %-20s %-20s %-20s %-20s", "---------", "---------",
+                 "---------", "---------", "---------");
 
         for (i = 1; i <= count; i++) {
                 /* Reset the variables to prevent carryover of values */
@@ -1849,13 +1853,24 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get demoted count");
 
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", i);
+                ret = dict_get_double (dict, key, &elapsed);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
+
                 /* Check for array bound */
                 if (status_rcd >= GF_DEFRAG_STATUS_MAX)
                         status_rcd = GF_DEFRAG_STATUS_MAX;
 
+                hrs = elapsed / 3600;
+                min = ((int) elapsed % 3600) / 60;
+                sec = ((int) elapsed % 3600) % 60;
+
                 status_str = cli_vol_task_status_str[status_rcd];
-                cli_out ("%-20s %-20"PRIu64" %-20"PRIu64" %-20s",
-                         node_name, promoted, demoted, status_str);
+                cli_out ("%-20s %-20"PRIu64" %-20"PRIu64" %-20s"
+                         " %d:%d:%d", node_name, promoted, demoted,
+                         status_str, hrs, min, sec);
         }
         if (down)
                 cli_out ("WARNING: glusterd might be down on one or more nodes."
@@ -1933,7 +1948,6 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
               (cmd == GF_DEFRAG_CMD_STATUS) ||
               (cmd == GF_DEFRAG_CMD_STATUS_TIER)) &&
              !(global_state->mode & GLUSTER_MODE_XML)) {
-                /* All other possibilites are about starting a rebalance */
                 ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
@@ -1944,22 +1958,21 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                  * event though rebalance command was successful
                                  */
                                  if (cmd == GF_DEFRAG_CMD_START_TIER) {
-                                         snprintf (msg, sizeof (msg),
-                                                  "Attach tier is successful "
-                                                  "on %s. use tier status to "
-                                                  "check the status.\nID: %s"
-                                                  "\n%s",
-                                                  volname, task_id_str,
-                                                  rsp.op_errstr);
+                                         snprintf (msg, sizeof (msg), "Tier "
+                                                  "start is successful on %s.",
+                                                  volname);
+                                 } else if (cmd == GF_DEFRAG_CMD_STOP_TIER) {
+                                         snprintf (msg, sizeof (msg), "Tier "
+                                                  "daemon stopped "
+                                                  "on %s.", volname);
                                  } else {
                                          snprintf (msg, sizeof (msg),
                                                   "Rebalance on %s has been "
                                                   "started successfully. Use "
                                                   "rebalance status command to"
                                                   " check status of the "
-                                                  "rebalance process.\nID: %s\n%s",
-                                                  volname, task_id_str,
-                                                  rsp.op_errstr);
+                                                  "rebalance process.\nID: %s",
+                                                  volname, task_id_str);
                                  }
                          } else {
                                 snprintf (msg, sizeof (msg),
@@ -2408,19 +2421,19 @@ out:
 }
 
 int
-gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
+gf_cli_remove_tier_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
 
         gf_cli_rsp                      rsp   = {0,};
         int                             ret   = -1;
         char                            msg[1024] = {0,};
-        gf1_op_commands                 cmd = GF_OP_CMD_NONE;
         char                           *cmd_str = "unknown";
         cli_local_t                    *local = NULL;
         call_frame_t                   *frame = NULL;
         char                           *task_id_str = NULL;
         dict_t                         *rsp_dict = NULL;
+        int32_t                         command = 0;
 
         GF_ASSERT (myframe);
 
@@ -2441,11 +2454,12 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = dict_get_int32 (local->dict, "command", (int32_t *)&cmd);
+        ret = dict_get_int32 (local->dict, "command", &command);
         if (ret) {
                  gf_log ("", GF_LOG_ERROR, "failed to get command");
                  goto out;
         }
+
 
         if (rsp.dict.dict_len) {
                 rsp_dict = dict_new ();
@@ -2463,8 +2477,8 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        switch (cmd) {
-        case GF_OP_CMD_DETACH_START:
+        switch (command) {
+        case GF_DEFRAG_CMD_DETACH_START:
                 cmd_str = "start";
 
                 ret = dict_get_str (rsp_dict, GF_REMOVE_BRICK_TID_KEY,
@@ -2474,12 +2488,19 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                                 "remove-brick-id is not present in dict");
                 }
                 break;
-        case GF_OP_CMD_DETACH_COMMIT:
+        case GF_DEFRAG_CMD_DETACH_COMMIT:
                 cmd_str = "commit";
                 break;
-        case GF_OP_CMD_DETACH_COMMIT_FORCE:
+        case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
                 cmd_str = "commit force";
                 break;
+        case GF_DEFRAG_CMD_DETACH_STOP:
+                cmd_str = "stop";
+                break;
+        case GF_DEFRAG_CMD_DETACH_STATUS:
+                cmd_str = "status";
+                break;
+
         default:
                 cmd_str = "unknown";
                 break;
@@ -2493,6 +2514,30 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                 snprintf (msg, sizeof (msg), "Detach tier %s %s", cmd_str,
                           (rsp.op_ret) ? "unsuccessful" : "successful");
 
+        ret = rsp.op_ret;
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
+                                        "failed: %s", cmd_str, rsp.op_errstr);
+                else
+                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
+                                        "failed", cmd_str);
+
+                cli_err ("%s", msg);
+                goto out;
+
+        } else {
+                cli_out ("volume detach tier %s: success", cmd_str);
+                if (GF_DEFRAG_CMD_DETACH_START == command &&
+                    task_id_str != NULL)
+                        cli_out ("ID: %s", task_id_str);
+                if (GF_DEFRAG_CMD_DETACH_COMMIT == command)
+                        cli_out ("Check the detached bricks to ensure all files"
+                                 " are migrated.\nIf files with data are "
+                                 "found on the brick path, copy them via a "
+                                 "gluster mount point before re-purposing the "
+                                 "removed brick. ");
+        }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_remove_brick_detach_tier (
@@ -2506,21 +2551,24 @@ gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_ret) {
-                cli_err ("volume detach tier %s: failed: %s", cmd_str,
-                         msg);
-        } else {
-                cli_out ("volume detach tier %s: success", cmd_str);
-                if (GF_OP_CMD_DETACH_START == cmd && task_id_str != NULL)
-                        cli_out ("ID: %s", task_id_str);
-                if (GF_OP_CMD_DETACH_COMMIT == cmd)
-                        cli_out ("Check the detached bricks to ensure all files"
-                                 " are migrated.\nIf files with data are "
-                                 "found on the brick path, copy them via a "
-                                 "gluster mount point before re-purposing the "
-                                 "removed brick. ");
+        if (command == GF_DEFRAG_CMD_DETACH_STOP ||
+            command == GF_DEFRAG_CMD_DETACH_STATUS)
+                ret = gf_cli_print_rebalance_status (rsp_dict,
+                                GF_TASK_TYPE_REMOVE_BRICK, _gf_true);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to print remove-brick "
+                                "rebalance status");
+                goto out;
         }
 
+        if ((command == GF_DEFRAG_CMD_DETACH_STOP) && (rsp.op_ret == 0)) {
+                cli_out ("'detach tier' process may be in the middle of a "
+                         "file migration.\nThe process will be fully stopped "
+                         "once the migration of the file is complete.\nPlease "
+                         "check detach tier process for completion before "
+                         "doing any further brick related tasks on the "
+                         "volume.");
+        }
         ret = rsp.op_ret;
 
 out:
@@ -4799,6 +4847,40 @@ out:
 }
 
 int32_t
+gf_cli_tier (call_frame_t *frame, xlator_t *this,
+             void *data)
+{
+        int                     ret = 0;
+        int32_t                 command = 0;
+        gf_cli_req              req =  { {0,} };
+        dict_t                  *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+        dict = data;
+
+        ret = dict_get_int32 (dict, "rebalance-command", &command);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get rebalance-command");
+                goto out;
+        }
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_defrag_volume_cbk,
+                                (xdrproc_t) xdr_gf_cli_req, dict,
+                                GLUSTER_CLI_TIER, this, cli_rpc_prog,
+                                NULL);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        return ret;
+}
+
+int32_t
 gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
@@ -4849,7 +4931,7 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
 
         oldlocal = frame->local;
         CLI_LOCAL_INIT (local, words, frame, newdict);
-        ret = gf_cli_defrag_volume (frame, this, newdict);
+        ret = gf_cli_tier (frame, this, newdict);
         frame->local = oldlocal;
         cli_local_wipe (local);
 
@@ -4869,46 +4951,14 @@ out:
 }
 
 int32_t
-gf_cli_tier (call_frame_t *frame, xlator_t *this,
-             void *data)
-{
-        int                       ret = 0;
-        gf_cli_req                req =  { {0,} };
-        gf_cli_req                status_req = { {0,} };
-        dict_t                    *dict = NULL;
-
-        if (!frame || !this ||  !data) {
-                ret = -1;
-                goto out;
-        }
-        dict = data;
-
-        ret = cli_to_glusterd (&req, frame, gf_cli_defrag_volume_cbk,
-                               (xdrproc_t) xdr_gf_cli_req, dict,
-                               GLUSTER_CLI_DEFRAG_VOLUME, this, cli_rpc_prog,
-                               NULL);
-
-out:
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-        GF_FREE (req.dict.dict_val);
-
-        GF_FREE (status_req.dict.dict_val);
-
-        return ret;
-}
-
-int32_t
-gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
+gf_cli_remove_tier_brick (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
-        gf_cli_req                req =  { {0,} };
         gf_cli_req                status_req = { {0,} };
         int                       ret = 0;
         dict_t                   *dict = NULL;
         int32_t                   command = 0;
         char                     *volname = NULL;
-        int32_t                   cmd = 0;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -4925,47 +4975,26 @@ gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        if ((command != GF_OP_CMD_STATUS) &&
-            (command != GF_OP_CMD_STOP_DETACH_TIER)) {
-
-
-                ret = cli_to_glusterd (&req, frame, gf_cli_detach_tier_cbk,
-                                       (xdrproc_t) xdr_gf_cli_req, dict,
-                                       GLUSTER_CLI_REMOVE_BRICK, this,
-                                       cli_rpc_prog, NULL);
-        } else {
-                /* Need rebalance status to be sent :-) */
-                if (command == GF_OP_CMD_STATUS)
-                        cmd |= GF_DEFRAG_CMD_DETACH_STATUS;
-                else
-                        cmd |= GF_DEFRAG_CMD_STOP_DETACH_TIER;
-
-                ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+        ret = dict_set_int32 (dict, "rebalance-command", (int32_t) command);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict");
-                        goto out;
-                }
+                goto out;
+        }
 
-                ret = cli_to_glusterd (&status_req, frame,
-                                       gf_cli_detach_tier_status_cbk,
-                                       (xdrproc_t) xdr_gf_cli_req, dict,
-                                       GLUSTER_CLI_DEFRAG_VOLUME, this,
-                                       cli_rpc_prog, NULL);
-
-                }
+        ret = cli_to_glusterd (&status_req, frame,
+                        gf_cli_remove_tier_brick_cbk,
+                        (xdrproc_t) xdr_gf_cli_req, dict,
+                        GLUSTER_CLI_TIER, this,
+                        cli_rpc_prog, NULL);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-        GF_FREE (req.dict.dict_val);
 
         GF_FREE (status_req.dict.dict_val);
 
         return ret;
 }
-
-
 
 int32_t
 gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
@@ -8150,7 +8179,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD) ||
             (cmd & GF_CLI_STATUS_QUOTAD) || (cmd & GF_CLI_STATUS_SNAPD) ||
-            (cmd & GF_CLI_STATUS_BITD) || (cmd & GF_CLI_STATUS_SCRUB))
+            (cmd & GF_CLI_STATUS_BITD) || (cmd & GF_CLI_STATUS_SCRUB) ||
+            (cmd & GF_CLI_STATUS_TIERD))
                 notbrick = _gf_true;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -8289,7 +8319,8 @@ xml_end:
                     !strcmp (hostname, "Quota Daemon") ||
                     !strcmp (hostname, "Snapshot Daemon") ||
                     !strcmp (hostname, "Scrubber Daemon") ||
-                    !strcmp (hostname, "Bitrot Daemon"))
+                    !strcmp (hostname, "Bitrot Daemon") ||
+                    !strcmp (hostname, "Tier Daemon"))
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
                 else {
@@ -11926,10 +11957,10 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GET_VOL_OPT]      = {"GET_VOL_OPT", gf_cli_get_vol_opt},
         [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot},
         [GLUSTER_CLI_ATTACH_TIER]      = {"ATTACH_TIER", gf_cli_attach_tier},
-        [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier},
         [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier},
         [GLUSTER_CLI_GET_STATE]        = {"GET_STATE", gf_cli_get_state},
-        [GLUSTER_CLI_RESET_BRICK]      = {"RESET_BRICK", gf_cli_reset_brick}
+        [GLUSTER_CLI_RESET_BRICK]      = {"RESET_BRICK", gf_cli_reset_brick},
+        [GLUSTER_CLI_REMOVE_TIER_BRICK] = {"DETACH_TIER", gf_cli_remove_tier_brick}
 };
 
 struct rpc_clnt_program cli_prog = {

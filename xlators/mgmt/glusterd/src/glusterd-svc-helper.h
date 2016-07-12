@@ -33,4 +33,13 @@ glusterd_svc_check_topology_identical (char *svc_name,
                                        glusterd_graph_builder_t builder,
                                        gf_boolean_t *identical);
 
+int
+glusterd_svc_check_tier_volfile_identical (char *svc_name,
+                                           glusterd_volinfo_t *volinfo,
+                                           gf_boolean_t *identical);
+int
+glusterd_svc_check_tier_topology_identical (char *svc_name,
+                                            glusterd_volinfo_t *volinfo,
+                                            gf_boolean_t *identical);
+
 #endif

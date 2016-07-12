@@ -237,6 +237,8 @@
 
 #define GF_REBALANCE_TID_KEY     "rebalance-id"
 #define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
+#define GF_TIER_TID_KEY          "tier-id"
+#define GF_TIER_ENABLED          "tier-enabled"
 
 #define UUID_CANONICAL_FORM_LEN  36
 

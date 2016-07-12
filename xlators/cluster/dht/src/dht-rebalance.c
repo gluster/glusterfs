@@ -3012,7 +3012,8 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
          * rebalance is complete.
          */
         if (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX
-            || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+            || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER ||
+            defrag->cmd == GF_DEFRAG_CMD_DETACH_START) {
                 return 0;
         }
 
@@ -3919,7 +3920,8 @@ gf_defrag_start_crawl (void *data)
 
                 /* Calling tier_start of tier.c */
                 methods->migration_other(this, defrag);
-                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER ||
+                    defrag->cmd == GF_DEFRAG_CMD_DETACH_START) {
 
                         ret = dict_set_str (migrate_data,
                                             GF_XATTR_FILE_MIGRATE_KEY,
@@ -3944,7 +3946,8 @@ gf_defrag_start_crawl (void *data)
                         goto out;
                 }
 
-                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER ||
+                    defrag->cmd == GF_DEFRAG_CMD_DETACH_START)
                         is_tier_detach = _gf_true;
 
         }
