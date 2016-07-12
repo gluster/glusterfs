@@ -342,10 +342,18 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
                 goto unref_inode;
         }
 
+        if (IS_DHT_LINKFILE_MODE ((&iatt))) {
+                gf_msg_debug (this->name, 0, "%s is a dht sticky bit file",
+                              entry->d_name);
+                ret = 0;
+                goto unref_inode;
+        }
+
         /* skip updating scrub statistics for shard entries */
         gf_uuid_parse (SHARD_ROOT_GFID, shard_root_gfid);
         if (gf_uuid_compare (loc.pargfid, shard_root_gfid) == 0)
                 skip_stat = _gf_true;
+
         /**
          * open() an fd for subsequent opertaions
          */
