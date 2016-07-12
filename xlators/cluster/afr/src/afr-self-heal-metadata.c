@@ -80,6 +80,8 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
 						  old_xattr, NULL);
+                        if (ret)
+                                healed_sinks[i] = 0;
 		}
 
 		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0, NULL,

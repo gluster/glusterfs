@@ -32,7 +32,7 @@ TEST $CLI volume set $V0 cluster.data-self-heal-algorithm full
 EXPECT full volume_option $V0 cluster.data-self-heal-algorithm
 create_setup_for_self_heal $M0/a
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-cat $file 2>&1 > /dev/null
+cat $file > /dev/null 2>&1
 EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
 TEST cmp $B0/${V0}1/a $B0/${V0}2/a
 
@@ -40,14 +40,14 @@ TEST $CLI volume set $V0 cluster.data-self-heal-algorithm diff
 EXPECT diff volume_option $V0 cluster.data-self-heal-algorithm
 create_setup_for_self_heal $M0/a
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-cat $file 2>&1 > /dev/null
+cat $file > /dev/null 2>&1
 EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
 TEST cmp $B0/${V0}1/a $B0/${V0}2/a
 
 TEST $CLI volume reset $V0 cluster.data-self-heal-algorithm
 create_setup_for_self_heal $M0/a
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-cat $file 2>&1 > /dev/null
+cat $file > /dev/null 2>&1
 EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
 TEST cmp $B0/${V0}1/a $B0/${V0}2/a
 

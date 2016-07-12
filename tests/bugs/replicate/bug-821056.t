@@ -35,7 +35,7 @@ kill_brick $V0 $H0 $B0/${V0}0
 TEST gf_rm_file_and_gfid_link $B0/${V0}0 "a"
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-ls -l $M0/a 2>&1 > /dev/null #Make sure the file is re-created
+ls -l $M0/a > /dev/null 2>&1  #Make sure the file is re-created
 EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/a
 
