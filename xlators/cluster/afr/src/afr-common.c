@@ -499,8 +499,8 @@ afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode)
 
         LOCK(&inode->lock);
         {
-                __afr_inode_ctx_get (this, inode, &ctx);
-                if (!ctx) {
+                ret = __afr_inode_ctx_get (this, inode, &ctx);
+                if (ret < 0 || !ctx) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                                 "Failed to cancel split-brain choice timer.");
@@ -533,14 +533,18 @@ afr_set_split_brain_choice_cbk (void *data)
 int
 afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
 {
-        int     op_errno         = ENOMEM;
-        afr_private_t *priv      = NULL;
-        afr_inode_ctx_t *ctx     = NULL;
-        inode_t *inode           = NULL;
-        loc_t   *loc             = NULL;
-        xlator_t *this           = NULL;
-        afr_spbc_timeout_t *data = opaque;
-        struct timespec delta    = {0, };
+        int                 op_errno         = ENOMEM;
+        afr_private_t      *priv             = NULL;
+        afr_inode_ctx_t    *ctx              = NULL;
+        inode_t            *inode            = NULL;
+        loc_t              *loc              = NULL;
+        xlator_t           *this             = NULL;
+        afr_spbc_timeout_t *data             = opaque;
+        struct              timespec delta   = {0, };
+        gf_boolean_t        timer_set        = _gf_false;
+        gf_boolean_t        timer_cancelled  = _gf_false;
+        gf_boolean_t        timer_reset      = _gf_false;
+        int                 old_spb_choice   = -1;
 
         if (ret)
                 goto out;
@@ -553,9 +557,11 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
         delta.tv_sec = priv->spb_choice_timeout;
         delta.tv_nsec = 0;
 
-        inode = loc->inode;
-        if (!inode)
+        if (!loc->inode) {
+                ret = -1;
+                op_errno = EINVAL;
                 goto out;
+        }
 
         if (!(data->d_spb || data->m_spb)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -568,6 +574,12 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
                 goto out;
         }
 
+        /*
+         * we're ref'ing the inode before LOCK like it is done elsewhere in the
+         * code. If we ref after LOCK, coverity complains of possible deadlocks.
+         */
+        inode = inode_ref (loc->inode);
+
         LOCK(&inode->lock);
         {
                 ret = __afr_inode_ctx_get (this, inode, &ctx);
@@ -578,16 +590,14 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
                         goto unlock;
                 }
 
+                old_spb_choice = ctx->spb_choice;
                 ctx->spb_choice = data->spb_child_index;
 
                 /* Possible changes in spb-choice :
-                 *         -1 to valid    : ref and inject timer
-                 *
-                 *         valid to valid : cancel timer and inject new one
-                 *
                  *         valid to -1    : cancel timer and unref
-                 *
-                 *         -1    to -1    : do not do anything
+                 *         valid to valid : cancel timer and inject new one
+                 *         -1    to -1    : unref and do not do anything
+                 *         -1 to valid    : inject timer
                  */
 
                 /* ctx->timer is NULL iff previous value of
@@ -595,31 +605,66 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
                  */
                 if (ctx->timer) {
                         if (ctx->spb_choice == -1) {
-                                gf_timer_call_cancel (this->ctx, ctx->timer);
-                                ctx->timer = NULL;
-                                inode_unref (inode);
+                                if (!gf_timer_call_cancel (this->ctx,
+                                                            ctx->timer)) {
+                                        ctx->timer = NULL;
+                                        timer_cancelled = _gf_true;
+                                }
+                                /* If timer cancel failed here it means that the
+                                *  previous cbk will be executed which will set
+                                *  spb_choice to -1. So we can consider the
+                                *  'valid to -1' case to be a sucess
+                                *  (i.e. ret = 0) and goto unlock.
+                                */
                                 goto unlock;
                         }
                         goto reset_timer;
                 } else {
                         if (ctx->spb_choice == -1)
                                 goto unlock;
+                        goto set_timer;
                 }
 
-                inode = inode_ref (loc->inode);
-                goto set_timer;
-
 reset_timer:
-                gf_timer_call_cancel (this->ctx, ctx->timer);
+                ret = gf_timer_call_cancel (this->ctx, ctx->timer);
+                if (ret != 0) {
+                        /* We need to bail out now instead of launching a new
+                         * timer. Otherwise the cbk of the previous timer event
+                         * will cancel the new ctx->timer.
+                         */
+                        ctx->spb_choice = old_spb_choice;
+                        ret = -1;
+                        op_errno = EAGAIN;
+                        goto unlock;
+                }
                 ctx->timer = NULL;
+                timer_reset = _gf_true;
 
 set_timer:
                 ctx->timer = gf_timer_call_after (this->ctx, delta,
                                                   afr_set_split_brain_choice_cbk,
                                                   inode);
+                if (!ctx->timer) {
+                        ctx->spb_choice = old_spb_choice;
+                        ret = -1;
+                        op_errno = ENOMEM;
+                }
+                if (!timer_reset && ctx->timer)
+                        timer_set = _gf_true;
+                if (timer_reset && !ctx->timer)
+                        timer_cancelled = _gf_true;
         }
 unlock:
         UNLOCK(&inode->lock);
+        if (!timer_set)
+                inode_unref (inode);
+        if (timer_cancelled)
+                inode_unref (inode);
+        /*
+         * We need to invalidate the inode to prevent the kernel from serving
+         * reads from an older cached value despite a change in spb_choice to
+         * a new value.
+         */
         inode_invalidate (inode);
 out:
         if (data)
@@ -2580,8 +2625,64 @@ out:
         return 0;
 }
 
+void
+_afr_cleanup_fd_ctx (afr_fd_ctx_t *fd_ctx)
+{
+        int i = 0;
 
-/* {{{ open */
+
+	for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++)
+		GF_FREE (fd_ctx->pre_op_done[i]);
+
+        GF_FREE (fd_ctx->opened_on);
+
+        GF_FREE (fd_ctx->lock_piggyback);
+
+        GF_FREE (fd_ctx->lock_acquired);
+
+	pthread_mutex_destroy (&fd_ctx->delay_lock);
+
+        GF_FREE (fd_ctx);
+
+        return;
+}
+
+int
+afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
+{
+        uint64_t        ctx = 0;
+        afr_fd_ctx_t    *fd_ctx = NULL;
+        int             ret = 0;
+
+        ret = fd_ctx_get (fd, this, &ctx);
+        if (ret < 0)
+                goto out;
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        if (fd_ctx) {
+                /*no need to take any locks*/
+                if (!list_empty (&fd_ctx->eager_locked))
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_INVALID_DATA, "%s: Stale "
+                                "Eager-lock stubs found",
+                                uuid_utoa (fd->inode->gfid));
+
+                _afr_cleanup_fd_ctx (fd_ctx);
+
+        }
+
+out:
+        return 0;
+}
+
+int
+afr_release (xlator_t *this, fd_t *fd)
+{
+        afr_cleanup_fd_ctx (this, fd);
+
+        return 0;
+}
 
 afr_fd_ctx_t *
 __afr_fd_ctx_get (fd_t *fd, xlator_t *this)
@@ -2649,6 +2750,13 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
+        ret = pthread_mutex_init (&fd_ctx->delay_lock, NULL);
+        if (ret) {
+                GF_FREE (fd_ctx);
+                fd_ctx = NULL;
+                goto out;
+        }
+
 	for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
 		fd_ctx->pre_op_done[i] = GF_CALLOC (sizeof (*fd_ctx->pre_op_done[i]),
 						    priv->child_count,
@@ -2692,8 +2800,6 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 
 	fd_ctx->readdir_subvol = -1;
 
-	pthread_mutex_init (&fd_ctx->delay_lock, NULL);
-
         INIT_LIST_HEAD (&fd_ctx->eager_locked);
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
@@ -2701,23 +2807,11 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 gf_msg_debug (this->name, 0,
                               "failed to set fd ctx (%p)", fd);
 out:
+        if (ret && fd_ctx)
+                _afr_cleanup_fd_ctx (fd_ctx);
         return ret;
 }
 
-
-int
-afr_fd_ctx_set (xlator_t *this, fd_t *fd)
-{
-        int ret = -1;
-
-        LOCK (&fd->lock);
-        {
-                ret = __afr_fd_ctx_set (this, fd);
-        }
-        UNLOCK (&fd->lock);
-
-        return ret;
-}
 
 /* {{{ flush */
 
@@ -2810,56 +2904,6 @@ out:
 }
 
 /* }}} */
-
-
-int
-afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
-{
-        uint64_t        ctx = 0;
-        afr_fd_ctx_t    *fd_ctx = NULL;
-        int             ret = 0;
-	int             i = 0;
-
-        ret = fd_ctx_get (fd, this, &ctx);
-        if (ret < 0)
-                goto out;
-
-        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-        if (fd_ctx) {
-                //no need to take any locks
-                if (!list_empty (&fd_ctx->eager_locked))
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                AFR_MSG_INVALID_DATA, "%s: Stale "
-                                "Eager-lock stubs found",
-                                uuid_utoa (fd->inode->gfid));
-
-		for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++)
-			GF_FREE (fd_ctx->pre_op_done[i]);
-
-                GF_FREE (fd_ctx->opened_on);
-
-                GF_FREE (fd_ctx->lock_piggyback);
-
-                GF_FREE (fd_ctx->lock_acquired);
-
-		pthread_mutex_destroy (&fd_ctx->delay_lock);
-
-                GF_FREE (fd_ctx);
-        }
-
-out:
-        return 0;
-}
-
-
-int
-afr_release (xlator_t *this, fd_t *fd)
-{
-        afr_cleanup_fd_ctx (this, fd);
-
-        return 0;
-}
 
 
 /* {{{ fsync */
