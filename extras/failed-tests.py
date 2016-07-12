@@ -4,6 +4,7 @@ import blessings
 import HTMLParser
 import requests
 import sys
+import re
 from collections import defaultdict
 from datetime import date, timedelta, datetime
 from dateutil.parser import parse
@@ -35,14 +36,16 @@ def process_failure (url, cut_off_date):
             build_date = parse (t, fuzzy=True)
             if build_date.date() < cut_off_date:
                 return 1
-        elif t == 'Result: FAIL':
+        elif t.find("Result: FAIL") != -1:
             print TERM.red + ('FAILURE on %s' % BASE+url) + TERM.normal
             for t2 in accum:
                 print t2.encode('utf-8')
                 if t2.find("Wstat") != -1:
-                     summary[t2.split(" ")[0]].append(url)
+                     test_case = re.search('\./tests/.*\.t',t2)
+                     if test_case:
+                          summary[test_case.group()].append(url)
             accum = []
-        elif t == 'Result: PASS':
+        elif t.find("Result: PASS") != -1:
             accum = []
         elif t.find("cur_cores=/") != -1:
             summary["core"].append([t.split("/")[1]])
@@ -110,11 +113,18 @@ if __name__ == '__main__':
         main(BASE+'/job/rackspace-regression-2GB-triggered/')
     elif sys.argv[1].find("get-summary") != -1:
         if len(sys.argv) < 4:
-            print "Usage: failed-tests.py get-summary <last_no_of_days> <regression_link>"
+            print "Usage: failed-tests.py get-summary <last_no_of_days> <centos|netbsd|regression_link>"
             sys.exit(0)
         num_days=int(sys.argv[2])
         cut_off_date=date.today() - timedelta(days=num_days)
-        reg_link = sys.argv[3]
+        reg = sys.argv[3]
+        if reg == 'centos':
+            reg_link = '/job/rackspace-regression-2GB-triggered/'
+        elif reg == 'netbsd':
+            reg_link = '/job/rackspace-netbsd7-regression-triggered/'
+        else:
+            reg_link = reg
+
         build_id = int(requests.get(BASE+reg_link+"lastBuild/buildNumber", verify=False).text)
         get_summary(build_id, cut_off_date, reg_link)
     else:
