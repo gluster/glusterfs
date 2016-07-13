@@ -1060,6 +1060,12 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
 
+                if ((strcmp (key, "ganesha.enable") == 0) &&
+                    (strcmp (value, "off") == 0)) {
+                        ret = ganesha_manage_export (dict, "off", op_errstr);
+                        if (ret)
+                                goto out;
+                }
                 ret = glusterd_check_quota_cmd (key, value, errstr, sizeof (errstr));
                 if (ret)
                         goto out;

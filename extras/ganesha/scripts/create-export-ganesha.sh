@@ -21,14 +21,17 @@ if [ -f /etc/default/ganesha ]
 fi
 
 GANESHA_DIR=${1%/}
-VOL=$2
-CONF=
+OPTION=$2
+VOL=$3
+CONF=$GANESHA_DIR"/ganesha.conf"
+declare -i EXPORT_ID
 
 function check_cmd_status()
 {
         if [ "$1" != "0" ]
                  then
                  rm -rf $GANESHA_DIR/exports/export.$VOL.conf
+                 sed -i /$VOL.conf/d $CONF
                  exit 1
         fi
 }
@@ -39,28 +42,6 @@ if [ ! -d "$GANESHA_DIR/exports" ];
         mkdir $GANESHA_DIR/exports
         check_cmd_status `echo $?`
 fi
-
-function find_rhel7_conf
-{
- while [[ $# > 0 ]]
-        do
-                key="$1"
-                case $key in
-                        -f)
-                         CONFFILE="$2"
-                         ;;
-                         *)
-                         ;;
-                 esac
-                 shift
-         done
-}
-
-if [ -z $CONFFILE ]; then
-        find_rhel7_conf $OPTIONS
-
-fi
-CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 function write_conf()
 {
@@ -85,9 +66,26 @@ echo '      Transports = "UDP","TCP";'
 echo '      SecType = "sys";'
 echo "     }"
 }
-
-write_conf $@ > $GANESHA_DIR/exports/export.$VOL.conf
-if ! (cat $CONF | grep  $VOL.conf\"$ )
+if [ "$OPTION" = "on" ];
 then
-echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF
+        if ! (cat $CONF | grep  $VOL.conf\"$ )
+        then
+                write_conf $@ > $GANESHA_DIR/exports/export.$VOL.conf
+                echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF
+                count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
+                if [ "$count" = "1" ] ; then
+                        EXPORT_ID=2
+                else
+                        EXPORT_ID=`cat $GANESHA_DIR/.export_added`
+                        check_cmd_status `echo $?`
+                        EXPORT_ID=EXPORT_ID+1
+                        sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
+                        $GANESHA_DIR/exports/export.$VOL.conf
+                        check_cmd_status `echo $?`
+                fi
+                echo $EXPORT_ID > $GANESHA_DIR/.export_added
+        fi
+else
+        rm -rf $GANESHA_DIR/exports/export.$VOL.conf
+        sed -i /$VOL.conf/d $CONF
 fi
