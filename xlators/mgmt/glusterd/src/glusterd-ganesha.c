@@ -180,17 +180,22 @@ glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo) {
         return is_exported;
 }
 
-
+/* *
+ * The below function is called as part of commit phase for volume set option
+ * "ganesha.enable". If the value is "on", it creates export configuration file
+ * and then export the volume via dbus command. Incase of "off", the volume
+ * will be already unexported during stage phase, so it will remove the conf
+ * file from shared storage
+ */
 int
 glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
 {
         int                ret = 0;
-        xlator_t                *this = NULL;
+        char               *volname = NULL;
 
-        this = THIS;
-        GF_ASSERT (this);
         GF_ASSERT (key);
         GF_ASSERT (value);
+        GF_ASSERT (dict);
 
         if ((strcmp (key, "ganesha.enable") == 0)) {
                 if ((strcmp (value, "on")) && (strcmp (value, "off"))) {
@@ -199,15 +204,28 @@ glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
                         ret = -1;
                         goto out;
                 }
-                ret = glusterd_handle_ganesha_op (dict, errstr, key, value);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_NFS_GNS_OP_HANDLE_FAIL,
-                                "Handling NFS-Ganesha"
-                                " op failed.");
-                }
+                if (strcmp (value, "on") == 0) {
+                        ret = glusterd_handle_ganesha_op (dict, errstr, key,
+                                                        value);
+
+                 } else if (is_origin_glusterd (dict)) {
+                        ret = dict_get_str (dict, "volname", &volname);
+                        if (ret) {
+                                gf_msg ("glusterd-ganesha", GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Unable to get volume name");
+                                goto out;
+                        }
+                        ret = create_export_config (volname, "off", errstr);
+                 }
         }
 out:
+        if (ret) {
+                gf_msg ("glusterd-ganesha", GF_LOG_ERROR, 0,
+                        GD_MSG_NFS_GNS_OP_HANDLE_FAIL,
+                        "Handling NFS-Ganesha"
+                        " op failed.");
+        }
         return ret;
 }
 
@@ -415,7 +433,7 @@ check_host_list (void)
 }
 
 int
-create_export_config (char *volname, char **op_errstr)
+create_export_config (char *volname, char *value, char **op_errstr)
 {
         runner_t                runner                     = {0,};
         int                     ret                        = -1;
@@ -424,7 +442,7 @@ create_export_config (char *volname, char **op_errstr)
         runinit (&runner);
         runner_add_args (&runner, "sh",
                         GANESHA_PREFIX"/create-export-ganesha.sh",
-                        CONFDIR, volname, NULL);
+                        CONFDIR, value, volname, NULL);
         ret = runner_run(&runner);
 
         if (ret)
@@ -513,9 +531,12 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                 goto out;
         }
 
-        /* Create the export file only when ganesha.enable "on" is executed */
+        /* *
+         * Create the export file from the node where ganesha.enable "on"
+         * is executed
+         * */
          if (option) {
-                ret  =  create_export_config (volname, op_errstr);
+                ret  =  create_export_config (volname, "on", op_errstr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_EXPORT_FILE_CREATE_FAIL,
@@ -811,11 +832,7 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
 {
 
         int32_t                 ret          = -1;
-        char                   *volname      = NULL;
-        xlator_t               *this         = NULL;
         gf_boolean_t           option        = _gf_false;
-        static int             export_id     = 1;
-        glusterd_volinfo_t     *volinfo      = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
