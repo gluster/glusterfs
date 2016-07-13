@@ -3786,6 +3786,7 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 		    (nfs3_create_op (cs) && !nfs3_create_exclusive_op (cs))) {
                         cs->lookuptype = GF_NFS3_FRESH;
                         cs->resolve_ret = 0;
+                        cs->hardresolved = 0;
                         nfs3_call_resume (cs);
                 } else {
 			cs->hardresolved = 1;
