@@ -2403,7 +2403,7 @@ quota_link_continue (call_frame_t *frame)
                 /* Treat link as a new file.
                  * TODO: Currently marker accounts twice for the links created
                  * across directories.
-                 * This needs re-vist if marker accounts only once
+                 * This needs re-visit if marker accounts only once
                  * for the links created across directories
                  */
                 if (local->oldloc.parent)
@@ -2525,7 +2525,7 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         check_ancestory (frame, newloc->parent);
 
-        /* source parent can be NULL, so do check_ancestory on a file */
+        /* source parent can be NULL, so do check_ancestry on a file */
         if (oldloc->parent)
                 check_ancestory (frame, oldloc->parent);
         else
@@ -2777,11 +2777,11 @@ quota_rename_continue (call_frame_t *frame)
                         /* FIXME: We need to account for the size occupied by
                          * this inode on the target directory. To avoid double
                          * accounting, we need to modify enforcer to perform
-                         * quota_check_limit only uptil the least common
+                         * quota_check_limit only up till the least common
                          * ancestor directory inode*/
 
                         /* FIXME: The following code assumes that regular files
-                         * and linkfiles are present, in their entirety, in a
+                         * and link files are present, in their entirety, in a
                          * single brick. This *assumption is invalid in the
                          * case of stripe.*/
 
@@ -2862,7 +2862,7 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         LOCK (&local->lock);
         {
-                /* link_count here tell how many check_ancestory should be done
+                /* link_count here tell how many check_ancestry should be done
                  * before continuing the FOP
                  */
                 local->link_count = 2;
@@ -4297,7 +4297,7 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode = cookie;
 
-        /* This fop will fail mostly in case of client disconnect's,
+        /* This fop will fail mostly in case of client disconnect,
          * which is already logged. Hence, not logging here */
         if (op_ret == -1)
                 goto unwind;
