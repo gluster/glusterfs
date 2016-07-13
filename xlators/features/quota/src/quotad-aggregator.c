@@ -38,8 +38,9 @@ quotad_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                 };
 
                 iobuf_to_iovec (iob, outmsg);
-                /* Use the given serializer to translate the give C structure in arg
-                 * to XDR format which will be written into the buffer in outmsg.
+                /* Use the given serializer to translate the given C structure
+                 * in arg to XDR format which will be written into the buffer
+                 * in outmsg.
                  */
                 /* retlen is used to received the error since size_t is unsigned and we
                  * need -1 for error notification during encoding.
@@ -48,7 +49,7 @@ quotad_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                 retlen = xdr_serialize_generic (*outmsg, arg, xdrproc);
                 if (retlen == -1) {
                         /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
-                           failure of RPC return values.. client should get
+                           failure of RPC return values.. Client should get
                            notified about this, so there are no missing frames */
                         gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
                         req->rpc_err = GARBAGE_ARGS;
