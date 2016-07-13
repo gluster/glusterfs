@@ -106,6 +106,16 @@ manage_service ()
 {
         local action=${1}
         local new_node=${2}
+        local option=
+
+        if [ "$action" == "start" ]; then
+                option="yes"
+        else
+                option="no"
+        fi
+        ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
+${SECRET_PEM} root@${new_node} "/usr/libexec/ganesha/ganesha-ha.sh --setup-ganesha-conf-files $HA_CONFDIR $option"
+
         if [ "$SERVICE_MAN" == "/usr/bin/systemctl" ]
         then
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
@@ -224,48 +234,20 @@ setup_finalize_ha()
 }
 
 
-setup_copy_config()
-{
-    local short_host=$(hostname -s)
-    local tganesha_conf=$(mktemp -u)
-
-    if [ -e ${SECRET_PEM} ]; then
-        while [[ ${1} ]]; do
-            current_host=`echo ${1} | cut -d "." -f 1`
-            if [ ${short_host} != ${current_host} ]; then
-                scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_CONFDIR}/ganesha-ha.conf ${1}:${HA_CONFDIR}/
-                if [ $? -ne 0 ]; then
-                    logger "warning: scp ganesha-ha.conf to ${1} failed"
-                fi
-            fi
-            shift
-        done
-    else
-        logger "warning: scp ganesha-ha.conf to ${1} failed"
-    fi
-}
-
 refresh_config ()
 {
         local short_host=$(hostname -s)
         local VOL=${1}
         local HA_CONFDIR=${2}
-        local tganesha_vol_conf=$(mktemp)
         local short_host=$(hostname -s)
 
-        cp ${HA_CONFDIR}/exports/export.$VOL.conf \
-${tganesha_vol_conf}
+        removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
+grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
 
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                removed_id=$(ssh -oPasswordAuthentication=no \
--oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
-"cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F\"[=,;]\" '{print \$2}' | tr -d '[[:space:]]'")
-
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
@@ -278,14 +260,6 @@ uint16:$removed_id 2>&1")
                        exit 1
                 fi
                 sleep 1
-                sed -i s/Export_Id.*/"Export_Id= $removed_id ;"/ \
-                        ${tganesha_vol_conf}
-
-                scp -q -oPasswordAuthentication=no \
--oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${tganesha_vol_conf} \
-${current_host}:${HA_CONFDIR}/exports/export.$VOL.conf
-
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
@@ -310,8 +284,6 @@ string:\"EXPORT(Path=/$VOL)\" 2>&1")
     fi
 
     # Run the same command on the localhost,
-        removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
 uint16:$removed_id 2>&1)
@@ -334,22 +306,6 @@ string:"EXPORT(Path=/$VOL)" 2>&1)
         else
                 echo "Success: refresh-config completed."
         fi
-        rm -f ${tganesha_vol_conf}
-
-}
-
-copy_export_config ()
-{
-    local new_node=${1}
-
-    # The add node should be executed from one of the nodes in ganesha
-    # cluster. So all the configuration file will be available in that
-    # node itself. So just copy that to new node
-    scp -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${GANESHA_CONF} ${new_node}:${GANESHA_CONF}
-
-    scp -r -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} ${HA_CONFDIR}/exports/ ${new_node}:${HA_CONFDIR}/
 }
 
 
@@ -888,8 +844,6 @@ main()
 
             setup_state_volume ${HA_SERVERS}
 
-            setup_copy_config ${HA_SERVERS}
-
         else
 
             logger "insufficient servers for HA, aborting"
@@ -916,8 +870,6 @@ main()
 
         logger "adding ${node} with ${vip} to ${HA_NAME}"
 
-        copy_export_config ${node} ${HA_CONFDIR}
-
         determine_service_manager
 
         manage_service "start" ${node}
@@ -943,8 +895,6 @@ main()
         sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
 $HA_CONFDIR/ganesha-ha.conf
         HA_SERVERS="${HA_SERVERS} ${node}"
-
-        setup_copy_config ${HA_SERVERS}
         ;;
 
     delete | --delete)
@@ -962,8 +912,6 @@ $HA_CONFDIR/ganesha-ha.conf
         fi
 
         deletenode_update_haconfig ${node}
-
-        setup_copy_config ${HA_SERVERS}
 
         rm -rf ${HA_VOL_MNT}/nfs-ganesha/${node}
 
