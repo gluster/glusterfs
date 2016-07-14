@@ -89,7 +89,8 @@ bitd_scrub_post_compute_check (xlator_t *this,
                                br_child_t *child,
                                fd_t *fd, unsigned long version,
                                br_isignature_out_t **signature,
-                               br_scrub_stats_t *scrub_stat)
+                               br_scrub_stats_t *scrub_stat,
+                               gf_boolean_t skip_stat)
 {
         int32_t              ret     = 0;
         size_t               signlen = 0;
@@ -98,7 +99,8 @@ bitd_scrub_post_compute_check (xlator_t *this,
 
         ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
         if (ret < 0) {
-                br_inc_unsigned_file_count (scrub_stat);
+                if (!skip_stat)
+                        br_inc_unsigned_file_count (scrub_stat);
                 goto out;
         }
 
@@ -111,7 +113,8 @@ bitd_scrub_post_compute_check (xlator_t *this,
          * The log entry looks pretty ugly, but helps in debugging..
          */
         if (signptr->stale || (signptr->version != version)) {
-                br_inc_unsigned_file_count (scrub_stat);
+                if (!skip_stat)
+                        br_inc_unsigned_file_count (scrub_stat);
                 gf_msg_debug (this->name, 0, "<STAGE: POST> Object [GFID: %s] "
                               "either has a stale signature OR underwent "
                               "signing during checksumming {Stale: %d | "
@@ -140,7 +143,7 @@ static int32_t
 bitd_signature_staleness (xlator_t *this,
                           br_child_t *child, fd_t *fd,
                           int *stale, unsigned long *version,
-                          br_scrub_stats_t *scrub_stat)
+                          br_scrub_stats_t *scrub_stat, gf_boolean_t skip_stat)
 {
         int32_t ret = -1;
         dict_t *xattr = NULL;
@@ -148,7 +151,8 @@ bitd_signature_staleness (xlator_t *this,
 
         ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
         if (ret < 0) {
-                br_inc_unsigned_file_count (scrub_stat);
+                if (!skip_stat)
+                        br_inc_unsigned_file_count (scrub_stat);
                 goto out;
         }
 
@@ -176,7 +180,8 @@ bitd_signature_staleness (xlator_t *this,
 int32_t
 bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
                               fd_t *fd, unsigned long *version,
-                              br_scrub_stats_t *scrub_stat)
+                              br_scrub_stats_t *scrub_stat,
+                              gf_boolean_t skip_stat)
 {
         int     stale = 0;
         int32_t ret   = -1;
@@ -189,9 +194,10 @@ bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
         }
 
         ret = bitd_signature_staleness (this, child, fd, &stale, version,
-                                        scrub_stat);
+                                        scrub_stat, skip_stat);
         if (!ret && stale) {
-                br_inc_unsigned_file_count (scrub_stat);
+                if (!skip_stat)
+                        br_inc_unsigned_file_count (scrub_stat);
                 gf_msg_debug (this->name, 0, "<STAGE: PRE> Object [GFID: %s] "
                               "has stale signature",
                               uuid_utoa (fd->inode->gfid));
@@ -291,6 +297,9 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
         gf_dirent_t           *entry         = NULL;
         br_private_t          *priv          = NULL;
         loc_t                 *parent        = NULL;
+        gf_boolean_t           skip_stat     = _gf_false;
+        uuid_t                 shard_root_gfid = {0,};
+
 
         GF_VALIDATE_OR_GOTO ("bit-rot", fsentry, out);
 
@@ -333,6 +342,10 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
                 goto unref_inode;
         }
 
+        /* skip updating scrub statistics for shard entries */
+        gf_uuid_parse (SHARD_ROOT_GFID, shard_root_gfid);
+        if (gf_uuid_compare (loc.pargfid, shard_root_gfid) == 0)
+                skip_stat = _gf_true;
         /**
          * open() an fd for subsequent opertaions
          */
@@ -360,7 +373,7 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
          *  - signature staleness
          */
         ret = bitd_scrub_pre_compute_check (this, child, fd, &signedversion,
-                                            &priv->scrub_stat);
+                                            &priv->scrub_stat, skip_stat);
         if (ret)
                 goto unrefd; /* skip this object */
 
@@ -384,15 +397,16 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
          * become stale while scrubber calculated checksum.
          */
         ret = bitd_scrub_post_compute_check (this, child, fd, signedversion,
-                                             &sign, &priv->scrub_stat);
+                                             &sign, &priv->scrub_stat,
+                                             skip_stat);
         if (ret)
                 goto free_md;
 
         ret = bitd_compare_ckum (this, sign, md,
                                  linked_inode, entry, fd, child, &loc);
 
-        /* Increment of total number of scrubbed file counter */
-        br_inc_scrubbed_file (&priv->scrub_stat);
+        if (!skip_stat)
+                br_inc_scrubbed_file (&priv->scrub_stat);
 
         GF_FREE (sign); /* alloced on post-compute */
 
