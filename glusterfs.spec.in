@@ -1187,9 +1187,6 @@ exit 0
 # Extra utility script
 %{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
 
-# CLI utils
-%{_libexecdir}/glusterfs/cliutils
-
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
@@ -1203,6 +1200,9 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Thu Jul 14 2016 Aravinda VK <avishwan@redhat.com>
+- Removed extra packaging line of cliutils(python-gluster)(#1342356)
+
 * Mon Jul 11 2016 Aravinda VK <avishwan@redhat.com>
 - Added Python subpackage "cliutils" under gluster
 
