@@ -179,6 +179,9 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_LEASES_END         (GLFS_MSGID_COMP_LEASES +\
                                            GLFS_MSGID_SEGMENT)
 
+#define GLFS_MSGID_COMP_INDEX              GLFS_MSGID_COMP_LEASES_END
+#define GLFS_MSGID_COMP_INDEX_END          (GLFS_MSGID_COMP_INDEX +\
+                                            GLFS_MSGID_SEGMENT)
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */

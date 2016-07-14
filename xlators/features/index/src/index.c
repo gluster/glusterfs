@@ -13,6 +13,7 @@
 #include "syscall.h"
 #include "syncop.h"
 #include "common-utils.h"
+#include "index-messages.h"
 #include <ftw.h>
 
 #define XATTROP_SUBDIR "xattrop"
@@ -271,13 +272,14 @@ index_dir_create (xlator_t *this, const char *subdir)
         ret = 0;
 out:
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s/%s: Failed to "
-                        "create (%s)", priv->index_basepath, subdir,
-                        strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        INDEX_MSG_INDEX_DIR_CREATE_FAILED, "%s/%s: Failed to "
+                        "create", priv->index_basepath, subdir);
         } else if (ret == -2) {
-                gf_log (this->name, GF_LOG_ERROR, "%s/%s: Failed to create, "
-                        "path exists, not a directory ", priv->index_basepath,
-                        subdir);
+                gf_msg (this->name, GF_LOG_ERROR, ENOTDIR,
+                        INDEX_MSG_INDEX_DIR_CREATE_FAILED, "%s/%s: Failed to "
+                        "create, path exists, not a directory ",
+                        priv->index_basepath, subdir);
         }
         return ret;
 }
@@ -452,7 +454,8 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 seekdir (dir, off);
 #ifndef GF_LINUX_HOST_OS
                 if ((u_long)telldir(dir) != off && off != fctx->dir_eof) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                                INDEX_MSG_INDEX_READDIR_FAILED,
                                 "seekdir(0x%llx) failed on dir=%p: "
 				"Invalid argument (offset reused from "
 				"another DIR * structure?)", off, dir);
@@ -467,9 +470,9 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 in_case = (u_long)telldir (dir);
 
                 if (in_case == -1) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "telldir failed on dir=%p: %s",
-                                dir, strerror (errno));
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                INDEX_MSG_INDEX_READDIR_FAILED,
+                                "telldir failed on dir=%p", dir);
                         goto out;
                 }
 
@@ -479,9 +482,9 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
 
                 if (!entry) {
                         if (errno == EBADF) {
-                                gf_log (THIS->name, GF_LOG_WARNING,
-                                        "readdir failed on dir=%p: %s",
-                                        dir, strerror (errno));
+                                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                                        INDEX_MSG_INDEX_READDIR_FAILED,
+                                        "readdir failed on dir=%p", dir);
                                 goto out;
                         }
                         break;
@@ -508,7 +511,8 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
 #ifndef GF_LINUX_HOST_OS
                         if ((u_long)telldir(dir) != in_case &&
                             in_case != fctx->dir_eof) {
-				gf_log (THIS->name, GF_LOG_ERROR,
+				gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                                        INDEX_MSG_INDEX_READDIR_FAILED,
 					"seekdir(0x%llx) failed on dir=%p: "
 					"Invalid argument (offset reused from "
 					"another DIR * structure?)",
@@ -524,9 +528,10 @@ index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                 this_entry = gf_dirent_for_name (entry->d_name);
 
                 if (!this_entry) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
-                                "could not create gf_dirent for entry %s: (%s)",
-                                entry->d_name, strerror (errno));
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                INDEX_MSG_INDEX_READDIR_FAILED,
+                                "could not create gf_dirent for entry %s",
+                                entry->d_name);
                         goto out;
                 }
                 /*
@@ -590,8 +595,9 @@ index_link_to_base (xlator_t *this, char *base, size_t base_len,
         fd = sys_creat (base, 0);
         if ((fd < 0) && (errno != EEXIST)) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
-                        "create index (%s)", fpath, strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        INDEX_MSG_INDEX_ADD_FAILED, "%s: Not able to "
+                        "create index", fpath);
                 goto out;
         }
 
@@ -601,8 +607,9 @@ index_link_to_base (xlator_t *this, char *base, size_t base_len,
         ret = sys_link (base, fpath);
         if (ret && (errno != EEXIST)) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s: Not able to "
-                        "add to index (%s)", fpath, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        INDEX_MSG_INDEX_ADD_FAILED, "%s: Not able to "
+                        "add to index", fpath);
                 goto out;
         }
 out:
@@ -661,8 +668,9 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir, int type)
                 ret = sys_unlink (gfid_path);
 
         if (ret && (errno != ENOENT)) {
-                gf_log (this->name, GF_LOG_ERROR, "%s: failed to delete"
-                        " from index (%s)", gfid_path, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        INDEX_MSG_INDEX_DEL_FAILED, "%s: failed to delete"
+                        " from index", gfid_path);
                 ret = -errno;
                 goto out;
         }
@@ -789,9 +797,11 @@ index_entry_create (xlator_t *this, inode_t *inode, char *filename)
 
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Not able to get inode ctx "
-                        "for %s", uuid_utoa (inode->gfid));
-                op_errno = ENOMEM;
+                op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        INDEX_MSG_INODE_CTX_GET_SET_FAILED,
+                        "Not able to get inode ctx for %s",
+                        uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -849,9 +859,10 @@ index_entry_delete (xlator_t *this, uuid_t pgfid, char *filename)
         ret = sys_unlink (entry_path);
         if (ret && (errno != ENOENT)) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to delete from index/entry-changes (%s)",
-                        entry_path, strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        INDEX_MSG_INDEX_DEL_FAILED,
+                        "%s: failed to delete from index/entry-changes",
+                        entry_path);
         }
 
 out:
@@ -890,7 +901,8 @@ _index_action (xlator_t *this, inode_t *inode, int *zfilled)
 
         ret = index_inode_ctx_get (inode, this, &ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Not able to get"
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        INDEX_MSG_INODE_CTX_GET_SET_FAILED, "Not able to get"
                         " inode context for %s.", uuid_utoa (inode->gfid));
                 goto out;
         }
@@ -1417,8 +1429,9 @@ index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
                                            priv->internal_vgfid[vgfid_type],
 				   sizeof (priv->internal_vgfid[vgfid_type]));
 		if (ret) {
-			ret = -ENOMEM;
-			gf_log (this->name, GF_LOG_ERROR, "xattrop index "
+			ret = -EINVAL;
+			gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                INDEX_MSG_DICT_SET_FAILED, "xattrop index "
 				"gfid set failed");
 			goto done;
 		}
@@ -1431,8 +1444,9 @@ index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
 
 		ret = dict_set_uint64 (xattr, (char *)name, count);
 		if (ret) {
-			ret = -ENOMEM;
-			gf_log (this->name, GF_LOG_ERROR, "xattrop index "
+			ret = -EINVAL;
+			gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                INDEX_MSG_DICT_SET_FAILED, "xattrop index "
 				"count set failed");
 			goto done;
 		}
@@ -1441,8 +1455,9 @@ index_getxattr_wrapper (call_frame_t *frame, xlator_t *this,
 
 		ret = dict_set_uint64 (xattr, (char *)name, count);
 		if (ret) {
-			ret = -ENOMEM;
-			gf_log (this->name, GF_LOG_ERROR, "dirty index "
+			ret = -EINVAL;
+			gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                INDEX_MSG_DICT_SET_FAILED, "dirty index "
 				"count set failed");
 			goto done;
 		}
@@ -1473,13 +1488,15 @@ index_save_pargfid_for_entry_changes (xlator_t *this, loc_t *loc, char *path)
 
         ret = index_inode_ctx_get (loc->inode, this, &ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get inode "
-                        "context for %s", path);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        INDEX_MSG_INODE_CTX_GET_SET_FAILED,
+                        "Unable to get inode context for %s", path);
                 return -EINVAL;
         }
         ret = gf_uuid_parse (loc->name, ctx->virtual_pargfid);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to store "
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        INDEX_MSG_INODE_CTX_GET_SET_FAILED, "Unable to store "
                         "virtual gfid in inode context for %s", path);
                 return -EINVAL;
         }
@@ -1546,14 +1563,14 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         }
         ret = sys_lstat (path, &lstatbuf);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Stat failed on %s dir "
-                        "(%s)", path, strerror (errno));
+                gf_msg_debug (this->name, errno, "Stat failed on %s dir ",
+                              path);
                 op_errno = errno;
                 goto done;
         } else if (!S_ISDIR (lstatbuf.st_mode) && is_dir) {
-                gf_log (this->name, GF_LOG_DEBUG, "Stat failed on %s dir, "
+                op_errno = ENOTDIR;
+                gf_msg_debug (this->name, op_errno, "Stat failed on %s dir, "
                         "not a directory", path);
-                op_errno = ENOENT;
                 goto done;
         }
         xattr = dict_new ();
@@ -1653,17 +1670,18 @@ index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
 
         ret = index_fd_ctx_get (fd, this, &fctx);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "pfd is NULL, fd=%p", fd);
                 op_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        INDEX_MSG_FD_OP_FAILED, "pfd is NULL, fd=%p", fd);
                 goto done;
         }
 
         dir = fctx->dir;
         if (!dir) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "dir is NULL for fd=%p", fd);
                 op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        INDEX_MSG_INDEX_READDIR_FAILED,
+                        "dir is NULL for fd=%p", fd);
                 goto done;
         }
 
@@ -1702,9 +1720,10 @@ deletion_handler (const char *fpath, const struct stat *sb, int typeflag,
                 break;
         default:
                 type = ia_type_from_st_mode (sb->st_mode);
-                gf_log (THIS->name, GF_LOG_WARNING, "%s neither a regular file "
-                        "nor a directory - type:%s", fpath,
-                        gf_inode_type_to_str (type));
+                gf_msg (THIS->name, GF_LOG_WARNING, EINVAL,
+                        INDEX_MSG_INVALID_ARGS,
+                        "%s neither a regular file nor a directory - type:%s",
+                        fpath, gf_inode_type_to_str (type));
                 break;
         }
         return 0;
@@ -1961,12 +1980,14 @@ index_fill_link_count (xlator_t *this, dict_t *xdata)
         if (count == 0) {
                 ret = dict_set_int8 (xdata, "link-count", 0);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                INDEX_MSG_DICT_SET_FAILED,
                                 "Unable to set link-count");
         } else {
                 ret = dict_set_int8 (xdata, "link-count", 1);
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                INDEX_MSG_DICT_SET_FAILED,
                                 "Unable to set link-count");
         }
 
@@ -2261,13 +2282,15 @@ init (xlator_t *this)
         char            *pendinglist = NULL;
 
 	if (!this->children || this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR,
+		gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        INDEX_MSG_INVALID_GRAPH,
 			"'index' not configured with exactly one child");
                 goto out;
 	}
 
 	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        INDEX_MSG_INVALID_GRAPH,
 			"dangling volume. check volfile ");
 	}
 
@@ -2277,29 +2300,33 @@ init (xlator_t *this)
 
         LOCK_INIT (&priv->lock);
         if ((ret = pthread_cond_init(&priv->cond, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pthread_cond_init failed (%d)", ret);
+                gf_msg (this->name, GF_LOG_ERROR, ret,
+                        INDEX_MSG_INVALID_ARGS,
+                        "pthread_cond_init failed");
                 goto out;
         }
         cond_inited = _gf_true;
 
         if ((ret = pthread_mutex_init(&priv->mutex, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pthread_mutex_init failed (%d)", ret);
+                gf_msg (this->name, GF_LOG_ERROR, ret,
+                        INDEX_MSG_INVALID_ARGS,
+                        "pthread_mutex_init failed");
                 goto out;
         }
         mutex_inited = _gf_true;
 
         if ((ret = pthread_attr_init (&w_attr)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "pthread_attr_init failed (%d)", ret);
+                gf_msg (this->name, GF_LOG_ERROR, ret,
+                        INDEX_MSG_INVALID_ARGS,
+                        "pthread_attr_init failed");
                 goto out;
         }
         attr_inited = _gf_true;
 
         ret = pthread_attr_setstacksize (&w_attr, INDEX_THREAD_STACK_SIZE);
         if (ret == EINVAL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, ret,
+                        INDEX_MSG_INVALID_ARGS,
                         "Using default thread stack size");
         }
 
@@ -2329,6 +2356,7 @@ init (xlator_t *this)
         if (priv->pending_watchlist)
                 priv->complete_watchlist = dict_copy_with_ref (priv->pending_watchlist,
                                                       priv->complete_watchlist);
+
         gf_uuid_generate (priv->index);
         for (i = 0; i < XATTROP_TYPE_END; i++)
                 gf_uuid_generate (priv->internal_vgfid[i]);
@@ -2363,8 +2391,9 @@ init (xlator_t *this)
 
         ret = gf_thread_create (&thread, &w_attr, index_worker, this);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to create "
-                        "worker thread, aborting");
+                gf_msg (this->name, GF_LOG_WARNING, ret,
+                        INDEX_MSG_WORKER_THREAD_CREATE_FAILED,
+                        "Failed to create worker thread, aborting");
                 goto out;
         }
 
@@ -2442,7 +2471,9 @@ index_releasedir (xlator_t *this, fd_t *fd)
         if (fctx->dir) {
                 ret = sys_closedir (fctx->dir);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "closedir error: %s", strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                INDEX_MSG_FD_OP_FAILED,
+                                "closedir error");
         }
 
         GF_FREE (fctx);
