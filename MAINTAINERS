@@ -68,13 +68,12 @@ S: Orphan
 F: xlators/storage/bd/
 
 BitRot
-M: Venky Shankar <vshankar@redhat.com>
-M: Raghavendra Bhat (a.k.a. "Johnny") <rabhat@redhat.com>
+M: Raghavendra Bhat <rabhat@redhat.com>
 S: Maintained
 F: xlators/features/bit-rot/
 
 Changelog
-M: Venky Shankar <vshankar@redhat.com>
+M: Aravinda V K <avishwan@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
@@ -96,7 +95,6 @@ S: Maintained
 F: xlators/cluster/ec/
 
 FUSE Bridge
-M: Anand Avati <avati@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
 M: Raghavendra Bhat <rabhat@redhat.com>
 S: Maintained
@@ -118,7 +116,7 @@ S: Maintained
 F: xlators/features/locks/
 
 Marker
-M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/features/marker/
 
@@ -139,13 +137,12 @@ S: Maintained
 F: xlators/storage/posix/
 
 Quota
-M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/features/quota/
 
 Tiering
 M: Dan Lambright <dlambrig@redhat.com>
-M: Joseph Fernandes <josferna@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/src/tier.c
 F: xlators/features/changetimerecorder
@@ -164,24 +161,20 @@ Doc
 M: Humble Chirammal <hchiramm@redhat.com>
 M: Raghavendra Talur <rtalur@redhat.com>
 M: Prashanth Pai <ppai@redhat.com>
-M: Shravan Chandrashekar <shravantc99@gmail.com>
 S: Maintained
 F: doc/
 
 Geo Replication
 M: Aravinda V K <avishwan@redhat.com>
-M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: geo-replication/
 
 
 Glupy
-M: Justin Clift <justin@gluster.org>
-S: Maintained
+S: Orphan
 F: xlators/features/glupy/
 
 libgfapi
-M: Anand Avati <avati@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
 M: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
@@ -199,7 +192,6 @@ S: Maintained
 F: libglusterfs/
 
 Management Daemon
-M: Krishnan Parthasarathi <kparthas@redhat.com>
 M: Kaushal Madappa <kmadapp@redhat.com>
 M: Atin Mukherjee <amukherj@redhat.com>
 S: Maintained
@@ -208,12 +200,11 @@ F: xlators/mgmt/
 
 Remote Procedure Call subsystem
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-M: Anand Avati <avati@redhat.com>
 S: Maintained
 F: rpc/
 
 Snapshot
-M: Rajesh Joesh <rjoseph@redhat.com>
+M: Rajesh Joseph <rjoseph@redhat.com>
 S: Maintained
 F: xlators/mgmt/glusterd/src/glusterd-snap*
 F: extras/snap-scheduler.py
@@ -235,20 +226,16 @@ Fedora Packaging
 M: glusterfs-owner@fedoraproject.org
 M: Humble Chirammal <hchiramm@redhat.com>
 M: Kaleb Keithley <kkeithle@redhat.com>
-M: Lalatendu Mohanty <lmohanty@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
 S: Maintained
 W: https://apps.fedoraproject.org/packages/glusterfs
 T: http://pkgs.fedoraproject.org/git/glusterfs.git
 
 FreeBSD port
-M: Harshavardhana <harsha@harshavardhana.net>
-S: Maintained
+S: Orphan
 
 MacOS X port
-M: Dennis Schafroth <dennis@schafroth.com>
-M: Harshavardhana <harsha@harshavardhana.net>
-S: Maintained
+S: Orphan
 
 NetBSD port
 M: Emmanuel Dreyfus <manu@netbsd.org>
@@ -275,7 +262,7 @@ W: https://github.com/gluster/glusterfs-hadoop/wiki
 T: https://github.com/gluster/glusterfs-hadoop.git
 
 NFS-Ganesha FSAL plugin
-M: Anand Subramanian <ansubram@redhat.com>
+M: Kaleb Keithley <kkeithle@redhat.com>
 S: Maintained
 T: git://github.com/nfs-ganesha/nfs-ganesha.git
 F: src/nfs-ganesha~/src/FSAL/FSAL_GLUSTER/
@@ -312,3 +299,13 @@ M: M. Mohan Kumar <mohan@in.ibm.com>
 M: Shishir Gowda <gowda.shishir@gmail.com>
 M: Brian Foster <bfoster@redhat.com>
 M: Csaba Henk <chenk@redhat.com>
+M: Anand Avati <avati@redhat.com>
+M: Dennis Schafroth <dennis@schafroth.com>
+M: Harshavardhana <harsha@harshavardhana.net>
+M: Krishnan Parthasarathi <kparthas@redhat.com>
+M: Justin Clift <justin@gluster.org>
+M: Venky Shankar <vshankar@redhat.com>
+M: Shravan Chandrashekar <shravantc99@gmail.com>
+M: Joseph Fernandes <josferna@redhat.com>
+M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
+M: Anand Subramanian <ansubram@redhat.com>
