@@ -798,6 +798,7 @@ _fcbk_statustostruct (char *resbuf, size_t blen, FILE *fp,
                 ptr = fgets (resbuf, blen, fp);
                 if (!ptr)
                         break;
+
                 v = resbuf + strlen(resbuf) - 1;
                 while (isspace (*v))
                         /* strip trailing space */
@@ -816,8 +817,10 @@ _fcbk_statustostruct (char *resbuf, size_t blen, FILE *fp,
                         return -1;
 
                 k = gf_strdup (resbuf);
-                if (!k)
+                if (!k) {
+                        GF_FREE (v);
                         return -1;
+                }
 
                 if (strcmp (k, "worker_status") == 0) {
                         memcpy (sts_val->worker_status, v,
@@ -877,6 +880,8 @@ _fcbk_statustostruct (char *resbuf, size_t blen, FILE *fp,
                         sts_val->checkpoint_completion_time_utc[strlen(v)] =
                                 '\0';
                 }
+                GF_FREE(v);
+                GF_FREE(k);
         }
 
         return errno ? -1 : 0;
@@ -1748,8 +1753,10 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
                 snprintf (key, 512, "slave%d", maxslv + 1);
 
                 ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
-                if (ret)
+                if (ret) {
+                        GF_FREE (value);
                         goto out;
+                }
         } else if (ret == -1) { /* Existing slave */
                 snprintf (key, 512, "slave%d", slave1.old_slvidx);
 
@@ -1761,12 +1768,15 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
 
                 /* Add new slave's value, with the same slave index */
                 ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
-                if (ret)
+                if (ret) {
+                        GF_FREE (value);
                         goto out;
+                }
         } else {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_REMOTE_VOL_UUID_FAIL,
                         "_get_slave_idx_slave_voluuid failed!");
+                GF_FREE (value);
                 ret = -1;
                 goto out;
         }
@@ -2006,7 +2016,6 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
 
         GF_ASSERT (param);
         GF_ASSERT (param->volinfo);
-
         if (param->is_active) {
                 ret = 0;
                 goto out;
@@ -2015,8 +2024,7 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
         this = THIS;
         GF_ASSERT (this);
 
-        if (this)
-                priv = this->private;
+        priv = this->private;
         if (priv == NULL) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
@@ -2024,7 +2032,7 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
                 goto out;
         }
 
-        slave = strchr(value->data, ':');
+        slave = strchr (value->data, ':');
         if (!slave) {
                 ret = 0;
                 goto out;
@@ -4122,8 +4130,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                         goto out;
         }
 
-        if (THIS)
-                priv = THIS->private;
+        priv = THIS->private;
         if (priv == NULL) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
@@ -4301,7 +4308,7 @@ dict_get_param (dict_t *dict, char *key, char **param)
                 return 0;
 
         dk = gf_strdup (key);
-        if (!key)
+        if (!dk)
                 return -1;
 
         s = strpbrk (dk, "-_");
@@ -4754,8 +4761,10 @@ glusterd_marker_changelog_create_volfile (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 ret = glusterd_svcs_manager (volinfo);
+                goto out;
+        }
         ret = 0;
 out:
         return ret;
