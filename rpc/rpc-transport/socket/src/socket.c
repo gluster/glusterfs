@@ -2786,8 +2786,6 @@ socket_server_event_handler (int fd, int idx, void *data,
                         pthread_mutex_unlock (&new_priv->lock);
                         if (ret == -1) {
                                 sys_close (new_sock);
-                                GF_FREE (new_trans->name);
-                                GF_FREE (new_trans);
                                 rpc_transport_unref (new_trans);
                                 goto unlock;
                         }
@@ -3108,8 +3106,9 @@ handler:
                         if (ret) {
                                 gf_log(this->name, GF_LOG_ERROR,
                                        "could not spawn thread");
-                                sys_close(priv->pipe[0]);
-                                sys_close(priv->pipe[1]);
+                                sys_close (priv->pipe[0]);
+                                sys_close (priv->pipe[1]);
+                                sys_close (priv->sock);
                                 priv->sock = -1;
                         }
                 }
