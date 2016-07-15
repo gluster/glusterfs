@@ -8,3 +8,6 @@ The development guidelines are detailed in [Development Workflow.](http://www.gl
 The GlusterFS documentation can be found at [Documentation](http://gluster.readthedocs.org/en/latest)
 
 For more info, please visit http://www.gluster.org/.
+
+
+[![Join the chat at https://gitter.im/gluster/glusterfs](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/gluster/glusterfs?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
