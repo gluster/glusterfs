@@ -1145,11 +1145,7 @@ exit 0
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file/pre
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
-                            %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
-%if ( 0%{?rhel} && 0%{?rhel} > 6 )
-%exclude                    %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyc
-%exclude                    %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyo
-%endif
+                            %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
@@ -1200,6 +1196,9 @@ exit 0
 %{_sbindir}/gf_recon
 
 %changelog
+* Fri Jul 15 2016 Aravinda VK <avishwan@redhat.com>
+- Removed ".py" extension from symlink(S57glusterfind-delete-post)(#1356868)
+
 * Thu Jul 14 2016 Aravinda VK <avishwan@redhat.com>
 - Removed extra packaging line of cliutils(python-gluster)(#1342356)
 
