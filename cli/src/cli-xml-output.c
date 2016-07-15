@@ -6194,6 +6194,9 @@ cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
                                 "the dictionary", dict_key);
                         goto out;
                 }
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"Opt");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"Option",
                                                        "%s", key);
@@ -6202,6 +6205,9 @@ cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"Value",
                                                        "%s", value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterEndElement (writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
         ret = cli_end_xml_output (writer, doc);
