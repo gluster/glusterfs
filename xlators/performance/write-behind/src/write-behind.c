@@ -169,6 +169,7 @@ typedef struct wb_request {
 
 typedef struct wb_conf {
         uint64_t         aggregate_size;
+        uint64_t         page_size;
         uint64_t         window_size;
         gf_boolean_t     flush_behind;
         gf_boolean_t     trickling_writes;
@@ -1207,10 +1208,13 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
         char          *ptr    = NULL;
         struct iobuf  *iobuf  = NULL;
         struct iobref *iobref = NULL;
+        struct wb_conf *conf = NULL;
         int            ret    = -1;
         ssize_t        required_size = 0;
         size_t         holder_len = 0;
         size_t         req_len = 0;
+
+        conf = req->wb_inode->this->private;
 
         if (!holder->iobref) {
                 holder_len = iov_length (holder->stub->args.vector,
@@ -1218,7 +1222,7 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
                 req_len = iov_length (req->stub->args.vector,
                                       req->stub->args.count);
 
-                required_size = max ((THIS->ctx->page_size),
+                required_size = max ((conf->page_size),
                                      (holder_len + req_len));
                 iobuf = iobuf_get2 (req->wb_inode->this->ctx->iobuf_pool,
                                     required_size);
@@ -1281,7 +1285,6 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 	wb_request_t *holder          = NULL;
 	wb_conf_t    *conf            = NULL;
         int           ret             = 0;
-	ssize_t       page_size       = 0;
 
 	/* With asynchronous IO from a VM guest (as a file), there
 	   can be two sequential writes happening in two regions
@@ -1292,7 +1295,6 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 	   through the interleaved ops
 	*/
 
-	page_size = wb_inode->this->ctx->page_size;
 	conf = wb_inode->this->private;
 
         list_for_each_entry_safe (req, tmp, &wb_inode->todo, todo) {
@@ -1343,7 +1345,7 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
                         continue;
                 }
 
-		space_left = page_size - holder->write_size;
+		space_left = wb_inode->window_conf - holder->write_size;
 
 		if (space_left < req->write_size) {
 			holder->ordering.go = 1;
@@ -2471,6 +2473,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-size", conf->window_size, options, size_uint64,
                           out);
 
+        GF_OPTION_RECONF ("cache-size", conf->page_size, options, size_uint64,
+                          out);
+
         GF_OPTION_RECONF ("flush-behind", conf->flush_behind, options, bool,
                           out);
 
@@ -2522,6 +2527,7 @@ init (xlator_t *this)
 
         /* configure 'option window-size <size>' */
         GF_OPTION_INIT ("cache-size", conf->window_size, size_uint64, out);
+        GF_OPTION_INIT ("cache-size", conf->page_size, size_uint64, out);
 
         if (!conf->window_size && conf->aggregate_size) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,

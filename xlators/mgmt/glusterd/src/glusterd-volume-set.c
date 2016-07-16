@@ -1560,6 +1560,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.write-behind-trickling-writes",
+          .voltype    = "performance/write-behind",
+          .option     = "trickling-writes",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.nfs.write-behind-trickling-writes",
+          .voltype    = "performance/write-behind",
+          .option     = "trickling-writes",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.lazy-open",
           .voltype    = "performance/open-behind",
           .option     = "lazy-open",
