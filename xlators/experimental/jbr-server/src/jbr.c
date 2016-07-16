@@ -1258,7 +1258,7 @@ jbr_next_entry (call_frame_t *frame, xlator_t *this)
                         op_errno = EIO;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 J_MSG_SYS_CALL_FAILURE,
-                                "got %ld/%d bytes for next entry",
+                                "got %zd/%d bytes for next entry",
                                 nbytes, CHANGELOG_ENTRY_SIZE);
                 }
                 goto err;

@@ -9855,7 +9855,7 @@ cli_populate_req_dict_for_delete (dict_t *snap_dict, dict_t *dict, size_t index)
                 goto out;
         }
 
-        ret = snprintf (key, sizeof (key), "snapname%lu", index);
+        ret = snprintf (key, sizeof (key), "snapname%zu", index);
         if (ret < 0) {
                 goto out;
         }
