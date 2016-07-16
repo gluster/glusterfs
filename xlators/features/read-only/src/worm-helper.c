@@ -215,7 +215,7 @@ gf_worm_serialize_state (worm_reten_state_t *reten_state, char *val)
         state |= reten_state->retain << 1;
         state |= reten_state->legal_hold << 2;
         state |= reten_state->ret_mode << 3;
-        sprintf (val, "%d/%ld/%ld", state, reten_state->ret_period,
+        sprintf (val, "%d/%"PRIu64"/%"PRIu64, state, reten_state->ret_period,
                  reten_state->auto_commit_period);
 
 out:
