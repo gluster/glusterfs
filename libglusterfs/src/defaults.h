@@ -591,6 +591,14 @@ int32_t default_seek_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t default_lease_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                               struct gf_lease *lease, dict_t *xdata);
 
+int32_t
+default_getactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                            dict_t *xdata);
+
+int32_t
+default_setactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                            lock_migration_info_t *locklist, dict_t *xdata);
+
 /* _cbk_resume */
 
 int32_t
@@ -856,6 +864,14 @@ int32_t default_zerofill_cbk_resume (call_frame_t * frame, void *cookie,
                                      xlator_t * this, int32_t op_ret,
                                      int32_t op_errno, struct iatt *pre,
                                      struct iatt *post, dict_t * xdata);
+int32_t
+default_ipc_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+int32_t
+default_seek_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, off_t offset,
+                         dict_t *xdata);
 
 int32_t
 default_getspec_cbk_resume (call_frame_t * frame, void *cookie,
@@ -868,13 +884,16 @@ default_lease_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
                           struct gf_lease *lease, dict_t *xdata);
 
 int32_t
-default_getactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                             dict_t *xdata);
+default_getactivelk_cbk_resume (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno,
+                                lock_migration_info_t *locklist,
+                                dict_t *xdata);
 
 int32_t
-default_setactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                              lock_migration_info_t *locklist, dict_t *xdata);
-
+default_setactivelk_cbk_resume (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, dict_t *xdata);
 
 /* _CBK */
 int32_t
@@ -1114,6 +1133,17 @@ default_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct gf_lease *lease, dict_t *xdata);
 
 int32_t
+default_getactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          lock_migration_info_t *locklist,
+                          dict_t *xdata);
+
+int32_t
+default_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+
+int32_t
 default_lookup_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
@@ -1251,20 +1281,19 @@ int32_t
 default_getspec_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
+default_ipc_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
 default_seek_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_lease_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
-default_getactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno,
-                          lock_migration_info_t *locklist,
-                          dict_t *xdata);
+default_getactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
-default_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, dict_t *xdata);
+default_setactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);
