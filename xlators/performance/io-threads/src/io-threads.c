@@ -329,9 +329,10 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_XATTROP:
         case GF_FOP_FXATTROP:
         case GF_FOP_RCHECKSUM:
-	case GF_FOP_FALLOCATE:
-	case GF_FOP_DISCARD:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
         case GF_FOP_ZEROFILL:
+        case GF_FOP_SEEK:
                 pri = IOT_PRI_LO;
                 break;
 
@@ -715,7 +716,7 @@ iot_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 int
-iot_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+iot_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 	      off_t offset, size_t len, dict_t *xdata)
 {
         IOT_FOP (fallocate, frame, this, fd, mode, offset, len, xdata);
@@ -723,7 +724,7 @@ iot_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 }
 
 int
-iot_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+iot_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	    size_t len, dict_t *xdata)
 {
         IOT_FOP (discard, frame, this, fd, offset, len, xdata);
@@ -731,10 +732,42 @@ iot_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 int
-iot_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+iot_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             off_t len, dict_t *xdata)
 {
         IOT_FOP (zerofill, frame, this, fd, offset, len, xdata);
+        return 0;
+}
+
+int
+iot_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+          gf_seek_what_t what, dict_t *xdata)
+{
+        IOT_FOP (seek, frame, this, fd, offset, what, xdata);
+        return 0;
+}
+
+int
+iot_lease (call_frame_t *frame, xlator_t *this, loc_t *loc,
+           struct gf_lease *lease, dict_t *xdata)
+{
+        IOT_FOP (lease, frame, this, loc, lease, xdata);
+        return 0;
+}
+
+int
+iot_getactivelk (call_frame_t *frame, xlator_t *this,
+                 loc_t *loc, dict_t *xdata)
+{
+        IOT_FOP (getactivelk, frame, this, loc, xdata);
+        return 0;
+}
+
+int
+iot_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 lock_migration_info_t *locklist, dict_t *xdata)
+{
+        IOT_FOP (setactivelk, frame, this, loc, locklist, xdata);
         return 0;
 }
 
@@ -1077,11 +1110,15 @@ struct xlator_fops fops = {
         .entrylk     = iot_entrylk,
         .fentrylk    = iot_fentrylk,
         .xattrop     = iot_xattrop,
-	.fxattrop    = iot_fxattrop,
+        .fxattrop    = iot_fxattrop,
         .rchecksum   = iot_rchecksum,
-	.fallocate   = iot_fallocate,
-	.discard     = iot_discard,
+        .fallocate   = iot_fallocate,
+        .discard     = iot_discard,
         .zerofill    = iot_zerofill,
+        .seek        = iot_seek,
+        .lease       = iot_lease,
+        .getactivelk = iot_getactivelk,
+        .setactivelk = iot_setactivelk,
 };
 
 struct xlator_cbks cbks;
