@@ -4632,7 +4632,7 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
 
         gf_msg_trace (this->name, 0, "%s: gfid=%s first_block=%"PRIu32" "
                       "last_block=%"PRIu32" num_blocks=%"PRIu32" offset=%"PRId64""
-                      " total_size=%lu flags=%"PRId32"", gf_fop_list[fop],
+                      " total_size=%zu flags=%"PRId32"", gf_fop_list[fop],
                       uuid_utoa (fd->inode->gfid), local->first_block,
                       local->last_block, local->num_blocks, offset,
                       local->total_size, local->flags);

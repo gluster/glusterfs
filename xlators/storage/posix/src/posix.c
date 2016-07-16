@@ -6437,8 +6437,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 if (bytes_read < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_PREAD_FAILED,
-                                "pread of %d bytes returned %ld ",
-                                len, bytes_read);
+                                "pread of %d bytes returned %zd", len,
+                                bytes_read);
 
                         op_errno = errno;
                 }
