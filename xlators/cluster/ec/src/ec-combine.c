@@ -108,21 +108,6 @@ void ec_iatt_time_merge(uint32_t * dst_sec, uint32_t * dst_nsec,
 }
 
 static
-uint64_t
-gfid_to_ino(uuid_t gfid)
-{
-    uint64_t ino = 0;
-    int32_t i;
-
-    for (i = 8; i < 16; i++) {
-        ino <<= 8;
-        ino += (uint8_t)gfid[i];
-    }
-
-    return ino;
-}
-
-static
 gf_boolean_t
 ec_iatt_is_trusted(ec_fop_data_t *fop, struct iatt *iatt)
 {
