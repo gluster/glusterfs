@@ -652,6 +652,12 @@ gf_time_fmt (char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
         return dst;
 }
 
+/* This function helps us use gfid (unique identity) to generate inode's unique
+ * number in glusterfs.
+ */
+ino_t
+gfid_to_ino (uuid_t gfid);
+
 int
 mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks);
 /*

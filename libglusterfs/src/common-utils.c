@@ -4538,3 +4538,17 @@ is_virtual_xattr (const char *k)
 
         return ret;
 }
+
+ino_t
+gfid_to_ino (uuid_t gfid)
+{
+        ino_t ino = 0;
+        int32_t i;
+
+        for (i = 8; i < 16; i++) {
+                ino <<= 8;
+                ino += (uint8_t)gfid[i];
+        }
+
+        return ino;
+}

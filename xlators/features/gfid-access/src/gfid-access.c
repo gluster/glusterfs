@@ -655,10 +655,7 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, inode_t *inode,
                        struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-        int             j                       = 0;
-        int             i                       = 0;
         int             ret                     = 0;
-        uint64_t        temp_ino                = 0;
         inode_t         *cbk_inode              = NULL;
         inode_t         *true_inode             = NULL;
         uuid_t          random_gfid             = {0,};
@@ -727,11 +724,7 @@ ga_virtual_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_uuid_copy (buf->ia_gfid, random_gfid);
 
-        for (i = 15; i > (15 - 8); i--) {
-                temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
-                j += 8;
-        }
-        buf->ia_ino = temp_ino;
+        buf->ia_ino = gfid_to_ino (buf->ia_gfid);
 
 unwind:
         /* Lookup on non-existing gfid returns ESTALE.

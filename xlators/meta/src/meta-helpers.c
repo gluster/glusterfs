@@ -185,21 +185,6 @@ meta_direct_io_mode (dict_t *xdata, call_frame_t *frame)
 }
 
 
-static uint64_t
-gfid_to_ino (uuid_t gfid)
-{
-        uint64_t  ino = 0;
-        int       i = 0, j = 0;
-
-        for (i = 15; i > (15 - 8); i--) {
-                ino += (uint64_t)(gfid[i]) << j;
-                j += 8;
-        }
-
-        return ino;
-}
-
-
 static void
 meta_uuid_copy (uuid_t dst, uuid_t src)
 {

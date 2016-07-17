@@ -347,9 +347,6 @@ svs_uuid_generate (uuid_t gfid, char *snapname, uuid_t origin_gfid)
 void
 svs_fill_ino_from_gfid (struct iatt *buf)
 {
-        uint64_t  temp_ino = 0;
-        int       j        = 0;
-        int       i        = 0;
         xlator_t *this     = NULL;
 
         this = THIS;
@@ -362,11 +359,8 @@ svs_fill_ino_from_gfid (struct iatt *buf)
                 buf->ia_ino = -1;
                 goto out;
         }
-        for (i = 15; i > (15 - 8); i--) {
-                temp_ino += (uint64_t)(buf->ia_gfid[i]) << j;
-                j += 8;
-        }
-        buf->ia_ino = temp_ino;
+
+        buf->ia_ino = gfid_to_ino (buf->ia_gfid);
 out:
         return;
 }
