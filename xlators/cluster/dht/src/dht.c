@@ -20,6 +20,7 @@ class_methods_t class_methods = {
 };
 
 struct xlator_fops fops = {
+        .ipc         = dht_ipc,
         .lookup      = dht_lookup,
         .mknod       = dht_mknod,
         .create      = dht_create,
