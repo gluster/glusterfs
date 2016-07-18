@@ -290,7 +290,7 @@ trash_notify_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         data_t                 *data                  = NULL;
         trash_private_t        *priv                  = NULL;
-        int ret                                       = 0;
+        int                    ret                    = 0;
 
         priv = this->private;
         GF_VALIDATE_OR_GOTO ("trash", priv, out);
@@ -306,14 +306,19 @@ trash_notify_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
         } else {
-                priv->oldtrash_dir = gf_strdup (data->data);
+                priv->oldtrash_dir = GF_CALLOC (1, PATH_MAX,
+                                                gf_common_mt_char);
                 if (!priv->oldtrash_dir) {
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
                          ret = ENOMEM;
                          goto out;
                 }
-                gf_log (this->name, GF_LOG_DEBUG, "old trash directory"
-                                                  " path is %s", data->data);
+                /* appending '/' if it is not present */
+                sprintf (priv->oldtrash_dir, "%s%c", data->data,
+                         data->data[strlen(data->data) - 1] != '/' ? '/' : '\0'
+                         );
+                gf_log (this->name, GF_LOG_DEBUG, "old trash directory path "
+                                                  "is %s", priv->oldtrash_dir);
         }
 
 out:
@@ -378,7 +383,7 @@ trash_internal_op_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *buf, struct iatt *preparent,
                         struct iatt *postparent, dict_t *xdata)
 {
-        if (op_ret != 0)
+        if (op_ret != 0 && !(op_errno == EEXIST))
                 gf_log (this->name, GF_LOG_ERROR, "mkdir failed for "
                         "internal op directory : %s", strerror (op_errno));
         return op_ret;
