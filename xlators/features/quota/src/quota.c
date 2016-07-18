@@ -2198,7 +2198,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
         if (ctx == NULL) {
-                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                gf_msg (this->name, GF_LOG_INFO, EINVAL,
 			Q_MSG_INODE_CTX_GET_FAILED,
 			"quota context not set inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
