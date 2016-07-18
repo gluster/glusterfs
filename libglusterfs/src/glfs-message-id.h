@@ -164,7 +164,7 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
                                              GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_JBR                     GLFS_MSGID_COMP_SHARD_END
-#define GLFS_MSGID_COMP_JBR_END                 (GLFS_MSGID_COMP_SHARD_END+\
+#define GLFS_MSGID_COMP_JBR_END                 (GLFS_MSGID_COMP_JBR +\
                                                  GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_PL               GLFS_MSGID_COMP_JBR_END
