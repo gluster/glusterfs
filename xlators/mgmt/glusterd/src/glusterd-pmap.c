@@ -184,7 +184,7 @@ pmap_registry_alloc (xlator_t *this)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->last_alloc; p <= GF_PORT_MAX; p++) {
+        for (p = pmap->base_port; p <= GF_PORT_MAX; p++) {
                 /* GF_PMAP_PORT_FOREIGN may be freed up ? */
                 if ((pmap->ports[p].type == GF_PMAP_PORT_FREE) ||
                     (pmap->ports[p].type == GF_PMAP_PORT_FOREIGN)) {
@@ -197,7 +197,7 @@ pmap_registry_alloc (xlator_t *this)
                 }
         }
 
-        if (port)
+        if (port > pmap->last_alloc)
                 pmap->last_alloc = port;
 
         return port;
