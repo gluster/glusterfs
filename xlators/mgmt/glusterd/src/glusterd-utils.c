@@ -11399,9 +11399,10 @@ glusterd_handle_replicate_brick_ops (glusterd_volinfo_t *volinfo,
 
         switch (op) {
         case GD_OP_REPLACE_BRICK:
-        if (dict_get_str (THIS->options, "transport.socket.bind-address",
-                          &volfileserver) != 0)
-                volfileserver = "localhost";
+                if (dict_get_str (THIS->options,
+                                  "transport.socket.bind-address",
+                                  &volfileserver) != 0)
+                        volfileserver = "localhost";
 
                 snprintf (logfile, sizeof (logfile),
                           DEFAULT_LOG_FILE_DIRECTORY"/%s-replace-brick-mount.log",
