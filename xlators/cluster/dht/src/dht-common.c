@@ -8488,6 +8488,90 @@ err:
 }
 
 
+int32_t
+dht_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t  *local                   = NULL;
+        int           this_call_cnt           = 0;
+        dht_layout_t *layout                  = NULL;
+        int           ret                     = -1;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret < 0 && op_errno != ENOTCONN) {
+                        local->op_errno = op_errno;
+                        goto unlock;
+                }
+                local->op_ret = 0;
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                DHT_STACK_UNWIND (ipc, frame, local->op_ret, local->op_errno,
+                                  NULL);
+        }
+
+out:
+        return 0;
+}
+
+
+int32_t
+dht_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        dht_local_t  *local    = NULL;
+        int           op_errno = EINVAL;
+        dht_conf_t   *conf     = NULL;
+        int           call_cnt = 0;
+        int           i        = 0;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+
+        if (op != GF_IPC_TARGET_UPCALL)
+                goto wind_default;
+
+        VALIDATE_OR_GOTO (this->private, err);
+        conf = this->private;
+
+        local = dht_local_init (frame, NULL, NULL, GF_FOP_IPC);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        call_cnt        = conf->subvolume_cnt;
+        local->call_cnt = call_cnt;
+
+        for (i = 0; i < call_cnt; i++) {
+                STACK_WIND (frame, dht_ipc_cbk, conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->ipc, op, xdata);
+        }
+
+        return 0;
+
+err:
+        op_errno = (op_errno == -1) ? errno : op_errno;
+        DHT_STACK_UNWIND (ipc, frame, -1, op_errno, NULL);
+
+        return 0;
+
+wind_default:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+        return 0;
+}
+
+
 int
 dht_forget (xlator_t *this, inode_t *inode)
 {
