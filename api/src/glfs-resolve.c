@@ -820,6 +820,13 @@ __glfs_migrate_openfds (struct glfs *fs, xlator_t *subvol)
 }
 
 
+/* Note that though it appears that this function executes under fs->mutex,
+ * it is not fully executed under fs->mutex. i.e. there are functions like
+ * __glfs_first_lookup, __glfs_refresh_inode, __glfs_migrate_openfds which
+ * unlocks fs->mutex before sending any network fop, and reacquire fs->mutex
+ * once the fop is complete. Hence the variable read from fs at the start of the
+ * function need not have the same value by the end of the function.
+ */
 xlator_t *
 __glfs_active_subvol (struct glfs *fs)
 {
@@ -830,7 +837,8 @@ __glfs_active_subvol (struct glfs *fs)
 	if (!fs->next_subvol)
 		return fs->active_subvol;
 
-	new_subvol = fs->next_subvol;
+	new_subvol = fs->mip_subvol = fs->next_subvol;
+        fs->next_subvol = NULL;
 
 	ret = __glfs_first_lookup (fs, new_subvol);
 	if (ret) {
@@ -864,8 +872,8 @@ __glfs_active_subvol (struct glfs *fs)
 	   should be atomic
 	*/
 	fs->old_subvol = fs->active_subvol;
-	fs->active_subvol = fs->next_subvol;
-	fs->next_subvol = NULL;
+	fs->active_subvol = fs->mip_subvol;
+	fs->mip_subvol = NULL;
 
 	if (new_cwd) {
 		__glfs_cwd_set (fs, new_cwd);
