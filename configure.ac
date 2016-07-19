@@ -340,10 +340,11 @@ AC_ARG_WITH(mountutildir,
 AC_SUBST(mountutildir)
 
 AC_ARG_WITH(systemddir,
-            [  --with-systemddir=DIR systemd service files in DIR @<:@/usr/lib/systemd/system@:>@],
+            [  --with-systemddir=DIR systemd service files in DIR @<:@PREFIX/lib/systemd/system@:>@],
             [systemddir=$withval],
-            [systemddir='/usr/lib/systemd/system'])
+            [systemddir='${prefix}/lib/systemd/system'])
 AC_SUBST(systemddir)
+AM_CONDITIONAL([USE_SYSTEMD], test [ -d '/usr/lib/systemd/system' ])
 
 AC_ARG_WITH(initdir,
             [  --with-initdir=DIR init.d scripts in DIR @<:@/etc/init.d@:>@],

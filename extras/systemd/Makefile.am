@@ -1,14 +1,11 @@
-CLEANFILES = glustereventsd.service
-EXTRA_DIST = glustereventsd.service.in
+CLEANFILES = glusterd.service glustereventsd.service
+EXTRA_DIST = glusterd.service.in glustereventsd.service.in
 
-SYSTEMD_DIR = @systemddir@
+if USE_SYSTEMD
+# systemddir is already defined through configure.ac
+systemd_DATA = glusterd.service
 
-install-exec-local:
-	@if [ -d $(SYSTEMD_DIR) ]; then \
-		$(mkdir_p) $(DESTDIR)$(SYSTEMD_DIR); \
-		$(INSTALL_PROGRAM) glusterd.service $(DESTDIR)$(SYSTEMD_DIR)/; \
-	fi
-	@if [ @EVENTS_ENABLED@ = 1 ] && [ -d $(SYSTEMD_DIR) ]; then \
-		$(mkdir_p) $(DESTDIR)$(SYSTEMD_DIR); \
-		$(INSTALL_PROGRAM) glustereventsd.service $(DESTDIR)$(SYSTEMD_DIR)/; \
-	fi
+if BUILD_EVENTS
+systemd_DATA += glustereventsd.service
+endif
+endif
