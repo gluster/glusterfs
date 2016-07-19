@@ -735,11 +735,16 @@ _parse_ng_host (char *ng_str, struct netgroup_host **ngh)
         if (ret < 0)
                 goto out;
 
+        gf_msg_trace (GF_NG, 0, "parsing host string: %s", ng_str);
+
         ng_host = _netgroup_host_init ();
         GF_CHECK_ALLOC (ng_host, ret, free_and_out); /* Sets ret to -ENOMEM on
                                                       * failure.
                                                       */
         while ((match = parser_get_next_match (ng_host_parser)) != NULL) {
+                gf_msg_trace (GF_NG, 0, "found match: %s (parts=%d)", match,
+                              parts);
+
                 switch (parts) {
                 case 0:
                         ng_host->hostname = match;
