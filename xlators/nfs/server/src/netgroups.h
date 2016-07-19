@@ -21,8 +21,8 @@
 
 #define GF_NG GF_NFS"-netgroup"
 
-#define NG_FILE_PARSE_REGEX "([a-zA-Z0-9.(,)]+)"
-#define NG_HOST_PARSE_REGEX "([a-zA-Z0-9.]+)"
+#define NG_FILE_PARSE_REGEX "([a-zA-Z0-9.(,)-]+)"
+#define NG_HOST_PARSE_REGEX "([a-zA-Z0-9.-]+)"
 
 struct netgroup_host {
         char *hostname;         /* Hostname of entry */
