@@ -187,8 +187,16 @@ struct glfs {
 	int                 ret;
 	int                 err;
 
-	xlator_t           *active_subvol;
-	xlator_t           *next_subvol;
+	xlator_t           *active_subvol; /* active graph */
+        xlator_t           *mip_subvol;    /* graph for which migration is in
+                                            * progress */
+	xlator_t           *next_subvol;   /* Any new graph is put to
+                                            * next_subvol, the graph in
+                                            * next_subvol can either be move to
+                                            * mip_subvol (if any IO picks it up
+                                            * for migration), or be detroyed (if
+                                            * there is a new graph, and this was
+                                            * never picked for migration) */
 	xlator_t           *old_subvol;
 
 	char               *oldvolfile;
