@@ -40,7 +40,8 @@ graph_setup (struct glfs *fs, glusterfs_graph_t *graph)
 	{
 		if (new_subvol->switched ||
 		    new_subvol == fs->active_subvol ||
-		    new_subvol == fs->next_subvol) {
+		    new_subvol == fs->next_subvol ||
+                    new_subvol == fs->mip_subvol) {
 			/* Spurious CHILD_UP event on old graph */
 			ret = 0;
 			goto unlock;
