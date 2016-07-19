@@ -15,7 +15,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/glustereventsd
 	ln -s $(libexecdir)/glusterfs/events/glustereventsd.py \
 		$(DESTDIR)$(sbindir)/glustereventsd
-	rm -f $(DESTDIR)$(sbindir)/gluster-eventing
+	rm -f $(DESTDIR)$(sbindir)/gluster-eventsapi
 	ln -s $(libexecdir)/glusterfs/peer_eventsapi.py \
 		$(DESTDIR)$(sbindir)/gluster-eventsapi
 
