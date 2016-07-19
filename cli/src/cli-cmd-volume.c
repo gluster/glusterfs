@@ -665,6 +665,10 @@ cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
         cli_local_t             *local = NULL;
+#if (USE_EVENTS)
+        int                      ret1    = -1;
+        char                    *tmp_opt = NULL;
+#endif
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RESET_VOLUME];
 
@@ -691,6 +695,18 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume reset failed");
         }
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                ret1 = dict_get_str (options, "key", &tmp_opt);
+                if (ret1)
+                        tmp_opt = "";
+
+                gf_event (EVENT_VOLUME_RESET, "name=%s;option=%s",
+                          (char *)words[2],
+                          tmp_opt);
+        }
+#endif
 
         CLI_STACK_DESTROY (frame);
 
@@ -758,6 +774,15 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         cli_local_t             *local = NULL;
         char                    *op_errstr = NULL;
 
+#if (USE_EVENTS)
+        int                      ret1          = -1;
+        int                      i             = 1;
+        char                     dict_key[50]  = {0,};
+        char                    *tmp_opt       = NULL;
+        char                    *opts_str      = NULL;
+        int                      num_options   = 0;
+#endif
+
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SET_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -789,6 +814,43 @@ out:
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume set failed");
         }
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                ret1 = dict_get_int32 (options, "count", &num_options);
+                if (ret1)
+                        num_options = 0;
+                else
+                        num_options = num_options/2;
+
+                /* Initialize opts_str */
+                opts_str = gf_strdup ("");
+
+                /* Prepare String in format options=KEY1,VALUE1,KEY2,VALUE2 */
+                for (i = 1; i <= num_options; i++) {
+                        sprintf (dict_key, "key%d", i);
+                        ret1 = dict_get_str (options, dict_key, &tmp_opt);
+                        if (ret1)
+                                tmp_opt = "";
+
+                        gf_asprintf (&opts_str, "%s,%s", opts_str, tmp_opt);
+
+                        sprintf (dict_key, "value%d", i);
+                        ret1 = dict_get_str (options, dict_key, &tmp_opt);
+                        if (ret1)
+                                tmp_opt = "";
+
+                        gf_asprintf (&opts_str, "%s,%s", opts_str, tmp_opt);
+                }
+
+                gf_event (EVENT_VOLUME_SET, "name=%s;options=%s",
+                          (char *)words[2],
+                          opts_str);
+
+                /* Allocated by gf_strdup and gf_asprintf */
+                GF_FREE (opts_str);
+        }
+#endif
 
         CLI_STACK_DESTROY (frame);
 

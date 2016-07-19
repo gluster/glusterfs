@@ -6,4 +6,6 @@ all_events = [
     "EVENT_VOLUME_START",
     "EVENT_VOLUME_STOP",
     "EVENT_VOLUME_DELETE",
+    "EVENT_VOLUME_SET",
+    "EVENT_VOLUME_RESET",
 ]
