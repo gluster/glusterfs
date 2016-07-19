@@ -1,11 +1,7 @@
+CLEANFILES = glusterd.service
+EXTRA_DIST = glusterd.service.in
 
-CLEANFILES =
-
-SYSTEMD_DIR = @systemddir@
-
-install-exec-local:
-	@if [ -d $(SYSTEMD_DIR) ]; then \
-		$(MKDIR_P) $(DESTDIR)$(SYSTEMD_DIR); \
-		$(INSTALL_PROGRAM) glusterd.service $(DESTDIR)$(SYSTEMD_DIR)/; \
-	fi
-
+if USE_SYSTEMD
+# systemddir is already defined through configure.ac
+systemd_DATA = glusterd.service
+endif
