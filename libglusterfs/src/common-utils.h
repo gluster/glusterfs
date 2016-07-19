@@ -123,6 +123,8 @@ void trap (void);
 #define GF_LEASE_ID_BUF_SIZE  ((LEASE_ID_SIZE * 2) +     \
                                (LEASE_ID_SIZE / 2))
 
+#define GF_PERCENTAGE(val, total) (((val)*100)/(total))
+
 enum _gf_boolean
 {
 	_gf_false = 0,

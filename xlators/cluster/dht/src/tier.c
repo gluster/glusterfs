@@ -33,7 +33,6 @@ static void *libhandle;
 static gfdb_methods_t gfdb_methods;
 
 #define DB_QUERY_RECORD_SIZE 4096
-#define GF_PERCENTAGE(val, total) (((val)*100)/(total))
 
 /*
  * Closes all the fds and frees the qfile_array
@@ -506,13 +505,13 @@ tier_can_promote_file (xlator_t *this, char const *file_name,
                         uuid_utoa(current->ia_gfid),
                         current->ia_size,
                         defrag->tier_conf.tier_max_promote_size);
-                goto abort;
+                goto err;
         }
 
         /* bypass further validations for TEST mode */
         if (defrag->tier_conf.mode != TIER_MODE_WM) {
                 ret = _gf_true;
-                goto abort;
+                goto err;
         }
 
         /* convert the file size to blocks as per the block size of the
@@ -534,12 +533,420 @@ tier_can_promote_file (xlator_t *this, char const *file_name,
                         "File will not be promoted.",
                         estimated_usage,
                         defrag->tier_conf.watermark_hi);
-                goto abort;
+                goto err;
         }
         ret = _gf_true;
-abort:
+err:
         return ret;
 }
+
+static int
+tier_set_migrate_data (dict_t *migrate_data)
+{
+        int    failed = 1;
+
+
+        failed = dict_set_str (migrate_data, GF_XATTR_FILE_MIGRATE_KEY, "force");
+        if (failed) {
+                goto bail_out;
+        }
+
+        /* Flag to suggest the xattr call is from migrator */
+        failed = dict_set_str (migrate_data, "from.migrator", "yes");
+        if (failed) {
+                goto bail_out;
+        }
+
+        /* Flag to suggest its a tiering migration
+         * The reason for this dic key-value is that
+         * promotions and demotions are multithreaded
+         * so the original frame from gf_defrag_start()
+         * is not carried. A new frame will be created when
+         * we do syncop_setxattr(). This doesnot have the
+         * frame->root->pid of the original frame. So we pass
+         * this dic key-value when we do syncop_setxattr() to do
+         * data migration and set the frame->root->pid to
+         * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
+         * calling dht_start_rebalance_task() */
+        failed = dict_set_str (migrate_data, TIERING_MIGRATION_KEY, "yes");
+        if (failed) {
+                goto bail_out;
+        }
+
+        failed = 0;
+
+bail_out:
+        return failed;
+}
+
+static char *
+tier_get_parent_path (xlator_t          *this,
+                      loc_t             *p_loc,
+                      struct iatt       *par_stbuf,
+                      int               *per_link_status)
+{
+        int     ret             = -1;
+        char    *parent_path    = NULL;
+        dict_t  *xdata_request  = NULL;
+        dict_t  *xdata_response = NULL;
+
+
+        xdata_request = dict_new ();
+        if (!xdata_request) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to create xdata_request dict");
+                goto err;
+        }
+        ret = dict_set_int32 (xdata_request,
+                              GET_ANCESTRY_PATH_KEY, 42);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to set value to dict : key %s \n",
+                        GET_ANCESTRY_PATH_KEY);
+                goto err;
+        }
+
+        ret = syncop_lookup (this, p_loc, par_stbuf, NULL,
+                             xdata_request, &xdata_response);
+        /* When the parent gfid is a stale entry, the lookup
+         * will fail and stop the demotion process.
+         * The parent gfid can be stale when a huge folder is
+         * deleted while the files within it are being migrated
+         */
+        if (ret == -ESTALE) {
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_STALE_LOOKUP,
+                        "Stale entry in parent lookup for %s",
+                        uuid_utoa (p_loc->gfid));
+                *per_link_status = 1;
+                goto err;
+        } else if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Error in parent lookup for %s",
+                        uuid_utoa (p_loc->gfid));
+                *per_link_status = -1;
+                goto err;
+        }
+        ret = dict_get_str (xdata_response, GET_ANCESTRY_PATH_KEY, &parent_path);
+        if (ret || !parent_path) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to get parent path for %s",
+                        uuid_utoa (p_loc->gfid));
+                *per_link_status = -1;
+                goto err;
+        }
+
+err:
+        if (xdata_request) {
+                dict_unref (xdata_request);
+        }
+
+        if (xdata_response) {
+                dict_unref (xdata_response);
+                xdata_response = NULL;
+        }
+
+        return parent_path;
+}
+
+static int
+tier_get_file_name_and_path (xlator_t                   *this,
+                             uuid_t                     gfid,
+                             gfdb_link_info_t           *link_info,
+                             char const                 *parent_path,
+                             loc_t                      *loc,
+                             int                        *per_link_status)
+{
+        int             ret     = -1;
+
+        loc->name = gf_strdup (link_info->file_name);
+        if (!loc->name) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR, "Memory "
+                        "allocation failed for %s",
+                        uuid_utoa (gfid));
+                *per_link_status = -1;
+                goto err;
+        }
+        ret = gf_asprintf((char **)&(loc->path), "%s/%s", parent_path, loc->name);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
+                        "construct file path for %s %s\n",
+                        parent_path, loc->name);
+                *per_link_status = -1;
+                goto err;
+        }
+
+        ret = 0;
+
+err:
+        return ret;
+}
+
+static int
+tier_lookup_file (xlator_t    *this,
+                  loc_t       *p_loc,
+                  loc_t       *loc,
+                  struct iatt *current,
+                  int         *per_link_status)
+{
+        int     ret = -1;
+
+        ret = syncop_lookup (this, loc, current, NULL, NULL, NULL);
+
+        /* The file may be deleted even when the parent
+         * is available and the lookup will
+         * return a stale entry which would stop the
+         * migration. so if its a stale entry, then skip
+         * the file and keep migrating.
+         */
+        if (ret == -ESTALE) {
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_STALE_LOOKUP,
+                        "Stale lookup for %s",
+                        uuid_utoa (p_loc->gfid));
+                *per_link_status = 1;
+                goto err;
+        } else if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
+                        "lookup file %s\n", loc->name);
+                *per_link_status = -1;
+                goto err;
+        }
+        ret = 0;
+
+err:
+        return ret;
+}
+
+static gf_boolean_t
+tier_is_file_already_at_destination (xlator_t           *src_subvol,
+                                     query_cbk_args_t   *query_cbk_args,
+                                     dht_conf_t         *conf,
+                                     int                *per_link_status)
+{
+        gf_boolean_t    at_destination = _gf_true;
+
+        if (src_subvol == NULL) {
+                *per_link_status = 1;
+                goto err;
+        }
+        if (query_cbk_args->is_promotion &&
+            src_subvol == conf->subvolumes[1]) {
+                *per_link_status = 1;
+                goto err;
+        }
+
+        if (!query_cbk_args->is_promotion &&
+            src_subvol == conf->subvolumes[0]) {
+                *per_link_status = 1;
+                goto err;
+        }
+        at_destination = _gf_false;
+
+err:
+        return at_destination;
+}
+
+static void
+tier_update_migration_counters (query_cbk_args_t        *query_cbk_args,
+                                gf_defrag_info_t        *defrag,
+                                uint64_t                *total_migrated_bytes,
+                                int                     *total_files)
+{
+        if (query_cbk_args->is_promotion) {
+                defrag->total_files_promoted++;
+                *total_migrated_bytes +=
+                        defrag->tier_conf.st_last_promoted_size;
+                pthread_mutex_lock (&dm_stat_mutex);
+                defrag->tier_conf.blocks_used +=
+                        defrag->tier_conf.st_last_promoted_size;
+                pthread_mutex_unlock (&dm_stat_mutex);
+        } else {
+                defrag->total_files_demoted++;
+                *total_migrated_bytes +=
+                        defrag->tier_conf.st_last_demoted_size;
+                pthread_mutex_lock (&dm_stat_mutex);
+                defrag->tier_conf.blocks_used -=
+                        defrag->tier_conf.st_last_demoted_size;
+                pthread_mutex_unlock (&dm_stat_mutex);
+        }
+        if (defrag->tier_conf.blocks_total) {
+                pthread_mutex_lock (&dm_stat_mutex);
+                defrag->tier_conf.percent_full =
+                        GF_PERCENTAGE (defrag->tier_conf.blocks_used,
+                                        defrag->tier_conf.blocks_total);
+                pthread_mutex_unlock (&dm_stat_mutex);
+        }
+
+        (*total_files)++;
+}
+
+static int
+tier_migrate_link (xlator_t            *this,
+                   dht_conf_t          *conf,
+                   uuid_t              gfid,
+                   gfdb_link_info_t    *link_info,
+                   gf_defrag_info_t    *defrag,
+                   query_cbk_args_t    *query_cbk_args,
+                   dict_t              *migrate_data,
+                   int                 *per_link_status,
+                   int                 *total_files,
+                   uint64_t            *total_migrated_bytes)
+{
+        int             ret             = -1;
+        struct iatt     current         = {0,};
+        struct iatt     par_stbuf       = {0,};
+        loc_t           p_loc           = {0,};
+        loc_t           loc             = {0,};
+        xlator_t        *src_subvol     = NULL;
+        inode_t         *linked_inode   = NULL;
+        char            *parent_path    = NULL;
+
+
+        /* Lookup for parent and get the path of parent */
+        gf_uuid_copy (p_loc.gfid, link_info->pargfid);
+        p_loc.inode = inode_new (defrag->root_inode->table);
+        if (!p_loc.inode) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to create reference to inode"
+                        " for %s", uuid_utoa (p_loc.gfid));
+
+                *per_link_status = -1;
+                goto err;
+        }
+
+        parent_path = tier_get_parent_path (this, &p_loc, &par_stbuf,
+                                            per_link_status);
+        if (!parent_path) {
+                goto err;
+        }
+
+        linked_inode = inode_link (p_loc.inode, NULL, NULL, &par_stbuf);
+        inode_unref (p_loc.inode);
+        p_loc.inode = linked_inode;
+
+
+        /* Preparing File Inode */
+        gf_uuid_copy (loc.gfid, gfid);
+        loc.inode = inode_new (defrag->root_inode->table);
+        gf_uuid_copy (loc.pargfid, link_info->pargfid);
+        loc.parent = inode_ref (p_loc.inode);
+
+        /* Get filename and Construct file path */
+        if (tier_get_file_name_and_path (this, gfid, link_info,
+                                         parent_path, &loc, per_link_status) != 0) {
+                goto err;
+        }
+        gf_uuid_copy (loc.parent->gfid, link_info->pargfid);
+
+        /* lookup file inode */
+        if (tier_lookup_file (this, &p_loc, &loc,
+                              &current, per_link_status) != 0) {
+                goto err;
+        }
+
+        if (query_cbk_args->is_promotion) {
+                if (!tier_can_promote_file (this,
+                                            link_info->file_name,
+                                            &current,
+                                            defrag)) {
+                        *per_link_status = 1;
+                        goto err;
+                }
+        }
+
+        linked_inode = inode_link (loc.inode, NULL, NULL, &current);
+        inode_unref (loc.inode);
+        loc.inode = linked_inode;
+
+
+        /*
+         * Do not promote/demote if file already is where it
+         * should be. It means another brick moved the file
+         * so is not an error. So we set per_link_status = 1
+         * so that we ignore counting this.
+         */
+        src_subvol = dht_subvol_get_cached (this, loc.inode);
+
+        if (tier_is_file_already_at_destination (src_subvol, query_cbk_args,
+                                                 conf, per_link_status)) {
+                goto err;
+        }
+
+        gf_msg_debug (this->name, 0, "Tier %s: src_subvol %s file %s",
+                      (query_cbk_args->is_promotion ?  "promote" : "demote"),
+                      src_subvol->name,
+                      loc.path);
+
+
+        ret = tier_check_same_node (this, &loc, defrag);
+        if (ret != 0) {
+                if (ret < 0) {
+                        *per_link_status = -1;
+                        goto err;
+                }
+                ret = 0;
+                /* By setting per_link_status to 1 we are
+                 * ignoring this status and will not be counting
+                 * this file for migration */
+                *per_link_status = 1;
+                goto err;
+        }
+
+        gf_uuid_copy (loc.gfid, loc.inode->gfid);
+
+        if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Tiering paused. "
+                        "Exiting tier_migrate_link");
+                goto err;
+        }
+
+        ret = tier_migrate (this, query_cbk_args->is_promotion,
+                            migrate_data, &loc, &defrag->tier_conf);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
+                        "migrate %s ", loc.path);
+                *per_link_status = -1;
+                goto err;
+        }
+
+        tier_update_migration_counters (query_cbk_args, defrag,
+                                        total_migrated_bytes, total_files);
+
+        ret = 0;
+
+err:
+        GF_FREE ((char *) loc.name);
+        loc.name = NULL;
+        loc_wipe (&loc);
+        loc_wipe (&p_loc);
+
+        if ((*total_files >= defrag->tier_conf.max_migrate_files)
+            || (*total_migrated_bytes > defrag->tier_conf.max_migrate_bytes)) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Reached cycle migration limit."
+                        "migrated bytes %"PRId64" files %d",
+                        *total_migrated_bytes,
+                        *total_files);
+                ret = -1;
+        }
+
+        return ret;
+}
+
 
 static int
 tier_migrate_using_query_file (void *_args)
@@ -550,15 +957,7 @@ tier_migrate_using_query_file (void *_args)
         gf_defrag_info_t *defrag                = NULL;
         gfdb_query_record_t *query_record       = NULL;
         gfdb_link_info_t *link_info             = NULL;
-        struct iatt par_stbuf                   = {0,};
-        struct iatt current                     = {0,};
-        loc_t p_loc                             = {0,};
-        loc_t loc                               = {0,};
         dict_t *migrate_data                    = NULL;
-        dict_t *xdata_request                   = NULL;
-        dict_t *xdata_response                  = NULL;
-        char *parent_path                       = NULL;
-        inode_t *linked_inode                   = NULL;
         /*
          * per_file_status and per_link_status
          *  0  : success
@@ -568,7 +967,6 @@ tier_migrate_using_query_file (void *_args)
         int per_file_status                     = 0;
         int per_link_status                     = 0;
         int total_status                        = 0;
-        xlator_t *src_subvol                    = NULL;
         dht_conf_t   *conf                      = NULL;
         uint64_t total_migrated_bytes           = 0;
         int total_files                         = 0;
@@ -597,20 +995,7 @@ tier_migrate_using_query_file (void *_args)
         emergency_demote_mode = (!query_cbk_args->is_promotion &&
                                  is_hot_tier_full(&defrag->tier_conf));
 
-        xdata_request = dict_new ();
-        if (!xdata_request) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_LOG_TIER_ERROR,
-                        "Failed to create xdata_request dict");
-                goto out;
-        }
-        ret = dict_set_int32 (xdata_request,
-                              GET_ANCESTRY_PATH_KEY, 42);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_LOG_TIER_ERROR,
-                        "Failed to set value to dict : key %s \n",
-                        GET_ANCESTRY_PATH_KEY);
+        if (tier_set_migrate_data (migrate_data) != 0) {
                 goto out;
         }
 
@@ -663,10 +1048,6 @@ tier_migrate_using_query_file (void *_args)
                 per_file_status      = 0;
                 per_link_status      = 0;
 
-                dict_del (migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
-
-                dict_del (migrate_data, "from.migrator");
-
                 if (gf_defrag_get_pause_state (&defrag->tier_conf)
                     != TIER_RUNNING) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
@@ -710,40 +1091,6 @@ tier_migrate_using_query_file (void *_args)
                         }
                 }
 
-                if (!list_empty (&query_record->link_list)) {
-                        per_file_status =
-                                dict_set_str (migrate_data,
-                                              GF_XATTR_FILE_MIGRATE_KEY,
-                                              "force");
-                        if (per_file_status) {
-                                goto per_file_out;
-                        }
-
-                        /* Flag to suggest the xattr call is from migrator */
-                        per_file_status = dict_set_str (migrate_data,
-                                                        "from.migrator", "yes");
-                        if (per_file_status) {
-                                goto per_file_out;
-                        }
-
-                        /* Flag to suggest its a tiering migration
-                         * The reason for this dic key-value is that
-                         * promotions and demotions are multithreaded
-                         * so the original frame from gf_defrag_start()
-                         * is not carried. A new frame will be created when
-                         * we do syncop_setxattr(). This doesnot have the
-                         * frame->root->pid of the original frame. So we pass
-                         * this dic key-value when we do syncop_setxattr() to do
-                         * data migration and set the frame->root->pid to
-                         * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
-                         * calling dht_start_rebalance_task() */
-                        per_file_status = dict_set_str (migrate_data,
-                                                TIERING_MIGRATION_KEY, "yes");
-                        if (per_file_status) {
-                                goto per_file_out;
-                        }
-
-                }
                 per_link_status = 0;
 
                 /* For now we only support single link migration. And we will
@@ -754,249 +1101,27 @@ tier_migrate_using_query_file (void *_args)
                                                       gfdb_link_info_t, list);
                 }
                 if (link_info != NULL) {
-
-                        /* Lookup for parent and get the path of parent */
-                        gf_uuid_copy (p_loc.gfid, link_info->pargfid);
-                        p_loc.inode = inode_new (defrag->root_inode->table);
-                        if (!p_loc.inode) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed to create reference to inode"
-                                        " for %s", uuid_utoa (p_loc.gfid));
-
-                                per_link_status = -1;
-                                goto abort;
-                        }
-
-                        ret = syncop_lookup (this, &p_loc, &par_stbuf, NULL,
-                                             xdata_request, &xdata_response);
-                        /* When the parent gfid is a stale entry, the lookup
-                         * will fail and stop the demotion process.
-                         * The parent gfid can be stale when a huge folder is
-                         * deleted while the files within it are being migrated
-                         */
-                        if (ret == -ESTALE) {
-                                gf_msg (this->name, GF_LOG_WARNING, -ret,
-                                        DHT_MSG_STALE_LOOKUP,
-                                        "Stale entry in parent lookup for %s",
-                                        uuid_utoa (p_loc.gfid));
-                                per_link_status = 1;
-                                goto abort;
-                        } else if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Error in parent lookup for %s",
-                                        uuid_utoa (p_loc.gfid));
-                                per_link_status = -1;
-                                goto abort;
-                        }
-                        ret = dict_get_str (xdata_response,
-                                            GET_ANCESTRY_PATH_KEY,
-                                            &parent_path);
-                        if (ret || !parent_path) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed to get parent path for %s",
-                                        uuid_utoa (p_loc.gfid));
-                                per_link_status = -1;
-                                goto abort;
-                        }
-
-                        linked_inode = inode_link (p_loc.inode, NULL, NULL,
-                                                        &par_stbuf);
-                        inode_unref (p_loc.inode);
-                        p_loc.inode = linked_inode;
-
-
-                        /* Preparing File Inode */
-                        gf_uuid_copy (loc.gfid, query_record->gfid);
-                        loc.inode = inode_new (defrag->root_inode->table);
-                        gf_uuid_copy (loc.pargfid, link_info->pargfid);
-                        loc.parent = inode_ref (p_loc.inode);
-
-                        /* Get filename and Construct file path */
-                        loc.name = gf_strdup (link_info->file_name);
-                        if (!loc.name) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR, "Memory "
-                                        "allocation failed for %s",
+                        if (tier_migrate_link (this,
+                                               conf,
+                                               query_record->gfid,
+                                               link_info,
+                                               defrag,
+                                               query_cbk_args,
+                                               migrate_data,
+                                               &per_link_status,
+                                               &total_files,
+                                               &total_migrated_bytes) != 0) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "%s failed for %s(gfid:%s)",
+                                        (query_cbk_args->is_promotion ?
+                                         "Promotion" : "Demotion"),
+                                        link_info->file_name,
                                         uuid_utoa (query_record->gfid));
-                                per_link_status = -1;
-                                goto abort;
-                        }
-                        ret = gf_asprintf((char **)&(loc.path), "%s/%s",
-                                          parent_path, loc.name);
-                        if (ret < 0) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
-                                        "construct file path for %s %s\n",
-                                        parent_path, loc.name);
-                                per_link_status = -1;
-                                goto abort;
-                        }
-
-                        gf_uuid_copy (loc.parent->gfid, link_info->pargfid);
-
-                        /* lookup file inode */
-                        ret = syncop_lookup (this, &loc, &current, NULL,
-                                             NULL, NULL);
-                        /* The file may be deleted even when the parent
-                         * is available and the lookup will
-                         * return a stale entry which would stop the
-                         * migration. so if its a stale entry, then skip
-                         * the file and keep migrating.
-                         */
-                        if (ret == -ESTALE) {
-                                gf_msg (this->name, GF_LOG_WARNING, -ret,
-                                        DHT_MSG_STALE_LOOKUP,
-                                        "Stale lookup for %s",
-                                        uuid_utoa (p_loc.gfid));
-                                per_link_status = 1;
-                                goto abort;
-                        } else if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
-                                        "lookup file %s\n", loc.name);
-                                per_link_status = -1;
-                                goto abort;
-                        }
-
-                        if (query_cbk_args->is_promotion) {
-                                if (!tier_can_promote_file (this,
-                                                            link_info->file_name,
-                                                            &current,
-                                                            defrag)) {
-                                        per_link_status = 1;
-                                        goto abort;
-                                }
-                        }
-
-                        linked_inode = inode_link (loc.inode, NULL, NULL,
-                                                        &current);
-                        inode_unref (loc.inode);
-                        loc.inode = linked_inode;
-
-
-                        /*
-                         * Do not promote/demote if file already is where it
-                         * should be. It means another brick moved the file
-                         * so is not an error. So we set per_link_status = 1
-                         * so that we ignore counting this.
-                         */
-                        src_subvol = dht_subvol_get_cached (this, loc.inode);
-
-                        if (src_subvol == NULL) {
-                                per_link_status = 1;
-                                goto abort;
-                        }
-                        if (query_cbk_args->is_promotion &&
-                             src_subvol == conf->subvolumes[1]) {
-                                per_link_status = 1;
-                                goto abort;
-                        }
-
-                        if (!query_cbk_args->is_promotion &&
-                            src_subvol == conf->subvolumes[0]) {
-                                per_link_status = 1;
-                                goto abort;
-                        }
-
-                        gf_msg_debug (this->name, 0,
-                                      "Tier %s: src_subvol %s file %s",
-                                      (query_cbk_args->is_promotion ?
-                                      "promote" : "demote"),
-                                      src_subvol->name,
-                                      loc.path);
-
-
-                        ret = tier_check_same_node (this, &loc, defrag);
-                        if (ret != 0) {
-                                if (ret < 0) {
-                                        per_link_status = -1;
-                                        goto abort;
-                                }
-                                ret = 0;
-                                /* By setting per_link_status to 1 we are
-                                 * ignoring this status and will not be counting
-                                 * this file for migration */
-                                per_link_status = 1;
-                                goto abort;
-                        }
-
-                        gf_uuid_copy (loc.gfid, loc.inode->gfid);
-
-                        if (gf_defrag_get_pause_state (&defrag->tier_conf)
-                            != TIER_RUNNING) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        DHT_MSG_LOG_TIER_STATUS,
-                                        "Tiering paused. "
-                                        "Exiting "
-                                        "tier_migrate_using_query_file");
-                                goto abort;
-                        }
-
-                        ret = tier_migrate (this, query_cbk_args->is_promotion,
-                                            migrate_data, &loc, &defrag->tier_conf);
-
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                        DHT_MSG_LOG_TIER_ERROR, "Failed to "
-                                        "migrate %s ", loc.path);
-                                per_link_status = -1;
-                                goto abort;
-                        }
-
-                        if (query_cbk_args->is_promotion) {
-                                defrag->total_files_promoted++;
-                                total_migrated_bytes +=
-                                        defrag->tier_conf.st_last_promoted_size;
-                                pthread_mutex_lock (&dm_stat_mutex);
-                                defrag->tier_conf.blocks_used +=
-                                        defrag->tier_conf.st_last_promoted_size;
-                                pthread_mutex_unlock (&dm_stat_mutex);
-                        } else {
-                                defrag->total_files_demoted++;
-                                total_migrated_bytes +=
-                                        defrag->tier_conf.st_last_demoted_size;
-                                pthread_mutex_lock (&dm_stat_mutex);
-                                defrag->tier_conf.blocks_used -=
-                                        defrag->tier_conf.st_last_demoted_size;
-                                pthread_mutex_unlock (&dm_stat_mutex);
-                        }
-                        if (defrag->tier_conf.blocks_total) {
-                                pthread_mutex_lock (&dm_stat_mutex);
-                                defrag->tier_conf.percent_full =
-                                        (100 * defrag->tier_conf.blocks_used) /
-                                        defrag->tier_conf.blocks_total;
-                                pthread_mutex_unlock (&dm_stat_mutex);
-                        }
-                        total_files++;
-abort:
-                        GF_FREE ((char *) loc.name);
-                        loc.name = NULL;
-                        loc_wipe (&loc);
-                        loc_wipe (&p_loc);
-
-
-                        if (xdata_response) {
-                                dict_unref (xdata_response);
-                                xdata_response = NULL;
-                        }
-
-                        if ((total_files >= defrag->tier_conf.max_migrate_files)
-                            || (total_migrated_bytes >
-                                defrag->tier_conf.max_migrate_bytes)) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        DHT_MSG_LOG_TIER_STATUS,
-                                        "Reached cycle migration limit."
-                                        "migrated bytes %"PRId64" files %d",
-                                        total_migrated_bytes,
-                                        total_files);
-                                goto out;
                         }
                 }
                 per_file_status = per_link_status;
-per_file_out:
+
                 if (per_file_status < 0) {/* Failure */
                         pthread_mutex_lock (&dm_stat_mutex);
                         defrag->total_failures++;
@@ -1034,13 +1159,8 @@ per_file_out:
         }
 
 out:
-        if (xdata_request) {
-                dict_unref (xdata_request);
-        }
-
         if (migrate_data)
                 dict_unref (migrate_data);
-
 
         gfdb_methods.gfdb_query_record_free (query_record);
         query_record = NULL;
