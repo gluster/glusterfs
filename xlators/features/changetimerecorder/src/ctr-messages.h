@@ -41,7 +41,7 @@
  */
 
 #define GLFS_COMP_BASE         GLFS_MSGID_COMP_CTR
-#define GLFS_NUM_MESSAGES       56
+#define GLFS_NUM_MESSAGES       57
 #define GLFS_MSGID_END          (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -495,6 +495,7 @@
  * @recommendedaction
  *
  */
+#define CTR_MSG_NULL_LOCAL                               (GLFS_COMP_BASE + 57)
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
