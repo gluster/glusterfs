@@ -50,7 +50,7 @@ libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	event-history.h gidcache.h client_t.h glusterfs-acl.h \
 	glfs-message-id.h template-component-messages.h strfd.h \
 	syncop-utils.h parse-utils.h libglusterfs-messages.h tw.h \
-	ctr-messages.h lvm-defaults.h quota-common-utils.h rot-buffs.h \
+	lvm-defaults.h quota-common-utils.h rot-buffs.h \
 	compat-uuid.h upcall-utils.h throttle-tbf.h
 
 libglusterfs_ladir = $(includedir)/glusterfs

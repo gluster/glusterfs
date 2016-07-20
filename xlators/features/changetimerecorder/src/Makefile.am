@@ -12,7 +12,8 @@ changetimerecorder_la_SOURCES = changetimerecorder.c ctr-helper.c ctr-xlator-ctx
 changetimerecorder_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
 			$(top_builddir)/libglusterfs/src/gfdb/libgfdb.la
 
-noinst_HEADERS = changetimerecorder.h ctr_mem_types.h ctr-helper.h ctr-xlator-ctx.h
+noinst_HEADERS = ctr-messages.h changetimerecorder.h ctr_mem_types.h \
+		ctr-helper.h ctr-xlator-ctx.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 		-I$(top_srcdir)/libglusterfs/src/gfdb \
