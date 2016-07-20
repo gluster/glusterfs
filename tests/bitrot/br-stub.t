@@ -27,6 +27,9 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+## Wait for gluster nfs to come up
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
+
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 TEST mount_nfs $H0:/$V0 $N0 nolock;
