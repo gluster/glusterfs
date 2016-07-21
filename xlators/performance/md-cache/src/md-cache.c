@@ -2565,8 +2565,8 @@ notify (xlator_t *this, int event, void *data, ...)
         case GF_EVENT_UPCALL:
                 if (conf->mdc_invalidation)
                         ret = mdc_invalidate (this, data);
-                        if (default_notify (this, event, data) != 0)
-                                ret = -1;
+                if (default_notify (this, event, data) != 0)
+                        ret = -1;
                 break;
         default:
                 ret = default_notify (this, event, data);
