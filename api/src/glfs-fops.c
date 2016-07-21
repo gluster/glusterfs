@@ -4339,8 +4339,10 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 
         ret = 0;
 out:
-        if (ret && u_list)
+        if (ret && u_list) {
+                GF_FREE (u_list->upcall_data.data);
                 GF_FREE(u_list);
+        }
         return;
 }
 
