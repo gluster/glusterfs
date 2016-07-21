@@ -2033,6 +2033,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                                           &fs->upcall_list,
                                           upcall_list) {
                         found = 1;
+                        list_del_init (&u_list->upcall_list);
                         break;
                 }
         }
@@ -2069,7 +2070,6 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 
                 up_arg->reason = reason;
 
-                list_del_init (&u_list->upcall_list);
                 GF_FREE (u_list->upcall_data.data);
                 GF_FREE (u_list);
         }
