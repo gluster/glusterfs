@@ -1485,10 +1485,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "performance/io-threads",
           .op_version  = 1
         },
-        { .key         = "performance.least-rate-limit",
-          .voltype     = "performance/io-threads",
-          .op_version  = 2
-        },
 
         /* Other perf xlators' options */
         { .key        = "performance.cache-size",
