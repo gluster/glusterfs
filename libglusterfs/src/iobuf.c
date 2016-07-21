@@ -692,6 +692,8 @@ iobuf_get_page_aligned (struct iobuf_pool *iobuf_pool, size_t page_size,
         }
 
         iobuf = iobuf_get2 (iobuf_pool, req_size + align_size);
+        if (!iobuf)
+                return NULL;
         /* If std allocation was used, then free_ptr will be non-NULL. In this
          * case, we do not want to modify the original free_ptr.
          * On the other hand, if the buf was gotten through the available
