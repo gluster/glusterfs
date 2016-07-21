@@ -21,7 +21,6 @@
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
 #define DHT_REBALANCE_BLKSIZE           (128 * 1024)
-#define MAX_MIGRATOR_THREAD_COUNT       40
 #define MAX_MIGRATE_QUEUE_COUNT         500
 #define MIN_MIGRATE_QUEUE_COUNT         200
 
@@ -3557,7 +3556,7 @@ gf_defrag_start_crawl (void *data)
         int                     thread_index            = 0;
         int                     err                     = 0;
         int                     thread_spawn_count      = 0;
-        pthread_t tid[MAX_MIGRATOR_THREAD_COUNT];
+        pthread_t               *tid                    = NULL;
         gf_boolean_t            is_tier_detach          = _gf_false;
 
         this = data;
@@ -3694,7 +3693,8 @@ gf_defrag_start_crawl (void *data)
                                            gf_dht_mt_container_t);
 
                 if (!defrag->queue) {
-                        gf_log (this->name, GF_LOG_INFO, "No memory for queue");
+                        gf_log (this->name, GF_LOG_ERROR, "No memory for "
+                                "queue");
                         ret = -1;
                         goto out;
                 }
@@ -3705,6 +3705,15 @@ gf_defrag_start_crawl (void *data)
 
                 gf_msg_debug (this->name, 0, "thread_spawn_count: %d",
                               thread_spawn_count);
+
+                tid = GF_CALLOC (thread_spawn_count, sizeof (pthread_t),
+                                 gf_common_mt_pthread_t);
+                if (!tid) {
+                        gf_log (this->name, GF_LOG_ERROR, "Insufficient memory "
+                                "for tid");
+                        ret = -1;
+                        goto out;
+                }
 
                 defrag->current_thread_count = thread_spawn_count;
 
@@ -3794,6 +3803,8 @@ out:
         for (i = 0; i < thread_index; i++) {
                 pthread_join (tid[i], NULL);
         }
+
+        GF_FREE (tid);
 
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
                 /* Wait for the tier fixlayout to
