@@ -109,7 +109,7 @@ function check_rmdir {
 }
 
 function check_setxattr {
-    stat $M0/setxattr
+    getfattr -d -m. -e hex $M0/setxattr
     for b in $*; do
         v=$(my_getfattr -n user.foo $b/setxattr)
         if [ "$v" != "ash_nazg_durbatuluk" ]; then
@@ -122,7 +122,7 @@ function check_setxattr {
 }
 
 function check_removexattr {
-    stat $M0/removexattr
+    getfattr -d -m. -e hex $M0/removexattr
     for b in $*; do
         my_getfattr -n user.bar $b/removexattr 2> /dev/null
         if [ $? -eq 0 ]; then
