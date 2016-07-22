@@ -1841,6 +1841,10 @@ glfs_h_find_handle (struct glfs *fs, unsigned char *handle, int len)
         gf_uuid_copy (object->gfid, object->inode->gfid);
 
 out:
+        /* inode_find takes a reference. Unref it. */
+        if (newinode)
+                inode_unref (newinode);
+
         glfs_subvol_done (fs, subvol);
 
         __GLFS_EXIT_FS;
