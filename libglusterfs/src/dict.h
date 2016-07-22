@@ -24,13 +24,13 @@ typedef struct _data_pair data_pair_t;
 
 
 #define GF_PROTOCOL_DICT_SERIALIZE(this,from_dict,to,len,ope,labl) do { \
-                int    ret     = 0;                                     \
+                int    _ret     = 0;                                     \
                                                                         \
                 if (!from_dict)                                         \
                         break;                                          \
                                                                         \
-                ret = dict_allocate_and_serialize (from_dict, to, &len);\
-                if (ret < 0) {                                          \
+                _ret = dict_allocate_and_serialize (from_dict, to, &len);\
+                if (_ret < 0) {                                          \
                         gf_msg (this->name, GF_LOG_WARNING, 0,          \
                                 LG_MSG_DICT_SERIAL_FAILED,            \
                                 "failed to get serialized dict (%s)",   \
