@@ -1218,10 +1218,12 @@ jbr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
 
         /* Success! */
         STACK_UNWIND_STRICT (ipc, frame, 0, 0, NULL);
+        GF_FREE (path);
         return;
 
 err:
         STACK_UNWIND_STRICT (ipc, frame, -1, op_errno, NULL);
+        GF_FREE (path);
 }
 
 
