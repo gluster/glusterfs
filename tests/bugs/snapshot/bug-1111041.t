@@ -29,4 +29,10 @@ SNAPD_PID=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'});
 
 TEST [ $SNAPD_PID -gt 0 ]
 
+kill -9 $SNAPD_PID
+
+SNAPD_PID=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'});
+
+TEST [ $SNAPD_PID = 'N/A' ]
+
 cleanup  ;
