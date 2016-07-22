@@ -48,19 +48,68 @@ struct volume_options options[];
                 }                                                              \
         } while (0)
 
+iot_client_ctx_t *
+iot_get_ctx (xlator_t *this, client_t *client)
+{
+        iot_client_ctx_t        *ctx    = NULL;
+        int                      i;
+
+        if (client_ctx_get (client, this, (void **)&ctx) != 0) {
+                ctx = GF_CALLOC (IOT_PRI_MAX, sizeof(*ctx),
+                                 gf_iot_mt_client_ctx_t);
+                if (ctx) {
+                        for (i = 0; i < IOT_PRI_MAX; ++i) {
+                                INIT_LIST_HEAD (&ctx[i].clients);
+                                INIT_LIST_HEAD (&ctx[i].reqs);
+                        }
+                        if (client_ctx_set (client, this, ctx) != 0) {
+                                GF_FREE (ctx);
+                                ctx = NULL;
+                        }
+                }
+        }
+
+        return ctx;
+}
+
 call_stub_t *
 __iot_dequeue (iot_conf_t *conf, int *pri)
 {
-        call_stub_t  *stub = NULL;
-        int           i = 0;
+        call_stub_t             *stub = NULL;
+        int                     i = 0;
+        iot_client_ctx_t        *ctx;
 
         *pri = -1;
         for (i = 0; i < IOT_PRI_MAX; i++) {
-                if (list_empty (&conf->reqs[i]) ||
-                   (conf->ac_iot_count[i] >= conf->ac_iot_limit[i]))
-                        continue;
 
-                stub = list_entry (conf->reqs[i].next, call_stub_t, list);
+                if (conf->ac_iot_count[i] >= conf->ac_iot_limit[i]) {
+                        continue;
+                }
+
+                if (list_empty (&conf->clients[i])) {
+                        continue;
+                }
+
+                /* Get the first per-client queue for this priority. */
+                ctx = list_first_entry (&conf->clients[i],
+                                        iot_client_ctx_t, clients);
+                if (!ctx) {
+                        continue;
+                }
+
+                if (list_empty (&ctx->reqs)) {
+                        continue;
+                }
+
+                /* Get the first request on that queue. */
+                stub = list_first_entry (&ctx->reqs, call_stub_t, list);
+                list_del_init (&stub->list);
+                if (list_empty (&ctx->reqs)) {
+                        list_del_init (&ctx->clients);
+                } else {
+                        list_rotate_left (&conf->clients[i]);
+                }
+
                 conf->ac_iot_count[i]++;
                 *pri = i;
                 break;
@@ -71,7 +120,6 @@ __iot_dequeue (iot_conf_t *conf, int *pri)
 
         conf->queue_size--;
         conf->queue_sizes[*pri]--;
-        list_del_init (&stub->list);
 
         return stub;
 }
@@ -80,15 +128,31 @@ __iot_dequeue (iot_conf_t *conf, int *pri)
 void
 __iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
 {
+        client_t                *client = stub->frame->root->client;
+        iot_client_ctx_t        *ctx;
+
         if (pri < 0 || pri >= IOT_PRI_MAX)
                 pri = IOT_PRI_MAX-1;
 
-        list_add_tail (&stub->list, &conf->reqs[pri]);
+        if (client) {
+                ctx = iot_get_ctx (THIS, client);
+                if (ctx) {
+                        ctx = &ctx[pri];
+                }
+        } else {
+                ctx = NULL;
+        }
+        if (!ctx) {
+                ctx = &conf->no_client[pri];
+        }
+
+        if (list_empty (&ctx->reqs)) {
+                list_add_tail (&ctx->clients, &conf->clients[pri]);
+        }
+        list_add_tail (&stub->list, &ctx->reqs);
 
         conf->queue_size++;
         conf->queue_sizes[pri]++;
-
-        return;
 }
 
 
@@ -958,7 +1022,9 @@ init (xlator_t *this)
         conf->this = this;
 
         for (i = 0; i < IOT_PRI_MAX; i++) {
-                INIT_LIST_HEAD (&conf->reqs[i]);
+                INIT_LIST_HEAD (&conf->clients[i]);
+                INIT_LIST_HEAD (&conf->no_client[i].clients);
+                INIT_LIST_HEAD (&conf->no_client[i].reqs);
         }
 
 	ret = iot_workers_scale (conf);
@@ -990,6 +1056,19 @@ fini (xlator_t *this)
 	this->private = NULL;
 	return;
 }
+
+int
+iot_client_destroy (xlator_t *this, client_t *client)
+{
+        void    *tmp    = NULL;
+
+        if (client_ctx_del (client, this, &tmp) == 0) {
+                GF_FREE (tmp);
+        }
+
+        return 0;
+}
+
 
 struct xlator_dumpops dumpops = {
         .priv    = iot_priv_dump,
@@ -1046,7 +1125,9 @@ struct xlator_fops fops = {
         .setactivelk = iot_setactivelk,
 };
 
-struct xlator_cbks cbks;
+struct xlator_cbks cbks = {
+        .client_destroy = iot_client_destroy,
+};
 
 struct volume_options options[] = {
 	{ .key  = {"thread-count"},

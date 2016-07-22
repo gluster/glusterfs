@@ -48,6 +48,11 @@ typedef enum {
         IOT_PRI_MAX,
 } iot_pri_t;
 
+typedef struct {
+        struct list_head        clients;
+        struct list_head        reqs;
+} iot_client_ctx_t;
+
 struct iot_conf {
         pthread_mutex_t      mutex;
         pthread_cond_t       cond;
@@ -58,7 +63,14 @@ struct iot_conf {
 
         int32_t              idle_time;   /* in seconds */
 
-        struct list_head     reqs[IOT_PRI_MAX];
+        struct list_head     clients[IOT_PRI_MAX];
+        /*
+         * It turns out that there are several ways a frame can get to us
+         * without having an associated client (server_first_lookup was the
+         * first one I hit).  Instead of trying to update all such callers,
+         * we use this to queue them.
+         */
+        iot_client_ctx_t     no_client[IOT_PRI_MAX];
 
         int32_t              ac_iot_limit[IOT_PRI_MAX];
         int32_t              ac_iot_count[IOT_PRI_MAX];
@@ -68,7 +80,7 @@ struct iot_conf {
         gf_boolean_t         least_priority; /*Enable/Disable least-priority */
 
         xlator_t            *this;
-        size_t              stack_size;
+        size_t               stack_size;
 };
 
 typedef struct iot_conf iot_conf_t;
