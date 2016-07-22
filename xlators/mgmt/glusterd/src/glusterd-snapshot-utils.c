@@ -2051,6 +2051,8 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_svc_build_snapd_pidfile (volinfo, pidfile, sizeof (pidfile));
 
         brick_online = gf_is_service_running (pidfile, &pid);
+        if (brick_online == _gf_false)
+                pid = -1;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
