@@ -53,7 +53,7 @@ EXPECT '7' online_brick_count
 # active heal
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 TEST rm -f *.o
 TEST ec_test_make
@@ -75,7 +75,7 @@ EXPECT '7' online_brick_count
 # self-healing
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 TEST rm -f *.o
 TEST ec_test_make
@@ -93,5 +93,3 @@ TEST $CLI volume delete $V0
 TEST rm -rf $B0/*
 
 cleanup;
-
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1332054
