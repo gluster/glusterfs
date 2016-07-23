@@ -3,32 +3,26 @@
 import blessings
 import HTMLParser
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import sys
 import re
+import argparse
 from collections import defaultdict
 from datetime import date, timedelta, datetime
 from dateutil.parser import parse
 
-## This tool goes though the Gluster regression links and checks for failures
-#
-# Usage: failed-tests.py [<regression links,..> | get-summary \
-#        <last number of days> <regression link>]
-#
-# When no options specified, goes through centos regression
-# @build.gluster.org/job/rackspace-regression-2GB-triggered/ and gets the
-# summary of last 30 builds
-# When other regression links (Eg:/job/rackspace-netbsd7-regression-triggered/)
-# are specified it goes through those links and prints the summary of last 30
-# builds in those links
-# When get-summary is specified, it goes through the link specified and gets the
-# summary of the builds that have happened in the last number of days specified.
+# This tool goes though the Gluster regression links and checks for failures
 
 BASE='https://build.gluster.org'
 TERM=blessings.Terminal()
-MAX_BUILDS=100
+MAX_BUILDS=1000
 summary=defaultdict(list)
+VERBOSE=None
+total_builds=0
+failed_builds=0
 
 def process_failure (url, cut_off_date):
+    global failed_builds
     text = requests.get(url,verify=False).text
     accum = []
     for t in text.split('\n'):
@@ -37,9 +31,10 @@ def process_failure (url, cut_off_date):
             if build_date.date() < cut_off_date:
                 return 1
         elif t.find("Result: FAIL") != -1:
-            print TERM.red + ('FAILURE on %s' % BASE+url) + TERM.normal
+            failed_builds=failed_builds+1
+            if VERBOSE == True: print TERM.red + ('FAILURE on %s' % BASE+url) + TERM.normal
             for t2 in accum:
-                print t2.encode('utf-8')
+                if VERBOSE == True: print t2.encode('utf-8')
                 if t2.find("Wstat") != -1:
                      test_case = re.search('\./tests/.*\.t',t2)
                      if test_case:
@@ -89,7 +84,21 @@ def main (url):
     text = requests.get(url,verify=False).text
     parser.feed(text)
 
+def print_summary_html():
+    print "<p><b>%d</b> of <b>%d</b> regressions failed</p>" % (failed_builds, total_builds)
+    for k,v in summary.iteritems():
+        if k == 'core':
+            print "<p><font color='red'><b> Found cores :</b></font></p>"
+            for cmp,lnk in zip(v[::2], v[1::2]):
+                print "<p>&emsp;Component: %s</p>" % (cmp)
+                print "<p>&emsp;Regression Link: %s</p>" % (lnk)
+        else:
+            print "<p><font color='red'><b> %s ;</b> Failed <b>%d</b> times</font></p>" % (k, len(v))
+            for lnk in v:
+                print "<p>&emsp;Regression Link: <a href=\"%s\">%s</a></p>" % (lnk, lnk)
+
 def print_summary():
+    print "%d of %d regressions failed" % (failed_builds, total_builds)
     for k,v in summary.iteritems():
         if k == 'core':
             print TERM.red + "Found cores:" + TERM.normal
@@ -99,35 +108,39 @@ def print_summary():
         else:
             print TERM.red + "%s ; Failed %d times" % (k, len(v)) + TERM.normal
             for lnk in v:
-                print "\tRegression Links: %s" % (lnk)
+                print "\tRegression Link: %s" % (lnk)
 
 def get_summary (build_id, cut_off_date, reg_link):
+    global total_builds
     for i in xrange(build_id, build_id-MAX_BUILDS, -1):
         url=BASE+reg_link+str(i)+"/consoleFull"
         ret = process_failure(url, cut_off_date)
         if ret == 1:
+            total_builds = build_id - i
             return
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        main(BASE+'/job/rackspace-regression-2GB-triggered/')
-    elif sys.argv[1].find("get-summary") != -1:
-        if len(sys.argv) < 4:
-            print "Usage: failed-tests.py get-summary <last_no_of_days> <centos|netbsd|regression_link>"
-            sys.exit(0)
-        num_days=int(sys.argv[2])
-        cut_off_date=date.today() - timedelta(days=num_days)
-        reg = sys.argv[3]
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("get-summary")
+    parser.add_argument("last_no_of_days", default=1, type=int, help="Regression summary of last number of days")
+    parser.add_argument("regression_link", default="centos", nargs='+', help="\"centos\" | \"netbsd\" | any other regression link")
+    parser.add_argument("--verbose", default="false", action="store_true", help="Print a detailed report of each test case that is failed")
+    parser.add_argument("--html_report", default="false", action="store_true", help="Print a brief report of failed regressions in html format")
+    args = parser.parse_args()
+    num_days=args.last_no_of_days
+    cut_off_date=date.today() - timedelta(days=num_days)
+    VERBOSE = args.verbose
+    for reg in args.regression_link:
         if reg == 'centos':
             reg_link = '/job/rackspace-regression-2GB-triggered/'
         elif reg == 'netbsd':
             reg_link = '/job/rackspace-netbsd7-regression-triggered/'
         else:
             reg_link = reg
-
         build_id = int(requests.get(BASE+reg_link+"lastBuild/buildNumber", verify=False).text)
         get_summary(build_id, cut_off_date, reg_link)
+    if args.html_report == True:
+        print_summary_html()
     else:
-        for u in sys.argv[1:]:
-            main(BASE+u)
-    print_summary()
+        print_summary()
