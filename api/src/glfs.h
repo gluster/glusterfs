@@ -160,10 +160,9 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile) __THROW
        specification file.
 
   @transport: String specifying the transport used to connect to the
-              management daemon. Specifying NULL will result in the usage
-              of the default (tcp) transport type. Permitted values
-              are those what you specify as transport-type in a volume
-              specification file (e.g "tcp", "rdma", "unix" etc.)
+              management daemon. Specifying NULL will result in the
+              usage of the default (tcp) transport type. Permitted
+              values are "tcp" or "unix".
 
   @host:      String specifying the address where to find the management daemon.
               Socket path, while using Unix domain socket as transport type.
