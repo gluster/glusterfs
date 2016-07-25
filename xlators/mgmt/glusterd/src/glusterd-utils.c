@@ -1786,6 +1786,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
         char                    valgrind_logfile[PATH_MAX] = {0};
+        char                    rdma_brick_path[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1818,9 +1819,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (gf_is_service_running (pidfile, NULL))
                 goto connect;
 
-        port = brickinfo->port;
-        if (!port)
-                port = pmap_registry_alloc (THIS);
+        port = pmap_assign_port (THIS, brickinfo->port, brickinfo->path);
 
         /* Build the exp_path, before starting the glusterfsd even in
            valgrind mode. Otherwise all the glusterfsd processes start
@@ -1885,9 +1884,10 @@ retry:
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
         } else {
-                rdma_port = brickinfo->rdma_port;
-                if (!rdma_port)
-                        rdma_port = pmap_registry_alloc (THIS);
+                snprintf (rdma_brick_path, sizeof(rdma_brick_path), "%s.rdma",
+                          brickinfo->path);
+                rdma_port = pmap_assign_port (THIS, brickinfo->rdma_port,
+                                              rdma_brick_path);
                 runner_argprintf (&runner, "%d,%d", port, rdma_port);
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner, "%s-server.transport.rdma.listen-port=%d",

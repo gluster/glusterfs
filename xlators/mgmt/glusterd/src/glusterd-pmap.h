@@ -35,6 +35,8 @@ struct pmap_registry {
         struct  pmap_port_status ports[65536];
 };
 
+int pmap_assign_port (xlator_t *this, int port, const char *path);
+int pmap_mark_port_leased (xlator_t *this, int port);
 int pmap_registry_alloc (xlator_t *this);
 int pmap_registry_bind (xlator_t *this, int port, const char *brickname,
                         gf_pmap_port_type_t type, void *xprt);
