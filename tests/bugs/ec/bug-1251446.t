@@ -26,7 +26,7 @@ EXPECT '4' online_brick_count
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 EXPECT "699392" stat -c "%s" $B0/${V0}0/test2
 
