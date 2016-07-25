@@ -3,7 +3,7 @@
 . $(dirname $0)/../../include.rc
 
 function check_process () {
-    pgrep libgfapi-fini-hang
+    ps -p $1
     if [ $? -eq 1 ] ; then
         echo "Y"
     else
@@ -21,16 +21,18 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+logdir=`gluster --print-logdir`
+
 TEST build_tester -lgfapi $(dirname $0)/libgfapi-fini-hang.c -o $M0/libgfapi-fini-hang
 TEST cd $M0
- ./libgfapi-fini-hang $H0 $V0 &
-lpid=$!
+ ./libgfapi-fini-hang $H0 $V0 $logdir/libgfapi-fini-hang.log &
+PID=$!
 
 # check if the process "libgfapi-fini-hang" exits with in $PROCESS_UP_TIMEOUT
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' check_process
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' check_process $PID
 
 # Kill the process if present
-TEST ! kill -9 $lpid
+TEST ! kill -9 $PID
 
 TEST rm -f $M0/libgfapi-fini-hang
 
