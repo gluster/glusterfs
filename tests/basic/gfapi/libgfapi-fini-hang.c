@@ -24,19 +24,20 @@ main (int argc, char *argv[])
         int        ret = 0, i;
         glfs_fd_t *fd = NULL;
         char       readbuf[32];
-        char      *filename = "a1";
+        char      *logname = NULL;
         char      *hostname = NULL;
         char      *volname = NULL;
 
         fprintf (stderr, "Starting libgfapi_fini\n");
 
-        if (argc < 3) {
+        if (argc < 4) {
                 fprintf (stderr, "Invalid argument\n");
                 exit(1);
         }
 
         hostname = argv[1];
         volname = argv[2];
+        logname = argv[3];
 
         fs = glfs_new (volname);
         if (!fs) {
@@ -47,7 +48,7 @@ main (int argc, char *argv[])
         ret = glfs_set_volfile_server (fs, "tcp", hostname, 0);
         LOG_ERR("glfs_set_volfile_server", ret);
 
-        ret = glfs_set_logging (fs, "/dev/stderr", 7);
+        ret = glfs_set_logging (fs, logname, 7);
         LOG_ERR("glfs_set_logging", ret);
 
         /* Do not call glfs_init.
