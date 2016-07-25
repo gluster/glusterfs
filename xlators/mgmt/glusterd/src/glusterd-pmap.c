@@ -203,6 +203,29 @@ pmap_registry_alloc (xlator_t *this)
         return port;
 }
 
+/* pmap_assign_port does a pmap_registry_remove followed by pmap_registry_alloc,
+ * the reason for the former is to ensure we don't end up with stale ports
+ */
+int
+pmap_assign_port (xlator_t *this, int old_port, const char *path)
+{
+        int ret = -1;
+        int new_port = 0;
+
+        if (old_port) {
+                ret = pmap_registry_remove (this, 0, path,
+                                            GF_PMAP_PORT_BRICKSERVER, NULL);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0, "Failed toi"
+                                "remove pmap registry for older signin for path"
+                                " %s", path);
+                }
+        }
+        new_port = pmap_registry_alloc (this);
+        return new_port;
+}
+
 int
 pmap_registry_bind (xlator_t *this, int port, const char *brickname,
                     gf_pmap_port_type_t type, void *xprt)
@@ -420,7 +443,6 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
-
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
                                            GF_PMAP_PORT_BRICKSERVER, req->trans);
 
