@@ -37,7 +37,7 @@ EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-disperse
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "128" mount_get_option_value $M0 $V0-disperse-0 heal-wait-qlength
 #Accessing file should heal the file now
 EXPECT "abc" cat $M0/a
-EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #Test above test cases with reset instead of setting background-heals to 1
 TEST $CLI volume set $V0 disperse.heal-wait-qlength 1024
@@ -63,7 +63,7 @@ EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "8" mount_get_option_value $M0 $V0-disperse
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "200" mount_get_option_value $M0 $V0-disperse-0 heal-wait-qlength
 #Accessing file should heal the file now
 EXPECT "abc" cat $M0/a
-EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #Test that disabling background-heals still drains the queue
 TEST $CLI volume set $V0 disperse.background-heals 1
@@ -81,7 +81,7 @@ TEST chown root:root $M0/{a,b,c,d}
 TEST $CLI volume set $V0 disperse.background-heals 0
 EXPECT_NOT "0" mount_get_option_value $M0 $V0-disperse-0 heal-waiters
 TEST truncate -s 0 $M0/a # This completes the heal fast ;-)
-EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #Test that background heals get rejected on meeting background-qlen limit
 TEST $CLI volume set $V0 disperse.background-heals 1
