@@ -842,6 +842,11 @@ ctr_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         ctr_local = frame->local;
+        if (!ctr_local) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_NULL_LOCAL,
+                        "ctr_local is NULL.");
+                goto out;
+        }
 
         /* This is not the only link */
         if (remaining_links > 1) {
