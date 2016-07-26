@@ -2194,8 +2194,13 @@ glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
             /*TODO: Need to change @del_brick in brick_stop to _gf_true
              * once we enable synctask in peer rpc prog */
-                if (glusterd_brick_stop (volinfo, brickinfo, _gf_false))
+                if (glusterd_brick_stop (volinfo, brickinfo, _gf_false)) {
+                        gf_event (EVENT_BRICK_STOP_FAILED,
+                                  "peer=%s;volume=%s;brick=%s",
+                                  brickinfo->hostname, volinfo->volname,
+                                  brickinfo->path);
                         return -1;
+                }
         }
 
         return 0;
@@ -2217,6 +2222,10 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
                                 "Failed to start %s:%s for %s",
                                 brickinfo->hostname, brickinfo->path,
                                 volinfo->volname);
+                        gf_event (EVENT_BRICK_START_FAILED,
+                                  "peer=%s;volume=%s;brick=%s",
+                                  brickinfo->hostname, volinfo->volname,
+                                  brickinfo->path);
                         goto out;
                 }
         }

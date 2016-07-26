@@ -1124,10 +1124,13 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
 
         ret = glusterd_defrag_volume_status_update (volinfo, dict);
 
-        if (ret)
+        if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DEFRAG_STATUS_UPDATE_FAIL,
                         "Failed to update status");
+                gf_event (EVENT_DEFRAG_STATUS_UPDATE_FAILED, "volume=%s",
+                          volinfo->volname);
+        }
 
 out:
         return ret;

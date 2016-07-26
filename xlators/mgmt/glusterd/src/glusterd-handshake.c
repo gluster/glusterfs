@@ -984,6 +984,7 @@ __server_event_notify (rpcsvc_request_t *req)
                 gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
                         GD_MSG_OP_UNSUPPORTED, "Unknown op received in event "
                         "notify");
+                gf_event (EVENT_NOTIFY_UNKNOWN_OP, "op=%d", args.op);
                 ret = -1;
                 break;
         }
@@ -1118,6 +1119,8 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
                         GD_MSG_HANDSHAKE_REQ_REJECTED, "Rejecting management "
                         "handshake request from unknown peer %s",
                         req->trans->peerinfo.identifier);
+                gf_event (EVENT_PEER_REJECT, "peer=%s",
+                          req->trans->peerinfo.identifier);
                 return _gf_false;
         }
 
