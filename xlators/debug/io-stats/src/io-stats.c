@@ -146,6 +146,18 @@ struct ios_conf {
         ios_sample_buf_t          *ios_sample_buf;
         struct dnscache           *dnscache;
         int32_t                   ios_dnscache_ttl_sec;
+        /*
+         * What we really need here is just a unique value to keep files
+         * created by this instance distinct from those created by any other.
+         * On the client side this isn't a problem, so we just use the
+         * translator name.  On the server side conflicts can occur, so the
+         * volfile-generation code automatically sets this (via an option)
+         * to be the brick path.
+         *
+         * NB While the *field* name has changed, it didn't seem worth changing
+         * all of the cases where "xlator_name" is used as a *variable* name.
+         */
+        char                      *unique_id;
 };
 
 
@@ -702,8 +714,9 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
         int                   bytes_written = 0;
         int                   i = 0;
         int                   ret = 0;
+        struct ios_conf       *conf = this->private;
 
-        xlator_name = strdupa (this->name);
+        xlator_name = strdupa (conf->unique_id);
         for (i = 0; i < strlen (xlator_name); i++) {
                 if (xlator_name[i] == '/')
                         xlator_name[i] = '_';
@@ -1036,7 +1049,7 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
                         hostname = "Unknown";
         }
 
-        xlator_name = this->name;
+        xlator_name = conf->unique_id;
         if (!xlator_name || strlen (xlator_name) == 0)
                 xlator_name = "Unknown";
 
@@ -2911,7 +2924,7 @@ _ios_dump_thread (xlator_t *this) {
         conf = this->private;
         gf_log (this->name, GF_LOG_INFO, "IO stats dump thread started, "
                 "polling IO stats every %d seconds", conf->ios_dump_interval);
-        xlator_name = strdupa (this->name);
+        xlator_name = strdupa (conf->unique_id);
         for (i = 0; i < strlen (xlator_name); i++) {
                 if (xlator_name[i] == '/')
                         xlator_name[i] = '_';
@@ -3654,6 +3667,11 @@ init (xlator_t *this)
         if (!conf)
                 goto out;
 
+        if (dict_get_str (this->options, "unique-id", &conf->unique_id) != 0) {
+                /* This is always set on servers, so we must be a client. */
+                conf->unique_id = this->name;
+        }
+
         /*
          * Init it just after calloc, so that we are sure the lock is inited
          * in case of error paths.
@@ -3723,7 +3741,6 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("log-flush-timeout", log_flush_timeout, time, out);
         gf_log_set_log_flush_timeout (log_flush_timeout);
-
 
         this->private = conf;
         if (conf->ios_dump_interval > 0) {
@@ -4085,6 +4102,11 @@ struct volume_options options[] = {
           .description = "This option determines the maximum number of unique "
                          "log messages that can be buffered for a time equal to"
                          " the value of the option brick-log-flush-timeout."
+        },
+        { .key = {"unique-id"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "/no/such/path",
+          .description = "Unique ID for our files."
         },
         { .key  = {NULL} },
 
