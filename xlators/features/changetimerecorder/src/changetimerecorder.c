@@ -835,12 +835,18 @@ ctr_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_GET_CTR_RESPONSE_LINK_COUNT_XDATA_FAILED,
-                        "Failed to getting GF_RESPONSE_LINK_COUNT_XDATA");
+                        "Failed to get GF_RESPONSE_LINK_COUNT_XDATA");
                 remaining_links = -1;
                 goto out;
         }
 
         ctr_local = frame->local;
+
+        if (!ctr_local) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_NULL_LOCAL,
+                        "ctr_local is NULL.");
+                goto out;
+        }
 
         /* This is not the only link */
         if (remaining_links > 1) {
