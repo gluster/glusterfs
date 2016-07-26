@@ -1555,7 +1555,8 @@ brick_graph_add_decompounder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        xl = volgen_graph_add (graph, "performance/decompounder", volinfo->volname);
+        xl = volgen_graph_add_as (graph, "performance/decompounder",
+                                  brickinfo->path);
         if (xl)
                 ret = 0;
 out:
@@ -2170,8 +2171,12 @@ brick_graph_add_io_stats (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
 
-        xl = volgen_graph_add_as (graph, "debug/io-stats", brickinfo->path);
+        xl = volgen_graph_add (graph, "debug/io-stats", volinfo->volname);
         if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "unique-id", brickinfo->path);
+        if (ret)
                 goto out;
 
         ret = 0;

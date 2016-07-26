@@ -341,6 +341,15 @@ cont:
                 goto out;
         }
 
+        /*
+         * Searching by name will only get us to the decompounder translator,
+         * but we really want io-stats.  Since we know the exact relationship
+         * between these two, it's easy to get from one to the other.
+         *
+         * TBD: should this even be notify, or something else?
+         */
+        xlator = FIRST_CHILD(xlator);
+
         output = dict_new ();
         ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
 
