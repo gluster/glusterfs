@@ -217,7 +217,7 @@ pmap_assign_port (xlator_t *this, int old_port, const char *path)
                                             GF_PMAP_PORT_BRICKSERVER, NULL);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING,
-                                GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0, "Failed toi"
+                                GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0, "Failed to"
                                 "remove pmap registry for older signin for path"
                                 " %s", path);
                 }

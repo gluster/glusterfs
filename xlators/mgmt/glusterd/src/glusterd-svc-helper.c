@@ -52,11 +52,13 @@ glusterd_svcs_reconfigure ()
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret)
                 goto out;
-
         ret = glusterd_scrubsvc_reconfigure ();
         if (ret)
                 goto out;
 out:
+        if (ret)
+                gf_event (EVENT_SVC_RECONFIGURE_FAILED, "");
+
         return ret;
 }
 

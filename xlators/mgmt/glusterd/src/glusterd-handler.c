@@ -2771,6 +2771,8 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                         GD_MSG_REQ_FROM_UNKNOWN_PEER,
                         "Received friend update request "
                         "from unknown peer %s", uuid_utoa (friend_req.uuid));
+                gf_event (EVENT_UNKNOWN_PEER, "peer=%s",
+                          uuid_utoa (friend_req.uuid));
                 goto out;
         }
 
@@ -2867,10 +2869,13 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                                 goto unlock;
                         }
                         ret = glusterd_store_peerinfo (peerinfo);
-                        if (ret)
+                        if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_PEERINFO_CREATE_FAIL,
                                         "Failed to store peerinfo");
+                                gf_event (EVENT_PEER_STORE_FAILURE, "peer=%s",
+                                          peerinfo->hostname);
+                        }
                 }
 unlock:
                 rcu_read_unlock ();
@@ -3525,6 +3530,8 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                         GD_MSG_RPC_CREATE_FAIL,
                         "failed to create rpc for"
                         " peer %s", peerinfo->hostname);
+                gf_event (EVENT_PEER_RPC_CREATE_FAILED, "peer=%s",
+                          peerinfo->hostname);
                 goto out;
         }
         peerctx = NULL;
@@ -3580,6 +3587,8 @@ glusterd_friend_add (const char *hoststr, int port,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_PEERINFO_CREATE_FAIL,
                                 "Failed to store peerinfo");
+                        gf_event (EVENT_PEER_STORE_FAILURE, "peer=%s",
+                                  (*friend)->hostname);
                 }
         }
 
@@ -3635,6 +3644,8 @@ glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_PEERINFO_CREATE_FAIL,
                                 "Failed to store peerinfo");
+                        gf_event (EVENT_PEER_STORE_FAILURE, "peer=%s",
+                                  friend->hostname);
                 }
         }
 
@@ -4999,6 +5010,14 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         switch (event) {
         case RPC_CLNT_CONNECT:
+                ret = get_volinfo_from_brickid (brickid, &volinfo);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL,
+                                "Failed to get volinfo from "
+                                "brickid(%s)", brickid);
+                        goto out;
+                }
                 /* If a node on coming back up, already starts a brick
                  * before the handshake, and the notification comes after
                  * the handshake is done, then we need to check if this
@@ -5012,15 +5031,6 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                 "Hence not starting the brick",
                                 brickinfo->hostname,
                                 brickinfo->path);
-                        ret = get_volinfo_from_brickid (brickid, &volinfo);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_VOLINFO_GET_FAIL,
-                                        "Failed to get volinfo from "
-                                        "brickid(%s)", brickid);
-                                goto out;
-                        }
-
                         ret = glusterd_brick_stop (volinfo, brickinfo,
                                                    _gf_false);
                         if (ret) {
@@ -5037,17 +5047,34 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 gf_msg_debug (this->name, 0, "Connected to %s:%s",
                         brickinfo->hostname, brickinfo->path);
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
+                gf_event (EVENT_BRICK_CONNECTED, "peer=%s;volume=%s;brick=%s",
+                          brickinfo->hostname, volinfo->volname,
+                          brickinfo->path);
+
                 ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
                 break;
 
         case RPC_CLNT_DISCONNECT:
                 rpc_clnt_unset_connected (&rpc->conn);
-                if (glusterd_is_brick_started (brickinfo))
+                if (glusterd_is_brick_started (brickinfo)) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 GD_MSG_BRICK_DISCONNECTED,
                                 "Brick %s:%s has disconnected from glusterd.",
                                 brickinfo->hostname, brickinfo->path);
+                        ret = get_volinfo_from_brickid (brickid, &volinfo);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOLINFO_GET_FAIL,
+                                        "Failed to get volinfo from "
+                                        "brickid(%s)", brickid);
+                                goto out;
+                        }
+                        gf_event (EVENT_BRICK_DISCONNECTED,
+                                  "peer=%s;volume=%s;brick=%s",
+                                  brickinfo->hostname, volinfo->volname,
+                                  brickinfo->path);
+                }
 
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
                 break;
@@ -5174,6 +5201,11 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                         "%s(%s)", peerctx->peername,
                         uuid_utoa (peerctx->peerid));
 
+                if (RPC_CLNT_CONNECT == event) {
+                        gf_event (EVENT_PEER_NOT_FOUND, "peer=%s;uuid=%s",
+                                  peerctx->peername,
+                                  uuid_utoa (peerctx->peerid));
+                }
                 ret = -1;
                 goto out;
         }
@@ -5188,6 +5220,8 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 peerinfo->generation = uatomic_add_return
                                                    (&conf->generation, 1);
                 peerctx->peerinfo_gen = peerinfo->generation;
+                gf_event (EVENT_PEER_CONNECT, "host=%s;uuid=%s",
+                          peerinfo->hostname, uuid_utoa (peerinfo->uuid));
 
                 ret = glusterd_peer_dump_version (this, rpc, peerctx);
                 if (ret)
@@ -5212,6 +5246,9 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                         "from glusterd.",
                         peerinfo->hostname, uuid_utoa (peerinfo->uuid),
                         glusterd_friend_sm_state_name_get (peerinfo->state.state));
+                gf_event (EVENT_PEER_DISCONNECT, "peer=%s;uuid=%s;state=%s",
+                          peerinfo->hostname, uuid_utoa (peerinfo->uuid),
+                          glusterd_friend_sm_state_name_get (peerinfo->state.state));
 
                 if (peerinfo->connected) {
                         if (conf->op_version < GD_OP_VERSION_3_6_0) {
