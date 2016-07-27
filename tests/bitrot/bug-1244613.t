@@ -40,6 +40,9 @@ TEST $CLI volume set $V0 performance.nfs.write-behind off
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+## Wait for gluster nfs to come up
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
+
 TEST mount_nfs $H0:/$V0 $N0;
 deep=/0/1/2/3/4/5/6/7/8/9
 TEST mkdir -p $N0/$deep
