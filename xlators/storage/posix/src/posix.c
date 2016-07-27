@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <ftw.h>
 
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -6674,6 +6675,61 @@ out:
 }
 
 int32_t
+posix_delete_unlink_entry (const char *fpath, const struct stat *sb,
+                   int typeflag, struct FTW *ftwbuf) {
+
+        int    ret = 0;
+
+        if (!fpath)
+                goto out;
+
+        switch (typeflag) {
+        case FTW_SL:
+        case FTW_NS:
+        case FTW_F:
+        case FTW_SLN:
+                ret = sys_unlink(fpath);
+                break;
+        case FTW_D:
+        case FTW_DP:
+        case FTW_DNR:
+                if (ftwbuf->level != 0) {
+                        ret = sys_rmdir(fpath);
+                }
+                break;
+        default:
+                break;
+        }
+        if (ret) {
+                gf_msg ("posix_delete_unlink_entry", GF_LOG_WARNING, errno,
+                        P_MSG_HANDLE_CREATE,
+                        "Deletion of entries %s failed"
+                        "Please delete it manually",
+                        fpath);
+        }
+out:
+        return 0;
+}
+
+int32_t
+posix_delete_unlink (const char *unlink_path) {
+
+        int    ret = -1;
+        int    flags = 0;
+
+        flags |= (FTW_DEPTH | FTW_PHYS);
+
+        ret = nftw(unlink_path, posix_delete_unlink_entry, 2, flags);
+        if (ret) {
+                gf_msg ("posix_delete_unlink", GF_LOG_ERROR, 0,
+                        P_MSG_HANDLE_CREATE,
+                        "Deleting files from  %s failed",
+                        unlink_path);
+        }
+        return ret;
+}
+
+int32_t
 posix_create_unlink_dir (xlator_t *this) {
 
         struct posix_private *priv = NULL;
@@ -6714,15 +6770,8 @@ posix_create_unlink_dir (xlator_t *this) {
                                 unlink_path);
                         return -1;
                 }
-                ret = sys_rename (unlink_path, landfill_path);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_HANDLE_CREATE,
-                                "Can not delete directory %s ",
-                                unlink_path);
-                        return -1;
-                }
-                break;
+                ret = posix_delete_unlink (unlink_path);
+                return 0;
         default:
                 break;
         }
@@ -6737,8 +6786,6 @@ posix_create_unlink_dir (xlator_t *this) {
 
         return 0;
 }
-
-
 
 /**
  * init -
