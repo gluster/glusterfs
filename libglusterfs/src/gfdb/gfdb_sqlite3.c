@@ -239,6 +239,7 @@ gf_sqlite3_fill_db_operations(gfdb_db_operations_t  *gfdb_db_ops)
 
         gfdb_db_ops->insert_record_op = gf_sqlite3_insert;
         gfdb_db_ops->delete_record_op = gf_sqlite3_delete;
+        gfdb_db_ops->compact_db_op = gf_sqlite3_vacuum;
 
         gfdb_db_ops->find_all_op = gf_sqlite3_find_all;
         gfdb_db_ops->find_unchanged_for_time_op =
@@ -1327,10 +1328,14 @@ gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value)
                 goto out;
         }
 
-        ret = gf_asprintf (pragma_value, "%s", sqlite3_column_text (pre_stmt, 0));
-        if (ret <= 0) {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
-                        "Failed to get %s from db", pragma_key);
+        if (pragma_value) {
+                ret = gf_asprintf (pragma_value, "%s",
+                                   sqlite3_column_text (pre_stmt, 0));
+                if (ret <= 0) {
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                LG_MSG_QUERY_FAILED, "Failed to get %s from db",
+                                pragma_key);
+                }
         }
 
         ret = 0;
@@ -1379,6 +1384,180 @@ gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value)
         ret = 0;
 
 out:
+
+        return ret;
+}
+
+/* Function to vacuum of sqlite db
+ * Input:
+ * void *db_conn                      : Sqlite connection
+ * gf_boolean_t compact_active        : Is compaction on?
+ * gf_boolean_t compact_mode_switched : Did we just flip the compaction swtich?
+ * Return:
+ *      On success return 0
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_vacuum (void *db_conn, gf_boolean_t compact_active,
+                   gf_boolean_t compact_mode_switched)
+{
+        int ret = -1;
+        gf_sql_connection_t *sql_conn           =       db_conn;
+        char *sqlstring = NULL;
+        char *sql_strerror = NULL;
+        gf_boolean_t changing_pragma = _gf_true;
+
+        CHECK_SQL_CONN (sql_conn, out);
+
+        if (GF_SQL_COMPACT_DEF == GF_SQL_COMPACT_NONE) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_INFO, 0,
+                        LG_MSG_COMPACT_STATUS,
+                        "VACUUM type is off: no VACUUM to do");
+                goto out;
+        }
+
+        if (compact_mode_switched) {
+                if (compact_active) { /* Then it was OFF before.
+                                        So turn everything on */
+                        ret = 0;
+                        switch (GF_SQL_COMPACT_DEF) {
+                        case GF_SQL_COMPACT_FULL:
+                                ret = gf_sqlite3_set_pragma (db_conn,
+                                                             "auto_vacuum",
+                                                             GF_SQL_AV_FULL);
+                                break;
+                        case GF_SQL_COMPACT_INCR:
+                                ret = gf_sqlite3_set_pragma (db_conn,
+                                                             "auto_vacuum",
+                                                             GF_SQL_AV_INCR);
+                                break;
+                        case GF_SQL_COMPACT_MANUAL:
+                                changing_pragma = _gf_false;
+                        default:
+                                ret = -1;
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_COMPACT_FAILED,
+                                        "VACUUM type undefined");
+                                goto out;
+                                break;
+                        }
+
+                } else { /* Then it was ON before, so turn it all off */
+                        if (GF_SQL_COMPACT_DEF == GF_SQL_COMPACT_FULL ||
+                           GF_SQL_COMPACT_DEF == GF_SQL_COMPACT_INCR) {
+                                ret = gf_sqlite3_set_pragma (db_conn,
+                                                             "auto_vacuum",
+                                                             GF_SQL_AV_NONE);
+                        } else {
+                                changing_pragma = _gf_false;
+                        }
+                }
+
+                if (ret) {
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_TRACE, 0,
+                                LG_MSG_PREPARE_FAILED,
+                                "Failed to set the pragma");
+                        goto out;
+                }
+
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_INFO, 0,
+                        LG_MSG_COMPACT_STATUS, "Turning compaction %i",
+                        GF_SQL_COMPACT_DEF);
+
+                /* If we move from an auto_vacuum scheme to off, */
+                /* or vice-versa, we must VACUUM to save the change. */
+                /* In the case of a manual VACUUM scheme, we might as well */
+                /* run a manual VACUUM now if we */
+                if (changing_pragma || compact_active) {
+                        ret = gf_asprintf (&sqlstring, "VACUUM;");
+                        if (ret <= 0) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_PREPARE_FAILED,
+                                        "Failed allocating memory");
+                                goto out;
+                        }
+                        gf_msg(GFDB_STR_SQLITE3, GF_LOG_INFO, 0,
+                               LG_MSG_COMPACT_STATUS, "Sealed with a VACUUM");
+                }
+        } else { /* We are active, so it's time to VACUUM */
+                if (!compact_active) { /* Did we somehow enter an inconsistent
+                                          state? */
+                        ret = -1;
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                LG_MSG_PREPARE_FAILED,
+                                "Tried to VACUUM when compaction inactive");
+                        goto out;
+                }
+
+                gf_msg(GFDB_STR_SQLITE3, GF_LOG_TRACE, 0,
+                       LG_MSG_COMPACT_STATUS,
+                       "Doing regular vacuum of type %i", GF_SQL_COMPACT_DEF);
+
+                switch (GF_SQL_COMPACT_DEF) {
+                case GF_SQL_COMPACT_INCR: /* INCR auto_vacuum */
+                        ret = gf_asprintf(&sqlstring,
+                                          "PRAGMA incremental_vacuum;");
+                        if (ret <= 0) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_PREPARE_FAILED,
+                                        "Failed allocating memory");
+                                goto out;
+                        }
+                        gf_msg(GFDB_STR_SQLITE3, GF_LOG_INFO, 0,
+                               LG_MSG_COMPACT_STATUS,
+                               "Will commence an incremental VACUUM");
+                        break;
+                /* (MANUAL) Invoke the VACUUM command */
+                case GF_SQL_COMPACT_MANUAL:
+                        ret = gf_asprintf(&sqlstring, "VACUUM;");
+                        if (ret <= 0) {
+                                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                        LG_MSG_PREPARE_FAILED,
+                                        "Failed allocating memory");
+                                goto out;
+                        }
+                        gf_msg(GFDB_STR_SQLITE3, GF_LOG_INFO, 0,
+                               LG_MSG_COMPACT_STATUS,
+                               "Will commence a VACUUM");
+                        break;
+                /* (FULL) The database does the compaction itself. */
+                /* We cannot do anything else, so we can leave */
+                /* without sending anything to the database */
+                case GF_SQL_COMPACT_FULL:
+                        ret = 0;
+                        goto success;
+                /* Any other state must be an error. Note that OFF */
+                /* cannot hit this statement since we immediately leave */
+                /* in that case */
+                default:
+                        ret = -1;
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                LG_MSG_COMPACT_FAILED,
+                                "VACUUM type undefined");
+                        goto out;
+                        break;
+                }
+        }
+
+        gf_msg(GFDB_STR_SQLITE3, GF_LOG_TRACE, 0, LG_MSG_COMPACT_STATUS,
+               "SQLString == %s", sqlstring);
+
+        ret = sqlite3_exec(sql_conn->sqlite3_db_conn, sqlstring, NULL, NULL,
+                           &sql_strerror);
+
+        if (ret != SQLITE_OK) {
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                        LG_MSG_GET_RECORD_FAILED, "Failed to vacuum "
+                        "the db : %s", sqlite3_errmsg (db_conn));
+                ret = -1;
+                goto out;
+        }
+success:
+        gf_msg(GFDB_STR_SQLITE3, GF_LOG_INFO, 0, LG_MSG_COMPACT_STATUS,
+               compact_mode_switched ? "Successfully changed VACUUM on/off"
+               : "DB successfully VACUUM");
+out:
+        GF_FREE(sqlstring);
 
         return ret;
 }

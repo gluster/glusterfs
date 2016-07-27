@@ -310,7 +310,7 @@ typedef struct dht_local dht_local_t;
 /* du - disk-usage */
 struct dht_du {
         double   avail_percent;
-	double   avail_inodes;
+        double   avail_inodes;
         uint64_t avail_space;
         uint32_t log;
         uint32_t chunks;
@@ -325,10 +325,10 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_START_FORCE = 1 + 4,
         GF_DEFRAG_CMD_START_TIER = 1 + 5,
         GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
-	GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
-	GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
-	GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
-	GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
+        GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
+        GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
+        GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
+        GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
 };
 typedef enum gf_defrag_type gf_defrag_type;
 
@@ -398,9 +398,26 @@ typedef struct gf_tier_conf {
         uint64_t                     max_migrate_bytes;
         int                          max_migrate_files;
         tier_mode_t                  mode;
+        /* These flags are only used for tier-compact */
+        gf_boolean_t                 compact_active;
+        /* These 3 flags are set to true when the client changes the */
+        /* compaction mode on the command line. */
+        /* When they are set, the daemon will trigger compaction as */
+        /* soon as possible to activate or deactivate compaction. */
+        /* If in the middle of a compaction, then the switches take */
+        /* effect on the next compaction, not the current one. */
+        /* If the user switches it off, we want to avoid needless */
+        /* compactions. */
+        /* If the user switches it on, they want to compact as soon */
+        /* as possible. */
+        gf_boolean_t                 compact_mode_switched;
+        gf_boolean_t                 compact_mode_switched_hot;
+        gf_boolean_t                 compact_mode_switched_cold;
         int                          tier_max_promote_size;
         int                          tier_promote_frequency;
         int                          tier_demote_frequency;
+        int                          tier_compact_hot_frequency;
+        int                          tier_compact_cold_frequency;
         uint64_t                     st_last_promoted_size;
         uint64_t                     st_last_demoted_size;
         tier_pause_state_t           pause_state;
@@ -1023,9 +1040,9 @@ int32_t dht_setattr (call_frame_t  *frame, xlator_t *this, loc_t *loc,
 int32_t dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                       struct iatt  *stbuf, int32_t valid, dict_t *xdata);
 int32_t dht_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
-		      int32_t mode, off_t offset, size_t len, dict_t *xdata);
+                      int32_t mode, off_t offset, size_t len, dict_t *xdata);
 int32_t dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd,
-		    off_t offset, size_t len, dict_t *xdata);
+                    off_t offset, size_t len, dict_t *xdata);
 int32_t dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                     off_t offset, off_t len, dict_t *xdata);
 int32_t dht_ipc (call_frame_t *frame, xlator_t *this, int32_t op,

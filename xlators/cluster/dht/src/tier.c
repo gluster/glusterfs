@@ -1240,15 +1240,15 @@ tier_process_ctr_query (tier_brick_list_t *local_brick, void *args)
                 gfdb_brick_info->time_stamp,
                 sizeof (gfdb_time_t));
 
-        SET_DB_PARAM_TO_DICT(this->name, ctr_ipc_in_dict,
-                             GFDB_IPC_CTR_KEY, GFDB_IPC_CTR_QUERY_OPS,
-                             ret, out);
+        SET_DB_PARAM_TO_DICT (this->name, ctr_ipc_in_dict,
+                              GFDB_IPC_CTR_KEY, GFDB_IPC_CTR_QUERY_OPS,
+                              ret, out);
 
 
-        SET_DB_PARAM_TO_DICT(this->name, ctr_ipc_in_dict,
-                             GFDB_IPC_CTR_GET_QFILE_PATH,
-                             local_brick->qfile_path,
-                             ret, out);
+        SET_DB_PARAM_TO_DICT (this->name, ctr_ipc_in_dict,
+                              GFDB_IPC_CTR_GET_QFILE_PATH,
+                              local_brick->qfile_path,
+                              ret, out);
 
         ret = dict_set_bin (ctr_ipc_in_dict, GFDB_IPC_CTR_GET_QUERY_PARAMS,
                                 ipc_ctr_params, sizeof (*ipc_ctr_params));
@@ -1360,7 +1360,7 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                         gf_msg ("tier", GF_LOG_ERROR, 0,
                                 LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
                                 "to params dictionary",
-                                GFDB_IPC_CTR_GET_DB_KEY);\
+                                GFDB_IPC_CTR_GET_DB_KEY);
                         goto out;
                 }
 
@@ -1442,11 +1442,12 @@ tier_build_migration_qfile (migration_args_t *args,
         }
         time_in_past.tv_sec = current_time.tv_sec - time_in_past.tv_sec;
 
-        /* The migration daemon may run a varrying numberof usec after the sleep */
-        /* call triggers. A file may be registered in CTR some number of usec X */
-        /* after the daemon started and missed in the subsequent cycle if the */
-        /* daemon starts Y usec after the period in seconds where Y>X. Normalize */
-        /* away this problem by always setting usec to 0. */
+        /* The migration daemon may run a varying numberof usec after the */
+        /* sleep call triggers. A file may be registered in CTR some number */
+        /* of usec X after the daemon started and missed in the subsequent */
+        /* cycle if the daemon starts Y usec after the period in seconds */
+        /* where Y>X. Normalize away this problem by always setting usec */
+        /* to 0. */
         time_in_past.tv_usec = 0;
 
         gfdb_brick_info.time_stamp = &time_in_past;
@@ -1649,6 +1650,265 @@ out:
         return ret;
 }
 
+
+/*
+ * Command the CTR on a brick to compact the local database using an IPC
+ */
+static int
+tier_process_self_compact (tier_brick_list_t *local_brick, void *args)
+{
+        int ret                                         = -1;
+        char *db_path                                   = NULL;
+        query_cbk_args_t *query_cbk_args                = NULL;
+        xlator_t *this                                  = NULL;
+        gfdb_conn_node_t *conn_node                     = NULL;
+        dict_t *params_dict                             = NULL;
+        dict_t *ctr_ipc_dict                            = NULL;
+        gfdb_brick_info_t *gfdb_brick_info              = args;
+        int is_changing                                 = -1;
+
+        /*Init of all the essentials*/
+        GF_VALIDATE_OR_GOTO ("tier", gfdb_brick_info , out);
+        query_cbk_args = gfdb_brick_info->_query_cbk_args;
+
+        GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
+        this = query_cbk_args->this;
+
+        GF_VALIDATE_OR_GOTO (this->name,
+                             gfdb_brick_info->_query_cbk_args, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local_brick, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local_brick->xlator, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, local_brick->brick_db_path, out);
+
+        db_path = local_brick->brick_db_path;
+
+        /*Preparing DB parameters before init_db i.e getting db connection*/
+        params_dict = dict_new ();
+        if (!params_dict) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "DB Params cannot initialized");
+                goto out;
+        }
+        SET_DB_PARAM_TO_DICT (this->name, params_dict,
+                             (char *) gfdb_methods.get_db_path_key(), db_path,
+                             ret, out);
+
+        /*Get the db connection*/
+        conn_node = gfdb_methods.init_db ((void *)params_dict,
+                                          dht_tier_db_type);
+        if (!conn_node) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "FATAL: Failed initializing db operations");
+                         goto out;
+        }
+
+        ret = 0;
+
+        /*Preparing ctr_ipc_dict*/
+        ctr_ipc_dict = dict_new ();
+        if (!ctr_ipc_dict) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "ctr_ipc_dict cannot initialized");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctr_ipc_dict, "compact_active",
+                              query_cbk_args->defrag->
+                              tier_conf.compact_active);
+
+        if (ret) {
+                gf_msg ("tier", GF_LOG_ERROR, 0,
+                        LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
+                        "to params dictionary",
+                        "compact_active");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctr_ipc_dict, "compact_mode_switched",
+                              query_cbk_args->defrag->
+                              tier_conf.compact_mode_switched);
+
+        if (ret) {
+                gf_msg ("tier", GF_LOG_ERROR, 0,
+                        LG_MSG_SET_PARAM_FAILED, "Failed to set %s "
+                        "to params dictionary",
+                        "compact_mode_switched");
+                goto out;
+        }
+
+        SET_DB_PARAM_TO_DICT(this->name, ctr_ipc_dict,
+                             GFDB_IPC_CTR_KEY, GFDB_IPC_CTR_SET_COMPACT_PRAGMA,
+                             ret, out);
+
+        gf_msg (this->name, GF_LOG_TRACE, 0, DHT_MSG_LOG_TIER_STATUS,
+                "Starting Compaction IPC");
+
+        ret = syncop_ipc (local_brick->xlator, GF_IPC_TARGET_CTR, ctr_ipc_dict,
+                          NULL);
+
+        gf_msg (this->name, GF_LOG_TRACE, 0, DHT_MSG_LOG_TIER_STATUS,
+                "Ending Compaction IPC");
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR, "Failed compaction "
+                        "on db %s error %d", local_brick->brick_db_path, ret);
+                goto out;
+        }
+
+        gf_msg (this->name, GF_LOG_TRACE, 0, DHT_MSG_LOG_TIER_STATUS,
+                "SUCCESS: %s Compaction", local_brick->brick_name);
+
+        ret = 0;
+out:
+        if (params_dict) {
+                dict_unref (params_dict);
+                params_dict = NULL;
+        }
+
+        if (ctr_ipc_dict) {
+                dict_unref (ctr_ipc_dict);
+                ctr_ipc_dict = NULL;
+        }
+
+        gfdb_methods.fini_db (conn_node);
+
+        return ret;
+}
+
+/*
+ * This is the call back function for each brick from hot/cold bricklist.
+ * It determines the database type on each brick and calls the corresponding
+ * function to prepare the compaction IPC.
+ */
+static int
+tier_compact_db_brick (tier_brick_list_t *local_brick, void *args)
+{
+        int ret = -1;
+        char *strval = NULL;
+
+        GF_VALIDATE_OR_GOTO ("tier", local_brick, out);
+
+        GF_VALIDATE_OR_GOTO ("tier", local_brick->xlator, out);
+
+        ret = tier_process_self_compact (local_brick, args);
+        if (ret) {
+                gf_msg ("tier", GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Brick %s did not compact",
+                        local_brick->brick_name);
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+
+        return ret;
+}
+
+static int
+tier_send_compact (migration_args_t *args,
+                   query_cbk_args_t *query_cbk_args)
+{
+        gfdb_time_t               current_time;
+        gfdb_brick_info_t         gfdb_brick_info;
+        gfdb_time_t               time_in_past;
+        int                       ret = -1;
+        tier_brick_list_t         *local_brick = NULL;
+
+        time_in_past.tv_sec = args->freq_time;
+        time_in_past.tv_usec = 0;
+
+        ret = gettimeofday (&current_time, NULL);
+        if (ret == -1) {
+                gf_msg (args->this->name, GF_LOG_ERROR, errno,
+                        DHT_MSG_SYS_CALL_GET_TIME_FAILED,
+                        "Failed to get current time");
+                goto out;
+        }
+        time_in_past.tv_sec = current_time.tv_sec - time_in_past.tv_sec;
+
+        /* The migration daemon may run a varying numberof usec after the sleep
+           call triggers. A file may be registered in CTR some number of usec X
+           after the daemon started and missed in the subsequent cycle if the
+           daemon starts Y usec after the period in seconds where Y>X. Normalize
+           away this problem by always setting usec to 0. */
+        time_in_past.tv_usec = 0;
+
+        gfdb_brick_info.time_stamp = &time_in_past;
+
+        /* This is meant to say we are always compacting at this point */
+        /* We simply borrow the promotion flag to do this */
+        gfdb_brick_info._gfdb_promote = 1;
+
+        gfdb_brick_info._query_cbk_args = query_cbk_args;
+
+        list_for_each_entry (local_brick, args->brick_list, list) {
+
+                gf_msg (args->this->name, GF_LOG_TRACE, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Start compaction for %s",
+                        local_brick->brick_name);
+
+                ret = tier_compact_db_brick (local_brick,
+                                             &gfdb_brick_info);
+                if (ret) {
+                        gf_msg (args->this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_BRICK_QUERY_FAILED,
+                                "Brick %s compaction failed\n",
+                                local_brick->brick_db_path);
+                }
+
+                gf_msg (args->this->name, GF_LOG_TRACE, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "End compaction for %s",
+                        local_brick->brick_name);
+
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+tier_compact (void *args)
+{
+        int ret = -1;
+        query_cbk_args_t query_cbk_args;
+        migration_args_t *compaction_args = args;
+
+        GF_VALIDATE_OR_GOTO ("tier", compaction_args->this, out);
+        GF_VALIDATE_OR_GOTO (compaction_args->this->name,
+                             compaction_args->brick_list, out);
+        GF_VALIDATE_OR_GOTO (compaction_args->this->name,
+                             compaction_args->defrag, out);
+
+        THIS = compaction_args->this;
+
+        query_cbk_args.this = compaction_args->this;
+        query_cbk_args.defrag = compaction_args->defrag;
+        query_cbk_args.is_compaction = 1;
+
+        /* Send the compaction pragma out to all the bricks on the bricklist. */
+        /* tier_get_bricklist ensures all bricks on the list are local to */
+        /* this node. */
+        ret = tier_send_compact (compaction_args, &query_cbk_args);
+        if (ret)
+                goto out;
+
+        ret = 0;
+out:
+        compaction_args->return_value = ret;
+        return ret;
+ }
+
 static int
 tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
 {
@@ -1755,6 +2015,18 @@ tier_get_freq_promote (gf_tier_conf_t *tier_conf)
         return tier_conf->tier_promote_frequency;
 }
 
+int
+tier_get_freq_compact_hot (gf_tier_conf_t *tier_conf)
+{
+        return tier_conf->tier_compact_hot_frequency;
+}
+
+int
+tier_get_freq_compact_cold (gf_tier_conf_t *tier_conf)
+{
+        return tier_conf->tier_compact_cold_frequency;
+}
+
 static int
 tier_check_demote (gfdb_time_t  current_time, int freq)
 {
@@ -1776,7 +2048,20 @@ tier_check_promote (gf_tier_conf_t   *tier_conf,
                         _gf_true : _gf_false;
 }
 
+static gf_boolean_t
+tier_check_compact (gf_tier_conf_t   *tier_conf,
+                    gfdb_time_t  current_time,
+                    int freq_compact)
+{
 
+        if (!(tier_conf->compact_active ||
+              tier_conf->compact_mode_switched))
+                return _gf_false;
+
+
+        return ((current_time.tv_sec % freq_compact) == 0) ?
+                _gf_true : _gf_false;
+}
 
 
 void
@@ -1824,6 +2109,72 @@ out:
         return;
 }
 
+static int
+tier_prepare_compact (migration_args_t *args, gfdb_time_t current_time)
+{
+        xlator_t *this = NULL;
+        dht_conf_t *conf                        = NULL;
+        gf_defrag_info_t *defrag                = NULL;
+        gf_tier_conf_t *tier_conf               = NULL;
+        gf_boolean_t is_hot_tier = _gf_false;
+        int freq = 0;
+        int ret = -1;
+        const char *tier_type = is_hot_tier ? "hot" : "cold";
+
+        this = args->this;
+
+        conf = this->private;
+
+        defrag = conf->defrag;
+
+        tier_conf = &defrag->tier_conf;
+
+        is_hot_tier = args->is_hot_tier;
+
+        freq = is_hot_tier ? tier_get_freq_compact_hot (tier_conf) :
+                tier_get_freq_compact_cold (tier_conf);
+
+        defrag->tier_conf.compact_mode_switched = is_hot_tier ?
+                defrag->tier_conf.compact_mode_switched_hot :
+                defrag->tier_conf.compact_mode_switched_cold;
+
+        gf_msg(this->name, GF_LOG_TRACE, 0,
+               DHT_MSG_LOG_TIER_STATUS,
+               "Compact mode %i",
+               defrag->tier_conf.compact_mode_switched);
+
+        if (tier_check_compact (tier_conf, current_time,
+                                freq)) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Start compaction on %s tier",
+                        tier_type);
+
+                args->freq_time = freq;
+                ret = tier_compact (args);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_ERROR, "Compaction failed on "
+                                "%s tier", tier_type);
+                        goto out;
+                }
+
+                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
+                        "End compaction on %s tier", tier_type);
+
+                if (is_hot_tier) {
+                        defrag->tier_conf.compact_mode_switched_hot =
+                                _gf_false;
+                } else {
+                        defrag->tier_conf.compact_mode_switched_cold =
+                                _gf_false;
+                }
+        }
+
+out:
+        return ret;
+}
+
 /*
  * Main tiering loop. This is called from the promotion and the
  * demotion threads spawned in tier_start().
@@ -1846,8 +2197,9 @@ static void
         int check_watermark                     = 0;
         gf_defrag_info_t *defrag                = NULL;
         xlator_t  *this                         = NULL;
+        struct list_head *bricklist_temp        = NULL;
         migration_args_t *args = in_args;
-
+        gf_boolean_t compacted = _gf_false;
         GF_VALIDATE_OR_GOTO ("tier", args, out);
         GF_VALIDATE_OR_GOTO ("tier", args->brick_list, out);
 
@@ -1884,7 +2236,8 @@ static void
                 if (xlator != this) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 DHT_MSG_LOG_TIER_STATUS,
-                                "Detected graph switch. Exiting migration daemon.");
+                                "Detected graph switch. Exiting migration "
+                                "daemon.");
                         goto out;
                 }
 
@@ -1912,9 +2265,9 @@ static void
                         goto out;
                 }
 
-                if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING)
+                if (gf_defrag_get_pause_state (&defrag->tier_conf) !=
+                    TIER_RUNNING)
                         continue;
-
 
                 /* To have proper synchronization amongst all
                  * brick holding nodes, so that promotion and demotions
@@ -1950,7 +2303,6 @@ static void
                 }
 
                 if (args->is_promotion) {
-
                         freq = tier_get_freq_promote (tier_conf);
 
                         if (tier_check_promote (tier_conf, current_time, freq)) {
@@ -1962,21 +2314,22 @@ static void
                                                 "Promotion failed");
                                 }
                         }
-
+                } else if (args->is_compaction) {
+                        tier_prepare_compact (args, current_time);
                 } else {
-
                         freq = tier_get_freq_demote (tier_conf);
 
                         if (tier_check_demote (current_time, freq)) {
                                 args->freq_time = freq;
                                 ret = tier_demote (args);
                                 if (ret) {
-                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        gf_msg (this->name,
+                                                GF_LOG_ERROR,
+                                                0,
                                                 DHT_MSG_LOG_TIER_ERROR,
                                                 "Demotion failed");
                                 }
                         }
-
                 }
 
                 /* Check the statfs immediately after the processing threads
@@ -1997,11 +2350,15 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 {
         pthread_t promote_thread;
         pthread_t demote_thread;
+        pthread_t hot_compact_thread;
+        pthread_t cold_compact_thread;
         int ret = -1;
         struct list_head bricklist_hot          = { 0 };
         struct list_head bricklist_cold         = { 0 };
         migration_args_t promotion_args         = { 0 };
         migration_args_t demotion_args          = { 0 };
+        migration_args_t hot_compaction_args    = { 0 };
+        migration_args_t cold_compaction_args   = { 0 };
         dht_conf_t *conf                        = NULL;
 
         INIT_LIST_HEAD ((&bricklist_hot));
@@ -2016,6 +2373,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         demotion_args.brick_list = &bricklist_hot;
         demotion_args.defrag = defrag;
         demotion_args.is_promotion = _gf_false;
+        demotion_args.is_compaction = _gf_false;
 
         ret = pthread_create (&demote_thread,
                               NULL, &tier_run,
@@ -2047,6 +2405,47 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                 goto waitforspawned;
         }
 
+        hot_compaction_args.this = this;
+        hot_compaction_args.brick_list = &bricklist_hot;
+        hot_compaction_args.defrag = defrag;
+        hot_compaction_args.is_promotion = _gf_false;
+        hot_compaction_args.is_compaction = _gf_true;
+        hot_compaction_args.is_hot_tier = _gf_true;
+
+        ret = pthread_create (&hot_compact_thread,
+                              NULL, &tier_run,
+                              &hot_compaction_args);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to start compaction thread.");
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                goto waitforspawnedpromote;
+        }
+
+        cold_compaction_args.this = this;
+        cold_compaction_args.brick_list = &bricklist_cold;
+        cold_compaction_args.defrag = defrag;
+        cold_compaction_args.is_promotion = _gf_false;
+        cold_compaction_args.is_compaction = _gf_true;
+        cold_compaction_args.is_hot_tier = _gf_false;
+
+        ret = pthread_create (&cold_compact_thread,
+                              NULL, &tier_run,
+                              &cold_compaction_args);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to start compaction thread.");
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                goto waitforspawnedhotcompact;
+        }
+        pthread_join (cold_compact_thread, NULL);
+
+waitforspawnedhotcompact:
+        pthread_join (hot_compact_thread, NULL);
+
+waitforspawnedpromote:
         pthread_join (promote_thread, NULL);
 
 waitforspawned:
@@ -2055,7 +2454,6 @@ waitforspawned:
 cleanup:
         clear_bricklist (&bricklist_cold);
         clear_bricklist (&bricklist_hot);
-
         return ret;
 }
 
@@ -2167,8 +2565,8 @@ out:
         return ret;
 }
 
-static
-int tier_validate_mode (char *mode)
+static int
+tier_validate_mode (char *mode)
 {
         int ret = -1;
 
@@ -2181,6 +2579,26 @@ int tier_validate_mode (char *mode)
         return ret;
 }
 
+static gf_boolean_t
+tier_validate_compact_mode (char *mode)
+{
+        gf_boolean_t ret = _gf_false;
+
+        gf_msg ("tier", GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
+                "tier_validate_compact_mode: mode = %s", mode);
+
+        if (!strcmp (mode, "on")) {
+                ret = _gf_true;
+        } else {
+                ret = _gf_false;
+        }
+
+        gf_msg ("tier", GF_LOG_ERROR, 0,
+                DHT_MSG_LOG_TIER_STATUS,
+                "tier_validate_compact_mode: ret = %i", ret);
+
+        return ret;
+}
 
 int
 tier_init_methods (xlator_t *this)
@@ -2204,8 +2622,6 @@ tier_init_methods (xlator_t *this)
 err:
         return ret;
 }
-
-
 
 int
 tier_init (xlator_t *this)
@@ -2291,6 +2707,22 @@ tier_init (xlator_t *this)
         defrag->tier_conf.tier_demote_frequency = freq;
 
         ret = dict_get_int32 (this->options,
+                              "tier-hot-compact-frequency", &freq);
+        if (ret) {
+                freq = DEFAULT_HOT_COMPACT_FREQ_SEC;
+        }
+
+        defrag->tier_conf.tier_compact_hot_frequency = freq;
+
+        ret = dict_get_int32 (this->options,
+                              "tier-cold-compact-frequency", &freq);
+        if (ret) {
+                freq = DEFAULT_COLD_COMPACT_FREQ_SEC;
+        }
+
+        defrag->tier_conf.tier_compact_cold_frequency = freq;
+
+        ret = dict_get_int32 (this->options,
                               "watermark-hi", &freq);
         if (ret) {
                 freq = DEFAULT_WM_HI;
@@ -2339,6 +2771,29 @@ tier_init (xlator_t *this)
         defrag->tier_conf.max_migrate_files = freq;
 
         ret = dict_get_str (this->options,
+                            "tier-compact", &mode);
+
+        if (ret) {
+                defrag->tier_conf.compact_active = DEFAULT_COMP_MODE;
+        } else {
+                ret = tier_validate_compact_mode (mode);
+                if (ret < 0) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               DHT_MSG_LOG_TIER_ERROR,
+                               "tier_init failed - invalid compaction mode");
+                        goto out;
+                }
+
+                /* If compaction is now active, we need to inform the bricks on
+                   the hot and cold tier of this. See dht-common.h for more. */
+                defrag->tier_conf.compact_active = ret;
+                if (ret) {
+                        defrag->tier_conf.compact_mode_switched_hot = _gf_true;
+                        defrag->tier_conf.compact_mode_switched_cold = _gf_true;
+                }
+        }
+
+        ret = dict_get_str (this->options,
                             "tier-mode", &mode);
         if (ret) {
                 defrag->tier_conf.mode = DEFAULT_TIER_MODE;
@@ -2361,7 +2816,8 @@ tier_init (xlator_t *this)
                               "tier-pause", &paused);
 
         if (paused && strcmp (paused, "on") == 0)
-                gf_defrag_set_pause_state (&defrag->tier_conf, TIER_REQUEST_PAUSE);
+                gf_defrag_set_pause_state (&defrag->tier_conf,
+                                           TIER_REQUEST_PAUSE);
 
         ret = gf_asprintf(&voldir, "%s/%s",
                           DEFAULT_VAR_RUN_DIRECTORY,
@@ -2411,7 +2867,6 @@ out:
         return ret;
 }
 
-
 int
 tier_cli_pause_done (int op_ret, call_frame_t *sync_frame, void *data)
 {
@@ -2445,17 +2900,17 @@ exit:
         return ret;
 }
 
-
 int
 tier_reconfigure (xlator_t *this, dict_t *options)
 {
-        dht_conf_t       *conf           = NULL;
-        gf_defrag_info_t *defrag         = NULL;
-        char             *mode           = NULL;
-        int               migrate_mb     = 0;
-        gf_boolean_t      req_pause      = _gf_false;
-        int               ret            = 0;
-        call_frame_t            *frame  = NULL;
+        dht_conf_t       *conf            = NULL;
+        gf_defrag_info_t *defrag          = NULL;
+        char             *mode            = NULL;
+        int               migrate_mb      = 0;
+        gf_boolean_t      req_pause       = _gf_false;
+        int               ret             = 0;
+        call_frame_t            *frame    = NULL;
+        gf_boolean_t last_compact_setting = _gf_false;
 
         conf = this->private;
 
@@ -2488,6 +2943,28 @@ tier_reconfigure (xlator_t *this, dict_t *options)
                 GF_OPTION_RECONF ("watermark-low",
                                   defrag->tier_conf.watermark_low, options,
                                   int32, out);
+
+                last_compact_setting = defrag->tier_conf.compact_active;
+
+                GF_OPTION_RECONF ("tier-compact",
+                                  defrag->tier_conf.compact_active, options,
+                                  bool, out);
+
+                if (last_compact_setting != defrag->tier_conf.compact_active) {
+                        defrag->tier_conf.compact_mode_switched_hot = _gf_true;
+                        defrag->tier_conf.compact_mode_switched_cold = _gf_true;
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_LOG_TIER_STATUS,
+                                "compact mode switched");
+                }
+
+                GF_OPTION_RECONF ("tier-hot-compact-frequency",
+                                  defrag->tier_conf.tier_compact_hot_frequency,
+                                  options, int32, out);
+
+                GF_OPTION_RECONF ("tier-cold-compact-frequency",
+                                  defrag->tier_conf.tier_compact_cold_frequency,
+                                  options, int32, out);
 
                 GF_OPTION_RECONF ("tier-mode",
                                   mode, options,
@@ -2558,7 +3035,6 @@ class_methods_t class_methods = {
         .notify         = dht_notify
 };
 
-
 struct xlator_fops fops = {
 
         .lookup      = dht_lookup,
@@ -2611,9 +3087,7 @@ struct xlator_fops fops = {
         .zerofill    = dht_zerofill,
 };
 
-
 struct xlator_cbks cbks = {
         .release    = dht_release,
         .forget     = dht_forget
 };
-

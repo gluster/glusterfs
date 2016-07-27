@@ -15,6 +15,8 @@
 #include "ctr-messages.h"
 #include "syscall.h"
 
+#include "changetimerecorder.h"
+
 /*******************************inode forget***********************************/
 
 int
@@ -1789,6 +1791,61 @@ out:
         return ret;
 }
 
+void *
+ctr_compact_thread (void *args)
+{
+        int ret = -1;
+        void *db_conn = NULL;
+
+        xlator_t *this = NULL;
+        gf_ctr_private_t *priv = NULL;
+        gf_boolean_t compact_active = _gf_false;
+        gf_boolean_t compact_mode_switched = _gf_false;
+
+        this = (xlator_t *)args;
+
+        GF_VALIDATE_OR_GOTO("ctr", this, out);
+
+        priv = this->private;
+
+        db_conn = priv->_db_conn;
+        compact_active = priv->compact_active;
+        compact_mode_switched = priv->compact_mode_switched;
+
+        gf_msg ("ctr-compact", GF_LOG_INFO, 0, CTR_MSG_SET,
+                "Starting compaction");
+
+        ret = compact_db(db_conn, compact_active,
+                         compact_mode_switched);
+
+        if (ret) {
+                gf_msg ("ctr-compact", GF_LOG_ERROR, 0, CTR_MSG_SET,
+                        "Failed to perform the compaction");
+        }
+
+        ret = pthread_mutex_lock (&priv->compact_lock);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                        "Failed to acquire lock");
+                goto out;
+        }
+
+        /* We are done compaction on this brick. Set all flags to false */
+        priv->compact_active = _gf_false;
+        priv->compact_mode_switched = _gf_false;
+
+        ret = pthread_mutex_unlock (&priv->compact_lock);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                        "Failed to release lock");
+                goto out;
+        }
+
+out:
+        return NULL;
+}
 
 int
 ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
@@ -1802,7 +1859,8 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
         char *db_param = NULL;
         char *query_file = NULL;
         gfdb_ipc_ctr_params_t *ipc_ctr_params = NULL;
-
+        int result = 0;
+        pthread_t compact_thread;
 
         GF_VALIDATE_OR_GOTO ("ctr", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
@@ -1888,11 +1946,77 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
                 SET_DB_PARAM_TO_DICT(this->name, out_dict,
                                         db_param_key,
                                         db_param, ret, error);
+        } /* if its an attempt to compact the database */
+        else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_SET_COMPACT_PRAGMA,
+                          strlen (GFDB_IPC_CTR_SET_COMPACT_PRAGMA)) == 0) {
+
+                ret = pthread_mutex_lock (&priv->compact_lock);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                "Failed to acquire lock for compaction");
+                        goto out;
+                }
+
+                if ((priv->compact_active || priv->compact_mode_switched)) {
+                        /* Compaction in progress. LEAVE */
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                               "Compaction already in progress.");
+                        pthread_mutex_unlock (&priv->compact_lock);
+                        goto out;
+                }
+                /* At this point, we should be the only one on the brick */
+                /* compacting */
+
+                /* Grab the arguments from the dictionary */
+                ret = dict_get_int32 (in_dict, "compact_active", &result);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                               "Failed to get compaction type");
+                        goto out;
+                }
+
+                if (result) {
+                        priv->compact_active = _gf_true;
+                }
+
+                ret = dict_get_int32 (in_dict, "compact_mode_switched"
+                                     , &result);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                               "Failed to see if compaction switched");
+                        goto out;
+                }
+
+                if (result) {
+                        priv->compact_mode_switched = _gf_true;
+                        gf_msg ("ctr-compact", GF_LOG_TRACE, 0, CTR_MSG_SET,
+                                "Pre-thread: Compact mode switch is true");
+                } else {
+                        gf_msg ("ctr-compact", GF_LOG_TRACE, 0, CTR_MSG_SET,
+                                "Pre-thread: Compact mode switch is false");
+                }
+
+                ret = pthread_mutex_unlock (&priv->compact_lock);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                "Failed to release lock for compaction");
+                        goto out;
+                }
+
+                ret = pthread_create (&compact_thread, NULL, ctr_compact_thread,
+                                      (void *)this);
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,
+                                "Failed to spawn compaction thread");
+                        goto out;
+                }
+
+                goto out;
         } /* default case */
         else {
                 goto out;
         }
-
 
         ret = 0;
         goto out;
@@ -2079,6 +2203,18 @@ init (xlator_t *this)
         priv->ctr_lookupheal_inode_timeout =
                                 CTR_DEFAULT_INODE_EXP_PERIOD;
 
+        /* For compaction */
+        priv->compact_active = _gf_false;
+        priv->compact_mode_switched = _gf_false;
+        ret_db = pthread_mutex_init (&priv->compact_lock, NULL);
+
+        if (ret_db) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: Failed initializing compaction mutex");
+                goto error;
+        }
+
         /*Extract ctr xlator options*/
         ret_db = extract_ctr_options (this, priv);
         if (ret_db) {
@@ -2122,6 +2258,7 @@ init (xlator_t *this)
                        "FATAL: Failed initializing data base");
                         goto error;
         }
+
 
         ret_db = 0;
         goto out;
@@ -2185,6 +2322,11 @@ fini (xlator_t *this)
                                 "db connection");
                 }
                 GF_FREE (priv->ctr_db_path);
+                if (pthread_mutex_destroy (&priv->compact_lock)) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed to "
+                                "destroy the compaction mutex");
+                }
         }
         GF_FREE (priv);
         mem_pool_destroy (this->local_pool);

@@ -73,8 +73,7 @@ do {\
 
 #define GF_SQL_AV_NONE  "none"
 #define GF_SQL_AV_FULL  "full"
-#define GF_SQL_AV_INCR  "incr"
-
+#define GF_SQL_AV_INCR  "incremental"
 
 #define GF_SQL_SYNC_OFF         "off"
 #define GF_SQL_SYNC_NORMAL      "normal"
@@ -87,7 +86,12 @@ do {\
 #define GF_SQL_JM_WAL           "wal"
 #define GF_SQL_JM_OFF           "off"
 
+#define GF_SQL_COMPACT_NONE   0
+#define GF_SQL_COMPACT_FULL   1
+#define GF_SQL_COMPACT_INCR   2
+#define GF_SQL_COMPACT_MANUAL 3
 
+#define GF_SQL_COMPACT_DEF    GF_SQL_COMPACT_INCR
 typedef enum gf_sql_auto_vacuum {
         gf_sql_av_none = 0,
         gf_sql_av_full,
@@ -319,7 +323,18 @@ int gf_sqlite3_pragma (void *db_conn, char *pragma_key, char **pragma_value);
 int
 gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value);
 
-
+/* Function to vacuum of sqlite db
+ * Input:
+ * void *db_conn                      : Sqlite connection
+ * gf_boolean_t compact_active        : Is compaction on?
+ * gf_boolean_t compact_mode_switched : Did we just flip the compaction swtich?
+ * Return:
+ *      On success return 0
+ *      On failure return -1
+ * */
+int
+gf_sqlite3_vacuum (void *db_conn, gf_boolean_t compact_active,
+                   gf_boolean_t compact_mode_switched);
 
 void gf_sqlite3_fill_db_operations (gfdb_db_operations_t  *gfdb_db_ops);
 
