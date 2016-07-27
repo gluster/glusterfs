@@ -443,7 +443,24 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
         }
 
         if (transport) {
-                server->transport = gf_strdup (transport);
+                /* volfile fetch support over tcp|unix only */
+                if (!strcmp(transport, "tcp") || !strcmp(transport, "unix")) {
+                        server->transport = gf_strdup (transport);
+                } else if (!strcmp(transport, "rdma")) {
+                        server->transport = gf_strdup ("tcp");
+                        gf_msg ("glfs", GF_LOG_WARNING, EINVAL,
+                                API_MSG_INVALID_ENTRY,
+                                "transport RDMA is deprecated, "
+                                "falling back to tcp");
+                } else {
+                        gf_msg ("glfs", GF_LOG_TRACE, EINVAL,
+                                API_MSG_INVALID_ENTRY,
+                                "transport %s is not supported, "
+                                "possible values tcp|unix",
+                                transport);
+                        ret = -1;
+                        goto out;
+                }
         } else {
                 server->transport = gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
         }
@@ -453,10 +470,14 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
                 goto out;
         }
 
-        if (port) {
-                server->port = port;
+        if (strcmp(server->transport, "unix")) {
+                if (port) {
+                        server->port = port;
+                } else {
+                        server->port = GF_DEFAULT_BASE_PORT;
+                }
         } else {
-                server->port = GF_DEFAULT_BASE_PORT;
+                server->port = 0;
         }
 
         if (!cmd_args->volfile_server) {
