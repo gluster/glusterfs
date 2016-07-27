@@ -40,7 +40,8 @@ typedef enum gf_db_operation {
         GFDB_W_DELETE_DB_OP,
         GFDB_UW_DELETE_DB_OP,
         GFDB_WFC_UPDATE_DB_OP,
-        GFDB_RFC_UPDATE_DB_OP
+        GFDB_RFC_UPDATE_DB_OP,
+        GFDB_DB_COMPACT_DB_OP /* Added for VACUUM/manual compaction support */
 } gf_db_operation_t;
 
 
@@ -81,18 +82,11 @@ gfdb_time_2_usec(gfdb_time_t *gfdb_time)
         return ((uint64_t) gfdb_time->tv_sec * GFDB_MICROSEC) + gfdb_time->tv_usec;
 }
 
-
-
-
-
 /******************************************************************************
  *
  *              Insert/Update Record related data structures/functions
  *
  * ****************************************************************************/
-
-
-
 
 /*Indicated a generic synchronous write to the db
  * This may or may not be implemented*/
@@ -122,11 +116,6 @@ gf_string2gfdbdbsync (char *sync_option)
 out:
         return ret;
 }
-
-
-
-
-
 
 /*Indicated different types of db*/
 typedef enum gfdb_db_type {
@@ -165,12 +154,6 @@ out:
         return ret;
 }
 
-
-
-
-
-
-
 /*Tells the path of the fop*/
 typedef enum gfdb_fop_path {
         GFDB_FOP_INVALID = -1,
@@ -205,12 +188,6 @@ isunwindpath(gfdb_fop_path_t gfdb_fop_path)
 {
         return (gfdb_fop_path >= GFDB_FOP_UNWIND) ? _gf_true : _gf_false;
 }
-
-
-
-
-
-
 
 /*Tell what type of fop it was
  * Like whether a dentry fop or a inode fop
@@ -257,12 +234,6 @@ isdentrycreatefop(gfdb_fop_type_t fop_type)
         return (fop_type & GFDB_FOP_DENTRY_CREATE_OP) ?
                         _gf_true : _gf_false;
 }
-
-
-
-
-
-
 
 /*The structure that is used to send insert/update the databases
  * using insert_db api*/
@@ -370,6 +341,20 @@ typedef int
 typedef int
 (*gfdb_delete_record_t)(void *db_conn,
                         gfdb_db_record_t *db_record);
+
+
+
+
+/*Used to compact the database
+ * Arguments:
+ *      db_conn                        :  GFDB Connection node
+ *      compact_active                 :  Is compaction currently on?
+ *      compact_mode_switched          :  Was the compaction switch flipped?
+ * Returns : if successful return 0 or
+ *          -ve value in case of failure*/
+typedef int
+(*gfdb_compact_db_t)(void *db_conn, gf_boolean_t compact_active,
+                     gf_boolean_t compact_mode_switched);
 
 
 
@@ -502,6 +487,7 @@ typedef struct gfdb_db_operations {
         gfdb_fini_db_t                        fini_db_op;
         gfdb_insert_record_t                  insert_record_op;
         gfdb_delete_record_t                  delete_record_op;
+        gfdb_compact_db_t                     compact_db_op;
         gfdb_find_all_t                       find_all_op;
         gfdb_find_unchanged_for_time_t        find_unchanged_for_time_op;
         gfdb_find_recently_changed_files_t    find_recently_changed_files_op;
@@ -598,5 +584,3 @@ typedef struct gfdb_connection {
 
 
 #endif
-
-

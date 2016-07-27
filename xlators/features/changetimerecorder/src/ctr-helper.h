@@ -22,6 +22,7 @@
 #include "common-utils.h"
 #include <time.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "gfdb_data_store.h"
 #include "ctr-xlator-ctx.h"
@@ -52,6 +53,9 @@ typedef struct gf_ctr_private {
         gfdb_conn_node_t                *_db_conn;
         uint64_t                        ctr_lookupheal_link_timeout;
         uint64_t                        ctr_lookupheal_inode_timeout;
+        gf_boolean_t                    compact_active;
+        gf_boolean_t                    compact_mode_switched;
+        pthread_mutex_t                 compact_lock;
 } gf_ctr_private_t;
 
 

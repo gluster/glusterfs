@@ -433,6 +433,43 @@ delete_record (gfdb_conn_node_t *_conn_node,
         return ret;
 }
 
+/*Libgfdb API Function: Compact the database.
+ *
+ * Arguments:
+ *      _conn_node                      :  GFDB Connection node
+ *      _compact_active                 :  Is compaction currently on?
+ *      _compact_mode_switched          :  Was the compaction switch flipped?
+ * Returns : if successful return 0 or
+ *          -ve value in case of failure*/
+int
+compact_db (gfdb_conn_node_t *_conn_node, gf_boolean_t _compact_active,
+            gf_boolean_t _compact_mode_switched)
+{
+        int ret                                 = 0;
+        gfdb_db_operations_t *db_operations_t   = NULL;
+        void *gf_db_connection                  = NULL;
+
+        CHECK_CONN_NODE(_conn_node);
+
+        db_operations_t = &_conn_node->gfdb_connection.gfdb_db_operations;
+        gf_db_connection = _conn_node->gfdb_connection.gf_db_connection;
+
+        if (db_operations_t->compact_db_op) {
+
+                ret = db_operations_t->compact_db_op (gf_db_connection,
+                                                      _compact_active,
+                                                      _compact_mode_switched);
+                if (ret) {
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_COMPACT_FAILED, "Compaction operation "
+                                "failed");
+                }
+
+        }
+
+        return ret;
+}
+
 
 
 
@@ -835,5 +872,8 @@ void get_gfdb_methods (gfdb_methods_t *methods)
         /* Link info related functions */
         methods->gfdb_link_info_new = gfdb_link_info_new;
         methods->gfdb_link_info_free = gfdb_link_info_free;
+
+        /* Compaction related functions */
+        methods->compact_db = compact_db;
 }
 

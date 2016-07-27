@@ -31,7 +31,7 @@
 #define GFDB_IPC_CTR_CLEAR_OPS "gfdb.ipc-ctr-clear-op"
 #define GFDB_IPC_CTR_GET_DB_PARAM_OPS "gfdb.ipc-ctr-get-db-parm"
 #define GFDB_IPC_CTR_GET_DB_VERSION_OPS "gfdb.ipc-ctr-get-db-version"
-
+#define GFDB_IPC_CTR_SET_COMPACT_PRAGMA "gfdb.ipc-ctr-set-compact-pragma"
 /*
  * CTR IPC INPUT/OUTPUT
  *
@@ -348,6 +348,21 @@ typedef int (*set_db_params_t)(gfdb_conn_node_t *db_conn,
                                      char *param_key,
                                      char *param_value);
 
+/*Libgfdb API Function: Compact the database.
+ *
+ * Arguments:
+ *      _conn_node                      :  GFDB Connection node
+ *      _compact_active                 :  Is compaction currently on?
+ *      _compact_mode_switched          :  Was the compaction switch flipped?
+ * Returns : if successful return 0 or
+ *          -ve value in case of failure*/
+int
+compact_db (gfdb_conn_node_t *_conn_node, gf_boolean_t _compact_active,
+            gf_boolean_t _compact_mode_switched);
+
+typedef int (*compact_db_t)(gfdb_conn_node_t *db_conn,
+                            gf_boolean_t compact_active,
+                            gf_boolean_t compact_mode_switched);
 
 
 typedef struct gfdb_methods_s {
@@ -377,6 +392,8 @@ typedef struct gfdb_methods_s {
         gfdb_link_info_new_t            gfdb_link_info_new;
         gfdb_link_info_free_t           gfdb_link_info_free;
 
+        /* Compaction related functions */
+        compact_db_t                    compact_db;
 } gfdb_methods_t;
 
 void get_gfdb_methods (gfdb_methods_t *methods);

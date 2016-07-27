@@ -148,7 +148,7 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write("search_unhashed", "%d", conf->search_unhashed);
         gf_proc_dump_write("gen", "%d", conf->gen);
         gf_proc_dump_write("min_free_disk", "%lf", conf->min_free_disk);
-	gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
+        gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
         gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
@@ -433,14 +433,14 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("lookup-optimize", conf->lookup_optimize, options,
                           bool, out);
 
-	GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
+        GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
                           percent_or_size, out);
         /* option can be any one of percent or bytes */
         conf->disk_unit = 0;
         if (conf->min_free_disk < 100.0)
                 conf->disk_unit = 'p';
 
-	GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
+        GF_OPTION_RECONF ("min-free-inodes", conf->min_free_inodes, options,
                           percent, out);
 
         GF_OPTION_RECONF ("directory-layout-spread", conf->dir_spread_cnt,
@@ -711,8 +711,8 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("use-readdirp", conf->use_readdirp, bool, err);
 
-	GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
-			err);
+        GF_OPTION_INIT ("min-free-disk", conf->min_free_disk, percent_or_size,
+                        err);
 
         GF_OPTION_INIT ("min-free-inodes", conf->min_free_inodes, percent,
                         err);
@@ -901,7 +901,7 @@ struct volume_options options[] = {
           "process starts balancing out the cluster, and logs will appear "
           "in log files",
         },
-	{ .key  = {"min-free-inodes"},
+        { .key  = {"min-free-inodes"},
           .type = GF_OPTION_TYPE_PERCENT,
           .default_value = "5%",
           .description = "after system has only N% of inodes, warnings "
@@ -1037,6 +1037,20 @@ struct volume_options options[] = {
         { .key         = {"tier-mode"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = "test",
+        },
+        { .key         = {"tier-compact"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key         = {"tier-hot-compact-frequency"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "604800",
+          .description = "Frequency to compact DBs on hot tier in system"
+        },
+        { .key         = {"tier-cold-compact-frequency"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "604800",
+          .description = "Frequency to compact DBs on cold tier in system"
         },
         { .key         = {"tier-max-mb"},
           .type = GF_OPTION_TYPE_INT,

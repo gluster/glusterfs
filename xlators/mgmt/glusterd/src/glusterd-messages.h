@@ -4755,4 +4755,3 @@
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */
-

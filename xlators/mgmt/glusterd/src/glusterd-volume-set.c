@@ -387,6 +387,14 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         goto out;
                 }
                 goto out;
+        } else if (strstr (key, "tier-compact")) {
+                if (strcmp (value, "on") &&
+                    strcmp (value, "off")) {
+                        ret = -1;
+                        goto out;
+                }
+
+                goto out;
         }
 
         /*
@@ -452,7 +460,9 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                    strstr (key, "tier-max-mb") ||
                    strstr (key, "tier-max-promote-file-size") ||
                    strstr (key, "tier-max-files") ||
-                   strstr (key, "tier-demote-frequency")) {
+                   strstr (key, "tier-demote-frequency") ||
+                   strstr (key, "tier-hot-compact-frequency") ||
+                   strstr (key, "tier-cold-compact-frequency")) {
                 if (origin_val < 1) {
                         snprintf (errstr, sizeof (errstr), "%s is not a "
                                   " compatible value. %s expects a positive "
@@ -464,7 +474,6 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         ret = -1;
                         goto out;
                 }
-
         }
 out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
@@ -1589,17 +1598,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
- 	/* Crypt xlator options */
+         /* Crypt xlator options */
 
-	{ .key         = "features.encryption",
-	  .voltype     = "encryption/crypt",
-	  .option      = "!feat",
-	  .value       = "off",
-	  .op_version  = 3,
-	  .description = "enable/disable client-side encryption for "
+        { .key         = "features.encryption",
+          .voltype     = "encryption/crypt",
+          .option      = "!feat",
+          .value       = "off",
+          .op_version  = 3,
+          .description = "enable/disable client-side encryption for "
                          "the volume.",
-	  .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
-	},
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
 
         { .key         = "encryption.master-key",
           .voltype     = "encryption/crypt",
@@ -1968,7 +1977,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
-	/* Feature translators */
+        /* Feature translators */
         { .key         = "features.uss",
           .voltype     = "features/snapview-server",
           .op_version  = GD_OP_VERSION_3_6_0,
@@ -2729,6 +2738,32 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .validate_fn = validate_tier,
           .description = "The maximum number of files that may be migrated"
           " in any direction in a given cycle by a single node."
+        },
+        { .key         = "cluster.tier-compact",
+          .voltype     = "cluster/tier",
+          .option      = "tier-compact",
+          .value       = "on",
+          .op_version  = GD_OP_VERSION_3_9_0,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .description = "Activate or deactivate the compaction of the DB"
+          " for the volume's metadata."
+        },
+        { .key         = "cluster.tier-hot-compact-frequency",
+          .voltype     = "cluster/tier",
+          .value       = "604800",
+          .option      = "tier-hot-compact-frequency",
+          .op_version  = GD_OP_VERSION_3_9_0,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+        },
+        { .key         = "cluster.tier-cold-compact-frequency",
+          .voltype     = "cluster/tier",
+          .value       = "604800",
+          .option      = "tier-cold-compact-frequency",
+          .op_version  = GD_OP_VERSION_3_9_0,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
         },
         { .key         = "features.ctr-enabled",
           .voltype     = "features/changetimerecorder",
