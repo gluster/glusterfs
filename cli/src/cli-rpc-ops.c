@@ -780,6 +780,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    disperse_count       = 0;
         int32_t                    redundancy_count     = 0;
         int32_t                    arbiter_count        = 0;
+        int32_t                    snap_count           = 0;
         int32_t                    vol_type             = 0;
         int32_t                    transport            = 0;
         char                      *volume_id_str        = NULL;
@@ -967,6 +968,11 @@ xml_output:
                 if (ret)
                         goto out;
 
+                snprintf (key, 256, "volume%d.snap_count", i);
+                ret = dict_get_int32 (dict, key, &snap_count);
+                if (ret)
+                        goto out;
+
                 vol_type = type;
 
                 // Distributed (stripe/replicate/stripe-replica) setups
@@ -978,6 +984,7 @@ xml_output:
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
                 cli_out ("Volume ID: %s", volume_id_str);
                 cli_out ("Status: %s", cli_vol_status_str[status]);
+                cli_out ("Snapshot Count: %d", snap_count);
 
 #ifdef HAVE_BD_XLATOR
                 k = 0;

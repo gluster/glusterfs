@@ -558,6 +558,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, 256, "volume%d.snap_count", count);
+        ret = dict_set_int32 (volumes, key, volinfo->snap_count);
+        if (ret)
+                goto out;
+
 #ifdef HAVE_BD_XLATOR
         if (volinfo->caps) {
                 caps = 0;

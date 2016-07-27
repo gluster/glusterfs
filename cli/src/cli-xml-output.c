@@ -2551,6 +2551,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         int                     stripe_count = 0;
         int                     replica_count = 0;
         int                     arbiter_count = 0;
+        int                     snap_count    = 0;
         int                     isArbiter = 0;
         int                     disperse_count = 0;
         int                     redundancy_count = 0;
@@ -2629,6 +2630,17 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                         (local->writer, (xmlChar *)"statusStr", "%s",
                          cli_vol_status_str[status]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.snap_count", i);
+                ret = dict_get_int32 (dict, key, &snap_count);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (local->writer,
+                                                     (xmlChar *)"snapshotCount",
+                                                     "%d", snap_count);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick_count", i);
