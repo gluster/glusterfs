@@ -104,6 +104,11 @@ create_snapshots
 EXPECT 'Started' snapshot_status ${V0}_snap;
 EXPECT 'Started' snapshot_status ${V1}_snap;
 
+EXPECT '1' volinfo_field $V0 'Snapshot Count';
+EXPECT '1' volinfo_field $V1 'Snapshot Count';
+EXPECT "1" get-cmd-field-xml "volume info $V0" "snapshotCount"
+EXPECT "1" get-cmd-field-xml "volume info $V1" "snapshotCount"
+
 deactivate_snapshots
 
 EXPECT 'Stopped' snapshot_status ${V0}_snap;
@@ -132,9 +137,19 @@ create_snapshots_with_timestamp;
 new_name1=`$CLI_1 snapshot list ${V0} | grep ${V0}_snap1`;
 new_name2=`$CLI_1 snapshot list ${V1} | grep ${V1}_snap1`;
 
+EXPECT '2' volinfo_field $V0 'Snapshot Count';
+EXPECT '2' volinfo_field $V1 'Snapshot Count';
+EXPECT "2" get-cmd-field-xml "volume info $V0" "snapshotCount"
+EXPECT "2" get-cmd-field-xml "volume info $V1" "snapshotCount"
+
 EXPECT_NOT "{V0}_snap1" echo $new_name1;
 EXPECT_NOT "{V1}_snap1" echo $new_name1;
 delete_snapshots $new_name1 $new_name2;
+
+EXPECT '1' volinfo_field $V0 'Snapshot Count';
+EXPECT '1' volinfo_field $V1 'Snapshot Count';
+EXPECT "1" get-cmd-field-xml "volume info $V0" "snapshotCount"
+EXPECT "1" get-cmd-field-xml "volume info $V1" "snapshotCount"
 
 #Clean up
 stop_force_volumes 2
@@ -144,6 +159,11 @@ EXPECT 'Stopped' volinfo_field $V1 'Status';
 restore_snapshots
 TEST ! snapshot_exists 1 ${V0}_snap
 TEST ! snapshot_exists 1 ${V1}_snap
+
+EXPECT '0' volinfo_field $V0 'Snapshot Count';
+EXPECT '0' volinfo_field $V1 'Snapshot Count';
+EXPECT "0" get-cmd-field-xml "volume info $V0" "snapshotCount"
+EXPECT "0" get-cmd-field-xml "volume info $V1" "snapshotCount"
 
 delete_volumes 2
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V0
