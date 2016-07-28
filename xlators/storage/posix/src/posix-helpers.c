@@ -1665,7 +1665,7 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
          */
         if (fd->inode->ia_type == IA_IFREG) {
                 _fd = open (real_path, fd->flags);
-                if (_fd == -1) {
+                if ((_fd == -1) && (errno == ENOENT)) {
                         POSIX_GET_FILE_UNLINK_PATH (priv->base_path,
                                                     fd->inode->gfid,
                                                     unlink_path);
