@@ -17,10 +17,6 @@
 #include "ec-helpers.h"
 #include "ec-messages.h"
 
-#ifndef ffsll
-#define ffsll(x) __builtin_ffsll(x)
-#endif
-
 static const char * ec_fop_list[] =
 {
     [-EC_FOP_HEAL] = "HEAL"
@@ -94,23 +90,6 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
     {
         free(msg);
     }
-}
-
-int32_t ec_bits_count(uint64_t n)
-{
-    n -= (n >> 1) & 0x5555555555555555ULL;
-    n = ((n >> 2) & 0x3333333333333333ULL) + (n & 0x3333333333333333ULL);
-    n = (n + (n >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
-    n += n >> 8;
-    n += n >> 16;
-    n += n >> 32;
-
-    return n & 0xFF;
-}
-
-int32_t ec_bits_index(uint64_t n)
-{
-    return ffsll(n) - 1;
 }
 
 int32_t ec_bits_consume(uint64_t * n)

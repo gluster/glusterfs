@@ -30,6 +30,10 @@
 #include <limits.h>
 #include <fnmatch.h>
 
+#ifndef ffsll
+#define ffsll(x) __builtin_ffsll(x)
+#endif
+
 void trap (void);
 
 #define GF_UNIVERSAL_ANSWER 42    /* :O */
@@ -798,5 +802,11 @@ gf_is_zero_filled_stat (struct iatt *buf);
 
 void
 gf_zero_fill_stat (struct iatt *buf);
+
+int32_t
+gf_bits_count (uint64_t n);
+
+int32_t
+gf_bits_index (uint64_t n);
 
 #endif /* _COMMON_UTILS_H */
