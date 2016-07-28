@@ -821,6 +821,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 {
         int32_t            ret       = -1;
         int32_t            op_errno  = 0;
+        int32_t            flags     = 0;
         struct posix_fd   *pfd       = NULL;
         gf_boolean_t       locked    = _gf_false;
 
@@ -851,6 +852,14 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
+        /* See if we can use FALLOC_FL_ZERO_RANGE to perform the zero fill.
+         * If it fails, fall back to _posix_do_zerofill() and an optional fsync.
+         */
+        flags = FALLOC_FL_ZERO_RANGE;
+        ret = sys_fallocate (pfd->fd, flags, offset, len);
+        if (ret == 0)
+                goto done;
+
         ret = _posix_do_zerofill (pfd->fd, offset, len, pfd->flags & O_DIRECT);
         if (ret < 0) {
                 ret = -errno;
@@ -871,6 +880,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 }
         }
 
+done:
         ret = posix_fdstat (this, pfd->fd, statpost);
         if (ret == -1) {
                 ret = -errno;
