@@ -1,5 +1,9 @@
-EXTRA_DIST = glustereventsd.py __init__.py  eventsapiconf.py.in eventtypes.py \
+noinst_PYTHON = $(top_srcdir)/events/eventskeygen.py
+EXTRA_DIST = glustereventsd.py __init__.py  eventsapiconf.py.in \
 	handlers.py utils.py peer_eventsapi.py eventsconfig.json
+
+BUILT_SOURCES = eventtypes.py
+CLEANFILES = eventtypes.py
 
 eventsdir = $(libexecdir)/glusterfs/events
 eventspeerscriptdir = $(libexecdir)/glusterfs
@@ -9,6 +13,9 @@ eventsconf_DATA = eventsconfig.json
 events_PYTHON = __init__.py eventsapiconf.py eventtypes.py handlers.py utils.py
 events_SCRIPTS = glustereventsd.py
 eventspeerscript_SCRIPTS = peer_eventsapi.py
+
+eventtypes.py: $(top_srcdir)/events/eventskeygen.py
+	$(PYTHON) $(top_srcdir)/events/eventskeygen.py PY_HEADER
 
 install-exec-hook:
 	$(mkdir_p) $(DESTDIR)$(sbindir)
