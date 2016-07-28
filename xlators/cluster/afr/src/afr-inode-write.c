@@ -38,13 +38,13 @@
 static void
 __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
-	int read_subvol = 0;
-	int i = 0;
-        afr_read_subvol_args_t args = {0,};
-        struct iatt  *stbuf = NULL;
-        int    ret = 0;
+	int                       i               = 0;
+        int                       ret             = 0;
+	int                       read_subvol     = 0;
+        struct iatt              *stbuf           = NULL;
+	afr_local_t              *local           = NULL;
+	afr_private_t            *priv            = NULL;
+        afr_read_subvol_args_t    args            = {0,};
 
 	local = frame->local;
 	priv = this->private;
@@ -94,10 +94,8 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
 			continue;
-		if (local->replies[i].op_ret < 0) {
-			afr_inode_read_subvol_reset (local->inode, this);
+		if (local->replies[i].op_ret < 0)
 			continue;
-		}
 
 		/* Order of checks in the compound conditional
 		   below is important.
@@ -134,6 +132,7 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 	}
 
         afr_txn_arbitrate_fop_cbk (frame, this);
+        afr_set_in_flight_sb_status (this, local, local->inode);
 }
 
 
