@@ -1,4 +1,4 @@
-noinst_PYTHON = generator.py gen-defaults.py
+noinst_PYTHON = generator.py gen-defaults.py $(top_srcdir)/events/eventskeygen.py
 
 libglusterfs_la_CFLAGS = $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 	-DDATADIR=\"$(localstatedir)\"
@@ -72,9 +72,13 @@ libglusterfs_la_SOURCES += $(CONTRIBDIR)/uuid/clear.c \
 endif
 
 if BUILD_EVENTS
+BUILT_SOURCES += eventtypes.h
 libglusterfs_la_SOURCES += events.c
 
 libglusterfs_la_HEADERS += events.h eventtypes.h
+
+eventtypes.h: $(top_srcdir)/events/eventskeygen.py
+	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
 endif
 
 libgfchangelog_HEADERS = changelog.h
@@ -103,4 +107,8 @@ if UNITTEST
 CLEANFILES += *.gcda *.gcno *_xunit.xml
 noinst_PROGRAMS =
 TESTS =
+endif
+
+if BUILD_EVENTS
+CLEANFILES += eventtypes.h
 endif
