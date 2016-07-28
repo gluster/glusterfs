@@ -25,6 +25,10 @@
 #include <limits.h>
 #include <fnmatch.h>
 
+#ifndef ffsll
+#define ffsll(x) __builtin_ffsll(x)
+#endif
+
 void trap (void);
 
 #define GF_UNIVERSAL_ANSWER 42    /* :O */
@@ -849,4 +853,11 @@ is_virtual_xattr (const char *k);
 
 const char *
 gf_inode_type_to_str (ia_type_t type);
+
+int32_t
+gf_bits_count (uint64_t n);
+
+int32_t
+gf_bits_index (uint64_t n);
+
 #endif /* _COMMON_UTILS_H */

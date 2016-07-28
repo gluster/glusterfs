@@ -52,7 +52,7 @@ int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
     }
 
     if (error == -1) {
-        if (ec_bits_count(locked | notlocked) >= ec->fragments) {
+        if (gf_bits_count(locked | notlocked) >= ec->fragments) {
             if (notlocked == 0) {
                 if (fop->answer == NULL) {
                     fop->answer = cbk;

@@ -16,8 +16,6 @@
 const char * ec_bin(char * str, size_t size, uint64_t value, int32_t digits);
 const char * ec_fop_name(int32_t id);
 void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...);
-int32_t ec_bits_count(uint64_t n);
-int32_t ec_bits_index(uint64_t n);
 int32_t ec_bits_consume(uint64_t * n);
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
                       off_t offset, size_t size);

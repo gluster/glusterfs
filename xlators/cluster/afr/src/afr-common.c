@@ -155,6 +155,119 @@ out:
  */
 
 int
+__afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
+                               inode_t *inode)
+{
+        int                 i               = 0;
+        int                 ret             = -1;
+        int                 txn_type        = 0;
+        int                 count           = 0;
+        int                 index           = -1;
+        uint16_t            datamap_old     = 0;
+        uint16_t            metadatamap_old = 0;
+        uint16_t            datamap         = 0;
+        uint16_t            metadatamap     = 0;
+        uint16_t            tmp_map         = 0;
+        uint16_t            mask            = 0;
+        uint32_t            event           = 0;
+        uint64_t            val             = 0;
+        afr_private_t      *priv            = NULL;
+        afr_inode_ctx_t    *ctx             = NULL;
+
+        priv = this->private;
+        txn_type = local->transaction.type;
+
+        ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret < 0)
+                return ret;
+
+        val = ctx->read_subvol;
+
+        metadatamap_old = metadatamap = (val & 0x000000000000ffff);
+        datamap_old = datamap = (val & 0x00000000ffff0000) >> 16;
+        /* Hard-code event to 0 since there is a failure and the inode
+         * needs to be refreshed anyway.
+         */
+        event = 0;
+
+        if (txn_type == AFR_DATA_TRANSACTION)
+                tmp_map = datamap;
+        else if (txn_type == AFR_METADATA_TRANSACTION)
+                tmp_map = metadatamap;
+
+        count = gf_bits_count (tmp_map);
+
+        if (count == 1)
+                index = gf_bits_index (tmp_map);
+
+        for (i = 0; i < priv->child_count; i++) {
+                mask = 0;
+                if (!local->transaction.failed_subvols[i])
+                        continue;
+
+                mask = 1 << i;
+                if (txn_type == AFR_METADATA_TRANSACTION)
+                        metadatamap &= ~mask;
+                else if (txn_type == AFR_DATA_TRANSACTION)
+                        datamap &= ~mask;
+        }
+
+        switch (txn_type) {
+        case AFR_METADATA_TRANSACTION:
+                if ((metadatamap_old != 0) && (metadatamap == 0) &&
+                    (count == 1)) {
+                        local->transaction.in_flight_sb_errno =
+                                                local->replies[index].op_errno;
+                        local->transaction.in_flight_sb = _gf_true;
+                        metadatamap |= (1 << index);
+                }
+                break;
+
+        case AFR_DATA_TRANSACTION:
+                if ((datamap_old != 0) && (datamap == 0) && (count == 1)) {
+                        local->transaction.in_flight_sb_errno =
+                                                local->replies[index].op_errno;
+                        local->transaction.in_flight_sb = _gf_true;
+                        datamap |= (1 << index);
+                }
+                break;
+
+        default:
+        break;
+        }
+
+        val = ((uint64_t) metadatamap) |
+                (((uint64_t) datamap) << 16) |
+                (((uint64_t) event) << 32);
+
+        ctx->read_subvol = val;
+
+        return ret;
+}
+
+int
+afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local, inode_t *inode)
+{
+        int            ret  = -1;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        /* If this transaction saw no failures, then exit. */
+        if (AFR_COUNT (local->transaction.failed_subvols,
+                       priv->child_count) == 0)
+                return 0;
+
+        LOCK (&inode->lock);
+        {
+                ret = __afr_set_in_flight_sb_status (this, local, inode);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
+}
+
+int
 __afr_inode_read_subvol_get_small (inode_t *inode, xlator_t *this,
 				   unsigned char *data, unsigned char *metadata,
 				   int *event_p)
@@ -233,12 +346,12 @@ out:
 int
 __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
 {
-	int ret = -1;
-	uint16_t datamap = 0;
-	uint16_t metadatamap = 0;
-	uint32_t event = 0;
-	uint64_t val = 0;
-        afr_inode_ctx_t *ctx = NULL;
+	int               ret         = -1;
+	uint16_t          datamap     = 0;
+	uint16_t          metadatamap = 0;
+	uint32_t          event       = 0;
+	uint64_t          val         = 0;
+        afr_inode_ctx_t  *ctx         = NULL;
 
 	ret = __afr_inode_ctx_get (this, inode, &ctx);
         if (ret)

@@ -74,8 +74,8 @@ int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
             gf_msg (this->name, GF_LOG_INFO, 0,
                     EC_MSG_HEAL_SUCCESS, "Heal succeeded on %d/%d "
                     "subvolumes",
-                    ec_bits_count(mask & ~(good | bad)),
-                    ec_bits_count(mask & ~good));
+                    gf_bits_count(mask & ~(good | bad)),
+                    gf_bits_count(mask & ~good));
         }
     }
 
@@ -333,7 +333,7 @@ void ec_complete(ec_fop_data_t * fop)
         if (fop->answer == NULL) {
             if (!list_empty(&fop->cbk_list)) {
                 cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
-                healing_count = ec_bits_count (cbk->mask & fop->healing);
+                healing_count = gf_bits_count (cbk->mask & fop->healing);
                     /* fop shouldn't be treated as success if it is not
                      * successful on at least fop->minimum good copies*/
                 if ((cbk->count - healing_count) >= fop->minimum) {
@@ -424,7 +424,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     switch (fop->minimum)
     {
         case EC_MINIMUM_ALL:
-            fop->minimum = ec_bits_count(fop->mask);
+            fop->minimum = gf_bits_count(fop->mask);
             if (fop->minimum >= ec->fragments)
             {
                 break;
@@ -451,7 +451,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
 
     ec_trace("SELECT", fop, "");
 
-    num = ec_bits_count(fop->mask);
+    num = gf_bits_count(fop->mask);
     if ((num < fop->minimum) && (num < ec->fragments))
     {
         gf_msg (ec->xl->name, GF_LOG_ERROR, 0,
@@ -500,7 +500,7 @@ void ec_dispatch_mask(ec_fop_data_t * fop, uintptr_t mask)
     ec_t * ec = fop->xl->private;
     int32_t count, idx;
 
-    count = ec_bits_count(mask);
+    count = gf_bits_count(mask);
 
     LOCK(&fop->lock);
 
@@ -578,7 +578,7 @@ void ec_dispatch_inc(ec_fop_data_t * fop)
 
     if (ec_child_select(fop))
     {
-        fop->expected = ec_bits_count(fop->remaining);
+        fop->expected = gf_bits_count(fop->remaining);
         fop->first = 0;
 
         ec_dispatch_next(fop, 0);
@@ -591,7 +591,7 @@ ec_dispatch_all (ec_fop_data_t *fop)
         ec_dispatch_start(fop);
 
         if (ec_child_select(fop)) {
-                fop->expected = ec_bits_count(fop->remaining);
+                fop->expected = gf_bits_count(fop->remaining);
                 fop->first = 0;
 
                 ec_dispatch_mask(fop, fop->remaining);

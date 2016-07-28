@@ -850,6 +850,13 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                 goto out;
 	}
 
+        if (local->transaction.in_flight_sb) {
+                local->op_ret = -1;
+                local->op_errno = local->transaction.in_flight_sb_errno;
+                afr_changelog_post_op_done (frame, this);
+                goto out;
+        }
+
 	xattr = dict_new ();
 	if (!xattr) {
 		local->op_ret = -1;

@@ -735,10 +735,17 @@ typedef struct _afr_local {
 		gf_boolean_t uninherit_done;
 		gf_boolean_t uninherit_value;
 
+                gf_boolean_t in_flight_sb; /* Indicator for occurrence of
+                                              split-brain while in the middle of
+                                              a txn. */
+                int32_t in_flight_sb_errno; /* This is where the cause of the
+                                               failure on the last good copy of
+                                               the file is stored.
+                                               */
+
 		/* @changelog_resume: function to be called after changlogging
 		   (either pre-op or post-op) is done
 		*/
-
 		afr_changelog_resume_t changelog_resume;
 
                 call_frame_t *main_frame;
@@ -869,6 +876,10 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 #define afr_metadata_subvol_get(i, t, s, r, e, a) \
 	afr_read_subvol_get(i, t, s, r, e, AFR_METADATA_TRANSACTION, a)
+
+int
+afr_inode_ctx_reset_unreadable_subvol (inode_t *inode, xlator_t *this,
+                                       int subvol_idx, int txn_type);
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -1145,4 +1156,8 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd);
 
 int
 afr_get_msg_id (char *op_type);
+
+int
+afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
+                             inode_t *inode);
 #endif /* __AFR_H__ */
