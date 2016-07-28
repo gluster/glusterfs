@@ -4494,3 +4494,27 @@ gf_zero_fill_stat (struct iatt *buf)
         buf->ia_nlink = 0;
         buf->ia_ctime = 0;
 }
+
+int
+gf_bits_count (uint64_t n)
+{
+        int val = 0;
+#ifdef _GNU_SOURCE
+        val = __builtin_popcountll (n);
+#else
+        n -= (n >> 1) & 0x5555555555555555ULL;
+        n = ((n >> 2) & 0x3333333333333333ULL) + (n & 0x3333333333333333ULL);
+        n = (n + (n >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
+        n += n >> 8;
+        n += n >> 16;
+        n += n >> 32;
+        val = n & 0xFF;
+#endif
+        return val;
+}
+
+int
+gf_bits_index (uint64_t n)
+{
+    return ffsll(n) - 1;
+}
