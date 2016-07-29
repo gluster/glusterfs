@@ -1907,7 +1907,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.client-io-threads",
           .voltype     = "performance/io-threads",
           .option      = "!perf",
-          .value       = "off",
+          .value       = "on",
           .op_version  = 1,
           .description = "enable/disable io-threads translator in the client "
                          "graph of volume.",
