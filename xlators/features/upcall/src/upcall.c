@@ -333,6 +333,15 @@ up_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * Bug1200271.
          */
         flags = UP_ATTR_FLAGS;
+        /* If mode bits have changed invalidate the xattrs, as posix-acl and
+         * others store permission related information in xattrs. With changing
+         * of permissions/mode, we need to make clients to forget all the
+         * xattrs related to permissions.
+         * TODO: Invalidate the xattr system.posix_acl_access alone.
+         */
+        if (is_same_mode(statpre->ia_prot, statpost->ia_prot) != 0)
+                flags |= UP_XATTR;
+
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  statpost, NULL, NULL, NULL);
 
