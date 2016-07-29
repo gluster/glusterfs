@@ -2402,7 +2402,10 @@ mdc_invalidate (xlator_t *this, void *data)
                         goto out;
         }
         if (up_ci->flags & UP_XATTR) {
-                ret = mdc_inode_xatt_update (this, inode, up_ci->dict);
+                if (up_ci->dict)
+                        ret = mdc_inode_xatt_update (this, inode, up_ci->dict);
+                else
+                        ret = mdc_inode_xatt_invalidate (this, inode);
         } else if (up_ci->flags & UP_XATTR_RM) {
                 tmp.inode = inode;
                 tmp.this = this;

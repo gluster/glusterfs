@@ -174,6 +174,43 @@ ia_type_from_st_mode (mode_t mode)
 }
 
 
+static inline uint32_t
+st_mode_prot_from_ia (ia_prot_t prot)
+{
+        uint32_t  prot_bit = 0;
+
+        if (prot.suid)
+                prot_bit |= S_ISUID;
+        if (prot.sgid)
+                prot_bit |= S_ISGID;
+        if (prot.sticky)
+                prot_bit |= S_ISVTX;
+
+        if (prot.owner.read)
+                prot_bit |= S_IRUSR;
+        if (prot.owner.write)
+                prot_bit |= S_IWUSR;
+        if (prot.owner.exec)
+                prot_bit |= S_IXUSR;
+
+        if (prot.group.read)
+                prot_bit |= S_IRGRP;
+        if (prot.group.write)
+                prot_bit |= S_IWGRP;
+        if (prot.group.exec)
+                prot_bit |= S_IXGRP;
+
+        if (prot.other.read)
+                prot_bit |= S_IROTH;
+        if (prot.other.write)
+                prot_bit |= S_IWOTH;
+        if (prot.other.exec)
+                prot_bit |= S_IXOTH;
+
+        return prot_bit;
+}
+
+
 static inline mode_t
 st_mode_from_ia (ia_prot_t prot, ia_type_t type)
 {
@@ -207,33 +244,7 @@ st_mode_from_ia (ia_prot_t prot, ia_type_t type)
                 break;
         }
 
-        if (prot.suid)
-                prot_bit |= S_ISUID;
-        if (prot.sgid)
-                prot_bit |= S_ISGID;
-        if (prot.sticky)
-                prot_bit |= S_ISVTX;
-
-        if (prot.owner.read)
-                prot_bit |= S_IRUSR;
-        if (prot.owner.write)
-                prot_bit |= S_IWUSR;
-        if (prot.owner.exec)
-                prot_bit |= S_IXUSR;
-
-        if (prot.group.read)
-                prot_bit |= S_IRGRP;
-        if (prot.group.write)
-                prot_bit |= S_IWGRP;
-        if (prot.group.exec)
-                prot_bit |= S_IXGRP;
-
-        if (prot.other.read)
-                prot_bit |= S_IROTH;
-        if (prot.other.write)
-                prot_bit |= S_IWOTH;
-        if (prot.other.exec)
-                prot_bit |= S_IXOTH;
+        prot_bit = st_mode_prot_from_ia (prot);
 
         st_mode = (type_bit | prot_bit);
 
@@ -321,6 +332,17 @@ iatt_to_stat (struct iatt *iatt, struct stat *stat)
         ST_CTIM_NSEC_SET (stat, iatt->ia_ctime_nsec);
 
         return 0;
+}
+
+static inline int
+is_same_mode (ia_prot_t prot1, ia_prot_t prot2)
+{
+        int ret = 0;
+
+        if (st_mode_prot_from_ia(prot1) != st_mode_prot_from_ia(prot2))
+                ret = -1;
+
+        return ret;
 }
 
 
