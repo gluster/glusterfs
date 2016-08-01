@@ -78,4 +78,8 @@ if gen_header_type == "PY_HEADER":
         f.write("all_events = [\n")
         for ev in keys:
             f.write('    "{0}",\n'.format(ev))
-        f.write("]\n")
+
+        f.write("]\n\n")
+
+        for idx, ev in enumerate(keys):
+            f.write("{0} = {1}\n".format(ev.replace("EVENT_", ""), idx))
