@@ -991,7 +991,6 @@ exit 0
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
@@ -1236,6 +1235,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Aug 4 2016 Jiffin Tony Thottan <jthottan@redhat.com>
+- Remove ganesha.so from client xlators
+
 * Sun Jul 31 2016 Soumya Koduri <skoduri@redhat.com>
 - Add dependency on portblock resource agent for ganesha package (#1354439)
 
