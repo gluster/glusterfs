@@ -1,6 +1,6 @@
 noinst_PYTHON = $(top_srcdir)/events/eventskeygen.py
 EXTRA_DIST = glustereventsd.py __init__.py  eventsapiconf.py.in \
-	handlers.py utils.py peer_eventsapi.py eventsconfig.json
+	handlers.py utils.py peer_eventsapi.py eventsconfig.json gf_event.py
 
 BUILT_SOURCES = eventtypes.py
 CLEANFILES = eventtypes.py
@@ -10,7 +10,8 @@ eventspeerscriptdir = $(libexecdir)/glusterfs
 eventsconfdir = $(sysconfdir)/glusterfs
 eventsconf_DATA = eventsconfig.json
 
-events_PYTHON = __init__.py eventsapiconf.py eventtypes.py handlers.py utils.py
+events_PYTHON = __init__.py eventsapiconf.py eventtypes.py handlers.py \
+	utils.py gf_event.py
 events_SCRIPTS = glustereventsd.py
 eventspeerscript_SCRIPTS = peer_eventsapi.py
 
