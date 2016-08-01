@@ -796,6 +796,8 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
         ret = pthread_attr_init (&attr);
         if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Pthread init failed: %s", strerror (errno));
                 return -1;
         }
 
@@ -819,6 +821,9 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
         /* basic sanity check */
         if (start > end || n_parallel <= 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Sanity check failed. "
+                        "START - %lu END - %lu THREAD_COUNT - %d",
+                        start, end, n_parallel);
                 ret = -1;
                 goto out;
         }
@@ -941,8 +946,14 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
                         goto out;
 
-                } /* end of range check */
-
+                } else {/* end of range check */
+                        gf_log (this->name, GF_LOG_ERROR, "Requested changelog "
+                                "range is not available. START - %lu "
+                                "CHLOG_MIN - %lu CHLOG_MAX - %lu",
+                                start, min_ts, max_ts);
+                        ret = -2;
+                        goto out;
+                }
         } /* end of readdir() */
 
         if (!from || !to)
