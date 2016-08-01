@@ -501,6 +501,8 @@ class NoPurgeTimeAvailable(Exception):
 class PartialHistoryAvailable(Exception):
     pass
 
+class ChangelogHistoryNotAvailable(Exception):
+    pass
 
 class ChangelogException(OSError):
     pass
