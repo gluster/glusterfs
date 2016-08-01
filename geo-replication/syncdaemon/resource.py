@@ -36,7 +36,7 @@ import syncdutils
 from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
-from syncdutils import ChangelogException
+from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from gsyncdstatus import GeorepStatus
 
@@ -1502,6 +1502,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             except PartialHistoryAvailable as e:
                 logging.info('Partial history available, using xsync crawl'
                              ' after consuming history till %s' % str(e))
+                g1.crawlwrap(oneshot=True, register_time=register_time)
+            except ChangelogHistoryNotAvailable:
+                logging.info('Changelog history not available, using xsync')
                 g1.crawlwrap(oneshot=True, register_time=register_time)
             except NoPurgeTimeAvailable:
                 logging.info('No stime available, using xsync crawl')

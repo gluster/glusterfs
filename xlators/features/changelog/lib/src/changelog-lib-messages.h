@@ -45,7 +45,7 @@
  */
 
 #define GLFS_COMP_BASE_CHANGELOG_LIB GLFS_MSGID_COMP_CHANGELOG_LIB
-#define GLFS_NUM_MESSAGES 28
+#define GLFS_NUM_MESSAGES 32
 #define GLFS_MSGID_END (GLFS_COMP_BASE_CHANGELOG_LIB + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_CHANGELOG_LIB,\
@@ -280,8 +280,15 @@
  * @recommended action
 */
 #define CHANGELOG_LIB_MSG_PTHREAD_JOIN_FAILED \
-        (GLFS_COMP_BASE_CHANGELOG_LIB + 20)
+        (GLFS_COMP_BASE_CHANGELOG_LIB + 31)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommended action
+*/
+#define CHANGELOG_LIB_MSG_HIST_FAILED \
+        (GLFS_COMP_BASE_CHANGELOG_LIB + 32)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_CHANGELOG_MESSAGES_H_ */

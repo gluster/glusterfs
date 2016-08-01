@@ -11,7 +11,7 @@
 import os
 from ctypes import CDLL, RTLD_GLOBAL, create_string_buffer, get_errno, byref, c_ulong
 from ctypes.util import find_library
-from syncdutils import ChangelogException
+from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 
 
 class Changes(object):
@@ -98,6 +98,9 @@ class Changes(object):
                                                    byref(actual_end))
         if ret == -1:
             cls.raise_changelog_err()
+
+        if ret == -2:
+            raise ChangelogHistoryNotAvailable()
 
         return (ret, actual_end.value)
 
