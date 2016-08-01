@@ -150,8 +150,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/quiesce/src/Makefile
                 xlators/features/barrier/Makefile
                 xlators/features/barrier/src/Makefile
-                xlators/features/ganesha/Makefile
-                xlators/features/ganesha/src/Makefile
                 xlators/features/index/Makefile
                 xlators/features/index/src/Makefile
                 xlators/features/protect/Makefile
