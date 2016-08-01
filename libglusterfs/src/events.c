@@ -23,12 +23,13 @@
 int
 gf_event (int event, char *fmt, ...)
 {
+        int      ret                      = 0;
+#if (USE_EVENTS)
         int      sock                     = -1;
         char     eventstr[EVENTS_MSG_MAX] = "";
         struct   sockaddr_un server;
         va_list  arguments;
         char     *msg                     = NULL;
-        int      ret                      = 0;
         size_t   eventstr_size            = 0;
 
         if (event < 0 || event >= EVENT_LAST) {
@@ -79,5 +80,6 @@ gf_event (int event, char *fmt, ...)
  out:
         sys_close(sock);
         GF_FREE(msg);
+#endif
         return ret;
 }
