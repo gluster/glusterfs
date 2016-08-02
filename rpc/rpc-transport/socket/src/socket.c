@@ -687,6 +687,25 @@ __socket_shutdown (rpc_transport_t *this)
 }
 
 static int
+__socket_teardown_connection (rpc_transport_t *this)
+{
+        int               ret = -1;
+        socket_private_t *priv = NULL;
+
+        GF_VALIDATE_OR_GOTO ("socket", this, out);
+        GF_VALIDATE_OR_GOTO ("socket", this->private, out);
+
+        priv = this->private;
+
+        if (priv->use_ssl)
+                ssl_teardown_connection(priv);
+
+        ret = __socket_shutdown(this);
+out:
+        return ret;
+}
+
+static int
 __socket_disconnect (rpc_transport_t *this)
 {
         int               ret = -1;
@@ -702,7 +721,13 @@ __socket_disconnect (rpc_transport_t *this)
                 priv->ot_state, priv->ot_gen, priv->sock);
 
         if (priv->sock != -1) {
-                ret = __socket_shutdown(this);
+                ret = __socket_teardown_connection (this);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "__socket_teardown_connection () failed: %s",
+                                strerror (errno));
+                }
+
 		if (priv->own_thread) {
                         /*
                          * Without this, reconnect (= disconnect + connect)
@@ -713,9 +738,6 @@ __socket_disconnect (rpc_transport_t *this)
                         gf_log (this->name, GF_LOG_TRACE,
                                 "OT_PLEASE_DIE on %p", this);
                         priv->ot_state = OT_PLEASE_DIE;
-                }
-                else if (priv->use_ssl) {
-                        ssl_teardown_connection(priv);
                 }
         }
 
@@ -2521,15 +2543,8 @@ socket_poller (void *ctx)
 err:
 	/* All (and only) I/O errors should come here. */
         pthread_mutex_lock(&priv->lock);
-        if (priv->ssl_ssl) {
-                /*
-                 * We're always responsible for this part, but only actually
-                 * have to do it if we got far enough for ssl_ssl to be valid
-                 * (i.e. errors in ssl_setup_connection don't count).
-                 */
-                ssl_teardown_connection(priv);
-        }
-        __socket_shutdown(this);
+
+        __socket_teardown_connection (this);
         sys_close (priv->sock);
         priv->sock = -1;
         priv->ot_state = OT_IDLE;
