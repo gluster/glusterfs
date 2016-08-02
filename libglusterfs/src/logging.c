@@ -164,7 +164,6 @@ gf_log_set_xl_loglevel (void *this, gf_loglevel_t level)
         xlator_t *xl = this;
         if (!xl)
                 return;
-        xl->ctx->log.gf_log_xl_log_set = 1;
         xl->loglevel = level;
 }
 
@@ -770,6 +769,30 @@ set_sys_log_level (gf_loglevel_t level)
                 ctx->log.sys_log_level = level;
 }
 
+/* Check if we should be logging
+ * Return value: _gf_false : Print the log
+ *               _gf_true : Do not Print the log
+ */
+static gf_boolean_t
+skip_logging (xlator_t *this, gf_loglevel_t level)
+{
+        gf_boolean_t ret = _gf_false;
+        gf_loglevel_t existing_level = GF_LOG_NONE;
+
+        if (level == GF_LOG_NONE) {
+                ret = _gf_true;
+                goto out;
+        }
+
+        existing_level = this->loglevel ? this->loglevel : this->ctx->log.loglevel;
+        if (level > existing_level) {
+                ret = _gf_true;
+                goto out;
+        }
+out:
+        return ret;
+}
+
 int
 _gf_log_callingfn (const char *domain, const char *file, const char *function,
                    int line, gf_loglevel_t level, const char *fmt, ...)
@@ -793,11 +816,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */
@@ -984,11 +1003,7 @@ _gf_msg_plain (gf_loglevel_t level, const char *fmt, ...)
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         va_start (ap, fmt);
@@ -1020,11 +1035,7 @@ _gf_msg_vplain (gf_loglevel_t level, const char *fmt, va_list ap)
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         ret = vasprintf (&msg, fmt, ap);
@@ -1052,11 +1063,7 @@ _gf_msg_plain_nomem (gf_loglevel_t level, const char *msg)
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         ret = _gf_msg_plain_internal (level, msg);
@@ -1084,11 +1091,7 @@ _gf_msg_backtrace_nomem (gf_loglevel_t level, int stacksize)
         if (ctx->log.logger != gf_logger_glusterlog)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         bt_size = backtrace (array, ((stacksize <= 200)? stacksize : 200));
@@ -1171,11 +1174,7 @@ _gf_msg_nomem (const char *domain, const char *file,
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         if (!domain || !file || !function) {
@@ -2040,11 +2039,7 @@ _gf_msg (const char *domain, const char *file, const char *function,
         }
 
         /* check if we should be logging */
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         if (trace) {
@@ -2121,11 +2116,7 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         if (!ctx)
                 goto out;
 
-        if (ctx->log.gf_log_xl_log_set) {
-                if (this->loglevel && (level > this->loglevel))
-                        goto out;
-        }
-        if (level > ctx->log.loglevel || level == GF_LOG_NONE)
+        if (skip_logging (this, level))
                 goto out;
 
         static char *level_strings[] = {"",  /* NONE */

@@ -100,7 +100,6 @@ typedef struct gf_log_handle_ {
         gf_loglevel_t     loglevel;
         int               gf_log_syslog;
         gf_loglevel_t     sys_log_level;
-        char              gf_log_xl_log_set;
         char             *filename;
         FILE             *logfile;
         FILE             *gf_log_logfile;
