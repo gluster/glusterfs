@@ -40,7 +40,7 @@
  */
 
 #define GLFS_MD_CACHE_BASE                   GLFS_MSGID_COMP_MD_CACHE
-#define GLFS_MD_CACHE_NUM_MESSAGES           2
+#define GLFS_MD_CACHE_NUM_MESSAGES           3
 #define GLFS_MSGID_END  (GLFS_MD_CACHE_BASE + GLFS_MD_CACHE_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -66,6 +66,8 @@
  */
 
 #define MD_CACHE_MSG_DISCARD_UPDATE    (GLFS_MD_CACHE_BASE + 2)
+
+#define MD_CACHE_MSG_CACHE_UPDATE      (GLFS_MD_CACHE_BASE + 3)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
