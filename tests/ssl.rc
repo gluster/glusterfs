@@ -1,0 +1,35 @@
+#!/bin/bash
+
+for d in /etc/ssl /etc/openssl /usr/local/etc/openssl ; do
+        if test -d $d ; then
+                SSL_BASE=$d
+                break
+        fi
+done
+
+if [ ! -d "$SSL_BASE" ]; then
+        echo "Skip test! SSL certificate path missing in the system" >&2
+        SKIP_TESTS
+        exit 0
+fi
+
+SSL_KEY=$SSL_BASE/glusterfs.key
+SSL_CERT=$SSL_BASE/glusterfs.pem
+SSL_CA=$SSL_BASE/glusterfs.ca
+
+
+# Create self-signed certificates
+function create_self_signed_certs (){
+        openssl genrsa -out $SSL_KEY 1024
+        openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
+        ln $SSL_CERT $SSL_CA
+        return $?
+}
+
+function cleanup_certs () {
+        rm -f $SSL_BASE/glusterfs.*
+}
+
+push_trapfunc cleanup_certs
+
+cleanup_certs
