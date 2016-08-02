@@ -36,6 +36,7 @@
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
 #include "gfapi-messages.h"
+#include "syscall.h"
 
 int glfs_volfile_fetch (struct glfs *fs);
 int32_t glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
@@ -915,6 +916,10 @@ glfs_mgmt_init (struct glfs *fs)
 
 	if (ret)
 		goto out;
+
+        if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
+                ctx->secure_mgmt = 1;
+        }
 
 	rpc = rpc_clnt_new (options, THIS, THIS->name, 8);
 	if (!rpc) {
