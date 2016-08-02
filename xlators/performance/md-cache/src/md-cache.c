@@ -447,6 +447,8 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
         LOCK (&mdc->lock);
         {
                 if (!iatt || !iatt->ia_ctime) {
+                        gf_msg_trace ("md-cache", 0, "invalidating iatt(NULL)"
+                                      "(%s)", uuid_utoa (inode->gfid));
                         mdc->ia_time = 0;
                         goto unlock;
                 }
@@ -492,12 +494,22 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
 			if (!prebuf || (prebuf->ia_ctime != mdc->md_ctime) ||
 			    (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec) ||
 			    (prebuf->ia_mtime != mdc->md_mtime) ||
-			    (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec))
+			    (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec)) {
+                                gf_msg_trace ("md-cache", 0, "prebuf doesn't "
+                                              "match the value we have cached,"
+                                              " invalidate the inode(%s)",
+                                              uuid_utoa (inode->gfid));
+
 				inode_invalidate(inode);
+                        }
 
                 mdc_from_iatt (mdc, iatt);
 
                 time (&mdc->ia_time);
+                gf_msg_callingfn ("md-cache", GF_LOG_TRACE, 0,
+                                  MD_CACHE_MSG_CACHE_UPDATE, "Updated iatt(%s)"
+                                  " time:%lld ", uuid_utoa (inode->gfid),
+                                  (long long)mdc->ia_time);
         }
 unlock:
         UNLOCK (&mdc->lock);
@@ -517,11 +529,17 @@ mdc_inode_iatt_get (xlator_t *this, inode_t *inode, struct iatt *iatt)
         int              ret = -1;
         struct md_cache *mdc = NULL;
 
-        if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
+        if (mdc_inode_ctx_get (this, inode, &mdc) != 0) {
+                gf_msg_trace ("md-cache", 0, "mdc_inode_ctx_get failed (%s)",
+                              uuid_utoa (inode->gfid));
                 goto out;
+        }
 
-	if (!is_md_cache_iatt_valid (this, mdc))
+	if (!is_md_cache_iatt_valid (this, mdc)) {
+                gf_msg_trace ("md-cache", 0, "iatt cache not valid for (%s)",
+                              uuid_utoa (inode->gfid));
 		goto out;
+        }
 
         LOCK (&mdc->lock);
         {
@@ -628,12 +646,17 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
         if (!mdc)
                 goto out;
 
-        if (!dict)
+        if (!dict) {
+                gf_msg_trace ("md-cache", 0, "mdc_inode_xatt_set failed (%s) "
+                              "dict NULL", uuid_utoa (inode->gfid));
                 goto out;
+        }
 
         LOCK (&mdc->lock);
         {
                 if (mdc->xattr) {
+                        gf_msg_trace ("md-cache", 0, "deleteing the old xattr "
+                              "cache (%s)", uuid_utoa (inode->gfid));
                         dict_unref (mdc->xattr);
 			mdc->xattr = NULL;
 		}
@@ -648,6 +671,9 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
 			mdc->xattr = newdict;
 
                 time (&mdc->xa_time);
+                gf_msg_trace ("md-cache", 0, "xatt cache set for (%s) time:%lld",
+                              uuid_utoa (inode->gfid), (long long)mdc->xa_time);
+
         }
         UNLOCK (&mdc->lock);
         ret = 0;
@@ -718,11 +744,17 @@ mdc_inode_xatt_get (xlator_t *this, inode_t *inode, dict_t **dict)
         int              ret = -1;
         struct md_cache *mdc = NULL;
 
-        if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
+        if (mdc_inode_ctx_get (this, inode, &mdc) != 0) {
+                gf_msg_trace ("md-cache", 0, "mdc_inode_ctx_get failed (%s)",
+                              uuid_utoa (inode->gfid));
                 goto out;
+        }
 
-	if (!is_md_cache_xatt_valid (this, mdc))
+	if (!is_md_cache_xatt_valid (this, mdc)) {
+                gf_msg_trace ("md-cache", 0, "xattr cache not valid for (%s)",
+                              uuid_utoa (inode->gfid));
 		goto out;
+        }
 
         LOCK (&mdc->lock);
         {
@@ -730,8 +762,11 @@ mdc_inode_xatt_get (xlator_t *this, inode_t *inode, dict_t **dict)
 		/* Missing xattr only means no keys were there, i.e
 		   a negative cache for the "loaded" keys
 		*/
-                if (!mdc->xattr)
+                if (!mdc->xattr) {
+                        gf_msg_trace ("md-cache", 0, "xattr not present (%s)",
+                                      uuid_utoa (inode->gfid));
                         goto unlock;
+                }
 
                 if (dict)
                         *dict = dict_ref (mdc->xattr);
@@ -867,6 +902,8 @@ is_mdc_key_satisfied (const char *key)
 			return 1;
 	}
 
+        gf_msg_trace ("md-cache", 0, "xattr key %s doesn't satisfy "
+                      "caching requirements", key);
 	return 0;
 }
 
@@ -945,12 +982,15 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         loc_copy (&local->loc, loc);
 
-	if (!loc->name)
+	if (!loc->name) {
+                gf_msg_trace ("md-cache", 0, "Nameless lookup(%s) sent to the "
+                              "brick", uuid_utoa (loc->inode->gfid));
 		/* A nameless discovery is dangerous to serve from cache. We
 		   perform nameless lookup with the intention of
 		   re-establishing an inode "properly"
 		*/
 		goto uncached;
+        }
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
         if (ret != 0)
