@@ -148,6 +148,9 @@ meta_default_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		return default_readv_failure_cbk (frame, ENOMEM);
 	}
 
+        /* iobref would have taken a ref */
+        iobuf_unref (iobuf);
+
 	iov.iov_base = iobuf_ptr (iobuf);
 
 	copy_offset = min (meta_fd->size, offset);
@@ -158,6 +161,8 @@ meta_default_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	iov.iov_len = copy_size;
 
 	META_STACK_UNWIND (readv, frame, copy_size, 0, &iov, 1, &iatt, iobref, 0);
+
+        iobref_unref (iobref);
 
 	return 0;
 }
