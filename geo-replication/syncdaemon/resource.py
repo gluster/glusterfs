@@ -37,6 +37,7 @@ from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
+from syncdutils import get_changelog_log_level
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from gsyncdstatus import GeorepStatus
 
@@ -1555,7 +1556,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     changelog_agent.init()
                     changelog_agent.register(gconf.local_path,
                                              workdir, gconf.changelog_log_file,
-                                             g2.CHANGELOG_LOG_LEVEL,
+                                             get_changelog_log_level(
+                                                 gconf.changelog_log_level),
                                              g2.CHANGELOG_CONN_RETRIES)
 
                 register_time = int(time.time())

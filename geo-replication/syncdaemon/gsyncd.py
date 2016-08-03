@@ -244,6 +244,7 @@ def main_i():
                   default=os.devnull, type=str, action='callback',
                   callback=store_abs)
     op.add_option('--gluster-log-level', metavar='LVL')
+    op.add_option('--changelog-log-level', metavar='LVL', default="INFO")
     op.add_option('--gluster-params', metavar='PRMS', default='')
     op.add_option(
         '--glusterd-uuid', metavar='UUID', type=str, default='',
