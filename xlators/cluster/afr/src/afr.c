@@ -957,9 +957,9 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 64,
           .default_value = "1",
-           .description = "Maximum number of threads SHD can use per local "
-                          "brick.  This can substantially lower heal times, "
-                          "but can also crush your bricks if you don't have "
+           .description = "Maximum number of parallel heals SHD can do per "
+                          "local brick. This can substantially lower heal times"
+                          ", but can also crush your bricks if you don't have "
                           "the storage hardware to support this."
         },
         { .key   = {"shd-wait-qlength"},

@@ -34,6 +34,8 @@ struct _ec_self_heald {
         gf_boolean_t            iamshd;
         gf_boolean_t            enabled;
         int                     timeout;
+        uint32_t                max_threads;
+        uint32_t                wait_qlength;
         struct subvol_healer   *index_healers;
         struct subvol_healer   *full_healers;
 };

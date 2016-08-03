@@ -275,6 +275,7 @@ ec_shd_index_sweep (struct subvol_healer *healer)
         ec_t          *ec     = NULL;
         int           ret     = 0;
         xlator_t      *subvol = NULL;
+        dict_t        *xdata  = NULL;
 
         ec = healer->this->private;
         subvol = ec->xl_list[healer->subvol];
@@ -287,9 +288,18 @@ ec_shd_index_sweep (struct subvol_healer *healer)
                 goto out;
         }
 
-        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
-                               healer, ec_shd_index_heal);
+        xdata = dict_new ();
+        if (!xdata || dict_set_int32 (xdata, "get-gfid-type", 1)) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = syncop_mt_dir_scan (NULL, subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
+                                  healer, ec_shd_index_heal, xdata,
+                                  ec->shd.max_threads, ec->shd.wait_qlength);
 out:
+        if (xdata)
+                dict_unref (xdata);
         loc_wipe (&loc);
 
         return ret;
