@@ -673,7 +673,6 @@ class GMasterChangelogMixin(GMasterCommon):
     # maximum retries per changelog before giving up
     MAX_RETRIES = 10
 
-    CHANGELOG_LOG_LEVEL = 9
     CHANGELOG_CONN_RETRIES = 5
 
     def archive_and_purge_changelogs(self, changelogs):
