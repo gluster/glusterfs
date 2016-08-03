@@ -3025,6 +3025,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_9_0,
           .type        = NO_DOC,
         },
+        { .key        = "disperse.shd-max-threads",
+          .voltype    = "cluster/disperse",
+          .op_version = GD_OP_VERSION_3_9_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "disperse.shd-wait-qlength",
+          .voltype    = "cluster/disperse",
+          .op_version = GD_OP_VERSION_3_9_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

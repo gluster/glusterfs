@@ -274,6 +274,10 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("read-policy", read_policy, options, str, failed);
         if (ec_assign_read_policy (ec, read_policy))
                 goto failed;
+        GF_OPTION_RECONF ("shd-max-threads", ec->shd.max_threads,
+                          options, uint32, failed);
+        GF_OPTION_RECONF ("shd-wait-qlength", ec->shd.wait_qlength,
+                          options, uint32, failed);
 
         return 0;
 failed:
@@ -612,6 +616,9 @@ init (xlator_t *this)
     GF_OPTION_INIT ("read-policy", read_policy, str, failed);
     if (ec_assign_read_policy (ec, read_policy))
             goto failed;
+
+    GF_OPTION_INIT ("shd-max-threads", ec->shd.max_threads, uint32, failed);
+    GF_OPTION_INIT ("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
 
     this->itable = inode_table_new (EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -1373,6 +1380,24 @@ struct volume_options options[] =
               " n=k+m disperse subvolume. 'round-robin' selects the read"
               " subvolume using round-robin algo. 'gfid-hash' selects read"
               " subvolume based on hash of the gfid of that file/directory.",
+    },
+    { .key   = {"shd-max-threads"},
+      .type  = GF_OPTION_TYPE_INT,
+      .min   = 1,
+      .max   = 64,
+      .default_value = "1",
+      .description = "Maximum number of parallel heals SHD can do per local "
+                      "brick.  This can substantially lower heal times, "
+                      "but can also crush your bricks if you don't have "
+                      "the storage hardware to support this."
+    },
+    { .key   = {"shd-wait-qlength"},
+      .type  = GF_OPTION_TYPE_INT,
+      .min   = 1,
+      .max   = 655536,
+      .default_value = "1024",
+      .description = "This option can be used to control number of heals"
+                     " that can wait in SHD per subvolume"
     },
     { }
 };
