@@ -1950,6 +1950,14 @@ cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word
         rpc_clnt_procedure_t    *proc    = NULL;
         call_frame_t            *frame   = NULL;
         cli_local_t             *local   = NULL;
+#if (USE_EVENTS)
+        int                      ret1       = -1;
+        int                      cmd_type   = -1;
+        int                      tmpi       = 0;
+        char                    *tmp        = NULL;
+        char                    *events_str = NULL;
+        int                      event_type = -1;
+#endif
 
         proc = &cli_rpc_prog->proctable [GLUSTER_CLI_GSYNC_SET];
 
@@ -1974,6 +1982,123 @@ cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word
 out:
         if (ret && parse_err == 0)
                 cli_out (GEOREP" command failed");
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                events_str = gf_strdup ("");
+
+                /* Type of Geo-rep Action - Create, Start etc */
+                ret1 = dict_get_int32 (options, "type", &cmd_type);
+                if (ret1)
+                        cmd_type = -1;
+
+                /* Only capture Events for modification commands */
+                switch (cmd_type) {
+                case GF_GSYNC_OPTION_TYPE_CREATE:
+                        event_type = EVENT_GEOREP_CREATE;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_START:
+                        event_type = EVENT_GEOREP_START;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_STOP:
+                        event_type = EVENT_GEOREP_STOP;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_PAUSE:
+                        event_type = EVENT_GEOREP_PAUSE;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_RESUME:
+                        event_type = EVENT_GEOREP_RESUME;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_DELETE:
+                        event_type = EVENT_GEOREP_DELETE;
+                        break;
+                case GF_GSYNC_OPTION_TYPE_CONFIG:
+                        ret1 = dict_get_str (options, "subop", &tmp);
+                        if (ret1)
+                                tmp = "";
+
+                        /* For Config Set additionally capture key and value */
+                        /* For Config Reset capture key */
+                        if (strcmp (tmp, "set") == 0) {
+                                event_type = EVENT_GEOREP_CONFIG_SET;
+
+                                ret1 = dict_get_str (options, "op_name", &tmp);
+                                if (ret1)
+                                        tmp = "";
+
+                                gf_asprintf (&events_str, "%soption=%s;",
+                                             events_str, tmp);
+
+                                ret1 = dict_get_str (options, "op_value", &tmp);
+                                if (ret1)
+                                        tmp = "";
+
+                                gf_asprintf (&events_str, "%svalue=%s;",
+                                             events_str, tmp);
+                        } else if (strcmp (tmp, "del") == 0) {
+                                event_type = EVENT_GEOREP_CONFIG_RESET;
+
+                                ret1 = dict_get_str (options, "op_name", &tmp);
+                                if (ret1)
+                                        tmp = "";
+
+                                gf_asprintf (&events_str, "%soption=%s;",
+                                             events_str, tmp);
+                        }
+                        break;
+                default:
+                        break;
+                }
+
+                if (event_type > -1) {
+                        /* Capture all optional arguments used */
+                        ret1 = dict_get_int32 (options, "force", &tmpi);
+                        if (ret1 == 0)
+                                gf_asprintf (&events_str, "%sforce=%d;",
+                                             events_str, tmpi);
+
+                        ret1 = dict_get_int32 (options, "push_pem", &tmpi);
+                        if (ret1 == 0)
+                                gf_asprintf (&events_str, "%spush_pem=%d;",
+                                             events_str, tmpi);
+
+                        ret1 = dict_get_int32 (options, "no_verify", &tmpi);
+                        if (ret1 == 0)
+                                gf_asprintf (&events_str, "%sno_verify=%d;",
+                                             events_str, tmpi);
+
+                        ret1 = dict_get_int32 (options, "ssh_port", &tmpi);
+                        if (ret1 == 0)
+                                gf_asprintf (&events_str, "%sssh_port=%d;",
+                                             events_str, tmpi);
+
+                        ret1 = dict_get_int32 (options, "reset-sync-time",
+                                               &tmpi);
+                        if (ret1 == 0)
+                                gf_asprintf (&events_str,
+                                             "%sreset_sync_time=%d;",
+                                             events_str, tmpi);
+
+                        /* Capture Master and Slave Info */
+                        ret1 = dict_get_str (options, "master", &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "%smaster=%s;",
+                                     events_str, tmp);
+
+                        ret1 = dict_get_str (options, "slave", &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "%sslave=%s",
+                                     events_str, tmp);
+
+                        gf_event (event_type, "%s", events_str);
+                }
+
+                /* Allocated by gf_strdup and gf_asprintf */
+                GF_FREE (events_str);
+        }
+#endif
 
         CLI_STACK_DESTROY (frame);
 
