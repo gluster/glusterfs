@@ -700,7 +700,6 @@ class GMasterChangelogMixin(GMasterCommon):
     # flat directory hierarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
 
-    CHANGELOG_LOG_LEVEL = 9
     CHANGELOG_CONN_RETRIES = 5
 
     def archive_and_purge_changelogs(self, changelogs):
