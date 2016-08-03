@@ -518,3 +518,20 @@ class ChangelogException(OSError):
 def gf_event(event_type, **kwargs):
     from events.gf_event import gf_event as gfevent
     gfevent(event_type, **kwargs)
+
+
+class GlusterLogLevel(object):
+        NONE = 0
+        EMERG = 1
+        ALERT = 2
+        CRITICAL = 3
+        ERROR = 4
+        WARNING = 5
+        NOTICE = 6
+        INFO = 7
+        DEBUG = 8
+        TRACE = 9
+
+
+def get_changelog_log_level(lvl):
+    return getattr(GlusterLogLevel, lvl, GlusterLogLevel.INFO)
