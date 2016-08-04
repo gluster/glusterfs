@@ -167,6 +167,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_tw_timer_list,
         /*lock migration*/
         gf_common_mt_lock_mig,
+        gf_common_mt_pthread_t,
         gf_common_mt_end
 };
 #endif
