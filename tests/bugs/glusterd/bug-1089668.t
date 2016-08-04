@@ -18,8 +18,7 @@ TEST $CLI volume start $V0
 
 TEST $CLI volume rebalance $V0 start
 TEST ! $CLI volume remove-brick $V0 $H0:$B0/${V0}1 status
-
-TEST $CLI volume rebalance $V0 stop
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 start
 TEST ! $CLI volume rebalance $V0 status
