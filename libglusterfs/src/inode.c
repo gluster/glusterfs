@@ -1511,6 +1511,14 @@ inode_table_prune (inode_table_t *table)
         {
                 while (table->lru_limit
                        && table->lru_size > (table->lru_limit)) {
+                        if (list_empty (&table->lru)) {
+                                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                                  LG_MSG_INVALID_INODE_LIST,
+                                                  "Empty inode lru list found"
+                                                  " but with (%d) lru_size",
+                                                  table->lru_size);
+                                break;
+                        }
 
                         entry = list_entry (table->lru.next, inode_t, list);
 
@@ -1780,6 +1788,7 @@ inode_table_destroy (inode_table_t *inode_table) {
                                                  inode_t, list);
                         __inode_forget (trav, 0);
                         __inode_retire (trav);
+                        inode_table->lru_size--;
                 }
 
                 while (!list_empty (&inode_table->active)) {
