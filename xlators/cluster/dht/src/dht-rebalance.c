@@ -21,7 +21,7 @@
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
-#define DHT_REBALANCE_BLKSIZE           (128 * 1024)
+#define DHT_REBALANCE_BLKSIZE           (1024 * 1024)  /* 1 MB */
 #define MAX_MIGRATE_QUEUE_COUNT         500
 #define MIN_MIGRATE_QUEUE_COUNT         200
 
