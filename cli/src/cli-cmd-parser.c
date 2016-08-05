@@ -5183,7 +5183,8 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                                      "biweekly", "monthly",
                                                      "minute",  NULL};
         char               *scrub_values[]        = {"pause", "resume",
-                                                     "status", NULL};
+                                                     "status", "ondemand",
+                                                     NULL};
         dict_t             *dict                  = NULL;
         gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
         int32_t            expiry_time            = 0;
@@ -5315,6 +5316,8 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                         } else {
                                 if (strcmp (words[4], "status") == 0) {
                                         type = GF_BITROT_CMD_SCRUB_STATUS;
+                                } else if (strcmp (words[4], "ondemand") == 0) {
+                                        type = GF_BITROT_CMD_SCRUB_ONDEMAND;
                                 } else {
                                         type = GF_BITROT_OPTION_TYPE_SCRUB;
                                 }

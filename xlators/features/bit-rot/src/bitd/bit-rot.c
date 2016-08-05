@@ -1534,7 +1534,6 @@ _br_qchild_event (xlator_t *this, br_child_t *child, br_child_handler *call)
 int
 br_scrubber_status_get (xlator_t *this, dict_t **dict)
 {
-
         int                    ret          = -1;
         br_private_t          *priv         = NULL;
         struct br_scrub_stats *scrub_stats  = NULL;
@@ -1600,9 +1599,11 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         br_private_t *priv   = NULL;
         dict_t       *output = NULL;
         va_list       ap;
+        struct br_monitor  *scrub_monitor = NULL;
 
         subvol = (xlator_t *)data;
         priv = this->private;
+        scrub_monitor = &priv->scrub_monitor;
 
         gf_msg_trace (this->name, 0, "Notification received: %d", event);
 
@@ -1674,6 +1675,30 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 va_end (ap);
 
                 ret = br_scrubber_status_get (this, &output);
+                gf_msg_debug (this->name, 0, "returning %d", ret);
+                break;
+
+        case GF_EVENT_SCRUB_ONDEMAND:
+                gf_log (this->name, GF_LOG_INFO, "BitRot scrub ondemand "
+                              "called");
+
+                if (scrub_monitor->state != BR_SCRUB_STATE_PENDING)
+                        return -2;
+
+                /* Needs synchronization with reconfigure thread */
+                pthread_mutex_lock (&priv->lock);
+                {
+                        ret = br_scrub_state_machine (this, _gf_true);
+                }
+                pthread_mutex_unlock (&priv->lock);
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
+                                "Could not schedule ondemand scrubbing. "
+                                "Scrubbing will continue according to "
+                                "old frequency.");
+                }
                 gf_msg_debug (this->name, 0, "returning %d", ret);
                 break;
         default:
@@ -2045,7 +2070,7 @@ br_reconfigure_monitor (xlator_t *this)
 {
         int32_t ret = 0;
 
-        ret = br_scrub_state_machine (this);
+        ret = br_scrub_state_machine (this, _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,

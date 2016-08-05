@@ -36,7 +36,7 @@
  */
 
 #define GLFS_COMP_BASE          GLFS_MSGID_COMP_GLUSTERFSD
-#define GLFS_NUM_MESSAGES       36
+#define GLFS_NUM_MESSAGES       37
 #define GLFS_MSGID_END          (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -108,6 +108,8 @@
                         " unserialization failed."
 #define glusterfsd_msg_36 (GLFS_COMP_BASE + 36), "problem in xlator " \
                         " loading."
+#define glusterfsd_msg_37 (GLFS_COMP_BASE + 37), "failed to get dict value"
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

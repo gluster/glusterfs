@@ -84,16 +84,22 @@ br_scrub_ssm_state_stall (xlator_t *this)
 
 static br_scrub_ssm_call *
 br_scrub_ssm[BR_SCRUB_MAXSTATES][BR_SCRUB_MAXEVENTS] = {
-        {br_fsscan_schedule, br_scrub_ssm_state_ipause},    /* INACTIVE */
-        {br_fsscan_reschedule, br_fsscan_deactivate},       /* PENDING  */
-        {br_scrub_ssm_noop, br_scrub_ssm_state_stall},      /* ACTIVE   */
-        {br_fsscan_activate, br_scrub_ssm_noop},            /* PAUSED   */
-        {br_fsscan_schedule, br_scrub_ssm_noop},            /* IPAUSED  */
-        {br_scrub_ssm_state_active, br_scrub_ssm_noop},     /* STALLED  */
+        /* INACTIVE */
+        {br_fsscan_schedule, br_scrub_ssm_state_ipause, br_scrub_ssm_noop},
+        /* PENDING  */
+        {br_fsscan_reschedule, br_fsscan_deactivate, br_fsscan_ondemand},
+        /* ACTIVE   */
+        {br_scrub_ssm_noop, br_scrub_ssm_state_stall, br_scrub_ssm_noop},
+        /* PAUSED   */
+        {br_fsscan_activate, br_scrub_ssm_noop, br_scrub_ssm_noop},
+        /* IPAUSED  */
+        {br_fsscan_schedule, br_scrub_ssm_noop, br_scrub_ssm_noop},
+        /* STALLED  */
+        {br_scrub_ssm_state_active, br_scrub_ssm_noop, br_scrub_ssm_noop},
 };
 
 int32_t
-br_scrub_state_machine (xlator_t *this)
+br_scrub_state_machine (xlator_t *this, gf_boolean_t scrub_ondemand)
 {
         br_private_t       *priv      = NULL;
         br_scrub_ssm_call  *call      = NULL;
@@ -107,7 +113,10 @@ br_scrub_state_machine (xlator_t *this)
         scrub_monitor = &priv->scrub_monitor;
 
         currstate = scrub_monitor->state;
-        event = _br_child_get_scrub_event (fsscrub);
+        if (scrub_ondemand)
+                event = BR_SCRUB_EVENT_ONDEMAND;
+        else
+                event = _br_child_get_scrub_event (fsscrub);
 
         call = br_scrub_ssm[currstate][event];
         return call (this);

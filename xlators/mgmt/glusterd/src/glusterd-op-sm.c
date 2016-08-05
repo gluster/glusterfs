@@ -714,6 +714,7 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
                 break;
 
         case GD_OP_SCRUB_STATUS:
+        case GD_OP_SCRUB_ONDEMAND:
                 brick_req = GF_CALLOC (1, sizeof(*brick_req),
                                        gf_gld_mt_mop_brick_req_t);
                 if (!brick_req)
@@ -4131,6 +4132,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_BARRIER:
                 case GD_OP_BITROT:
                 case GD_OP_SCRUB_STATUS:
+                case GD_OP_SCRUB_ONDEMAND:
                         {
                                 do_common = _gf_true;
                         }
@@ -4725,6 +4727,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
          */
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_SCRUB_STATUS:
+        case GD_OP_SCRUB_ONDEMAND:
                 ret = dict_get_int32 (op_ctx, "count", &count);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
@@ -4772,10 +4775,11 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                 GD_MSG_CONVERSION_FAILED,
                                 "Failed uuid to hostname conversion");
 
-                /* Since Both rebalance and bitrot scrub status are going to
-                 * use same code path till here, we should break in case
-                 * of scrub status */
-                if (op == GD_OP_SCRUB_STATUS) {
+                /* Since Both rebalance and bitrot scrub status/ondemand
+                 * are going to use same code path till here, we should
+                 * break in case of scrub status.
+                 */
+                if (op == GD_OP_SCRUB_STATUS || op == GD_OP_SCRUB_ONDEMAND) {
                         break;
                 }
 
@@ -5442,6 +5446,7 @@ glusterd_need_brick_op (glusterd_op_t op)
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_HEAL_VOLUME:
         case GD_OP_SCRUB_STATUS:
+        case GD_OP_SCRUB_ONDEMAND:
                 ret = _gf_true;
                 break;
         default:
@@ -5713,6 +5718,7 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_BITROT:
                 case GD_OP_SCRUB_STATUS:
+                case GD_OP_SCRUB_ONDEMAND:
                         ret = glusterd_op_stage_bitrot (dict, op_errstr,
                                                         rsp_dict);
                         break;
@@ -5838,6 +5844,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_BITROT:
                 case GD_OP_SCRUB_STATUS:
+                case GD_OP_SCRUB_ONDEMAND:
                         ret = glusterd_op_bitrot (dict, op_errstr, rsp_dict);
                         break;
 
@@ -7288,6 +7295,7 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 ret = glusterd_bricks_select_snap (dict, op_errstr, selected);
                 break;
         case GD_OP_SCRUB_STATUS:
+        case GD_OP_SCRUB_ONDEMAND:
                 ret = glusterd_bricks_select_scrub (dict, op_errstr, selected);
                 break;
         default:

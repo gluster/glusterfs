@@ -143,6 +143,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_BARRIER:
         case GD_OP_BITROT:
         case GD_OP_SCRUB_STATUS:
+        case GD_OP_SCRUB_ONDEMAND:
         {
                 /*nothing specific to be done*/
                 break;
