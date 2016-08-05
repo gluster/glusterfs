@@ -676,9 +676,9 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
 
         ret = dict_set_dynstr (dict, "remote-host", host);
         if (ret) {
-                GF_FREE (host);
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set remote-host with %s", host);
+                GF_FREE (host);
                 goto out;
         }
 
