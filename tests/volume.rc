@@ -597,6 +597,12 @@ else
 fi
 }
 
+function check_for_xattr {
+        local xattr=$1
+        local filepath=$2
+        getfattr -n $xattr $filepath 2>/dev/null | grep "$xattr" | cut -f1 -d'='
+}
+
 function get_bitd_count {
         ps auxww | grep glusterfs | grep bitd.pid | grep -v grep | wc -l
 }

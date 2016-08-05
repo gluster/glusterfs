@@ -297,7 +297,7 @@ static inline br_scrub_event_t
 _br_child_get_scrub_event (struct br_scrubber *fsscrub)
 {
         return (fsscrub->frequency == BR_FSSCRUB_FREQ_STALLED)
-                ? BR_SCRUB_EVENT_PAUSE : BR_SCRUB_EVENT_SCHEDULE;
+             ? BR_SCRUB_EVENT_PAUSE : BR_SCRUB_EVENT_SCHEDULE;
 }
 
 int32_t

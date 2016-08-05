@@ -669,6 +669,7 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
         char                     xname[1024]  = {0,};
         glusterfs_ctx_t          *ctx         = NULL;
         glusterfs_graph_t        *active      = NULL;
+        char                     *scrub_opt   = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -722,8 +723,27 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = xlator->notify (xlator, GF_EVENT_SCRUB_STATUS, input,
-                              output);
+        ret = dict_get_str (input, "scrub-value", &scrub_opt);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Failed to get scrub value");
+                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_37);
+                ret = -1;
+                goto out;
+        }
+
+        if (!strncmp (scrub_opt, "status", strlen ("status"))) {
+                ret = xlator->notify (xlator, GF_EVENT_SCRUB_STATUS, input,
+                                      output);
+        } else if (!strncmp (scrub_opt, "ondemand", strlen ("ondemand"))) {
+                ret = xlator->notify (xlator, GF_EVENT_SCRUB_ONDEMAND, input,
+                                      output);
+                if (ret == -2) {
+                        snprintf (msg, sizeof (msg), "Scrubber is in "
+                                  "Pause/Inactive/Running state");
+                        ret = -1;
+                        goto out;
+                }
+        }
 out:
         glusterfs_translator_info_response_send (req, ret, msg, output);
 

@@ -863,6 +863,7 @@ br_fsscan_calculate_delta (uint32_t times)
         return times;
 }
 
+#define BR_SCRUB_ONDEMAND   (1)
 #define BR_SCRUB_MINUTE     (60)
 #define BR_SCRUB_HOURLY     (60 * 60)
 #define BR_SCRUB_DAILY      (1 * 24 * 60 * 60)
@@ -1035,6 +1036,53 @@ br_fsscan_reschedule (xlator_t *this)
                 _br_monitor_set_scrub_state (scrub_monitor, BR_SCRUB_STATE_PENDING);
                 gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
                         "Scrubbing rescheduled to run at %s", timestr);
+        }
+
+        return 0;
+}
+
+int32_t
+br_fsscan_ondemand (xlator_t *this)
+{
+        int32_t             ret     = 0;
+        uint32_t            timo    = 0;
+        char timestr[1024]          = {0,};
+        struct timeval      now     = {0,};
+        br_private_t       *priv    = NULL;
+        struct br_scrubber *fsscrub = NULL;
+        struct br_monitor  *scrub_monitor = NULL;
+
+        priv = this->private;
+        fsscrub = &priv->fsscrub;
+        scrub_monitor = &priv->scrub_monitor;
+
+        if (!fsscrub->frequency_reconf)
+                return 0;
+
+        (void) gettimeofday (&now, NULL);
+
+        timo = BR_SCRUB_ONDEMAND;
+
+        gf_time_fmt (timestr, sizeof (timestr),
+                     (now.tv_sec + timo), gf_timefmt_FT);
+
+        pthread_mutex_lock (&scrub_monitor->donelock);
+        {
+                scrub_monitor->done = _gf_false;
+        }
+        pthread_mutex_unlock (&scrub_monitor->donelock);
+
+        ret = gf_tw_mod_timer_pending (priv->timer_wheel, scrub_monitor->timer,
+                                       timo);
+        if (ret == 0)
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                        "Scrubber is currently running and would be "
+                        "rescheduled after completion");
+        else {
+                _br_monitor_set_scrub_state (scrub_monitor,
+                                             BR_SCRUB_STATE_PENDING);
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
+                        "Ondemand Scrubbing scheduled to run at %s", timestr);
         }
 
         return 0;
@@ -1867,7 +1915,7 @@ br_monitor_thread (void *arg)
         /* this needs to be serialized with reconfigure() */
         pthread_mutex_lock (&priv->lock);
         {
-                ret = br_scrub_state_machine (this);
+                ret = br_scrub_state_machine (this, _gf_false);
         }
         pthread_mutex_unlock (&priv->lock);
         if (ret) {

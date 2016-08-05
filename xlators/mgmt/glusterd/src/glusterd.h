@@ -117,6 +117,7 @@ typedef enum glusterd_op_ {
         GD_OP_DETACH_TIER,
         GD_OP_TIER_MIGRATE,
         GD_OP_SCRUB_STATUS,
+        GD_OP_SCRUB_ONDEMAND,
         GD_OP_MAX,
 } glusterd_op_t;
 

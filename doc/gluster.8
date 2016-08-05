@@ -162,11 +162,9 @@ Scrub-throttle value is a measure of how fast or slow the scrubber scrubs the fi
 \fB\ volume bitrot <VOLNAME> scrub-frequency {daily|weekly|biweekly|monthly} \fR
 Scrub frequency for volume <VOLNAME>
 .TP
-\fB\ volume bitrot <VOLNAME> scrub {pause|resume} \fR
-Pause/Resume scrub. Upon resume, scrubber continues where it left off.
+\fB\ volume bitrot <VOLNAME> scrub {pause|resume|status|ondemand} \fR
+Pause/Resume scrub. Upon resume, scrubber continues where it left off. status option shows the statistics of scrubber. ondemand option starts the scrubbing immediately if the scrubber is not paused or already running.
 .TP
-\fB\ volume bitrot <VOLNAME> scrub status \fR
-Show the statistics of scrubber status
 .SS "Snapshot Commands"
 .PP
 .TP

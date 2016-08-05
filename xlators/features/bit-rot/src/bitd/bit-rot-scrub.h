@@ -20,6 +20,7 @@ int32_t br_fsscan_schedule (xlator_t *);
 int32_t br_fsscan_reschedule (xlator_t *);
 int32_t br_fsscan_activate (xlator_t *);
 int32_t br_fsscan_deactivate (xlator_t *);
+int32_t br_fsscan_ondemand (xlator_t *);
 
 int32_t br_scrubber_handle_options (xlator_t *, br_private_t *, dict_t *);
 

@@ -84,6 +84,7 @@ enum glusterfs_event_t {
         GF_EVENT_UPCALL,
         GF_EVENT_SCRUB_STATUS,
         GF_EVENT_SOME_CHILD_DOWN,
+        GF_EVENT_SCRUB_ONDEMAND,
         GF_EVENT_MAXVAL
 };
 
