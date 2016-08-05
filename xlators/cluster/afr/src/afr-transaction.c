@@ -1068,11 +1068,11 @@ afr_changelog_pre_op_update (call_frame_t *frame, xlator_t *this)
 		if (!fd_ctx->on_disk[type]) {
 			for (i = 0; i < priv->child_count; i++)
 				fd_ctx->pre_op_done[type][i] =
-					local->transaction.pre_op[i];
+                                        (!local->transaction.failed_subvols[i]);
 		} else {
 			for (i = 0; i < priv->child_count; i++)
 				if (fd_ctx->pre_op_done[type][i] !=
-				    local->transaction.pre_op[i]) {
+				    (!local->transaction.failed_subvols[i])) {
 					local->transaction.no_uninherit = 1;
 					goto unlock;
 				}
