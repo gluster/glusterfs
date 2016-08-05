@@ -858,7 +858,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         flags = FALLOC_FL_ZERO_RANGE;
         ret = sys_fallocate (pfd->fd, flags, offset, len);
         if (ret == 0)
-                goto done;
+                goto fsync;
 
         ret = _posix_do_zerofill (pfd->fd, offset, len, pfd->flags & O_DIRECT);
         if (ret < 0) {
@@ -869,6 +869,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
+fsync:
         if (pfd->flags & (O_SYNC|O_DSYNC)) {
                 ret = sys_fsync (pfd->fd);
                 if (ret) {
@@ -880,7 +881,6 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 }
         }
 
-done:
         ret = posix_fdstat (this, pfd->fd, statpost);
         if (ret == -1) {
                 ret = -errno;
