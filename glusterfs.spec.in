@@ -1241,7 +1241,7 @@ exit 0
 * Sun Jul 31 2016 Soumya Koduri <skoduri@redhat.com>
 - Add dependency on portblock resource agent for ganesha package (#1354439)
 
-* Wed Jul 15 2016 Aravinda VK <avishwan@redhat.com>
+* Mon Jul 18 2016 Aravinda VK <avishwan@redhat.com>
 - Added new subpackage events(glusterfs-events) (#1334044)
 
 * Fri Jul 15 2016 Aravinda VK <avishwan@redhat.com>
