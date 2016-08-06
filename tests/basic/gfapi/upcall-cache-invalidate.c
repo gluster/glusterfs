@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <glusterfs/api/glfs.h>
 #include <glusterfs/api/glfs-handles.h>
-int gfapi = 1;
 
 #define LOG_ERR(func, ret) do { \
         if (ret != 0) {            \
@@ -23,25 +22,24 @@ int gfapi = 1;
 int
 main (int argc, char *argv[])
 {
-        glfs_t    *fs = NULL;
-        glfs_t    *fs2 = NULL;
-        glfs_t    *fs_tmp = NULL;
-        glfs_t    *fs_tmp2 = NULL;
-        int        ret = 0, i;
-        glfs_fd_t *fd = NULL;
-        glfs_fd_t *fd2 = NULL;
-        glfs_fd_t *fd_tmp = NULL;
-        glfs_fd_t *fd_tmp2 = NULL;
-        char       readbuf[32];
-        char      *filename = "file_tmp";
-        char      *writebuf = NULL;
-        char      *vol_id  = NULL;
-        unsigned int       cnt = 1;
-        struct    glfs_callback_arg cbk;
-        char      *logfile = NULL;
-        char      *volname = NULL;
-        char      *hostname = NULL;
-        struct glfs_callback_inode_arg *in_arg = NULL;
+        glfs_t                   *fs = NULL;
+        glfs_t                   *fs2 = NULL;
+        glfs_t                   *fs_tmp = NULL;
+        glfs_t                   *fs_tmp2 = NULL;
+        int                       ret = 0, i;
+        glfs_fd_t                *fd = NULL;
+        glfs_fd_t                *fd2 = NULL;
+        glfs_fd_t                *fd_tmp = NULL;
+        glfs_fd_t                *fd_tmp2 = NULL;
+        char                      readbuf[32];
+        char                     *filename = "file_tmp";
+        char                     *writebuf = NULL;
+        char                     *vol_id  = NULL;
+        unsigned int              cnt = 1;
+        struct glfs_upcall       *cbk = NULL;
+        char                     *logfile = NULL;
+        char                     *volname = NULL;
+        char                     *hostname = NULL;
 
         if (argc != 4) {
                 fprintf (stderr, "Invalid argument\n");
@@ -72,7 +70,6 @@ main (int argc, char *argv[])
          * on the fs (through this instance) happens. */
         ret = glfs_h_poll_upcall(fs_tmp, &cbk);
         LOG_ERR ("glfs_h_poll_upcall", ret);
-        cbk.reason = 0;
 
         fs2 = glfs_new (volname);
         if (!fs2) {
@@ -139,6 +136,7 @@ main (int argc, char *argv[])
                 ret = glfs_lseek (fd_tmp2, 0, SEEK_SET);
                 LOG_ERR ("glfs_lseek", ret);
 
+                memset (readbuf, 0, sizeof(readbuf));
                 ret = glfs_pread (fd_tmp2, readbuf, 4, 0, 0);
 
                 if (ret <= 0) {
@@ -152,26 +150,37 @@ main (int argc, char *argv[])
                  * there are I/Os on that fd
                  */
                 if (cnt > 2) {
+                        struct glfs_upcall_inode *in_arg = NULL;
+                        enum glfs_upcall_reason   reason = 0;
+                        struct glfs_object       *object = NULL;
+                        uint64_t                  flags = 0;
+                        uint64_t                  expire = 0;
+
                         ret = glfs_h_poll_upcall(fs_tmp, &cbk);
                         LOG_ERR ("glfs_h_poll_upcall", ret);
-                        /* Expect 'GFAPI_INODE_INVALIDATE' upcall event. */
-                        if (cbk.reason == GFAPI_INODE_INVALIDATE) {
-                                in_arg = cbk.event_arg;
+
+                        reason = glfs_upcall_get_reason (cbk);
+
+                        /* Expect 'GLFS_INODE_INVALIDATE' upcall event. */
+                        if (reason == GLFS_UPCALL_INODE_INVALIDATE) {
+                                in_arg = glfs_upcall_get_event (cbk);
+
+                                object = glfs_upcall_inode_get_object (in_arg);
+                                flags = glfs_upcall_inode_get_flags (in_arg);
+                                expire = glfs_upcall_inode_get_expire (in_arg);
+
                                 fprintf (stderr, " upcall event type - %d,"
                                          " object(%p), flags(%d), "
                                          " expire_time_attr(%d)\n" ,
-                                         cbk.reason, in_arg->object,
-                                         in_arg->flags,
-                                         in_arg->expire_time_attr);
-                                ret = glfs_h_close (in_arg->object);
-                                LOG_ERR ("glfs_h_close", ret);
-                                free (in_arg);
+                                         reason, object, flags, expire);
                         } else {
                                 fprintf (stderr,
-                                         "Dint receive upcall notify event");
+                                         "Didnt receive upcall notify event");
                                 ret = -1;
                                 goto err;
                         }
+
+                        glfs_free (cbk);
                 }
 
                 sleep(5);

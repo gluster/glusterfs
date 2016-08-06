@@ -33,23 +33,22 @@ int gfapi = 1;
 int
 main (int argc, char *argv[])
 {
-        glfs_t    *fs = NULL;
-        glfs_t    *fs2 = NULL;
-        int        ret = 0, i;
-        glfs_fd_t *fd = NULL;
-        char      *filename = "/a1";
-        char      *filename2 = "/a2";
-        struct     stat sb = {0, };
-        struct    glfs_callback_arg cbk;
-        char      *logfile = NULL;
-        char      *volname = NULL;
-        char      *hostname = NULL;
-        int        cnt = 1;
-        int       upcall_received = 0;
-        struct glfs_callback_inode_arg *in_arg = NULL;
-        struct glfs_object *root = NULL, *leaf = NULL;
-        unsigned char   globjhdl[GFAPI_HANDLE_LENGTH];
-        unsigned char   globjhdl2[GFAPI_HANDLE_LENGTH];
+        glfs_t                     *fs = NULL;
+        glfs_t                     *fs2 = NULL;
+        int                         ret = 0, i;
+        glfs_fd_t                  *fd = NULL;
+        char                       *filename = "/a1";
+        char                       *filename2 = "/a2";
+        struct                      stat sb = {0, };
+        char                       *logfile = NULL;
+        char                       *volname = NULL;
+        char                       *hostname = NULL;
+        int                         cnt = 1;
+        int                         upcall_received = 0;
+        struct glfs_upcall         *cbk = NULL;
+        struct glfs_object         *root = NULL, *leaf = NULL;
+        unsigned char               globjhdl[GFAPI_HANDLE_LENGTH];
+        unsigned char               globjhdl2[GFAPI_HANDLE_LENGTH];
 
         fprintf (stderr, "Starting libgfapi_fini\n");
         if (argc != 4) {
@@ -82,7 +81,6 @@ main (int argc, char *argv[])
          * on the fs (through this instance) happens. */
         ret = glfs_h_poll_upcall(fs, &cbk);
         LOG_ERR ("glfs_h_poll_upcall", ret);
-        cbk.reason = 0;
 
         fs2 = glfs_new (volname);
         if (!fs) {
@@ -123,21 +121,30 @@ main (int argc, char *argv[])
         }
         fprintf (stderr, "glfs_h_create leaf - %p\n", leaf);
 
-        while (cnt++ < 5) {
+        while (cnt++ < 5 && !upcall_received) {
+                enum glfs_upcall_reason     reason = 0;
+                struct glfs_upcall_inode   *in_arg = NULL;
+
                 ret = glfs_h_poll_upcall(fs, &cbk);
                 LOG_ERR ("glfs_h_poll_upcall", ret);
+                if (ret)
+                        goto retry;
 
-                if (cbk.reason == GFAPI_INODE_INVALIDATE) {
-                        fprintf (stderr, "Upcall received(%d)\n",
-                                 cbk.reason);
-                        in_arg = (struct glfs_callback_inode_arg *)(cbk.event_arg);
+                reason = glfs_upcall_get_reason (cbk);
+                fprintf (stderr, "Upcall received(%d)\n", reason);
+
+                if (reason == GLFS_UPCALL_INODE_INVALIDATE) {
+                        struct glfs_object *object = NULL;
+
+                        in_arg = glfs_upcall_get_event (cbk);
+                        object = glfs_upcall_inode_get_object (in_arg);
 
                         ret = glfs_h_extract_handle (root,
                                                      globjhdl+GLAPI_UUID_LENGTH,
                                                      GFAPI_HANDLE_LENGTH);
                         LOG_ERR("glfs_h_extract_handle", (ret != 16));
 
-                        ret = glfs_h_extract_handle (in_arg->object,
+                        ret = glfs_h_extract_handle (object,
                                                   globjhdl2+GLAPI_UUID_LENGTH,
                                                   GFAPI_HANDLE_LENGTH);
                         LOG_ERR("glfs_h_extract_handle", (ret != 16));
@@ -149,6 +156,13 @@ main (int argc, char *argv[])
                         }
                         upcall_received = 1;
                 }
+
+retry:
+                if (!upcall_received)
+                        sleep (1); /* glfs_h_poll_upcall() does not block */
+
+                glfs_free (cbk);
+                cbk = NULL;
         }
 
         if (!upcall_received) {
