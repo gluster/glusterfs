@@ -225,6 +225,26 @@ struct glfs_object {
         uuid_t          gfid;
 };
 
+struct glfs_upcall {
+        struct glfs             *fs;     /* glfs object */
+        enum glfs_upcall_reason  reason; /* Upcall event type */
+        void                    *event;  /* changes based in the event type */
+        void (*free_event)(void *);      /* free event after the usage */
+};
+
+struct glfs_upcall_inode {
+        struct glfs_object   *object;  /* Object which need to be acted upon */
+        int                   flags;   /* Cache UPDATE/INVALIDATE flags */
+        struct stat           buf;     /* Latest stat of this entry */
+        unsigned int          expire_time_attr; /* the amount of time for which
+                                                 * the application need to cache
+                                                 * this entry */
+        struct glfs_object   *p_object; /* parent Object to be updated */
+        struct stat           p_buf;    /* Latest stat of parent dir handle */
+        struct glfs_object   *oldp_object; /* Old parent Object to be updated */
+        struct stat           oldp_buf; /* Latest stat of old parent dir handle */
+};
+
 #define DEFAULT_EVENT_POOL_SIZE           16384
 #define GF_MEMPOOL_COUNT_OF_DICT_T        4096
 #define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
@@ -401,7 +421,7 @@ int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
                                         struct gf_upcall *from_up_data);
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
-                                struct glfs_callback_arg *up_arg,
+                                struct glfs_upcall *up_arg,
                                 struct gf_upcall *upcall_data);
 
 ssize_t
@@ -415,5 +435,36 @@ glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
 
 struct glfs_object *
 glfs_h_resolve_symlink (struct glfs *fs, struct glfs_object *object);
+
+
+/* Deprecated structures that were passed to client applications, replaced by
+ * accessor functions. Do not use these in new applications, and update older
+ * usage.
+ *
+ * See http://review.gluster.org/14701 for more details.
+ *
+ * WARNING: These structures will be removed in the future.
+ */
+struct glfs_callback_arg {
+        struct glfs             *fs;
+        enum glfs_upcall_reason  reason;
+        void                    *event_arg;
+};
+
+struct glfs_callback_inode_arg {
+        struct glfs_object      *object; /* Object which need to be acted upon */
+        int                     flags; /* Cache UPDATE/INVALIDATE flags */
+        struct stat             buf; /* Latest stat of this entry */
+        unsigned int            expire_time_attr; /* the amount of time for which
+                                                   * the application need to cache
+                                                   * this entry
+                                                   */
+        struct glfs_object      *p_object; /* parent Object to be updated */
+        struct stat             p_buf; /* Latest stat of parent dir handle */
+        struct glfs_object      *oldp_object; /* Old parent Object
+                                               * to be updated */
+        struct stat             oldp_buf; /* Latest stat of old parent
+                                           * dir handle */
+};
 
 #endif /* !_GLFS_INTERNAL_H */

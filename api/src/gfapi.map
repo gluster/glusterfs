@@ -173,7 +173,22 @@ GFAPI_3.7.15 {
 		glfs_truncate;
 } GFAPI_3.7.4;
 
+GFAPI_3.7.16 {
+	global:
+		glfs_upcall_get_fs;
+		glfs_upcall_get_reason;
+		glfs_upcall_inode_get_event;
+		glfs_upcall_inode_get_object;
+		glfs_upcall_inode_get_flags;
+		glfs_upcall_inode_get_stat;
+		glfs_upcall_inode_get_expire;
+		glfs_upcall_inode_get_pobject;
+		glfs_upcall_inode_get_pstat;
+		glfs_upcall_inode_get_oldpobject;
+		glfs_upcall_inode_get_oldpstat;
+} GFAPI_3.7.15;
+
 GFAPI_4.0.0 {
 	global:
 		glfs_ipc;
-} GFAPI_3.7.15;
+} GFAPI_3.7.16;
