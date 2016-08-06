@@ -338,6 +338,27 @@ free:
 }
 
 
+/* Based on the mem-type that is used for the allocation, GF_FREE can be
+ * called, or something more intelligent for the structure can be done.
+ */
+int
+gf_get_mem_type (void *ptr)
+{
+        struct mem_acct   *mem_acct;
+        struct mem_header *header = NULL;
+
+        if (!ptr || !THIS->ctx->mem_acct_enable)
+                return 0;
+
+        header = (struct mem_header *) (ptr - GF_MEM_HEADER_SIZE);
+
+        /* Possible corruption, assert here */
+        GF_ASSERT (GF_MEM_HEADER_MAGIC == header->magic);
+
+        return header->type;
+}
+
+
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
