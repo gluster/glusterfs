@@ -35,6 +35,8 @@ glusterfs_ctx_new ()
 	ctx->daemon_pipe[0] = -1;
 	ctx->daemon_pipe[1] = -1;
 
+        ctx->log.loglevel = DEFAULT_LOG_LEVEL;
+
         /* lock is never destroyed! */
 	ret = LOCK_INIT (&ctx->lock);
 	if (ret) {

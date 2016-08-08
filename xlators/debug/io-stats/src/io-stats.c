@@ -3720,7 +3720,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("log-level", log_str, str, out);
         if (log_str) {
                 log_level = glusterd_check_log_level (log_str);
-                gf_log_set_loglevel (log_level);
+                if (DEFAULT_LOG_LEVEL != log_level)
+                        gf_log_set_loglevel (log_level);
         }
 
         GF_OPTION_INIT ("logger", logger_str, str, out);
