@@ -45,7 +45,7 @@ except ImportError:
 
 # auxiliary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
-GF_OP_RETRIES = 20
+GF_OP_RETRIES = 10
 
 CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
@@ -494,15 +494,18 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
 def lstat(e):
     return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE])
 
-class NoPurgeTimeAvailable(Exception):
+
+class NoStimeAvailable(Exception):
     pass
 
 
 class PartialHistoryAvailable(Exception):
     pass
 
+
 class ChangelogHistoryNotAvailable(Exception):
     pass
+
 
 class ChangelogException(OSError):
     pass

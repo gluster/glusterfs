@@ -52,6 +52,7 @@ def get_default_values():
         "slave_node": DEFAULT_STATUS,
         "worker_status": DEFAULT_STATUS,
         "last_synced": 0,
+        "last_synced_entry": 0,
         "crawl_status": DEFAULT_STATUS,
         "entry": 0,
         "data": 0,
@@ -239,6 +240,7 @@ class GeorepStatus(object):
         slave_node                 N/A        VALUE    VALUE       N/A
         status                     Created    VALUE    Paused      Stopped
         last_synced                N/A        VALUE    VALUE       VALUE
+        last_synced_entry          N/A        VALUE    VALUE       VALUE
         crawl_status               N/A        VALUE    N/A         N/A
         entry                      N/A        VALUE    N/A         N/A
         data                       N/A        VALUE    N/A         N/A

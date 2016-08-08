@@ -274,6 +274,28 @@ def main_i():
     op.add_option('--sync-acls', default=True, action='store_true')
     op.add_option('--log-rsync-performance', default=False,
                   action='store_true')
+    op.add_option('--max-rsync-retries', type=int, default=10)
+
+    # This is for stime granularity, Bigger batch will be split into
+    # multiple data batches, On failure it will start from this point
+    # Default value is 1 day changelogs
+    # (4 * 60 * 24 = 5760)
+    #    4 changelogs per minute
+    #   60 min per hr
+    #   24 hrs per day
+    op.add_option('--max-data-changelogs-in-batch', type=int, default=5760)
+
+    # While processing Historical Changelogs above BATCH SIZE is not considered
+    # since all Changelogs to be post processed once, Batching it makes more
+    # rsync retries. (4 * 60 * 24 * 15 = 86400)
+    #    4 changelogs per minute
+    #   60 min per hr
+    #   24 hrs per day
+    #   15 days
+    # This means 15 days changelogs can be processed at once in case of
+    # History scan
+    op.add_option('--max-history-changelogs-in-batch', type=int, default=86400)
+
     op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
