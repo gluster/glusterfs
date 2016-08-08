@@ -883,9 +883,22 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_iatt_merge (this, &local->postparent, postparent,
-                                prev->this);
+
+                /* Update stbuf from the servers where layout is present. This
+                 * is an indication that the server is not a newly added brick.
+                 * Merging stbuf from newly added brick may result in the added
+                 * brick being the source of heal for uid/gid */
+                if (!is_dir || (is_dir &&
+                    dht_dir_has_layout (xattr, conf->xattr_name) >= 0)
+                    || conf->subvolume_cnt == 1) {
+
+                        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                        dht_iatt_merge (this, &local->postparent, postparent,
+                                        prev->this);
+                } else {
+                        /* copy the gfid anyway */
+                        gf_uuid_copy (local->stbuf.ia_gfid, stbuf->ia_gfid);
+                }
 
                 local->op_ret = 0;
 
@@ -978,6 +991,19 @@ cont:
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 dht_set_fixed_dir_stat (&local->postparent);
+
+                /* local->stbuf is udpated only from subvols which have a layout
+                 * The reason is to avoid choosing attr heal source from newly
+                 * added bricks. In case e.g we have only one subvol and for
+                 * some reason layout is not present on it, then local->stbuf
+                 * will be EINVAL. This is an indication that the subvols
+                 * active in the cluster do not have layouts on disk.
+                 * Unwind with ESTALE to trigger a fresh lookup */
+                if (is_dir && local->stbuf.ia_type == IA_INVAL) {
+                        local->op_ret = -1;
+                        local->op_errno = ESTALE;
+                }
+
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
