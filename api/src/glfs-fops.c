@@ -1570,6 +1570,50 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, 3.4.0);
 
+int
+pub_glfs_truncate (struct glfs *fs, const char *path, off_t length)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        loc_t            loc = {0, };
+        struct iatt      iatt = {0, };
+        int              reval = 0;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+retry:
+        ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+
+        ESTALE_RETRY (ret, errno, reval, &loc, retry);
+
+        if (ret)
+                goto out;
+
+        ret = syncop_truncate (subvol, &loc, length, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        ESTALE_RETRY (ret, errno, reval, &loc, retry);
+out:
+        loc_wipe (&loc);
+
+        glfs_subvol_done (fs, subvol);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_truncate, 3.7.15);
+
+
 static int
 glfs_ftruncate_async_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno,
