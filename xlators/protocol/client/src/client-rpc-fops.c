@@ -2893,13 +2893,19 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        /* Preserve the op_errno received from the server */
         op_errno = gf_error_to_errno (rsp.op_errno);
 
-        if (rsp.op_ret == -1)
-                goto out;
-
         ret = client_post_lookup (this, &rsp, &stbuf, &postparent, &xdata);
-        if (ret < 0)
+        if (ret < 0) {
+                /* Don't change the op_errno if the fop failed on server */
+                if (rsp.op_ret == 0)
+                        op_errno = rsp.op_errno;
+                rsp.op_ret = -1;
+                goto out;
+        }
+
+        if (rsp.op_ret < 0)
                 goto out;
 
         if ((!gf_uuid_is_null (inode->gfid))
@@ -2918,6 +2924,7 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         rsp.op_ret = 0;
 
 out:
+        /* Restore the correct op_errno to rsp.op_errno */
         rsp.op_errno = op_errno;
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
