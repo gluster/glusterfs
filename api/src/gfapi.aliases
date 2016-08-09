@@ -33,7 +33,7 @@ _pub_glfs_pwritev _glfs_pwritev$GFAPI_3.4.0
 _pub_glfs_preadv_async _glfs_preadv_async$GFAPI_3.4.0
 _pub_glfs_pwritev_async _glfs_pwritev_async$GFAPI_3.4.0
 _pub_glfs_lseek _glfs_lseek$GFAPI_3.4.0
-_pub_glfs_truncate _glfs_truncate$GFAPI_3.4.0
+_pub_glfs_truncate _glfs_truncate$GFAPI_3.7.15
 _pub_glfs_ftruncate _glfs_ftruncate$GFAPI_3.4.0
 _pub_glfs_ftruncate_async _glfs_ftruncate_async$GFAPI_3.4.0
 _pub_glfs_lstat _glfs_lstat$GFAPI_3.4.0
