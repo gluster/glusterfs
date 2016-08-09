@@ -673,14 +673,14 @@ int glfs_fchown (glfs_fd_t *fd, uid_t uid, gid_t gid) __THROW
         GFAPI_PUBLIC(glfs_fchown, 3.4.0);
 
 int glfs_utimens (glfs_t *fs, const char *path,
-                  struct timespec times[2]) __THROW
+                  const struct timespec times[2]) __THROW
         GFAPI_PUBLIC(glfs_utimens, 3.4.0);
 
 int glfs_lutimens (glfs_t *fs, const char *path,
-                   struct timespec times[2]) __THROW
+                   const struct timespec times[2]) __THROW
         GFAPI_PUBLIC(glfs_lutimens, 3.4.0);
 
-int glfs_futimens (glfs_fd_t *fd, struct timespec times[2]) __THROW
+int glfs_futimens (glfs_fd_t *fd, const struct timespec times[2]) __THROW
         GFAPI_PUBLIC(glfs_futimens, 3.4.0);
 
 ssize_t glfs_getxattr (glfs_t *fs, const char *path, const char *name,
