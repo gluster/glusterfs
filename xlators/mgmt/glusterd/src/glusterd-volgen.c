@@ -1985,7 +1985,8 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto out;
         }
         if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE ||
-            volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
+            volinfo->type == GF_CLUSTER_TYPE_REPLICATE ||
+            volinfo->type == GF_CLUSTER_TYPE_NONE)) {
                 ret = xlator_set_option (xl, "xattrop-dirty-watchlist",
                                          "trusted.afr.dirty");
                 if (ret)
