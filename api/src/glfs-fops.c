@@ -3103,7 +3103,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fchown, 3.4.0);
 
 
 int
-pub_glfs_utimens (struct glfs *fs, const char *path, struct timespec times[2])
+pub_glfs_utimens (struct glfs *fs, const char *path,
+                  const struct timespec times[2])
 {
 	int              ret = -1;
 	int              valid = 0;
@@ -3125,7 +3126,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_utimens, 3.4.0);
 
 
 int
-pub_glfs_lutimens (struct glfs *fs, const char *path, struct timespec times[2])
+pub_glfs_lutimens (struct glfs *fs, const char *path,
+                   const struct timespec times[2])
 {
 	int              ret = -1;
 	int              valid = 0;
@@ -3147,7 +3149,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lutimens, 3.4.0);
 
 
 int
-pub_glfs_futimens (struct glfs_fd *glfd, struct timespec times[2])
+pub_glfs_futimens (struct glfs_fd *glfd, const struct timespec times[2])
 {
 	int              ret = -1;
 	int              valid = 0;
