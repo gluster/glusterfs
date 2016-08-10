@@ -3837,6 +3837,11 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                                                    GF_SHD_OP_SPLIT_BRAIN_FILES);
                                 goto done;
                         }
+                        if (!strcmp (words[4], "summary")) {
+                                ret = dict_set_int32 (dict, "heal-op",
+                                                   GF_SHD_OP_HEAL_SUMMARY);
+                                goto done;
+                        }
                 }
 
                 if (!strcmp (words[3], "statistics")) {
