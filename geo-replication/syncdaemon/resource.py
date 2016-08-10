@@ -816,7 +816,23 @@ class Server(object):
                     else:
                         if st.st_ino == st1.st_ino:
                             # we have a hard link, we can now unlink source
-                            os.unlink(entry)
+                            try:
+                                os.unlink(entry)
+                            except OSError as e:
+                                if e.errno == EISDIR:
+                                    try:
+                                        os.rmdir(entry)
+                                    except OSError as e:
+                                        if e.errno == ENOTEMPTY:
+                                            logging.error(
+                                                "Unable to delete directory "
+                                                "{0}, Both Old({1}) and New{2}"
+                                                " directories exists".format(
+                                                    entry, entry, en))
+                                        else:
+                                            raise
+                                else:
+                                    raise
                         else:
                             rename_with_disk_gfid_confirmation(gfid, entry, en)
             if blob:
