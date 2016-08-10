@@ -40,18 +40,25 @@ xmlDocPtr        glfsh_doc = NULL;
                         ret = 0;                                \
         } while (0)                                             \
 
-typedef int    (*print_status) (dict_t *, char *, uuid_t, uint64_t *,
+typedef struct num_entries {
+        uint64_t num_entries;
+        uint64_t pending_entries;
+        uint64_t spb_entries;
+        uint64_t possibly_healing_entries;
+} num_entries_t;
+
+typedef int    (*print_status) (dict_t *, char *, uuid_t, num_entries_t *,
                  gf_boolean_t flag);
 
 int glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol,
                                 loc_t *rootloc, char *file, dict_t *xattr_req);
-
 
 typedef struct glfs_info {
         int (*init)(void);
         int (*print_brick_from_xl)(xlator_t *xl, loc_t *rootloc);
         int (*print_heal_op_status)(int ret, uint64_t num_entries,
                         char *fmt_str);
+        int (*print_heal_op_summary)(int ret, num_entries_t *num_entries);
         void (*print_heal_status)(char *path, uuid_t gfid, char *status);
         void (*print_spb_status)(char *path, uuid_t gfid, char *status);
         int (*end) (int op_ret, char *op_errstr);
@@ -64,7 +71,7 @@ int32_t is_xml;
 #define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
                   "latest-mtime <FILE> | "\
                   "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "\
-                  "split-brain-info]\n"
+                  "split-brain-info | info-summary]\n"
 
 typedef enum {
         GLFSH_MODE_CONTINUE_ON_ERROR = 1,
@@ -259,6 +266,54 @@ out:
         return ret;
 }
 
+int
+glfsh_print_xml_heal_op_summary (int ret, num_entries_t *num_entries)
+{
+        if (ret < 0 && num_entries == 0) {
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"status",
+                                "%s", strerror (-ret));
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"totalNumberOfEntries", "-");
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesInHealPending", "-");
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesInSplitBrain", "-");
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesPossiblyHealing",
+                                "-");
+                goto out;
+        } else if (ret == 0) {
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                                 (xmlChar *)"status",
+                                                 "%s", "Connected");
+        }
+
+        if (ret < 0) {
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"status", "Failed to process entries"
+                                " completely. "
+                                "(%s)totalNumberOfEntries%"PRIu64"",
+                                strerror (-ret), num_entries->num_entries);
+        } else {
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"totalNumberOfEntries",
+                                "%"PRIu64"", num_entries->num_entries);
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesInHealPending",
+                                "%"PRIu64"", num_entries->pending_entries);
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesInSplitBrain",
+                                "%"PRIu64"", num_entries->spb_entries);
+                xmlTextWriterWriteFormatElement (glfsh_writer,
+                                (xmlChar *)"numberOfEntriesPossiblyHealing",
+                                "%"PRIu64"",
+                                num_entries->possibly_healing_entries);
+        }
+out:
+        return xmlTextWriterEndElement (glfsh_writer);
+}
+
 void
 glfsh_print_xml_file_status (char *path, uuid_t gfid, char *status)
 {
@@ -338,6 +393,39 @@ glfsh_no_print_hr_heal_op_status (int ret, uint64_t num_entries, char *fmt_str)
 }
 
 int
+glfsh_print_hr_heal_op_summary (int ret, num_entries_t *num_entries)
+{
+        if (ret < 0 && num_entries->num_entries == 0) {
+                printf ("Status: %s\n", strerror (-ret));
+                printf ("Total Number of entries: -\n");
+                printf ("Number of entries in heal pending: -\n");
+                printf ("Number of entries in split-brain: -\n");
+                printf ("Number of entries possibly healing: -\n");
+                goto out;
+        } else if (ret == 0) {
+                printf ("Status: Connected\n");
+        }
+
+        if (ret < 0) {
+                printf ("Status: Failed to process entries completely. "
+                        "(%s)\nTotal Number of entries: %"PRIu64"\n",
+                        strerror (-ret), num_entries->num_entries);
+        } else {
+                printf ("Total Number of entries: %"PRIu64"\n",
+                        num_entries->num_entries);
+                printf ("Number of entries in heal pending: %"PRIu64"\n",
+                        num_entries->pending_entries);
+                printf ("Number of entries in split-brain: %"PRIu64"\n",
+                        num_entries->spb_entries);
+                printf ("Number of entries possibly healing: %"PRIu64"\n",
+                        num_entries->possibly_healing_entries);
+        }
+out:
+        printf ("\n");
+        return 0;
+}
+
+int
 glfsh_print_hr_heal_op_status (int ret, uint64_t num_entries, char *fmt_str)
 {
         if (ret < 0 && num_entries == 0) {
@@ -361,6 +449,13 @@ glfsh_print_hr_heal_op_status (int ret, uint64_t num_entries, char *fmt_str)
 out:
         printf ("\n");
         return 0;
+}
+
+int
+glfsh_print_info_summary (int ret, num_entries_t *num_entries)
+{
+        return glfsh_output->print_heal_op_summary (ret, num_entries);
+
 }
 
 int
@@ -430,7 +525,8 @@ _get_ancestor (xlator_t *xl, gf_xl_afr_op_t heal_op)
                                          NULL};
         char **ancestors = NULL;
 
-        if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
+        if (heal_op == GF_SHD_OP_INDEX_SUMMARY ||
+            heal_op == GF_SHD_OP_HEAL_SUMMARY)
                 ancestors = heal_xls;
         else
                 ancestors = replica_xl;
@@ -465,8 +561,35 @@ glfsh_index_purge (xlator_t *subvol, inode_t *inode, char *name)
 }
 
 int
+glfsh_print_summary_status (dict_t *dict, char *path, uuid_t gfid,
+                            num_entries_t *num_entries, gf_boolean_t flag)
+{
+        int     ret     = 0;
+        char    *value  = NULL;
+
+        ret = dict_get_str (dict, "heal-info", &value);
+        if (ret)
+                goto out;
+
+        if ((!strcmp (value, "heal")) || (!strcmp (value, "heal-pending"))) {
+                (num_entries->pending_entries)++;
+        } else if ((!strcmp (value, "split-brain")) ||
+                        (!strcmp (value, "split-brain-pending"))) {
+                (num_entries->spb_entries)++;
+        } else if ((!strcmp (value, "possibly-healing-pending")) ||
+                        (!strcmp (value, "possibly-healing"))) {
+                (num_entries->possibly_healing_entries)++;
+        } else {
+                goto out;
+        }
+        (num_entries->num_entries)++;
+out:
+        return ret;
+}
+
+int
 glfsh_print_spb_status (dict_t *dict, char *path, uuid_t gfid,
-                        uint64_t *num_entries, gf_boolean_t flag)
+                        num_entries_t *num_entries, gf_boolean_t flag)
 {
         int   ret    = 0;
         gf_boolean_t    pending         = _gf_false;
@@ -492,7 +615,7 @@ glfsh_print_spb_status (dict_t *dict, char *path, uuid_t gfid,
          */
         if (split_b) {
                 if (!flag || (flag && !pending)) {
-                        (*num_entries)++;
+                        (num_entries->num_entries)++;
                         glfsh_output->print_spb_status (path ? path :
                                                 uuid_utoa_r (gfid, gfid_str),
                                                 gfid, NULL);
@@ -503,7 +626,8 @@ glfsh_print_spb_status (dict_t *dict, char *path, uuid_t gfid,
 
 int
 glfsh_print_heal_status (dict_t *dict, char *path, uuid_t gfid,
-                         uint64_t *num_entries, gf_boolean_t ignore_dirty)
+                         num_entries_t *num_entries,
+                         gf_boolean_t ignore_dirty)
 {
         int             ret             = 0;
         gf_boolean_t    pending         = _gf_false;
@@ -562,7 +686,7 @@ out:
         if (ret == -1)
                 status = NULL;
 
-        (*num_entries)++;
+        (num_entries->num_entries)++;
         glfsh_output->print_heal_status (path ? path :
                                          uuid_utoa_r (gfid, gfid_str),
                                          gfid,
@@ -574,7 +698,7 @@ out:
 
 int
 glfsh_heal_status_boolean (dict_t *dict, char *path, uuid_t gfid,
-                           uint64_t *num_entries, gf_boolean_t ignore_dirty)
+                           num_entries_t *num_entries, gf_boolean_t ignore_dirty)
 {
         int             ret             = 0;
         char            *value          = NULL;
@@ -589,7 +713,7 @@ glfsh_heal_status_boolean (dict_t *dict, char *path, uuid_t gfid,
 static int
 glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                     gf_dirent_t *entries,  uint64_t *offset,
-                    uint64_t *num_entries, dict_t *xattr_req) {
+                    num_entries_t *num_entries, dict_t *xattr_req) {
 
         gf_dirent_t      *entry          = NULL;
         gf_dirent_t      *tmp            = NULL;
@@ -607,7 +731,7 @@ glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                  xattr_req);
                 if (ret)
                         continue;
-                (*num_entries)++;
+                (num_entries->num_entries)++;
         }
 
         return ret;
@@ -615,7 +739,7 @@ glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 
 static int
 glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
-                       uint64_t *offset, uint64_t *num_entries,
+                       uint64_t *offset, num_entries_t *num_entries,
                        print_status glfsh_print_status,
                        gf_boolean_t ignore_dirty, glfsh_fail_mode_t mode)
 {
@@ -687,7 +811,7 @@ out:
 static int
 glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                        xlator_t *readdir_xl, fd_t *fd, loc_t *loc,
-                       dict_t *xattr_req, uint64_t *num_entries,
+                       dict_t *xattr_req, num_entries_t *num_entries,
                        gf_boolean_t ignore)
 {
         int             ret          = 0;
@@ -729,6 +853,14 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                      &entries, &offset,
                                                      num_entries,
                                                      glfsh_print_spb_status,
+                                                     ignore, mode);
+                        if (ret < 0)
+                                goto out;
+                } else if (heal_op == GF_SHD_OP_HEAL_SUMMARY) {
+                        ret = glfsh_process_entries (readdir_xl, fd,
+                                                     &entries, &offset,
+                                                     num_entries,
+                                                     glfsh_print_summary_status,
                                                      ignore, mode);
                         if (ret < 0)
                                 goto out;
@@ -786,7 +918,7 @@ int
 glfsh_print_pending_heals_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                 xlator_t *xl, gf_xl_afr_op_t heal_op,
                                 dict_t *xattr_req, char *vgfid,
-                                uint64_t *num_entries)
+                                num_entries_t *num_entries)
 {
         int ret = 0;
         loc_t   dirloc = {0};
@@ -827,7 +959,8 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                            is_parent_replicate)
 {
         int ret = 0;
-        uint64_t count = 0, total = 0;
+        num_entries_t num_entries = {0, };
+        num_entries_t total = {0, };
 
         dict_t *xattr_req = NULL;
 
@@ -851,13 +984,20 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
 
         ret = glfsh_print_pending_heals_type (fs, top_subvol, rootloc, xl,
                                               heal_op, xattr_req,
-                                              GF_XATTROP_INDEX_GFID, &count);
+                                              GF_XATTROP_INDEX_GFID,
+                                              &num_entries);
 
         if (ret < 0 && heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE)
                 goto out;
 
-        total += count;
-        count = 0;
+        total.num_entries += num_entries.num_entries;
+        total.pending_entries += num_entries.pending_entries;
+        total.spb_entries += num_entries.spb_entries;
+        total.possibly_healing_entries += num_entries.possibly_healing_entries;
+        num_entries.num_entries = 0;
+        num_entries.pending_entries = 0;
+        num_entries.spb_entries = 0;
+        num_entries.possibly_healing_entries = 0;
         if (ret == -ENOTCONN)
                 goto out;
 
@@ -866,13 +1006,20 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                       rootloc, xl,
                                                       heal_op, xattr_req,
                                                       GF_XATTROP_DIRTY_GFID,
-                                                      &count);
-                total += count;
+                                                      &num_entries);
+                total.num_entries += num_entries.num_entries;
+                total.pending_entries += num_entries.pending_entries;
+                total.spb_entries += num_entries.spb_entries;
+                total.possibly_healing_entries += num_entries.possibly_healing_entries;
         }
 out:
         if (xattr_req)
                 dict_unref (xattr_req);
-        glfsh_print_heal_op_status (ret, total, heal_op);
+        if (heal_op == GF_SHD_OP_HEAL_SUMMARY) {
+                glfsh_print_info_summary (ret, &total);
+        } else {
+                glfsh_print_heal_op_status (ret, total.num_entries, heal_op);
+        }
         return ret;
 
 }
@@ -1193,7 +1340,7 @@ int
 glfsh_heal_from_brick_type (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                             char *hostname, char *brickpath, xlator_t *client,
                             dict_t *xattr_req, char *vgfid,
-                            uint64_t *num_entries)
+                            num_entries_t *num_entries)
 {
         fd_t     *fd        = NULL;
         loc_t     dirloc    = {0};
@@ -1229,9 +1376,10 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                       char *hostname, char *brickpath, char *file)
 {
         int       ret       = -1;
-        uint64_t   count     = 0, total = 0;
         dict_t   *xattr_req = NULL;
         xlator_t *client    = NULL;
+        num_entries_t num_entries = {0, };
+        num_entries_t total = {0, };
 
         xattr_req = dict_new();
         if (!xattr_req)
@@ -1258,9 +1406,9 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                   hostname, brickpath,
                                                   client, xattr_req,
                                                   GF_XATTROP_INDEX_GFID,
-                                                  &count);
-                total += count;
-                count = 0;
+                                                  &num_entries);
+                total.num_entries += num_entries.num_entries;
+                num_entries.num_entries = 0;
                 if (ret == -ENOTCONN)
                         goto out;
 
@@ -1268,8 +1416,8 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                   hostname, brickpath,
                                                   client, xattr_req,
                                                   GF_XATTROP_DIRTY_GFID,
-                                                  &count);
-                total += count;
+                                                  &num_entries);
+                total.num_entries += num_entries.num_entries;
                 if (ret < 0)
                         goto out;
         }
@@ -1277,7 +1425,7 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
         if (!file)
-                glfsh_print_heal_op_status (ret, total,
+                glfsh_print_heal_op_status (ret, total.num_entries,
                                             GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
 
         return ret;
@@ -1326,6 +1474,7 @@ glfsh_info_t glfsh_human_readable = {
         .init = glfsh_init,
         .print_brick_from_xl = glfsh_print_brick_from_xl,
         .print_heal_op_status = glfsh_print_hr_heal_op_status,
+        .print_heal_op_summary = glfsh_print_hr_heal_op_summary,
         .print_heal_status = glfsh_print_hr_heal_status,
         .print_spb_status = glfsh_print_hr_spb_status,
         .end = glfsh_end
@@ -1345,6 +1494,7 @@ glfsh_info_t glfsh_xml_output = {
         .init = glfsh_xml_init,
         .print_brick_from_xl = glfsh_print_xml_brick_from_xl,
         .print_heal_op_status = glfsh_print_xml_heal_op_status,
+        .print_heal_op_summary = glfsh_print_xml_heal_op_summary,
         .print_heal_status = glfsh_print_xml_file_status,
         .print_spb_status = glfsh_print_xml_file_status,
         .end = glfsh_xml_end
@@ -1385,6 +1535,8 @@ main (int argc, char **argv)
                         is_xml = 1;
                 } else if (!strcmp (argv[2], "granular-entry-heal-op")) {
                         heal_op = GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE;
+		} else if (!strcmp (argv[2], "info-summary")) {
+                        heal_op = GF_SHD_OP_HEAL_SUMMARY;
                 } else {
                         printf (USAGE_STR, argv[0]);
                         ret = -1;
@@ -1395,6 +1547,10 @@ main (int argc, char **argv)
                 if ((!strcmp (argv[2], "split-brain-info"))
                                 && (!strcmp (argv[3], "xml"))) {
                         heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
+                        is_xml = 1;
+                } else if ((!strcmp (argv[2], "info-summary"))
+                                && (!strcmp (argv[3], "xml"))) {
+                        heal_op = GF_SHD_OP_HEAL_SUMMARY;
                         is_xml = 1;
                 } else if (!strcmp (argv[2], "bigger-file")) {
                         heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
@@ -1517,7 +1673,8 @@ main (int argc, char **argv)
         if (ret < 0) {
                 ret = -EINVAL;
                 gf_asprintf (&op_errstr, "Volume %s is not of type %s", volname,
-                                     (heal_op == GF_SHD_OP_INDEX_SUMMARY) ?
+                                     (heal_op == GF_SHD_OP_INDEX_SUMMARY ||
+                                      heal_op == GF_SHD_OP_HEAL_SUMMARY) ?
                                      "replicate/disperse":"replicate");
                 goto out;
         }
@@ -1528,6 +1685,7 @@ main (int argc, char **argv)
         case GF_SHD_OP_INDEX_SUMMARY:
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE:
+        case GF_SHD_OP_HEAL_SUMMARY:
                 ret = glfsh_gather_heal_info (fs, top_subvol, &rootloc,
                                               heal_op);
                 break;

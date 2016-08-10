@@ -2770,7 +2770,8 @@ cli_print_brick_status (cli_volume_status_t *status)
                              (op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) ||      \
                              (op == GF_SHD_OP_INDEX_SUMMARY) ||               \
                              (op == GF_SHD_OP_SPLIT_BRAIN_FILES) ||           \
-                             (op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE))
+                             (op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) || \
+                             (op == GF_SHD_OP_HEAL_SUMMARY))
 
 int
 cli_launch_glfs_heal (int heal_op, dict_t *options)
@@ -2822,6 +2823,12 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE:
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE:
                 runner_add_args (&runner, "granular-entry-heal-op", NULL);
+                break;
+        case GF_SHD_OP_HEAL_SUMMARY:
+                runner_add_args (&runner, "info-summary", NULL);
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        runner_add_args (&runner, "xml", NULL);
+                }
                 break;
         default:
                 ret = -1;
@@ -3295,7 +3302,7 @@ struct cli_cmd volume_cmds[] = {
 
         { "volume heal <VOLNAME> [enable | disable | full |"
           "statistics [heal-count [replica <HOSTNAME:BRICKNAME>]] |"
-          "info [healed | heal-failed | split-brain] |"
+          "info [summary | healed | heal-failed | split-brain] |"
           "split-brain {bigger-file <FILE> | latest-mtime <FILE> |"
                        "source-brick <HOSTNAME:BRICKNAME> [<FILE>]} |"
           "granular-entry-heal {enable | disable}]",

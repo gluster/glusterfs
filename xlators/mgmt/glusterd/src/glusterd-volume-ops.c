@@ -1857,6 +1857,7 @@ glusterd_handle_heal_cmd (xlator_t *this, glusterd_volinfo_t *volinfo,
         case GF_SHD_OP_HEAL_DISABLE:/* This op should be handled in volume-set*/
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE: /* This op should be handled in volume-set */
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE: /* This op should be handled in volume-set */
+        case GF_SHD_OP_HEAL_SUMMARY:/*glfsheal cmd*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:/*glfsheal cmd*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:/*glfsheal cmd*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:/*glfsheal cmd*/
