@@ -2855,8 +2855,7 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         /* hmmm... no check for this */
         /* name format: <passed in path/filename>.<xlator name slashes to -> */
         namelen = value->len + strlen (this->name) + 2; /* '.' and '\0' */
-        filename = alloca (namelen);
-        memset (filename, 0, namelen);
+        filename = alloca0 (namelen);
         memcpy (filename, data_to_str (value), value->len);
         memcpy (filename + value->len, ".", 1);
         memcpy (filename + value->len + 1, this->name, strlen(this->name));
