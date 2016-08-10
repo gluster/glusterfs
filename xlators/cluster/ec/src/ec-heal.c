@@ -26,7 +26,6 @@
 #include "syncop-utils.h"
 #include "cluster-syncop.h"
 
-#define alloca0(size) ({void *__ptr; __ptr = alloca(size); memset(__ptr, 0, size); __ptr; })
 #define EC_COUNT(array, max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res; })
 #define EC_INTERSECT(dst, src1, src2, max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i]; })
 #define EC_ADJUST_SOURCE(source, sources, max) ({int __i; if (sources[source] == 0) {source = -1; for (__i = 0; __i < max; __i++) if (sources[__i]) source = __i; } })

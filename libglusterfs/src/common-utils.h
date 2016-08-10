@@ -44,6 +44,8 @@ void trap (void);
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)
 
+#define alloca0(size) ({void *__ptr; __ptr = alloca(size); memset(__ptr, 0, size); __ptr; })
+
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
