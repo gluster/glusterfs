@@ -9345,7 +9345,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 break;
         default:
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_COMMAND_NOT_FOUND, "Unkown snapshot request "
+                        GD_MSG_COMMAND_NOT_FOUND, "Unknown snapshot request "
                         "type (%d)", type);
                 ret = -1; /* Failure */
         }
