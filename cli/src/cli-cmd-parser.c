@@ -2814,10 +2814,6 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                         ret = -1;
                         goto out;
                 }
-                if (!slavei || !masteri) {
-                        ret = -1;
-                        goto out;
-                }
                 ret = dict_set_uint32 (dict, "reset-sync-time", _gf_true);
                 if (ret)
                         goto out;

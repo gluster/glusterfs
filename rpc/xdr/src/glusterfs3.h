@@ -371,8 +371,6 @@ gf_proto_cache_invalidation_from_upcall (xlator_t *this,
         ret = 0;
         GF_PROTOCOL_DICT_SERIALIZE (this, gf_c_data->dict, &(gf_c_req->xdata).xdata_val,
                                     (gf_c_req->xdata).xdata_len, ret, out);
-        if (ret > 0)
-                ret = -ret;
 out:
         return ret;
 }
