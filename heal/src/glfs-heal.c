@@ -263,15 +263,11 @@ print:
                         (xmlChar *)"hostUuid", "%s", uuid?uuid:"-");
         XML_RET_CHECK_AND_GOTO (x_ret, xml_out);
 
-        if (ret < 0) {
-                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
-                        (xmlChar *)"name", "%s", "information not available");
-                XML_RET_CHECK_AND_GOTO (x_ret, xml_out);
-        } else {
-                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
-                        (xmlChar *)"name", "%s:%s", remote_host, remote_subvol);
-                XML_RET_CHECK_AND_GOTO (x_ret, xml_out);
-        }
+        x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
+                        (xmlChar *)"name", "%s:%s",
+                        remote_host ? remote_host : "-",
+                        remote_subvol ? remote_subvol : "-");
+        XML_RET_CHECK_AND_GOTO (x_ret, xml_out);
 xml_out:
         return ret;
 }
