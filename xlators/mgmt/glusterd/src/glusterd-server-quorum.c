@@ -339,11 +339,13 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                         GD_MSG_SERVER_QUORUM_MET_STARTING_BRICKS,
                         "Server quorum regained for volume %s. Starting local "
                         "bricks.", volinfo->volname);
+                gf_event (EVENT_QUORUM_REGAINED, "volume=%s", volinfo->volname);
         } else if (quorum_status == DOESNT_MEET_QUORUM) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_SERVER_QUORUM_LOST_STOPPING_BRICKS,
                         "Server quorum lost for volume %s. Stopping local "
                         "bricks.", volinfo->volname);
+                gf_event (EVENT_QUORUM_LOST, "volume=%s", volinfo->volname);
         }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {

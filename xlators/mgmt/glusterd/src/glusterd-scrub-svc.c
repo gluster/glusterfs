@@ -101,6 +101,8 @@ glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags)
         }
 
 out:
+        if (ret)
+                gf_event (EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;

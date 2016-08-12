@@ -1128,7 +1128,7 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DEFRAG_STATUS_UPDATE_FAIL,
                         "Failed to update status");
-                gf_event (EVENT_DEFRAG_STATUS_UPDATE_FAILED, "volume=%s",
+                gf_event (EVENT_REBALANCE_STATUS_UPDATE_FAILED, "volume=%s",
                           volinfo->volname);
         }
 

@@ -316,6 +316,7 @@ glusterd_svc_common_rpc_notify (glusterd_conn_t *conn,
         case RPC_CLNT_CONNECT:
                 gf_msg_debug (this->name, 0, "%s has connected with "
                         "glusterd.", svc->name);
+                gf_event (EVENT_SVC_CONNECTED, "svc_name=%s", svc->name);
                 svc->online =  _gf_true;
                 break;
 
@@ -324,6 +325,8 @@ glusterd_svc_common_rpc_notify (glusterd_conn_t *conn,
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 GD_MSG_NODE_DISCONNECTED, "%s has disconnected "
                                 "from glusterd.", svc->name);
+                        gf_event (EVENT_SVC_DISCONNECTED, "svc_name=%s",
+                                  svc->name);
                         svc->online =  _gf_false;
                 }
                 break;

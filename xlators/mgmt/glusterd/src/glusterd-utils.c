@@ -2985,6 +2985,10 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
+        if (ret) {
+                gf_event (EVENT_COMPARE_FRIEND_VOLUME_FAILED, "volume=%s",
+                          volinfo->volname);
+        }
         gf_msg_debug (this->name, 0, "Returning with ret: %d, status: %d",
                 ret, *status);
         return ret;
@@ -3203,9 +3207,12 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
 
         *brickinfo = new_brickinfo;
 out:
-        if (msg[0])
+        if (msg[0]) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_IMPORT_FAIL, "%s", msg);
+                gf_event (EVENT_IMPORT_BRICK_FAILED, "peer=%s;brick=%s",
+                          new_brickinfo->hostname, new_brickinfo->path);
+        }
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
@@ -3811,9 +3818,12 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         *volinfo = new_volinfo;
 out:
-        if (msg[0])
+        if (msg[0]) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_VOLINFO_IMPORT_FAIL, "%s", msg);
+                gf_event (EVENT_IMPORT_VOLUME_FAILED, "volume=%s",
+                          new_volinfo->volname);
+        }
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
@@ -4126,11 +4136,17 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         }
 
         if (glusterd_is_volume_started (new_volinfo)) {
-                (void) glusterd_start_bricks (new_volinfo);
+                if (glusterd_start_bricks (new_volinfo)) {
+                        gf_event (EVENT_BRICKS_START_FAILED, "volume=%s",
+                                  new_volinfo->volname);
+                }
                 if (glusterd_is_snapd_enabled (new_volinfo)) {
                         svc = &(new_volinfo->snapd.svc);
-                        (void) svc->manager (svc, new_volinfo,
-                                             PROC_START_NO_WAIT);
+                        if (svc->manager (svc, new_volinfo,
+                                          PROC_START_NO_WAIT)){
+                                gf_event (EVENT_SVC_MANAGER_FAILED,
+                                          "svc_name=%s", svc->name);
+                        }
                 }
         }
 
@@ -4156,6 +4172,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                                 " ret: %d for volume %s ganesha.enable %s",
                                 ret, new_volinfo->volname,
                                 value);
+                        gf_event (EVENT_NFS_GANESHA_EXPORT_FAILED, "volume=%s",
+                                  new_volinfo->volname);
                         goto out;
                 }
         }
@@ -4173,9 +4191,11 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         ret = glusterd_import_quota_conf (peer_data, count,
                                           new_volinfo, "volume");
-        if (ret)
+        if (ret) {
+                gf_event (EVENT_IMPORT_QUOTA_CONF_FAILED, "volume=%s",
+                          new_volinfo->volname);
                 goto out;
-
+        }
         glusterd_list_add_order (&new_volinfo->vol_list, &priv->volumes,
                                  glusterd_compare_volume_name);
 
@@ -4392,7 +4412,9 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                 if (ret)
                         goto out;
 
-                glusterd_svcs_manager (NULL);
+                if (glusterd_svcs_manager (NULL)) {
+                        gf_event (EVENT_SVC_MANAGER_FAILED, "");
+                }
         }
 
 out:
@@ -4860,6 +4882,10 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 GD_MSG_RESOLVE_BRICK_FAIL,
                                 FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
+                        gf_event (EVENT_BRICKPATH_RESOLVE_FAILED,
+                                  "peer=%s;volume=%s;brick=%s",
+                                  brickinfo->hostname, volinfo->volname,
+                                  brickinfo->path);
                         goto out;
                 }
         }
@@ -4874,6 +4900,9 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                         GD_MSG_BRICK_DISCONNECTED,
                         "Unable to start brick %s:%s",
                         brickinfo->hostname, brickinfo->path);
+                gf_event (EVENT_BRICK_START_FAILED,
+                         "peer=%s;volume=%s;brick=%s", brickinfo->hostname,
+                         volinfo->volname, brickinfo->path);
                 goto out;
         }
 
@@ -4914,7 +4943,9 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         continue;
                 if (start_svcs == _gf_false) {
                         start_svcs = _gf_true;
-                        glusterd_svcs_manager (NULL);
+                        if (glusterd_svcs_manager (NULL)) {
+                                gf_event (EVENT_SVC_MANAGER_FAILED, "");
+                        }
                 }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
@@ -4964,7 +4995,9 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         }
                         if (start_svcs == _gf_false) {
                                 start_svcs = _gf_true;
-                                glusterd_svcs_manager (volinfo);
+                                if (glusterd_svcs_manager (volinfo)) {
+                                        gf_event (EVENT_SVC_MANAGER_FAILED, "");
+                                }
                         }
                         start_svcs = _gf_true;
                         gf_msg_debug (this->name, 0, "starting the snap "
@@ -7369,6 +7402,8 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                                         "Failed to initialize  defrag."
                                         "Not starting rebalance process for "
                                         "%s.", volinfo->volname);
+                                gf_event (EVENT_REBALANCE_START_FAILED,
+                                          "volume=%s", volinfo->volname);
                                 goto out;
                         }
                         ret = glusterd_rebalance_rpc_create (volinfo, _gf_true);
@@ -7377,8 +7412,11 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
         case GF_DEFRAG_STATUS_NOT_STARTED:
                 ret = glusterd_handle_defrag_start (volinfo, op_errstr, len,
                                 cmd, cbk, volinfo->rebal.op);
-                if (ret)
+                if (ret) {
                         volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_FAILED;
+                        gf_event (EVENT_REBALANCE_START_FAILED,
+                                  "volume=%s", volinfo->volname);
+                }
                 break;
         default:
                 gf_msg (this->name, GF_LOG_ERROR, 0,

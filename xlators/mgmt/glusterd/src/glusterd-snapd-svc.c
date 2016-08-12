@@ -204,6 +204,10 @@ glusterd_snapdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
         }
 
 out:
+        if (ret) {
+                gf_event (EVENT_SVC_MANAGER_FAILED, "volume=%s;svc_name=%s",
+                          volinfo->volname, svc->name);
+        }
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
@@ -347,6 +351,9 @@ glusterd_snapdsvc_restart ()
                                         GD_MSG_SNAPD_START_FAIL,
                                         "Couldn't resolve snapd for "
                                         "vol: %s on restart", volinfo->volname);
+                                gf_event (EVENT_SVC_MANAGER_FAILED,
+                                          "volume=%s;svc_name=%s",
+                                          volinfo->volname, svc->name);
                                 goto out;
                         }
                 }
@@ -373,11 +380,28 @@ glusterd_snapdsvc_rpc_notify (glusterd_conn_t *conn, rpc_clnt_event_t event)
                         GD_MSG_SVC_GET_FAIL, "Failed to get the service");
                 return -1;
         }
+        snapd = cds_list_entry (svc, glusterd_snapdsvc_t, svc);
+        if (!snapd) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPD_OBJ_GET_FAIL, "Failed to get the "
+                        "snapd object");
+                return -1;
+        }
+
+        volinfo = cds_list_entry (snapd, glusterd_volinfo_t, snapd);
+        if (!volinfo) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "Failed to get the "
+                        "volinfo object");
+                return -1;
+        }
 
         switch (event) {
         case RPC_CLNT_CONNECT:
                 gf_msg_debug (this->name, 0, "%s has connected with "
                         "glusterd.", svc->name);
+                gf_event (EVENT_SVC_CONNECTED, "volume=%s;svc_name=%s",
+                          volinfo->volname, svc->name);
                 svc->online =  _gf_true;
                 break;
 
@@ -386,26 +410,14 @@ glusterd_snapdsvc_rpc_notify (glusterd_conn_t *conn, rpc_clnt_event_t event)
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 GD_MSG_NODE_DISCONNECTED, "%s has disconnected "
                                 "from glusterd.", svc->name);
+                        gf_event (EVENT_SVC_DISCONNECTED,
+                                  "volume=%s;svc_name=%s", volinfo->volname,
+                                  svc->name);
                         svc->online =  _gf_false;
                 }
                 break;
 
         case RPC_CLNT_DESTROY:
-                snapd = cds_list_entry (svc, glusterd_snapdsvc_t, svc);
-                if (!snapd) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SNAPD_OBJ_GET_FAIL, "Failed to get the "
-                                "snapd object");
-                        return -1;
-                }
-
-                volinfo = cds_list_entry (snapd, glusterd_volinfo_t, snapd);
-                if (!volinfo) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_VOLINFO_GET_FAIL, "Failed to get the "
-                                "volinfo object");
-                        return -1;
-                }
                 glusterd_volinfo_unref (volinfo);
 
         default:
