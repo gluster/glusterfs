@@ -1173,6 +1173,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         char                 *pgfid_xattr_key = NULL;
         gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
         gf_boolean_t          linked          = _gf_false;
+        gf_loglevel_t         level           = GF_LOG_NONE;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1251,9 +1252,11 @@ real_op:
                         }
                         close (tmp_fd);
                 } else {
-
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_MKNOD_FAILED,
+                        if (op_errno == EEXIST)
+                                level = GF_LOG_DEBUG;
+                        else
+                                level = GF_LOG_ERROR;
+                        gf_msg (this->name, level, errno, P_MSG_MKNOD_FAILED,
                                 "mknod on %s failed", real_path);
                         goto out;
                 }
