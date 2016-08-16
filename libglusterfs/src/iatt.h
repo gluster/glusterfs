@@ -12,6 +12,9 @@
 #ifndef _IATT_H
 #define _IATT_H
 
+#if defined(GF_LINUX_HOST_OS)
+#include <sys/sysmacros.h> /* for makedev(3), major(3), minor(3) */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h> /* for iatt <--> stat conversions */
 #include <unistd.h>
