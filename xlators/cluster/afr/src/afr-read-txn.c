@@ -217,6 +217,12 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 goto read;
         }
 
+        if (!afr_is_consistent_io_possible (local, priv, &local->op_errno)) {
+                local->op_ret = -1;
+                read_subvol = -1;
+                goto read;
+        }
+
 	local->transaction.type = type;
         ret = afr_inode_read_subvol_get (inode, this, data, metadata,
                                          &event_generation);

@@ -152,6 +152,7 @@ typedef struct _afr_private {
 	gf_boolean_t           use_afr_in_pump;
 	char                   *locking_scheme;
         gf_boolean_t            esh_granular;
+        gf_boolean_t           consistent_io;
 } afr_private_t;
 
 
@@ -663,6 +664,10 @@ typedef struct _afr_local {
                 } inodelk;
 
                 struct {
+                        entrylk_cmd cmd;
+                } entrylk;
+
+                struct {
                         off_t offset;
                         gf_seek_what_t what;
                 } seek;
@@ -965,16 +970,25 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this);
 int
 afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 
-#define AFR_STACK_UNWIND(fop, frame, params ...)                \
+#define AFR_STACK_UNWIND(fop, frame, op_ret, op_errno, params ...)\
         do {                                                    \
                 afr_local_t *__local = NULL;                    \
                 xlator_t    *__this = NULL;                     \
+                int32_t     __op_ret   = 0;                     \
+                int32_t     __op_errno = 0;                     \
+                                                                \
+                __op_ret = op_ret;                              \
+                __op_errno = op_errno;                          \
                 if (frame) {                                    \
                         __local = frame->local;                 \
                         __this = frame->this;                   \
+                        afr_handle_inconsistent_fop (frame, &__op_ret,\
+                                                     &__op_errno);\
                         frame->local = NULL;                    \
                 }                                               \
-                STACK_UNWIND_STRICT (fop, frame, params);       \
+                                                                \
+                STACK_UNWIND_STRICT (fop, frame, __op_ret,      \
+                                     __op_errno, params);       \
                 if (__local) {                                  \
                         afr_local_cleanup (__local, __this);    \
                         mem_put (__local);                      \
@@ -1160,4 +1174,11 @@ afr_get_msg_id (char *op_type);
 int
 afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                              inode_t *inode);
+
+gf_boolean_t
+afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
+                               int32_t *op_errno);
+void
+afr_handle_inconsistent_fop (call_frame_t *frame, int32_t *op_ret,
+                             int32_t *op_errno);
 #endif /* __AFR_H__ */

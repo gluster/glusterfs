@@ -93,11 +93,11 @@
 
 /*!
  * @messageid 108006
- * @diagnosis All bricks of a replica set are down. Data residing in that
+ * @diagnosis bricks of a replica set are down. Data residing in that
  * replica cannot be accessed until one of the bricks come back up.
  * @recommendedaction Ensure that the bricks are up.
  */
-#define AFR_MSG_ALL_SUBVOLS_DOWN        (GLFS_COMP_BASE_AFR + 6)
+#define AFR_MSG_SUBVOLS_DOWN            (GLFS_COMP_BASE_AFR + 6)
 
 
 /*!

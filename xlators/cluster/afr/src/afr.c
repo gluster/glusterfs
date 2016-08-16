@@ -132,6 +132,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int            index       = -1;
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
+        gf_boolean_t   consistent_io = _gf_false;
 
         priv = this->private;
 
@@ -257,6 +258,11 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
 
         priv->did_discovery = _gf_false;
+
+        GF_OPTION_RECONF ("consistent-io", consistent_io, options, bool, out);
+        if (priv->quorum_count != 0)
+                consistent_io = _gf_false;
+        priv->consistent_io = consistent_io;
 
         ret = 0;
 out:
@@ -494,6 +500,10 @@ init (xlator_t *this)
         GF_OPTION_INIT ("quorum-reads", priv->quorum_reads, bool, out);
         GF_OPTION_INIT ("consistent-metadata", priv->consistent_metadata, bool,
                         out);
+        GF_OPTION_INIT ("consistent-io", priv->consistent_io, bool, out);
+
+        if (priv->quorum_count != 0)
+                priv->consistent_io = _gf_false;
 
         priv->wait_count = 1;
 
@@ -594,14 +604,11 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
         .lookup      = afr_lookup,
-        .open        = afr_open,
         .lk          = afr_lk,
         .flush       = afr_flush,
         .statfs      = afr_statfs,
         .fsync       = afr_fsync,
         .fsyncdir    = afr_fsyncdir,
-        .xattrop     = afr_xattrop,
-        .fxattrop    = afr_fxattrop,
         .inodelk     = afr_inodelk,
         .finodelk    = afr_finodelk,
         .entrylk     = afr_entrylk,
@@ -629,9 +636,14 @@ struct xlator_fops fops = {
         .fallocate   = afr_fallocate,
         .discard     = afr_discard,
         .zerofill    = afr_zerofill,
+        .xattrop     = afr_xattrop,
+        .fxattrop    = afr_fxattrop,
+
+        /*inode open*/
+        .opendir     = afr_opendir,
+        .open        = afr_open,
 
         /* dir read */
-        .opendir     = afr_opendir,
         .readdir     = afr_readdir,
         .readdirp    = afr_readdirp,
 
@@ -985,6 +997,12 @@ struct volume_options options[] = {
                          "respectively as the source. \"majority\" picks a file"
                          " with identical mtime and size in more than half the "
                          "number of bricks in the replica.",
+        },
+        { .key = {"consistent-io"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "If this option is enabled, i/o will fail even if "
+                         "one of the bricks is down in the replicas",
         },
         { .key  = {NULL} },
 };

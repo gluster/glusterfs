@@ -207,6 +207,7 @@ afr_transaction_detach_fop_frame (call_frame_t *frame)
 
         local = frame->local;
 
+        afr_handle_inconsistent_fop (frame, &local->op_ret, &local->op_errno);
         LOCK (&frame->lock);
         {
                 fop_frame = local->transaction.main_frame;
@@ -2237,6 +2238,11 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
+
+        if (!afr_is_consistent_io_possible (local, priv, &ret)) {
+                ret = -ret; /*op_errno to ret conversion*/
+                goto out;
+        }
 
         ret = afr_transaction_local_init (local, this);
         if (ret < 0)
