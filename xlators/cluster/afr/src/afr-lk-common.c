@@ -1622,7 +1622,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
 
                 if (!call_count) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
-                                AFR_MSG_ALL_SUBVOLS_DOWN,
+                                AFR_MSG_SUBVOLS_DOWN,
                                 "All bricks are down, aborting.");
                         afr_unlock (frame, this);
                         goto out;

@@ -88,6 +88,10 @@ afr_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 	if (!local)
 		goto out;
 
+        local->op = GF_FOP_OPENDIR;
+        if (!afr_is_consistent_io_possible (local, priv, &op_errno))
+		goto out;
+
 	fd_ctx = afr_fd_ctx_get (fd, this);
 	if (!fd_ctx)
 		goto out;

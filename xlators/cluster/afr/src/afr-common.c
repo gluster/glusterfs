@@ -43,6 +43,20 @@
 #include "afr-self-heald.h"
 #include "afr-messages.h"
 
+gf_boolean_t
+afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
+                               int32_t *op_errno)
+{
+        if (priv->consistent_io && local->call_count != priv->child_count) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        AFR_MSG_SUBVOLS_DOWN, "All subvolumes are not up");
+                if (op_errno)
+                        *op_errno = ENOTCONN;
+                return _gf_false;
+        }
+        return _gf_true;
+}
+
 call_frame_t *
 afr_copy_frame (call_frame_t *base)
 {
@@ -1555,6 +1569,100 @@ afr_remove_eager_lock_stub (afr_local_t *local)
         UNLOCK (&local->fd->lock);
 }
 
+static gf_boolean_t
+afr_entrylk_is_unlock (entrylk_cmd cmd)
+{
+        if (ENTRYLK_UNLOCK == cmd)
+                return _gf_true;
+        return _gf_false;
+}
+
+static gf_boolean_t
+afr_inodelk_is_unlock (int32_t cmd, struct gf_flock *flock)
+{
+        switch (cmd) {
+        case F_SETLKW:
+        case F_SETLK:
+                if (F_UNLCK == flock->l_type)
+                        return _gf_true;
+                break;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+
+static gf_boolean_t
+afr_lk_is_unlock (int32_t cmd, struct gf_flock *flock)
+{
+        switch (cmd) {
+        case F_RESLK_UNLCK:
+                return _gf_true;
+                break;
+
+#if F_SETLKW != F_SETLKW64
+        case F_SETLKW64:
+#endif
+        case F_SETLKW:
+
+#if F_SETLK != F_SETLK64
+        case F_SETLK64:
+#endif
+        case F_SETLK:
+                if (F_UNLCK == flock->l_type)
+                        return _gf_true;
+                break;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+
+void
+afr_handle_inconsistent_fop (call_frame_t *frame, int32_t *op_ret,
+                             int32_t *op_errno)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t   *local = NULL;
+
+        if (!frame || !frame->this || !frame->local || !frame->this->private)
+                return;
+
+        if (*op_ret < 0)
+                return;
+
+        /* Failing inodelk/entrylk/lk here is not a good idea because we
+         * need to cleanup the locks on the other bricks if we choose to fail
+         * the fop here. The brick may go down just after unwind happens as well
+         * so anyways the fop will fail when the next fop is sent so leaving
+         * it like this for now.*/
+        local = frame->local;
+        switch (local->op) {
+        case GF_FOP_LOOKUP:
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+        case GF_FOP_LK:
+                return;
+        default:
+                break;
+        }
+
+        priv = frame->this->private;
+        if (!priv->consistent_io)
+                return;
+
+        if (local->event_generation &&
+            (local->event_generation != priv->event_generation))
+                goto inconsistent;
+
+        return;
+inconsistent:
+        *op_ret = -1;
+        *op_errno = ENOTCONN;
+}
+
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this)
 {
@@ -2997,10 +3105,9 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 	if (!local)
 		goto out;
 
-	if (!local->call_count) {
-		op_errno = ENOTCONN;
+        local->op = GF_FOP_FLUSH;
+	if (!afr_is_consistent_io_possible (local, this->private, &op_errno))
 		goto out;
-	}
 
 	local->fd = fd_ref(fd);
 
@@ -3126,11 +3233,9 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 	if (!local)
 		goto out;
 
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
+        local->op = GF_FOP_FSYNC;
+	if (!afr_is_consistent_io_possible (local, priv, &op_errno))
 		goto out;
-	}
 
         local->fd = fd_ref (fd);
 
@@ -3140,6 +3245,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 
 	local->inode = inode_ref (fd->inode);
 
+        call_count = local->call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame, afr_fsync_cbk,
@@ -3210,12 +3316,11 @@ afr_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 	if (!local)
 		goto out;
 
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
+        local->op = GF_FOP_FSYNCDIR;
+	if (!afr_is_consistent_io_possible (local, priv, &op_errno))
 		goto out;
-	}
 
+        call_count = local->call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND (frame, afr_fsyncdir_cbk,
@@ -3506,6 +3611,11 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         if (!local)
                 goto out;
 
+        local->op = GF_FOP_INODELK;
+        if (!afr_inodelk_is_unlock (cmd, flock) &&
+            !afr_is_consistent_io_possible (local, this->private, &op_errno))
+                goto out;
+
         loc_copy (&local->loc, loc);
         local->cont.inodelk.volume = gf_strdup (volume);
         if (!local->cont.inodelk.volume) {
@@ -3589,12 +3699,23 @@ afr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 	if (!local)
 		goto out;
 
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
+        local->op = GF_FOP_FINODELK;
+        if (!afr_inodelk_is_unlock (cmd, flock) &&
+            !afr_is_consistent_io_possible (local, this->private, &op_errno))
+                goto out;
 
+        local->cont.inodelk.volume = gf_strdup (volume);
+        if (!local->cont.inodelk.volume) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        local->fd = fd_ref (fd);
+        local->cont.inodelk.cmd = cmd;
+        local->cont.inodelk.flock = *flock;
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
+        call_count = local->call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND (frame, afr_finodelk_cbk,
@@ -3610,7 +3731,6 @@ afr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 	return 0;
 out:
 	AFR_STACK_UNWIND (finodelk, frame, -1, op_errno, NULL);
-
         return 0;
 }
 
@@ -3642,7 +3762,6 @@ afr_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
 int
 afr_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	     loc_t *loc, const char *basename, entrylk_cmd cmd,
@@ -3660,12 +3779,13 @@ afr_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	if (!local)
 		goto out;
 
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
+        local->op = GF_FOP_ENTRYLK;
+        if (!afr_entrylk_is_unlock (cmd) &&
+            !afr_is_consistent_io_possible (local, priv, &op_errno))
+                goto out;
 
+        local->cont.entrylk.cmd = cmd;
+        call_count = local->call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND (frame, afr_entrylk_cbk,
@@ -3733,12 +3853,13 @@ afr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 	if (!local)
 		goto out;
 
-        call_count = local->call_count;
-	if (!call_count) {
-		op_errno = ENOTCONN;
-		goto out;
-	}
+        local->op = GF_FOP_FENTRYLK;
+        if (!afr_entrylk_is_unlock (cmd) &&
+            !afr_is_consistent_io_possible (local, priv, &op_errno))
+                goto out;
 
+        local->cont.entrylk.cmd = cmd;
+        call_count = local->call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND (frame, afr_fentrylk_cbk,
@@ -3821,6 +3942,10 @@ afr_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
+		goto out;
+
+        local->op = GF_FOP_STATFS;
+	if (!afr_is_consistent_io_possible (local, priv, &op_errno))
 		goto out;
 
         if (priv->arbiter_count == 1 && local->child_up[ARBITER_BRICK_INDEX])
@@ -3963,7 +4088,6 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
 int
 afr_lk (call_frame_t *frame, xlator_t *this,
         fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
@@ -3977,6 +4101,11 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
         local = AFR_FRAME_INIT (frame, op_errno);
         if (!local)
+                goto out;
+
+        local->op = GF_FOP_LK;
+        if (!afr_lk_is_unlock (cmd, flock) &&
+            !afr_is_consistent_io_possible (local, priv, &op_errno))
                 goto out;
 
         local->cont.lk.locked_nodes = GF_CALLOC (priv->child_count,
@@ -4311,7 +4440,7 @@ afr_notify (xlator_t *this, int32_t event,
                                         down_children++;
                         if (down_children == priv->child_count) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        AFR_MSG_ALL_SUBVOLS_DOWN,
+                                        AFR_MSG_SUBVOLS_DOWN,
                                        "All subvolumes are down. Going offline "
                                     "until atleast one of them comes back up.");
                         } else {
@@ -4399,7 +4528,6 @@ out:
         return ret;
 }
 
-
 int
 afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 {
@@ -4422,11 +4550,12 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->call_count = AFR_COUNT (local->child_up, priv->child_count);
         if (local->call_count == 0) {
                 gf_msg (THIS->name, GF_LOG_INFO, 0,
-                        AFR_MSG_ALL_SUBVOLS_DOWN, "no subvolumes up");
+                        AFR_MSG_SUBVOLS_DOWN, "no subvolumes up");
                 if (op_errno)
                         *op_errno = ENOTCONN;
                 goto out;
         }
+
 	local->event_generation = priv->event_generation;
 
 	local->read_attempted = GF_CALLOC (priv->child_count, sizeof (char),

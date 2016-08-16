@@ -130,11 +130,15 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	if (!local)
 		goto out;
 
+        local->op = GF_FOP_OPEN;
 	fd_ctx = afr_fd_ctx_get (fd, this);
 	if (!fd_ctx) {
 		op_errno = ENOMEM;
 		goto out;
 	}
+
+        if (!afr_is_consistent_io_possible (local, priv, &op_errno))
+		goto out;
 
         local->fd = fd_ref (fd);
 	local->fd_ctx = fd_ctx;
