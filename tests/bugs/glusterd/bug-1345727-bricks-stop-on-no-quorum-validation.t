@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test case for quorum validation in glusterd for syncop framework
+# Test case to check if bricks are down when quorum is not met
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc

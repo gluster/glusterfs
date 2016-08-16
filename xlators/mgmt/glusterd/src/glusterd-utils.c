@@ -4943,7 +4943,6 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 glusterd_brick_start (volinfo, brickinfo,
                                                      _gf_false);
                         }
-                        conf->restart_done = _gf_true;
                 }
         }
 
@@ -4979,6 +4978,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         }
 
 out:
+        conf->restart_done = _gf_true;
         return ret;
 }
 
