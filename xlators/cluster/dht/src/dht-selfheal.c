@@ -2253,11 +2253,19 @@ dht_dir_attr_heal (void *data)
 
         for (i = 0; i < call_cnt; i++) {
                 subvol = conf->subvolumes[i];
-                if (!subvol || (subvol == dht_first_up_subvol (this)))
+                if (!subvol)
                         continue;
-                ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
-                                      (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
-                                      NULL, NULL, NULL, NULL);
+
+                if (__is_root_gfid (local->stbuf.ia_gfid)) {
+                        ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
+                                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID | GF_SET_ATTR_MODE),
+                                              NULL, NULL, NULL, NULL);
+                } else {
+                        ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
+                                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                              NULL, NULL, NULL, NULL);
+                }
+
                 if (ret) {
                         gf_uuid_unparse(local->loc.gfid, gfid);
 

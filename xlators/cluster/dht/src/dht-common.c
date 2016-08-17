@@ -736,6 +736,27 @@ out:
         return ret;
 }
 
+int static
+is_permission_different (ia_prot_t *prot1, ia_prot_t *prot2)
+{
+        if ((prot1->owner.read != prot2->owner.read) ||
+            (prot1->owner.write != prot2->owner.write) ||
+            (prot1->owner.exec != prot2->owner.exec) ||
+            (prot1->group.read != prot2->group.read) ||
+            (prot1->group.write != prot2->group.write) ||
+            (prot1->group.exec != prot2->group.exec) ||
+            (prot1->other.read != prot2->other.read) ||
+            (prot1->other.write != prot2->other.write) ||
+            (prot1->other.exec != prot2->other.exec) ||
+            (prot1->suid != prot2->suid) ||
+            (prot1->sgid != prot2->sgid) ||
+            (prot1->sticky != prot2->sticky)) {
+                return 1;
+        } else {
+                return 0;
+        }
+}
+
 int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
@@ -857,14 +878,21 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                     local->stbuf.ia_ctime_nsec,
                                                     stbuf->ia_ctime,
                                                     stbuf->ia_ctime_nsec)) {
+                                        /* Choose source */
                                         local->prebuf.ia_gid = stbuf->ia_gid;
                                         local->prebuf.ia_uid = stbuf->ia_uid;
+
+                                        if (__is_root_gfid (stbuf->ia_gfid))
+                                                local->prebuf.ia_prot = stbuf->ia_prot;
                                 }
                         }
                         if (local->stbuf.ia_type != IA_INVAL)
                         {
                                 if ((local->stbuf.ia_gid != stbuf->ia_gid) ||
-                                    (local->stbuf.ia_uid != stbuf->ia_uid)) {
+                                    (local->stbuf.ia_uid != stbuf->ia_uid) ||
+                                    (__is_root_gfid (stbuf->ia_gfid) &&
+                                     is_permission_different (&local->stbuf.ia_prot,
+                                                              &stbuf->ia_prot))) {
                                         local->need_selfheal = 1;
                                 }
                         }
@@ -942,6 +970,8 @@ out:
                         gf_uuid_copy (local->gfid, local->stbuf.ia_gfid);
                         local->stbuf.ia_gid = local->prebuf.ia_gid;
                         local->stbuf.ia_uid = local->prebuf.ia_uid;
+                        if (__is_root_gfid(local->stbuf.ia_gfid))
+                                local->stbuf.ia_prot = local->prebuf.ia_prot;
                         copy = create_frame (this, this->ctx->pool);
                         if (copy) {
                                 copy_local = dht_local_init (copy, &local->loc,
