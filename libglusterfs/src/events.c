@@ -16,73 +16,107 @@
 #include <time.h>
 #include <stdarg.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
 #include "syscall.h"
 #include "mem-pool.h"
+#include "glusterfs.h"
+#include "globals.h"
 #include "events.h"
 
 
-#define EVENT_PATH DATADIR "/run/gluster/events.sock"
-#define EVENTS_MSG_MAX 2048
+#define EVENT_HOST "127.0.0.1"
+#define EVENT_PORT 24009
 
 
 int
 gf_event (eventtypes_t event, char *fmt, ...)
 {
-        int      ret                      = 0;
-        int      sock                     = -1;
-        char     eventstr[EVENTS_MSG_MAX] = "";
-        struct   sockaddr_un server;
-        va_list  arguments;
-        char     *msg                     = NULL;
-        size_t   eventstr_size            = 0;
+        int                ret                   = 0;
+        int                sock                  = -1;
+        char              *eventstr              = NULL;
+        struct             sockaddr_in server;
+        va_list            arguments;
+        char              *msg                   = NULL;
+        glusterfs_ctx_t   *ctx                   = NULL;
+        struct hostent    *host_data;
+        char              *host                  = NULL;
+
+        /* Global context */
+        ctx = THIS->ctx;
 
         if (event < 0 || event >= EVENT_LAST) {
                 ret = EVENT_ERROR_INVALID_INPUTS;
                 goto out;
         }
 
-        sock = socket(AF_UNIX, SOCK_STREAM, 0);
+        /* Initialize UDP socket */
+        sock = socket (AF_INET, SOCK_DGRAM, 0);
         if (sock < 0) {
                 ret = EVENT_ERROR_SOCKET;
                 goto out;
         }
-        server.sun_family = AF_UNIX;
-        strcpy(server.sun_path, EVENT_PATH);
 
-        if (connect(sock,
-                    (struct sockaddr *) &server,
-                    sizeof(struct sockaddr_un)) < 0) {
-                ret = EVENT_ERROR_CONNECT;
-                goto out;
+        /* Get Host name to send message */
+        if (ctx && ctx->cmd_args.volfile_server) {
+                /* If it is client code then volfile_server is set
+                   use that information to push the events. */
+                host_data = gethostbyname (ctx->cmd_args.volfile_server);
+                if (host_data == NULL) {
+                        ret = EVENT_ERROR_RESOLVE;
+                        goto out;
+                }
+                host = inet_ntoa (*(struct in_addr *)(host_data->h_addr));
+        } else {
+                /* Localhost, Use the defined IP for localhost */
+                host = EVENT_HOST;
         }
+
+        /* Socket Configurations */
+        server.sin_family = AF_INET;
+        server.sin_port = htons (EVENT_PORT);
+        server.sin_addr.s_addr = inet_addr (host);
+        memset (&server.sin_zero, '\0', sizeof (server.sin_zero));
 
         va_start (arguments, fmt);
         ret = gf_vasprintf (&msg, fmt, arguments);
         va_end (arguments);
+
         if (ret < 0) {
                 ret = EVENT_ERROR_INVALID_INPUTS;
                 goto out;
         }
 
-        eventstr_size = snprintf(NULL, 0, "%u %d %s", (unsigned)time(NULL),
-                                 event, msg);
+        ret = gf_asprintf (&eventstr, "%u %d %s",
+                            (unsigned)time(NULL), event, msg);
 
-        if (eventstr_size + 1 > EVENTS_MSG_MAX) {
-                eventstr_size = EVENTS_MSG_MAX - 1;
+        if (ret <= 0) {
+                ret = EVENT_ERROR_MSG_FORMAT;
+                goto out;
         }
 
-        snprintf(eventstr, eventstr_size+1, "%u %d %s",
-                 (unsigned)time(NULL), event, msg);
-
-        if (sys_write(sock, eventstr, strlen(eventstr)) <= 0) {
+        /* Send Message */
+        if (sendto (sock, eventstr, strlen (eventstr),
+                    0, (struct sockaddr *)&server, sizeof (server)) <= 0) {
                 ret = EVENT_ERROR_SEND;
-                goto out;
         }
 
         ret = EVENT_SEND_OK;
 
  out:
-        sys_close(sock);
-        GF_FREE(msg);
+        if (sock >= 0) {
+                sys_close (sock);
+        }
+
+        /* Allocated by gf_vasprintf */
+        if (msg)
+                GF_FREE (msg);
+
+        /* Allocated by gf_asprintf */
+        if (eventstr)
+                GF_FREE (eventstr);
+
         return ret;
 }

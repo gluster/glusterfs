@@ -9,7 +9,7 @@
 #  cases as published by the Free Software Foundation.
 #
 
-SERVER_ADDRESS = "@localstatedir@/run/gluster/events.sock"
+SERVER_ADDRESS = "0.0.0.0"
 DEFAULT_CONFIG_FILE = "@SYSCONF_DIR@/glusterfs/eventsconfig.json"
 CUSTOM_CONFIG_FILE_TO_SYNC = "/events/config.json"
 CUSTOM_CONFIG_FILE = "@GLUSTERD_WORKDIR@" + CUSTOM_CONFIG_FILE_TO_SYNC
@@ -17,7 +17,9 @@ WEBHOOKS_FILE_TO_SYNC = "/events/webhooks.json"
 WEBHOOKS_FILE = "@GLUSTERD_WORKDIR@" + WEBHOOKS_FILE_TO_SYNC
 LOG_FILE = "@localstatedir@/log/glusterfs/events.log"
 EVENTSD = "glustereventsd"
-CONFIG_KEYS = ["log_level"]
+CONFIG_KEYS = ["log_level", "port"]
 BOOL_CONFIGS = []
-RESTART_CONFIGS = []
+INT_CONFIGS = ["port"]
+RESTART_CONFIGS = ["port"]
 EVENTS_ENABLED = @EVENTS_ENABLED@
+UUID_FILE = "@GLUSTERD_WORKDIR@/glusterd.info"

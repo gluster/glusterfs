@@ -17,10 +17,9 @@ import requests
 from eventsapiconf import (LOG_FILE,
                            WEBHOOKS_FILE,
                            DEFAULT_CONFIG_FILE,
-                           CUSTOM_CONFIG_FILE)
+                           CUSTOM_CONFIG_FILE,
+                           UUID_FILE)
 import eventtypes
-
-from gluster.cliutils import get_node_uuid
 
 
 # Webhooks list
@@ -32,6 +31,23 @@ _config = {}
 
 # Init Logger instance
 logger = logging.getLogger(__name__)
+NodeID = None
+
+
+def get_node_uuid():
+    val = None
+    with open(UUID_FILE) as f:
+        for line in f:
+            if line.startswith("UUID="):
+                val = line.strip().split("=")[-1]
+                break
+    return val
+
+
+def get_config(key):
+    if not _config:
+        load_config()
+    return _config.get(key, None)
 
 
 def get_event_type_name(idx):
@@ -109,8 +125,12 @@ def load_all():
 
 
 def publish(ts, event_key, data):
+    global NodeID
+    if NodeID is None:
+        NodeID = get_node_uuid()
+
     message = {
-        "nodeid": get_node_uuid(),
+        "nodeid": NodeID,
         "ts": int(ts),
         "event": get_event_type_name(event_key),
         "message": data

@@ -31,6 +31,7 @@ from events.eventsapiconf import (WEBHOOKS_FILE_TO_SYNC,
                                   EVENTSD,
                                   CONFIG_KEYS,
                                   BOOL_CONFIGS,
+                                  INT_CONFIGS,
                                   RESTART_CONFIGS)
 
 
@@ -461,6 +462,9 @@ class ConfigSetCmd(Cmd):
             v = args.value
             if args.name in BOOL_CONFIGS:
                 v = boolify(args.value)
+
+            if args.name in INT_CONFIGS:
+                v = int(args.value)
 
             new_data[args.name] = v
             file_content_overwrite(CUSTOM_CONFIG_FILE, new_data)
