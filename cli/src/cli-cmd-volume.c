@@ -1516,6 +1516,13 @@ cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
         cli_local_t             *local     = NULL;
         rpc_clnt_procedure_t    *proc      = NULL;
         int                     sent       = 0;
+#if (USE_EVENTS)
+        int                     cmd_type        = -1;
+        int                     ret1            = -1;
+        int                     event_type      = -1;
+        char                    *tmp            = NULL;
+        char                    *events_str     = NULL;
+#endif
 
         ret = cli_cmd_bitrot_parse (words, wordcount, &options);
         if (ret < 0) {
@@ -1550,6 +1557,63 @@ out:
                              "logs for more details");
 
         }
+
+#if (USE_EVENTS)
+        if (ret == 0) {
+                ret1 = dict_get_int32 (options, "type", &cmd_type);
+                if (ret1)
+                        cmd_type = -1;
+                else {
+                        ret1 = dict_get_str (options, "volname", &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "name=%s", tmp);
+                }
+
+                switch (cmd_type) {
+                case GF_BITROT_OPTION_TYPE_ENABLE:
+                        event_type = EVENT_BITROT_ENABLE;
+                        break;
+                case GF_BITROT_OPTION_TYPE_DISABLE:
+                        event_type = EVENT_BITROT_DISABLE;
+                        break;
+                case GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE:
+                        event_type = EVENT_BITROT_SCRUB_THROTTLE;
+                        ret1 = dict_get_str (options, "scrub-throttle-value",
+                                             &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "%s;value=%s", events_str,
+                                     tmp);
+                        break;
+                case GF_BITROT_OPTION_TYPE_SCRUB_FREQ:
+                        event_type = EVENT_BITROT_SCRUB_FREQ;
+                        ret1 = dict_get_str (options, "scrub-frequency-value",
+                                             &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "%s;value=%s", events_str,
+                                     tmp);
+                        break;
+                case GF_BITROT_OPTION_TYPE_SCRUB:
+                        event_type = EVENT_BITROT_SCRUB_OPTION;
+                        ret1 = dict_get_str (options, "scrub-value", &tmp);
+                        if (ret1)
+                                tmp = "";
+                        gf_asprintf (&events_str, "%s;value=%s", events_str,
+                                     tmp);
+                        break;
+                default:
+                        break;
+                }
+
+                if (event_type > -1)
+                        gf_event (event_type, "%s", events_str);
+
+                if (events_str)
+                        GF_FREE (events_str);
+        }
+#endif
 
         CLI_STACK_DESTROY (frame);
 
