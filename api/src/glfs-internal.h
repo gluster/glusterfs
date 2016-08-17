@@ -210,6 +210,7 @@ struct glfs {
 
 	gf_boolean_t        migration_in_progress;
 
+        gf_boolean_t        cache_upcalls; /* add upcalls to the upcall_list? */
         struct list_head    upcall_list;
         pthread_mutex_t     upcall_list_mutex; /* mutex for upcall entry list */
 
