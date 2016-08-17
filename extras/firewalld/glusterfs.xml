@@ -4,6 +4,7 @@
 <description>Default ports for gluster-distributed storage</description>
 <port protocol="tcp" port="24007"/>    <!--For glusterd -->
 <port protocol="tcp" port="24008"/>    <!--For glusterd RDMA port management -->
+<port protocol="tcp" port="24009"/>    <!--For glustereventsd -->
 <port protocol="tcp" port="38465"/>    <!--Gluster NFS service -->
 <port protocol="tcp" port="38466"/>    <!--Gluster NFS service -->
 <port protocol="tcp" port="38467"/>    <!--Gluster NFS service -->
