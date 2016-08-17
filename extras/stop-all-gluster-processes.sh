@@ -176,16 +176,16 @@ main()
     shift $((OPTIND-1))
 
     kill_mounts TERM
-    kill_bricks_and_services TERM
     kill_georep_gsync TERM
+    kill_bricks_and_services TERM
 
     sleep 5;
     echo ""
 
     # still not Terminated? let's pass SIGKILL
     kill_mounts KILL
-    kill_bricks_and_services KILL
     kill_georep_gsync KILL
+    kill_bricks_and_services KILL
 
     exit ${errors};
 }
