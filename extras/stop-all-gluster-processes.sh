@@ -1,4 +1,37 @@
 #!/usr/bin/env bash
+#
+# Kill all the processes/services except glusterd
+#
+# Usage: ./extras/stop-all-gluster-processes.sh [-g] [-h]
+#    options:
+#    -g  Terminate in graceful mode
+#    -h  Show this message, then exit
+#
+# eg:
+#  1. ./extras/stop-all-gluster-processes.sh
+#  2. ./extras/stop-all-gluster-processes.sh -g
+#
+# By default, this script executes in force mode, i.e. all of brick, gsyncd
+# and other glustershd services/processes are killed without checking for
+# ongoing tasks such as geo-rep, self-heal, rebalance and etc. which may lead
+# to inconsistency after the node is brought back.
+#
+# On specifying '-g' option this script works in graceful mode, to maintain
+# data consistency the script fails with a valid exit code incase if any of
+# the gluster processes are busy in doing their jobs.
+#
+# The author of page [1] proposes user-defined exit codes to the range 64 - 113
+# Find the better explanation behind the choice in the link
+#
+# The exit code returned by stop-all-gluster-processes.sh:
+#   0       No errors/Success
+#   64      Rebalance is in progress
+#   65      Self-Heal is in progress
+#   66      Tier daemon running on this node
+#   127     option not found
+#
+# [1] http://www.tldp.org/LDP/abs/html/exitcodes.html
+
 
 # global
 errors=0
@@ -64,8 +97,84 @@ kill_georep_gsync()
     fi
 }
 
+# check if all processes are ready to die
+check_background_tasks()
+{
+    volumes=$(gluster vol list)
+    quit=0
+    for volname in ${volumes};
+    do
+        # tiering
+        if [[ $(gluster volume tier ${volname} status 2> /dev/null |
+                grep "localhost" | grep -c "in progress") -gt 0 ]]
+        then
+            quit=66
+            break;
+        fi
+
+        # rebalance
+        if [[ $(gluster volume rebalance ${volname} status 2> /dev/null |
+                grep -c "in progress") -gt 0 ]]
+        then
+            quit=64
+            break;
+        fi
+
+        # self heal
+        if [[ $(gluster volume heal ${volname} info | grep "Number of entries" |
+                awk '{ sum+=$4} END {print sum}') -gt 0 ]];
+        then
+            quit=65
+            break;
+        fi
+
+        # geo-rep, snapshot and quota doesn't need grace checks,
+        # as they ensures the consistancy on force kills
+    done
+
+    echo ${quit}
+}
+
+usage()
+{
+    cat <<EOM
+Usage: $0 [-g] [-h]
+    options:
+    -g  Terminate in graceful mode
+    -h  Show this message, then exit
+
+eg:
+ 1. $0
+ 2. $0 -g
+EOM
+}
+
 main()
 {
+    while getopts "gh" opt; do
+        case $opt in
+            g)
+                # graceful mode
+                quit=$(check_background_tasks)
+                if [[ ${quit} -ne 0 ]]
+                then
+                    exit ${quit};
+                fi
+                # else safe to kill
+                ;;
+            h)
+                usage
+                exit 0;
+                ;;
+            *)
+                usage
+                exit 127;
+                ;;
+        esac
+    done
+    # remove all the options that have been parsed by getopts
+    shift $((OPTIND-1))
+
     kill_mounts TERM
     kill_bricks_and_services TERM
     kill_georep_gsync TERM
@@ -81,4 +190,4 @@ main()
     exit ${errors};
 }
 
-main
+main "$@"
