@@ -21,13 +21,26 @@
 #include <assert.h>
 #include <sys/time.h>
 #include "md-cache-messages.h"
-
+#include "statedump.h"
 
 /* TODO:
    - cache symlink() link names and nuke symlink-cache
    - send proper postbuf in setattr_cbk even when op_ret = -1
 */
 
+struct mdc_statistics {
+        uint64_t stat_hit; /* No. of times lookup/stat was served from mdc */
+        uint64_t stat_miss; /* No. of times valid stat wasn't present in mdc */
+        uint64_t xattr_hit; /* No. of times getxattr was served from mdc, Note:
+                             this doesn't count the xattr served from lookup */
+        uint64_t xattr_miss; /* No. of times xattr req was WIND from mdc */
+        uint64_t negative_lookup; /* No. of negative lookups */
+        uint64_t nameless_lookup; /* No. of negative lookups that were sent
+                                     sent to bricks */
+        uint64_t stat_invals; /* No. of invalidates recieved from upcall*/
+        uint64_t xattr_invals; /* No. of invalidates recieved from upcall*/
+        gf_lock_t lock;
+};
 
 struct mdc_conf {
 	int  timeout;
@@ -39,6 +52,7 @@ struct mdc_conf {
         gf_boolean_t mdc_invalidation;
         time_t last_child_down;
         gf_lock_t lock;
+        struct mdc_statistics mdc_counter;
 };
 
 
@@ -940,11 +954,16 @@ mdc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
 {
         mdc_local_t *local = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = frame->local;
 
-        if (op_ret != 0)
+        if (op_ret != 0) {
+                if (op_errno == ENOENT)
+                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                          conf->mdc_counter.negative_lookup);
                 goto out;
+        }
 
         if (!local)
                 goto out;
@@ -974,15 +993,20 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dict_t      *xattr_rsp = NULL;
         dict_t      *xattr_alloc = NULL;
         mdc_local_t *local = NULL;
-
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
-        if (!local)
+        if (!local) {
+                INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
                 goto uncached;
+        }
 
         loc_copy (&local->loc, loc);
 
 	if (!loc->name) {
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.nameless_lookup);
+
                 gf_msg_trace ("md-cache", 0, "Nameless lookup(%s) sent to the "
                               "brick", uuid_utoa (loc->inode->gfid));
 		/* A nameless discovery is dangerous to serve from cache. We
@@ -993,18 +1017,28 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
-        if (ret != 0)
+        if (ret != 0) {
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.stat_miss);
                 goto uncached;
+        }
 
         if (xdata) {
                 ret = mdc_inode_xatt_get (this, loc->inode, &xattr_rsp);
-                if (ret != 0)
+                if (ret != 0) {
+                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                          conf->mdc_counter.xattr_miss);
                         goto uncached;
+                }
 
-                if (!mdc_xattr_satisfied (this, xdata, xattr_rsp))
+                if (!mdc_xattr_satisfied (this, xdata, xattr_rsp)) {
+                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                          conf->mdc_counter.xattr_miss);
                         goto uncached;
+                }
         }
 
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (lookup, frame, 0, 0, loc->inode, &stbuf,
                           xattr_rsp, &postparent);
 
@@ -1058,6 +1092,7 @@ mdc_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         int           ret;
         struct iatt   stbuf;
         mdc_local_t  *local = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -1069,11 +1104,13 @@ mdc_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         if (ret != 0)
                 goto uncached;
 
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (stat, frame, 0, 0, &stbuf, xdata);
 
         return 0;
 
 uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
         STACK_WIND (frame, mdc_stat_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->stat,
                     loc, xdata);
@@ -1110,6 +1147,7 @@ mdc_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         int           ret;
         struct iatt   stbuf;
         mdc_local_t  *local = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -1121,11 +1159,13 @@ mdc_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (ret != 0)
                 goto uncached;
 
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (fstat, frame, 0, 0, &stbuf, xdata);
 
         return 0;
 
 uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
         STACK_WIND (frame, mdc_fstat_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fstat,
                     fd, xdata);
@@ -1937,6 +1977,7 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 	int           op_errno = ENODATA;
         mdc_local_t  *local = NULL;
 	dict_t       *xattr = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -1956,11 +1997,13 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 		op_errno = ENODATA;
 	}
 
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (getxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
 uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_getxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->getxattr,
                     loc, key, xdata);
@@ -1999,6 +2042,7 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
         mdc_local_t  *local = NULL;
 	dict_t       *xattr = NULL;
 	int           op_errno = ENODATA;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -2018,11 +2062,13 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 		op_errno = ENODATA;
 	}
 
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (fgetxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
 uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_fgetxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fgetxattr,
                     fd, key, xdata);
@@ -2355,6 +2401,39 @@ int mdc_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 
 int
+mdc_priv_dump (xlator_t *this)
+{
+        struct mdc_conf *conf = NULL;
+        char  key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char  key[GF_DUMP_MAX_BUF_LEN];
+
+        conf = this->private;
+
+        snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+        gf_proc_dump_add_section(key_prefix);
+
+        gf_proc_dump_write("stat_hit_count", "%"PRId64,
+                           conf->mdc_counter.stat_hit);
+        gf_proc_dump_write("stat_miss_count", "%"PRId64,
+                           conf->mdc_counter.stat_miss);
+        gf_proc_dump_write("xattr_hit_count", "%"PRId64,
+                           conf->mdc_counter.xattr_hit);
+        gf_proc_dump_write("xattr_miss_count", "%"PRId64,
+                           conf->mdc_counter.xattr_miss);
+        gf_proc_dump_write("nameless_lookup_count", "%"PRId64,
+                           conf->mdc_counter.nameless_lookup);
+        gf_proc_dump_write("negative_lookup_count", "%"PRId64,
+                           conf->mdc_counter.negative_lookup);
+        gf_proc_dump_write("stat_invalidations_recieved", "%"PRId64,
+                           conf->mdc_counter.stat_invals);
+        gf_proc_dump_write("xattr_invalidations_recieved", "%"PRId64,
+                           conf->mdc_counter.xattr_invals);
+
+        return 0;
+}
+
+
+int
 mdc_forget (xlator_t *this, inode_t *inode)
 {
         mdc_inode_wipe (this, inode);
@@ -2416,6 +2495,7 @@ mdc_invalidate (xlator_t *this, void *data)
         int                                  ret        = 0;
         struct set                           tmp        = {0, };
         inode_table_t                       *itable     = NULL;
+        struct mdc_conf                     *conf       = this->private;
 
         up_data = (struct gf_upcall *)data;
 
@@ -2440,16 +2520,24 @@ mdc_invalidate (xlator_t *this, void *data)
                  */
                 if (ret < 0)
                         goto out;
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.stat_invals);
         }
         if (up_ci->flags & UP_XATTR) {
                 if (up_ci->dict)
                         ret = mdc_inode_xatt_update (this, inode, up_ci->dict);
                 else
                         ret = mdc_inode_xatt_invalidate (this, inode);
+
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.xattr_invals);
         } else if (up_ci->flags & UP_XATTR_RM) {
                 tmp.inode = inode;
                 tmp.this = this;
                 ret = dict_foreach (up_ci->dict, mdc_inval_xatt, &tmp);
+
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.xattr_invals);
         }
 
 out:
@@ -2664,6 +2752,12 @@ struct xlator_fops fops = {
 struct xlator_cbks cbks = {
         .forget      = mdc_forget,
 };
+
+
+struct xlator_dumpops dumpops = {
+        .priv       = mdc_priv_dump,
+};
+
 
 struct volume_options options[] = {
 	{ .key = {"cache-selinux"},
