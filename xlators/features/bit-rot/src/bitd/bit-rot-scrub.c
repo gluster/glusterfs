@@ -261,6 +261,8 @@ bitd_compare_ckum (xlator_t *this,
         gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_MARK_CORRUPTED, "Marking"
                 " %s [GFID: %s | Brick: %s] as corrupted..", loc->path,
                 uuid_utoa (linked_inode->gfid), child->brick_path);
+        gf_event (EVENT_BITROT_BAD_FILE, "gfid=%s;path=%s;brick=%s",
+                  uuid_utoa (linked_inode->gfid), loc->path, child->brick_path);
         ret = syncop_fsetxattr (child->xl, fd, xattr, 0, NULL, NULL);
         if (ret)
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_MARK_BAD_FILE,
