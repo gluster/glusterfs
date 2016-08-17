@@ -3693,8 +3693,8 @@ nfs3_fh_resolve_inode_lookup_cbk (call_frame_t *frame, void *cookie,
                 nfs3_call_resume (cs);
                 goto err;
         }
-
-        memcpy (&cs->stbuf, buf, sizeof(*buf));
+        if (!cs->setattr_valid)
+            memcpy (&cs->stbuf, buf, sizeof(*buf));
         memcpy (&cs->postparent, buf, sizeof(*postparent));
         linked_inode = inode_link (inode, cs->resolvedloc.parent,
                                    cs->resolvedloc.name, buf);
