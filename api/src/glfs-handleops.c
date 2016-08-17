@@ -2026,6 +2026,10 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *up_arg)
                 }
 
                 fs->pin_refcnt++;
+
+                /* once we call this function, the applications seems to be
+                 * interested in events, enable caching them */
+                fs->cache_upcalls = _gf_true;
         }
         pthread_mutex_unlock (&fs->mutex);
 
