@@ -16,6 +16,7 @@
 #include "mem-pool.h"
 #include "syncop.h"
 #include "libglusterfs-messages.h"
+#include "upcall-utils.h"
 
 const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]        = "NULL",
@@ -74,6 +75,18 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_GETACTIVELK] = "GETACTIVELK",
         [GF_FOP_SETACTIVELK] = "SETACTIVELK",
 };
+
+const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {
+        [GF_UPCALL_NULL] = "NULL",
+        [GF_UPCALL] = "UPCALL",
+        [GF_UPCALL_CI_STAT] = "CI_IATT",
+        [GF_UPCALL_CI_XATTR] = "CI_XATTR",
+        [GF_UPCALL_CI_RENAME] = "CI_RENAME",
+        [GF_UPCALL_CI_NLINK] = "CI_UNLINK",
+        [GF_UPCALL_CI_FORGET] = "CI_FORGET",
+        [GF_UPCALL_LEASE_RECALL] = "LEASE_RECALL",
+};
+
 /* THIS */
 
 /* This global ctx is a bad hack to prevent some of the libgfapi crashes.

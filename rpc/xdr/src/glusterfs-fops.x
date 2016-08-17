@@ -197,3 +197,15 @@ enum gf_seek_what_t {
         GF_SEEK_DATA,
         GF_SEEK_HOLE
 };
+
+enum gf_upcall_flags_t {
+        GF_UPCALL_NULL,
+        GF_UPCALL,
+        GF_UPCALL_CI_STAT,
+        GF_UPCALL_CI_XATTR,
+        GF_UPCALL_CI_RENAME,
+        GF_UPCALL_CI_NLINK,
+        GF_UPCALL_CI_FORGET,
+        GF_UPCALL_LEASE_RECALL,
+        GF_UPCALL_FLAGS_MAXVALUE
+};

@@ -13,7 +13,7 @@
 #include "run.h"
 #include "compat.h"
 #include "syscall.h"
-
+#include "upcall-utils.h"
 
 enum gf_task_types {
     GF_TASK_TYPE_REBALANCE,
@@ -2198,6 +2198,48 @@ cont:
                 avg_latency = 0.0;
                 min_latency = 0.0;
                 max_latency = 0.0;
+        }
+
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                hits = 0;
+                avg_latency = 0.0;
+                min_latency = 0.0;
+                max_latency = 0.0;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-%d-upcall-hits", brick_index,
+                          interval, i);
+                ret = dict_get_uint64 (dict, key, &hits);
+                if (ret)
+                        continue;
+
+                /* <fop> */
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"fop");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"name", "%s", gf_fop_list[i]);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"hits", "%"PRIu64, hits);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"avgLatency", "%f", avg_latency);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"minLatency", "%f", min_latency);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"maxLatency", "%f", max_latency);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                /* </fop> */
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
         /* </fopStats> */
