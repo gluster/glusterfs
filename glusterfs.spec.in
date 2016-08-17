@@ -341,6 +341,7 @@ Summary:          Fuse client
 Group:            Applications/File
 BuildRequires:    fuse-devel
 Requires:         attr
+Requires:         psmisc
 
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
@@ -1235,6 +1236,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Aug 22 2016 Milind Changire <mchangir@redhat.com>
+- Add psmisc as dependency for glusterfs-fuse for killall command (#1367665)
+
 * Thu Aug 4 2016 Jiffin Tony Thottan <jthottan@redhat.com>
 - Remove ganesha.so from client xlators
 
