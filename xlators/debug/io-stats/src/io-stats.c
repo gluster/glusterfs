@@ -38,6 +38,7 @@
 #include "statedump.h"
 #include <pwd.h>
 #include <grp.h>
+#include "upcall-utils.h"
 
 #define MAX_LIST_MEMBERS 100
 #define DEFAULT_PWD_BUF_SZ 16384
@@ -120,6 +121,7 @@ struct ios_global_stats {
         uint64_t        block_count_write[32];
         uint64_t        block_count_read[32];
         uint64_t        fop_hits[GF_FOP_MAXVALUE];
+        uint64_t        upcall_hits[GF_UPCALL_FLAGS_MAXVALUE];
         struct timeval  started_at;
         struct ios_lat  latency[GF_FOP_MAXVALUE];
         uint64_t        nr_opens;
@@ -376,6 +378,19 @@ is_fop_latency_started (call_frame_t *frame)
                 if (flag)                                                      \
                        ios_stat_add_to_list (&conf->thru_list[type],           \
                                                throughput, iosstat);           \
+        } while (0)
+
+#define BUMP_UPCALL(event)                                                     \
+        do {                                                                   \
+                struct ios_conf  *conf = NULL;                                 \
+                                                                               \
+                conf = this->private;                                          \
+                if (!conf)                                                     \
+                        break;                                                 \
+                if (conf->count_fop_hits) {                                    \
+                        conf->cumulative.upcall_hits[event]++;                 \
+                        conf->incremental.upcall_hits[event]++;                \
+                }                                                              \
         } while (0)
 
 int
@@ -897,6 +912,26 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                         "\"%s.%s.fop.%s.latency_max_usec\": \"%0.2lf\",",
                         key_prefix, str_prefix, lc_fop_name, fop_lat_max);
         }
+
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                lc_fop_name = strdupa (gf_upcall_list[i]);
+                for (j = 0; lc_fop_name[j]; j++) {
+                        lc_fop_name[j] = tolower (lc_fop_name[j]);
+                }
+                fop_hits = stats->upcall_hits[i];
+                if (interval == -1) {
+                        ios_log (this, logfp,
+                                "\"%s.%s.fop.%s.count\": \"%"PRId64"\",",
+                                key_prefix, str_prefix, lc_fop_name,
+                                fop_hits);
+                } else {
+                        ios_log (this, logfp,
+                                "\"%s.%s.fop.%s.per_sec\": \"%0.2lf\",",
+                                key_prefix, str_prefix, lc_fop_name,
+                                (double)(fop_hits / interval_sec));
+                }
+        }
+
         if (interval == -1) {
                 ios_log (this, logfp, "\"%s.%s.uptime\": \"%"PRId64"\",",
                          key_prefix, str_prefix,
@@ -1247,6 +1282,14 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                                  stats->fop_hits[i], stats->latency[i].avg,
                                  stats->latency[i].min, stats->latency[i].max);
         }
+
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                if (stats->upcall_hits[i])
+                        ios_log (this, logfp, "%-13s %10"PRId64" %11s "
+                                 "us %11s us %11s us", gf_upcall_list[i],
+                                 stats->upcall_hits[i], "0", "0", "0");
+        }
+
         ios_log (this, logfp, "------ ----- ----- ----- ----- ----- ----- ----- "
                  " ----- ----- ----- -----\n");
 
@@ -1426,6 +1469,19 @@ io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
                         gf_log (this->name, GF_LOG_ERROR, "failed to set %s "
                                 "maxlatency(%d) with %f", gf_fop_list[i],
                                 interval, stats->latency[i].max);
+                        goto out;
+                }
+        }
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                if (stats->upcall_hits[i] == 0)
+                        continue;
+                snprintf (key, sizeof (key), "%d-%d-upcall-hits", interval, i);
+                ret = dict_set_uint64 (dict, key, stats->upcall_hits[i]);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "set %s-upcall-hits: %"PRIu64,
+                                gf_upcall_list[i],
+                                stats->upcall_hits[i]);
                         goto out;
                 }
         }
@@ -3805,6 +3861,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         double        time = 0;
         gf_boolean_t  is_peek = _gf_false;
         va_list ap;
+        struct gf_upcall *up_data = NULL;
+        struct gf_upcall_cache_invalidation *up_ci = NULL;
 
         dict = data;
         va_start (ap, data);
@@ -3899,6 +3957,35 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 ret = io_stats_dump (this, &args, op, is_peek);
                         }
                 }
+                break;
+        case GF_EVENT_UPCALL:
+                up_data = (struct gf_upcall *)data;
+                BUMP_UPCALL (GF_UPCALL);
+
+                switch (up_data->event_type) {
+                case GF_UPCALL_RECALL_LEASE:
+                        BUMP_UPCALL (GF_UPCALL_LEASE_RECALL);
+                        break;
+                case GF_UPCALL_CACHE_INVALIDATION:
+                        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
+                        if (up_ci->flags & (UP_XATTR | UP_XATTR_RM))
+                                BUMP_UPCALL (GF_UPCALL_CI_XATTR);
+                        if (up_ci->flags & IATT_UPDATE_FLAGS)
+                                BUMP_UPCALL (GF_UPCALL_CI_STAT);
+                        if (up_ci->flags & UP_RENAME_FLAGS)
+                                BUMP_UPCALL (GF_UPCALL_CI_RENAME);
+                        if (up_ci->flags & UP_FORGET)
+                                BUMP_UPCALL (GF_UPCALL_CI_FORGET);
+                        if (up_ci->flags & UP_NLINK)
+                                BUMP_UPCALL (GF_UPCALL_CI_NLINK);
+                        break;
+                default:
+                        gf_msg_debug (this->name, 0, "Unknown upcall event "
+                                      "type :%d", up_data->event_type);
+                        break;
+                }
+
+                default_notify (this, event, data);
                 break;
         default:
                 default_notify (this, event, data);

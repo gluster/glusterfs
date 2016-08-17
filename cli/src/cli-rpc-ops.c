@@ -30,6 +30,7 @@
 #include "protocol-common.h"
 #include "cli-mem-types.h"
 #include "compat.h"
+#include "upcall-utils.h"
 
 #include "syscall.h"
 #include "glusterfs3.h"
@@ -6276,6 +6277,7 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         uint64_t                rb_counts[32] = {0};
         uint64_t                wb_counts[32] = {0};
         cli_profile_info_t      profile_info[GF_FOP_MAXVALUE] = {{0}};
+        cli_profile_info_t      upcall_info[GF_UPCALL_FLAGS_MAXVALUE] = {{0},};
         char                    output[128] = {0};
         int                     per_line = 0;
         char                    read_blocks[128] = {0};
@@ -6297,6 +6299,13 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 snprintf (key, sizeof (key), "%d-%d-write-%d", count, interval,
                           (1<<i));
                 ret = dict_get_uint64 (dict, key, &wb_counts[i]);
+        }
+
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                snprintf (key, sizeof (key), "%d-%d-%d-upcall-hits", count,
+                          interval, i);
+                ret = dict_get_uint64 (dict, key, &upcall_info[i].fop_hits);
+                upcall_info[i].fop_name = (char *)gf_upcall_list[i];
         }
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
@@ -6423,6 +6432,22 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                  profile_info[i].fop_name);
                 }
         }
+
+        for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
+                if (upcall_info[i].fop_hits == 0)
+                        continue;
+                if (upcall_info[i].fop_hits) {
+                        cli_out ("%10.2lf %10.2lf us %10.2lf us %10.2lf us"
+                                 " %14"PRId64" %11s",
+                                 upcall_info[i].percentage_avg_latency,
+                                 upcall_info[i].avg_latency,
+                                 upcall_info[i].min_latency,
+                                 upcall_info[i].max_latency,
+                                 upcall_info[i].fop_hits,
+                                 upcall_info[i].fop_name);
+                }
+        }
+
         cli_out (" ");
         cli_out ("%12s: %"PRId64" seconds", "Duration", sec);
         cli_out ("%12s: %"PRId64" bytes", "Data Read", r_count);

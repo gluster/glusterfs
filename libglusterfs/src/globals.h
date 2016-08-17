@@ -120,6 +120,7 @@ char *glusterfs_leaseid_buf_get (void);
 int glusterfs_globals_init (glusterfs_ctx_t *ctx);
 
 extern const char *gf_fop_list[];
+extern const char *gf_upcall_list[];
 
 /* mem acct enable/disable */
 int gf_global_mem_acct_enable_get (void);
