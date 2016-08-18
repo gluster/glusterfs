@@ -79,9 +79,9 @@ struct _data_pair {
 
 struct _dict {
         unsigned char   is_static:1;
-        int32_t         hash_size;
-        int32_t         count;
-        int32_t         refcount;
+        uint32_t         hash_size;
+        uint32_t         count;
+        uint32_t         refcount;
         data_pair_t   **members;
         data_pair_t    *members_list;
         char           *extra_free;
@@ -156,7 +156,7 @@ void *data_to_ptr (data_t *data);
 
 data_t *get_new_data ();
 data_t * data_copy (data_t *old);
-dict_t *get_new_dict_full (int size_hint);
+dict_t *get_new_dict_full (uint32_t size_hint);
 dict_t *get_new_dict ();
 
 int dict_foreach (dict_t *this,
@@ -196,6 +196,7 @@ int dict_keys_join (void *value, int size, dict_t *dict,
 
 /* CLEANED UP FUNCTIONS DECLARATIONS */
 GF_MUST_CHECK dict_t *dict_new (void);
+GF_MUST_CHECK dict_t *dict_new_by_size (uint32_t num);
 dict_t *dict_copy_with_ref (dict_t *this, dict_t *new);
 
 GF_MUST_CHECK int dict_reset (dict_t *dict);

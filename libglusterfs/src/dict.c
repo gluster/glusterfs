@@ -27,6 +27,45 @@
 #include "statedump.h"
 #include "libglusterfs-messages.h"
 
+/* this goes with the bucket_size lookup table below */
+#define NUM_DISTINCT_SIZES_32_BIT 32
+
+/* this bucket_size lookup table is borrowed from GNU libstdc++ */
+static const uint32_t bucket_sizes[NUM_DISTINCT_SIZES_32_BIT] = {
+  /* 0  */ 5ul,
+  /* 1  */ 11ul,
+  /* 2  */ 23ul,
+  /* 3  */ 47ul,
+  /* 4  */ 97ul,
+  /* 5  */ 199ul,
+  /* 6  */ 409ul,
+  /* 7  */ 823ul,
+  /* 8  */ 1741ul,
+  /* 9  */ 3469ul,
+  /* 10 */ 6949ul,
+  /* 11 */ 14033ul,
+  /* 12 */ 28411ul,
+  /* 13 */ 57557ul,
+  /* 14 */ 116731ul,
+  /* 15 */ 236897ul,
+  /* 16 */ 480881ul,
+  /* 17 */ 976369ul,
+  /* 18 */ 1982627ul,
+  /* 19 */ 4026031ul,
+  /* 20 */ 8175383ul,
+  /* 21 */ 16601593ul,
+  /* 22 */ 33712729ul,
+  /* 23 */ 68460391ul,
+  /* 24 */ 139022417ul,
+  /* 25 */ 282312799ul,
+  /* 26 */ 573292817ul,
+  /* 27 */ 1164186217ul,
+  /* 28 */ 2364114217ul,
+  /* 29 */ 4294967291ul,
+  /* 30 */ 4294967291ul,
+  /* 31 */ 4294967291ul,
+};
+
 struct dict_cmp {
         dict_t *dict;
         gf_boolean_t (*value_ignore) (char *k);
@@ -47,7 +86,7 @@ get_new_data ()
 }
 
 dict_t *
-get_new_dict_full (int size_hint)
+get_new_dict_full (uint32_t size_hint)
 {
         dict_t *dict = mem_get0 (THIS->ctx->dict_pool);
 
@@ -67,17 +106,8 @@ get_new_dict_full (int size_hint)
                 dict->members = &dict->members_internal;
         }
         else {
-                /*
-                 * We actually need to allocate space for size_hint *pointers*
-                 * but we actually allocate space for one *structure*.  Since
-                 * a data_pair_t consists of five pointers, we're wasting four
-                 * pointers' worth for N=1, and will overrun what we allocated
-                 * for N>5.  If anybody ever starts using size_hint, we'll need
-                 * to fix this.
-                 */
-                GF_ASSERT (size_hint <=
-                           (sizeof(data_pair_t) / sizeof(data_pair_t *)));
-                dict->members = mem_get0 (THIS->ctx->dict_pair_pool);
+                dict->members = GF_CALLOC (size_hint, sizeof (data_pair_t *),
+                                           gf_common_mt_data_pair_t);
                 if (!dict->members) {
                         mem_put (dict);
                         return NULL;
@@ -105,6 +135,35 @@ dict_new (void)
         if (dict)
                 dict_ref (dict);
 
+        return dict;
+}
+
+dict_t *
+dict_new_by_size (uint32_t num)
+{
+        int32_t highest_bit = 0;
+        uint32_t bucket_size = 0;
+        dict_t *dict = NULL;
+
+        if (num == 0)
+                goto out;
+
+#ifdef _GNU_SOURCE
+        highest_bit = 32 - __builtin_clz (num);
+#else
+        while (num != 0) {
+                highest_bit++;
+                num >>= 1;
+        }
+#endif
+
+        bucket_size = bucket_sizes[highest_bit - 1];
+        dict = get_new_dict_full (bucket_size);
+
+        if (dict)
+                dict_ref (dict);
+
+out:
         return dict;
 }
 
@@ -268,7 +327,7 @@ err_out:
 static data_pair_t *
 dict_lookup_common (dict_t *this, char *key)
 {
-        int hashval = 0;
+        uint32_t hashval = 0;
         if (!this || !key) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
                                   LG_MSG_INVALID_ARG,
@@ -279,7 +338,7 @@ dict_lookup_common (dict_t *this, char *key)
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
          */
-        if (this->hash_size != 1)
+        if (this->hash_size > 1)
                 hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
 
         data_pair_t *pair;
@@ -319,7 +378,7 @@ dict_lookup (dict_t *this, char *key, data_t **data)
 static int32_t
 dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 {
-        int hashval = 0;
+        uint32_t hashval = 0;
         data_pair_t *pair;
         char key_free = 0;
         int tmp = 0;
@@ -336,7 +395,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
          */
-        if (this->hash_size != 1) {
+        if (this->hash_size > 1) {
                 tmp = SuperFastHash (key, strlen (key));
                 hashval = (tmp % this->hash_size);
         }
@@ -478,7 +537,7 @@ dict_get (dict_t *this, char *key)
 void
 dict_del (dict_t *this, char *key)
 {
-        int hashval = 0;
+        uint32_t hashval = 0;
 
         if (!this || !key) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -491,7 +550,7 @@ dict_del (dict_t *this, char *key)
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
          */
-        if (this->hash_size != 1)
+        if (this->hash_size > 1)
                 hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
 
         data_pair_t *pair = this->members[hashval];
