@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include "bit-rot-bitd-messages.h"
 #include "bit-rot-scrub-status.h"
+#include "events.h"
 
 struct br_scrubbers {
         pthread_t scrubthread;

@@ -13,7 +13,7 @@
 import socket
 import time
 
-from eventsapiconf import SERVER_ADDRESS
+from eventsapiconf import SERVER_ADDRESS, EVENTS_ENABLED
 from eventtypes import all_events
 
 from utils import logger, setup_logger
@@ -23,6 +23,9 @@ setup_logger()
 
 
 def gf_event(event_type, **kwargs):
+    if EVENTS_ENABLED == 0:
+        return
+
     if not isinstance(event_type, int) or event_type >= len(all_events):
         logger.error("Invalid Event Type: {0}".format(event_type))
         return

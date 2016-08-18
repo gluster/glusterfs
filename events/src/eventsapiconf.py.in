@@ -20,3 +20,4 @@ EVENTSD = "glustereventsd"
 CONFIG_KEYS = ["log_level"]
 BOOL_CONFIGS = []
 RESTART_CONFIGS = []
+EVENTS_ENABLED = @EVENTS_ENABLED@

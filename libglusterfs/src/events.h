@@ -11,13 +11,17 @@
 #ifndef __EVENTS_H__
 #define __EVENTS_H__
 
-#include <stdio.h>
-
 #include "eventtypes.h"
 
-#define EVENT_PATH "@localstatedir@/run/gluster/events.sock"
-#define EVENTS_MSG_MAX 2048
-
-extern int gf_event(int key, char *fmt, ...);
+#ifdef USE_EVENTS
+int
+gf_event (eventtypes_t event, char *fmt, ...);
+#else
+static inline int
+gf_event (eventtypes_t event, char *fmt, ...)
+{
+        return 0;
+}
+#endif /* USE_EVENTS */
 
 #endif /* __EVENTS_H__ */

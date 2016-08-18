@@ -38,7 +38,6 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
-                libglusterfs/src/events.h
                 libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
