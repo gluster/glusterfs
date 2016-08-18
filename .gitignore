@@ -106,7 +106,6 @@ xlators/experimental/jbr-client/src/jbrc-cg.c
 xlators/experimental/jbr-server/src/jbr-cg.c
 # Eventing
 events/src/eventsapiconf.py
-libglusterfs/src/events.h
 extras/systemd/glustereventsd.service
 events/src/eventtypes.py
 libglusterfs/src/eventtypes.h

@@ -26,6 +26,7 @@
 #include "run.h"
 #include "syscall.h"
 #include "common-utils.h"
+#include "events.h"
 
 extern struct rpc_clnt *global_rpc;
 extern struct rpc_clnt *global_quotad_rpc;

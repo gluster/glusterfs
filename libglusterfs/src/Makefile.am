@@ -37,7 +37,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 nodist_libglusterfs_la_HEADERS = y.tab.h glusterfs-fops.h
 
-BUILT_SOURCES = graph.lex.c defaults.c glusterfs-fops.h
+BUILT_SOURCES = graph.lex.c defaults.c glusterfs-fops.h eventtypes.h
 
 libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
@@ -51,7 +51,7 @@ libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	glfs-message-id.h template-component-messages.h strfd.h \
 	syncop-utils.h parse-utils.h libglusterfs-messages.h tw.h \
 	lvm-defaults.h quota-common-utils.h rot-buffs.h \
-	compat-uuid.h upcall-utils.h throttle-tbf.h
+	compat-uuid.h upcall-utils.h throttle-tbf.h events.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 
@@ -71,14 +71,12 @@ libglusterfs_la_SOURCES += $(CONTRIBDIR)/uuid/clear.c \
 	$(CONTRIBDIR)/uuid/unpack.c
 endif
 
-if BUILD_EVENTS
-BUILT_SOURCES += eventtypes.h
-libglusterfs_la_SOURCES += events.c
 
-libglusterfs_la_HEADERS += events.h eventtypes.h
-
-eventtypes.h: $(top_srcdir)/events/eventskeygen.py
+eventtypes.h:
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
+
+if BUILD_EVENTS
+libglusterfs_la_SOURCES += events.c
 endif
 
 libgfchangelog_HEADERS = changelog.h

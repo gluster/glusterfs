@@ -20,11 +20,15 @@
 #include "mem-pool.h"
 #include "events.h"
 
+
+#define EVENT_PATH DATADIR "/run/gluster/events.sock"
+#define EVENTS_MSG_MAX 2048
+
+
 int
-gf_event (int event, char *fmt, ...)
+gf_event (eventtypes_t event, char *fmt, ...)
 {
         int      ret                      = 0;
-#if (USE_EVENTS)
         int      sock                     = -1;
         char     eventstr[EVENTS_MSG_MAX] = "";
         struct   sockaddr_un server;
@@ -80,6 +84,5 @@ gf_event (int event, char *fmt, ...)
  out:
         sys_close(sock);
         GF_FREE(msg);
-#endif
         return ret;
 }
