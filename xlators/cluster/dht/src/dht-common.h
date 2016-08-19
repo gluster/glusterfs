@@ -1269,4 +1269,14 @@ void
 dht_normalize_stats (struct statvfs *buf, unsigned long bsize,
                      unsigned long frsize);
 
+int
+add_opt(char **optsp, const char *opt);
+
+char *
+getChoices (const char *value);
+
+int
+dht_aggregate_split_brain_xattr (dict_t *dst, char *key, data_t *value);
+
+
 #endif/* _DHT_H */

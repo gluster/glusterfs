@@ -127,6 +127,190 @@ out:
 }
 
 
+int add_opt(char **optsp, const char *opt)
+{
+        char *newopts = NULL;
+        unsigned oldsize = 0;
+        unsigned newsize = 0;
+
+        if (*optsp == NULL)
+                newopts = gf_strdup (opt);
+        else {
+                oldsize = strlen (*optsp);
+                newsize = oldsize + 1 + strlen (opt) + 1;
+                newopts = GF_REALLOC (*optsp, newsize);
+                if (newopts)
+                        sprintf (newopts + oldsize, ",%s", opt);
+        }
+        if (newopts == NULL) {
+                gf_msg ("dht", GF_LOG_WARNING, 0,
+                        DHT_MSG_NO_MEMORY,
+                        "Error to add choices in buffer in add_opt");
+                return -1;
+        }
+        *optsp = newopts;
+        return 0;
+}
+
+/* Return Choice list from Split brain status */
+char *
+getChoices (const char *value)
+{
+        int i = 0;
+        char *ptr = NULL;
+        char *tok = NULL;
+        char *result = NULL;
+        char *newval = NULL;
+
+        ptr = strstr (value, "Choices:");
+        if (!ptr) {
+                result = ptr;
+                goto out;
+        }
+
+        newval = gf_strdup (ptr);
+        if (!newval) {
+                result = newval;
+                goto out;
+        }
+
+        tok = strtok (newval, ":");
+        if (!tok) {
+                result = tok;
+                goto out;
+        }
+
+        while (tok) {
+                i++;
+                if (i == 2)
+                        break;
+                tok = strtok (NULL, ":");
+        }
+
+        result = gf_strdup (tok);
+
+out:
+        if (newval)
+                GF_FREE (newval);
+
+        return result;
+}
+
+/* This function prepare a list of choices for key
+   (replica.split-brain-status) in   case of metadata split brain
+   only on the basis of key-value passed to this function.
+   After prepare the list of choices it update the same key in dict
+   with this value to reflect the same in
+   replica.split-brain-status attr for file.
+
+*/
+
+int
+dht_aggregate_split_brain_xattr (dict_t *dst, char *key, data_t *value)
+{
+
+        int              ret            = 0;
+        char            *oldvalue       = NULL;
+        char            *old_choice     = NULL;
+        char            *new_choice     = NULL;
+        char            *full_choice    = NULL;
+        char            *status         = NULL;
+
+        if (value == NULL) {
+                gf_msg ("dht", GF_LOG_WARNING, 0,
+                        DHT_MSG_DATA_NULL,
+                        "GF_AFR_SBRAIN_STATUS value is NULL");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dst, key, &oldvalue);
+        if (ret)
+                goto out;
+
+        if (oldvalue && (strstr (oldvalue, "not"))) {
+                gf_msg_debug ("dht", 0,
+                              "Need to update split-brain status in dict");
+                ret = -1;
+                goto out;
+        }
+        if (oldvalue && (strstr (oldvalue, "metadata-split-brain:yes"))
+                     && (strstr (oldvalue, "data-split-brain:no"))) {
+                if (strstr (value->data, "not")) {
+                        gf_msg_debug ("dht", 0,
+                                      "No need to update split-brain status");
+                        ret = 0;
+                        goto out;
+                }
+                if (strstr (value->data, "yes") &&
+                        (strncmp (oldvalue, value->data, strlen(oldvalue)))) {
+                        old_choice = getChoices (oldvalue);
+                        if (!old_choice) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                        DHT_MSG_NO_MEMORY,
+                                        "Error to get choices");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = add_opt (&full_choice, old_choice);
+                        if (ret) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                         DHT_MSG_NO_MEMORY,
+                                         "Error to add choices");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        new_choice = getChoices (value->data);
+                        if (!new_choice) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                        DHT_MSG_NO_MEMORY,
+                                        "Error to get choices");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = add_opt (&full_choice, new_choice);
+                        if (ret) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                       DHT_MSG_NO_MEMORY,
+                                       "Error to add choices ");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = gf_asprintf (&status,
+                                           "data-split-brain:%s    "
+                                           "metadata-split-brain:%s   Choices:%s",
+                                           "no", "yes", full_choice);
+
+                        if (-1 == ret) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                                 DHT_MSG_NO_MEMORY,
+                                                "Error to prepare status ");
+                                        goto out;
+                                }
+                        ret = dict_set_dynstr (dst, key, status);
+                        if (ret) {
+                                gf_msg ("dht", GF_LOG_WARNING, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "Failed to set full choice");
+                        }
+                }
+        }
+
+out:
+        if (old_choice)
+                GF_FREE (old_choice);
+        if (new_choice)
+                GF_FREE (new_choice);
+        if (full_choice)
+                GF_FREE (full_choice);
+
+        return ret;
+}
+
+
 
 int
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
@@ -137,18 +321,22 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 
         dst = data;
 
-        if (strcmp (key, QUOTA_SIZE_KEY) == 0) {
+        /* compare split brain xattr only */
+        if (strcmp (key, GF_AFR_SBRAIN_STATUS) == 0) {
+                ret = dht_aggregate_split_brain_xattr(dst, key, value);
+                if (!ret)
+                        goto out;
+        } else if (strcmp (key, QUOTA_SIZE_KEY) == 0) {
                 ret = dht_aggregate_quota_xattr (dst, key, value);
                 if (ret) {
                         gf_msg ("dht", GF_LOG_WARNING, 0,
                                 DHT_MSG_AGGREGATE_QUOTA_XATTR_FAILED,
                                 "Failed to aggregate quota xattr");
-                        goto out;
                 }
+                goto out;
         } else if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0) {
                 ret = gf_get_min_stime (THIS, dst, key, value);
-                if (ret < 0)
-                        goto out;
+                goto out;
         } else {
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
@@ -161,16 +349,16 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                                                       key);
                         }
                 }
-                ret = dict_set (dst, key, value);
-                if (ret) {
-                        gf_msg ("dht", GF_LOG_WARNING, 0,
-                                DHT_MSG_DICT_SET_FAILED,
-                                "Failed to set dictionary value: key = %s",
-                                key);
-                }
         }
 
-        ret = 0;
+        ret = dict_set (dst, key, value);
+        if (ret) {
+                gf_msg ("dht", GF_LOG_WARNING, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value: key = %s",
+                        key);
+        }
+
 out:
         return ret;
 }
