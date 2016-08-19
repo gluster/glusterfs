@@ -6,8 +6,25 @@
 # This test enables management ssl and then test the
 # heal info command.
 
+for d in /etc/ssl /etc/openssl /usr/local/etc/openssl ; do
+        if test -d $d ; then
+                SSL_BASE=$d
+                break
+        fi
+done
+
+SSL_KEY=$SSL_BASE/glusterfs.key
+SSL_CERT=$SSL_BASE/glusterfs.pem
+SSL_CA=$SSL_BASE/glusterfs.ca
+
 cleanup;
+rm -f $SSL_BASE/glusterfs.*
 touch /var/lib/glusterd/secure-access
+
+TEST openssl genrsa -out $SSL_KEY 1024
+TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
+ln $SSL_CERT $SSL_CA
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
