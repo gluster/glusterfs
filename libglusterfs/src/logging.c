@@ -2254,9 +2254,8 @@ log:
 
         pthread_mutex_unlock (&ctx->log.logfile_mutex);
 
-err:
         GF_FREE (msg);
-
+err:
         GF_FREE (str1);
 
         FREE (str2);
