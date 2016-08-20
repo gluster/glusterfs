@@ -5,7 +5,7 @@
 
 TEST glusterd
 
-TEST $CLI volume create $V0 ${H0}:$B0/brick1;
+TEST $CLI volume create $V0 localhost:$B0/brick1;
 EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume start $V0;
@@ -20,7 +20,7 @@ if [ x"$OSTYPE" = x"NetBSD" ]; then
 	extra_cflags="-I/build/install/include -L/build/install/lib"
 fi
 
-build_tester $(dirname $0)/gfapi-trunc.c -lgfapi ${extra_cflags}
+build_tester $(dirname $0)/gfapi-trunc.c -lgfapi -o $(dirname $0)/gfapi-trunc
 
 TEST ./$(dirname $0)/gfapi-trunc $V0 $logdir/gfapi-trunc.log
 
