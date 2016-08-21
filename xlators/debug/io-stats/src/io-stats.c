@@ -2410,6 +2410,16 @@ io_stats_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int32_t
+io_stats_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS(frame, IPC);
+        STACK_UNWIND_STRICT (ipc, frame, op_ret, op_errno,
+                             xdata);
+        return 0;
+}
+
 int
 io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
@@ -3281,6 +3291,15 @@ io_stats_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         return 0;
 }
 
+int32_t
+io_stats_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        START_FOP_LATENCY(frame);
+
+        STACK_WIND (frame, io_stats_ipc_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ipc, op, xdata);
+        return 0;
+}
 
 int
 io_stats_lk (call_frame_t *frame, xlator_t *this,
@@ -3938,6 +3957,7 @@ struct xlator_fops fops = {
 	.fallocate   = io_stats_fallocate,
 	.discard     = io_stats_discard,
         .zerofill    = io_stats_zerofill,
+        .ipc         = io_stats_ipc,
 };
 
 struct xlator_cbks cbks = {
