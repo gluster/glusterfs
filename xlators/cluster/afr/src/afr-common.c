@@ -4138,6 +4138,126 @@ out:
 }
 
 int
+afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        afr_local_t   *local          = NULL;
+        int            child_index    = (long)cookie;
+        int            call_count     = 0;
+        gf_boolean_t   failed         = _gf_false;
+        gf_boolean_t   succeded       = _gf_false;
+        int            i              = 0;
+        afr_private_t *priv           = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        local->replies[child_index].valid = 1;
+        local->replies[child_index].op_ret = op_ret;
+        local->replies[child_index].op_errno = op_errno;
+        if (xdata)
+                local->replies[child_index].xdata = dict_ref (xdata);
+
+        call_count = afr_frame_return (frame);
+        if (call_count)
+                goto out;
+        /* If any of the subvolumes failed with other than ENOTCONN
+         * return error else return success unless all the subvolumes
+         * failed.
+         * TODO: In case of failure, we need to unregister the xattrs
+         * from the other subvolumes where it succeded (once upcall
+         * fixes the Bz-1371622)*/
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+                if (local->replies[i].op_ret < 0 &&
+                    local->replies[i].op_errno != ENOTCONN) {
+                        local->op_ret = local->replies[i].op_ret;
+                        local->op_errno = local->replies[i].op_errno;
+                        if (local->xdata_rsp)
+                                dict_unref (local->xdata_rsp);
+                        local->xdata_rsp = NULL;
+                        if (local->replies[i].xdata) {
+                                local->xdata_rsp =
+                                        dict_ref (local->replies[i].xdata);
+                        }
+                        failed = _gf_true;
+                        break;
+                }
+                if (local->replies[i].op_ret == 0) {
+                        succeded = _gf_true;
+                        local->op_ret = 0;
+                        local->op_errno = 0;
+                        if (!local->xdata_rsp && local->replies[i].xdata) {
+                                local->xdata_rsp =
+                                        dict_ref (local->replies[i].xdata);
+                        }
+                }
+        }
+
+        if (!succeded && !failed) {
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+        }
+
+        AFR_STACK_UNWIND (ipc, frame, local->op_ret, local->op_errno,
+                          local->xdata_rsp);
+
+out:
+        return 0;
+}
+
+int
+afr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        afr_local_t    *local    = NULL;
+        int32_t         op_errno = -1;
+        afr_private_t  *priv     = NULL;
+        int             i        = 0;
+        int             call_cnt = -1;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+
+        if (op != GF_IPC_TARGET_UPCALL)
+                goto wind_default;
+
+        VALIDATE_OR_GOTO (this->private, err);
+        priv = this->private;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto err;
+
+        call_cnt = local->call_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
+
+                STACK_WIND_COOKIE (frame, afr_ipc_cbk,
+                                   (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->ipc,
+                                   op, xdata);
+                if (!--call_cnt)
+                        break;
+        }
+        return 0;
+
+err:
+        if (op_errno == -1)
+                op_errno = errno;
+        AFR_STACK_UNWIND (ipc, frame, -1, op_errno, NULL);
+
+        return 0;
+
+wind_default:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+        return 0;
+}
+
+int
 afr_forget (xlator_t *this, inode_t *inode)
 {
         uint64_t        ctx_int = 0;
