@@ -2512,11 +2512,8 @@ next:
 int
 shard_post_lookup_unlink_handler (call_frame_t *frame, xlator_t *this)
 {
-        int            ret   = -1;
-        shard_priv_t  *priv  = NULL;
         shard_local_t *local = NULL;
 
-        priv = this->private;
         local = frame->local;
 
         if (local->op_ret < 0) {
