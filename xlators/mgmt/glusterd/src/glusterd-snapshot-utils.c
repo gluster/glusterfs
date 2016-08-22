@@ -1478,7 +1478,6 @@ glusterd_gen_snap_volfiles (glusterd_volinfo_t *snap_vol, char *peer_snap_name)
         int32_t                 ret              = -1;
         xlator_t               *this             = NULL;
         glusterd_volinfo_t     *parent_volinfo   = NULL;
-        glusterd_brickinfo_t   *brickinfo        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2020,7 +2019,6 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
-        glusterd_conf_t *priv                 = NULL;
 
 
         GF_ASSERT (volinfo);
@@ -2028,8 +2026,6 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
 
         this = THIS;
         GF_ASSERT (this);
-
-        priv = this->private;
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
         snprintf (key, sizeof (key), "%s.hostname", base_key);
@@ -3011,7 +3007,6 @@ int32_t
 glusterd_snap_quorum_check_for_clone (dict_t *dict, gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
 {
-        int32_t             force             = 0;
         char                err_str[PATH_MAX] = {0, };
         char                key_prefix[PATH_MAX] = {0, };
         char               *snapname          = NULL;
