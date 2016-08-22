@@ -142,6 +142,9 @@ glusterd_is_quorum_changed (dict_t *options, char *option, char *value)
         char            *newquorum      = NULL;
         char            *oldratio       = NULL;
         char            *newratio       = NULL;
+        xlator_t        *this           = NULL;
+
+        this = THIS;
 
         if ((strcmp ("all", option) != 0) &&
             !glusterd_is_quorum_option (option))
@@ -154,12 +157,22 @@ glusterd_is_quorum_changed (dict_t *options, char *option, char *value)
                 newquorum = value;
                 ret = dict_get_str (options, GLUSTERD_QUORUM_TYPE_KEY,
                                     &oldquorum);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "dict_get_str failed on %s",
+                                GLUSTERD_QUORUM_TYPE_KEY);
         }
 
         if (all || (strcmp (GLUSTERD_QUORUM_RATIO_KEY, option) == 0)) {
                 newratio = value;
                 ret = dict_get_str (options, GLUSTERD_QUORUM_RATIO_KEY,
                                     &oldratio);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "dict_get_str failed on %s",
+                                GLUSTERD_QUORUM_RATIO_KEY);
         }
 
         reconfigured = _gf_true;
@@ -277,10 +290,8 @@ does_gd_meet_server_quorum (xlator_t *this)
         int                     quorum_count    = 0;
         int                     active_count    = 0;
         gf_boolean_t            in              = _gf_false;
-        glusterd_conf_t         *conf           = NULL;
         int                     ret             = -1;
 
-        conf = this->private;
         ret = glusterd_get_quorum_cluster_counts (this, &active_count,
                                                   &quorum_count);
         if (ret)
@@ -300,11 +311,9 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                                   gf_boolean_t meets_quorum)
 {
         glusterd_brickinfo_t *brickinfo     = NULL;
-        glusterd_conf_t      *conf          = NULL;
         gd_quorum_status_t   quorum_status  = NOT_APPLICABLE_QUORUM;
         gf_boolean_t         follows_quorum = _gf_false;
 
-        conf = this->private;
         if (volinfo->status != GLUSTERD_STATUS_STARTED) {
                 volinfo->quorum_status = NOT_APPLICABLE_QUORUM;
                 goto out;
