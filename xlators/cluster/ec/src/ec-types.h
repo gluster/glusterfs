@@ -229,7 +229,8 @@ struct _ec_lock {
     uint32_t           refs_owners;  /* Refs for fops owning the lock */
     uint32_t           refs_pending; /* Refs assigned to fops being prepared */
     gf_boolean_t       acquired;
-    gf_boolean_t       getting_size;
+    gf_boolean_t       getting_xattr;
+    gf_boolean_t       unlock_now;
     gf_boolean_t       release;
     gf_boolean_t       query;
     fd_t              *fd;

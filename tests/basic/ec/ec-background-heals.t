@@ -23,6 +23,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "0" mount_get_option_value $M0 $V0-disperse-0 background-heals
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "0" mount_get_option_value $M0 $V0-disperse-0 heal-wait-qlength
 TEST touch $M0/a
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "0" get_pending_heal_count $V0 #One for each active brick
 TEST kill_brick $V0 $H0 $B0/${V0}2
 echo abc > $M0/a
 EXPECT 2 get_pending_heal_count $V0 #One for each active brick
