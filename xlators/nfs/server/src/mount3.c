@@ -1524,7 +1524,6 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         int                   ret = -EFAULT;
         struct nfs3_fh        pfh = GF_NFS3FH_STATIC_INITIALIZER;
         struct sockaddr_in    *sin = NULL;
-        int                   len = -1;
 
         if ((!req) || (!ms) || (!exp) || (!subdir))
                 return ret;
