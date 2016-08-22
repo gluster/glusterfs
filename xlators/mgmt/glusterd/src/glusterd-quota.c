@@ -1849,7 +1849,6 @@ static int
 glusterd_create_quota_auxiliary_mount (xlator_t *this, char *volname)
 {
         int                ret                     = -1;
-        int                retry                   = 0;
         char               mountdir[PATH_MAX]      = {0,};
         char               pidfile_path[PATH_MAX]  = {0,};
         char               logfile[PATH_MAX]       = {0,};
