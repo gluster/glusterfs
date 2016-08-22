@@ -2933,18 +2933,19 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        /* Preserve the op_errno sent by server */
         op_errno = gf_error_to_errno (rsp.op_errno);
-        gf_stat_to_iatt (&rsp.postparent, &postparent);
 
-        if (rsp.op_ret == -1)
-                goto out;
-
-        rsp.op_ret = -1;
-        gf_stat_to_iatt (&rsp.stat, &stbuf);
+        if (rsp.op_ret != -1) {
+                gf_stat_to_iatt (&rsp.postparent, &postparent);
+                gf_stat_to_iatt (&rsp.stat, &stbuf);
+        }
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, xdata, (rsp.xdata.xdata_val),
-                                      (rsp.xdata.xdata_len), rsp.op_ret,
-                                      op_errno, out);
+                                      (rsp.xdata.xdata_len), ret,
+                                      rsp.op_errno, out);
+        if (rsp.op_ret < 0)
+                goto out;
 
         if ((!gf_uuid_is_null (inode->gfid))
             && (gf_uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
@@ -2960,8 +2961,14 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         rsp.op_ret = 0;
-
+        ret = 0;
 out:
+        /* If dict unserialize failed on a successful fop*/
+        if (rsp.op_ret == 0 && ret < 0) {
+                rsp.op_ret = -1;
+                op_errno = rsp.op_errno;
+        }
+        /* Restore appropriate op_errno in response */
         rsp.op_errno = op_errno;
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
