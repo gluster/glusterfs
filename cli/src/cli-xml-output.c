@@ -2563,14 +2563,10 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         char                    *caps = NULL;
         int                     k __attribute__((unused)) = 0;
         int                     index = 1;
-        int                     start_index = 1;
-        int                     vol_type               = -1;
         int                     tier_vol_type          = 0;
-        /*hot disperse count, redundancy count and dist count are always
-         * zero so need for them to be included in the array.*/
-        int                     hot_disperse_count     = 0;
+        /* hot dist count is always zero so need for it to be
+         * included in the array.*/
         int                     hot_dist_count         = 0;
-        int                     hot_redundancy_count   = 0;
         values                  c                      = 0;
         char                    *keys[MAX]              = {
                 [COLD_BRICK_COUNT]      = "volume%d.cold_brick_count",
@@ -2980,7 +2976,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                          value[COLD_BRICK_COUNT]);
                         }
 
-                        start_index = index = value[HOT_BRICK_COUNT] + 1;
+                        index = value[HOT_BRICK_COUNT] + 1;
 
                         while (index <= brick_count) {
                                 snprintf (key, 1024, "volume%d.brick%d", i,
@@ -3870,10 +3866,6 @@ cli_xml_output_vol_replace_brick (char *op, dict_t *dict,
 {
 #if (HAVE_LIB_XML)
         int                     ret = -1;
-        int                     status = 0;
-        uint64_t                files = 0;
-        char                    *current_file = 0;
-        char                    *task_id_str = NULL;
         xmlTextWriterPtr        writer = NULL;
         xmlDocPtr               doc = NULL;
 
@@ -4190,7 +4182,6 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         int                  closed                      = 1;
         int                  session_closed              = 1;
         gf_gsync_status_t  **status_values               = NULL;
-        gf_boolean_t         status_detail               = _gf_false;
         char                 status_value_name[PATH_MAX] = "";
         char                *tmp                         = NULL;
         char                *volume                      = NULL;
@@ -4229,9 +4220,6 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         ret = dict_get_int32 (dict, "gsync-count", &count);
         if (ret)
                 goto out;
-
-        status_detail = dict_get_str_boolean (dict, "status-detail",
-                                              _gf_false);
 
         status_values = GF_CALLOC (count, sizeof (gf_gsync_status_t *),
                               gf_common_mt_char);
@@ -4838,7 +4826,6 @@ cli_xml_snapshot_info_snap_vol (xmlTextWriterPtr writer, xmlDocPtr doc,
 {
         char            key [PATH_MAX]          = "";
         char           *buffer                  = NULL;
-        int             value                   = 0;
         int             ret                     = -1;
 
         GF_ASSERT (dict);
@@ -5031,7 +5018,6 @@ cli_xml_snapshot_info (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
         int             i               = 0;
         int             snapcount       = 0;
         char            key [PATH_MAX]  = "";
-        char           *str_value       = NULL;
         gf_boolean_t    snap_driven     = _gf_false;
 
         GF_ASSERT (writer);
@@ -5112,7 +5098,6 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
         int     ret             = -1;
         int     brickcount      = 0;
         int     i               = 0;
-        int     value           = 0;
         int     pid             = 0;
         char   *buffer          = NULL;
         char    key[PATH_MAX]   = "";
@@ -5256,7 +5241,6 @@ cli_xml_snapshot_status_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
                                   dict_t *dict, const char *keyprefix)
 {
         int     ret             = -1;
-        int     snapcount       = 0;
         int     volcount        = 0;
         int     i               = 0;
         char   *buffer          = NULL;
@@ -5351,7 +5335,6 @@ cli_xml_snapshot_status (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
         int     snapcount       = 0;
         int     i               = 0;
         int     status_cmd      = 0;
-        char   *str_value       = NULL;
         char    key [PATH_MAX]  = "";
 
         GF_ASSERT (writer);

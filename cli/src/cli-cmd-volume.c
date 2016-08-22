@@ -194,10 +194,6 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
-        char                    *brick_list = NULL;
-        int32_t                 brick_count = 0;
-        int32_t                 sub_count = 0;
-        int32_t                 type = GF_CLUSTER_TYPE_NONE;
         cli_local_t             *local = NULL;
         char                    *trans_type = NULL;
 
@@ -1116,7 +1112,6 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         int                      ret     = -1;
         call_frame_t            *frame   = NULL;
         dict_t                  *options = NULL;
-        char                    *volname = NULL;
         rpc_clnt_procedure_t    *proc    = NULL;
         cli_local_t             *local   = NULL;
         int                      i       = 0;

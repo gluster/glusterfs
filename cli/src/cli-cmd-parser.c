@@ -436,7 +436,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         char    *volname = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
-        int     count = 1;
         int     sub_count = 1;
         int     brick_index = 0;
         char    *trans_type = NULL;
@@ -447,7 +446,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                "redundancy", "disperse-data", "arbiter", NULL };
 
         char    *w = NULL;
-        char    *ptr = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
         int32_t  arbiter_count = 0;
@@ -644,9 +642,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         if (!trans_type)
                 trans_type = gf_strdup ("tcp");
 
-        /* reset the count value now */
-        count = 1;
-
         if (index >= wordcount) {
                 ret = -1;
                 goto out;
@@ -832,10 +827,8 @@ cli_cmd_ganesha_parse (struct cli_state *state,
 {
         dict_t  *dict     =       NULL;
         int     ret       =       -1;
-        int     flags     =       0;
         char    *key      =       NULL;
         char    *value    =       NULL;
-        int     i         =       0;
         char    *w        =       NULL;
         char   *opwords[] =      { "enable", "disable", NULL };
         const char      *question       =       NULL;
@@ -1918,7 +1911,6 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         char    *word = NULL;
         dict_t  *dict = NULL;
         int32_t  command = GF_OP_CMD_NONE;
-        int      force = 0;
 
         dict = dict_new ();
         if (!dict)
@@ -3663,8 +3655,6 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
 {
         int     ret = 0;
         dict_t  *dict = NULL;
-        char    *hostname = NULL;
-        char    *path = NULL;
         gf_xl_afr_op_t op = GF_SHD_OP_INVALID;
 
         dict = dict_new ();
@@ -3987,10 +3977,8 @@ int
 cli_snap_clone_parse (dict_t *dict, const char **words, int wordcount) {
         uint64_t        i               =       0;
         int             ret             =       -1;
-        char            key[PATH_MAX]   =       "";
         char            *clonename      =       NULL;
         unsigned int    cmdi            =       2;
-        int             flags           =       0;
         /* cmdi is command index, here cmdi is "2" (gluster snapshot clone)*/
 
         GF_ASSERT (words);
