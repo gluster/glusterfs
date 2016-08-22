@@ -696,7 +696,6 @@ static void
 _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                     posix_xattr_filler_t *filler)
 {
-        int                   ret                   = -1;
         ssize_t               size                  = 0;
         char                 *list                  = NULL;
         int32_t               list_offset           = 0;
@@ -742,7 +741,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                 if (dict_get (filler->xattr, key))
                         goto next;
 
-                ret = _posix_xattr_get_set_from_backend (filler, key);
+                (void) _posix_xattr_get_set_from_backend (filler, key);
 next:
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
@@ -1928,10 +1927,7 @@ posix_fsyncer_process (xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
 {
         struct posix_fd *pfd = NULL;
         int ret = -1;
-        struct posix_private *priv = NULL;
         int op_errno = 0;
-
-        priv = this->private;
 
         ret = posix_fd_ctx_get (stub->args.fd, this, &pfd, &op_errno);
         if (ret < 0) {

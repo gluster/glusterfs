@@ -1421,7 +1421,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         void                 *uuid_req        = NULL;
         ssize_t               size            = 0;
         dict_t               *xdata_rsp       = NULL;
-        void                 *disk_xattr      = NULL, *arg_xattr = NULL;
+        void                 *disk_xattr      = NULL;
         data_t               *arg_data        = NULL;
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
 
@@ -1553,7 +1553,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
                         if ((arg_data->len != size)
                             || (memcmp (arg_data->data, disk_xattr, size))) {
-                                int ret = 0;
                                 gf_msg (this->name, GF_LOG_INFO, EIO,
                                         P_MSG_PREOP_CHECK_FAILED,
                                         "mkdir (%s/%s): failing preop of "
@@ -1576,8 +1575,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                         goto out;
                                 }
 
-                                ret = dict_set_int8 (xdata_rsp,
-                                                     GF_PREOP_CHECK_FAILED, 1);
+                                op_errno = dict_set_int8 (xdata_rsp,
+                                                          GF_PREOP_CHECK_FAILED, 1);
                                 goto out;
                         }
 
@@ -1696,7 +1695,6 @@ posix_move_gfid_to_unlink (xlator_t *this, uuid_t gfid, loc_t *loc)
 {
         char *unlink_path = NULL;
         char *gfid_path = NULL;
-        struct stat  stbuf = {0, };
         int ret = 0;
         struct posix_private    *priv_posix = NULL;
 
@@ -1735,7 +1733,6 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                                     loc_t *loc, gf_boolean_t get_link_count,
                                     dict_t *rsp_dict)
 {
-        int                    fd_count = 0;
         int32_t                ret      = 0;
         struct iatt            prebuf   = {0,};
         gf_boolean_t           locked   = _gf_false;
@@ -1879,13 +1876,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         struct iatt            postparent         = {0,};
         char                  *pgfid_xattr_key    = NULL;
         int32_t                nlink_samepgfid    = 0;
-        int32_t                unlink_if_linkto   = 0;
         int32_t                check_open_fd      = 0;
         int32_t                skip_unlink        = 0;
         int32_t                fdstat_requested   = 0;
-        int32_t                ctr_link_req       = 0;
-        ssize_t                xattr_size         = -1;
-        int32_t                is_dht_linkto_file = 0;
         dict_t                *unwind_dict        = NULL;
         void                  *uuid               = NULL;
         char                   uuid_str[GF_UUID_BUF_SIZE] = {0};
@@ -3887,6 +3880,12 @@ posix_xattr_get_real_filename (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!real_path) {
                 return -ESTALE;
         }
+        if (op_ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
+                        "posix_xattr_get_real_filename (lstat) on %s failed",
+                        real_path);
+                return -errno;
+        }
 
         fd = sys_opendir (real_path);
         if (!fd)
@@ -3971,11 +3970,9 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                                int type, dict_t *xdata, int32_t *op_errno)
 {
         int                   op_ret       = -1;
-        inode_t              *linked_inode = NULL;
         gf_dirent_t          *gf_entry     = NULL;
         xlator_t             *this         = NULL;
         struct posix_private *priv         = NULL;
-        char                 *tempv        = NULL;
         DIR                  *dirp         = NULL;
         struct dirent        *entry        = NULL;
         struct dirent         scratch[2]   = {{0,},};
@@ -6801,7 +6798,6 @@ init (xlator_t *this)
         data_t               *tmp_data      = NULL;
         struct stat           buf           = {0,};
         gf_boolean_t          tmp_bool      = 0;
-        int                   dict_ret      = 0;
         int                   ret           = 0;
         int                   op_ret        = -1;
         ssize_t               size          = -1;
