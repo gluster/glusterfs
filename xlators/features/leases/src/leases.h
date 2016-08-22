@@ -94,7 +94,6 @@ do {                                                                           \
         call_stub_t             *__stub     = NULL;                            \
         fop_stub_t              *blk_fop    = NULL;                            \
         lease_inode_ctx_t       *lease_ctx  = NULL;                            \
-        int                      __ret      = 0;                               \
                                                                                \
         __stub = fop_##fop_name##_stub (frame, default_##fop_name##_resume,    \
                                         params);                               \
