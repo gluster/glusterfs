@@ -236,7 +236,6 @@ static int
 glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                             dict_t *op_ctx, glusterd_commit_hook_type_t type)
 {
-        char                   *hooks_args       = NULL;
         int                     vol_count        = 0;
         gf_boolean_t            truth            = _gf_false;
         glusterd_volinfo_t      *voliter         = NULL;
@@ -322,7 +321,6 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                           glusterd_commit_hook_type_t type)
 {
         xlator_t        *this                   = NULL;
-        glusterd_conf_t *priv                   = NULL;
         runner_t         runner                 = {0,};
         DIR             *hookdir                = NULL;
         struct dirent   *entry                  = NULL;
@@ -335,7 +333,6 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
         int              ret                    = -1;
 
         this = THIS;
-        priv = this->private;
 
         ret = dict_get_str (op_ctx, "volname", &volname);
         if (ret) {
