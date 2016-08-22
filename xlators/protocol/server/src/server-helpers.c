@@ -1320,8 +1320,6 @@ unserialize_req_locklist (gfs3_setactivelk_req *req,
 {
         struct gfs3_locklist            *trav      = NULL;
         lock_migration_info_t           *temp    = NULL;
-        char                            *buf       = NULL;
-        int                             entry_len = 0;
         int                             ret       = -1;
 
         trav = req->request;
@@ -2267,7 +2265,6 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                                    compound_args_cbk_t *args_cbk, int index)
 {
         int                     op_errno    = ENOMEM;
-        int                     op_ret      = -1;
         default_args_cbk_t      *this_args_cbk = NULL;
         compound_rsp            *this_rsp   = NULL;
         server_state_t          *state      = NULL;

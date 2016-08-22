@@ -150,7 +150,6 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         char                    new_iobref = 0;
         client_t               *client     = NULL;
         gf_boolean_t            lk_heal    = _gf_false;
-        gf_boolean_t            barriered  = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("server", req, ret);
 
@@ -716,7 +715,6 @@ reconfigure (xlator_t *this, dict_t *options)
         data_t                   *data;
         int                       ret = 0;
         char                     *statedump_path = NULL;
-        xlator_t                 *xl     = NULL;
         int32_t                   new_nthread = 0;
 
         conf = this->private;
@@ -1291,20 +1289,11 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int              ret          = -1;
-        int32_t          val          = 0;
-        dict_t           *dict        = NULL;
-        dict_t           *output      = NULL;
         server_conf_t    *conf        = NULL;
-        va_list          ap;
 
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
-
-        dict = data;
-        va_start (ap, data);
-        output = va_arg (ap, dict_t*);
-        va_end (ap);
 
         switch (event) {
         case GF_EVENT_UPCALL:

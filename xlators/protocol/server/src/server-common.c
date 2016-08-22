@@ -273,7 +273,6 @@ server_post_rename (call_frame_t *frame,
                     struct iatt *postnewparent)
 {
         inode_t             *tmp_inode  = NULL;
-        inode_t             *tmp_parent = NULL;
 
         stbuf->ia_type = state->loc.inode->ia_type;
 
@@ -319,7 +318,6 @@ server_post_open (call_frame_t *frame, xlator_t *this,
 {
         server_ctx_t        *serv_ctx = NULL;
         uint64_t             fd_no    = 0;
-        int                  ret       = 0;
 
         serv_ctx = server_ctx_get (frame->root->client, this);
         if (serv_ctx == NULL) {
@@ -350,7 +348,6 @@ server_post_opendir (call_frame_t *frame, xlator_t *this,
 {
         server_ctx_t        *serv_ctx = NULL;
         uint64_t             fd_no    = 0;
-        int                  ret       = 0;
 
         serv_ctx = server_ctx_get (frame->root->client, this);
         if (serv_ctx == NULL) {
