@@ -66,7 +66,6 @@ glusterd_bitdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                      ret           = 0;
         xlator_t                *this          = NULL;
-        glusterd_brickinfo_t    *brickinfo     = NULL;
 
         this = THIS;
         GF_ASSERT (this);
