@@ -12,6 +12,17 @@ function get_md5sum {
         md5sum $1 | awk '{print $1}'
 }
 
+#after replace-brick immediately trusted.ec.version will be absent, so if it
+#is present we can assume that heal attempted on root
+function root_heal_attempted {
+        if [ -z $(get_hex_xattr trusted.ec.version $1) ];
+        then
+                echo "N";
+        else
+                echo "Y";
+        fi
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
@@ -23,6 +34,9 @@ touch $M0/11
 for i in {1..10}; do dd if=/dev/zero of=$M0/$i bs=1M count=1; done
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}5 $H0:$B0/${V0}6 commit force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count_shd $V0 0
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" root_heal_attempted $B0/${V0}6
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 #ls -l gives "Total" line so number of lines will be 1 more
 EXPECT "^12$" num_entries $B0/${V0}6
