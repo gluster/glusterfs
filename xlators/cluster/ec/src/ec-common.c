@@ -886,6 +886,27 @@ ec_config_check (ec_fop_data_t *fop, ec_config_t *config)
     return _gf_true;
 }
 
+gf_boolean_t
+ec_set_dirty_flag (ec_lock_link_t *link, ec_inode_t *ctx, uint64_t *dirty)
+{
+
+    gf_boolean_t set_dirty = _gf_false;
+
+    if (link->update[EC_DATA_TXN] && !ctx->dirty[EC_DATA_TXN]) {
+                dirty[EC_DATA_TXN] = 1;
+    }
+
+    if (link->update[EC_METADATA_TXN] && !ctx->dirty[EC_METADATA_TXN]) {
+                dirty[EC_METADATA_TXN] = 1;
+    }
+
+    if (dirty[EC_METADATA_TXN] || dirty[EC_DATA_TXN]) {
+        set_dirty = _gf_true;
+    }
+
+    return set_dirty;
+}
+
 int32_t
 ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -906,8 +927,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     LOCK(&lock->loc.inode->lock);
 
     list_for_each_entry(link, &lock->owners, owner_list) {
-        if ((link->fop->flags & EC_FLAG_WAITING_SIZE) != 0) {
-            link->fop->flags ^= EC_FLAG_WAITING_SIZE;
+        if ((link->fop->flags & EC_FLAG_WAITING_XATTROP) != 0) {
+            link->fop->flags ^= EC_FLAG_WAITING_XATTROP;
 
             list_add_tail(&link->fop->cbk_list, &list);
         }
@@ -921,68 +942,70 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         goto unlock;
     }
 
-    op_errno = -ec_dict_del_array(dict, EC_XATTR_VERSION, ctx->pre_version,
-                                  EC_VERSION_SIZE);
-    if (op_errno != 0) {
-        gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                EC_MSG_VER_XATTR_GET_FAIL,
-                "Unable to get version xattr");
-
-        goto unlock;
-    }
-    ctx->post_version[0] += ctx->pre_version[0];
-    ctx->post_version[1] += ctx->pre_version[1];
-
-    ctx->have_version = _gf_true;
-
-    if (lock->loc.inode->ia_type == IA_IFREG ||
-        lock->loc.inode->ia_type == IA_INVAL) {
-        op_errno = -ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size);
-        if (op_errno != 0) {
-            if (lock->loc.inode->ia_type == IA_IFREG) {
+    if (parent->flags & EC_FLAG_QUERY_METADATA) {
+            parent->flags ^= EC_FLAG_QUERY_METADATA;
+            op_errno = -ec_dict_del_array(dict, EC_XATTR_VERSION,
+                                          ctx->pre_version,
+                                          EC_VERSION_SIZE);
+            if (op_errno != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                        EC_MSG_SIZE_XATTR_GET_FAIL,
-                        "Unable to get size xattr");
-
+                        EC_MSG_VER_XATTR_GET_FAIL,
+                        "Unable to get version xattr");
                 goto unlock;
             }
-        } else {
-            ctx->post_size = ctx->pre_size;
+            ctx->post_version[0] += ctx->pre_version[0];
+            ctx->post_version[1] += ctx->pre_version[1];
 
-            ctx->have_size = _gf_true;
-        }
+            ctx->have_version = _gf_true;
 
-        op_errno = -ec_dict_del_config(dict, EC_XATTR_CONFIG, &ctx->config);
-        if (op_errno != 0) {
-            if ((lock->loc.inode->ia_type == IA_IFREG) ||
-                (op_errno != ENODATA)) {
-                gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                        EC_MSG_CONFIG_XATTR_GET_FAIL,
-                        "Unable to get config xattr");
+            if (lock->loc.inode->ia_type == IA_IFREG ||
+                lock->loc.inode->ia_type == IA_INVAL) {
+                op_errno = -ec_dict_del_number(dict, EC_XATTR_SIZE,
+                                               &ctx->pre_size);
+                if (op_errno != 0) {
+                    if (lock->loc.inode->ia_type == IA_IFREG) {
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                EC_MSG_SIZE_XATTR_GET_FAIL,
+                                "Unable to get size xattr");
+                        goto unlock;
+                    }
+                } else {
+                    ctx->post_size = ctx->pre_size;
 
-                goto unlock;
+                    ctx->have_size = _gf_true;
+                }
+
+                op_errno = -ec_dict_del_config(dict, EC_XATTR_CONFIG,
+                                               &ctx->config);
+                if (op_errno != 0) {
+                    if ((lock->loc.inode->ia_type == IA_IFREG) ||
+                        (op_errno != ENODATA)) {
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                EC_MSG_CONFIG_XATTR_GET_FAIL,
+                                "Unable to get config xattr");
+
+                        goto unlock;
+                    }
+                } else {
+                    if (!ec_config_check(parent, &ctx->config)) {
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                EC_MSG_CONFIG_XATTR_INVALID,
+                                "Invalid config xattr");
+
+                        op_errno = EINVAL;
+
+                        goto unlock;
+                    }
+                    ctx->have_config = _gf_true;
+                }
             }
-        } else {
-            if (!ec_config_check(parent, &ctx->config)) {
-                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        EC_MSG_CONFIG_XATTR_INVALID,
-                        "Invalid config xattr");
-
-                op_errno = EINVAL;
-
-                goto unlock;
-            }
-
-            ctx->have_config = _gf_true;
-        }
+            ctx->have_info = _gf_true;
     }
 
-    ctx->have_info = _gf_true;
-
+    ec_set_dirty_flag (fop->data, ctx, ctx->dirty);
     op_errno = 0;
-
 unlock:
-    lock->getting_size = _gf_false;
+    lock->getting_xattr = _gf_false;
 
     UNLOCK(&lock->loc.inode->lock);
 
@@ -1029,16 +1052,19 @@ void ec_get_size_version(ec_lock_link_t *link)
     ec_inode_t *ctx;
     ec_fop_data_t *fop;
     dict_t *dict = NULL;
-    int32_t error = -ENOMEM;
-    gf_boolean_t getting_size;
+    int32_t error = 0;
+    gf_boolean_t getting_xattr;
+    gf_boolean_t set_dirty = _gf_false;
     uint64_t allzero[EC_VERSION_SIZE] = {0, 0};
-
+    uint64_t dirty[EC_VERSION_SIZE] = {0, 0};
     lock = link->lock;
     ctx = lock->ctx;
     fop = link->fop;
 
+    set_dirty = ec_set_dirty_flag (link, ctx, dirty);
+
     /* If ec metadata has already been retrieved, do not try again. */
-    if (ctx->have_info) {
+    if (ctx->have_info && (!set_dirty)) {
         if (ec_is_data_fop (fop->id)) {
             fop->healing |= lock->healing;
         }
@@ -1047,58 +1073,63 @@ void ec_get_size_version(ec_lock_link_t *link)
 
     /* Determine if there's something we need to retrieve for the current
      * operation. */
-    if (!lock->query &&
+    if (!set_dirty && !lock->query &&
         (lock->loc.inode->ia_type != IA_IFREG) &&
         (lock->loc.inode->ia_type != IA_INVAL)) {
-        return;
+            return;
     }
 
     memset(&loc, 0, sizeof(loc));
 
     LOCK(&lock->loc.inode->lock);
 
-    getting_size = lock->getting_size;
-    lock->getting_size = _gf_true;
-    if (getting_size) {
-        fop->flags |= EC_FLAG_WAITING_SIZE;
+    getting_xattr = lock->getting_xattr;
+    lock->getting_xattr = _gf_true;
+    if (getting_xattr) {
+        fop->flags |= EC_FLAG_WAITING_XATTROP;
 
         ec_sleep(fop);
     }
 
     UNLOCK(&lock->loc.inode->lock);
 
-    if (getting_size) {
-        error = 0;
-
+    if (getting_xattr) {
         goto out;
     }
 
     dict = dict_new();
     if (dict == NULL) {
+        error = -ENOMEM;
         goto out;
     }
+    if (lock->query && !ctx->have_info) {
+            fop->flags |= EC_FLAG_QUERY_METADATA;
+            /* Once we know that an xattrop will be needed,
+             * we try to get all available information in a
+             * single call. */
+            error = ec_dict_set_array(dict, EC_XATTR_VERSION, allzero,
+                                      EC_VERSION_SIZE);
+            if (error != 0) {
+                goto out;
+            }
 
-    /* Once we know that an xattrop will be needed, we try to get all available
-     * information in a single call. */
-    error = ec_dict_set_array(dict, EC_XATTR_VERSION, allzero,
-                              EC_VERSION_SIZE);
-    if (error == 0) {
-        error = ec_dict_set_array(dict, EC_XATTR_DIRTY, allzero,
-                                  EC_VERSION_SIZE);
+            if (lock->loc.inode->ia_type == IA_IFREG ||
+                lock->loc.inode->ia_type == IA_INVAL) {
+                error = ec_dict_set_number(dict, EC_XATTR_SIZE, 0);
+                if (error == 0) {
+                    error = ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
+                }
+                if (error != 0) {
+                    goto out;
+                }
+            }
     }
-    if (error != 0) {
-        goto out;
-    }
-
-    if (lock->loc.inode->ia_type == IA_IFREG ||
-        lock->loc.inode->ia_type == IA_INVAL) {
-        error = ec_dict_set_number(dict, EC_XATTR_SIZE, 0);
-        if (error == 0) {
-            error = ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
-        }
-        if (error != 0) {
-            goto out;
-        }
+    if (set_dirty) {
+            error = ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty,
+                                      EC_VERSION_SIZE);
+            if (error != 0) {
+                goto out;
+            }
     }
 
     fop->frame->root->uid = 0;
@@ -1634,15 +1665,9 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
     if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
         if (link->update[0]) {
             ctx->post_version[0]++;
-            if (ec->node_mask & ~fop->good) {
-                ctx->dirty[0]++;
-            }
         }
         if (link->update[1]) {
             ctx->post_version[1]++;
-            if (ec->node_mask & ~fop->good) {
-                ctx->dirty[1]++;
-            }
         }
     }
 
@@ -1764,11 +1789,11 @@ void ec_unlock_lock(ec_lock_link_t *link)
     lock = link->lock;
     fop = link->fop;
 
+    lock->unlock_now = _gf_false;
     ec_clear_inode_info(fop, lock->loc.inode);
 
     if ((lock->mask != 0) && lock->acquired) {
         ec_owner_set(fop->frame, lock);
-
         lock->flock.l_type = F_UNLCK;
         ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p", lock,
                  lock->loc.inode);
@@ -1791,15 +1816,16 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     ec_lock_t *lock;
     ec_inode_t *ctx;
 
+    link = fop->data;
+    lock = link->lock;
+    ctx = lock->ctx;
+
     if (op_ret < 0) {
         gf_msg(fop->xl->name, fop_log_level (fop->id, op_errno), op_errno,
                EC_MSG_SIZE_VERS_UPDATE_FAIL,
                "Failed to update version and size");
     } else {
         fop->parent->good &= fop->good;
-        link = fop->data;
-        lock = link->lock;
-        ctx = lock->ctx;
 
         ec_lock_update_good(lock, fop);
 
@@ -1822,10 +1848,11 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
 
         ctx->have_info = _gf_true;
     }
-
-    if ((fop->parent->id != GF_FOP_FLUSH) &&
-        (fop->parent->id != GF_FOP_FSYNC) &&
-        (fop->parent->id != GF_FOP_FSYNCDIR)) {
+    /* If we are here because of fop's and other than unlock request,
+     * that means we are still holding a lock. That make sure
+     * lock->unlock_now can not be modified.
+     */
+    if (lock->unlock_now) {
         ec_unlock_lock(fop->data);
     }
 
@@ -1843,6 +1870,9 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     int32_t err = -ENOMEM;
 
     fop = link->fop;
+    ec_t *ec = fop->xl->private;
+    lock = link->lock;
+    ctx = lock->ctx;
 
     ec_trace("UPDATE", fop, "version=%ld/%ld, size=%ld, dirty=%ld/%ld",
              version[0], version[1], size, dirty[0], dirty[1]);
@@ -1851,9 +1881,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     if (dict == NULL) {
         goto out;
     }
-
-    lock = link->lock;
-    ctx = lock->ctx;
 
     /* If we don't have version information or it has been modified, we
      * update it. */
@@ -1866,8 +1893,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     }
 
     if (size != 0) {
-        /* If size has been changed, we should already know the previous size
-         * of the file. */
+        /* If size has been changed, we should already
+         * know the previous size of the file. */
         GF_ASSERT(ctx->have_size);
 
         err = ec_dict_set_number(dict, EC_XATTR_SIZE, size);
@@ -1876,13 +1903,12 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
         }
     }
 
-    /* If we don't have dirty information or it has been modified, we update
-     * it. */
-    if ((dirty[0] != 0) || (dirty[1] != 0)) {
-        err = ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty, EC_VERSION_SIZE);
-        if (err != 0) {
-            goto out;
-        }
+    if (dirty[0] || dirty[1]) {
+            err = ec_dict_set_array(dict, EC_XATTR_DIRTY,
+                                    dirty, EC_VERSION_SIZE);
+            if (err != 0) {
+                goto out;
+            }
     }
 
     /* If config information is not known, we request it now. */
@@ -1922,9 +1948,7 @@ out:
     gf_msg (fop->xl->name, GF_LOG_ERROR, -err, EC_MSG_SIZE_VERS_UPDATE_FAIL,
             "Unable to update version and size");
 
-    if ((fop->parent->id != GF_FOP_FLUSH) &&
-        (fop->parent->id != GF_FOP_FSYNC) &&
-        (fop->parent->id != GF_FOP_FSYNCDIR)) {
+    if (lock->unlock_now) {
         ec_unlock_lock(fop->data);
     }
 
@@ -1935,28 +1959,36 @@ ec_update_info(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
     ec_inode_t *ctx;
-    uint64_t version[2];
-    uint64_t dirty[2];
+    uint64_t version[2] = {0, 0};
+    uint64_t dirty[2] = {0, 0};
     uint64_t size;
+    ec_t *ec = NULL;
 
     lock = link->lock;
     ctx = lock->ctx;
+    ec = link->fop->xl->private;
 
     /* pre_version[*] will be 0 if have_version is false */
     version[0] = ctx->post_version[0] - ctx->pre_version[0];
     version[1] = ctx->post_version[1] - ctx->pre_version[1];
 
     size = ctx->post_size - ctx->pre_size;
-
-    dirty[0] = ctx->dirty[0];
-    dirty[1] = ctx->dirty[1];
-    /*Dirty is not combined so just reset it right here*/
-    memset(ctx->dirty, 0, sizeof(ctx->dirty));
-
+    /* If we set the dirty flag for update fop, we have to unset it.
+     * If fop has failed on some bricks, leave the dirty as marked. */
+    if (lock->unlock_now) {
+            if (!(ec->node_mask & ~lock->good_mask)) {
+                    if (ctx->dirty[0] != 0) {
+                        dirty[0] = -1;
+                    }
+                    if (ctx->dirty[1] != 0) {
+                        dirty[1] = -1;
+                    }
+            }
+            memset(ctx->dirty, 0, sizeof(ctx->dirty));
+    }
     if ((version[0] != 0) || (version[1] != 0) ||
         (dirty[0] != 0) || (dirty[1] != 0)) {
         ec_update_size_version(link, version, size, dirty);
-
         return _gf_true;
     }
 
@@ -1966,7 +1998,15 @@ ec_update_info(ec_lock_link_t *link)
 void
 ec_unlock_now(ec_lock_link_t *link)
 {
+    ec_lock_t *lock;
+    lock = link->lock;
+
     ec_trace("UNLOCK_NOW", link->fop, "lock=%p", link->lock);
+    /*At this point, lock is not being used by any fop and
+     *can not be reused by any fop as it is going to be released.
+     *lock->unlock_now can not be modified at any other place.
+     */
+    lock->unlock_now = _gf_true;
 
     if (!ec_update_info(link)) {
         ec_unlock_lock(link);
