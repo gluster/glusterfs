@@ -326,7 +326,6 @@ gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int                         ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_lock_rsp        rsp           = {{0},};
         call_frame_t               *frame         = NULL;
         int                         op_ret        = -1;
@@ -430,7 +429,6 @@ gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int                          ret           = -1;
         struct syncargs             *args          = NULL;
-        glusterd_peerinfo_t         *peerinfo      = NULL;
         gd1_mgmt_v3_unlock_rsp       rsp           = {{0},};
         call_frame_t                *frame         = NULL;
         int                          op_ret        = -1;
@@ -1652,11 +1650,9 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         int                     ret = -1;
         rpc_clnt_t              *rpc = NULL;
         dict_t                  *rsp_dict = NULL;
-        glusterd_conf_t         *conf = NULL;
         int32_t                 cmd = GF_OP_CMD_NONE;
 
         this = THIS;
-        conf = this->private;
         rsp_dict = dict_new ();
         if (!rsp_dict) {
                 ret = -1;
