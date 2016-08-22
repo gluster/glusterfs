@@ -2373,8 +2373,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *brickinfo        = NULL;
         int32_t                 i                 = 1;
         char                    *volume_id_str    = NULL;
-        char                    *src_brick        = NULL;
-        char                    *dst_brick        = NULL;
         char                    *str              = NULL;
         glusterd_dict_ctx_t     ctx               = {0};
         char                    *rebalance_id_str = NULL;
@@ -3432,16 +3430,10 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         char               *parent_volname   = NULL;
         char               *volname          = NULL;
         glusterd_volinfo_t *new_volinfo      = NULL;
-        glusterd_volinfo_t *old_volinfo      = NULL;
         char               *volume_id_str    = NULL;
-        char               *restored_snap    = NULL;
         char               msg[2048]         = {0};
-        char               *src_brick        = NULL;
-        char               *dst_brick        = NULL;
         char               *str              = NULL;
-        int                rb_status         = 0;
         char               *rebalance_id_str = NULL;
-        char               *rb_id_str        = NULL;
         int                op_version        = 0;
         int                client_op_version = 0;
 
@@ -3857,7 +3849,6 @@ int32_t
 glusterd_volinfo_copy_brickinfo (glusterd_volinfo_t *old_volinfo,
                                  glusterd_volinfo_t *new_volinfo)
 {
-        char                    pidfile[PATH_MAX+1] = {0,};
         glusterd_brickinfo_t   *new_brickinfo       = NULL;
         glusterd_brickinfo_t   *old_brickinfo       = NULL;
         glusterd_conf_t        *priv                = NULL;
@@ -5391,7 +5382,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         int             ret               = -1;
         char            key[1024]         = {0};
         char            buffer[4096]      = {0};
-        char           *inode_size        = NULL;
         char           *device            = NULL;
         char           *fs_name           = NULL;
         char           *cur_word          = NULL;
@@ -6727,7 +6717,6 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf,
                                    gf_boolean_t upgrade, gf_boolean_t downgrade)
 {
         int              ret                            = 0;
-        char            *type                           = NULL;
         gf_boolean_t     regenerate_volfiles            = _gf_false;
         gf_boolean_t     terminate                      = _gf_false;
 
@@ -7310,7 +7299,6 @@ glusterd_get_dummy_client_filepath (char *filepath,
                                     gf_transport_type type)
 {
         int   ret             = 0;
-        char  path[PATH_MAX]  = {0,};
 
         switch (type) {
         case GF_TRANSPORT_TCP:
@@ -7410,7 +7398,6 @@ glusterd_defrag_info_set (glusterd_volinfo_t *volinfo, dict_t *dict, int cmd,
 {
 
         xlator_t                *this        = NULL;
-        dict_t                  *op_ctx      = NULL;
         int                      ret         = -1;
         char                    *task_id_str = NULL;
         glusterd_rebalance_t    *rebal       = NULL;
@@ -7534,14 +7521,12 @@ glusterd_is_local_brick (xlator_t *this, glusterd_volinfo_t *volinfo,
 {
         gf_boolean_t    local = _gf_false;
         int             ret = 0;
-        glusterd_conf_t *conf = NULL;
 
         if (gf_uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret)
                         goto out;
         }
-        conf = this->private;
         local = !gf_uuid_compare (brickinfo->uuid, MY_UUID);
 out:
         return local;
@@ -7807,9 +7792,11 @@ glusterd_volset_help (dict_t *dict, char **op_errstr)
 {
         int                     ret = -1;
         gf_boolean_t            xml_out = _gf_false;
-        xlator_t                *this = NULL;
+#if (!HAVE_LIB_XML)
+        xlator_t               *this = NULL;
 
         this = THIS;
+#endif
 
         if (!dict) {
                 if (!(dict = glusterd_op_get_ctx ())) {
@@ -7858,7 +7845,6 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
         char               *cmd = NULL;
         int                op_ret = 0;
         char               *op_errstr = NULL;
-        int                op_errno = 0;
         xlator_t           *this = NULL;
 
         this = THIS;
@@ -7866,7 +7852,6 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         op_ret = arg->op_ret;
         op_errstr = arg->op_errstr;
-        op_errno = arg->op_errno;
 
         ret = dict_get_str (dict, "cmd-str", &cmd);
         if (ret)
@@ -8676,12 +8661,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int                      ret                = -1;
         int                      j                  = 0;
         uint64_t                 value              = 0;
-        int32_t                  count              = 0;
         char                     key[256]           = {0,};
-        uint64_t                 error_count        = 0;
-        uint64_t                 scrubbed_files     = 0;
-        uint64_t                 unsigned_files     = 0;
-        uint64_t                 scrub_duration     = 0;
         char                    *last_scrub_time    = NULL;
         char                    *scrub_time         = NULL;
         char                    *volname            = NULL;
@@ -8910,20 +8890,13 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 {
         int                      ret                = -1;
         uint64_t                 value              = 0;
-        int32_t                  count              = 0;
-        int32_t                  index              = 0;
         char                     key[256]           = {0,};
         char                     buf[1024]          = {0,};
-        uint64_t                 error_count        = 0;
         int32_t                  i                  = 0;
         int32_t                  j                  = 0;
-        uint64_t                 scrubbed_files     = 0;
-        uint64_t                 unsigned_files     = 0;
-        uint64_t                 scrub_duration     = 0;
         char                    *last_scrub_time    = NULL;
         char                    *scrub_time         = NULL;
         char                    *volname            = NULL;
-        char                    *node_str           = NULL;
         char                    *scrub_freq         = NULL;
         char                    *scrub_state        = NULL;
         char                    *scrub_impact       = NULL;
@@ -9412,9 +9385,7 @@ int
 glusterd_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
         int            ret      = 0;
-        glusterd_op_t  op       = GD_OP_NONE;
 
-        op = glusterd_op_get_op ();
         GF_ASSERT (aggr);
         GF_ASSERT (rsp_dict);
 
@@ -9879,9 +9850,7 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         int32_t                         i = 0;
         char                            buf[1024] = {0,};
         char                            *node_str = NULL;
-        glusterd_conf_t                 *priv = NULL;
 
-        priv = THIS->private;
         GF_ASSERT (req_dict);
 
         ret = dict_get_str (req_dict, "volname", &volname);
@@ -10654,11 +10623,9 @@ void
 glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
 {
         xlator_t        *this = NULL;
-        glusterd_conf_t *priv = NULL;
         int             ret   = -1;
 
         this = THIS;
-        priv = this->private;
 
         /* synclock_lock must be called from within synctask, @fn must call it before
          * it starts with its work*/
@@ -10822,8 +10789,6 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
         int32_t               ret               = -1;
         char                 *mnt_pt            = NULL;
         char                  buff[PATH_MAX]    = "";
-        char                  msg[PATH_MAX]     = "";
-        char                 *cmd               = NULL;
         struct mntent        *entry             = NULL;
         struct mntent         save_entry        = {0,};
         xlator_t             *this              = NULL;
@@ -11699,7 +11664,6 @@ get_last_brick_of_brick_group (glusterd_volinfo_t *volinfo,
 {
         glusterd_brickinfo_t  *next = NULL;
         glusterd_brickinfo_t  *last = NULL;
-        int ret = -1;
 
         last = brickinfo;
         for (;;) {
