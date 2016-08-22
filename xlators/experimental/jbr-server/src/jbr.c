@@ -287,7 +287,6 @@ out:
 int32_t
 jbr_initialize_xdata_set_attrs (xlator_t *this, dict_t **xdata)
 {
-        jbr_local_t     *local         = NULL;
         jbr_private_t   *priv          = NULL;
         int32_t          ret           = -1;
         uint32_t         ti            = 0;

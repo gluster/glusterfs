@@ -165,7 +165,6 @@ jbr_@NAME@_call_dispatch (call_frame_t *frame, xlator_t *this, int *op_errno,
         jbr_local_t     *local  = NULL;
         jbr_private_t   *priv   = NULL;
         int32_t          ret    = -1;
-        xlator_list_t   *trav   = NULL;
 
         GF_VALIDATE_OR_GOTO ("jbr", this, out);
         priv = this->private;
@@ -308,7 +307,6 @@ int32_t
 jbr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                      @LONG_ARGS@)
 {
-        int32_t          ret = -1;
         gf_boolean_t     result   = _gf_false;
         jbr_local_t     *local    = NULL;
         jbr_private_t   *priv     = NULL;
@@ -340,9 +338,8 @@ jbr_@NAME@_continue (call_frame_t *frame, xlator_t *this,
                             @SHORT_ARGS@);
         }
 
-        ret = 0;
 out:
-        return ret;
+        return 0;
 }
 
 /* template-name write-complete */
@@ -351,7 +348,9 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      @LONG_ARGS@)
 {
+#if defined(JBR_CG_QUEUE)
         int32_t          ret       = -1;
+#endif
         gf_boolean_t     result    = _gf_false;
         jbr_private_t   *priv      = NULL;
         jbr_local_t     *local     = NULL;
