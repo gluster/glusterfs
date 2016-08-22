@@ -705,7 +705,6 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 #define GLUSTERD_DUMP_PEERS(head, member, xpeers) do {                       \
                 glusterd_peerinfo_t  *_peerinfo                = NULL;       \
-                char                  subkey[50]               = {0,};       \
                 int                   index                    = 1;          \
                 char                  key[GF_DUMP_MAX_BUF_LEN] = {0,};       \
                                                                              \
