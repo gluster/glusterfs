@@ -2037,12 +2037,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         gf1_op_commands         cmd         = GF_OP_CMD_NONE;
         char                   *task_id_str = NULL;
         xlator_t               *this        = NULL;
-        int                     i           = 1;
-        char                    key[256]    = {0,};
-        char                   *brick       = NULL;
-        glusterd_brickinfo_t   *brickinfo   = NULL;
         gsync_status_param_t    param       = {0,};
-        glusterd_peerinfo_t    *peerinfo    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2433,7 +2428,6 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
         xlator_t                                *this = NULL;
         char                                    *bricks = NULL;
         int32_t                                 count = 0;
-        int32_t                                 replica_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
