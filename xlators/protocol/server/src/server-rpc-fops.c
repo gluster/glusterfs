@@ -82,8 +82,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         rpcsvc_request_t    *req        = NULL;
         server_state_t      *state      = NULL;
-        inode_t             *root_inode = NULL;
-        inode_t             *link_inode = NULL;
         loc_t                fresh_loc  = {0,};
         gfs3_lookup_rsp      rsp        = {0,};
 
@@ -647,7 +645,6 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         server_state_t      *state    = NULL;
-        server_ctx_t        *serv_ctx = NULL;
         rpcsvc_request_t    *req      = NULL;
         gfs3_opendir_rsp     rsp      = {0,};
         uint64_t             fd_no    = 0;
@@ -1063,7 +1060,6 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_symlink_rsp     rsp        = {0,};
         server_state_t      *state      = NULL;
-        inode_t             *link_inode = NULL;
         rpcsvc_request_t    *req        = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
@@ -1105,7 +1101,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         gfs3_link_rsp        rsp         = {0,};
         server_state_t      *state       = NULL;
-        inode_t             *link_inode  = NULL;
         rpcsvc_request_t    *req         = NULL;
         char              gfid_str[50]   = {0,};
         char              newpar_str[50] = {0,};
@@ -1454,9 +1449,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         server_state_t      *state    = NULL;
-        server_ctx_t        *serv_ctx = NULL;
         rpcsvc_request_t    *req      = NULL;
-        uint64_t             fd_no    = 0;
         gfs3_open_rsp        rsp      = {0,};
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
@@ -2027,7 +2020,6 @@ server_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_setactivelk_rsp   rsp     = {0,};
         server_state_t          *state  = NULL;
         rpcsvc_request_t        *req    = NULL;
-        int                     ret     = 0;
 
         state = CALL_STATE (frame);
 
@@ -6459,7 +6451,6 @@ server3_3_lookup (rpcsvc_request_t *req)
         server_state_t      *state    = NULL;
         gfs3_lookup_req      args     = {{0,},};
         int                  ret      = -1;
-        int                  op_errno = 0;
 
         GF_VALIDATE_OR_GOTO ("server", req, err);
 
@@ -6506,17 +6497,17 @@ server3_3_lookup (rpcsvc_request_t *req)
                                       state->xdata,
                                       args.xdata.xdata_val,
                                       args.xdata.xdata_len, ret,
-                                      op_errno, out);
+                                      ret, out);
 
         ret = 0;
         resolve_and_resume (frame, server_lookup_resume);
 
         return ret;
 out:
-
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);
-        ret = 0;
+	ret = 0;
+
 err:
         return ret;
 }
@@ -6581,8 +6572,7 @@ server3_3_getactivelk (rpcsvc_request_t *req)
 {
         server_state_t          *state          = NULL;
         call_frame_t            *frame          = NULL;
-        gfs3_getactivelk_req   args            = {{0,},};
-        size_t                  headers_size    = 0;
+        gfs3_getactivelk_req    args            = {{0,},};
         int                     ret             = -1;
         int                     op_errno        = 0;
 
@@ -6638,7 +6628,6 @@ server3_3_setactivelk (rpcsvc_request_t *req)
         server_state_t          *state          = NULL;
         call_frame_t            *frame          = NULL;
         gfs3_setactivelk_req   args            = {{0,},};
-        size_t                  headers_size    = 0;
         int                     ret             = -1;
         int                     op_errno        = 0;
 

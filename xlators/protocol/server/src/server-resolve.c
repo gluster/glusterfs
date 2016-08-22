@@ -30,8 +30,6 @@ resolve_loc_touchup (call_frame_t *frame)
         server_state_t       *state = NULL;
         server_resolve_t     *resolve = NULL;
         loc_t                *loc = NULL;
-        char                 *path = NULL;
-        int                   ret = 0;
 
         state = CALL_STATE (frame);
 
@@ -192,7 +190,6 @@ resolve_gfid (call_frame_t *frame)
         xlator_t             *this = NULL;
         server_resolve_t     *resolve = NULL;
         loc_t                *resolve_loc = NULL;
-        int                   ret = 0;
         dict_t               *xdata = NULL;
 
         state = CALL_STATE (frame);
@@ -207,7 +204,7 @@ resolve_gfid (call_frame_t *frame)
 
         resolve_loc->inode = server_inode_new (state->itable,
                                                resolve_loc->gfid);
-        ret = loc_path (resolve_loc, NULL);
+        (void) loc_path (resolve_loc, NULL);
 
         if (state->xdata) {
                 xdata = dict_copy_with_ref (state->xdata, NULL);
