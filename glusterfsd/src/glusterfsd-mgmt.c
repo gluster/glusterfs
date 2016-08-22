@@ -47,9 +47,7 @@ int
 mgmt_cbk_spec (struct rpc_clnt *rpc, void *mydata, void *data)
 {
         glusterfs_ctx_t *ctx = NULL;
-        xlator_t *this = NULL;
 
-        this = mydata;
         ctx = glusterfsd_ctx;
         gf_log ("mgmt", GF_LOG_INFO, "Volume file changed");
 
@@ -1798,11 +1796,9 @@ mgmt_event_notify_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         gf_event_notify_rsp      rsp   = {0,};
         call_frame_t            *frame = NULL;
-        glusterfs_ctx_t         *ctx = NULL;
         int                      ret   = 0;
 
         frame = myframe;
-        ctx = frame->this->ctx;
 
         if (-1 == req->rpc_status) {
                 ret = -1;
@@ -1834,11 +1830,9 @@ glusterfs_rebalance_event_notify_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_event_notify_rsp      rsp   = {0,};
         call_frame_t            *frame = NULL;
-        glusterfs_ctx_t         *ctx = NULL;
         int                      ret   = 0;
 
         frame = myframe;
-        ctx = frame->this->ctx;
 
         if (-1 == req->rpc_status) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
@@ -2363,7 +2357,6 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         pmap_signout_rsp  rsp   = {0,};
         int              ret   = 0;
-        glusterfs_ctx_t  *ctx = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2371,7 +2364,6 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ctx = glusterfsd_ctx;
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signout_rsp);
         if (ret < 0) {
                 gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
