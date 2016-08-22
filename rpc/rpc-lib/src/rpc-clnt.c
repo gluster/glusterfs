@@ -395,7 +395,6 @@ rpc_clnt_reconnect (void *conn_ptr)
         rpc_transport_t         *trans = NULL;
         rpc_clnt_connection_t   *conn  = NULL;
         struct timespec          ts    = {0, 0};
-        int32_t                  ret   = 0;
         struct rpc_clnt         *clnt  = NULL;
         gf_boolean_t             need_unref = _gf_false;
 
@@ -420,8 +419,8 @@ rpc_clnt_reconnect (void *conn_ptr)
 
                         gf_log (conn->name, GF_LOG_TRACE,
                                 "attempting reconnect");
-                        ret = rpc_transport_connect (trans,
-                                                     conn->config.remote_port);
+                        (void) rpc_transport_connect (trans,
+                                                      conn->config.remote_port);
                         rpc_clnt_ref (clnt);
                         conn->reconnect =
                                 gf_timer_call_after (clnt->ctx, ts,
