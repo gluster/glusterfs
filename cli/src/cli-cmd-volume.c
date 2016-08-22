@@ -1705,6 +1705,53 @@ out:
                                  "logs for more details");
         }
 
+        /* Events for Quota */
+         if (ret == 0) {
+                switch (type) {
+                case GF_QUOTA_OPTION_TYPE_ENABLE:
+                        gf_event (EVENT_QUOTA_ENABLE, "volume=%s", volname);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_DISABLE:
+                        gf_event (EVENT_QUOTA_DISABLE, "volume=%s", volname);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                        gf_event (EVENT_QUOTA_SET_USAGE_LIMIT, "volume=%s;"
+                                  "path=%s;limit=%s", volname, words[4],
+                                  words[5]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+                        gf_event (EVENT_QUOTA_SET_OBJECTS_LIMIT, "volume=%s;"
+                                  "path=%s;limit=%s", volname, words[4],
+                                  words[5]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_REMOVE:
+                        gf_event (EVENT_QUOTA_REMOVE_USAGE_LIMIT, "volume=%s;"
+                                  "path=%s", volname, words[4]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+                        gf_event (EVENT_QUOTA_REMOVE_OBJECTS_LIMIT,
+                                  "volume=%s;" "path=%s", volname, words[4]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_ALERT_TIME:
+                        gf_event (EVENT_QUOTA_ALERT_TIME, "volume=%s;time=%s",
+                                  volname, words[4]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT:
+                        gf_event (EVENT_QUOTA_SOFT_TIMEOUT, "volume=%s;"
+                                  "soft-timeout=%s", volname, words[4]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT:
+                        gf_event (EVENT_QUOTA_HARD_TIMEOUT, "volume=%s;"
+                                  "hard-timeout=%s", volname, words[4]);
+                        break;
+                case GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT:
+                        gf_event (EVENT_QUOTA_DEFAULT_SOFT_LIMIT, "volume=%s;"
+                                  "default-soft-limit=%s", volname, words[4]);
+                        break;
+                }
+        }
+
+
         CLI_STACK_DESTROY (frame);
         return ret;
 }
