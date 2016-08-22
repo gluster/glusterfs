@@ -3045,7 +3045,6 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, dict_t *dict,
                    int32_t flags, dict_t *xdata)
 {
-        int ret = 0;
         struct {
                 xlator_t     *this;
                 inode_t      *inode;
@@ -3056,8 +3055,8 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
         stub.inode = loc->inode;
         stub.path  = loc->path;
 
-        ret = dict_foreach_match (dict, match_special_xattr, NULL,
-                                  conditional_dump, &stub);
+        (void) dict_foreach_match (dict, match_special_xattr, NULL,
+                                   conditional_dump, &stub);
 
         START_FOP_LATENCY (frame);
 
