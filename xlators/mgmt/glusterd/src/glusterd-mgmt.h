@@ -74,4 +74,10 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
 
 int32_t
 glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid);
+
+int
+glusterd_reset_brick_prevalidate (dict_t *dict, char **op_errstr,
+                                  dict_t *rsp_dict);
+int
+glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict);
 #endif /* _GLUSTERD_MGMT_H_ */

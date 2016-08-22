@@ -1829,6 +1829,59 @@ out:
 }
 
 int
+cli_cmd_volume_reset_brick_cbk (struct cli_state *state,
+                                struct cli_cmd_word *word,
+                                const char **words,
+                                int wordcount)
+{
+        int                      ret          = -1;
+        rpc_clnt_procedure_t    *proc         = NULL;
+        call_frame_t            *frame        = NULL;
+        dict_t                  *options = NULL;
+        int                      sent = 0;
+        int                      parse_error = 0;
+        cli_local_t             *local = NULL;
+
+#ifdef GF_SOLARIS_HOST_OS
+        cli_out ("Command not supported on Solaris");
+        goto out;
+#endif
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RESET_BRICK];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_reset_brick_parse (words, wordcount, &options);
+
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                gf_event (EVENT_BRICK_RESET, "Volume reset-brick failed.");
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume reset-brick failed");
+        } else {
+                gf_event (EVENT_BRICK_RESET, "Volume reset-brick succeeded.");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
 cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                                   struct cli_cmd_word *word,
                                   const char **words,
@@ -1868,9 +1921,12 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
 out:
         if (ret) {
+                gf_event (EVENT_BRICK_REPLACE, "Volume replace-brick failed.");
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume replace-brick failed");
+        } else {
+                gf_event (EVENT_BRICK_RESET, "Volume replace-brick succeeded.");
         }
 
         CLI_STACK_DESTROY (frame);
@@ -3016,6 +3072,11 @@ struct cli_cmd volume_cmds[] = {
          "Bitrot translator specific operation. For more information about "
          "bitrot command type  'man gluster'"
         },
+        { "volume reset-brick <VOLNAME> <SOURCE-BRICK> {{start} |"
+          " {<NEW-BRICK> commit}}",
+          cli_cmd_volume_reset_brick_cbk,
+          "reset-brick operations"},
+
         { NULL, NULL, NULL }
 };
 

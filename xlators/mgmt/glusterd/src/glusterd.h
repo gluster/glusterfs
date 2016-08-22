@@ -119,6 +119,7 @@ typedef enum glusterd_op_ {
         GD_OP_TIER_MIGRATE,
         GD_OP_SCRUB_STATUS,
         GD_OP_SCRUB_ONDEMAND,
+        GD_OP_RESET_BRICK,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -950,6 +951,9 @@ int
 glusterd_handle_fsm_log (rpcsvc_request_t *req);
 
 int
+glusterd_handle_reset_brick (rpcsvc_request_t *req);
+
+int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
                                 int32_t op_errno, char *op_errstr,
                                 char *hostname, dict_t *dict);
@@ -1192,4 +1196,6 @@ int
 glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                                    gf_defrag_status_t status);
 
+int
+__glusterd_handle_reset_brick (rpcsvc_request_t *req);
 #endif

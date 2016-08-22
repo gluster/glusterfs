@@ -3861,7 +3861,7 @@ out:
 }
 
 int
-cli_xml_output_vol_replace_brick (char *op, dict_t *dict,
+cli_xml_output_vol_replace_brick (dict_t *dict,
                                   int op_ret, int op_errno, char *op_errstr)
 {
 #if (HAVE_LIB_XML)

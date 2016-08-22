@@ -1253,7 +1253,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
                         goto out;
 
                 ret = glusterd_new_brick_validate (brick, brick_info, msg,
-                                                   sizeof (msg));
+                                                   sizeof (msg), NULL);
                 if (ret)
                         goto out;
 

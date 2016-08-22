@@ -248,6 +248,7 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         break;
 
         case GD_OP_REPLACE_BRICK:
+        case GD_OP_RESET_BRICK:
                 ret = glusterd_rb_use_rsp_dict (aggr, rsp);
                 if (ret)
                         goto out;

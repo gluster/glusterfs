@@ -1830,7 +1830,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 brick_alloc = _gf_true;
 
                 ret = glusterd_new_brick_validate (brick, brickinfo, msg,
-                                                   sizeof (msg));
+                                                   sizeof (msg), NULL);
                 if (ret) {
                         *op_errstr = gf_strdup (msg);
                         ret = -1;

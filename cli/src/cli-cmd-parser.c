@@ -2134,6 +2134,137 @@ out:
         return ret;
 }
 
+int32_t
+cli_cmd_brick_op_validate_bricks (const char **words, dict_t *dict,
+				  int src, int dst)
+{
+        int             ret = -1;
+        char            *delimiter  = NULL;
+
+        if (validate_brick_name ((char *)words[src])) {
+                cli_err ("wrong brick type: %s, use "
+                         "<HOSTNAME>:<export-dir-abs-path>", words[3]);
+                ret = -1;
+                goto out;
+        } else {
+                delimiter = strrchr ((char *)words[src], '/');
+                ret = gf_canonicalize_path (delimiter);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_str (dict, "src-brick", (char *)words[src]);
+        if (ret)
+                goto out;
+
+        if (dst == -1) {
+                ret = 0;
+                goto out;
+        }
+
+        if (validate_brick_name ((char *)words[dst])) {
+                cli_err ("wrong brick type: %s, use "
+                         "<HOSTNAME>:<export-dir-abs-path>", words[dst]);
+                ret = -1;
+                goto out;
+        } else {
+                delimiter = strrchr ((char *)words[dst], '/');
+                ret = gf_canonicalize_path (delimiter);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_set_str (dict, "dst-brick", (char *)words[dst]);
+        if (ret)
+                goto out;
+        ret = 0;
+out:
+	return ret;
+}
+
+int32_t
+cli_cmd_volume_reset_brick_parse (const char **words, int wordcount,
+                                  dict_t **options)
+{
+        int                   ret        = -1;
+        char                 *volname    = NULL;
+        dict_t               *dict       = NULL;
+
+        if (wordcount < 5 || wordcount > 7)
+                goto out;
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        volname = (char *)words[2];
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        if (wordcount == 5) {
+                if (strcmp (words[4], "start")) {
+                        cli_err ("Invalid option '%s' for reset-brick. Please "
+                                 "enter valid reset-brick command", words[4]);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = cli_cmd_brick_op_validate_bricks (words, dict, 3, -1);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (dict, "operation", "GF_RESET_OP_START");
+                if (ret)
+                        goto out;
+        } else if (wordcount == 6) {
+                if (strcmp (words[5], "commit")) {
+                        cli_err ("Invalid option '%s' for reset-brick. Please "
+                                 "enter valid reset-brick command", words[5]);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = cli_cmd_brick_op_validate_bricks (words, dict, 3, 4);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (dict, "operation", "GF_RESET_OP_COMMIT");
+                if (ret)
+                        goto out;
+        } else if (wordcount == 7) {
+                if (strcmp (words[5], "commit") || strcmp (words[6], "force")) {
+                        cli_err ("Invalid option '%s %s' for reset-brick. Please "
+                                 "enter valid reset-brick command",
+                                  words[5], words[6]);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = cli_cmd_brick_op_validate_bricks (words, dict, 3, 4);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str (dict, "operation",
+                                    "GF_RESET_OP_COMMIT_FORCE");
+                if (ret)
+                        goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Unable to parse reset-brick CLI");
+                if (dict)
+                        dict_unref (dict);
+        }
+
+        return ret;
+}
 
 int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
@@ -2141,7 +2272,6 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 {
         int                   ret        = -1;
         char                 *volname    = NULL;
-        char                 *delimiter  = NULL;
         dict_t               *dict       = NULL;
 
         GF_ASSERT (words);
@@ -2167,35 +2297,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
-        if (validate_brick_name ((char *)words[3])) {
-                cli_err ("wrong brick type: %s, use "
-                         "<HOSTNAME>:<export-dir-abs-path>", words[3]);
-                ret = -1;
-                goto out;
-        } else {
-                delimiter = strrchr ((char *)words[3], ':');
-                ret = gf_canonicalize_path (delimiter + 1);
-                if (ret)
-                        goto out;
-        }
-
-        ret = dict_set_str (dict, "src-brick", (char *)words[3]);
-        if (ret)
-                goto out;
-
-        if (validate_brick_name ((char *)words[4])) {
-                cli_err ("wrong brick type: %s, use "
-                         "<HOSTNAME>:<export-dir-abs-path>", words[4]);
-                ret = -1;
-                goto out;
-        } else {
-                delimiter = strrchr ((char *)words[4], ':');
-                ret = gf_canonicalize_path (delimiter + 1);
-                if (ret)
-                        goto out;
-        }
-
-        ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
+        ret = cli_cmd_brick_op_validate_bricks (words, dict, 3, 4);
         if (ret)
                 goto out;
 
@@ -2216,7 +2318,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
 out:
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to parse replace-brick CLI");
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse reset-brick CLI");
                 if (dict)
                         dict_unref (dict);
         }
