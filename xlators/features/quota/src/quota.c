@@ -591,9 +591,7 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local      = NULL;
         int32_t            ret        = 0;
         quota_inode_ctx_t *ctx        = NULL;
-        int64_t           *object_size = 0;
         uint64_t           value      = 0;
-        data_t            *data       = NULL;
         quota_meta_t       size       = {0,};
 
         local = frame->local;
@@ -1251,9 +1249,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this)
         quota_priv_t      *priv                = NULL;
         quota_local_t     *local               = NULL;
         quota_local_t     *par_local           = NULL;
-        char               need_validate       = 0;
         char               just_validated      = 0;
-        gf_boolean_t       hard_limit_exceeded = 0;
         int64_t            delta               = 0;
         int8_t             object_delta        = 0;
         uint64_t           value               = 0;
@@ -1395,10 +1391,7 @@ do_quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         int32_t         ret        = -1;
         inode_t        *parent     = NULL;
         call_frame_t   *new_frame  = NULL;
-        quota_local_t  *local      = NULL;
         quota_local_t  *new_local  = NULL;
-
-        local = frame->local;
 
         parent = inode_parent (inode, dentry->par, dentry->name);
         if (parent == NULL) {
@@ -1596,7 +1589,6 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
         quota_local_t      *local        = NULL;
-        int32_t             ret          = 0;
         inode_t            *this_inode   = NULL;
 
         local = frame->local;
@@ -1744,11 +1736,8 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         quota_local_t *local      = NULL;
         int32_t        op_errno   = EINVAL;
-        quota_priv_t  *priv       = NULL;
         struct iovec  *new_vector = NULL;
         int32_t        new_count  = 0;
-
-        priv = this->private;
 
         local = frame->local;
 
@@ -1816,7 +1805,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         quota_priv_t      *priv       = NULL;
-        int32_t            ret        = -1, op_errno = EINVAL;
+        int32_t            op_errno   = EINVAL;
         int32_t            parents    = 0;
         int32_t            fail_count = 0;
         uint64_t           size       = 0;
@@ -1845,7 +1834,7 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         frame->local = local;
         local->loc.inode = inode_ref (fd->inode);
 
-        ret = quota_inode_ctx_get (fd->inode, this, &ctx, 0);
+        (void) quota_inode_ctx_get (fd->inode, this, &ctx, 0);
         if (ctx == NULL) {
                 gf_msg_debug (this->name, 0, "quota context is NULL on inode"
                               " (%s). If quota is not enabled recently and "
@@ -2091,14 +2080,10 @@ quota_create_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
 
         local = frame->local;
 
         GF_VALIDATE_OR_GOTO ("quota", local, unwind);
-
-        priv = this->private;
-
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -2340,9 +2325,6 @@ quota_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
-
-        priv = this->private;
 
         local = frame->local;
 
@@ -2561,7 +2543,6 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   dict_t *xdata)
 {
         int32_t               ret              = -1;
-        int64_t               size             = 0;
         quota_local_t        *local            = NULL;
         quota_inode_ctx_t    *ctx              = NULL;
         quota_dentry_t       *old_dentry       = NULL, *dentry = NULL;
@@ -2575,9 +2556,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         GF_VALIDATE_OR_GOTO ("quota", local, out);
 
-        if (QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type))
-                size = buf->ia_blocks * 512;
-        else
+        if (!QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type))
                 goto out;
 
         ret = quota_inode_ctx_get (local->oldloc.inode, this, &ctx, 0);
@@ -2656,9 +2635,6 @@ quota_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
-
-        priv = this->private;
 
         local = frame->local;
 
@@ -2953,13 +2929,10 @@ quota_symlink_helper (call_frame_t *frame, xlator_t *this, const char *linkpath,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
 
         local = frame->local;
 
         GF_VALIDATE_OR_GOTO ("quota", local, unwind);
-
-        priv = this->private;
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -3895,13 +3868,10 @@ quota_mknod_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
 
         local = frame->local;
 
         GF_VALIDATE_OR_GOTO ("quota", local, unwind);
-
-        priv = this->private;
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -4390,7 +4360,6 @@ quota_statfs_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t            ret        = 0;
         quota_inode_ctx_t *ctx        = NULL;
         uint64_t           value      = 0;
-        data_t            *data       = NULL;
         quota_meta_t       size       = {0,};
 
         local = frame->local;
@@ -4445,12 +4414,10 @@ quota_get_limit_dir_continuation (struct list_head *parents, inode_t *inode,
 {
         call_frame_t   *frame        = NULL;
         xlator_t       *this         = NULL;
-        quota_local_t  *local        = NULL;
         quota_dentry_t *entry        = NULL;
         inode_t        *parent       = NULL;
 
         frame = data;
-        local = frame->local;
         this = THIS;
 
         if ((op_ret < 0) || list_empty (parents)) {
@@ -4482,7 +4449,6 @@ out:
 void
 quota_statfs_continue (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
-        call_stub_t     *stub           = NULL;
         quota_local_t   *local          = frame->local;
         int              ret            = -1;
 
@@ -4505,7 +4471,6 @@ quota_get_limit_dir (call_frame_t *frame, inode_t *cur_inode, xlator_t *this)
         inode_t                *parent          = NULL;
         uint64_t                value           = 0;
         quota_inode_ctx_t      *ctx             = NULL;
-        int                     ret             = -1;
         quota_local_t          *local           = frame->local;
 
         if (!cur_inode)
@@ -4527,9 +4492,9 @@ quota_get_limit_dir (call_frame_t *frame, inode_t *cur_inode, xlator_t *this)
 
                 parent = inode_parent (inode, 0, NULL);
                 if (!parent) {
-                        ret = quota_build_ancestry
-                               (inode, quota_get_limit_dir_continuation,
-                                (void *)frame);
+                        (void) quota_build_ancestry (inode,
+                                           quota_get_limit_dir_continuation,
+                                           frame);
                         goto out;
                 }
 
@@ -4802,13 +4767,10 @@ quota_fallocate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         quota_local_t *local    = NULL;
         int32_t        op_errno = EINVAL;
-        quota_priv_t  *priv     = NULL;
 
         local = frame->local;
 
         GF_VALIDATE_OR_GOTO ("quota", local, unwind);
-
-        priv = this->private;
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -4847,7 +4809,7 @@ int32_t
 quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 		off_t offset, size_t len, dict_t *xdata)
 {
-        int32_t            ret         = -1, op_errno = EINVAL;
+        int32_t            op_errno    = EINVAL;
         int32_t            parents     = 0;
         int32_t            fail_count  = 0;
         quota_local_t     *local       = NULL;
@@ -4878,7 +4840,7 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         frame->local = local;
         local->loc.inode = inode_ref (fd->inode);
 
-        ret = quota_inode_ctx_get (fd->inode, this, &ctx, 0);
+        (void) quota_inode_ctx_get (fd->inode, this, &ctx, 0);
         if (ctx == NULL) {
                 gf_msg_debug (this->name, 0, "quota context is NULL on inode"
                               " (%s). If quota is not enabled recently and "
