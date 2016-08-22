@@ -814,7 +814,6 @@ glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                           char *value, char **op_errstr)
 {
         struct volopt_map_entry *vme     = NULL;
-        char                    *volname = NULL;
         int                     ret = 0;
         xlator_t                *this = THIS;
 
@@ -1173,7 +1172,6 @@ server_auth_option_handler (volgen_graph_t *graph,
                             struct volopt_map_entry *vme, void *param)
 {
         xlator_t *xl = NULL;
-        xlator_list_t *trav = NULL;
         char *aa = NULL;
         int   ret   = 0;
         char *key = NULL;
@@ -1568,7 +1566,6 @@ brick_graph_add_arbiter (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                          dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
         xlator_t *xl = NULL;
-        glusterd_brickinfo_t  *next = NULL;
         glusterd_brickinfo_t  *last = NULL;
         int ret = -1;
 
@@ -1680,11 +1677,8 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
 {
         xlator_t        *xl = NULL;
         int             ret = -1;
-        glusterd_brickinfo_t *brickiter     = NULL;
-        glusterd_brickinfo_t *tmp           = NULL;
         char                 *brickname     = NULL;
         char                 *path          = NULL;
-        char                 *volname       = NULL;
         char     index_basepath[PATH_MAX]   = {0};
         char                 *hotbrick      = NULL;
 
@@ -2244,7 +2238,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *password = NULL;
         char            key[1024] = {0};
         char            *ssl_user = NULL;
-        char            *value = NULL;
         char            *address_family_data = NULL;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
@@ -2346,7 +2339,6 @@ brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *username      = NULL;
         char            *password      = NULL;
         char            *ptranst       = NULL;
-        char            *value         = NULL;
         char            *address_family_data = NULL;
 
 
@@ -2899,7 +2891,6 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char                    *str                = NULL;
         char                    *ssl_str            = NULL;
         gf_boolean_t             ssl_bool           = _gf_false;
-        char                    *value              = NULL;
         char                    *address_family_data = NULL;
 
         GF_ASSERT (graph);
@@ -2998,11 +2989,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int                      i                  = 0;
         int                      ret                = -1;
         char                     transt[16]         = {0,};
-        char                    *volname            = NULL;
         glusterd_brickinfo_t    *brick              = NULL;
         xlator_t                *xl                 = NULL;
-
-        volname = volinfo->volname;
 
         if (volinfo->brick_count == 0) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
@@ -3656,13 +3644,10 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                                        "%s-tier-%d"};
         char                    *stripe_args[]      = {"cluster/stripe",
                                                        "%s-stripe-%d"};
-        char                    option[32]          = "";
         int                     rclusters           = 0;
         int                     clusters            = 0;
         int                     dist_count          = 0;
         int                     ret                 = -1;
-        xlator_t               *ec                  = NULL;
-        xlator_t               *client              = NULL;
         char                    tmp_volname[GD_VOLUME_NAME_MAX] = {0, };
 
         if (!volinfo->dist_leaf_count)
@@ -3840,7 +3825,6 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
                                          gf_boolean_t is_quotad)
 {
         int                ret                     = -1;
-        xlator_t          *root                    = NULL;
         xlator_t          *xl, *hxl, *cxl;
         char              *rule                    = NULL;
         int                st_brick_count          = 0;
@@ -4246,9 +4230,6 @@ bitrot_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         xlator_t           *xl                 = NULL;
         char               *bitrot_option      = NULL;
         int                 ret                = 0;
-        glusterd_volinfo_t *volinfo            = NULL;
-
-        volinfo = param;
 
         xl = first_of (graph);
 
@@ -4273,9 +4254,7 @@ scrubber_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         xlator_t           *xl                = NULL;
         char               *scrub_option      = NULL;
         int                 ret               = 0;
-        glusterd_volinfo_t *volinfo           = NULL;
 
-        volinfo = param;
 
         xl = first_of (graph);
 
@@ -4653,8 +4632,6 @@ build_afr_ec_clusters_for_tier (volgen_graph_t *graph,
         glusterd_volinfo_t      *dup_volinfo[2]     = {NULL, NULL};
         int                     clusters            = 0;
         int                     i                   = 0;
-        volgen_graph_t          hot_graph           = {0};
-        volgen_graph_t          cold_cgraph         = {0};
         gf_boolean_t            is_hot_tier         = _gf_false;
 
         if (glusterd_is_shd_compatible_type (volinfo->tier_info.cold_type)) {
@@ -4890,7 +4867,6 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         int                ret            = 0;
         gf_boolean_t       valid_config   = _gf_false;
         xlator_t           *iostxl        = NULL;
-        int                clusters      = 0;
         gf_boolean_t       graph_check    = _gf_false;
 
         this = THIS;
@@ -5343,7 +5319,6 @@ assign_jbr_uuids (glusterd_volinfo_t *volinfo)
 int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
-        glusterd_brickinfo_t    *brickinfo                    = NULL;
         char                     tstamp_file[PATH_MAX]        = {0,};
         char                     parent_tstamp_file[PATH_MAX] = {0,};
         int                      ret                          = -1;
@@ -5643,7 +5618,6 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         dict_t         *set_dict        = NULL;
         char           *loglevel        = NULL;
         char           *xlator          = NULL;
-        char           *value           = NULL;
         char           auth_path[]      = "auth-path";
 
         set_dict = dict_copy (volinfo->dict, NULL);
@@ -5868,7 +5842,6 @@ build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         xlator_t             *this         = NULL;
         glusterd_conf_t      *priv         = NULL;
         int                   ret          = 0;
-        gf_boolean_t          valid_config = _gf_false;
         xlator_t             *iostxl       = NULL;
         glusterd_brickinfo_t *brickinfo    = NULL;
         unsigned int          numbricks    = 0;
@@ -6029,7 +6002,6 @@ build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict)
         xlator_t           *this          = NULL;
         glusterd_conf_t    *priv          = NULL;
         int                 ret           = 0;
-        gf_boolean_t        valid_config  = _gf_false;
         xlator_t           *iostxl        = NULL;
 
         this = THIS;
@@ -6334,7 +6306,6 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
                                dict_t *val_dict,
                                char **op_errstr)
 {
-        glusterd_brickinfo_t *brickinfo = NULL;
         int                   ret = -1;
         struct gd_validate_reconf_opts brickreconf = {0};
 
