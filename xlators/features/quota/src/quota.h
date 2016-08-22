@@ -86,11 +86,9 @@
 #define QUOTA_STACK_WIND_TAIL(frame, params...)                         \
         do {                                                            \
                 quota_local_t *_local = NULL;                           \
-                xlator_t      *_this  = NULL;                           \
                                                                         \
                 if (frame) {                                            \
                         _local = frame->local;                          \
-                        _this  = frame->this;                           \
                         frame->local = NULL;                            \
                 }                                                       \
                                                                         \
@@ -103,10 +101,8 @@
 #define QUOTA_STACK_UNWIND(fop, frame, params...)                       \
         do {                                                            \
                 quota_local_t *_local = NULL;                           \
-                xlator_t      *_this  = NULL;                           \
                 if (frame) {                                            \
                         _local = frame->local;                          \
-                        _this  = frame->this;                           \
                         frame->local = NULL;                            \
                 }                                                       \
                 STACK_UNWIND_STRICT (fop, frame, params);               \
