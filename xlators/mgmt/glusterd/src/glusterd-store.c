@@ -2180,7 +2180,6 @@ int
 glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
 {
         int                     ret                     = -1;
-        int                     exists                  = 0;
         char                    *key                    = NULL;
         char                    *value                  = NULL;
         char                    volpath[PATH_MAX]       = {0,};
@@ -3200,7 +3199,6 @@ int32_t
 glusterd_find_brick_mount_path (char *brick_path, char **brick_mount_path)
 {
         char                    *ptr                 = NULL;
-        char                    *save_ptr            = NULL;
         int32_t                  ret                 = -1;
         xlator_t                *this                = NULL;
 
