@@ -101,7 +101,6 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
 {
         int             ret      = 0;
         xlator_t       *this     = NULL;
-        gf_private_t   *priv     = NULL;
         gf_changelog_t *entry    = NULL;
 
         if (!(event == RPCSVC_EVENT_ACCEPT ||
@@ -110,7 +109,6 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
 
         entry = mydata;
         this = entry->this;
-        priv = this->private;
 
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
@@ -236,7 +234,6 @@ pick_event_unordered (struct gf_event_list *ev, struct gf_event **event)
 void *
 gf_changelog_callback_invoker (void *arg)
 {
-        int                   ret    = 0;
         xlator_t             *this   = NULL;
         gf_changelog_t       *entry  = NULL;
         struct iovec         *vec    = NULL;

@@ -282,7 +282,6 @@ rpcsvc_t *
 changelog_rpc_server_init (xlator_t *this, char *sockfile, void *cbkdata,
                            rpcsvc_notify_t fn, struct rpcsvc_program **progs)
 {
-        int                    j       = 0;
         int                    ret     = 0;
         rpcsvc_t              *rpc     = NULL;
         dict_t                *options = NULL;

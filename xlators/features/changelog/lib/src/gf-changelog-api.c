@@ -152,9 +152,7 @@ out:
 ssize_t
 gf_changelog_scan ()
 {
-        int             ret         = 0;
         int             tracker_fd  = 0;
-        size_t          len         = 0;
         size_t          off         = 0;
         xlator_t       *this        = NULL;
         size_t          nr_entries  = 0;
@@ -180,9 +178,6 @@ gf_changelog_scan ()
         tracker_fd = jnl->jnl_fd;
         if (gf_ftruncate (tracker_fd, 0))
                 goto out;
-
-        len = offsetof(struct dirent, d_name)
-                + pathconf(jnl->jnl_processing_dir, _PC_NAME_MAX) + 1;
 
         rewinddir (jnl->jnl_dir);
 

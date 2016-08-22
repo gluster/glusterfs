@@ -57,7 +57,6 @@ gf_probe_changelog_cbk (struct rpc_req *req,
 int
 gf_probe_changelog_filter (call_frame_t *frame, xlator_t *this, void *data)
 {
-        int ret = 0;
         char *sock = NULL;
         gf_changelog_t *entry = NULL;
         changelog_probe_req req = {0,};
