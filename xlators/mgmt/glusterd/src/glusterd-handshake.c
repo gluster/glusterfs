@@ -1459,7 +1459,6 @@ __server_get_snap_info (rpcsvc_request_t *req)
         gf_getsnap_name_uuid_rsp        snap_info_rsp   = {0,};
         dict_t                          *dict           = NULL;
         dict_t                          *dict_rsp       = NULL;
-        glusterd_volinfo_t              *volinfo        = NULL;
         char                            *volname        = NULL;
 
         GF_ASSERT (req);
@@ -1747,7 +1746,6 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
                                      int count, void *myframe)
 {
         int                  ret      = -1;
-        int                  op_errno = EINVAL;
         gf_mgmt_hndsk_rsp    rsp      = {0,};
         xlator_t            *this     = NULL;
         call_frame_t        *frame    = NULL;
@@ -1786,7 +1784,6 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        op_errno = rsp.op_errno;
         if (-1 == rsp.op_ret) {
                 ret = -1;
                 snprintf (msg, sizeof (msg),
@@ -1982,7 +1979,6 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
         glusterd_peerinfo_t *peerinfo = NULL;
         dict_t              *req_dict = NULL;
         int                  ret      = -1;
-        int                  op_errno = EINVAL;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
@@ -2004,7 +2000,7 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
         }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, req_dict, (&req.hndsk.hndsk_val),
-                                    req.hndsk.hndsk_len, op_errno, out);
+                                    req.hndsk.hndsk_len, ret, out);
 
         rcu_read_lock ();
 
