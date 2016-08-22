@@ -1350,7 +1350,6 @@ init (xlator_t *this)
         char               storedir[PATH_MAX]         = {0,};
         char               workdir[PATH_MAX]          = {0,};
         char               cmd_log_filename[PATH_MAX] = {0,};
-        int                first_time                 = 0;
         char              *mountbroker_root           = NULL;
         int                i                          = 0;
         int                total_transport            = 0;
@@ -1418,8 +1417,6 @@ init (xlator_t *this)
                                 " ,errno = %d", workdir, errno);
                         exit (1);
                 }
-
-                first_time = 1;
         }
 
         setenv ("GLUSTERD_WORKDIR", workdir, 1);
@@ -1853,11 +1850,8 @@ out:
 void
 fini (xlator_t *this)
 {
-        glusterd_conf_t *conf = NULL;
         if (!this || !this->private)
                 goto out;
-
-        conf = this->private;
 
         glusterd_stop_uds_listener (this); /*stop unix socket rpc*/
         glusterd_stop_listener (this);     /*stop tcp/ip socket rpc*/
