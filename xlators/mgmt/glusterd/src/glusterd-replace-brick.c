@@ -47,7 +47,6 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
         char                            *src_brick = NULL;
         char                            *dst_brick = NULL;
         int32_t                         op = 0;
-        glusterd_op_t                   cli_op = GD_OP_REPLACE_BRICK;
         char                            *volname = NULL;
         char                            msg[2048] = {0,};
         xlator_t                        *this = NULL;
@@ -168,7 +167,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict)
 {
         int                                      ret                = 0;
-        int32_t                                  port               = 0;
         char                                    *src_brick          = NULL;
         char                                    *dst_brick          = NULL;
         char                                    *volname            = NULL;
@@ -181,11 +179,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         char                                    *dup_dstbrick       = NULL;
         glusterd_peerinfo_t                     *peerinfo           = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo      = NULL;
-        gf_boolean_t                             enabled            = _gf_false;
         glusterd_conf_t                         *priv               = NULL;
-        char                                    *savetok            = NULL;
         char                                     pidfile[PATH_MAX]  = {0};
-        char                                    *task_id_str        = NULL;
         xlator_t                                *this               = NULL;
         gf_boolean_t                             is_force           = _gf_false;
         gsync_status_param_t                     param              = {0,};
@@ -623,7 +618,6 @@ int
 glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 {
         int                                      ret           = 0;
-        dict_t                                  *ctx           = NULL;
         char                                    *replace_op    = NULL;
         glusterd_volinfo_t                      *volinfo       = NULL;
         char                                    *volname       = NULL;
@@ -633,7 +627,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         char                                    *dst_brick     = NULL;
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
-        char                                    *task_id_str   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -779,14 +772,12 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases (rpcsvc_request_t *req,
         int32_t                     op_ret           = -1;
         uint32_t                    txn_generation   = 0;
         uint32_t                    op_errno         = 0;
-        char                        *cli_errstr      = NULL;
         char                        *op_errstr       = NULL;
         dict_t                      *req_dict        = NULL;
         dict_t                      *tmp_dict        = NULL;
         uuid_t                      *originator_uuid = NULL;
         xlator_t                    *this            = NULL;
         glusterd_conf_t             *conf            = NULL;
-        gf_boolean_t                success          = _gf_false;
         gf_boolean_t                is_acquired      = _gf_false;
 
         this = THIS;
