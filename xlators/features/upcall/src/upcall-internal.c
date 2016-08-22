@@ -122,7 +122,6 @@ __get_upcall_client (call_frame_t *frame, client_t *client,
                      upcall_inode_ctx_t *up_inode_ctx)
 {
         upcall_client_t *up_client_entry = NULL;
-        upcall_client_t *up_client       = NULL;
         upcall_client_t *tmp             = NULL;
         gf_boolean_t    found_client     = _gf_false;
 
@@ -461,7 +460,6 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                          struct iatt *p_stbuf, struct iatt *oldp_stbuf,
                          dict_t *xattr)
 {
-        upcall_client_t *up_client       = NULL;
         upcall_client_t *up_client_entry = NULL;
         upcall_client_t *tmp             = NULL;
         upcall_inode_ctx_t *up_inode_ctx = NULL;
@@ -630,7 +628,6 @@ out:
 void
 upcall_cache_forget (xlator_t *this, inode_t *inode, upcall_inode_ctx_t *up_inode_ctx)
 {
-        upcall_client_t *up_client       = NULL;
         upcall_client_t *up_client_entry = NULL;
         upcall_client_t *tmp             = NULL;
         uint32_t        flags            = 0;
