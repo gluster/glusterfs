@@ -2738,7 +2738,6 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         pid_t                   pid               = -1;
         int                     retry_count       = 0;
         char                   *mnt_pt            = NULL;
-        struct mntent          *entry             = NULL;
         gf_boolean_t            unmount           = _gf_true;
 
         this = THIS;
@@ -2843,7 +2842,6 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         int32_t               err                  = 0;
         glusterd_brickinfo_t *brickinfo            = NULL;
         xlator_t             *this                 = NULL;
-        char                  buff[PATH_MAX]       = "";
         char                  brick_dir[PATH_MAX]  = "";
         char                 *tmp                  = NULL;
         char                 *brick_mount_path     = NULL;
@@ -4220,7 +4218,6 @@ glusterd_handle_snapshot_clone (rpcsvc_request_t *req, glusterd_op_t op,
         int           ret                              = -1;
         char         *clonename                        = NULL;
         char         *snapname                         = NULL;
-        int64_t       volcount                         = 0;
         xlator_t     *this                             = NULL;
         char          key[PATH_MAX]                    = "";
         char         *username                         = NULL;
@@ -4736,12 +4733,10 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
 {
         int32_t          ret                             = -1;
         xlator_t        *this                            = NULL;
-        glusterd_conf_t *priv                            = NULL;
         char             snap_brick_mount_path[PATH_MAX] = "";
         struct stat      statbuf                         = {0, };
 
         this = THIS;
-        priv = this->private;
 
         GF_ASSERT (snap_volinfo);
         GF_ASSERT (brickinfo);
@@ -5226,7 +5221,6 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         int32_t                      ret                     = -1;
         int32_t                      brick_count             = 0;
         xlator_t                    *this                    = NULL;
-        int64_t                      brick_order             = 0;
         char                        *clonename               = NULL;
         gf_boolean_t                 conf_present            = _gf_false;
         int                          i                       = 0;
@@ -5581,11 +5575,7 @@ glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str,
                                      uint32_t *op_errno, int len)
 {
         int32_t                 ret             = -1;
-        int32_t                 i               = 0;
-        glusterd_volinfo_t      *snap_volinfo   = NULL;
         glusterd_volinfo_t      *volinfo        = NULL;
-        glusterd_volinfo_t      *temp_volinfo   = NULL;
-        char                    key[PATH_MAX]   =  "";
         xlator_t                *this           = NULL;
         char                    *volname        = NULL;
 
@@ -6611,12 +6601,9 @@ glusterd_create_snap_object_for_clone (dict_t *dict, dict_t *rsp_dict)
         uuid_t            *snap_id     = NULL;
         glusterd_snap_t   *snap        = NULL;
         xlator_t          *this        = NULL;
-        glusterd_conf_t   *priv        = NULL;
         int                ret         = -1;
-        int64_t            time_stamp  = 0;
 
         this = THIS;
-        priv = this->private;
 
         GF_ASSERT (dict);
         GF_ASSERT (rsp_dict);
@@ -6666,19 +6653,15 @@ glusterd_snapshot_clone_commit (dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict)
 {
         int                     ret                     = -1;
-        int64_t                 i                       = 0;
         int64_t                 volcount                = 0;
-        int32_t                 snap_activate           = 0;
         char                    *snapname               = NULL;
         char                    *volname                = NULL;
         char                    *tmp_name               = NULL;
-        char                    key[PATH_MAX]           = "";
         xlator_t                *this                   = NULL;
         glusterd_snap_t         *snap_parent            = NULL;
         glusterd_snap_t         *snap                   = NULL;
         glusterd_volinfo_t      *origin_vol             = NULL;
         glusterd_volinfo_t      *snap_vol               = NULL;
-        glusterd_brickinfo_t    *brickinfo              = NULL;
         glusterd_conf_t         *priv                   = NULL;
 
         this = THIS;
@@ -7953,7 +7936,6 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         int64_t             count               = 0;
         glusterd_snap_t    *snap                = NULL;
         glusterd_volinfo_t *tmp_volinfo         = NULL;
-        glusterd_volinfo_t *other_volinfo       = NULL;
         uint64_t            opt_max_hard        = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
         uint64_t            opt_max_soft        = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
 
@@ -8072,7 +8054,6 @@ glusterd_snapshot_clone_postvalidate (dict_t *dict, int32_t op_ret,
         glusterd_snap_t       *snap           = NULL;
         glusterd_volinfo_t    *snap_vol       = NULL;
         char                  *clonename      = NULL;
-        char                  *auto_delete    = NULL;
 
         this = THIS;
 
@@ -8146,7 +8127,6 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
         int32_t               cleanup             = 0;
         glusterd_snap_t      *snap                = NULL;
         char                 *snapname            = NULL;
-        char                 *auto_delete         = NULL;
         char                 *volname             = NULL;
         glusterd_volinfo_t   *volinfo             = NULL;
         uint64_t              opt_hard_max        = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
@@ -8782,11 +8762,9 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
 {
         int                     ret                     = -1;
         xlator_t               *this                    = NULL;
-        glusterd_conf_t        *priv                    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        priv = this->private;
 
         GF_ASSERT (rsp_dict);
         GF_ASSERT (volname);
