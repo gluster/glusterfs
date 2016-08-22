@@ -1235,7 +1235,6 @@ unlock:
 int
 tier_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        xlator_t         *subvol = NULL;
         dht_local_t      *local  = NULL;
         dht_conf_t       *conf = NULL;
         int               op_errno = -1;

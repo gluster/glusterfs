@@ -378,7 +378,6 @@ is_hot_tier_full (gf_tier_conf_t *tier_conf)
 int
 tier_do_migration (xlator_t *this, int promote)
 {
-        int                     ret = -1;
         gf_defrag_info_t       *defrag = NULL;
         dht_conf_t             *conf   = NULL;
         long                    rand = 0;
