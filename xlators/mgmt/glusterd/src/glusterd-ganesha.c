@@ -40,7 +40,6 @@ parsing_ganesha_ha_conf(const char *key) {
         char scratch[MAX_LINE * 2] = {0,};
         char *value = NULL, *pointer = NULL, *end_pointer = NULL;
         FILE *fp;
-        struct stat st = {0,};
 
         fp = fopen (GANESHA_HA_CONF, "r");
         if (fp == NULL) {
@@ -233,14 +232,9 @@ int
 glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
 {
         int                             ret                     = -1;
-        char                            *volname                = NULL;
-        int                             exists                  = 0;
         int                             value                   = -1;
         gf_boolean_t                    option                  = _gf_false;
         char                            *str                    = NULL;
-        int                             dict_count              = 0;
-        int                             flags                   = 0;
-        glusterd_volinfo_t              *volinfo                = NULL;
         glusterd_conf_t                 *priv                   = NULL;
         xlator_t                        *this                   = NULL;
 
@@ -314,7 +308,6 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
         glusterd_conf_t                         *priv = NULL;
         char                                    *key = NULL;
         char                                    *value = NULL;
-        dict_t                                  *vol_opts = NULL;
         char                                    *next_version =  NULL;
 
         this = THIS;
@@ -458,14 +451,12 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
 {
         runner_t                 runner = {0,};
         int                      ret = -1;
-        char                     str[1024];
         glusterd_volinfo_t      *volinfo = NULL;
         dict_t                  *vol_opts = NULL;
         char                    *volname = NULL;
         xlator_t                *this    = NULL;
         glusterd_conf_t         *priv    = NULL;
         gf_boolean_t             option  = _gf_false;
-        int                     i = 1;
 
         runinit (&runner);
         this =  THIS;
@@ -746,11 +737,8 @@ int
 start_ganesha (char **op_errstr)
 {
         int                     ret                        = -1;
-        char                    *hostname                  = NULL;
         dict_t *vol_opts                                   = NULL;
         glusterd_volinfo_t *volinfo                        = NULL;
-        int count                                          = 0;
-        char *volname                                      = NULL;
         glusterd_conf_t *priv                              = NULL;
         runner_t runner                                    = {0,};
 
