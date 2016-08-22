@@ -30,8 +30,6 @@ glusterd_quotadsvc_build (glusterd_svc_t *svc)
 int glusterd_quotadsvc_init (glusterd_svc_t *svc)
 {
         int              ret                = -1;
-        char             volfile[PATH_MAX]  = {0,};
-        glusterd_conf_t *conf               = THIS->private;
 
         ret = glusterd_svc_init (svc, quotad_svc_name);
         if (ret)
