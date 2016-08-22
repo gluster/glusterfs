@@ -835,7 +835,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    vol_type             = 0;
         int32_t                    transport            = 0;
         char                      *volume_id_str        = NULL;
-        char                      *brick                = NULL;
         char                      *volname              = NULL;
         dict_t                    *dict                 = NULL;
         cli_local_t               *local                = NULL;
@@ -1778,7 +1777,6 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
         char               *node_name   = NULL;
         gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
         char               *status_str  = NULL;
-        char               *size_str    = NULL;
         gf_boolean_t       down         = _gf_false;
 
         ret = dict_get_int32 (dict, "count", &count);
@@ -2115,7 +2113,6 @@ gf_cli_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp           rsp   = {0,};
         int                  ret   = -1;
         char                 msg[1024] = {0,};
-        call_frame_t        *frame = NULL;
 
         GF_ASSERT (myframe);
 
@@ -2166,7 +2163,6 @@ gf_cli_ganesha_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp           rsp   = {0,};
         int                  ret   = -1;
         dict_t               *dict = NULL;
-        char                 *help_str = NULL;
 
         GF_ASSERT (myframe);
 
@@ -2972,13 +2968,9 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         int                              ret              = -1;
         cli_local_t                     *local            = NULL;
         call_frame_t                    *frame            = NULL;
-        char                            *src_brick        = NULL;
-        char                            *dst_brick        = NULL;
-        char                            *status_reply     = NULL;
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
         char                             msg[1024]        = {0,};
-        char                            *task_id_str      = NULL;
         char                            *replace_op       = 0;
 
         GF_ASSERT (myframe);
@@ -3863,7 +3855,6 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t            type        = 0;
         call_frame_t      *frame       = NULL;
         char              *default_sl  = NULL;
-        char              *limit_list  = NULL;
         cli_local_t       *local       = NULL;
         char              *default_sl_dup  = NULL;
         int32_t            entry_count      = 0;
@@ -4736,12 +4727,9 @@ gf_cli_tier (call_frame_t *frame, xlator_t *this,
              void *data)
 {
         int                       ret = 0;
-        int32_t                   command = 0;
-        int32_t                   cmd = 0;
         gf_cli_req                req =  { {0,} };
         gf_cli_req                status_req = { {0,} };
         dict_t                    *dict = NULL;
-        char                     *volname = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -5849,7 +5837,6 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         char                    *master = NULL;
         char                    *slave  = NULL;
         int32_t                  type   = 0;
-        call_frame_t            *frame  = NULL;
         gf_boolean_t             status_detail = _gf_false;
 
         GF_ASSERT (myframe);
@@ -5857,8 +5844,6 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         if (req->rpc_status == -1) {
                 goto out;
         }
-
-        frame = myframe;
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
         if (ret < 0) {
@@ -7747,8 +7732,6 @@ cli_print_volume_status_tasks (dict_t *dict)
         char            key[1024]   = {0,};
         char            task[1024]  = {0,};
         char           *brick       = NULL;
-        char           *src_brick   = NULL;
-        char           *dest_brick  = NULL;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret)
@@ -9921,8 +9904,6 @@ cli_populate_req_dict_for_delete (dict_t *snap_dict, dict_t *dict, size_t index)
         int32_t         ret             = -1;
         char            key[PATH_MAX]   = "";
         char            *buffer         = NULL;
-        int             type            = 0;
-        int             snapcount       = 0;
 
         GF_ASSERT (snap_dict);
         GF_ASSERT (dict);
@@ -9970,12 +9951,11 @@ out:
 }
 
 int
-cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index) {
+cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index)
+{
         int             ret             =       -1;
         char            key[PATH_MAX]   =       "";
         char            *buffer         =       NULL;
-        int             type            =       0;
-        int             snapcount       =       0;
 
         GF_ASSERT (snap_dict);
         GF_ASSERT (dict);
@@ -10403,7 +10383,6 @@ gf_cli_snapshot_for_delete (call_frame_t *frame, xlator_t *this,
                             void *data)
 {
         gf_cli_req      req                     = {{0,}};
-        dict_t          *options                = NULL;
         int32_t         ret                     = -1;
         int32_t         cmd                     = -1;
         cli_local_t     *local                  = NULL;
@@ -10420,8 +10399,6 @@ gf_cli_snapshot_for_delete (call_frame_t *frame, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("cli", data, out);
 
         local = frame->local;
-
-        options = data;
 
         ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
         if (ret) {
@@ -10532,7 +10509,6 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
 {
 
         gf_cli_req        req           = {{0,}};
-        dict_t           *options       = NULL;
         int               ret           = -1;
         int32_t           cmd           = -1;
         cli_local_t      *local         = NULL;
@@ -10546,7 +10522,6 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("cli", data, out);
 
         local = frame->local;
-        options = data;
 
         ret = dict_get_int32 (local->dict, "sub-cmd", &cmd);
         if (ret) {
@@ -10695,12 +10670,12 @@ xmlend:
 out:
         if (ret && local && GF_SNAP_OPTION_TYPE_STATUS == type) {
                 tmp_ret = dict_get_str (local->dict, "op_err_str", &err_str);
-                if (err_str) {
+                if (tmp_ret || !err_str) {
+                        cli_err ("Snapshot Status : failed: %s", "Please "
+                                 "check log file for details");
+                } else {
                         cli_err ("Snapshot Status : failed: %s", err_str);
                         dict_del (local->dict, "op_err_str");
-                } else {
-                        cli_err ("Snapshot Status : failed: %s", "Please "
-                                "check log file for details");
                 }
         }
 
