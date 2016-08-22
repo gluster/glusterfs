@@ -59,7 +59,6 @@ int32_t
 glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
-        glusterd_peerctx_t      *peerctx = NULL;
         gf_boolean_t            quorum_action = _gf_false;
         glusterd_conf_t         *priv = THIS->private;
 
