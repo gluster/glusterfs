@@ -15,6 +15,7 @@
 #include "statedump.h"
 #include "quota-common-utils.h"
 #include "quota-messages.h"
+#include "events.h"
 
 struct volume_options options[];
 
@@ -5008,7 +5009,12 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                 gf_msg (this->name, GF_LOG_ALERT, 0,
                         Q_MSG_CROSSED_SOFT_LIMIT, "Usage crossed soft limit: "
                         "%s used by %s", usage_str, path);
+
+                gf_event (EVENT_QUOTA_CROSSED_SOFT_LIMIT, "Usage=%s;volume=%s;"
+                          "path=%s", usage_str, priv->volume_uuid, path);
+
                 ctx->prev_log = cur_time;
+
         }
         /* Usage is above soft limit */
         else if (cur_size > ctx->soft_lim &&
@@ -5020,6 +5026,10 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                 gf_msg (this->name, GF_LOG_ALERT, 0, Q_MSG_CROSSED_SOFT_LIMIT,
                         "Usage is above soft limit: %s used by %s",
                         usage_str, path);
+
+                gf_event (EVENT_QUOTA_CROSSED_SOFT_LIMIT, "Usage=%s;volume=%s;"
+                          "path=%s", usage_str, priv->volume_uuid, path);
+
                 ctx->prev_log = cur_time;
         }
 
