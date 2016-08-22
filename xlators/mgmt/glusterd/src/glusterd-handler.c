@@ -705,7 +705,6 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                        char *err_str, size_t err_len)
 {
         int32_t                     ret             = -1;
-        int                         npeers          = 0;
         dict_t                     *dict            = NULL;
         xlator_t                   *this            = NULL;
         glusterd_conf_t            *priv            = NULL;
@@ -1880,9 +1879,7 @@ __glusterd_handle_ganesha_cmd (rpcsvc_request_t *req)
         gf_cli_req                      cli_req = { {0,} } ;
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_GANESHA;
-        char                            *volname = NULL;
         char                            *op_errstr = NULL;
-        gf_boolean_t                    help = _gf_false;
         char                            err_str[2048] = {0,};
         xlator_t                        *this = NULL;
 
@@ -2276,7 +2273,6 @@ __glusterd_handle_fsm_log (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_fsm_log_req             cli_req = {0,};
         dict_t                          *dict = NULL;
-        glusterd_sm_tr_log_t            *log = NULL;
         xlator_t                        *this = NULL;
         glusterd_conf_t                 *conf = NULL;
         char                            msg[2048] = {0};
@@ -3400,37 +3396,18 @@ out:
 }
 
 int
-glusterd_transport_keepalive_options_get (int *interval, int *time,
-                                          int *timeout)
-{
-        int     ret = 0;
-        xlator_t *this = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        ret = dict_get_int32 (this->options,
-                              "transport.socket.keepalive-interval",
-                              interval);
-        ret = dict_get_int32 (this->options,
-                              "transport.socket.keepalive-time",
-                              time);
-        ret = dict_get_int32 (this->options,
-                              "transport.tcp-user-timeout",
-                              timeout);
-        return 0;
-}
-
-int
 glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
                                        int port)
 {
+        xlator_t *this = NULL;
         dict_t  *dict = NULL;
         int32_t interval = -1;
         int32_t time     = -1;
         int32_t timeout  = -1;
         int     ret = 0;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT (options);
         GF_ASSERT (hostname);
 
@@ -3456,7 +3433,30 @@ glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
         }
 
         /* Set keepalive options */
-        glusterd_transport_keepalive_options_get (&interval, &time, &timeout);
+        ret = dict_get_int32 (this->options,
+                              "transport.socket.keepalive-interval",
+                              &interval);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get socket keepalive-interval");
+        }
+        ret = dict_get_int32 (this->options,
+                              "transport.socket.keepalive-time",
+                              &time);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get socket keepalive-time");
+        }
+        ret = dict_get_int32 (this->options,
+                              "transport.tcp-user-timeout",
+                              &timeout);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get tcp-user-timeout");
+        }
 
         if ((interval > 0) || (time > 0))
                 ret = rpc_transport_keepalive_options_set (dict, interval,
@@ -3808,15 +3808,12 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         gd1_mgmt_friend_rsp  rsp = {{0}, };
         int32_t              ret = -1;
         xlator_t             *this = NULL;
-        glusterd_conf_t      *conf = NULL;
 
         GF_ASSERT (hostname);
 
         rsp.op_ret = 0;
         this = THIS;
         GF_ASSERT (this);
-
-        conf = this->private;
 
         gf_uuid_copy (rsp.uuid, MY_UUID);
         rsp.hostname = hostname;
@@ -3839,14 +3836,11 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
         gd1_mgmt_friend_rsp  rsp = {{0}, };
         int32_t              ret = -1;
         xlator_t             *this = NULL;
-        glusterd_conf_t      *conf = NULL;
 
         GF_ASSERT (myhostname);
 
         this = THIS;
         GF_ASSERT (this);
-
-        conf = this->private;
 
         gf_uuid_copy (rsp.uuid, MY_UUID);
         rsp.op_ret = op_ret;
