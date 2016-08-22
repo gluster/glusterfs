@@ -711,7 +711,6 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         int                           ret   = -1;
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
-        glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
         uuid_t                        *txn_id = NULL;
         glusterd_conf_t               *priv = NULL;
@@ -1052,7 +1051,6 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         int                           ret   = -1;
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
-        glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
         uuid_t                        *txn_id = NULL;
         glusterd_conf_t               *priv = NULL;
@@ -2049,7 +2047,6 @@ glusterd_commit_op (call_frame_t *frame, xlator_t *this,
         int                     ret         = -1;
         glusterd_peerinfo_t    *peerinfo    = NULL;
         glusterd_conf_t        *priv        = NULL;
-        call_frame_t           *dummy_frame = NULL;
         dict_t                 *dict        = NULL;
         gf_boolean_t            is_alloc    = _gf_true;
         uuid_t                 *txn_id      = NULL;
