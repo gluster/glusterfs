@@ -2951,9 +2951,6 @@ void
 __unwind_queued_locks (xlator_t *this, pl_inode_t *pl_inode,
                        struct list_head *tmp_list)
 {
-        posix_lock_t    *lock   = NULL;
-        posix_lock_t    *tmp    = NULL;
-
         if (list_empty (&pl_inode->queued_locks))
                 return;
 
