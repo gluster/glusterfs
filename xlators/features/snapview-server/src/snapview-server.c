@@ -405,7 +405,6 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
         int             ret                             = -1;
         char            tmp_uuid[64]                    = {0, };
         glfs_t         *fs                              = NULL;
-        glfs_object_t  *object                          = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
@@ -445,7 +444,6 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                  */
                 if (inode_ctx->fs && inode_ctx->object) {
                         fs = inode_ctx->fs;
-                        object = inode_ctx->object;
                         SVS_CHECK_VALID_SNAPSHOT_HANDLE(fs, this);
                         if (fs) {
                                 memcpy (buf, &inode_ctx->buf, sizeof (*buf));
@@ -510,7 +508,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         svs_inode_t   *inode_ctx                      = NULL;
         svs_inode_t   *parent_ctx                     = NULL;
         int32_t        ret                            = -1;
-        svs_private_t *private                        = NULL;
         inode_t       *parent                         = NULL;
         snap_dirent_t *dirent                         = NULL;
         gf_boolean_t   entry_point_key                = _gf_false;
@@ -521,8 +518,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
-
-        private = this->private;
 
         /* For lookups sent on inodes (i.e not parent inode + basename, but
            direct inode itself which usually is a nameless lookup or revalidate
@@ -1541,7 +1536,6 @@ int32_t
 svs_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t off, dict_t *xdata)
 {
-        svs_private_t *priv      = NULL;
         gf_dirent_t    entries   = {{{0, }, }, };
         int            count     = 0;
         svs_inode_t   *inode_ctx = NULL;
@@ -1556,8 +1550,6 @@ svs_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, unwind);
-
-        priv = this->private;
 
         inode_ctx = svs_inode_ctx_get (this, fd->inode);
         if (!inode_ctx) {
@@ -1720,7 +1712,6 @@ out:
 int32_t
 svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        svs_private_t *priv         = NULL;
         struct iatt    buf          = {0, };
         int32_t        op_errno     = EINVAL;
         int32_t        op_ret       = -1;
@@ -1734,8 +1725,6 @@ svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
-
-        priv = this->private;
 
         /* Instead of doing the check of whether it is a entry point directory
            or not by checking the name of the entry and then deciding what
@@ -1784,7 +1773,6 @@ out:
 int32_t
 svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        svs_private_t *priv        = NULL;
         struct iatt    buf         = {0, };
         int32_t        op_errno    = EINVAL;
         int32_t        op_ret      = -1;
@@ -1798,8 +1786,6 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
-
-        priv = this->private;
 
         /* Instead of doing the check of whether it is a entry point directory
            or not by checking the name of the entry and then deciding what
@@ -1854,7 +1840,6 @@ out:
 int32_t
 svs_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        svs_private_t *priv         = NULL;
         struct statvfs buf          = {0, };
         int32_t        op_errno     = EINVAL;
         int32_t        op_ret       = -1;
@@ -1867,8 +1852,6 @@ svs_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
-
-        priv = this->private;
 
         /* Instead of doing the check of whether it is a entry point directory
            or not by checking the name of the entry and then deciding what
@@ -2125,7 +2108,6 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
         int             ret          = -1;
         int32_t         op_ret       = -1;
         int32_t         op_errno     = EINVAL;
-        svs_private_t  *priv         = NULL;
         glfs_t         *fs           = NULL;
         glfs_object_t  *object       = NULL;
         svs_inode_t    *inode_ctx    = NULL;
@@ -2136,8 +2118,6 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
-
-        priv = this->private;
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
@@ -2226,7 +2206,6 @@ init (xlator_t *this)
 {
         svs_private_t   *priv           = NULL;
         int             ret             = -1;
-        pthread_t       snap_thread;
 
         /* This can be the top of graph in certain cases */
         if (!this->parents) {

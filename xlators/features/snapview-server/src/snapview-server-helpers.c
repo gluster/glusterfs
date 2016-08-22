@@ -334,12 +334,11 @@ svs_uuid_generate (uuid_t gfid, char *snapname, uuid_t origin_gfid)
 {
         unsigned char md5_sum[MD5_DIGEST_LENGTH] = {0};
         char          ino_string[NAME_MAX + 32]  = "";
-        int           ret                        = 0;
 
         GF_ASSERT (snapname);
 
-        ret = snprintf (ino_string, sizeof (ino_string), "%s%s",
-                        snapname, uuid_utoa(origin_gfid));
+        (void) snprintf (ino_string, sizeof (ino_string), "%s%s",
+                         snapname, uuid_utoa(origin_gfid));
         MD5((unsigned char *)ino_string, strlen(ino_string), md5_sum);
         gf_uuid_copy (gfid, md5_sum);
 }
