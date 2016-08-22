@@ -412,13 +412,11 @@ static int
 __socket_cached_read (rpc_transport_t *this, struct iovec *opvector, int opcount)
 {
 	socket_private_t   *priv = NULL;
-	int                 sock = -1;
 	struct gf_sock_incoming *in = NULL;
 	int                 req_len = -1;
 	int                 ret = -1;
 
 	priv = this->private;
-	sock = priv->sock;
 	in = &priv->incoming;
 	req_len = iov_length (opvector, opcount);
 
