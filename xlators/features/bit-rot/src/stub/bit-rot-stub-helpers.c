@@ -157,10 +157,8 @@ br_stub_add (xlator_t *this, uuid_t gfid)
         char              gfid_path[PATH_MAX] = {0};
         char              bad_gfid_path[PATH_MAX] = {0};
         int               ret = 0;
-        uuid_t            index = {0};
         br_stub_private_t *priv = NULL;
         struct stat       st = {0};
-        int               fd = 0;
 
         priv = this->private;
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
@@ -294,8 +292,6 @@ br_stub_dir_create (xlator_t *this, br_stub_private_t *priv)
         int          ret = -1;
         char         fullpath[PATH_MAX] = {0};
         char         stub_gfid_path[PATH_MAX] = {0, };
-        char         path[PATH_MAX] = {0};
-        size_t       len = 0;
 
         gf_uuid_copy (priv->bad_object_dir_gfid, BR_BAD_OBJ_CONTAINER);
 
@@ -355,7 +351,6 @@ br_stub_worker (void *data)
         br_stub_private_t     *priv = NULL;
         xlator_t         *this = NULL;
         call_stub_t      *stub = NULL;
-        int               ret = 0;
 
 
         THIS = data;
@@ -366,8 +361,8 @@ br_stub_worker (void *data)
                 pthread_mutex_lock (&priv->container.bad_lock);
                 {
                         while (list_empty (&priv->container.bad_queue)) {
-                              ret = pthread_cond_wait (&priv->container.bad_cond,
-                                                       &priv->container.bad_lock);
+                              (void) pthread_cond_wait (&priv->container.bad_cond,
+                                                        &priv->container.bad_lock);
                         }
 
                         stub = __br_stub_dequeue (&priv->container.bad_queue);
