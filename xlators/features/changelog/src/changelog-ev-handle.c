@@ -74,7 +74,6 @@ changelog_dispatch_vec (call_frame_t *frame, xlator_t *this,
          int                idx      = 0;
          int                count    = 0;
          int                ret      = 0;
-         unsigned long      range    = 0;
          unsigned long      sequence = 0;
          rbuf_iovec_t      *rvec     = NULL;
          struct ev_rpc     *erpc     = NULL;
@@ -83,7 +82,7 @@ changelog_dispatch_vec (call_frame_t *frame, xlator_t *this,
          /* dispatch NR_IOVEC IO vectors at a time. */
 
          erpc = data;
-         RLIST_GET_SEQ (erpc->rlist, sequence, range);
+         sequence = erpc->rlist->seq[0];
 
          rlist_iter_init (&riter, erpc->rlist);
 
@@ -232,7 +231,6 @@ changelog_ev_connector (void *data)
 void
 changelog_ev_cleanup_connections (xlator_t *this, changelog_clnt_t *c_clnt)
 {
-        int ret = 0;
         changelog_rpc_clnt_t *crpc = NULL;
 
         /* cleanup active connections */
@@ -287,11 +285,9 @@ put_client (changelog_clnt_t *c_clnt, changelog_rpc_clnt_t *crpc)
 void
 _dispatcher (rbuf_list_t *rlist, void *arg)
 {
-        int                   ret    = 0;
         xlator_t             *this   = NULL;
         changelog_clnt_t     *c_clnt = NULL;
         changelog_rpc_clnt_t *crpc   = NULL;
-        changelog_rpc_clnt_t *tmp    = NULL;
         struct ev_rpc         erpc   = {0,};
         struct list_head     *next   = NULL;
 
@@ -306,9 +302,9 @@ _dispatcher (rbuf_list_t *rlist, void *arg)
                 if (!crpc)
                         break;
                 erpc.rpc = crpc->rpc;
-                ret = changelog_invoke_rpc (this, crpc->rpc,
-                                            &changelog_ev_program,
-                                            CHANGELOG_REV_PROC_EVENT, &erpc);
+                (void) changelog_invoke_rpc (this, crpc->rpc,
+                                             &changelog_ev_program,
+                                             CHANGELOG_REV_PROC_EVENT, &erpc);
                 put_client (c_clnt, crpc);
         }
 }

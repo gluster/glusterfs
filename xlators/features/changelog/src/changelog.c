@@ -1877,9 +1877,6 @@ changelog_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
 {
         int                ret    = 0;
-        void              *opaque = NULL;
-        char              *buf    = NULL;
-        ssize_t            buflen = 0;
         changelog_priv_t  *priv   = NULL;
         changelog_event_t  ev     = {0,};
         gf_boolean_t logopen = _gf_false;
@@ -2041,8 +2038,6 @@ changelog_assign_barrier_timeout(changelog_priv_t *priv, uint32_t timeout)
 static void
 changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
 {
-        int ret = 0;
-
         if (priv->cr.rollover_th) {
                 (void) changelog_thread_cleanup (this, priv->cr.rollover_th);
                 priv->cr.rollover_th = 0;
@@ -2059,7 +2054,6 @@ static int
 changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
 {
         int ret = 0;
-        int flags = 0;
 
         /* Geo-Rep snapshot dependency:
          *
@@ -2752,7 +2746,6 @@ changelog_cleanup_rpc (xlator_t *this, changelog_priv_t *priv)
 static int
 changelog_init_rpc (xlator_t *this, changelog_priv_t *priv)
 {
-        int        ret      = 0;
         rpcsvc_t  *rpc      = NULL;
         changelog_ev_selector_t *selection = NULL;
 
@@ -2786,7 +2779,6 @@ int32_t
 init (xlator_t *this)
 {
         int               ret  = -1;
-        char             *tmp  = NULL;
         changelog_priv_t *priv = NULL;
 
         GF_VALIDATE_OR_GOTO ("changelog", this, error_return);

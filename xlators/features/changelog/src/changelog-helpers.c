@@ -165,7 +165,6 @@ int
 changelog_cleanup_event_selection (xlator_t *this,
                                    changelog_ev_selector_t *selection)
 {
-        int ret = 0;
         int j = CHANGELOG_EV_SELECTION_RANGE;
 
         LOCK (&selection->reflock);
@@ -392,7 +391,6 @@ update_path (xlator_t *this, char *cl_path)
         char low_cl[]     = "changelog";
         char up_cl[]      = "CHANGELOG";
         char *found       = NULL;
-        int  iter         = 0;
         int  ret          = -1;
 
         found = strstr(cl_path, up_cl);

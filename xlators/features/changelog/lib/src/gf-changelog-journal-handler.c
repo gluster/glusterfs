@@ -647,7 +647,6 @@ gf_changelog_consume (xlator_t *this,
 void *
 gf_changelog_process (void *data)
 {
-        int ret = 0;
         xlator_t *this = NULL;
         gf_changelog_journal_t *jnl = NULL;
         gf_changelog_entry_t *entry = NULL;
@@ -675,8 +674,8 @@ gf_changelog_process (void *data)
                 pthread_mutex_unlock (&jnl_proc->lock);
 
                 if (entry) {
-                        ret = gf_changelog_consume (this, jnl,
-                                                    entry->path, _gf_false);
+                        (void) gf_changelog_consume (this, jnl,
+                                                     entry->path, _gf_false);
                         GF_FREE (entry);
                 }
         }
@@ -715,7 +714,6 @@ void
 gf_changelog_handle_journal (void *xl, char *brick,
                              void *cbkdata, changelog_event_t *event)
 {
-        int                       ret      = 0;
         gf_changelog_journal_t   *jnl      = NULL;
         gf_changelog_processor_t *jnl_proc = NULL;
 
@@ -974,11 +972,8 @@ gf_changelog_init_history (xlator_t *this,
 void
 gf_changelog_journal_fini (void *xl, char *brick, void *data)
 {
-        int ret = 0;
-        xlator_t *this = NULL;
         gf_changelog_journal_t *jnl = NULL;
 
-        this = xl;
         jnl = data;
 
         gf_changelog_cleanup_processor (jnl);
