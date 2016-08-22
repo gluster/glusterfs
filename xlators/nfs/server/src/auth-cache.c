@@ -442,7 +442,6 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
 {
         int                      ret        = -EINVAL;
         char                    *hashkey    = NULL;
-        data_t                  *entry_data = NULL;
         time_t                   timestamp  = 0;
         gf_boolean_t             can_write  = _gf_false;
         struct auth_cache_entry *entry      = NULL;
