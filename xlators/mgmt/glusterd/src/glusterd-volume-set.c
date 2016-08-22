@@ -216,14 +216,10 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
         xlator_t        *this           = NULL;
         int             origin_val      = -1;
         gf_boolean_t    current_rc      = _gf_false;
-        char            *str_current_rc = NULL;
         int             current_wt      = 0;
         int             current_rt      = 0;
-        char            *str_current_wt = NULL;
-        char            *str_current_rt = NULL;
         gf_boolean_t    is_set_rc       = _gf_false;
         char            *proposed_rc    = NULL;
-        gf_boolean_t    is_set_wrt_thsd = _gf_false;
 
 
         this = THIS;
@@ -541,7 +537,6 @@ validate_defrag_throttle_option (glusterd_volinfo_t *volinfo, dict_t *dict,
                                  char *key, char *value, char **op_errstr)
 {
         char                 errstr[2048] = "";
-        glusterd_conf_t     *priv         = NULL;
         int                  ret          = 0;
         xlator_t            *this         = NULL;
 
@@ -854,7 +849,6 @@ validate_lock_migration_option (glusterd_volinfo_t *volinfo, dict_t *dict,
                                  char *key, char *value, char **op_errstr)
 {
         char                 errstr[2048] = "";
-        glusterd_conf_t     *priv         = NULL;
         int                  ret          = 0;
         xlator_t            *this         = NULL;
         gf_boolean_t         b            = _gf_false;
