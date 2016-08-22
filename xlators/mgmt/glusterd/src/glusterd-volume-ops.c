@@ -2848,10 +2848,7 @@ glusterd_clearlocks_send_cmd (glusterd_volinfo_t *volinfo, char *cmd,
                               int err_len, char *mntpt)
 {
         int               ret                   = -1;
-        glusterd_conf_t  *priv                  = NULL;
         char             abspath[PATH_MAX]      = {0, };
-
-        priv = THIS->private;
 
         snprintf (abspath, sizeof (abspath), "%s/%s", mntpt, path);
         ret = sys_lgetxattr (abspath, cmd, result, PATH_MAX);
@@ -2871,9 +2868,6 @@ int
 glusterd_clearlocks_rmdir_mount (glusterd_volinfo_t *volinfo, char *mntpt)
 {
         int              ret               = -1;
-        glusterd_conf_t *priv              = NULL;
-
-        priv = THIS->private;
 
         ret = sys_rmdir (mntpt);
         if (ret) {
@@ -2919,11 +2913,8 @@ int
 glusterd_clearlocks_create_mount (glusterd_volinfo_t *volinfo, char **mntpt)
 {
         int              ret                    = -1;
-        glusterd_conf_t *priv                   = NULL;
         char             template[PATH_MAX]     = {0,};
         char            *tmpl                   = NULL;
-
-        priv = THIS->private;
 
         snprintf (template, sizeof (template), "/tmp/%s.XXXXXX",
                   volinfo->volname);
@@ -2997,7 +2988,6 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                                             char **xl_opts)
 {
         glusterd_brickinfo_t    *brickinfo          = NULL;
-        glusterd_conf_t         *priv               = NULL;
         char                    brickname[PATH_MAX] = {0,};
         int                     index               = 0;
         int                     ret                 = -1;
@@ -3010,8 +3000,6 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                         "xl_opts");
                 goto out;
         }
-
-        priv = THIS->private;
 
         index = -1;
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
