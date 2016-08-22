@@ -864,7 +864,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int32_t                 cmd       = 0;
         char                    msg[2048] = {0};
         glusterd_volinfo_t      *volinfo   = NULL;
-        glusterd_conf_t         *priv      = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_brickinfo_t    *tmp      = NULL;
         gf_boolean_t            volfile_update = _gf_false;
@@ -876,7 +875,6 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         this = THIS;
         GF_ASSERT (this);
-        priv = this->private;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
