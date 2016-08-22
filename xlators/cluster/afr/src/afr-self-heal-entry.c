@@ -659,7 +659,6 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
         gf_boolean_t mismatch = _gf_false;
-        afr_local_t *iter_local = NULL;
         afr_local_t *local = NULL;
         loc_t loc = {0,};
 
