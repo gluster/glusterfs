@@ -683,7 +683,6 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
 {
         int                     ret = -1;
         gd1_mgmt_brick_op_req   *brick_req = NULL;
-        char                    xlname[1024] = {0,};
         char                    *volname = NULL;
 
         GF_ASSERT (op < GD_OP_MAX);
@@ -1916,10 +1915,7 @@ out:
 static int
 _delete_reconfig_global_opt (dict_t *this, char *key, data_t *value, void *data)
 {
-        int32_t        *is_force = 0;
-
         GF_ASSERT (data);
-        is_force = (int32_t*)data;
 
         if (strcmp (GLUSTERD_GLOBAL_OPT_VERSION, key) == 0)
                 goto out;
@@ -2388,8 +2384,6 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
                              char **op_errstr)
 {
         int32_t       ret                  = -1;
-        int32_t       exists               = -1;
-        int32_t       count                = -1;
         char          hooks_args[PATH_MAX] = {0, };
         char          errstr[PATH_MAX]     = {0, };
         xlator_t     *this                 = NULL;
@@ -3727,11 +3721,9 @@ static int
 glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 {
         int32_t                         ret             = 0;
-        int32_t                         err             = 0;
         char                           *volname         = NULL;
         char                           *globalname      = NULL;
         glusterd_op_lock_ctx_t         *lock_ctx        = NULL;
-        glusterd_conf_t                *priv            = NULL;
         xlator_t                       *this            = NULL;
         uint32_t                        op_errno        = 0;
 
@@ -3739,7 +3731,6 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
         GF_ASSERT (ctx);
 
         this = THIS;
-        priv = this->private;
 
         lock_ctx = (glusterd_op_lock_ctx_t *)ctx;
 
@@ -6290,10 +6281,8 @@ _select_hxlator_with_matching_brick (xlator_t *this,
         char                    *hostname = NULL;
         char                    *path = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *priv   = NULL;
         int                     hxl_children = 0;
 
-        priv = this->private;
         if (!dict ||
             dict_get_str (dict, "per-replica-cmd-hostname", &hostname) ||
             dict_get_str (dict, "per-replica-cmd-path", &path))
@@ -6323,12 +6312,9 @@ _select_hxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
                                     int *hxlator_count)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *priv   = NULL;
         int                     hxl_children = 0;
         gf_boolean_t            add     = _gf_false;
-        int                     cmd_replica_index = -1;
 
-        priv = this->private;
         hxl_children = _get_hxl_children_count (volinfo);
 
         if ((*index) == 0)
@@ -6363,11 +6349,9 @@ _select_hxlators_for_full_self_heal (xlator_t *this,
                                      int *hxlator_count)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        glusterd_conf_t         *priv   = NULL;
         int                     hxl_children = 0;
         uuid_t                  candidate = {0};
 
-        priv = this->private;
         if ((*index) == 0)
                 (*index)++;
         if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
@@ -6533,8 +6517,6 @@ glusterd_shd_select_brick_xlator (dict_t *dict, gf_xl_afr_op_t heal_op,
         int                                     ret = -1;
         glusterd_conf_t                         *priv = NULL;
         xlator_t                                *this = NULL;
-        char                                    msg[2048] = {0,};
-        glusterd_pending_node_t                 *pending_node = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6788,7 +6770,6 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         glusterd_pending_node_t *pending_node = NULL;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
-        glusterd_snapdsvc_t     *snapd = NULL;
 
         GF_ASSERT (dict);
 
@@ -7027,7 +7008,6 @@ glusterd_bricks_select_scrub (dict_t *dict, char **op_errstr,
         xlator_t                  *this         = NULL;
         glusterd_conf_t           *priv         = NULL;
         glusterd_volinfo_t        *volinfo      = NULL;
-        glusterd_brickinfo_t      *brickinfo    = NULL;
         glusterd_pending_node_t   *pending_node = NULL;
 
         this = THIS;
