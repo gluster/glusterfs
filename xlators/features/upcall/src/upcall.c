@@ -2190,7 +2190,6 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int                 ret              = -1;
-        int32_t             val              = 0;
         struct gf_upcall    *up_req          = NULL;
 
         switch (event) {
