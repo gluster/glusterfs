@@ -123,6 +123,7 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
         [GD_OP_SYS_EXEC]                = "Execute system commands",
         [GD_OP_GSYNC_CREATE]            = "Geo-replication Create",
         [GD_OP_SNAP]                    = "Snapshot",
+        [GD_OP_RESET_BRICK]             = "Reset Brick",
         [GD_OP_MAX]                     = "Invalid op"
 };
 

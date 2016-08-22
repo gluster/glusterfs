@@ -5926,6 +5926,7 @@ rpcsvc_actor_t gd_svc_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GET_VOL_OPT]        = {"GET_VOL_OPT",        GLUSTER_CLI_GET_VOL_OPT,      glusterd_handle_get_vol_opt,           NULL, 0, DRC_NA},
         [GLUSTER_CLI_BITROT]             = {"BITROT",             GLUSTER_CLI_BITROT,           glusterd_handle_bitrot,                NULL, 0, DRC_NA},
         [GLUSTER_CLI_GET_STATE]          = {"GET_STATE",          GLUSTER_CLI_GET_STATE,        glusterd_handle_get_state,             NULL, 0, DRC_NA},
+        [GLUSTER_CLI_RESET_BRICK]        = {"RESET_BRICK",        GLUSTER_CLI_RESET_BRICK,      glusterd_handle_reset_brick,           NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

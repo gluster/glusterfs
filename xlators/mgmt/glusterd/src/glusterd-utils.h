@@ -242,7 +242,7 @@ glusterd_volinfo_bricks_delete (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
-                             char *op_errstr, size_t len);
+                             char *op_errstr, size_t len, char *op);
 int32_t
 glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo);
 
@@ -741,4 +741,36 @@ assign_brick_groups (glusterd_volinfo_t *volinfo);
 glusterd_brickinfo_t*
 get_last_brick_of_brick_group (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *brickinfo);
+int
+glusterd_get_rb_dst_brickinfo (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t **brickinfo);
+int
+rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
+                         dict_t *req_dict);
+int
+glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
+                                   char *old_brick, char *new_brick,
+                                   dict_t *dict);
+int32_t
+glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
+                                   glusterd_brickinfo_t *brickinfo);
+char *
+gd_rb_op_to_str (char *op);
+
+glusterd_op_t
+gd_cli_to_gd_op (char *cli_op);
+
+int
+glusterd_get_dst_brick_info (char **dst_brick, char *volname, char **op_errstr,
+                             glusterd_brickinfo_t **dst_brickinfo, char **host,
+                             dict_t *dict, char **dup_dstbrick);
+
+int
+glusterd_brick_op_prerequisites (dict_t *dict,
+                                 char **op,
+                                 glusterd_op_t *gd_op, char **volname,
+                                 glusterd_volinfo_t **volinfo,
+                                 char **src_brick, glusterd_brickinfo_t
+                                 **src_brickinfo, char *pidfile,
+                                 char **op_errstr, dict_t *rsp_dict);
 #endif

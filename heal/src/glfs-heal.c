@@ -517,7 +517,7 @@ out:
 
         (*num_entries)++;
         glfsh_output->print_heal_status (path ? path :
-                                                uuid_utoa_r (gfid, gfid_str),
+                                         uuid_utoa_r (gfid, gfid_str),
                                          gfid,
                                          status ? status : "");
 

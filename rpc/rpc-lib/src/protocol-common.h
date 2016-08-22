@@ -198,6 +198,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_DETACH_TIER,
         GLUSTER_CLI_TIER,
         GLUSTER_CLI_GET_STATE,
+        GLUSTER_CLI_RESET_BRICK,
         GLUSTER_CLI_MAXVALUE,
 };
 

@@ -2961,6 +2961,149 @@ out:
 }
 
 int
+gf_cli_reset_brick_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        gf_cli_rsp                       rsp              = {0,};
+        int                              ret              = -1;
+        cli_local_t                     *local            = NULL;
+        call_frame_t                    *frame            = NULL;
+        char                            *src_brick        = NULL;
+        char                            *dst_brick        = NULL;
+        char                            *status_reply     = NULL;
+        char                            *rb_operation_str = NULL;
+        dict_t                          *rsp_dict         = NULL;
+        char                             msg[1024]        = {0,};
+        char                            *task_id_str      = NULL;
+        char                            *reset_op         = NULL;
+
+        GF_ASSERT (myframe);
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        frame = myframe;
+
+        GF_ASSERT (frame->local);
+
+        local = frame->local;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        ret = dict_get_str (local->dict, "operation", &reset_op);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "dict_get on operation failed");
+                goto out;
+        }
+
+        if (rsp.dict.dict_len) {
+                /* Unserialize the dictionary */
+                rsp_dict  = dict_new ();
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                rsp.dict.dict_len,
+                                &rsp_dict);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_ERROR, "failed to "
+                                "unserialize rsp buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        if (strcmp (reset_op, "GF_RESET_OP_START") &&
+            strcmp (reset_op, "GF_RESET_OP_COMMIT") &&
+            strcmp (reset_op, "GF_RESET_OP_COMMIT_FORCE")) {
+                rb_operation_str = gf_strdup ("Unknown operation");
+                ret = -1;
+                goto out;
+        }
+
+        if (rsp.op_ret && (strcmp (rsp.op_errstr, ""))) {
+                rb_operation_str = gf_strdup (rsp.op_errstr);
+        } else {
+                if (!strcmp (reset_op, "GF_RESET_OP_START")) {
+                        if (rsp.op_ret)
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "start "
+                                                              "operation "
+                                                              "failed");
+                        else
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "start "
+                                                              "operation "
+                                                              "successful");
+                } else if (!strcmp (reset_op, "GF_RESET_OP_COMMIT")) {
+
+                        if (rsp.op_ret)
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "commit "
+                                                              "operation "
+                                                              "failed");
+                        else
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "commit "
+                                                              "operation "
+                                                              "successful");
+                } else if (!strcmp (reset_op, "GF_RESET_OP_COMMIT_FORCE")) {
+
+                        if (rsp.op_ret)
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "commit "
+                                                              "force operation "
+                                                              "failed");
+                        else
+                                rb_operation_str = gf_strdup ("reset-brick "
+                                                              "commit "
+                                                              "force operation "
+                                                              "successful");
+                }
+        }
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to reset brick");
+        snprintf (msg, sizeof (msg), "%s",
+                  rb_operation_str ? rb_operation_str : "Unknown operation");
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_replace_brick (rsp_dict,
+                                                        rsp.op_ret,
+                                                        rsp.op_errno, msg);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret)
+                cli_err ("volume reset-brick: failed: %s", msg);
+        else
+                cli_out ("volume reset-brick: success: %s", msg);
+        ret = rsp.op_ret;
+
+out:
+        if (frame)
+                frame->local = NULL;
+
+        if (local)
+                cli_local_wipe (local);
+
+        if (rb_operation_str)
+                GF_FREE (rb_operation_str);
+
+        cli_cmd_broadcast_response (ret);
+        free (rsp.dict.dict_val);
+        if (rsp_dict)
+                dict_unref (rsp_dict);
+
+        return ret;
+}
+int
 gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -2971,7 +3114,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
         char                             msg[1024]        = {0,};
-        char                            *replace_op       = 0;
+        char                            *replace_op       = NULL;
 
         GF_ASSERT (myframe);
 
@@ -3013,7 +3156,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        if (!strcmp(replace_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
+        if (!strcmp (replace_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
 
                 if (rsp.op_ret || ret)
                         rb_operation_str = gf_strdup ("replace-brick commit "
@@ -3035,7 +3178,7 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                   rb_operation_str ? rb_operation_str : "Unknown operation");
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_vol_replace_brick (replace_op, rsp_dict,
+                ret = cli_xml_output_vol_replace_brick (rsp_dict,
                                                         rsp.op_ret,
                                                         rsp.op_errno, msg);
                 if (ret)
@@ -3054,10 +3197,8 @@ out:
         if (frame)
                 frame->local = NULL;
 
-        if (local) {
-                dict_unref (local->dict);
+        if (local)
                 cli_local_wipe (local);
-        }
 
         if (rb_operation_str)
                 GF_FREE (rb_operation_str);
@@ -4889,8 +5030,73 @@ out:
 }
 
 int32_t
+gf_cli_reset_brick (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req                  req        =  { {0,} };
+        int                         ret        = 0;
+        dict_t                     *dict       = NULL;
+        char                       *dst_brick  = NULL;
+        char                       *src_brick  = NULL;
+        char                       *volname    = NULL;
+        char                       *op         = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "operation", &op);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on operation failed");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on volname failed");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "src-brick", &src_brick);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on src-brick failed");
+                goto out;
+        }
+
+        if (!strcmp (op, "GF_RESET_OP_COMMIT") ||
+            !strcmp (op, "GF_RESET_OP_COMMIT_FORCE")) {
+                ret = dict_get_str (dict, "dst-brick", &dst_brick);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "dict_get on dst-brick failed");
+                        goto out;
+                }
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Received command reset-brick %s on %s.", op, src_brick);
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_reset_brick_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_RESET_BRICK, this, cli_rpc_prog,
+                               NULL);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        return ret;
+}
+
+int32_t
 gf_cli_replace_brick (call_frame_t *frame, xlator_t *this,
-                         void *data)
+                      void *data)
 {
         gf_cli_req                  req        =  {{0,}};
         int                         ret        = 0;
@@ -11345,7 +11551,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_ATTACH_TIER]      = {"ATTACH_TIER", gf_cli_attach_tier},
         [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier},
         [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier},
-        [GLUSTER_CLI_GET_STATE]        = {"GET_STATE", gf_cli_get_state}
+        [GLUSTER_CLI_GET_STATE]        = {"GET_STATE", gf_cli_get_state},
+        [GLUSTER_CLI_RESET_BRICK]      = {"RESET_BRICK", gf_cli_reset_brick}
 };
 
 struct rpc_clnt_program cli_prog = {

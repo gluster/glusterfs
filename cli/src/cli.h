@@ -284,6 +284,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
 
 int32_t
+cli_cmd_volume_reset_brick_parse (const char **words, int wordcount,
+                                  dict_t **options);
+
+int32_t
 cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options);
 int32_t
 cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options);
@@ -424,7 +428,7 @@ cli_xml_output_vol_remove_brick_detach_tier (gf_boolean_t status_op,
                                              const char *op);
 
 int
-cli_xml_output_vol_replace_brick (char *op, dict_t *dict, int op_ret,
+cli_xml_output_vol_replace_brick (dict_t *dict, int op_ret,
                                   int op_errno, char *op_errstr);
 
 int
@@ -489,5 +493,4 @@ print_quota_list_empty (char *path, int type);
 
 int
 gf_gsync_status_t_comparator (const void *p, const void *q);
-
 #endif /* __CLI_H__ */

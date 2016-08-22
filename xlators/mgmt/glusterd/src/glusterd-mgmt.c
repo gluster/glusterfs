@@ -189,6 +189,17 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                 }
                 break;
 
+        case GD_OP_RESET_BRICK:
+               ret = glusterd_reset_brick_prevalidate (dict, op_errstr,
+                                                       rsp_dict);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
+                                "Reset brick prevalidation failed.");
+                        goto out;
+                }
+                break;
+
         default:
                 break;
         }
@@ -297,6 +308,17 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                         }
                         break;
 
+                }
+                case GD_OP_RESET_BRICK:
+                {
+                        ret = glusterd_op_reset_brick (dict, rsp_dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "Reset-brick commit failed.");
+                                goto out;
+                        }
+                        break;
                 }
 
                default:
@@ -670,6 +692,16 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                         goto out;
                 }
                 break;
+        case GD_OP_RESET_BRICK:
+                ret = glusterd_rb_use_rsp_dict (aggr, rsp);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
+                                "Failed to aggregate prevalidate "
+                                "response dictionaries.");
+                        goto out;
+                }
+                break;
         default:
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -972,6 +1004,7 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                 case GD_OP_START_VOLUME:
                 case GD_OP_ADD_BRICK:
                 case GD_OP_REPLACE_BRICK:
+                case GD_OP_RESET_BRICK:
                 {
                         ret = dict_get_str (dict, "volname", &volname);
                         if (ret) {

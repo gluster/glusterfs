@@ -4139,6 +4139,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_BITROT:
                 case GD_OP_SCRUB_STATUS:
                 case GD_OP_SCRUB_ONDEMAND:
+                case GD_OP_RESET_BRICK:
                         {
                                 do_common = _gf_true;
                         }

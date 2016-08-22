@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       585
+#define GLFS_NUM_MESSAGES       587
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -2837,7 +2837,7 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_NFS_VOL_FILE_GEN_FAIL             (GLUSTERD_COMP_BASE + 349)
+#define GD_MSG_GLUSTER_SERVICE_START_FAIL             (GLUSTERD_COMP_BASE + 349)
 
 /*!
  * @messageid
@@ -2965,7 +2965,7 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_NFS_SERVER_STOP_FAIL                  (GLUSTERD_COMP_BASE + 365)
+#define GD_MSG_GLUSTER_SERVICES_STOP_FAIL            (GLUSTERD_COMP_BASE + 365)
 
 /*!
  * @messageid
@@ -4727,8 +4727,31 @@
  * @recommendation
  *
  */
+#define GD_MSG_BRICK_CLEANUP_SUCCESS               (GLUSTERD_COMP_BASE + 584)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendation
+ *
+ */
 #define GD_MSG_STATE_STR_GET_FAILED               (GLUSTERD_COMP_BASE + 585)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_RESET_BRICK_COMMIT_FORCE_REQ_RCVD   (GLUSTERD_COMP_BASE + 586)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_RESET_BRICK_CMD_FAIL                (GLUSTERD_COMP_BASE + 587)
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */

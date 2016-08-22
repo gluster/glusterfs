@@ -1235,8 +1235,8 @@ _afr_handle_empty_brick (void *opaque)
 
         loc_copy (&local->loc, &data->loc);
 
-        gf_msg_debug (this->name, 0, "New brick is : %s",
-                      priv->children[empty_index]->name);
+        gf_msg (this->name, GF_LOG_INFO, 0, 0, "New brick is : %s",
+                priv->children[empty_index]->name);
 
         ret = _afr_handle_empty_brick_type (this, frame, &local->loc, empty_index,
                                           AFR_METADATA_TRANSACTION, op_type);
