@@ -37,11 +37,9 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
         char      *peer_str          = NULL;
         char       err_str[PATH_MAX] = "Please check log file for details.";
         char       op_err[PATH_MAX]  = "";
-        int32_t    len               = -1;
         xlator_t  *this              = NULL;
         int        is_operrstr_blk   = 0;
         char       *err_string       = NULL;
-        char       *cli_err_str      = NULL;
         glusterd_peerinfo_t *peerinfo = NULL;
 
         this = THIS;
@@ -68,68 +66,59 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                 switch (op_code) {
                 case GLUSTERD_MGMT_V3_LOCK:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Locking failed "
-                                                "on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Locking failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_PRE_VALIDATE:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Pre Validation failed "
-                                                "on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Pre Validation failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_BRICK_OP:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Brick ops failed "
-                                                "on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Brick ops failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_COMMIT:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Commit failed"
-                                                " on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Commit failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_POST_VALIDATE:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Post Validation failed "
-                                                "on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Post Validation failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 case GLUSTERD_MGMT_V3_UNLOCK:
                         {
-                                len = snprintf (op_err, sizeof(op_err),
-                                                "Unlocking failed "
-                                                "on %s. %s", peer_str,
-                                                err_string);
+                                snprintf (op_err, sizeof(op_err),
+                                          "Unlocking failed on %s. %s",
+                                          peer_str, err_string);
                                 break;
                         }
                 default :
-                        len = snprintf (op_err, sizeof(op_err),
-                                       "Unknown error! "
-                                       "on %s. %s", peer_str,
-                                        err_string);
+                        snprintf (op_err, sizeof(op_err),
+                                  "Unknown error! on %s. %s",
+                                  peer_str, err_string);
                 }
 
                 if (args->errstr) {
-                        len = snprintf (err_str, sizeof(err_str),
-                                      "%s\n%s", args->errstr,
-                                      op_err);
+                        snprintf (err_str, sizeof(err_str),
+                                  "%s\n%s", args->errstr, op_err);
                         GF_FREE (args->errstr);
                         args->errstr = NULL;
                 } else
-                        len = snprintf (err_str, sizeof(err_str),
-                                "%s", op_err);
+                        snprintf (err_str, sizeof(err_str), "%s", op_err);
 
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_OP_FAIL, "%s", op_err);
@@ -428,7 +417,6 @@ gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_lock_rsp        rsp           = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
@@ -700,7 +688,6 @@ gd_mgmt_v3_pre_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_pre_val_rsp     rsp           = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
@@ -1021,7 +1008,6 @@ gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_brick_op_rsp     rsp          = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
@@ -1242,7 +1228,6 @@ gd_mgmt_v3_commit_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_commit_rsp       rsp          = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
@@ -1504,7 +1489,6 @@ gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_post_val_rsp    rsp           = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
@@ -1726,7 +1710,6 @@ gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 {
         int32_t                     ret           = -1;
         struct syncargs            *args          = NULL;
-        glusterd_peerinfo_t        *peerinfo      = NULL;
         gd1_mgmt_v3_unlock_rsp      rsp           = {{0},};
         call_frame_t               *frame         = NULL;
         int32_t                     op_ret        = -1;
