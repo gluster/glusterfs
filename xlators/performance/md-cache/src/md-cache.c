@@ -792,10 +792,9 @@ out:
 }
 
 
-int
+void
 mdc_inode_iatt_invalidate (xlator_t *this, inode_t *inode)
 {
-        int              ret = -1;
         struct md_cache *mdc = NULL;
 
         if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
@@ -808,7 +807,7 @@ mdc_inode_iatt_invalidate (xlator_t *this, inode_t *inode)
         UNLOCK (&mdc->lock);
 
 out:
-        return ret;
+        return;
 }
 
 
@@ -2523,8 +2522,11 @@ mdc_invalidate (xlator_t *this, void *data)
         }
 
         if (up_ci->flags & IATT_UPDATE_FLAGS) {
-                ret = mdc_inode_iatt_set_validate (this, inode, NULL,
-                                                   &up_ci->stat);
+                if (up_ci->dict && dict_get (up_ci->dict, MDC_INVALIDATE_IATT))
+                        mdc_inode_iatt_invalidate (this, inode);
+                else
+                        ret = mdc_inode_iatt_set_validate (this, inode, NULL,
+                                                           &up_ci->stat);
                 /* one of the scenarios where ret < 0 is when this invalidate
                  * is older than the current stat, in that case do not
                  * update the xattrs as well
