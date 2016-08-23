@@ -266,6 +266,7 @@ changelog_rpc_server_destroy (xlator_t *this, rpcsvc_t *rpc, char *sockfile,
         while (*progs) {
                 prog = *progs;
                 (void) rpcsvc_program_unregister (rpc, prog);
+                progs++;
         }
 
         list_for_each_entry_safe (listener, next, &rpc->listeners, list) {
