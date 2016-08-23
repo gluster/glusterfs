@@ -284,6 +284,10 @@
 #define GF_LK_ADVISORY 0
 #define GF_LK_MANDATORY 1
 
+/* md-cache keys */
+#define MDC_INVALIDATE_IATT "mdc.invalidate.iatt"
+#define MDC_INVALIDATE_XATT "mdc.invalidate.xatt"
+
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 const char *fop_enum_to_string (glusterfs_fop_t fop);
 

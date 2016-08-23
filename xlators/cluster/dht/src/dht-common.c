@@ -19,6 +19,7 @@
 #include "byte-order.h"
 #include "glusterfs-acl.h"
 #include "quota-common-utils.h"
+#include "upcall-utils.h"
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -8551,6 +8552,11 @@ dht_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
         call_cnt        = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
 
+        if (xdata) {
+                if (dict_set_int8 (xdata, conf->xattr_name, 0) < 0)
+                        goto err;
+        }
+
         for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_ipc_cbk, conf->subvolumes[i],
                             conf->subvolumes[i]->fops->ipc, op, xdata);
@@ -8613,6 +8619,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         dict_t                  *output = NULL;
         va_list                  ap;
         dht_methods_t           *methods = NULL;
+        struct gf_upcall        *up_data = NULL;
+        struct gf_upcall_cache_invalidation *up_ci = NULL;
 
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
@@ -8781,7 +8789,21 @@ unlock:
                 return ret;
                 break;
         }
+        case GF_EVENT_UPCALL:
+                up_data = (struct gf_upcall *)data;
+                if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
+                        break;
+                up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
 
+                /* Since md-cache will be aggressively filtering lookups,
+                 * the stale layout issue will be more pronounced. Hence
+                 * when a layout xattr is changed by the rebalance process
+                 * notify all the md-cache clients to invalidate the existing
+                 * stat cache and send the lookup next time*/
+                if (up_ci->dict && dict_get (up_ci->dict, conf->xattr_name))
+                        ret = dict_set_int8 (up_ci->dict, MDC_INVALIDATE_IATT , 0);
+                propagate = 1;
+                break;
         default:
                 propagate = 1;
                 break;
