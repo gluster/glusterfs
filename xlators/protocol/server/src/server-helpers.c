@@ -2321,6 +2321,8 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                 rsp_args->op_ret = this_args_cbk->op_ret;
                 rsp_args->op_errno  = gf_errno_to_error
                                       (this_args_cbk->op_errno);
+                if (!rsp_args->path)
+                        rsp_args->path = "";
                 break;
         }
         case GF_FOP_MKNOD:

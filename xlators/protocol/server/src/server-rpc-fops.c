@@ -1569,6 +1569,8 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
+        if (!rsp.path)
+                rsp.path = "";
 
         req = frame->local;
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
