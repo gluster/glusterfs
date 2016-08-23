@@ -19,15 +19,6 @@
 #include "xlator.h"
 #include "logging.h"
 
-void
-arbiter_inode_ctx_destroy (arbiter_inode_ctx_t *ctx)
-{
-        if (!ctx)
-                return;
-        GF_FREE (ctx->iattbuf);
-        GF_FREE (ctx);
-}
-
 static arbiter_inode_ctx_t *
 __arbiter_inode_ctx_get (inode_t *inode, xlator_t *this)
 {
@@ -44,23 +35,18 @@ __arbiter_inode_ctx_get (inode_t *inode, xlator_t *this)
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_arbiter_mt_inode_ctx_t);
         if (!ctx)
-                goto fail;
-        ctx->iattbuf = GF_CALLOC (1, sizeof (*ctx->iattbuf),
-                                  gf_arbiter_mt_iatt);
-        if (!ctx->iattbuf)
-                goto fail;
+                goto out;
+
         ret = __inode_ctx_put (inode, this, (uint64_t)ctx);
         if (ret) {
+                GF_FREE (ctx);
+                ctx = NULL;
                 gf_log_callingfn (this->name, GF_LOG_ERROR, "failed to "
                                   "set the inode ctx (%s)",
                                   uuid_utoa (inode->gfid));
-                goto fail;
         }
 out:
         return ctx;
-fail:
-        arbiter_inode_ctx_destroy (ctx);
-        return NULL;
 }
 
 static arbiter_inode_ctx_t *
@@ -91,7 +77,7 @@ arbiter_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        memcpy (ctx->iattbuf, buf, sizeof (*ctx->iattbuf));
+        memcpy (&ctx->iattbuf, buf, sizeof (ctx->iattbuf));
 
 unwind:
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
@@ -131,7 +117,7 @@ arbiter_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
@@ -153,7 +139,7 @@ arbiter_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, buf, buf,
                              NULL);
@@ -215,7 +201,7 @@ arbiter_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
         op_ret = iov_length (vector, count);
         rsp_xdata = arbiter_fill_writev_xdata (fd, xdata, this);
 unwind:
@@ -241,7 +227,7 @@ arbiter_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
@@ -262,7 +248,7 @@ arbiter_discard (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
@@ -283,7 +269,7 @@ arbiter_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENOMEM;
                 goto unwind;
         }
-        buf = ctx->iattbuf;
+        buf = &ctx->iattbuf;
 unwind:
         STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, buf, buf, NULL);
         return 0;
