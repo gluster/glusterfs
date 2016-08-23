@@ -13,7 +13,6 @@
 
 typedef enum gf_arbiter_mem_types_ {
         gf_arbiter_mt_inode_ctx_t =  gf_common_mt_end + 1,
-        gf_arbiter_mt_iatt,
         gf_arbiter_mt_end
 } gf_arbiter_mem_types_t;
 #endif
