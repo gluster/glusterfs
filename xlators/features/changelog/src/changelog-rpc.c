@@ -18,7 +18,7 @@ static void
 changelog_cleanup_dispatchers (xlator_t *this,
                                changelog_priv_t *priv, int count)
 {
-        for (; count >= 0; count--) {
+        for (count--; count >= 0; count--) {
                 (void) changelog_thread_cleanup
                         (this, priv->ev_dispatcher[count]);
         }
@@ -112,7 +112,7 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
                 ret = pthread_create (&priv->ev_dispatcher[j],
                                       NULL, changelog_ev_dispatch, conn);
                 if (ret != 0) {
-                        changelog_cleanup_dispatchers (this, priv, --j);
+                        changelog_cleanup_dispatchers (this, priv, j);
                         break;
                 }
         }
