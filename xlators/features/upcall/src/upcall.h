@@ -49,7 +49,7 @@ struct _upcall_private_t {
         int32_t          cache_invalidation_timeout;
         struct list_head inode_ctx_list;
         gf_lock_t        inode_ctx_lk;
-        int32_t          reaper_init_done;
+        gf_boolean_t     reaper_init_done;
         pthread_t        reaper_thr;
         int32_t          fini;
 };
