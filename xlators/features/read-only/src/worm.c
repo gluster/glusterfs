@@ -480,13 +480,6 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv->reten_mode = mem_get0 (this->local_pool);
-        if (!priv->reten_mode) {
-                gf_log (this->name, GF_LOG_ERROR, "Error allocating "
-                        "reten_mode");
-                goto out;
-        }
-
         GF_OPTION_INIT ("worm", priv->readonly_or_worm_enabled,
                         bool, out);
         GF_OPTION_INIT ("worm-file-level", priv->worm_file, bool, out);
@@ -536,10 +529,6 @@ fini (xlator_t *this)
         priv = this->private;
         if (!priv)
                 goto out;
-        if (priv->reten_mode != NULL) {
-                mem_put (priv->reten_mode);
-                priv->reten_mode = NULL;
-        }
         mem_put (priv);
         this->private = NULL;
         mem_pool_destroy (this->local_pool);
