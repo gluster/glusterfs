@@ -21,9 +21,6 @@ server_post_readlink (gfs3_readlink_rsp *rsp, struct iatt *stbuf,
 {
         gf_stat_from_iatt (&rsp->buf, stbuf);
         rsp->path = (char *)buf;
-
-        if (!rsp->path)
-                rsp->path = "";
 }
 
 void
