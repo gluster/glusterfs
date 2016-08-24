@@ -519,6 +519,51 @@ if test "x${have_umount2}" = "xyes"; then
    AC_DEFINE(HAVE_UMOUNT2, 1, [define if found umount2])
 fi
 
+dnl Check Python Availability
+have_python=no
+AM_PATH_PYTHON(,, [:])
+if test "$PYTHON" != ":"; then
+   have_python=yes
+fi
+
+dnl Check if version matches that we require
+PYTHONDEV_CPPFLAGS=
+PYTHONDEV_CPPFLAGS=
+BUILD_PYTHON_SITE_PACKAGES=
+BUILD_PYTHON_INC=
+BUILD_PYTHON_LIB=
+have_python2=no
+have_Python_h=no
+
+if echo $PYTHON_VERSION | grep ^2; then
+   have_python2=yes
+
+   dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
+   dnl Just do "true" on failure so that configure does not bail out
+   PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
+
+   PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
+   dnl Edit out the flags that are not required or are conflicting
+   PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
+
+   dnl Find python libs at user configured libdir and also "lib" under prefix
+   PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+
+   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix="${exec_prefix}"))'`
+   BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
+   BUILD_PYTHON_LIB=python$PYTHON_VERSION
+
+   dnl Now check for python header using the include path obtained above
+   AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
+fi
+
+AC_SUBST(PYTHONDEV_CPPFLAGS)
+AC_SUBST(PYTHONDEV_LDFLAGS)
+AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
+AC_SUBST(BUILD_PYTHON_INC)
+AC_SUBST(BUILD_PYTHON_LIB)
+
+
 # FUSE section
 AC_ARG_ENABLE([fuse-client],
               AC_HELP_STRING([--disable-fuse-client],
@@ -730,17 +775,11 @@ AC_ARG_ENABLE([events],
 BUILD_EVENTS=no
 EVENTS_ENABLED=0
 EVENTS_SUBDIR=
-have_python2=no
 if test "x$enable_events" != "xno"; then
   EVENTS_SUBDIR=events
   EVENTS_ENABLED=1
 
   BUILD_EVENTS="yes"
-  AM_PATH_PYTHON()
-  dnl Check if version matches that we require
-  if echo $PYTHON_VERSION | grep ^2; then
-     have_python2=yes
-  fi
 
   if test "x$have_python2" = "xno"; then
      if test "x$enable_events" = "xyes"; then
@@ -1142,11 +1181,19 @@ sysconfdirtemp="${sysconfdir}"
 eval sysconfdirtemp=\"${sysconfdirtemp}\"
 SYSCONF_DIR=${sysconfdirtemp}
 
+# Eval two times to expand fully. First eval replaces $exec_prefix into $prefix
+# Second eval will expand $prefix
+build_python_site_packages_temp="${BUILD_PYTHON_SITE_PACKAGES}"
+eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
+eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
+BUILD_PYTHON_SITE_PACKAGES_EXPANDED=${build_python_site_packages_temp}
+
 prefix=$prefix_temp
 exec_prefix=$exec_prefix_temp
 
 AC_SUBST(SBIN_DIR)
 AC_SUBST(SYSCONF_DIR)
+AC_SUBST(BUILD_PYTHON_SITE_PACKAGES_EXPANDED)
 
 # lazy umount emulation
 UMOUNTD_SUBDIR=""
@@ -1201,41 +1248,14 @@ fi
 
 dnl glupy section
 BUILD_GLUPY=no
-have_python2=no
-have_Python_h=no
 
 AC_ARG_ENABLE([glupy], AS_HELP_STRING([--enable-glupy], [build glupy]))
 if test "x$enable_glupy" != "xno"; then enable_glupy=yes; fi
 
 if test "x$enable_glupy" = "xyes"; then
-    dnl Check if python exists
-    AM_PATH_PYTHON()
-    dnl Check if version matches that we require
-    if echo $PYTHON_VERSION | grep ^2; then
-        have_python2=yes
-    fi
-
-    dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
-    dnl Just do "true" on failure so that configure does not bail out
-    PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
-
-    PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
-    dnl Edit out the flags that are not required or are conflicting
-    PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
-
-    dnl Find python libs at user configured libdir and also "lib" under prefix
-    PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
-
-    BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix="${exec_prefix}"))'`
-    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
-    BUILD_PYTHON_LIB=python$PYTHON_VERSION
-
     GLUPY_SUBDIR=glupy
     GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
     GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
-
-    dnl Now check for python header using the include path obtained above
-    AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
 
     if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
         case $host_os in
@@ -1257,11 +1277,6 @@ if test "x$enable_glupy" = "xyes"; then
 
         echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
 
-        AC_SUBST(PYTHONDEV_CPPFLAGS)
-        AC_SUBST(PYTHONDEV_LDFLAGS)
-        AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
-        AC_SUBST(BUILD_PYTHON_INC)
-        AC_SUBST(BUILD_PYTHON_LIB)
         AC_SUBST(GLUPY_SUBDIR)
         AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
         AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
