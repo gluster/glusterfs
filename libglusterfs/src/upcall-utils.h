@@ -53,7 +53,7 @@
 #define UP_NLINK_FLAGS          (UP_NLINK | UP_TIMES)
 
 #define IATT_UPDATE_FLAGS       (UP_NLINK | UP_MODE | UP_OWN | UP_SIZE | \
-                                 UP_TIMES | UP_ATIME)
+                                 UP_TIMES | UP_ATIME | UP_PERM)
 
 typedef enum {
         GF_UPCALL_EVENT_NULL,
