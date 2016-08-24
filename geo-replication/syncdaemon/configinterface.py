@@ -23,6 +23,7 @@ import tempfile
 import shutil
 
 from syncdutils import escape, unescape, norm, update_file, GsyncdError
+from conf import GLUSTERD_WORKDIR, LOCALSTATEDIR
 
 SECT_ORD = '__section_order__'
 SECT_META = '__meta__'
@@ -30,14 +31,14 @@ config_version = 2.0
 
 re_type = type(re.compile(''))
 
-TMPL_CONFIG_FILE = "@GLUSTERD_WORKDIR@/geo-replication/gsyncd_template.conf"
+TMPL_CONFIG_FILE = GLUSTERD_WORKDIR + "/geo-replication/gsyncd_template.conf"
 
 # (SECTION, OPTION, OLD VALUE, NEW VALUE)
 CONFIGS = (
     ("peersrx . .",
      "georep_session_working_dir",
      "",
-     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/"),
     ("peersrx .",
      "gluster_params",
@@ -51,7 +52,7 @@ CONFIGS = (
      "ssh_command_tar",
      "",
      "ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
-     "-i @GLUSTERD_WORKDIR@/geo-replication/tar_ssh.pem"),
+     "-i " + GLUSTERD_WORKDIR + "/geo-replication/tar_ssh.pem"),
     ("peersrx . .",
      "changelog_log_file",
      "",
@@ -59,7 +60,7 @@ CONFIGS = (
      "/${eSlave}${local_id}-changes.log"),
     ("peersrx . .",
      "working_dir",
-     "@localstatedir@/run/gluster/${mastervol}/${eSlave}",
+     LOCALSTATEDIR + "/run/gluster/${mastervol}/${eSlave}",
      "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
     ("peersrx . .",
      "ignore_deletes",
@@ -67,15 +68,15 @@ CONFIGS = (
      "false"),
     ("peersrx . .",
      "pid-file",
-     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/${eSlave}.pid",
-     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/monitor.pid"),
     ("peersrx . .",
      "state-file",
-     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/${eSlave}.status",
-     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
+     GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/monitor.status"),
 )
 

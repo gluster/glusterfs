@@ -67,7 +67,7 @@ geo-replication/src/peer_mountbroker.py
 geo-replication/src/set_geo_rep_pem_keys.sh
 geo-replication/src/peer_georep-sshkey.py
 geo-replication/syncdaemon.egg-info
-geo-replication/syncdaemon/configinterface.py
+geo-replication/syncdaemon/conf.py
 geo-replication/tests/unit/.coverage
 geo-replication/tests/unit/cover
 geo-replication/tests/unit/coverage.xml

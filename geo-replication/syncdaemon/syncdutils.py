@@ -23,6 +23,10 @@ from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
 
+from conf import GLUSTERFS_LIBEXECDIR
+sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
+from events import eventtypes
+
 try:
     from cPickle import PickleError
 except ImportError:
@@ -509,3 +513,8 @@ class ChangelogHistoryNotAvailable(Exception):
 
 class ChangelogException(OSError):
     pass
+
+
+def gf_event(event_type, **kwargs):
+    from events.gf_event import gf_event as gfevent
+    gfevent(event_type, **kwargs)

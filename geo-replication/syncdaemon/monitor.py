@@ -25,6 +25,7 @@ from gconf import gconf
 from syncdutils import select, waitpid, errno_wrap
 from syncdutils import set_term_handler, is_host_local, GsyncdError
 from syncdutils import escape, Thread, finalize, memoize
+from syncdutils import gf_event, eventtypes
 
 from gsyncdstatus import GeorepStatus, set_monitor_status
 
@@ -209,11 +210,12 @@ class Monitor(object):
         blown worker blows up on EPIPE if the net goes down,
         due to the keep-alive thread)
         """
-        if not self.status.get(w[0], None):
-            self.status[w[0]] = GeorepStatus(gconf.state_file, w[0])
+        if not self.status.get(w[0]['dir'], None):
+            self.status[w[0]['dir']] = GeorepStatus(gconf.state_file,
+                                                    w[0]['dir'])
 
         set_monitor_status(gconf.state_file, self.ST_STARTED)
-        self.status[w[0]].set_worker_status(self.ST_INIT)
+        self.status[w[0]['dir']].set_worker_status(self.ST_INIT)
 
         ret = 0
 
@@ -280,7 +282,7 @@ class Monitor(object):
             if apid == 0:
                 os.close(rw)
                 os.close(ww)
-                os.execv(sys.executable, argv + ['--local-path', w[0],
+                os.execv(sys.executable, argv + ['--local-path', w[0]['dir'],
                                                  '--agent',
                                                  '--rpc-fd',
                                                  ','.join([str(ra), str(wa),
@@ -292,9 +294,9 @@ class Monitor(object):
                 os.close(ra)
                 os.close(wa)
                 os.execv(sys.executable, argv + ['--feedback-fd', str(pw),
-                                                 '--local-path', w[0],
+                                                 '--local-path', w[0]['dir'],
                                                  '--local-id',
-                                                 '.' + escape(w[0]),
+                                                 '.' + escape(w[0]['dir']),
                                                  '--rpc-fd',
                                                  ','.join([str(rw), str(ww),
                                                            str(ra), str(wa)]),
@@ -324,31 +326,31 @@ class Monitor(object):
                 if ret_agent is not None:
                     # Agent is died Kill Worker
                     logging.info("Changelog Agent died, "
-                                 "Aborting Worker(%s)" % w[0])
+                                 "Aborting Worker(%s)" % w[0]['dir'])
                     errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                     nwait(cpid)
                     nwait(apid)
 
                 if ret is not None:
                     logging.info("worker(%s) died before establishing "
-                                 "connection" % w[0])
+                                 "connection" % w[0]['dir'])
                     nwait(apid)  # wait for agent
                 else:
-                    logging.debug("worker(%s) connected" % w[0])
+                    logging.debug("worker(%s) connected" % w[0]['dir'])
                     while time.time() < t0 + conn_timeout:
                         ret = nwait(cpid, os.WNOHANG)
                         ret_agent = nwait(apid, os.WNOHANG)
 
                         if ret is not None:
                             logging.info("worker(%s) died in startup "
-                                         "phase" % w[0])
+                                         "phase" % w[0]['dir'])
                             nwait(apid)  # wait for agent
                             break
 
                         if ret_agent is not None:
                             # Agent is died Kill Worker
                             logging.info("Changelog Agent died, Aborting "
-                                         "Worker(%s)" % w[0])
+                                         "Worker(%s)" % w[0]['dir'])
                             errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                             nwait(cpid)
                             nwait(apid)
@@ -357,12 +359,12 @@ class Monitor(object):
                         time.sleep(1)
             else:
                 logging.info("worker(%s) not confirmed in %d sec, "
-                             "aborting it" % (w[0], conn_timeout))
+                             "aborting it" % (w[0]['dir'], conn_timeout))
                 errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                 nwait(apid)  # wait for agent
                 ret = nwait(cpid)
             if ret is None:
-                self.status[w[0]].set_worker_status(self.ST_STABLE)
+                self.status[w[0]['dir']].set_worker_status(self.ST_STABLE)
                 # If worker dies, agent terminates on EOF.
                 # So lets wait for agent first.
                 nwait(apid)
@@ -372,9 +374,16 @@ class Monitor(object):
             else:
                 ret = exit_status(ret)
                 if ret in (0, 1):
-                    self.status[w[0]].set_worker_status(self.ST_FAULTY)
+                    self.status[w[0]['dir']].set_worker_status(self.ST_FAULTY)
+                    gf_event(eventtypes.GEOREP_FAULTY,
+                             master_volume=master.volume,
+                             master_node=w[0]['host'],
+                             slave_host=slave_host,
+                             slave_volume=slave_vol,
+                             current_slave_host=current_slave_host,
+                             brick_path=w[0]['dir'])
             time.sleep(10)
-        self.status[w[0]].set_worker_status(self.ST_INCON)
+        self.status[w[0]['dir']].set_worker_status(self.ST_INCON)
         return ret
 
     def multiplex(self, wspx, suuid, slave_vol, slave_host, master):
@@ -461,7 +470,7 @@ def distribute(*resources):
     for idx, brick in enumerate(mvol.bricks):
         if is_host_local(brick['host']):
             is_hot = mvol.is_hot(":".join([brick['host'], brick['dir']]))
-            workerspex.append((brick['dir'],
+            workerspex.append((brick,
                                slaves[idx % len(slaves)],
                                get_subvol_num(idx, mvol, is_hot),
                                is_hot))
