@@ -410,9 +410,9 @@ gf_proto_cache_invalidation_to_upcall (xlator_t *this,
                                       (gf_c_req->xdata).xdata_val,
                                       (gf_c_req->xdata).xdata_len, ret,
                                       ret, out);
-        if (ret > 0)
+	if (ret > 0)
                 ret = -ret;
-out:
+  out:
         return ret;
 }
 #endif /* !_GLUSTERFS3_H */
