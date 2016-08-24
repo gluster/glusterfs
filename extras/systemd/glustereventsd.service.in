@@ -3,6 +3,7 @@ Description=Gluster Events Notifier
 After=syslog.target network.target
 
 [Service]
+Environment=PYTHONPATH=@BUILD_PYTHON_SITE_PACKAGES_EXPANDED@:$PYTHONPATH
 Type=simple
 ExecStart=@SBIN_DIR@/glustereventsd
 ExecReload=/bin/kill -SIGUSR2 $MAINPID
