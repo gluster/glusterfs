@@ -2795,8 +2795,8 @@ struct volume_options options[] = {
         { .key = {"cache-invalidation"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
-          .description = "When \"on\", invalidates/updates the metadata cache "
-                         "on receiving of the cache-invalidation notifications",
+          .description = "When \"on\", invalidates/updates the metadata cache,"
+                         " on receiving the cache-invalidation notifications",
         },
     { .key = {NULL} },
 };
