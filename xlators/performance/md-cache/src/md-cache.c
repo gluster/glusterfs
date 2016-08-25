@@ -831,6 +831,26 @@ out:
 }
 
 
+static int
+mdc_update_gfid_stat (xlator_t *this, struct iatt *iatt)
+{
+        int              ret        = 0;
+        inode_table_t   *itable     = NULL;
+        inode_t         *inode      = NULL;
+
+        itable = ((xlator_t *)this->graph->top)->itable;
+        inode = inode_find (itable, iatt->ia_gfid);
+        if (!inode) {
+                ret = -1;
+                goto out;
+        }
+        ret = mdc_inode_iatt_set_validate (this, inode, NULL,
+                                           iatt);
+out:
+        return ret;
+}
+
+
 void
 mdc_load_reqs (xlator_t *this, dict_t *dict)
 {
@@ -2521,12 +2541,24 @@ mdc_invalidate (xlator_t *this, void *data)
                 goto out;
         }
 
+        if (up_ci->flags & UP_PARENT_DENTRY_FLAGS) {
+                mdc_update_gfid_stat (this, &up_ci->p_stat);
+                        if (up_ci->flags & UP_RENAME_FLAGS)
+                                mdc_update_gfid_stat (this, &up_ci->oldp_stat);
+        }
+
+        if ((up_ci->flags & (UP_NLINK | UP_RENAME_FLAGS | UP_FORGET)) ||
+            (up_ci->dict && dict_get (up_ci->dict, MDC_INVALIDATE_IATT))) {
+                mdc_inode_iatt_invalidate (this, inode);
+                mdc_inode_xatt_invalidate (this, inode);
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.stat_invals);
+                goto out;
+        }
+
         if (up_ci->flags & IATT_UPDATE_FLAGS) {
-                if (up_ci->dict && dict_get (up_ci->dict, MDC_INVALIDATE_IATT))
-                        mdc_inode_iatt_invalidate (this, inode);
-                else
-                        ret = mdc_inode_iatt_set_validate (this, inode, NULL,
-                                                           &up_ci->stat);
+                ret = mdc_inode_iatt_set_validate (this, inode, NULL,
+                                                   &up_ci->stat);
                 /* one of the scenarios where ret < 0 is when this invalidate
                  * is older than the current stat, in that case do not
                  * update the xattrs as well
@@ -2536,6 +2568,7 @@ mdc_invalidate (xlator_t *this, void *data)
                 INCREMENT_ATOMIC (conf->mdc_counter.lock,
                                   conf->mdc_counter.stat_invals);
         }
+
         if (up_ci->flags & UP_XATTR) {
                 if (up_ci->dict)
                         ret = mdc_inode_xatt_update (this, inode, up_ci->dict);
