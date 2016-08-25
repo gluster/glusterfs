@@ -1304,6 +1304,47 @@ err:
 }
 
 int32_t
+up_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
+{
+        client_t         *client        = NULL;
+        uint32_t         flags          = 0;
+        upcall_local_t   *local         = NULL;
+        gf_dirent_t      *entry         = NULL;
+
+        EXIT_IF_UPCALL_OFF (this, out);
+
+        client = frame->root->client;
+        local = frame->local;
+
+        if ((op_ret < 0) || !local) {
+                goto out;
+        }
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL, NULL);
+
+        /* upcall_cache_invalidate optimises, by not calling inode_ctx_get
+         * if local->upcall_inode_ctx is set. Hence before processing
+         * the readdir entries unset this */
+        local->upcall_inode_ctx = NULL;
+        list_for_each_entry (entry, &entries->list, list) {
+                if (entry->inode == NULL) {
+                        continue;
+                }
+                upcall_cache_invalidate (frame, this, client, entry->inode,
+                                         flags, &entry->d_stat, NULL, NULL,
+                                         NULL);
+        }
+
+out:
+        UPCALL_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, xdata);
+
+        return 0;
+}
+
+int32_t
 up_readdirp (call_frame_t *frame, xlator_t *this,
              fd_t *fd, size_t size, off_t off, dict_t *dict)
 {
@@ -1319,7 +1360,7 @@ up_readdirp (call_frame_t *frame, xlator_t *this,
         }
 
 out:
-        STACK_WIND (frame, up_readdir_cbk,
+        STACK_WIND (frame, up_readdirp_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
                     fd, size, off, dict);
 
