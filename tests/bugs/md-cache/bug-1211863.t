@@ -42,16 +42,17 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 
 TEST $CLI volume set $V0 features.cache-invalidation on
 TEST $CLI volume set $V0 features.cache-invalidation-timeout 600
+TEST $CLI volume set $V0 performance.cache-invalidation on
 
-## 18. Restart the volume to restart the bick process
+## 19. Restart the volume to restart the bick process
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
 
-## 20. Create two gluster mounts
+## 21. Create two gluster mounts
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M1
 
-## 22. Repeat the tests 11-14, but this time since cache invalidation is on,
+## 23. Repeat the tests 11-14, but this time since cache invalidation is on,
        #the getxattr will reflect the new value
 TEST "setfattr -n user.DOSATTRIB -v "abc" $M0/file1"
 TEST "getfattr -n user.DOSATTRIB $M1/file1 | grep -q abc"
