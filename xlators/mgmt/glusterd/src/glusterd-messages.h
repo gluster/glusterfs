@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       579
+#define GLFS_NUM_MESSAGES       583
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4680,6 +4680,38 @@
  *
  */
 #define GD_MSG_PMAP_REGISTRY_REMOVE_FAIL          (GLUSTERD_COMP_BASE + 579)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_MNTBROKER_LABEL_NULL                (GLUSTERD_COMP_BASE + 580)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_MNTBROKER_LABEL_MISS                (GLUSTERD_COMP_BASE + 581)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_MNTBROKER_SPEC_MISMATCH            (GLUSTERD_COMP_BASE + 582)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_SYSCALL_FAIL                          (GLUSTERD_COMP_BASE + 583)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
