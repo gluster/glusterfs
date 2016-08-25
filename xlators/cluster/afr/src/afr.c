@@ -210,6 +210,9 @@ reconfigure (xlator_t *this, dict_t *options)
                           out);
         GF_OPTION_RECONF ("locking-scheme", priv->locking_scheme, options, str,
                           out);
+        GF_OPTION_RECONF ("use-compound-fops", priv->use_compound_fops,
+                          options, bool,
+                          out);
         GF_OPTION_RECONF ("granular-entry-heal", priv->esh_granular, options,
                           bool, out);
 
@@ -479,6 +482,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("pre-op-compat", priv->pre_op_compat, bool, out);
         GF_OPTION_INIT ("locking-scheme", priv->locking_scheme, str, out);
+        GF_OPTION_INIT ("use-compound-fops", priv->use_compound_fops,
+                        bool, out);
         GF_OPTION_INIT ("granular-entry-heal", priv->esh_granular, bool, out);
 
         GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
@@ -1003,6 +1008,13 @@ struct volume_options options[] = {
           .default_value = "no",
           .description = "If this option is enabled, i/o will fail even if "
                          "one of the bricks is down in the replicas",
+        },
+        { .key   = {"use-compound-fops"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "Use compound fops framework to modify afr "
+                         "transaction such that network roundtrips are "
+                         "reduced, thus improving the performance.",
         },
         { .key  = {NULL} },
 };

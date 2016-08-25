@@ -68,6 +68,10 @@
 
 #define GD_OP_VERSION_3_8_0    30800 /* Op-version for GlusterFS 3.8.0 */
 
+#define GD_OP_VERSION_3_8_3    30803 /* Op-version for GlusterFS 3.8.3 */
+
+#define GD_OP_VERSION_3_8_4    30804 /* Op-version for GlusterFS 3.8.4 */
+
 #define GD_OP_VERSION_3_9_0    30900 /* Op-version for GlusterFS 3.9.0 */
 
 #define GD_OP_VERSION_4_0_0    40000 /* Op-version for GlusterFS 4.0.0 */

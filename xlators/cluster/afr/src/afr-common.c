@@ -42,6 +42,7 @@
 #include "afr-self-heal.h"
 #include "afr-self-heald.h"
 #include "afr-messages.h"
+#include "compound-fop-utils.h"
 
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
@@ -4592,6 +4593,7 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 
         local->need_full_crawl = _gf_false;
 
+        local->compound = _gf_false;
         INIT_LIST_HEAD (&local->healer);
 	return 0;
 out:
@@ -4743,6 +4745,7 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->pending)
                 goto out;
 
+        local->compound = _gf_false;
 	INIT_LIST_HEAD (&local->transaction.eager_locked);
 
         ret = 0;
@@ -5535,4 +5538,56 @@ afr_get_msg_id (char *op_type)
         else if (!strcmp (op_type, GF_AFR_ADD_BRICK))
                 return AFR_MSG_ADD_BRICK_STATUS;
         return -1;
+}
+
+gf_boolean_t
+afr_can_compound_pre_op_and_op (afr_private_t *priv, glusterfs_fop_t fop)
+{
+        if (priv->arbiter_count != 0)
+                return _gf_false;
+
+        if (!priv->use_compound_fops)
+                return _gf_false;
+
+        switch (fop) {
+        case GF_FOP_WRITE:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+}
+
+afr_compound_cbk_t
+afr_pack_fop_args (call_frame_t *frame, compound_args_t *args,
+                   glusterfs_fop_t fop, int index)
+{
+        afr_local_t     *local  = frame->local;
+
+        switch (fop) {
+        case GF_FOP_WRITE:
+                COMPOUND_PACK_ARGS (writev, GF_FOP_WRITE,
+                                    args, index,
+                                    local->fd, local->cont.writev.vector,
+                                    local->cont.writev.count,
+                                    local->cont.writev.offset,
+                                    local->cont.writev.flags,
+                                    local->cont.writev.iobref,
+                                    local->xdata_req);
+                return afr_pre_op_writev_cbk;
+        default:
+                break;
+        }
+        return NULL;
+}
+
+void
+afr_compound_cleanup (compound_args_t *args, dict_t *xdata,
+                      dict_t *newloc_xdata)
+{
+        if (args)
+                compound_args_cleanup (args);
+	if (xdata)
+		dict_unref (xdata);
+        if (newloc_xdata)
+                dict_unref (newloc_xdata);
 }

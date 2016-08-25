@@ -3029,6 +3029,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_9_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.use-compound-fops",
+          .voltype    = "cluster/replicate",
+          .value      = "off",
+          .type       = DOC,
+          .op_version = GD_OP_VERSION_3_8_4,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };
