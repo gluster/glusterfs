@@ -463,8 +463,8 @@ transaction_lk_op (afr_local_t *local)
 
 }
 
-static int
-is_afr_lock_transaction (afr_local_t *local)
+int
+afr_is_inodelk_transaction(afr_local_t *local)
 {
         int ret = 0;
 
@@ -636,13 +636,25 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+void
+afr_update_uninodelk (afr_local_t *local, afr_internal_lock_t *int_lock,
+                    int32_t child_index)
+{
+        afr_inodelk_t       *inodelk = NULL;
+
+        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
+        inodelk->locked_nodes[child_index] &= LOCKED_NO;
+        if (local->transaction.eager_lock)
+                local->transaction.eager_lock[child_index] = 0;
+
+}
+
 static int32_t
 afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t         *local = NULL;
         afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk = NULL;
         int32_t             child_index = (long)cookie;
         afr_private_t       *priv = NULL;
 
@@ -665,11 +677,7 @@ afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         lkowner_utoa (&frame->root->lk_owner));
         }
 
-
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-        inodelk->locked_nodes[child_index] &= LOCKED_NO;
-        if (local->transaction.eager_lock)
-                local->transaction.eager_lock[child_index] = 0;
+        afr_update_uninodelk (local, int_lock, child_index);
 
         afr_unlock_common_cbk (frame, cookie, this, op_ret, op_errno, xdata);
 
@@ -1712,7 +1720,7 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if (transaction_lk_op (local)) {
-                if (is_afr_lock_transaction (local))
+                if (afr_is_inodelk_transaction(local))
                         afr_unlock_inodelk (frame, this);
                 else
                         afr_unlock_entrylk (frame, this);

@@ -292,20 +292,15 @@ afr_writev_handle_short_writes (call_frame_t *frame, xlator_t *this)
         }
 }
 
-int
-afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+void
+afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
-        afr_local_t *   local = NULL;
-        call_frame_t    *fop_frame = NULL;
-        int child_index = (long) cookie;
-        int call_count  = -1;
         int ret = 0;
+        afr_local_t *local = frame->local;
         uint32_t open_fd_count = 0;
         uint32_t write_is_append = 0;
-
-        local = frame->local;
 
         LOCK (&frame->lock);
         {
@@ -324,32 +319,60 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				       &open_fd_count);
 		if (ret == -1)
 			goto unlock;
-		if ((open_fd_count > local->open_fd_count)) {
-			local->open_fd_count = open_fd_count;
-			local->update_open_fd_count = _gf_true;
+		if (open_fd_count > local->open_fd_count) {
+                        local->open_fd_count = open_fd_count;
+                        local->update_open_fd_count = _gf_true;
 		}
         }
 unlock:
         UNLOCK (&frame->lock);
+}
+
+void
+afr_process_post_writev (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local = NULL;
+
+        local = frame->local;
+
+        if (!local->stable_write && !local->append_write)
+                /* An appended write removes the necessity to
+                   fsync() the file. This is because self-heal
+                   has the logic to check for larger file when
+                   the xattrs are not reliably pointing at
+                   a stale file.
+                */
+                afr_fd_report_unstable_write (this, local->fd);
+
+        __afr_inode_write_finalize (frame, this);
+
+        afr_writev_handle_short_writes (frame, this);
+
+        if (local->update_open_fd_count)
+                afr_handle_open_fd_count (frame, this);
+
+}
+
+int
+afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf, dict_t *xdata)
+{
+        afr_local_t     *local = NULL;
+        call_frame_t    *fop_frame = NULL;
+        int child_index = (long) cookie;
+        int call_count  = -1;
+        int ret = 0;
+
+        local = frame->local;
+
+        afr_inode_write_fill (frame, this, child_index, op_ret, op_errno,
+                              prebuf, postbuf, xdata);
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
-		if (!local->stable_write && !local->append_write)
-			/* An appended write removes the necessity to
-			   fsync() the file. This is because self-heal
-			   has the logic to check for larger file when
-			   the xattrs are not reliably pointing at
-			   a stale file.
-			*/
-			afr_fd_report_unstable_write (this, local->fd);
-
-		__afr_inode_write_finalize (frame, this);
-
-                afr_writev_handle_short_writes (frame, this);
-
-                if (local->update_open_fd_count)
-                        afr_handle_open_fd_count (frame, this);
+                afr_process_post_writev (frame, this);
 
                 if (!afr_txn_nothing_failed (frame, this)) {
                         //Don't unwind until post-op is complete
