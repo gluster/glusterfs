@@ -72,7 +72,7 @@ libglusterfs_la_SOURCES += $(CONTRIBDIR)/uuid/clear.c \
 endif
 
 
-eventtypes.h:
+eventtypes.h: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
 
 if BUILD_EVENTS
