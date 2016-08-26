@@ -4042,6 +4042,7 @@ glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo, dict_t *dict)
                                 "set soft limit exceed flag in "
                                 "response dictionary");
                 }
+
                 goto out;
         }
         ret = 0;

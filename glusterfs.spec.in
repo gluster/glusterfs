@@ -1150,6 +1150,7 @@ exit 0
 # snap_scheduler
 %{_sbindir}/snap_scheduler.py
 %{_sbindir}/gcron.py
+%{_sbindir}/conf.py
 
 # /var/lib/glusterd, e.g. hookscripts, etc.
 %ghost      %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
@@ -1241,6 +1242,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Aug 31 2016 Avra Sengupta <asengupt@redhat.com>
+- Added conf.py for snap scheduler
+
 * Wed Aug 31 2016 Aravinda VK <avishwan@redhat.com>
 - Added new Geo-replication utility "gluster-georep-sshkey" (#1356508)
 

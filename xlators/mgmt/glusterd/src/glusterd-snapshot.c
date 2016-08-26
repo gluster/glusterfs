@@ -61,6 +61,7 @@
 #include "xdr-generic.h"
 
 #include "lvm-defaults.h"
+#include "events.h"
 
 char snap_mount_dir[PATH_MAX];
 struct snap_create_args_ {
@@ -7946,6 +7947,7 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         int                 i                   = 0;
         char               *volname             = NULL;
         char                key[PATH_MAX]       = {0, };
+        char                msg[PATH_MAX]       = {0, };
         glusterd_volinfo_t *volinfo             = NULL;
         uint64_t            limit               = 0;
         int64_t             count               = 0;
@@ -8020,6 +8022,10 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                         "Deleting snapshot %s.", limit, volinfo->volname,
                         snap->snapname);
 
+                snprintf (msg, sizeof(msg), "snapshot_name=%s;"
+                          "snapshot_uuid=%s", snap->snapname,
+                          uuid_utoa(snap->snap_id));
+
                 LOCK (&snap->lock);
                 {
                         snap->snap_status = GD_SNAP_STATUS_DECOMMISSION;
@@ -8042,6 +8048,13 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                                         snap->snapname);
                 }
         unlock: UNLOCK (&snap->lock);
+                if (is_origin_glusterd (dict) == _gf_true) {
+                        if (ret)
+                                gf_event (EVENT_SNAPSHOT_DELETE_FAILED,
+                                          "%s", msg);
+                        else
+                                gf_event (EVENT_SNAPSHOT_DELETED, "%s", msg);
+                }
         }
 
 out:
@@ -8127,13 +8140,20 @@ int32_t
 glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                                        char **op_errstr, dict_t *rsp_dict)
 {
-        xlator_t        *this           = NULL;
-        glusterd_conf_t *priv           = NULL;
-        int              ret            = -1;
-        int32_t          cleanup        = 0;
-        glusterd_snap_t *snap           = NULL;
-        char            *snapname       = NULL;
-        char            *auto_delete    = NULL;
+        xlator_t             *this                = NULL;
+        glusterd_conf_t      *priv                = NULL;
+        int                   ret                 = -1;
+        int32_t               cleanup             = 0;
+        glusterd_snap_t      *snap                = NULL;
+        char                 *snapname            = NULL;
+        char                 *auto_delete         = NULL;
+        char                 *volname             = NULL;
+        glusterd_volinfo_t   *volinfo             = NULL;
+        uint64_t              opt_hard_max        = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+        uint64_t              opt_max_soft        = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
+        int64_t               effective_max_limit = 0;
+        int64_t               soft_limit          = 0;
+        int32_t               snap_activate       = _gf_false;
 
         this = THIS;
 
@@ -8198,6 +8218,77 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                         GD_MSG_SNAP_CREATION_FAIL, "Failed to "
                         "create snapshot");
                 goto out;
+        }
+
+        /*
+         * If activate_on_create was enabled, and we have reached this  *
+         * section of the code, that means, that after successfully     *
+         * creating the snapshot, we have also successfully started the *
+         * snapshot bricks on all nodes. So from originator node we can *
+         * send EVENT_SNAPSHOT_ACTIVATED event.                         *
+         *                                                              *
+         * Also check, if hard limit and soft limit is reached in case  *
+         * of successfuly creating the snapshot, and generate the event *
+         */
+        if (is_origin_glusterd (dict) == _gf_true) {
+                snap_activate = dict_get_str_boolean (priv->opts,
+                                              GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                              _gf_false);
+
+                if (snap_activate == _gf_true) {
+                        gf_event (EVENT_SNAPSHOT_ACTIVATED, "snapshot_name=%s;"
+                                  "snapshot_uuid=%s", snap->snapname,
+                                  uuid_utoa(snap->snap_id));
+                }
+
+                ret = dict_get_str (dict, "volname1", &volname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get volname.");
+                        goto out;
+                }
+
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_FOUND,
+                                "Failed to get volinfo.");
+                        goto out;
+                }
+
+                /* config values snap-max-hard-limit and snap-max-soft-limit are
+                 * optional and hence we are not erroring out if values are not
+                 * present
+                 */
+                gd_get_snap_conf_values_if_present (priv->opts, &opt_hard_max,
+                                                    &opt_max_soft);
+
+                if (volinfo->snap_max_hard_limit < opt_hard_max)
+                        effective_max_limit = volinfo->snap_max_hard_limit;
+                else
+                        effective_max_limit = opt_hard_max;
+
+                /*
+                 * Check for hard limit. If it is reached after taking *
+                 * this snapshot, then generate event for the same. If *
+                 * it is not reached, then check for the soft limit,   *
+                 * and generate event accordingly.                     *
+                 */
+                if (volinfo->snap_count >= effective_max_limit) {
+                        gf_event (EVENT_SNAPSHOT_HARD_LIMIT_REACHED,
+                                  "volume_name=%s;volume_id=%s",
+                                  volname,
+                                  uuid_utoa(volinfo->volume_id));
+                } else {
+                        soft_limit = (opt_max_soft * effective_max_limit)/100;
+                        if (volinfo->snap_count >= soft_limit) {
+                                gf_event (EVENT_SNAPSHOT_SOFT_LIMIT_REACHED,
+                                          "volume_name=%s;volume_id=%s",
+                                          volname,
+                                          uuid_utoa(volinfo->volume_id));
+                        }
+                }
         }
 
         /* "auto-delete" might not be set by user explicitly,
