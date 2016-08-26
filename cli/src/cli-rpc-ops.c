@@ -40,6 +40,7 @@
 #include "cli-quotad-client.h"
 #include "run.h"
 #include "quota-common-utils.h"
+#include "events.h"
 
 enum gf_task_types {
         GF_TASK_TYPE_REBALANCE,
@@ -10318,6 +10319,334 @@ out:
 }
 
 int
+gf_cli_generate_snapshot_event (gf_cli_rsp *rsp, dict_t *dict,
+                                int32_t type, char *snap_name,
+                                char *volname, char *snap_uuid,
+                                char *clone_name)
+{
+        int         ret               = -1;
+        int         config_command    = 0;
+        int32_t     delete_cmd        = -1;
+        uint64_t    hard_limit        = 0;
+        uint64_t    soft_limit        = 0;
+        char       *auto_delete       = NULL;
+        char       *snap_activate     = NULL;
+        char        msg[PATH_MAX]     = {0, };
+        char        option[PATH_MAX]  = {0, };
+
+        GF_VALIDATE_OR_GOTO ("cli", dict, out);
+        GF_VALIDATE_OR_GOTO ("cli", rsp, out);
+
+        switch (type) {
+        case GF_SNAP_OPTION_TYPE_CREATE:
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                if (!volname) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get volume name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_CREATE_FAILED,
+                                  "snapshot_name=%s;volume_name=%s;error=%s",
+                                  snap_name, volname,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_CREATED, "snapshot_name=%s;"
+                          "volume_name=%s;snapshot_uuid=%s", snap_name,
+                          volname, snap_uuid);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_ACTIVATE:
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_ACTIVATE_FAILED,
+                                  "snapshot_name=%s;error=%s", snap_name,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_ACTIVATED, "snapshot_name=%s;"
+                          "snapshot_uuid=%s", snap_name, snap_uuid);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_DEACTIVATE_FAILED,
+                                  "snapshot_name=%s;error=%s", snap_name,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_DEACTIVATED, "snapshot_name=%s;"
+                          "snapshot_uuid=%s", snap_name, snap_uuid);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_RESTORE:
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_RESTORE_FAILED,
+                                  "snapshot_name=%s;error=%s", snap_name,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                if (!volname) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get volname");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_RESTORED, "snapshot_name=%s;"
+                          "snapshot_uuid=%s;volume_name=%s",
+                          snap_name, snap_uuid, volname);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_DELETE:
+                ret = dict_get_int32 (dict, "sub-cmd", &delete_cmd);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not get sub-cmd");
+                        goto out;
+                }
+
+                /*
+                 * Need not generate any event (success or failure) for delete *
+                 * all, as it will trigger individual delete for all snapshots *
+                 */
+                if (delete_cmd == GF_SNAP_DELETE_TYPE_ALL) {
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snap name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_DELETE_FAILED,
+                                  "snapshot_name=%s;error=%s", snap_name,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_DELETED, "snapshot_name=%s;"
+                          "snapshot_uuid=%s", snap_name, snap_uuid);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_CLONE:
+                if (!clone_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get clone name");
+                        goto out;
+                }
+
+                if (!snap_name) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snapname name");
+                        goto out;
+                }
+
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_CLONE_FAILED,
+                                  "snapshot_name=%s;clone_name=%s;"
+                                  "error=%s", snap_name, clone_name,
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                if (!snap_uuid) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to get snap uuid");
+                        goto out;
+                }
+
+                gf_event (EVENT_SNAPSHOT_CLONED, "snapshot_name=%s;"
+                          "clone_name=%s;clone_uuid=%s",
+                          snap_name, clone_name, snap_uuid);
+
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_CONFIG:
+                if (rsp->op_ret != 0) {
+                        gf_event (EVENT_SNAPSHOT_CONFIG_UPDATE_FAILED,
+                                  "error=%s",
+                                  rsp->op_errstr ? rsp->op_errstr :
+                                  "Please check log file for details");
+                        ret = 0;
+                        break;
+                }
+
+                ret = dict_get_int32 (dict, "config-command", &config_command);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Could not fetch config type");
+                        goto out;
+                }
+
+                if (config_command == GF_SNAP_CONFIG_DISPLAY) {
+                        ret = 0;
+                        break;
+                }
+
+                /* These are optional parameters therefore ignore the error */
+                ret = dict_get_uint64 (dict, "snap-max-hard-limit",
+                                       &hard_limit);
+                ret = dict_get_uint64 (dict, "snap-max-soft-limit",
+                                       &soft_limit);
+                ret = dict_get_str (dict, "auto-delete",
+                                    &auto_delete);
+                ret = dict_get_str (dict, "snap-activate-on-create",
+                                    &snap_activate);
+
+                if (!hard_limit && !soft_limit &&
+                    !auto_delete && !snap_activate) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "At least one option from "
+                                "snap-max-hard-limit, snap-max-soft-limit, "
+                                "auto-delete and snap-activate-on-create "
+                                "should be set");
+                        goto out;
+                }
+
+                volname = NULL;
+                ret = dict_get_str (dict, "volname", &volname);
+
+                if (hard_limit || soft_limit) {
+                        snprintf (option, sizeof(option), "%s=%"PRIu64,
+                                  hard_limit ? "hard_limit" : "soft_limit",
+                                  hard_limit ? hard_limit:soft_limit);
+                } else if (auto_delete || snap_activate) {
+                        snprintf (option, sizeof(option), "%s=%s",
+                                  auto_delete ? "auto-delete" : "snap-activate",
+                                  auto_delete ? auto_delete:snap_activate);
+                }
+
+                snprintf (msg, sizeof(msg), "config_type=%s;%s",
+                          volname?"volume_config":"system_config", option);
+
+                gf_event (EVENT_SNAPSHOT_CONFIG_UPDATED, "%s", msg);
+
+                ret = 0;
+                break;
+
+        default:
+                gf_log ("cli", GF_LOG_WARNING,
+                        "Cannot generate event for unknown type.");
+                ret = 0;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+/*
+ * Fetch necessary data from dict at one place instead of *
+ * repeating the same code again and again.               *
+ */
+int
+gf_cli_snapshot_get_data_from_dict (dict_t *dict, char **snap_name,
+                                    char **volname, char **snap_uuid,
+                                    int8_t *soft_limit_flag,
+                                    char **clone_name)
+{
+        int     ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("cli", dict, out);
+
+        if (snap_name)
+                ret = dict_get_str (dict, "snapname", snap_name);
+
+        if (volname)
+                ret = dict_get_str (dict, "volname1", volname);
+
+        if (snap_uuid)
+                ret = dict_get_str (dict, "snapuuid", snap_uuid);
+
+        if (soft_limit_flag)
+                ret = dict_get_int8 (dict, "soft-limit-reach",
+                                     soft_limit_flag);
+
+        if (clone_name)
+                ret = dict_get_str (dict, "clonename", clone_name);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                      int count, void *myframe)
 {
@@ -10331,6 +10660,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
         gf_boolean_t         snap_driven               = _gf_false;
         int8_t               soft_limit_flag           = -1;
         char                 *volname                  = NULL;
+        char                 *snap_uuid                = NULL;
 
         GF_ASSERT (myframe);
 
@@ -10365,6 +10695,24 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        ret = gf_cli_snapshot_get_data_from_dict (dict, &snap_name, &volname,
+                                                  &snap_uuid, &soft_limit_flag,
+                                                  &clone_name);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch data from dict.");
+                goto out;
+        }
+
+#if (USE_EVENTS)
+        ret = gf_cli_generate_snapshot_event (&rsp, dict, type, snap_name,
+                                              volname, snap_uuid, clone_name);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Failed to generate snapshot event");
+                goto out;
+        }
+#endif
+
         /* Snapshot status and delete command is handled separately */
         if (global_state->mode & GLUSTER_MODE_XML &&
             GF_SNAP_OPTION_TYPE_STATUS != type &&
@@ -10388,19 +10736,13 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                  goto out;
                 }
 
-                ret = dict_get_str (dict, "snapname", &snap_name);
-                if (ret) {
+                if (!snap_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get snap name");
                         goto out;
                 }
 
-                /* TODO : Instead of using volname1 directly use
-                 * volname$i in loop once snapshot of multiple
-                 * volumes are supported
-                 */
-                ret = dict_get_str (dict, "volname1", &volname);
-                if (ret) {
+                if (!volname) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get volume name");
                         goto out;
@@ -10409,8 +10751,6 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_out ("snapshot create: success: Snap %s created "
                                         "successfully", snap_name);
 
-                ret = dict_get_int8 (dict, "soft-limit-reach",
-                                    &soft_limit_flag);
                 if (soft_limit_flag == 1) {
                         cli_out ("Warning: Soft-limit of volume (%s) is "
                                 "reached. Snapshot creation is not possible "
@@ -10428,15 +10768,13 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                  goto out;
                 }
 
-                ret = dict_get_str (dict, "clonename", &clone_name);
-                if (ret) {
+                if (!clone_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get clone name");
                         goto out;
                 }
 
-                ret = dict_get_str (dict, "snapname", &snap_name);
-                if (ret) {
+                if (!snap_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get snapname name");
                         goto out;
@@ -10449,9 +10787,6 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_SNAP_OPTION_TYPE_RESTORE:
-                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
-                 * it ok to check this in the start of the function where we
-                 * get rsp.*/
                 if (rsp.op_ret) {
                         cli_err("snapshot restore: failed: %s",
                                  rsp.op_errstr ? rsp.op_errstr :
@@ -10460,8 +10795,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                  goto out;
                 }
 
-                ret = dict_get_str (dict, "snapname", &snap_name);
-                if (ret) {
+                if (!snap_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get snap name");
                         goto out;
@@ -10473,9 +10807,6 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = 0;
                 break;
         case GF_SNAP_OPTION_TYPE_ACTIVATE:
-                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
-                 * it ok to check this in the start of the function where we
-                 * get rsp.*/
                 if (rsp.op_ret) {
                         cli_err("snapshot activate: failed: %s",
                                  rsp.op_errstr ? rsp.op_errstr :
@@ -10484,8 +10815,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                  goto out;
                 }
 
-                ret = dict_get_str (dict, "snapname", &snap_name);
-                if (ret) {
+                if (!snap_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get snap name");
                         goto out;
@@ -10498,9 +10828,6 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_SNAP_OPTION_TYPE_DEACTIVATE:
-                /* TODO: Check if rsp.op_ret needs to be checked here. Or is
-                 * it ok to check this in the start of the function where we
-                 * get rsp.*/
                 if (rsp.op_ret) {
                         cli_err("snapshot deactivate: failed: %s",
                                  rsp.op_errstr ? rsp.op_errstr :
@@ -10509,8 +10836,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                  goto out;
                 }
 
-                ret = dict_get_str (dict, "snapname", &snap_name);
-                if (ret) {
+                if (!snap_name) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to get snap name");
                         goto out;
