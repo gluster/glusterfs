@@ -45,6 +45,7 @@ AC_CONFIG_FILES([Makefile
                 geo-replication/src/peer_georep-sshkey.py
                 extras/peer_add_secret_pub
                 geo-replication/syncdaemon/conf.py
+                extras/snap_scheduler/conf.py
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
                 rpc/Makefile
