@@ -3027,7 +3027,7 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_TIME,
           .min   = 0,
           .max   = 1013,
-          .default_value = "42",
+          .default_value = "180",
           .description = "Time duration for which the client waits to "
                          "check if the server is responsive."
         },
