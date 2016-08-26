@@ -9,7 +9,7 @@ eventsdir = $(libexecdir)/glusterfs/events
 events_PYTHON = __init__.py gf_event.py eventsapiconf.py eventtypes.py \
 	utils.py
 
-eventtypes.py:
+eventtypes.py: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py PY_HEADER
 
 if BUILD_EVENTS
