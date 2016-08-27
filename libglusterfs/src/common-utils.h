@@ -153,7 +153,8 @@ enum _gf_special_pid
 
 enum _gf_xlator_ipc_targets {
         GF_IPC_TARGET_CHANGELOG = 0,
-        GF_IPC_TARGET_CTR = 1
+        GF_IPC_TARGET_CTR = 1,
+        GF_IPC_TARGET_UPCALL = 2
 };
 
 typedef enum _gf_boolean gf_boolean_t;
