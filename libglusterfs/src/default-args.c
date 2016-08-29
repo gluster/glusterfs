@@ -1576,11 +1576,9 @@ args_wipe (default_args_t *args)
         if (!args)
                 return;
 
-        if (&args->loc)
-                loc_wipe (&args->loc);
+        loc_wipe (&args->loc);
 
-        if (&args->loc2)
-                loc_wipe (&args->loc2);
+        loc_wipe (&args->loc2);
 
         if (args->fd)
                 fd_unref (args->fd);
@@ -1602,4 +1600,10 @@ args_wipe (default_args_t *args)
 
 	GF_FREE ((char *)args->volume);
 
+}
+
+void
+args_cbk_init (default_args_cbk_t *args_cbk)
+{
+        INIT_LIST_HEAD (&args_cbk->entries);
 }

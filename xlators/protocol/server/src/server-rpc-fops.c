@@ -21,6 +21,8 @@
 #include "defaults.h"
 #include "default-args.h"
 #include "server-common.h"
+#include "xlator.h"
+#include "compound-fop-utils.h"
 
 #include "xdr-nfs3.h"
 
@@ -2075,8 +2077,19 @@ server_compound_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         frame->root->unique, state->resolve.fd_no,
                         uuid_utoa (state->resolve.gfid),
                         strerror (op_errno));
+        }
+
+        rsp.compound_rsp_array.compound_rsp_array_val = GF_CALLOC
+                                                        (args_cbk->fop_length,
+                                                         sizeof (compound_rsp),
+                                                  gf_server_mt_compound_rsp_t);
+
+        if (!rsp.compound_rsp_array.compound_rsp_array_val) {
+                op_ret = -1;
+                op_errno = ENOMEM;
                 goto out;
         }
+        rsp.compound_rsp_array.compound_rsp_array_len = args_cbk->fop_length;
 
         for (i = 0; i < args_cbk->fop_length; i++) {
                 op_ret = server_populate_compound_response (this, &rsp,
@@ -2096,11 +2109,7 @@ out:
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              (xdrproc_t) xdr_gfs3_compound_rsp);
 
-        for (i = 0; i < state->args->fop_length; i++)
-                args_wipe (&state->args->req_list[i]);
-
-        GF_FREE (state->args->req_list);
-        GF_FREE (state->args);
+        server_compound_rsp_cleanup (&rsp, args_cbk);
         GF_FREE (rsp.xdata.xdata_val);
 
         return 0;
@@ -3303,8 +3312,12 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
         int                     ret     = -1;
         int                     length  = 0;
         int                     op_errno = ENOMEM;
+        compound_req            *c_req  = NULL;
+        xlator_t                *this   = NULL;
 
         state = CALL_STATE (frame);
+        this = frame->this;
+
         if (state->resolve.op_ret != 0) {
                 ret = state->resolve.op_ret;
                 op_errno = state->resolve.op_errno;
@@ -3313,20 +3326,18 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         req = state->req;
 
-        args = GF_CALLOC (1, sizeof (*args), gf_mt_compound_req_t);
-        state->args = args;
+        length = req->compound_req_array.compound_req_array_len;
+        state->args = compound_fop_alloc (length, req->compound_fop_enum,
+                                          state->xdata);
+        args = state->args;
+
         if (!args)
                 goto err;
 
-        length = req->compound_req_array.compound_req_array_len;
-
-        args->req_list = GF_CALLOC (length,
-                                    sizeof (*args->req_list),
-                                    gf_mt_default_args_t);
-        if (!args->req_list)
-                goto err;
-
         for (i = 0; i < length; i++) {
+                c_req = &req->compound_req_array.compound_req_array_val[i];
+                args->enum_list[i] = c_req->fop_enum;
+
                 ret = server_populate_compound_request (req, frame,
                                                         &args->req_list[i],
                                                         i);
@@ -3339,7 +3350,8 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
         }
 
         STACK_WIND (frame, server_compound_cbk,
-                    bound_xl, bound_xl->fops->compound,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->compound,
                     args, state->xdata);
 
         return 0;
@@ -3347,11 +3359,6 @@ err:
         server_compound_cbk (frame, NULL, frame->this, ret, op_errno,
                              NULL, NULL);
 
-        for (i = 0; i < length; i++)
-                args_wipe (&args->req_list[i]);
-
-        GF_FREE (args->req_list);
-        GF_FREE (args);
         return ret;
 }
 /* Fop section */
@@ -6684,12 +6691,13 @@ out:
 int
 server3_3_compound (rpcsvc_request_t *req)
 {
-        server_state_t      *state = NULL;
-        call_frame_t        *frame = NULL;
-        gfs3_compound_req    args  = {0,};
-        ssize_t              len    = 0;
-        int                  i      = 0;
-        int                  ret   = -1;
+        server_state_t      *state    = NULL;
+        call_frame_t        *frame    = NULL;
+        gfs3_compound_req    args     = {0,};
+        ssize_t              len      = 0;
+        int                  length   = 0;
+        int                  i        = 0;
+        int                  ret      = -1;
         int                  op_errno = 0;
 
         if (!req)
@@ -6702,6 +6710,7 @@ server3_3_compound (rpcsvc_request_t *req)
                 goto out;
         }
 
+        len = ret;
         frame = get_frame_from_request (req);
         if (!frame) {
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -6753,6 +6762,9 @@ server3_3_compound (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_compound_resume);
 out:
         free (args.xdata.xdata_val);
+
+        length = args.compound_req_array.compound_req_array_len;
+        server_compound_req_cleanup (&args, length);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);

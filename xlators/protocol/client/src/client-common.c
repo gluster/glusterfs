@@ -1402,6 +1402,7 @@ client_post_readlink (xlator_t *this, gfs3_readlink_rsp *rsp,
                                       rsp->op_errno, out);
 
 out:
+
         return ret;
 }
 

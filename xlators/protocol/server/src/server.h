@@ -30,6 +30,34 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE  (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE  (0)
 
+#define CPD_REQ_FIELD(v, f)  ((v)->compound_req_u.compound_##f##_req)
+#define CPD_RSP_FIELD(v, f)  ((v)->compound_rsp_u.compound_##f##_rsp)
+
+#define SERVER_COMMON_RSP_CLEANUP(rsp, fop, i)                                \
+        do {                                                                  \
+                compound_rsp            *this_rsp       = NULL;               \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];\
+                gf_common_rsp  *_this_rsp = &CPD_RSP_FIELD(this_rsp, fop);    \
+                                                                              \
+                GF_FREE (_this_rsp->xdata.xdata_val);                         \
+        } while (0)
+
+#define SERVER_FOP_RSP_CLEANUP(rsp, fop, i)                                   \
+        do {                                                                  \
+                compound_rsp            *this_rsp       = NULL;               \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];\
+                gfs3_##fop##_rsp  *_this_rsp = &CPD_RSP_FIELD(this_rsp, fop); \
+                                                                              \
+                GF_FREE (_this_rsp->xdata.xdata_val);                         \
+        } while (0)
+
+#define SERVER_COMPOUND_FOP_CLEANUP(curr_req, fop)                            \
+        do {                                                                  \
+                gfs3_##fop##_req *_req = &CPD_REQ_FIELD(curr_req, fop);       \
+                                                                              \
+                free (_req->xdata.xdata_val);                                 \
+        } while (0)
+
 typedef enum {
         INTERNAL_LOCKS = 1,
         POSIX_LOCKS = 2,

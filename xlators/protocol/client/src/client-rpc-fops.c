@@ -16,6 +16,7 @@
 #include "client-messages.h"
 #include "defaults.h"
 #include "client-common.h"
+#include "compound-fop-utils.h"
 
 int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 rpc_clnt_prog_t clnt3_3_fop_prog;
@@ -3161,12 +3162,12 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gfs3_compound_rsp       rsp              = {0,};
         compound_args_cbk_t     *args_cbk        = NULL;
         call_frame_t            *frame           = NULL;
-        int                     ret              = -1;
         xlator_t                *this            = NULL;
         dict_t                  *xdata           = NULL;
         clnt_local_t            *local           = NULL;
         int                     op_errno         = 0;
         int                     i,length         = 0;
+        int                     ret              = -1;
 
         this = THIS;
 
@@ -3186,55 +3187,40 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        args_cbk = GF_CALLOC (1, sizeof (compound_args_cbk_t), gf_mt_compound_rsp_t);
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
+                                      (rsp.xdata.xdata_len), rsp.op_ret,
+                                       rsp.op_errno, out);
+
+        length =  local->length;
+
+        args_cbk = compound_args_cbk_alloc (length, xdata);
         if (!args_cbk) {
                 op_errno = ENOMEM;
                 goto out;
         }
-
-        length = args_cbk->fop_length = local->length;
-
-        args_cbk->rsp_list = GF_CALLOC (length, sizeof (default_args_cbk_t),
-                                        gf_mt_default_args_cbk_t);
-        if (!args_cbk->rsp_list) {
-                op_errno = ENOMEM;
-                goto out;
-        }
-
-        op_errno = rsp.op_errno;
 
         for (i = 0; i < args_cbk->fop_length; i++) {
                 ret = client_process_response (frame, this, req, &rsp,
                                                args_cbk, i);
                 if (ret) {
                         op_errno = -ret;
-                        ret = -1;
                         goto out;
                 }
 
         }
-
-        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
-                                      (rsp.xdata.xdata_len), ret,
-                                       rsp.op_errno, out);
-
-        ret = 0;
+        rsp.op_ret = 0;
 out:
-        CLIENT_STACK_UNWIND (compound, frame, ret,
-                             gf_error_to_errno (op_errno), args_cbk, xdata);
+        CLIENT_STACK_UNWIND (compound, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno), args_cbk, xdata);
 
         free (rsp.xdata.xdata_val);
+
+        client_compound_rsp_cleanup (&rsp, local->length);
 
         if (xdata)
                 dict_unref (xdata);
 
-        if (args_cbk->rsp_list) {
-                for (i = 0; i < length; i++) {
-                        args_cbk_wipe (&args_cbk->rsp_list[i]);
-                }
-        }
-        GF_FREE (args_cbk->rsp_list);
-        GF_FREE (args_cbk);
+        compound_args_cbk_cleanup (args_cbk);
         return 0;
 }
 
@@ -6131,7 +6117,6 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
         struct iobuf            *rsphdr_iobuf       = NULL;
         int                     rsphdr_count        = 0;
         int                     req_count           = 0;
-        int                     index               = 0;
         dict_t                  *xdata              = c_args->xdata;
 
         GF_ASSERT (frame);
@@ -6171,13 +6156,11 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
         rsphdr->iov_base = iobuf_ptr (rsphdr_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsphdr_iobuf);
         rsphdr_count = 1;
-        local->iobref = rsp_iobref;
         rsphdr_iobuf = NULL;
         rsphdr_iobref = NULL;
 
         req.compound_fop_enum = c_args->fop_enum;
         req.compound_req_array.compound_req_array_len = c_args->fop_length;
-        /*TODO : Talk to Sowmya about this */
         req.compound_version = 0;
         if (xdata) {
                 GF_PROTOCOL_DICT_SERIALIZE (this, xdata,
@@ -6198,29 +6181,28 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
         for (i = 0; i < local->length; i++) {
                 ret = client_handle_fop_requirements (this, frame,
                                                       &req, local,
-                                                      req_iobref, rsp_iobref,
+                                                      &req_iobref, &rsp_iobref,
                                                       req_vector,
                                                       rsp_vector, &req_count,
                                                       &rsp_count,
                                                       &c_args->req_list[i],
                                                       c_args->enum_list[i],
-                                                      index);
+                                                      i);
                 if (ret) {
                         op_errno = ret;
                         goto unwind;
                 }
-                index++;
         }
 
-        local->iobref2 = rsp_iobref;
+        local->iobref = rsp_iobref;
         rsp_iobref     = NULL;
 
         ret = client_submit_compound_request (this, &req, frame, conf->fops,
                                      GFS3_OP_COMPOUND, client3_3_compound_cbk,
-                                     req_vector, req_count, local->iobref,
+                                     req_vector, req_count, req_iobref,
                                      rsphdr, rsphdr_count,
                                      rsp_vector, rsp_count,
-                                     local->iobref2,
+                                     local->iobref,
                                      (xdrproc_t) xdr_gfs3_compound_req);
 
         GF_FREE (req.xdata.xdata_val);
