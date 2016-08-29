@@ -43,7 +43,6 @@ client_cbk_recall_lease (struct rpc_clnt *rpc, void *mydata, void *data)
         int                           ret          = -1;
         struct iovec                 *iov          = NULL;
         struct gf_upcall              upcall_data  = {0,};
-        uuid_t                        gfid;
         struct gf_upcall_recall_lease rl_data      = {0,};
         gfs3_recall_lease_req         recall_lease = {{0,},};
 
@@ -91,7 +90,6 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         int              ret                        = -1;
         struct iovec     *iov                       = NULL;
         struct gf_upcall upcall_data                = {0,};
-        uuid_t           gfid;
         struct gf_upcall_cache_invalidation ca_data = {0,};
         gfs3_cbk_cache_invalidation_req     ca_req  = {0,};
 

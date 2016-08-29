@@ -433,7 +433,6 @@ client_pre_flush (xlator_t *this, gfs3_flush_req *req, fd_t *fd, dict_t *xdata)
 {
         int64_t         remote_fd = -1;
         int             op_errno = ESTALE;
-        clnt_local_t   *local    = NULL;
 
         CLIENT_GET_REMOTE_FD (this, fd, DEFAULT_REMOTE_FD,
                               remote_fd, op_errno, out);
@@ -1345,7 +1344,6 @@ int
 client_pre_lease (xlator_t *this, gfs3_lease_req *req, loc_t *loc,
                   struct gf_lease *lease, dict_t *xdata)
 {
-        int ret = 0;
         int op_errno = 0;
 
         if (!(loc && loc->inode))
