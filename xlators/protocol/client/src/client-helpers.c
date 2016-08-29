@@ -135,10 +135,6 @@ client_local_wipe (clnt_local_t *local)
                         iobref_unref (local->iobref);
                 }
 
-                if (local->iobref2) {
-                        iobref_unref (local->iobref2);
-                }
-
                 GF_FREE (local->name);
 
                 local->compound_args = NULL;
@@ -1126,8 +1122,8 @@ int
 client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 gfs3_compound_req *req,
                                 clnt_local_t *local,
-                                struct iobref *req_iobref,
-                                struct iobref *rsp_iobref,
+                                struct iobref **req_iobref,
+                                struct iobref **rsp_iobref,
                                 struct iovec *req_vector,
                                 struct iovec *rsp_vector, int *req_count,
                                 int *rsp_count, default_args_t *args,
@@ -1160,10 +1156,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 op_errno, out,
                                 &args->loc, args->mode, args->rdev,
                                 args->umask, args->xdata);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_MKDIR:
                 CLIENT_PRE_FOP (mkdir, this,
@@ -1171,10 +1165,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 op_errno, out,
                                 &args->loc, args->mode,
                                 args->umask, args->xdata);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_UNLINK:
                 CLIENT_PRE_FOP (unlink, this,
@@ -1194,10 +1186,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 op_errno, out,
                                 &args->loc, args->linkname, args->umask,
                                 args->xdata);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_RENAME:
                 CLIENT_PRE_FOP (rename, this,
@@ -1246,15 +1236,15 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                         goto out;
                 }
 
-                if (!rsp_iobref) {
-                        rsp_iobref = iobref_new ();
-                        if (rsp_iobref == NULL) {
+                if (!*rsp_iobref) {
+                        *rsp_iobref = iobref_new ();
+                        if (*rsp_iobref == NULL) {
                                 op_errno = ENOMEM;
                                 goto out;
                         }
                 }
 
-                iobref_add (rsp_iobref, rsp_iobuf);
+                iobref_add (*rsp_iobref, rsp_iobuf);
                 iobuf_unref (rsp_iobuf);
 
                 if (*rsp_count + 1 >= MAX_IOVEC) {
@@ -1280,7 +1270,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
         case GF_FOP_WRITE:
                 op_errno = client_pre_writev (this,
                            &this_req->compound_req_u.compound_write_req,
-                           args->fd, args->count, args->offset,
+                           args->fd, iov_length (args->vector, args->count),
+                           args->offset,
                            args->flags, args->xdata);
 
                 if (op_errno) {
@@ -1292,7 +1283,7 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                 local->attempt_reopen = client_is_reopen_needed
                                         (args->fd, this, remote_fd);
 
-                if (*req_count + 1 >= MAX_IOVEC) {
+                if (*req_count + args->count >= MAX_IOVEC) {
                         op_errno = ENOMEM;
                         goto out;
                 }
@@ -1300,10 +1291,10 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                         (args->count * sizeof(req_vector[0])));
                 *req_count += args->count;
 
-                if (!req_iobref)
-                        req_iobref = args->iobref;
+                if (!*req_iobref)
+                        *req_iobref = args->iobref;
                 else
-                        if (iobref_merge (req_iobref, args->iobref))
+                        if (iobref_merge (*req_iobref, args->iobref))
                                 goto out;
                 break;
         case GF_FOP_STATFS:
@@ -1339,10 +1330,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 &this_req->compound_req_u.compound_getxattr_req,
                                 op_errno, out,
                                 &args->loc, args->name, args->xdata);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_REMOVEXATTR:
                 CLIENT_PRE_FOP (removexattr, this,
@@ -1357,10 +1346,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 &args->loc, args->fd, args->xdata);
                 if (!local->fd)
                         local->fd = fd_ref (args->fd);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_FSYNCDIR:
                 CLIENT_PRE_FOP (fsyncdir, this,
@@ -1383,10 +1370,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                 if (!local->fd)
                         local->fd = fd_ref (args->fd);
 
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_FTRUNCATE:
                 CLIENT_PRE_FOP (ftruncate, this,
@@ -1414,10 +1399,8 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 &this_req->compound_req_u.compound_lookup_req,
                                 op_errno, out,
                                 &args->loc, args->xdata);
-                if (!&local->loc) {
-                        loc_copy (&local->loc, &args->loc);
-                        loc_path (&local->loc, NULL);
-                }
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
                 break;
         case GF_FOP_READDIR:
                 CLIENT_PRE_FOP (readdir, this,
@@ -1582,6 +1565,9 @@ compound_request_cleanup (gfs3_compound_req *req)
         compound_req   *curr_req = NULL;
 
 
+        if (!req->compound_req_array.compound_req_array_val)
+                return;
+
         for (i = 0; i < length; i++) {
                 curr_req = &req->compound_req_array.compound_req_array_val[i];
 
@@ -1636,8 +1622,9 @@ compound_request_cleanup (gfs3_compound_req *req)
                         break;
                 case GF_FOP_SETXATTR:
                 {
-                        gfs3_setxattr_req args = curr_req->compound_req_u.compound_setxattr_req;
-                        GF_FREE (args.dict.dict_val);
+                        gfs3_setxattr_req *args = &CPD_REQ_FIELD (curr_req,
+                                                  setxattr);
+                        GF_FREE (args->dict.dict_val);
                         CLIENT_COMPOUND_FOP_CLEANUP (curr_req, setxattr);
                         break;
                 }
@@ -1688,15 +1675,17 @@ compound_request_cleanup (gfs3_compound_req *req)
                         break;
                 case GF_FOP_XATTROP:
                 {
-                        gfs3_xattrop_req args = curr_req->compound_req_u.compound_xattrop_req;
-                        GF_FREE (args.dict.dict_val);
+                        gfs3_xattrop_req *args = &CPD_REQ_FIELD (curr_req,
+                                                 xattrop);
+                        GF_FREE (args->dict.dict_val);
                         CLIENT_COMPOUND_FOP_CLEANUP (curr_req, xattrop);
                         break;
                 }
                 case GF_FOP_FXATTROP:
                 {
-                        gfs3_fxattrop_req args = curr_req->compound_req_u.compound_fxattrop_req;
-                        GF_FREE (args.dict.dict_val);
+                        gfs3_fxattrop_req *args = &CPD_REQ_FIELD (curr_req,
+                                                  fxattrop);
+                        GF_FREE (args->dict.dict_val);
                         CLIENT_COMPOUND_FOP_CLEANUP (curr_req, fxattrop);
                         break;
                 }
@@ -1705,8 +1694,9 @@ compound_request_cleanup (gfs3_compound_req *req)
                         break;
                 case GF_FOP_FSETXATTR:
                 {
-                        gfs3_fsetxattr_req args = curr_req->compound_req_u.compound_fsetxattr_req;
-                        GF_FREE (args.dict.dict_val);
+                        gfs3_fsetxattr_req *args = &CPD_REQ_FIELD(curr_req,
+                                                   fsetxattr);
+                        GF_FREE (args->dict.dict_val);
                         CLIENT_COMPOUND_FOP_CLEANUP (curr_req, fsetxattr);
                         break;
                 }
@@ -1721,8 +1711,9 @@ compound_request_cleanup (gfs3_compound_req *req)
                         break;
                 case GF_FOP_READDIRP:
                 {
-                        gfs3_readdirp_req args = curr_req->compound_req_u.compound_readdirp_req;
-                        GF_FREE (args.dict.dict_val);
+                        gfs3_readdirp_req *args = &CPD_REQ_FIELD(curr_req,
+                                                  readdirp);
+                        GF_FREE (args->dict.dict_val);
                         break;
                 }
                 case GF_FOP_FREMOVEXATTR:
@@ -1887,4 +1878,205 @@ out:
         GF_FREE (trav);
 
         return ret;
+}
+
+void
+client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
+{
+        int i = 0;
+        compound_rsp            *this_rsp       = NULL;
+
+        for (i = 0; i < len; i++) {
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
+                switch (this_rsp->fop_enum) {
+                case GF_FOP_STAT:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, stat, i);
+                        break;
+                case GF_FOP_MKNOD:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, mknod, i);
+                        break;
+                case GF_FOP_MKDIR:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, mkdir, i);
+                        break;
+                case GF_FOP_UNLINK:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, unlink, i);
+                        break;
+                case GF_FOP_RMDIR:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, rmdir, i);
+                        break;
+                case GF_FOP_SYMLINK:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, symlink, i);
+                        break;
+                case GF_FOP_RENAME:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, rename, i);
+                        break;
+                case GF_FOP_LINK:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, link, i);
+                        break;
+                case GF_FOP_TRUNCATE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, truncate, i);
+                        break;
+                case GF_FOP_OPEN:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, open, i);
+                        break;
+                case GF_FOP_READ:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, read, i);
+                        break;
+                case GF_FOP_WRITE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, write, i);
+                        break;
+                case GF_FOP_STATFS:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, statfs, i);
+                        break;
+                case GF_FOP_FSYNC:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fsync, i);
+                        break;
+                case GF_FOP_OPENDIR:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, opendir, i);
+                        break;
+                case GF_FOP_CREATE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, create, i);
+                        break;
+                case GF_FOP_FTRUNCATE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, ftruncate, i);
+                        break;
+                case GF_FOP_FSTAT:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fstat, i);
+                        break;
+                case GF_FOP_LK:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, lk, i);
+                        break;
+                case GF_FOP_LOOKUP:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, lookup, i);
+                        break;
+                case GF_FOP_SETATTR:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, setattr, i);
+                        break;
+                case GF_FOP_FSETATTR:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fsetattr, i);
+                        break;
+                case GF_FOP_FALLOCATE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fallocate, i);
+                        break;
+                case GF_FOP_DISCARD:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, discard, i);
+                        break;
+                case GF_FOP_ZEROFILL:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, zerofill, i);
+                        break;
+                case GF_FOP_IPC:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, ipc, i);
+                        break;
+                case GF_FOP_SEEK:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, seek, i);
+                        break;
+                case GF_FOP_LEASE:
+                        CLIENT_FOP_RSP_CLEANUP (rsp, lease, i);
+                        break;
+                /* fops that use gf_common_rsp */
+                case GF_FOP_FLUSH:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, flush, i);
+                        break;
+                case GF_FOP_SETXATTR:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, setxattr, i);
+                        break;
+                case GF_FOP_REMOVEXATTR:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, removexattr, i);
+                        break;
+                case GF_FOP_FSETXATTR:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, fsetxattr, i);
+                        break;
+                case GF_FOP_FREMOVEXATTR:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, fremovexattr, i);
+                        break;
+                case GF_FOP_FSYNCDIR:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, fsyncdir, i);
+                        break;
+                case GF_FOP_ACCESS:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, access, i);
+                        break;
+                case GF_FOP_INODELK:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, inodelk, i);
+                        break;
+                case GF_FOP_FINODELK:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, finodelk, i);
+                        break;
+                case GF_FOP_ENTRYLK:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, entrylk, i);
+                        break;
+                case GF_FOP_FENTRYLK:
+                        CLIENT_COMMON_RSP_CLEANUP (rsp, fentrylk, i);
+                        break;
+                /* fops that need extra cleanup */
+                case GF_FOP_READLINK:
+                {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, readlink, i);
+                        gfs3_readlink_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                     readlink);
+                        free (tmp_rsp->path);
+                        break;
+                }
+                case GF_FOP_XATTROP:
+                {
+                        gfs3_xattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                    xattrop);
+                        CLIENT_FOP_RSP_CLEANUP (rsp, xattrop, i);
+                        free (tmp_rsp->dict.dict_val);
+                        break;
+                }
+                case GF_FOP_FXATTROP:
+                {
+                        gfs3_fxattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                     fxattrop);
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fxattrop, i);
+                        free (tmp_rsp->dict.dict_val);
+                        break;
+                }
+                case GF_FOP_READDIR:
+                {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, readdir, i);
+                        gfs3_readdir_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                    readdir);
+                        clnt_readdir_rsp_cleanup (tmp_rsp);
+                        break;
+                }
+                case GF_FOP_READDIRP:
+                {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, readdirp, i);
+                        gfs3_readdirp_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                     readdirp);
+                        clnt_readdirp_rsp_cleanup (tmp_rsp);
+                        break;
+                }
+                case GF_FOP_GETXATTR:
+                {
+                        gfs3_getxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                     getxattr);
+                        CLIENT_FOP_RSP_CLEANUP (rsp, getxattr, i);
+                        free (tmp_rsp->dict.dict_val);
+                        break;
+                }
+                case GF_FOP_FGETXATTR:
+                {
+                        gfs3_fgetxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                      fgetxattr);
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fgetxattr, i);
+                        free (tmp_rsp->dict.dict_val);
+                        break;
+                }
+                case GF_FOP_RCHECKSUM:
+                {
+                        gfs3_rchecksum_rsp *rck = &CPD_RSP_FIELD(this_rsp,
+                                                  rchecksum);
+                        CLIENT_FOP_RSP_CLEANUP (rsp, rchecksum, i);
+                        if (rck->strong_checksum.strong_checksum_val) {
+                                free (rck->strong_checksum.strong_checksum_val);
+                        }
+                        break;
+                }
+                default:
+                        break;
+                }
+        }
+        return;
 }

@@ -26,6 +26,7 @@ typedef struct {
 
 #define DC_STACK_UNWIND(frame, op_ret, op_errno, rsp, xdata) do {\
                 dc_local_t      *__local = NULL;                      \
+                                                                      \
                 if (frame) {                                          \
                         __local = frame->local;                       \
                         frame->local = NULL;                          \

@@ -81,4 +81,9 @@ int
 server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                                   default_args_t *this_args,
                                   int index);
+void
+server_compound_rsp_cleanup (gfs3_compound_rsp *rsp, compound_args_cbk_t *args);
+
+void
+server_compound_req_cleanup (gfs3_compound_req *req, int len);
 #endif /* !_SERVER_HELPERS_H */

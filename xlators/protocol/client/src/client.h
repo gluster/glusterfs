@@ -89,6 +89,24 @@ typedef enum {
                 GF_FREE (_req->xdata.xdata_val);                              \
         } while (0)
 
+#define CLIENT_COMMON_RSP_CLEANUP(rsp, fop, i)                                \
+        do {                                                                  \
+                compound_rsp            *this_rsp       = NULL;               \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];\
+                gf_common_rsp *_this_rsp = &CPD_RSP_FIELD (this_rsp, fop);    \
+                                                                              \
+                free (_this_rsp->xdata.xdata_val);                            \
+        } while (0)
+
+#define CLIENT_FOP_RSP_CLEANUP(rsp, fop, i)                                   \
+        do {                                                                  \
+                compound_rsp            *this_rsp       = NULL;               \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];\
+                gfs3_##fop##_rsp *_this_rsp = &CPD_RSP_FIELD (this_rsp, fop); \
+                                                                              \
+                free (_this_rsp->xdata.xdata_val);                            \
+        } while (0)
+
 #define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, label) \
         do {                                                            \
                 int     _ret    = 0;                                    \
@@ -233,7 +251,6 @@ typedef struct client_local {
         char                *name;
         gf_boolean_t         attempt_reopen;
         /* required for compound fops */
-        struct iobref       *iobref2;
         compound_args_t     *compound_args;
         unsigned int         length; /* length of a compound fop */
         unsigned int         read_length; /* defines the last processed length for a compound read */
@@ -353,8 +370,8 @@ int
 client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 gfs3_compound_req *req,
                                 clnt_local_t *local,
-                                struct iobref *req_iobref,
-                                struct iobref *rsp_iobref,
+                                struct iobref **req_iobref,
+                                struct iobref **rsp_iobref,
                                 struct iovec *req_vector,
                                 struct iovec *rsp_vector, int *req_count,
                                 int *rsp_count, default_args_t *args,
@@ -380,4 +397,6 @@ int
 serialize_req_locklist (lock_migration_info_t *locklist,
                         gfs3_setactivelk_req *req);
 
+void
+client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len);
 #endif /* !_CLIENT_H */
