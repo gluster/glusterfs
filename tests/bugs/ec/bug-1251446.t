@@ -24,7 +24,7 @@ EXPECT "$cs" echo $(sha1sum $M0/test2 | awk '{ print $1 }')
 TEST $CLI volume start $V0 force
 EXPECT '4' online_brick_count
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 TEST $CLI volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
