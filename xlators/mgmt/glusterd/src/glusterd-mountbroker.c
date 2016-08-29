@@ -553,7 +553,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         if (!*label) {
                 *op_errno = EINVAL;
                 gf_msg (this->name, GF_LOG_ERROR, *op_errno,
-                        GD_MSG_MNTBROKER_LABEL_MISS,
+                        GD_MSG_MNTBROKER_LABEL_NULL,
                         "label is NULL (%s)",
                         strerror (*op_errno));
                 goto out;
