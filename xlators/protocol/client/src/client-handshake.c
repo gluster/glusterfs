@@ -1570,14 +1570,12 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
         int                      ret             = -1;
         pmap_port_by_brick_req   req             = {0,};
         call_frame_t            *fr              = NULL;
-        clnt_conf_t             *conf            = NULL;
         dict_t                  *options         = NULL;
         char                    *remote_subvol   = NULL;
         char                    *xprt            = NULL;
         char                     brick_name[PATH_MAX] = {0,};
 
         options = this->options;
-        conf    = this->private;
 
         ret = dict_get_str (options, "remote-subvolume", &remote_subvol);
         if (ret < 0) {

@@ -338,12 +338,10 @@ int
 client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd, int64_t remote_fd)
 {
         xlator_t     *this  = NULL;
-        clnt_conf_t  *conf  = NULL;
         clnt_local_t *local = NULL;
         int          ret    = 0;
 
         this = frame->this;
-        conf = this->private;
 
         if (!frame || !fd) {
                 ret = -EINVAL;
@@ -376,7 +374,6 @@ client_process_response (call_frame_t *frame, xlator_t *this,
         clnt_local_t            *local          = frame->local;
         compound_rsp            *this_rsp       = NULL;
         compound_args_t         *args           = local->compound_args;
-        void                    *data           = NULL;
 
         this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
         args_cbk->enum_list[index] = this_rsp->fop_enum;
@@ -1764,8 +1761,6 @@ clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
 {
         struct gfs3_locklist            *trav           = NULL;
         lock_migration_info_t           *temp           = NULL;
-        char                            *buf            = NULL;
-        int                             entry_len       = 0;
         int                             ret             = -1;
         clnt_conf_t                     *conf           = NULL;
 
