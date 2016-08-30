@@ -131,9 +131,9 @@ def main(num_days, regression_link, html_report):
     total = 0
     for reg in regression_link:
         if reg == 'centos':
-            reg_link = '/job/rackspace-regression-2GB-triggered/'
+            reg_link = '/job/centos6-regression/'
         elif reg == 'netbsd':
-            reg_link = '/job/rackspace-netbsd7-regression-triggered/'
+            reg_link = '/job/netbsd7-regression/'
         else:
             reg_link = reg
         counts = get_summary(cut_off_date, reg_link)
