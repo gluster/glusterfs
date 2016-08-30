@@ -68,6 +68,13 @@ main (int argc, char *argv[])
         ret = glfs_init (fs);
         LOG_ERR("glfs_init", ret);
 
+        /* This does not block, but enables caching of events. Real
+         * applications like NFS-Ganesha run this in a thread before activity
+         * on the fs (through this instance) happens. */
+        ret = glfs_h_poll_upcall(fs_tmp, &cbk);
+        LOG_ERR ("glfs_h_poll_upcall", ret);
+        cbk.reason = 0;
+
         fs2 = glfs_new (volname);
         if (!fs2) {
                 fprintf (stderr, "glfs_new fs2: returned NULL\n");

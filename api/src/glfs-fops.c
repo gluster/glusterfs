@@ -4265,7 +4265,8 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
         {
                 ctx = fs->ctx;
 
-                if (ctx->cleanup_started) {
+                /* if we're not interested in upcalls (anymore), skip them */
+                if (ctx->cleanup_started || !fs->cache_upcalls) {
                         pthread_mutex_unlock (&fs->mutex);
                         goto out;
                 }
