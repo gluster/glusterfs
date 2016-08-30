@@ -36,6 +36,7 @@
 #include "glusterd-locks.h"
 #include "glusterd-messages.h"
 #include "glusterd-utils.h"
+#include "glusterd-quota.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
 #include "common-utils.h"
@@ -2330,17 +2331,19 @@ static int
 glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                     char **op_errstr)
 {
-        char            *key            = NULL;
-        char            *key_fixed      = NULL;
-        char            *value          = NULL;
-        char            *dup_value      = NULL;
-        int             ret             = -1;
-        glusterd_conf_t *conf           = NULL;
-        dict_t          *dup_opt        = NULL;
-        char            *next_version   = NULL;
-        gf_boolean_t    quorum_action   = _gf_false;
-        uint32_t        op_version      = 0;
-        glusterd_volinfo_t  *volinfo    = NULL;
+        char            *key                    = NULL;
+        char            *key_fixed              = NULL;
+        char            *value                  = NULL;
+        char            *dup_value              = NULL;
+        int             ret                     = -1;
+        glusterd_conf_t *conf                   = NULL;
+        dict_t          *dup_opt                = NULL;
+        char            *next_version           = NULL;
+        gf_boolean_t    quorum_action           = _gf_false;
+        uint32_t        op_version              = 0;
+        glusterd_volinfo_t  *volinfo            = NULL;
+        glusterd_volinfo_t  *tmp_volinfo        = NULL;
+        glusterd_volinfo_t  *voliter            = NULL;
 
         conf = this->private;
         ret = dict_get_str (dict, "key1", &key);
@@ -2386,6 +2389,25 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
 
                 if (op_version >= conf->op_version) {
                         conf->op_version = op_version;
+
+                        /* When a bump up happens, update the quota.conf file
+                         * as well. This is because, till 3.7 we had a quota
+                         * conf version v1.1 in quota.conf. When inode-quota
+                         * feature is introduced, this needs to be changed to
+                         * v1.2 in quota.conf and 16 bytes uuid in quota.conf
+                         * needs to be changed to 17 bytes. Look
+                         * glusterd_store_quota_config for more details.
+                         */
+                        cds_list_for_each_entry (voliter, &conf->volumes, vol_list) {
+                                tmp_volinfo = voliter;
+                                ret = glusterd_store_quota_config (tmp_volinfo,
+                                                                   NULL, NULL,
+                                                                   GF_QUOTA_OPTION_TYPE_UPGRADE,
+                                                                   NULL);
+                                if (ret)
+                                        goto out;
+                        }
+
                         ret = glusterd_store_global_info (this);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
