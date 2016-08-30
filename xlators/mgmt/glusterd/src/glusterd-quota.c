@@ -23,6 +23,7 @@
 #include "byte-order.h"
 #include "compat-errno.h"
 #include "quota-common-utils.h"
+#include "glusterd-quota.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -55,12 +56,10 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
         [GF_QUOTA_OPTION_TYPE_LIST_OBJECTS]       = "list-objects",
         [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objects",
         [GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS]     = "enable-objects",
+        [GF_QUOTA_OPTION_TYPE_UPGRADE]            = "upgrade",
         [GF_QUOTA_OPTION_TYPE_MAX]                = NULL
 };
 
-int
-glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
-                             char *gfid_str, int opcode, char **op_errstr);
 
 gf_boolean_t
 glusterd_is_quota_supported (int32_t type, char **op_errstr)
@@ -1098,9 +1097,15 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         if (ret)
                 goto out;
 
+
         /* Just create empty quota.conf file if create */
         if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode ||
-            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode) {
+            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode ||
+            GF_QUOTA_OPTION_TYPE_UPGRADE == opcode) {
+                /* Opcode will be GF_QUOTA_OPTION_TYPE_UPGRADE when there is
+                 * an upgrade from 3.6 to 3.7. Just upgrade the quota.conf
+                 * file even during an op-version bumpup and exit.
+                 */
                 modified = _gf_true;
                 goto out;
         }
