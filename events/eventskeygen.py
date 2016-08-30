@@ -124,8 +124,8 @@ keys = (
     "EVENT_COMPARE_FRIEND_VOLUME_FAILED",
     "EVENT_NFS_GANESHA_EXPORT_FAILED",
     #ec events
-    "EVENT_EC_DATA_BRICKS_NOT_UP",
-    "EVENT_EC_DATA_BRICKS_UP",
+    "EVENT_EC_MIN_BRICKS_NOT_UP",
+    "EVENT_EC_MIN_BRICKS_UP",
     #georep async events
     "EVENT_GEOREP_FAULTY",
     #quota async events
