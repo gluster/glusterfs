@@ -391,7 +391,6 @@ client3_3_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
         clnt_local_t  *local = NULL;
-        clnt_conf_t   *conf  = NULL;
         call_frame_t  *frame = NULL;
         fd_t          *fd    = NULL;
         int            ret   = 0;
@@ -405,7 +404,6 @@ client3_3_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
-        conf  = frame->this->private;
         fd    = local->fd;
 
         if (-1 == req->rpc_status) {
@@ -1128,7 +1126,6 @@ client3_3_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gfs3_fgetxattr_rsp  rsp      = {0,};
         int                 ret      = 0;
         int                 op_errno = EINVAL;
-        clnt_local_t     *local    = NULL;
         xlator_t *this       = NULL;
         dict_t  *xdata       = NULL;
 
@@ -1136,7 +1133,6 @@ client3_3_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         this = THIS;
 
         frame = myframe;
-        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret = -1;
@@ -2473,7 +2469,6 @@ client3_3_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
 {
         call_frame_t    *frame      = NULL;
-        clnt_local_t  *local      = NULL;
         struct gf_flock     lock       = {0,};
         gfs3_lk_rsp      rsp        = {0,};
         int              ret        = 0;
@@ -2483,7 +2478,6 @@ client3_3_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         this = THIS;
 
         frame = myframe;
-        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2793,7 +2787,6 @@ client3_3_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
         clnt_local_t      *local = NULL;
-        clnt_conf_t       *conf = NULL;
         call_frame_t      *frame = NULL;
         fd_t              *fd = NULL;
         int ret = 0;
@@ -2806,7 +2799,6 @@ client3_3_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
-        conf  = frame->this->private;
         fd    = local->fd;
 
         if (-1 == req->rpc_status) {
@@ -3044,7 +3036,6 @@ client3_3_getactivelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t            *frame = NULL;
         gfs3_getactivelk_rsp   rsp   = {0,};
         int32_t                 ret   = 0;
-        clnt_local_t            *local = NULL;
         lock_migration_info_t   locklist;
         xlator_t                *this  = NULL;
         dict_t                  *xdata = NULL;
@@ -3052,7 +3043,6 @@ client3_3_getactivelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         this = THIS;
 
         frame = myframe;
-        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -3108,14 +3098,12 @@ client3_3_setactivelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t            *frame = NULL;
         gfs3_getactivelk_rsp     rsp   = {0,};
         int32_t                  ret   = 0;
-        clnt_local_t            *local = NULL;
         xlator_t                *this  = NULL;
         dict_t                  *xdata = NULL;
 
         this = THIS;
 
         frame = myframe;
-        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -3572,7 +3560,6 @@ client3_3_ftruncate (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args     = NULL;
-        int64_t             remote_fd = -1;
         clnt_conf_t        *conf     = NULL;
         gfs3_ftruncate_req  req      = {{0,},};
         int                 op_errno = EINVAL;
@@ -4766,7 +4753,6 @@ client3_3_fgetxattr (call_frame_t *frame, xlator_t *this,
                      void *data)
 {
         clnt_args_t        *args       = NULL;
-        int64_t             remote_fd  = -1;
         clnt_conf_t        *conf       = NULL;
         gfs3_fgetxattr_req  req        = {{0,},};
         int                 op_errno   = ESTALE;
@@ -5253,9 +5239,6 @@ client3_3_lease (call_frame_t *frame, xlator_t *this,
 {
         clnt_args_t     *args       = NULL;
         gfs3_lease_req   req        = {{0,},};
-        int32_t          gf_cmd     = 0;
-        int32_t          gf_type    = 0;
-        int64_t          remote_fd  = -1;
         clnt_conf_t     *conf       = NULL;
         int              op_errno   = ESTALE;
         int              ret        = 0;
@@ -5299,7 +5282,6 @@ client3_3_lk (call_frame_t *frame, xlator_t *this,
         clnt_args_t     *args       = NULL;
         gfs3_lk_req      req        = {{0,},};
         int32_t          gf_cmd     = 0;
-        int32_t          gf_type    = 0;
         clnt_local_t    *local      = NULL;
         clnt_conf_t     *conf       = NULL;
         int              op_errno   = ESTALE;
@@ -5691,7 +5673,6 @@ client3_3_readdirp (call_frame_t *frame, xlator_t *this,
         clnt_args_t      *args              = NULL;
         gfs3_readdirp_req req               = {{0,},};
         gfs3_readdirp_rsp rsp               = {0,};
-        int64_t           remote_fd         = -1;
         clnt_conf_t      *conf              = NULL;
         int               op_errno          = ESTALE;
         int               ret               = 0;
@@ -5833,7 +5814,6 @@ int32_t
 client3_3_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args     = NULL;
-        int64_t            remote_fd = -1;
         clnt_conf_t       *conf     = NULL;
         gfs3_fsetattr_req  req      = {0,};
         int                op_errno = ESTALE;
@@ -5876,7 +5856,6 @@ int32_t
 client3_3_fallocate(call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args     = NULL;
-        int64_t            remote_fd = -1;
         clnt_conf_t       *conf     = NULL;
 	gfs3_fallocate_req req	    = {{0},};
         int                op_errno = ESTALE;
@@ -5919,7 +5898,6 @@ int32_t
 client3_3_discard(call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args     = NULL;
-        int64_t            remote_fd = -1;
         clnt_conf_t       *conf     = NULL;
 	gfs3_discard_req   req	    = {{0},};
         int                op_errno = ESTALE;
@@ -5961,7 +5939,6 @@ int32_t
 client3_3_zerofill(call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_args_t       *args        = NULL;
-        int64_t            remote_fd   = -1;
         clnt_conf_t       *conf        = NULL;
         gfs3_zerofill_req   req        = {{0},};
         int                op_errno    = ESTALE;
@@ -6100,7 +6077,6 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
 {
         clnt_conf_t             *conf              = NULL;
         compound_args_t         *c_args            = data;
-        default_args_t          *args              = NULL;
         gfs3_compound_req       req                = {0,};
         clnt_local_t            *local             = NULL;
         int                     op_errno           = ENOMEM;
