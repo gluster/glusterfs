@@ -148,13 +148,10 @@ client_grace_timeout (void *data)
         int               ver  = 0;
         xlator_t         *this = NULL;
         struct clnt_conf *conf = NULL;
-        struct rpc_clnt  *rpc  = NULL;
 
         GF_VALIDATE_OR_GOTO ("client", data, out);
 
         this = THIS;
-
-        rpc = (struct rpc_clnt *) data;
 
         conf = (struct clnt_conf *) this->private;
 
@@ -2211,7 +2208,6 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                    void *data)
 {
         xlator_t *this = NULL;
-        char *handshake = NULL;
         clnt_conf_t  *conf = NULL;
         int ret = 0;
 
