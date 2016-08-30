@@ -18,6 +18,7 @@
 #include "authenticate.h"
 #include "server-messages.h"
 #include "syscall.h"
+#include "events.h"
 
 struct __get_xl_struct {
         const char *name;
@@ -690,6 +691,15 @@ server_setvolume (rpcsvc_request_t *req)
                         "accepted client from %s (version: %s)",
                         client->client_uid,
                         (clnt_version) ? clnt_version : "old");
+
+                gf_event (EVENT_CLIENT_CONNECT, "client_uid=%s;"
+                          "client_identifier=%s;server_identifier=%s;"
+                          "brick_path=%s",
+                          client->client_uid,
+                          req->trans->peerinfo.identifier,
+                          req->trans->myinfo.identifier,
+                          name);
+
                 op_ret = 0;
                 client->bound_xl = xl;
                 ret = dict_set_str (reply, "ERROR", "Success");
@@ -697,6 +707,13 @@ server_setvolume (rpcsvc_request_t *req)
                         gf_msg_debug (this->name, 0, "failed to set error "
                                       "msg");
         } else {
+                gf_event (EVENT_CLIENT_AUTH_REJECT, "client_uid=%s;"
+                          "client_identifier=%s;server_identifier=%s;"
+                          "brick_path=%s",
+                          client->client_uid,
+                          req->trans->peerinfo.identifier,
+                          req->trans->myinfo.identifier,
+                          name);
                 gf_msg (this->name, GF_LOG_ERROR, EACCES,
                         PS_MSG_AUTHENTICATE_ERROR, "Cannot authenticate client"
                         " from %s %s", client->client_uid,
