@@ -715,14 +715,14 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                     (src_statfs_blocks + stbuf->ia_blocks)) {
 
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "data movement attempted from node "
-                                "(%s:%"PRIu64") with higher disk space "
-                                "to a node (%s:%"PRIu64") with lesser "
-                                "disk space, file { blocks:%"PRIu64", "
-                                "name:(%s) }", from->name, src_statfs_blocks,
-                                to->name, dst_statfs_blocks,
-                                stbuf->ia_blocks, loc->path);
+                               DHT_MSG_MIGRATE_FILE_FAILED,
+                               "data movement of file "
+                               "{blocks:%"PRIu64" name:(%s) } would result in "
+                               "dst node (%s:%"PRIu64") having lower disk "
+                               "space then the source node (%s:%"PRIu64")"
+                               ".Skipping file.", stbuf->ia_blocks, loc->path,
+                               to->name, dst_statfs_blocks, from->name,
+                               src_statfs_blocks);
 
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
