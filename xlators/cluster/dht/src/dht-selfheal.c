@@ -806,7 +806,8 @@ dht_fix_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 
         local->call_cnt = count = conf->subvolume_cnt;
 
-        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+        if (gf_log_get_loglevel () >= GF_LOG_DEBUG)
+                dht_log_new_layout_for_dir_selfheal (this, loc, layout);
 
         for (i = 0; i < layout->cnt; i++) {
                 dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i, NULL);
@@ -880,7 +881,8 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 
         local->call_cnt = missing_xattr;
 
-        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+        if (gf_log_get_loglevel () >= GF_LOG_DEBUG)
+                dht_log_new_layout_for_dir_selfheal (this, loc, layout);
 
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop)
@@ -1007,7 +1009,8 @@ dht_selfheal_dir_xattr_for_nameless_lookup (call_frame_t *frame, loc_t *loc,
 
         local->call_cnt = missing_xattr;
 
-        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+        if (gf_log_get_loglevel () >= GF_LOG_DEBUG)
+                dht_log_new_layout_for_dir_selfheal (this, loc, layout);
 
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop)
@@ -1740,7 +1743,7 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
 
         if (priv->du_stats) {
                 for (i = 0; i < priv->subvolume_cnt; ++i) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
+                        gf_msg (this->name, GF_LOG_DEBUG, 0,
                                 DHT_MSG_SUBVOL_INFO,
                                 "subvolume %d (%s): %u chunks", i,
                                 priv->subvolumes[i]->name,

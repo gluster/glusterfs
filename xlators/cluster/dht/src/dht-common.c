@@ -8995,7 +8995,7 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
         }
 
-        gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_FIXED_LAYOUT,
+        gf_msg (this->name, GF_LOG_DEBUG, 0, DHT_MSG_LOG_FIXED_LAYOUT,
                 "%s", output_string);
 
 err:
