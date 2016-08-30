@@ -20,6 +20,7 @@
 #include "ec.h"
 #include "ec-messages.h"
 #include "ec-heald.h"
+#include "events.h"
 
 static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
         [EC_ROUND_ROBIN] = "round-robin",
@@ -317,6 +318,7 @@ ec_up (xlator_t *this, ec_t *ec)
         ec->up = 1;
         gf_msg (this->name, GF_LOG_INFO, 0,
                 EC_MSG_EC_UP, "Going UP");
+        gf_event (EVENT_EC_MIN_BRICKS_UP, "subvol=%s", this->name);
 }
 
 void
@@ -330,6 +332,7 @@ ec_down (xlator_t *this, ec_t *ec)
         ec->up = 0;
         gf_msg (this->name, GF_LOG_INFO, 0,
                 EC_MSG_EC_DOWN, "Going DOWN");
+        gf_event (EVENT_EC_MIN_BRICKS_NOT_UP, "subvol=%s", this->name);
 }
 
 void
@@ -437,7 +440,7 @@ void
 ec_pending_fops_completed(ec_t *ec)
 {
         if (ec->shutdown) {
-                default_notify(ec->xl, GF_EVENT_PARENT_DOWN, NULL);
+                default_notify (ec->xl, GF_EVENT_PARENT_DOWN, NULL);
         }
 }
 
