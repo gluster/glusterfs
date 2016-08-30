@@ -31,7 +31,7 @@ endif
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-sm.h glusterd-store.h glusterd-mem-types.h \
 	glusterd-pmap.h glusterd-volgen.h glusterd-mountbroker.h \
-	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h \
+	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h glusterd-quota.h \
 	glusterd-mgmt.h glusterd-messages.h glusterd-peer-utils.h \
 	glusterd-statedump.h glusterd-snapshot-utils.h glusterd-geo-rep.h \
 	glusterd-conn-mgmt.h glusterd-conn-helper.h glusterd-proc-mgmt.h \
