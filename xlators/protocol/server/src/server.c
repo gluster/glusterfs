@@ -21,6 +21,7 @@
 #include "defaults.h"
 #include "authenticate.h"
 #include "event.h"
+#include "events.h"
 #include "server-messages.h"
 
 rpcsvc_cbk_program_t server_cbk_prog = {
@@ -76,7 +77,8 @@ grace_time_handler (void *data)
                  */
                 gf_client_ref (client);
                 gf_client_put (client, &detached);
-                if (detached)//reconnection did not happen :-(
+
+                if (detached) /* reconnection did not happen :-( */
                         server_connection_cleanup (this, client,
                                                    INTERNAL_LOCKS | POSIX_LOCKS);
                 gf_client_unref (client);
@@ -487,6 +489,8 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         client_t            *client     = NULL;
         server_ctx_t        *serv_ctx   = NULL;
         struct timespec     grace_ts    = {0, };
+        char                *auth_path  = NULL;
+        int                 ret         = -1;
 
         if (!xl || !data) {
                 gf_msg_callingfn ("server", GF_LOG_WARNING, 0,
@@ -546,19 +550,45 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         PS_MSG_CLIENT_DISCONNECTING, "disconnecting connection"
                         " from %s", client->client_uid);
 
+                ret = dict_get_str (this->options, "auth-path", &auth_path);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PS_MSG_DICT_GET_FAILED,
+                                "failed to get auth-path");
+                        auth_path = NULL;
+                }
+
                 /* If lock self heal is off, then destroy the
                    conn object, else register a grace timer event */
                 if (!conf->lk_heal) {
                         gf_client_ref (client);
                         gf_client_put (client, &detached);
-                        if (detached)
+                        if (detached) {
                                 server_connection_cleanup (this, client,
                                                            INTERNAL_LOCKS | POSIX_LOCKS);
+
+                                gf_event (EVENT_CLIENT_DISCONNECT,
+                                          "client_uid=%s;"
+                                          "client_identifier=%s;"
+                                          "server_identifier=%s;"
+                                          "brick_path=%s",
+                                          client->client_uid,
+                                          trans->peerinfo.identifier,
+                                          trans->myinfo.identifier,
+                                          auth_path);
+                        }
                         gf_client_unref (client);
                         break;
                 }
                 trans->xl_private = NULL;
                 server_connection_cleanup (this, client, INTERNAL_LOCKS);
+                gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
+                          "client_identifier=%s;server_identifier=%s;"
+                          "brick_path=%s",
+                          client->client_uid,
+                          trans->peerinfo.identifier,
+                          trans->myinfo.identifier,
+                          auth_path);
 
                 serv_ctx = server_ctx_get (client, this);
 
@@ -716,6 +746,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int                       ret = 0;
         char                     *statedump_path = NULL;
         int32_t                   new_nthread = 0;
+        char                     *auth_path = NULL;
 
         conf = this->private;
 
@@ -840,6 +871,26 @@ reconfigure (xlator_t *this, dict_t *options)
                                                "authorized client, hence we "
                                                "continue with this connection");
                                 } else {
+                                        ret = dict_get_str (this->options,
+                                                            "auth-path",
+                                                            &auth_path);
+                                        if (ret) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_WARNING, 0,
+                                                        PS_MSG_DICT_GET_FAILED,
+                                                        "failed to get "
+                                                        "auth-path");
+                                                auth_path = NULL;
+                                        }
+                                        gf_event (EVENT_CLIENT_AUTH_REJECT,
+                                                  "client_uid=%s;"
+                                                  "client_identifier=%s;"
+                                                  "server_identifier=%s;"
+                                                  "brick_path=%s",
+                                                  xprt->xl_private->client_uid,
+                                                  xprt->peerinfo.identifier,
+                                                  xprt->myinfo.identifier,
+                                                  auth_path);
                                         gf_msg (this->name, GF_LOG_INFO,
                                                 EACCES,
                                                 PS_MSG_AUTHENTICATE_ERROR,
