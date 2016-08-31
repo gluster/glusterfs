@@ -50,3 +50,4 @@ sleep 3
 TEST append_to_file $M1/testfile
 
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1369401
