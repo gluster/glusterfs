@@ -12,6 +12,8 @@
 import json
 import os
 import logging
+import fcntl
+from errno import ESRCH, EBADF
 
 import requests
 from eventsapiconf import (LOG_FILE,
@@ -168,3 +170,78 @@ def plugin_webhook(message):
                             url=url,
                             event=message_json,
                             status_code=resp.status_code))
+
+
+class LockedOpen(object):
+
+    def __init__(self, filename, *args, **kwargs):
+        self.filename = filename
+        self.open_args = args
+        self.open_kwargs = kwargs
+        self.fileobj = None
+
+    def __enter__(self):
+        """
+        If two processes compete to update a file, The first process
+        gets the lock and the second process is blocked in the fcntl.flock()
+        call. When first process replaces the file and releases the lock,
+        the already open file descriptor in the second process now points
+        to a  "ghost" file(not reachable by any path name) with old contents.
+        To avoid that conflict, check the fd already opened is same or
+        not. Open new one if not same
+        """
+        f = open(self.filename, *self.open_args, **self.open_kwargs)
+        while True:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            fnew = open(self.filename, *self.open_args, **self.open_kwargs)
+            if os.path.sameopenfile(f.fileno(), fnew.fileno()):
+                fnew.close()
+                break
+            else:
+                f.close()
+                f = fnew
+        self.fileobj = f
+        return f
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        self.fileobj.close()
+
+
+class PidFileLockFailed(Exception):
+    pass
+
+
+class PidFile(object):
+    def __init__(self, filename):
+        self.filename = filename
+        self.pid = os.getpid()
+        self.fh = None
+
+    def cleanup(self, remove_file=True):
+        try:
+            if self.fh is not None:
+                self.fh.close()
+        except IOError as exc:
+            if exc.errno != EBADF:
+                raise
+        finally:
+            if os.path.isfile(self.filename) and remove_file:
+                os.remove(self.filename)
+
+    def __enter__(self):
+        self.fh = open(self.filename, 'a+')
+        try:
+            fcntl.flock(self.fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError as exc:
+            self.cleanup(remove_file=False)
+            raise PidFileLockFailed(exc)
+
+        self.fh.seek(0)
+        self.fh.truncate()
+        self.fh.write("%d\n" % self.pid)
+        self.fh.flush()
+        self.fh.seek(0)
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        self.cleanup()
