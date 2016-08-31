@@ -1837,10 +1837,10 @@ cli_cmd_volume_reset_brick_cbk (struct cli_state *state,
         int                      ret          = -1;
         rpc_clnt_procedure_t    *proc         = NULL;
         call_frame_t            *frame        = NULL;
-        dict_t                  *options = NULL;
-        int                      sent = 0;
-        int                      parse_error = 0;
-        cli_local_t             *local = NULL;
+        dict_t                  *options      = NULL;
+        int                      sent         = 0;
+        int                      parse_error  = 0;
+        cli_local_t             *local        = NULL;
 
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
@@ -1868,14 +1868,22 @@ cli_cmd_volume_reset_brick_cbk (struct cli_state *state,
 
 out:
         if (ret) {
-                gf_event (EVENT_BRICK_RESET, "Volume reset-brick failed.");
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume reset-brick failed");
         } else {
-                gf_event (EVENT_BRICK_RESET, "Volume reset-brick succeeded.");
+                if (wordcount > 5) {
+                        gf_event (EVENT_BRICK_RESET_COMMIT,
+                                  "Volume=%s;source-brick=%s;"
+                                  "destination-brick=%s",
+                                  (char *)words[2], (char *)words[3],
+                                  (char *)words[4]);
+                } else {
+                        gf_event (EVENT_BRICK_RESET_START,
+                                  "Volume=%s;source-brick=%s",
+                                  (char *)words[2], (char *)words[3]);
+                }
         }
-
         CLI_STACK_DESTROY (frame);
 
         return ret;
@@ -1921,14 +1929,14 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
 out:
         if (ret) {
-                gf_event (EVENT_BRICK_REPLACE, "Volume replace-brick failed.");
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume replace-brick failed");
         } else {
-                gf_event (EVENT_BRICK_RESET, "Volume replace-brick succeeded.");
+                gf_event (EVENT_BRICK_REPLACE,
+                          "Volume=%s;source-brick=%s;destination-brick=%s",
+                          (char *)words[2], (char *)words[3], (char *)words[4]);
         }
-
         CLI_STACK_DESTROY (frame);
 
         return ret;

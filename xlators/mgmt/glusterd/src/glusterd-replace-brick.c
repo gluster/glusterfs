@@ -146,11 +146,6 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 "Received %s request.",
                  gd_rb_op_to_str (cli_op));
 
-        gf_event ((op == GD_OP_REPLACE_BRICK) ? EVENT_BRICK_REPLACE :
-                  EVENT_BRICK_RESET, "received %s request. Source bricks %s,"
-                  "destination brick %s.", gd_rb_op_to_str (cli_op),
-                  src_brick, (dst_brick) ? dst_brick : "");
-
         ret = glusterd_mgmt_v3_initiate_replace_brick_cmd_phases (req,
                                                                   op, dict);
 
