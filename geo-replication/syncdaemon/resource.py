@@ -31,6 +31,7 @@ import shutil
 from gconf import gconf
 import repce
 from repce import RepceServer, RepceClient
+from master import gmaster_builder
 import syncdutils
 from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
@@ -1408,7 +1409,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
     def gmaster_instantiate_tuple(self, slave):
         """return a tuple of the 'one shot' and the 'main crawl'
         class instance"""
-        from master import gmaster_builder
         return (gmaster_builder('xsync')(self, slave),
                 gmaster_builder()(self, slave),
                 gmaster_builder('changeloghistory')(self, slave))
