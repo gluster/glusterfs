@@ -583,8 +583,7 @@ This package provides the translators needed on any GlusterFS client.
 Summary:          GlusterFS Events
 Group:            Applications/File
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         python python-fasteners python-requests python-flask
-Requires:         python-prettytable
+Requires:         python python-requests python-prettytable
 Requires:         python-gluster = %{version}-%{release}
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 Requires:         python-argparse
@@ -891,6 +890,13 @@ exit 0
 
 %postun api
 /sbin/ldconfig
+
+%postun events
+%if ( 0%{!?_without_events:1} )
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+%_init_restart glustereventsd
+%endif
+%endif
 
 %postun libs
 /sbin/ldconfig
@@ -1238,10 +1244,15 @@ exit 0
 %{_datadir}/glusterfs/scripts/eventsdash.py*
 %if ( 0%{?_with_systemd:1} )
 %{_unitdir}/glustereventsd.service
+%else
+%{_sysconfdir}/init.d/glustereventsd
 %endif
 %endif
 
 %changelog
+* Thu Sep 08 2016 Aravinda VK <avishwan@redhat.com>
+- Added init script for glustereventsd (#1365395)
+
 * Wed Aug 31 2016 Avra Sengupta <asengupt@redhat.com>
 - Added conf.py for snap scheduler
 

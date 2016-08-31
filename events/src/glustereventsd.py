@@ -15,12 +15,13 @@ import sys
 import signal
 import SocketServer
 import socket
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from eventtypes import all_events
 import handlers
 import utils
-from eventsapiconf import SERVER_ADDRESS
-from utils import logger
+from eventsapiconf import SERVER_ADDRESS, PID_FILE
+from utils import logger, PidFile, PidFileLockFailed
 
 
 class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
@@ -90,9 +91,23 @@ def init_event_server():
     server.serve_forever()
 
 
+def get_args():
+    parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter,
+                            description=__doc__)
+    parser.add_argument("-p", "--pid-file", help="PID File",
+                        default=PID_FILE)
+
+    return parser.parse_args()
+
+
 def main():
+    args = get_args()
     try:
-        init_event_server()
+        with PidFile(args.pid_file):
+            init_event_server()
+    except PidFileLockFailed as e:
+        sys.stderr.write("Failed to get lock for pid file({0}): {1}".format(
+            args.pid_file, e))
     except KeyboardInterrupt:
         sys.exit(1)
 

@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# $FreeBSD$
+#
+
+# PROVIDE: glustereventsd
+
+. /etc/rc.subr
+
+name="glustereventsd"
+rcvar=`set_rcvar`
+command=@prefix@/sbin/${name}
+command_interpreter=/usr/local/bin/python
+pidfile="/var/run/${name}.pid"
+glustereventsd_flags="-p /var/run/${name}.pid"
+start_cmd="/usr/sbin/daemon $command ${glustereventsd_flags}"
+
+load_rc_config $name
+run_rc_command "$1"

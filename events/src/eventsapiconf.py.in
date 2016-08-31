@@ -23,3 +23,4 @@ INT_CONFIGS = ["port"]
 RESTART_CONFIGS = ["port"]
 EVENTS_ENABLED = @EVENTS_ENABLED@
 UUID_FILE = "@GLUSTERD_WORKDIR@/glusterd.info"
+PID_FILE = "@localstatedir@/run/glustereventsd.pid"

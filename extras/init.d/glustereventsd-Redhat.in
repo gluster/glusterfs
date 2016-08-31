@@ -1,0 +1,129 @@
+#!/bin/bash
+#
+# glustereventsd   Startup script for the glusterfs Events server
+#
+# chkconfig:   - 20 80
+# description: Gluster Events Server
+
+### BEGIN INIT INFO
+# Provides: glustereventsd
+# Required-Start: $local_fs $network
+# Required-Stop: $local_fs $network
+# Should-Start:
+# Should-Stop:
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: glusterfs Events server
+# Description:       GlusterFS Events Server
+### END INIT INFO
+#
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+BASE=glustereventsd
+
+# Fedora File System Layout dictates /run
+[ -e /run ] && RUNDIR="/run"
+PIDFILE="${RUNDIR:-/var/run}/${BASE}.pid"
+
+PID=`test -f $PIDFILE && cat $PIDFILE`
+
+GLUSTEREVENTSD_BIN=@prefix@/sbin/$BASE
+GLUSTEREVENTSD_OPTS="--pid-file=$PIDFILE"
+GLUSTEREVENTSD="$GLUSTEREVENTSD_BIN $GLUSTEREVENTSD_OPTS"
+RETVAL=0
+
+LOCKFILE=/var/lock/subsys/${BASE}
+
+# Start the service $BASE
+start()
+{
+       if pidofproc -p $PIDFILE $GLUSTEREVENTSD_BIN &> /dev/null; then
+           echo "glustereventsd service is already running with pid $PID"
+           return 0
+       else
+           echo -n $"Starting $BASE:"
+           daemon $GLUSTEREVENTSD &
+           RETVAL=$?
+           echo
+           [ $RETVAL -eq 0 ] && touch $LOCKFILE
+           return $RETVAL
+       fi
+}
+
+# Stop the service $BASE
+stop()
+{
+    echo -n $"Stopping $BASE:"
+    if pidofproc -p $PIDFILE $GLUSTEREVENTSD_BIN &> /dev/null; then
+        killproc -p $PIDFILE $BASE
+    else
+        killproc $BASE
+    fi
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f $LOCKFILE
+    return $RETVAL
+}
+
+restart()
+{
+    stop
+    start
+}
+
+reload()
+{
+    restart
+}
+
+force_reload()
+{
+    restart
+}
+
+rh_status()
+{
+    status $BASE
+}
+
+rh_status_q()
+{
+    rh_status &>/dev/null
+}
+
+
+### service arguments ###
+case $1 in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 1
+esac
+
+exit $?

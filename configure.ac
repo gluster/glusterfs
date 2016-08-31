@@ -220,6 +220,8 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-FreeBSD
                 extras/init.d/glusterd-SuSE
+                extras/init.d/glustereventsd-Redhat
+                extras/init.d/glustereventsd-FreeBSD
                 extras/ganesha/Makefile
                 extras/ganesha/config/Makefile
                 extras/ganesha/scripts/Makefile
