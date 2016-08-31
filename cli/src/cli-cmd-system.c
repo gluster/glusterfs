@@ -319,9 +319,6 @@ out:
                         cli_out ("uuid get failed");
         }
 
-        if (dict)
-                dict_unref (dict);
-
         CLI_STACK_DESTROY (frame);
         return ret;
 }
