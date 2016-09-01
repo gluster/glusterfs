@@ -9,6 +9,7 @@
 */
 
 
+#include "events.h"
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"
@@ -274,6 +275,7 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
         int             i           = 0;
         int             type_idx    = -1;
         ia_type_t       inode_type  = IA_INVAL;
+        ia_type_t       inode_type1 = IA_INVAL;
         afr_private_t  *priv        = NULL;
 
         priv = this->private;
@@ -290,21 +292,32 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
                         type_idx = i;
                         continue;
                 }
-
+                inode_type1 = replies[i].poststat.ia_type;
                 if (sources[i] || source == -1) {
                         if ((sources[type_idx] || source == -1) &&
-                            (inode_type != replies[i].poststat.ia_type)) {
+                            (inode_type != inode_type1)) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         AFR_MSG_SPLIT_BRAIN,
                                         "Type mismatch for <gfid:%s>/%s: "
-                                        "%d on %s and %d on %s",
+                                        "%s on %s and %s on %s",
                                         uuid_utoa(pargfid), bname,
-                                        replies[i].poststat.ia_type,
+                                        gf_inode_type_to_str (inode_type1),
                                         priv->children[i]->name,
-                                        replies[type_idx].poststat.ia_type,
+                                        gf_inode_type_to_str (inode_type),
                                         priv->children[type_idx]->name);
-
-                                    return -EIO;
+                                gf_event (EVENT_AFR_SPLIT_BRAIN,
+                                         "subvol=%s;msg=file type mismatch;"
+                                         "file=<gfid:%s>/%s;count=2;"
+                                         "child-%d=%s;type-%d=%s;child-%d=%s;"
+                                         "type-%d=%s", this->name,
+                                         uuid_utoa (pargfid), bname, i,
+                                         priv->children[i]->name, i,
+                                         gf_inode_type_to_str (inode_type1),
+                                         type_idx,
+                                         priv->children[type_idx]->name,
+                                         type_idx,
+                                         gf_inode_type_to_str (inode_type));
+                                return -EIO;
                         }
                         inode_type = replies[i].poststat.ia_type;
                         type_idx = i;
@@ -322,6 +335,7 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
         int             i             = 0;
 	int             gfid_idx_iter = -1;
         void           *gfid          = NULL;
+        void           *gfid1         = NULL;
         afr_private_t  *priv          = NULL;
 	char g1[64], g2[64];
 
@@ -340,18 +354,31 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
 			continue;
 		}
 
+                gfid1 = &replies[i].poststat.ia_gfid;
 		if (sources[i] || source == -1) {
 			if ((sources[gfid_idx_iter] || source == -1) &&
-			    gf_uuid_compare (gfid, replies[i].poststat.ia_gfid)) {
+			    gf_uuid_compare (gfid, gfid1)) {
 			        gf_msg (this->name, GF_LOG_WARNING, 0,
                                         AFR_MSG_SPLIT_BRAIN,
 					"GFID mismatch for <gfid:%s>/%s "
 					"%s on %s and %s on %s",
 					uuid_utoa (pargfid), bname,
-					uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
+					uuid_utoa_r (gfid1, g1),
 					priv->children[i]->name,
-					uuid_utoa_r (replies[gfid_idx_iter].poststat.ia_gfid, g2),
+					uuid_utoa_r (gfid, g2),
 					priv->children[gfid_idx_iter]->name);
+                                gf_event (EVENT_AFR_SPLIT_BRAIN,
+                                        "subvol=%s;msg=gfid mismatch;"
+                                        "file=<gfid:%s>/%s;count=2;"
+                                        "child-%d=%s;gfid-%d=%s;child-%d=%s;"
+                                        "gfid-%d=%s", this->name,
+                                        uuid_utoa (pargfid), bname, i,
+                                        priv->children[i]->name, i,
+                                        uuid_utoa_r (gfid1, g1),
+                                        gfid_idx_iter,
+                                        priv->children[gfid_idx_iter]->name,
+                                        gfid_idx_iter,
+                                        uuid_utoa_r (gfid, g2));
 
 				return -EIO;
 			}
