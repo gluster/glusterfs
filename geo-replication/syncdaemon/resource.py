@@ -169,7 +169,13 @@ class Popen(subprocess.Popen):
                         except ValueError:  # file is already closed
                             time.sleep(0.5)
                             continue
-                        l = os.read(fd, 1024)
+
+                        try:
+                            l = os.read(fd, 1024)
+                        except OSError:
+                            time.sleep(0.5)
+                            continue
+
                         if not l:
                             continue
                         tots = len(l)
@@ -204,6 +210,7 @@ class Popen(subprocess.Popen):
             kw['close_fds'] = True
         self.lock = threading.Lock()
         self.on_death_row = False
+        self.elines = []
         try:
             sup(self, args, *a, **kw)
         except:
