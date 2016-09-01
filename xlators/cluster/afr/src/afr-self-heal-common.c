@@ -14,6 +14,7 @@
 #include "byte-order.h"
 #include "protocol-common.h"
 #include "afr-messages.h"
+#include "events.h"
 
 void
 afr_heal_synctask (xlator_t *this, afr_local_t *local);
@@ -1653,6 +1654,13 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				(int) replies[i].poststat.ia_type,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
+                        gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;"
+                                "msg=file type mismatch;gfid=%s;"
+                                "ia_type-%d=%s;ia_type-%d=%s",
+                                this->name,
+                                uuid_utoa (replies[i].poststat.ia_gfid), first,
+                                gf_inode_type_to_str (first.ia_type), i,
+                            gf_inode_type_to_str (replies[i].poststat.ia_type));
                         ret = -EIO;
                         goto out;
 		}

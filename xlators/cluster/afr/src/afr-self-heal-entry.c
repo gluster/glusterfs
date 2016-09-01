@@ -15,6 +15,7 @@
 #include "afr-transaction.h"
 #include "afr-messages.h"
 #include "syncop-utils.h"
+#include "events.h"
 
 /* Max file name length is 255 this filename is of length 256. No file with
  * this name can ever come, entry-lock with this name is going to prevent
@@ -240,13 +241,22 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                                   replies[i].poststat.ia_gfid)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 AFR_MSG_SPLIT_BRAIN, "Gfid mismatch "
-                                "detected for <%s/%s>, %s on %s and %s on %s. "
+                                "detected for <gfid:%s>/%s>, %s on %s and %s on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
                                 uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
                                 priv->children[i]->name,
                                 uuid_utoa_r (replies[src_idx].poststat.ia_gfid,
                                 g2), priv->children[src_idx]->name);
+                        gf_event (EVENT_AFR_SPLIT_BRAIN,
+                                 "subvol=%s;msg=gfid mismatch. Skipping "
+                                 "conservative merge.;file=<gfid:%s>/%s>;count=2;"
+                                 "child-%d=%s;gfid-%d=%s;child-%d=%s;gfid-%d=%s",
+                                 this->name, uuid_utoa (pargfid), bname, i,
+                                 priv->children[i]->name, i,
+                                 uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
+                                src_idx, priv->children[src_idx]->name, src_idx,
+                           uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2));
                         return -1;
                 }
 
@@ -254,13 +264,22 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                     (replies[i].poststat.ia_type)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 AFR_MSG_SPLIT_BRAIN, "Type mismatch "
-                                "detected for <%s/%s>, %d on %s and %d on %s. "
+                                "detected for <gfid:%s>/%s>, %s on %s and %s on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
-                                replies[i].poststat.ia_type,
+                             gf_inode_type_to_str (replies[i].poststat.ia_type),
                                 priv->children[i]->name,
-                                replies[src_idx].poststat.ia_type,
+                       gf_inode_type_to_str (replies[src_idx].poststat.ia_type),
                                 priv->children[src_idx]->name);
+                        gf_event (EVENT_AFR_SPLIT_BRAIN,
+                                 "subvol=%s;msg=file type mismatch. Skipping "
+                                 "conservative merge;file=<gfid:%s>/%s>;count=2;"
+                                 "child-%d=%s;type-%d=%s;child-%d=%s;type-%d=%s",
+                                 this->name, uuid_utoa (pargfid), bname, i,
+                                 priv->children[i]->name, i,
+                              gf_inode_type_to_str(replies[i].poststat.ia_type),
+                                src_idx, priv->children[src_idx]->name, src_idx,
+                       gf_inode_type_to_str(replies[src_idx].poststat.ia_type));
                         return -1;
                 }
         }

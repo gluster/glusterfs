@@ -31,6 +31,7 @@
 #include "byte-order.h"
 #include "statedump.h"
 #include "inode.h"
+#include "events.h"
 
 #include "fd.h"
 
@@ -4422,6 +4423,9 @@ afr_notify (xlator_t *this, int32_t event,
                                         AFR_MSG_SUBVOL_UP,
                                         "Subvolume '%s' came back up; "
                                      "going online.", ((xlator_t *)data)->name);
+                                gf_event (EVENT_AFR_SUBVOL_UP,
+                                          "subvol=%s", this->name);
+
                         } else {
                                 event = GF_EVENT_CHILD_MODIFIED;
                         }
@@ -4444,6 +4448,8 @@ afr_notify (xlator_t *this, int32_t event,
                                         AFR_MSG_SUBVOLS_DOWN,
                                        "All subvolumes are down. Going offline "
                                     "until atleast one of them comes back up.");
+                                gf_event (EVENT_AFR_SUBVOLS_DOWN,
+                                          "subvol=%s", this->name);
                         } else {
                                 event = GF_EVENT_SOME_CHILD_DOWN;
                         }
@@ -4495,13 +4501,19 @@ afr_notify (xlator_t *this, int32_t event,
 
         if (priv->quorum_count) {
                 has_quorum = afr_has_quorum (priv->child_up, this);
-                if (!had_quorum && has_quorum)
+                if (!had_quorum && has_quorum) {
                         gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
                                 "Client-quorum is met");
-                if (had_quorum && !has_quorum)
+                        gf_event  (EVENT_AFR_QUORUM_MET,
+                                   "subvol=%s", this->name);
+                }
+                if (had_quorum && !has_quorum) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 AFR_MSG_QUORUM_FAIL,
                                 "Client-quorum is not met");
+                        gf_event  (EVENT_AFR_QUORUM_FAIL, "subvol=%s",
+                                   this->name);
+                }
         }
 
         /* if all subvols have reported status, no need to hide anything
