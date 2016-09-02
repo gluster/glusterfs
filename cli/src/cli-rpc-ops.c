@@ -8152,7 +8152,7 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "Error outputting to xml");
-                                goto out;
+                                goto xml_end;
                         }
                 }
                 if (cmd & GF_CLI_STATUS_TASKS) {
@@ -8161,17 +8161,18 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR,"Error outputting "
                                         "to xml");
-                                goto out;
+                                goto xml_end;
                         }
                 } else {
                         ret = cli_xml_output_vol_status (local, dict);
                         if (ret) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "Error outputting to xml");
-                                goto out;
+                                goto xml_end;
                         }
                 }
 
+xml_end:
                 if (!local->all) {
                         ret = cli_xml_output_vol_status_end (local);
                         if (ret) {
@@ -8420,7 +8421,7 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");
-                        goto out;
+                        goto xml_end;
                 }
         }
 
@@ -8457,6 +8458,7 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 dict_unref (dict);
         }
 
+xml_end:
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_status_end (local);
         }
