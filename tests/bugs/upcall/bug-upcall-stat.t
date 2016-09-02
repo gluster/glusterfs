@@ -8,10 +8,11 @@ TEST glusterd;
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1};
 
-TEST $CLI volume set $V0 performance.md-cache-timeout 600
-TEST $CLI volume set $V0 performance.cache-samba-metadata on
 TEST $CLI volume set $V0 features.cache-invalidation on
 TEST $CLI volume set $V0 features.cache-invalidation-timeout 600
+TEST $CLI volume set $V0 performance.cache-invalidation on
+TEST $CLI volume set $V0 performance.md-cache-timeout 600
+TEST $CLI volume set $V0 performance.cache-samba-metadata on
 
 #TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
