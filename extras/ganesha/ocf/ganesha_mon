@@ -125,17 +125,21 @@ ganesha_mon_stop()
 ganesha_mon_monitor()
 {
 	local host=$(hostname -s)
-	local pid_file="/var/run/ganesha.nfsd.pid"
+	local pid_file="/var/run/ganesha.pid"
+	local rhel6_pid_file="/var/run/ganesha.nfsd.pid"
+	local proc_pid="/proc/"
 
 	# RHEL6 /etc/init.d/nfs-ganesha adds -p /var/run/ganesha.nfsd.pid
 	# RHEL7 systemd does not. Would be nice if all distros used the
 	# same pid file.
-	if [ -e /usr/lib/systemd/system/nfs-ganesha.service ]; then
-		pid_file="/var/run/ganesha.pid"
+	if [ -e ${rhel6_pid_file} ]; then
+		pid_file=${rhel6_pid_file}
+	fi
+	if [ -e ${pid_file} ]; then
+		proc_pid="${proc_pid}$(cat ${pid_file})"
 	fi
 
-	if [ -e ${pid_file} -a \
-	     -d /proc/$(cat ${pid_file} ) ]; then
+	if [ "x${proc_pid}" != "x/proc/" -a -d ${proc_pid} ]; then
 
 		attrd_updater -n ${OCF_RESKEY_ganesha_active} -v 1
 		if [ $? -ne 0 ]; then
