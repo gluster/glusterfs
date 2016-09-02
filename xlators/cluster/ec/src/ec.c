@@ -1210,6 +1210,13 @@ int32_t ec_gf_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 }
 
+int32_t ec_gf_ipc(call_frame_t *frame, xlator_t *this, int32_t op,
+                  dict_t *xdata)
+{
+    ec_ipc(frame, this, -1, EC_MINIMUM_MIN, default_ipc_cbk, NULL, op, xdata);
+    return 0;
+}
+
 int32_t ec_gf_forget(xlator_t * this, inode_t * inode)
 {
     uint64_t value = 0;
@@ -1325,7 +1332,8 @@ struct xlator_fops fops =
     .fallocate    = ec_gf_fallocate,
     .discard      = ec_gf_discard,
     .zerofill     = ec_gf_zerofill,
-    .seek         = ec_gf_seek
+    .seek         = ec_gf_seek,
+    .ipc          = ec_gf_ipc
 };
 
 struct xlator_cbks cbks =

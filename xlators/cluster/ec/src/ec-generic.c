@@ -1447,3 +1447,139 @@ out:
         func(frame, NULL, this, -1, error, NULL, NULL);
     }
 }
+
+/* FOP: IPC */
+
+int32_t ec_ipc_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
+                   int32_t op_ret, int32_t op_errno, dict_t * xdata)
+{
+    ec_fop_data_t * fop = NULL;
+    ec_cbk_data_t * cbk = NULL;
+    int32_t idx = (int32_t)(uintptr_t)cookie;
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = frame->local;
+
+    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
+             frame, op_ret, op_errno);
+
+    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_IPC, idx, op_ret,
+                               op_errno);
+
+    if (cbk != NULL)
+    {
+        if (xdata != NULL)
+        {
+            cbk->xdata = dict_ref(xdata);
+        }
+
+        ec_combine(cbk, NULL);
+    }
+
+out:
+    if (fop != NULL)
+    {
+        ec_complete(fop);
+    }
+
+    return 0;
+}
+
+void ec_wind_ipc(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
+{
+    ec_trace("WIND", fop, "idx=%d", idx);
+
+    STACK_WIND_COOKIE(fop->frame, ec_ipc_cbk, (void *)(uintptr_t)idx,
+                      ec->xl_list[idx], ec->xl_list[idx]->fops->ipc,
+                      fop->int32, fop->xdata);
+}
+
+int32_t ec_manager_ipc(ec_fop_data_t *fop, int32_t state)
+{
+    ec_cbk_data_t * cbk;
+
+    switch (state)
+    {
+        case EC_STATE_INIT:
+        case EC_STATE_DISPATCH:
+            ec_dispatch_all(fop);
+
+            return EC_STATE_PREPARE_ANSWER;
+
+        case EC_STATE_PREPARE_ANSWER:
+            ec_fop_prepare_answer(fop, _gf_true);
+
+            return EC_STATE_REPORT;
+
+        case EC_STATE_REPORT:
+            cbk = fop->answer;
+
+            GF_ASSERT(cbk != NULL);
+            if (fop->cbks.ipc != NULL)
+            {
+                fop->cbks.ipc(fop->req_frame, fop, fop->xl, cbk->op_ret,
+                               cbk->op_errno, cbk->xdata);
+            }
+
+            return EC_STATE_END;
+
+        case -EC_STATE_INIT:
+        case -EC_STATE_DISPATCH:
+        case -EC_STATE_PREPARE_ANSWER:
+        case -EC_STATE_REPORT:
+            GF_ASSERT(fop->error != 0);
+
+            if (fop->cbks.ipc != NULL)
+            {
+                fop->cbks.ipc(fop->req_frame, fop, fop->xl, -1, fop->error,
+                              NULL);
+            }
+
+            return EC_STATE_END;
+
+        default:
+            gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
+
+            return EC_STATE_END;
+    }
+}
+
+void ec_ipc(call_frame_t *frame, xlator_t *this, uintptr_t target,
+            int32_t minimum, fop_ipc_cbk_t func, void *data, int32_t op,
+            dict_t *xdata)
+{
+    ec_cbk_t callback = { .ipc = func };
+    ec_fop_data_t * fop = NULL;
+    int32_t error = ENOMEM;
+
+    gf_msg_trace ("ec", 0, "EC(IPC) %p", frame);
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_IPC, 0, target, minimum,
+                               ec_wind_ipc, ec_manager_ipc, callback, data);
+    if (fop == NULL) {
+        goto out;
+    }
+    if (xdata != NULL) {
+        fop->xdata = dict_ref(xdata);
+    }
+    fop->int32 = op;
+
+    error = 0;
+
+out:
+    if (fop != NULL) {
+        ec_manager(fop, error);
+    } else {
+        func(frame, NULL, this, -1, error, NULL);
+    }
+}
