@@ -201,6 +201,7 @@ union _ec_cbk {
     fop_fxattrop_cbk_t     fxattrop;
     fop_zerofill_cbk_t     zerofill;
     fop_seek_cbk_t         seek;
+    fop_ipc_cbk_t          ipc;
 };
 
 struct _ec_lock {
