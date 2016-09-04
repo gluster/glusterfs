@@ -434,7 +434,36 @@ upcall_reaper_thread_init (xlator_t *this)
         return ret;
 }
 
+
 int
+up_compare_afr_xattr (dict_t *d, char *k, data_t *v, void *tmp)
+{
+        dict_t *dict = tmp;
+
+        if (!strncmp (k, AFR_XATTR_PREFIX, strlen (AFR_XATTR_PREFIX))
+            && (!is_data_equal (v, dict_get (dict, k))))
+                return -1;
+
+        return 0;
+}
+
+
+static void
+up_filter_afr_xattr (dict_t *xattrs, char *xattr, data_t *v)
+{
+        /* Filter the afr pending xattrs, with value 0. Ideally this should
+         * be executed only in case of xattrop and not in set and removexattr,
+         * butset and remove xattr fops do not come with keys AFR_XATTR_PREFIX
+         */
+        if (!strncmp (xattr, AFR_XATTR_PREFIX, strlen (AFR_XATTR_PREFIX))
+            && (mem_0filled (v->data, v->len) == 0)) {
+                dict_del (xattrs, xattr);
+        }
+        return;
+}
+
+
+static int
 up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
                         void *regd_xattrs)
 {
@@ -443,10 +472,39 @@ up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
                  * send notification for its change
                  */
                 dict_del (xattrs, xattr);
+                goto out;
         }
-
+        up_filter_afr_xattr (xattrs, xattr, v);
+out:
         return 0;
 }
+
+
+int
+up_filter_xattr (dict_t *xattr, dict_t *regd_xattrs)
+{
+        int ret = 0;
+
+        /* Remove the xattrs from the dict, if they are not registered for
+         * cache invalidation */
+        ret = dict_foreach (xattr, up_filter_unregd_xattr, regd_xattrs);
+        return ret;
+}
+
+
+gf_boolean_t
+up_invalidate_needed (dict_t *xattrs)
+{
+        if (dict_key_count (xattrs) == 0) {
+                gf_msg_trace ("upcall", 0, "None of xattrs requested for"
+                              " invalidation, were changed. Nothing to "
+                              "invalidate");
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 
 /*
  * Given a client, first fetch upcall_entry_t from the inode_ctx client list.

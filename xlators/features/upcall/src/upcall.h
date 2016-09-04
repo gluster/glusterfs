@@ -132,6 +132,9 @@ void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      struct iatt *p_stbuf,
                                      struct iatt *oldp_stbuf, dict_t *xattr);
 
-int up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
-                            void *regd_xattrs);
+int up_filter_xattr (dict_t *xattr, dict_t *regd_xattrs);
+
+int up_compare_afr_xattr (dict_t *d, char *k, data_t *v, void *tmp);
+
+gf_boolean_t up_invalidate_needed (dict_t *xattrs);
 #endif /* __UPCALL_H__ */
