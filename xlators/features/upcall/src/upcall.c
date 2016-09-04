@@ -29,7 +29,7 @@
 #include "protocol-common.h"
 #include "defaults.h"
 
-int32_t
+static int32_t
 up_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -56,7 +56,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
 {
@@ -84,7 +84,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
@@ -111,7 +111,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
            struct iovec *vector, int count, off_t off, uint32_t flags,
            struct iobref *iobref, dict_t *xdata)
@@ -141,7 +141,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int op_ret, int op_errno,
               struct iovec *vector, int count, struct iatt *stbuf,
@@ -170,7 +170,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readv (call_frame_t *frame, xlator_t *this,
           fd_t *fd, size_t size, off_t offset,
           uint32_t flags, dict_t *xdata)
@@ -200,7 +200,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
            int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
            dict_t *xdata)
@@ -227,7 +227,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_lk (call_frame_t *frame, xlator_t *this,
        fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
@@ -254,7 +254,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
@@ -282,7 +282,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
              dict_t *xdata)
 {
@@ -310,7 +310,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno, struct iatt *statpre,
                 struct iatt *statpost, dict_t *xdata)
@@ -352,7 +352,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
@@ -381,7 +381,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
                struct iatt *preoldparent, struct iatt *postoldparent,
@@ -412,7 +412,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_rename (call_frame_t *frame, xlator_t *this,
           loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
@@ -443,7 +443,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
@@ -471,7 +471,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
            dict_t *xdata)
 {
@@ -499,7 +499,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int op_ret, int op_errno, inode_t *inode, struct iatt *stbuf,
              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
@@ -527,7 +527,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
          loc_t *newloc, dict_t *xdata)
 {
@@ -556,7 +556,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int op_ret, int op_errno, struct iatt *preparent,
               struct iatt *postparent, dict_t *xdata)
@@ -585,7 +585,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
           dict_t *xdata)
 {
@@ -613,7 +613,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int op_ret, int op_errno, inode_t *inode,
               struct iatt *stbuf, struct iatt *preparent,
@@ -644,7 +644,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_mkdir (call_frame_t *frame, xlator_t *this,
           loc_t *loc, mode_t mode, mode_t umask, dict_t *params)
 {
@@ -673,7 +673,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, fd_t *fd, inode_t *inode,
                struct iatt *stbuf, struct iatt *preparent,
@@ -705,7 +705,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_create (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int32_t flags, mode_t mode,
            mode_t umask, fd_t *fd, dict_t *params)
@@ -736,7 +736,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno,
                inode_t *inode, struct iatt *stbuf, dict_t *xattr,
@@ -765,7 +765,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_lookup (call_frame_t *frame, xlator_t *this,
            loc_t *loc, dict_t *xattr_req)
 {
@@ -794,7 +794,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_stat_cbk (call_frame_t *frame, void *cookie,
              xlator_t *this, int32_t op_ret, int32_t op_errno,
              struct iatt *buf, dict_t *xdata)
@@ -822,7 +822,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
         int32_t          op_errno        = -1;
@@ -849,7 +849,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_fstat (call_frame_t *frame, xlator_t *this,
           fd_t *fd, dict_t *xdata)
 {
@@ -877,7 +877,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_ftruncate (call_frame_t *frame, xlator_t *this,
               fd_t *fd, off_t offset, dict_t *xdata)
 {
@@ -906,7 +906,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, dict_t *xdata)
 {
@@ -932,7 +932,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_access (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int32_t mask, dict_t *xdata)
 {
@@ -960,7 +960,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, const char *path,
                  struct iatt *stbuf, dict_t *xdata)
@@ -988,7 +988,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readlink (call_frame_t *frame, xlator_t *this,
              loc_t *loc, size_t size, dict_t *xdata)
 {
@@ -1017,7 +1017,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, inode_t *inode,
               struct iatt *buf, struct iatt *preparent,
@@ -1048,7 +1048,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
           mode_t mode, dev_t rdev, mode_t umask, dict_t *xdata)
 {
@@ -1077,7 +1077,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
@@ -1108,7 +1108,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_symlink (call_frame_t   *frame, xlator_t *this,
             const char *linkpath, loc_t *loc, mode_t umask,
             dict_t *xdata)
@@ -1138,7 +1138,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd,
                 dict_t *xdata)
@@ -1165,7 +1165,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_opendir (call_frame_t *frame, xlator_t *this,
             loc_t *loc, fd_t *fd, dict_t *xdata)
 {
@@ -1193,7 +1193,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct statvfs *buf,
                dict_t *xdata)
@@ -1220,7 +1220,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_statfs (call_frame_t *frame, xlator_t *this,
            loc_t *loc, dict_t *xdata)
 {
@@ -1248,7 +1248,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                 dict_t *xdata)
@@ -1275,7 +1275,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readdir (call_frame_t  *frame, xlator_t *this,
             fd_t *fd, size_t size, off_t off, dict_t *xdata)
 {
@@ -1303,7 +1303,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                  dict_t *xdata)
@@ -1344,7 +1344,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_readdirp (call_frame_t *frame, xlator_t *this,
              fd_t *fd, size_t size, off_t off, dict_t *dict)
 {
@@ -1372,7 +1372,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
              struct iatt  *stbuf, int32_t valid, dict_t *xdata)
 {
@@ -1401,7 +1401,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *pre,
                  struct iatt *post, dict_t *xdata)
@@ -1429,7 +1429,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
              int32_t mode, off_t offset, size_t len, dict_t *xdata)
 {
@@ -1458,7 +1458,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *pre,
                struct iatt *post, dict_t *xdata)
@@ -1486,7 +1486,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_discard(call_frame_t *frame, xlator_t *this, fd_t *fd,
            off_t offset, size_t len, dict_t *xdata)
 {
@@ -1515,7 +1515,7 @@ err:
         return 0;
 }
 
-int32_t
+static int32_t
 up_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *pre,
                 struct iatt *post, dict_t *xdata)
@@ -1543,7 +1543,7 @@ out:
         return 0;
 }
 
-int
+static int
 up_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
             off_t offset, off_t len, dict_t *xdata)
 {
@@ -1573,7 +1573,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
              int op_errno, off_t offset, dict_t *xdata)
 {
@@ -1600,7 +1600,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
          gf_seek_what_t what, dict_t *xdata)
 {
@@ -1628,7 +1628,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1652,20 +1652,14 @@ up_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         flags = UP_XATTR;
-        /* Remove the xattrs from the dict, if they are not registered for
-         * cache invalidation */
-        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
         }
-
-        if (dict_key_count(local->xattr) == 0) {
-                gf_msg_trace (this->name, 0, "None of xattrs requested for"
-                              " invalidation, were changed. Nothing to "
-                              "invalidate");
-                goto out; /* nothing to invalidate */
-        }
+        if (!up_invalidate_needed (local->xattr))
+                goto out;
 
         ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf,
                            NULL, NULL);
@@ -1682,7 +1676,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
@@ -1721,7 +1715,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1745,20 +1739,14 @@ up_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         flags = UP_XATTR;
-         /* Remove the xattrs from the dict, if they are not registered for
-         * cache invalidation */
-        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
         }
-
-        if (dict_key_count(local->xattr) == 0) {
-                gf_msg_trace (this->name, 0, "None of xattrs requested for"
-                              " invalidation, were changed. Nothing to "
-                              "invalidate");
-                goto out; /* nothing to invalidate */
-        }
+        if (!up_invalidate_needed (local->xattr))
+                goto out;
 
         ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
                             NULL);
@@ -1775,7 +1763,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
               int32_t flags, dict_t *xdata)
 {
@@ -1814,7 +1802,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1838,20 +1826,13 @@ up_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         flags = UP_XATTR_RM;
 
-        /* Remove the xattrs from the dict, if they are not registered for
-         * cache invalidation */
-        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
         }
-
-        if (dict_key_count(local->xattr) == 0) {
-                gf_msg_trace (this->name, 0, "None of xattrs requested for"
-                              " invalidation, were changed. Nothing to "
-                              "invalidate");
-                goto out; /* nothing to invalidate */
-        }
+        if (!up_invalidate_needed (local->xattr))
+                goto out;
 
         ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
                             NULL);
@@ -1868,7 +1849,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  const char *name, dict_t *xdata)
 {
@@ -1903,7 +1884,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1927,20 +1908,13 @@ up_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         flags = UP_XATTR_RM;
 
-         /* Remove the xattrs from the dict, if they are not registered for
-         * cache invalidation */
-        ret = dict_foreach (local->xattr, up_filter_unregd_xattr, priv->xattrs);
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
         if (ret < 0) {
                 op_ret = ret;
                 goto out;
         }
-
-        if (dict_key_count(local->xattr) == 0) {
-                gf_msg_trace (this->name, 0, "None of xattrs requested for"
-                              " invalidation, were changed. Nothing to "
-                              "invalidate");
-                goto out; /* nothing to invalidate */
-        }
+        if (!up_invalidate_needed (local->xattr))
+                goto out;
 
         ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf, NULL,
                            NULL);
@@ -1957,7 +1931,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
@@ -1992,7 +1966,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *dict,
                   dict_t *xdata)
@@ -2021,7 +1995,7 @@ out:
 }
 
 
-int32_t
+static int32_t
 up_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
               const char *name, dict_t *xdata)
 {
@@ -2048,7 +2022,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 up_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict,
                  dict_t *xdata)
@@ -2076,7 +2050,7 @@ out:
         return 0;
 }
 
-int32_t
+static int32_t
 up_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              const char *name, dict_t *xdata)
 {
@@ -2099,6 +2073,141 @@ out:
 err:
         UPCALL_STACK_UNWIND (getxattr, frame, -1, op_errno,
                              NULL, NULL);
+        return 0;
+}
+
+
+/* The xattrops here mainly tracks changes in afr pending xattr.
+ *    1. xattrop doesn't carry info saying post op/pre op.
+ *    2. Pre xattrop will have 0 value for all pending xattrs,
+ *       the cbk of pre xattrop carries the on-disk xattr value.
+ *       Non zero on-disk xattr indicates pending healing.
+ *    3. Post xattrop will either have 0 or 1 as value of pending xattrs,
+ *       0 on success, 1 on failure. But the post xattrop cbk will have
+ *       0 or 1 or any higher value.
+ *       0 - if no healing required*
+ *       1 - if this is the first time pending xattr is being set.
+ *       n - if there is already a pending xattr set, it will increment
+ *       the on-disk value and send that in cbk.
+ * Our aim is to send an invalidation, only the first time a pending
+ * xattr was set on a file. Below are some of the exceptions in handling
+ * xattrop:
+ * - Do not filter unregistered xattrs in the cbk, but in the call path.
+ *   Else, we will be invalidating on every preop, if the file already has
+ *   pending xattr set. Filtering unregistered xattrs on the fop path
+ *   ensures we invalidate only in postop, everytime a postop comes with
+ *   pending xattr value 1.
+ * - Consider a brick is down, and the postop sets pending xattrs as long
+ *   as the other brick is down. But we do not want to invalidate everytime
+ *   a pending xattr is set, but we wan't to inalidate only the first time
+ *   a pending xattr is set on any file. Hence, to identify if its the first
+ *   time a pending xattr is set, we compare the value of pending xattrs that
+ *   came in postop and postop cbk, if its same then its the first time.
+ */
+static int32_t
+up_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+{
+        client_t         *client        = NULL;
+        upcall_local_t   *local         = NULL;
+
+        EXIT_IF_UPCALL_OFF (this, out);
+
+        client = frame->root->client;
+        local = frame->local;
+
+        if ((op_ret < 0) || !local) {
+                goto out;
+        }
+
+        if (up_invalidate_needed (local->xattr)) {
+                if (dict_foreach (local->xattr, up_compare_afr_xattr, dict) < 0)
+                        goto out;
+
+                upcall_cache_invalidate (frame, this, client, local->inode,
+                                         UP_XATTR, NULL, NULL, NULL,
+                                         local->xattr);
+        }
+out:
+        if (frame->root->op == GF_FOP_FXATTROP) {
+                UPCALL_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, dict,
+                                     xdata);
+        } else {
+                UPCALL_STACK_UNWIND (xattrop, frame, op_ret, op_errno, dict,
+                xdata);
+        }
+        return 0;
+}
+
+
+static int32_t
+up_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
+{
+        int32_t          op_errno        = -1;
+        upcall_local_t   *local          = NULL;
+        int              ret             = 0;
+        upcall_private_t *priv           = NULL;
+
+        EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        local = upcall_local_init (frame, this, loc, NULL, loc->inode, xattr);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
+        if (ret < 0) {
+                goto err;
+        }
+
+out:
+        STACK_WIND (frame, up_xattrop_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->xattrop, loc, optype, xattr,
+                    xdata);
+        return 0;
+err:
+        UPCALL_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
+        return 0;
+}
+
+
+static int32_t
+up_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
+             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
+{
+        int32_t          op_errno        = -1;
+        upcall_local_t   *local          = NULL;
+        int              ret             = 0;
+        upcall_private_t *priv           = NULL;
+
+        EXIT_IF_UPCALL_OFF (this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        local = upcall_local_init (frame, this, NULL, fd, fd->inode, xattr);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        ret = up_filter_xattr (local->xattr, priv->xattrs);
+        if (ret < 0) {
+                goto err;
+        }
+
+out:
+        STACK_WIND (frame, up_xattrop_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fxattrop, fd, optype, xattr,
+                    xdata);
+        return 0;
+err:
+        STACK_UNWIND_STRICT (fxattrop, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2151,7 +2260,7 @@ upcall_local_init (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
         local->inode = inode_ref (inode);
         if (xattr)
-                local->xattr = dict_ref (xattr);
+                local->xattr = dict_copy_with_ref (xattr, NULL);
 
         /* Shall we get inode_ctx and store it here itself? */
         local->upcall_inode_ctx = upcall_inode_ctx_get (inode, this);
@@ -2430,6 +2539,8 @@ struct xlator_fops fops = {
         .fgetxattr   = up_fgetxattr,
         .fremovexattr = up_fremovexattr,
         .removexattr = up_removexattr,
+        .xattrop     = up_xattrop,
+        .fxattrop    = up_fxattrop,
 
 #ifdef NOT_SUPPORTED
         /* internal lk fops */
@@ -2444,9 +2555,6 @@ struct xlator_fops fops = {
         .flush       = up_flush,
         .fsync       = up_fsync,
         .fsyncdir    = up_fsyncdir,
-
-        .xattrop     = up_xattrop,
-        .fxattrop    = up_fxattrop,
 #endif
 };
 

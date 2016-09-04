@@ -32,7 +32,7 @@
 #include "statedump.h"
 #include "inode.h"
 #include "events.h"
-
+#include "upcall-utils.h"
 #include "fd.h"
 
 #include "afr-inode-read.h"
@@ -4233,6 +4233,14 @@ afr_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
                 goto err;
 
         call_cnt = local->call_count;
+
+        if (xdata) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (dict_set_int8 (xdata, priv->pending_key[i], 0) < 0)
+                                goto err;
+                }
+        }
+
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->child_up[i])
                         continue;
@@ -4470,6 +4478,10 @@ afr_notify (xlator_t *this, int32_t event,
         dict_t          *output             = NULL;
         gf_boolean_t    had_quorum          = _gf_false;
         gf_boolean_t    has_quorum          = _gf_false;
+        struct gf_upcall *up_data           = NULL;
+        struct gf_upcall_cache_invalidation *up_ci = NULL;
+        inode_table_t  *itable              = NULL;
+        inode_t        *inode               = NULL;
 
         priv = this->private;
 
@@ -4590,7 +4602,34 @@ afr_notify (xlator_t *this, int32_t event,
                 case GF_EVENT_SOME_CHILD_DOWN:
                         priv->last_event[idx] = event;
                         break;
+                case GF_EVENT_UPCALL:
+                        up_data = (struct gf_upcall *)data;
+                        if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
+                                break;
+                        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
 
+                        /* Since md-cache will be aggressively filtering
+                         * lookups, the stale read issue will be more
+                         * pronounced. Hence when a pending xattr is set notify
+                         * all the md-cache clients to invalidate the existing
+                         * stat cache and send the lookup next time */
+                        if (up_ci->dict) {
+                                for (i = 0; i < priv->child_count; i++) {
+                                        if (dict_get (up_ci->dict, priv->pending_key[i])) {
+                                                 ret = dict_set_int8 (up_ci->dict,
+                                                                      MDC_INVALIDATE_IATT , 0);
+                                                 break;
+                                        }
+                                }
+                        }
+                        itable = ((xlator_t *)this->graph->top)->itable;
+                       /*Internal processes may not have itable for top xlator*/
+                        if (itable)
+                                inode = inode_find (itable, up_data->gfid);
+                        if (inode)
+                                afr_inode_read_subvol_reset (inode, this);
+
+                        break;
                 default:
                         propagate = 1;
                         break;
