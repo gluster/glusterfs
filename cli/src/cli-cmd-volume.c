@@ -317,7 +317,7 @@ out:
 
         CLI_STACK_DESTROY (frame);
 
-        if (ret == 0) {
+        if (ret == 0 && GF_ANSWER_YES == answer) {
                 gf_event (EVENT_VOLUME_DELETE, "name=%s", (char *)words[2]);
         }
 
@@ -396,7 +396,8 @@ out:
         CLI_STACK_DESTROY (frame);
 
         if (ret == 0) {
-                gf_event (EVENT_VOLUME_START, "name=%s", (char *)words[2]);
+                gf_event (EVENT_VOLUME_START, "name=%s;force=%d",
+                          (char *)words[2], (flags & GF_CLI_FLAG_OP_FORCE));
         }
 
         return ret;
@@ -531,8 +532,9 @@ out:
 
         CLI_STACK_DESTROY (frame);
 
-        if (ret == 0) {
-                gf_event (EVENT_VOLUME_STOP, "name=%s", (char *)words[2]);
+        if (ret == 0 && GF_ANSWER_YES == answer) {
+                gf_event (EVENT_VOLUME_STOP, "name=%s;force=%d",
+                          (char *)words[2], (flags & GF_CLI_FLAG_OP_FORCE));
         }
 
         return ret;
