@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
+#include "events.h"
 
 
 #define GF_DISK_SECTOR_SIZE             512
@@ -4078,6 +4079,8 @@ gf_defrag_check_pause_tier (gf_tier_conf_t *tier_conf)
         gf_msg ("tier", GF_LOG_DEBUG, 0,
                 DHT_MSG_TIER_PAUSED,
                 "woken %d", woke);
+
+        gf_event (EVENT_TIER_PAUSE, "vol=%s", tier_conf->volname);
 out:
         state = tier_conf->pause_state;
 
@@ -4173,6 +4176,8 @@ gf_defrag_resume_tier (xlator_t *this, gf_defrag_info_t *defrag)
                 "Pause end. Resume tiering");
 
         gf_defrag_set_pause_state (&defrag->tier_conf, TIER_RUNNING);
+
+        gf_event (EVENT_TIER_RESUME, "vol=%s", defrag->tier_conf.volname);
 
         return 0;
 }

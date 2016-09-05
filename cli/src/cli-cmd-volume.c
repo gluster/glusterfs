@@ -1117,6 +1117,7 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         rpc_clnt_procedure_t    *proc    = NULL;
         cli_local_t             *local   = NULL;
         int                      i       = 0;
+        eventtypes_t            event    = EVENT_LAST;
 
         if (wordcount < 4) {
                 cli_usage_out (word->pattern);
@@ -1135,6 +1136,15 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 
                 ret = do_cli_cmd_volume_detach_tier (state, word,
                                                      words, wordcount-1);
+                if (!strcmp (words[wordcount-2], "commit")) {
+                        event = EVENT_TIER_DETACH_COMMIT;
+                } else if (!strcmp (words[wordcount-2], "start")) {
+                        event = EVENT_TIER_DETACH_START;
+                } else if (!strcmp (words[wordcount-2], "stop")) {
+                        event = EVENT_TIER_DETACH_STOP;
+                } else if (!strcmp (words[wordcount-2], "force")) {
+                        event = EVENT_TIER_DETACH_FORCE;
+                }
                 goto out;
 
         } else if (!strcmp(words[1], "attach-tier")) {
@@ -1147,6 +1157,11 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 
                 ret = do_cli_cmd_volume_attach_tier (state, word,
                                                      words, wordcount-1);
+                if (!strcmp (words[wordcount-2], "force")) {
+                        event = EVENT_TIER_ATTACH_FORCE;
+                } else {
+                        event = EVENT_TIER_ATTACH;
+                }
                 goto out;
         }
 
@@ -1171,6 +1186,10 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 out:
         if (ret) {
                 cli_out ("Tier command failed");
+        } else {
+                if (event != EVENT_LAST) {
+                        gf_event (event, "vol=%s", words[2]);
+                }
         }
         if (options)
                 dict_unref (options);
@@ -2941,8 +2960,8 @@ struct cli_cmd volume_cmds[] = {
 #if !defined(__NetBSD__)
         { "volume tier <VOLNAME> status\n"
         "volume tier <VOLNAME> start [force]\n"
-        "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>...\n"
-        "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
+        "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... [force]\n"
+        "volume tier <VOLNAME> detach <start|stop|status|commit|force>\n",
         cli_cmd_volume_tier_cbk,
         "Tier translator specific operations."},
 

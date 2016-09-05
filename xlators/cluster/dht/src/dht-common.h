@@ -18,6 +18,7 @@
 #include "syncop.h"
 #include "refcount.h"
 #include "timer.h"
+#include "protocol-common.h"
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -432,6 +433,7 @@ typedef struct gf_tier_conf {
          * in the last cycle of promote or demote */
         int32_t last_promote_qfile_index;
         int32_t last_demote_qfile_index;
+        char                         volname[GD_VOLUME_NAME_MAX + 1];
 } gf_tier_conf_t;
 
 struct gf_defrag_info_ {
