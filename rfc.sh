@@ -100,9 +100,9 @@ check_patches_for_coding_style()
 {
     git fetch origin;
 
-    check_patch_script=./extras/checkpatch.pl
-    if [ ! -e ./extras/checkpatch.pl ] ; then
-        echo "checkpatch is not executable .. abort"
+    check_patch_script=./build-aux/checkpatch.pl
+    if [ ! -e ${check_patch_script} ] ; then
+        echo "${check_patch_script} is not executable .. abort"
         exit 1
     fi
 
@@ -118,13 +118,13 @@ check_patches_for_coding_style()
     if [ "$RES" -eq 1 ] ; then
         echo "Errors caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ./extras/checkpatch.pl --gerrit-url ${GERRIT_URL} -"
+        echo "  | ${check_patch_script} --gerrit-url ${GERRIT_URL} -"
         echo "and correct errors"
         exit 1
     elif [ "$RES" -eq 2 ] ; then
         echo "Warnings caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ./extras/checkpatch.pl --gerrit-url ${GERRIT_URL} -"
+        echo "  | ${check_patch_script} --gerrit-url ${GERRIT_URL} -"
         echo -n "Do you want to continue anyway [no/yes]: "
         read yesno
         if [ "${yesno}" != "yes" ] ; then
