@@ -14,6 +14,7 @@
 #include "tier.h"
 #include "tier-common.h"
 #include "syscall.h"
+#include "events.h"
 
 /*Hard coded DB info*/
 static gfdb_db_type_t dht_tier_db_type = GFDB_SQLITE3;
@@ -321,6 +322,36 @@ exit:
         return ret;
 }
 
+static void
+tier_send_watermark_event (const char *volname,
+                           tier_watermark_op_t old_wm,
+                           tier_watermark_op_t new_wm)
+{
+        if (old_wm == TIER_WM_LOW || old_wm == TIER_WM_NONE) {
+                if (new_wm == TIER_WM_MID) {
+                        gf_event (EVENT_TIER_WATERMARK_RAISED_TO_MID,
+                                  "vol=%s", volname);
+                } else if (new_wm == TIER_WM_HI) {
+                        gf_event (EVENT_TIER_WATERMARK_HI, "vol=%s", volname);
+                }
+        } else if (old_wm == TIER_WM_MID) {
+                if (new_wm == TIER_WM_LOW) {
+                        gf_event (EVENT_TIER_WATERMARK_DROPPED_TO_LOW,
+                                  "vol=%s", volname);
+                } else if (new_wm == TIER_WM_HI) {
+                        gf_event (EVENT_TIER_WATERMARK_HI, "vol=%s", volname);
+                }
+        } else if (old_wm == TIER_WM_HI) {
+                if (new_wm == TIER_WM_MID) {
+                        gf_event (EVENT_TIER_WATERMARK_DROPPED_TO_MID,
+                                  "vol=%s", volname);
+                } else if (new_wm == TIER_WM_LOW) {
+                        gf_event (EVENT_TIER_WATERMARK_DROPPED_TO_LOW,
+                                  "vol=%s", volname);
+                }
+        }
+}
+
 int
 tier_check_watermark (xlator_t *this)
 {
@@ -351,6 +382,10 @@ tier_check_watermark (xlator_t *this)
         }
 
         if (wm != tier_conf->watermark_last) {
+
+                tier_send_watermark_event (tier_conf->volname,
+                                           tier_conf->watermark_last,
+                                           wm);
 
                 tier_conf->watermark_last = wm;
                 gf_msg (this->name, GF_LOG_INFO, 0,
@@ -2623,6 +2658,33 @@ err:
         return ret;
 }
 
+
+static void
+tier_save_vol_name (xlator_t *this)
+{
+        dht_conf_t       *conf           = NULL;
+        gf_defrag_info_t *defrag         = NULL;
+        char             *suffix         = NULL;
+        int               name_len       = 0;
+
+
+        conf = this->private;
+        defrag = conf->defrag;
+
+        suffix = strstr (this->name, "-tier-dht");
+
+        if (suffix)
+                name_len = suffix - this->name;
+        else
+                name_len = strlen (this->name);
+
+        if (name_len > GD_VOLUME_NAME_MAX)
+                name_len = GD_VOLUME_NAME_MAX;
+
+        strncpy (defrag->tier_conf.volname, this->name, name_len);
+        defrag->tier_conf.volname[name_len] = 0;
+}
+
 int
 tier_init (xlator_t *this)
 {
@@ -2859,6 +2921,8 @@ tier_init (xlator_t *this)
                defrag->tier_conf.tier_demote_frequency,
                defrag->write_freq_threshold,
                defrag->read_freq_threshold);
+
+        tier_save_vol_name (this);
 
         ret = 0;
 

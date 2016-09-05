@@ -36,6 +36,7 @@ noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h dht-helper.h tier-c
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/libglusterfs/src/gfdb \
 	-I$(top_srcdir)/xlators/lib/src \
+	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-DDATADIR=\"$(localstatedir)\" \
 	-DLIBDIR=\"$(libdir)\" \
 	-DLIBGFDB_VERSION=\"$(LIBGFDB_VERSION)\"
