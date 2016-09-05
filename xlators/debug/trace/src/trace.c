@@ -2300,7 +2300,7 @@ trace_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 snprintf (string, sizeof (string),
                           "%"PRId64": gfid=%s fd=%p, count=%d, "
-                          " offset=%"PRId64" flags=0%x write_size=%lu",
+                          " offset=%"PRId64" flags=0%x write_size=%zu",
                           frame->root->unique,
                           uuid_utoa (fd->inode->gfid), fd, count,
                           offset, flags, total_size);

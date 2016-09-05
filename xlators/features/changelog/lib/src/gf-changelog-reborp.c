@@ -350,7 +350,7 @@ gf_changelog_event_handler (rpcsvc_request_t *req,
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                "seq: %lu [%s] (time: %lu.%lu), (vec: %d, len: %ld)",
+                "seq: %lu [%s] (time: %lu.%lu), (vec: %d, len: %zd)",
                 rpc_req.seq, entry->brick, rpc_req.tv_sec,
                 rpc_req.tv_usec, payloadcnt, payloadlen);
 
