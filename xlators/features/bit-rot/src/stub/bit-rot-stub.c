@@ -2631,6 +2631,18 @@ br_stub_handle_lookup_error (xlator_t *this, inode_t *inode, int32_t op_errno)
         }
         UNLOCK (&inode->lock);
 
+        if (__br_stub_is_bad_object (ctx)) {
+                /* File is not present, might be deleted for recovery,
+                 * del the bitrot inode context
+                 */
+                ctx_addr = 0;
+                inode_ctx_del (inode, this, &ctx_addr);
+                if (ctx_addr) {
+                        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
+                        GF_FREE (ctx);
+                }
+        }
+
 out:
         return;
 }

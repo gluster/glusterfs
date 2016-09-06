@@ -16,10 +16,6 @@ function get_node_uuid {
         getfattr -n trusted.glusterfs.node-uuid --only-values $M0/FILE1 2>/dev/null
 }
 
-function get_quarantine_count {
-        ls -l "$B1/.glusterfs/quanrantine" | wc -l
-}
-
 cleanup;
 
 TEST launch_cluster 2
@@ -64,7 +60,7 @@ TEST touch "$B1/.glusterfs/quanrantine/$gfid1"
 TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid1"
 TEST touch "$B1/.glusterfs/quanrantine/$gfid2"
 TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid2"
-EXPECT "4" get_quarantine_count;
+EXPECT "4" get_quarantine_count "$B1";
 
 TEST $CLI_1 volume stop $V0
 TEST $CLI_1 volume start $V0
