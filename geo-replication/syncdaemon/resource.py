@@ -546,7 +546,8 @@ class Server(object):
                    [path,
                     '.'.join([cls.GX_NSPACE, uuid, 'stime']),
                     struct.pack('!II', *mark)],
-                   [ENOENT])
+                   [ENOENT],
+                   [ESTALE, EINVAL])
 
     @classmethod
     @_pathguard
@@ -556,7 +557,8 @@ class Server(object):
                    [path,
                     '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
                     struct.pack('!II', *mark)],
-                   [ENOENT])
+                   [ENOENT],
+                   [ESTALE, EINVAL])
 
     @classmethod
     @_pathguard
