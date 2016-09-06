@@ -17,6 +17,7 @@ mkdir -p $H0:$B0/${V0}3
 TEST $CLI volume create $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 $H0:$B0/${V0}2
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status';
+TEST $CLI volume set $V0 cluster.weighted-rebalance off
 
 # Force assignment of initial ranges.
 TEST $CLI volume rebalance $V0 fix-layout start

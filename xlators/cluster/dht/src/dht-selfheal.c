@@ -1702,6 +1702,7 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         dht_local_t  *local        = NULL;
         uint32_t      subvol_down  = 0;
         int           ret          = 0;
+        gf_boolean_t  maximize_overlap = _gf_true;
 
         this  = frame->this;
         priv  = this->private;
@@ -1748,9 +1749,18 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                                 "subvolume %d (%s): %u chunks", i,
                                 priv->subvolumes[i]->name,
                                 priv->du_stats[i].chunks);
+
+                        /* Maximize overlap if the bricks are all the same
+                         *  size.
+                         * This is probably not going to be very common on
+                         * live setups but will benefit our regression tests
+                         */
+                        if (i && (priv->du_stats[i].chunks
+                                  != priv->du_stats[0].chunks)) {
+                                maximize_overlap = _gf_false;
+                        }
                 }
-        }
-        else {
+        } else {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_NO_DISK_USAGE_STATUS, "no du stats ?!?");
         }
@@ -1760,9 +1770,16 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         dht_layout_sort_volname (new_layout);
 	dht_selfheal_layout_new_directory (frame, loc, new_layout);
 
-	/* Now selectively re-assign ranges only when it helps */
-	dht_selfheal_layout_maximize_overlap (frame, loc, new_layout, layout);
 
+        /* Maximize overlap if weighted-rebalance is disabled */
+        if (!priv->do_weighting)
+                maximize_overlap = _gf_true;
+
+	/* Now selectively re-assign ranges only when it helps */
+        if (maximize_overlap) {
+                dht_selfheal_layout_maximize_overlap (frame, loc, new_layout,
+                                                      layout);
+        }
 done:
         if (new_layout) {
                 /* Now that the new layout has all the proper layout, change the
