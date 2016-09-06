@@ -31,6 +31,7 @@
 #include <alloca.h>
 #endif /* GF_BSD_HOST_OS */
 
+#include <fnmatch.h>
 #include "glusterfs.h"
 #include "checksum.h"
 #include "dict.h"
@@ -49,7 +50,7 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 #include "glusterfs-acl.h"
-#include <fnmatch.h>
+#include "events.h"
 
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
                          "trusted.glusterfs.*.xtime",
@@ -1737,6 +1738,8 @@ posix_fs_health_check (xlator_t *this)
         time_t  time_sec                = {0,};
         char    buff[64]                = {0};
         char    file_path[PATH_MAX]     = {0};
+        char    *op                     = NULL;
+        int     op_errno                = 0;
 
         GF_VALIDATE_OR_GOTO (this->name, this, out);
         priv = this->private;
@@ -1752,16 +1755,14 @@ posix_fs_health_check (xlator_t *this)
 
         fd = open (file_path, O_CREAT|O_RDWR, 0644);
         if (fd == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HEALTHCHECK_FAILED,
-                        "open() on %s returned", file_path);
+                op_errno = errno;
+                op = "open";
                 goto out;
         }
         nofbytes = sys_write (fd, timestamp, timelen);
-        if (nofbytes != timelen) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HEALTHCHECK_FAILED,
-                        "write() on %s returned", file_path);
+        if (nofbytes < 0) {
+                op_errno = errno;
+                op = "write";
                 goto out;
         }
         /* Seek the offset to the beginning of the file, so that the offset for
@@ -1769,15 +1770,22 @@ posix_fs_health_check (xlator_t *this)
         sys_lseek(fd, 0, SEEK_SET);
         nofbytes = sys_read (fd, buff, timelen);
         if (nofbytes == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_HEALTHCHECK_FAILED,
-                        "read() on %s returned", file_path);
+                op_errno = errno;
+                op = "read";
                 goto out;
         }
         ret = 0;
 out:
         if (fd != -1) {
                 sys_close (fd);
+        }
+        if (ret && file_path[0]) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_HEALTHCHECK_FAILED,
+                        "%s() on %s returned", op, file_path);
+                gf_event (EVENT_POSIX_HEALTH_CHECK_FAILED,
+                          "op=%s;path=%s;error=%s;brick=%s:%s", op, file_path,
+                          op_errno, priv->hostname, priv->base_path);
         }
         return ret;
 
@@ -1814,14 +1822,8 @@ posix_health_check_thread_proc (void *data)
 
                 /* Do the health-check.*/
                 ret = posix_fs_health_check (this);
-
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HEALTHCHECK_FAILED,
-                                "health_check on %s returned",
-                                priv->base_path);
+                if (ret < 0)
                         goto abort;
-                }
 
                 pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
@@ -1841,6 +1843,7 @@ abort:
         /* health-check failed */
         gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
                 "health-check failed, going down");
+
         xlator_notify (this->parents->xlator, GF_EVENT_CHILD_DOWN, this);
 
         ret = sleep (30);

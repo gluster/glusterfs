@@ -56,6 +56,7 @@
 #include "posix-aio.h"
 #include "glusterfs-acl.h"
 #include "posix-messages.h"
+#include "events.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -1485,6 +1486,12 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                 "and this can lead to inconsistencies.",
                                 loc->path, uuid_utoa (uuid_req),
                                 gfid_path ? gfid_path : "<NULL>");
+
+                        gf_event (EVENT_POSIX_SAME_GFID, "gfid=%s;path=%s;"
+                                  "newpath=%s;brick=%s:%s",
+                                  uuid_utoa (uuid_req),
+                                  gfid_path ? gfid_path : "<NULL>", loc->path,
+                                  priv->hostname, priv->base_path);
                 }
         } else if (!uuid_req && frame->root->pid != GF_SERVER_PID_TRASH) {
                 op_ret = -1;
@@ -6844,6 +6851,31 @@ init (xlator_t *this)
                 goto out;
         }
 
+        _private = GF_CALLOC (1, sizeof (*_private),
+                              gf_posix_mt_posix_private);
+        if (!_private) {
+                ret = -1;
+                goto out;
+        }
+
+        _private->base_path = gf_strdup (dir_data->data);
+        _private->base_path_length = strlen (_private->base_path);
+
+        ret = dict_get_str (this->options, "hostname", &_private->hostname);
+        if (ret) {
+                _private->hostname = GF_CALLOC (256, sizeof (char),
+                                                gf_common_mt_char);
+                if (!_private->hostname) {
+                        goto out;
+                }
+                ret = gethostname (_private->hostname, 256);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_HOSTNAME_MISSING,
+                                "could not find hostname ");
+                }
+        }
+
         /* Check for Extended attribute support, if not present, log it */
         op_ret = sys_lsetxattr (dir_data->data,
                                 "trusted.glusterfs.test", "working", 8, 0);
@@ -6904,6 +6936,10 @@ init (xlator_t *this)
                                         "mismatching volume-id (%s) received. "
                                         "already is a part of volume %s ",
                                         tmp_data->data, uuid_utoa (old_uuid));
+                                gf_event (EVENT_POSIX_ALREADY_PART_OF_VOLUME,
+                                        "volume-id=%s;brick=%s:%s",
+                                        uuid_utoa (old_uuid),
+                                       _private->hostname, _private->base_path);
                                 ret = -1;
                                 goto out;
                         }
@@ -6913,12 +6949,18 @@ init (xlator_t *this)
                                         P_MSG_VOLUME_ID_ABSENT,
                                         "Extended attribute trusted.glusterfs."
                                         "volume-id is absent");
+                                gf_event (EVENT_POSIX_BRICK_NOT_IN_VOLUME,
+                                        "brick=%s:%s",
+                                       _private->hostname, _private->base_path);
                                 ret = -1;
                                 goto out;
 
                 }  else if ((size == -1) && (errno != ENODATA) &&
                             (errno != ENOATTR)) {
                         /* Wrong 'volume-id' is set, it should be error */
+                        gf_event (EVENT_POSIX_BRICK_VERIFICATION_FAILED,
+                                "brick=%s:%s",
+                                _private->hostname, _private->base_path);
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_VOLUME_ID_FETCH_FAILED,
                                 "%s: failed to fetch volume-id",
@@ -6927,6 +6969,9 @@ init (xlator_t *this)
                         goto out;
                 } else {
                         ret = -1;
+                        gf_event (EVENT_POSIX_BRICK_VERIFICATION_FAILED,
+                                "brick=%s:%s",
+                                _private->hostname, _private->base_path);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 P_MSG_VOLUME_ID_FETCH_FAILED,
                                 "failed to fetch proper volume id from export");
@@ -6977,23 +7022,17 @@ init (xlator_t *this)
                 }
         }
 
+        ret = 0;
+
         size = sys_lgetxattr (dir_data->data, POSIX_ACL_ACCESS_XATTR,
                               NULL, 0);
-        if ((size < 0) && (errno == ENOTSUP))
+        if ((size < 0) && (errno == ENOTSUP)) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_ACL_NOTSUP,
                         "Posix access control list is not supported.");
-
-        ret = 0;
-        _private = GF_CALLOC (1, sizeof (*_private),
-                              gf_posix_mt_posix_private);
-        if (!_private) {
-                ret = -1;
-                goto out;
+                gf_event (EVENT_POSIX_ACL_NOT_SUPPORTED,
+                        "brick=%s:%s", _private->hostname, _private->base_path);
         }
-
-        _private->base_path = gf_strdup (dir_data->data);
-        _private->base_path_length = strlen (_private->base_path);
 
         /*
          * _XOPEN_PATH_MAX is the longest file path len we MUST
@@ -7031,21 +7070,6 @@ init (xlator_t *this)
 
 
         LOCK_INIT (&_private->lock);
-
-        ret = dict_get_str (this->options, "hostname", &_private->hostname);
-        if (ret) {
-                _private->hostname = GF_CALLOC (256, sizeof (char),
-                                                gf_common_mt_char);
-                if (!_private->hostname) {
-                        goto out;
-                }
-                ret = gethostname (_private->hostname, 256);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_HOSTNAME_MISSING,
-                                "could not find hostname ");
-                }
-        }
 
         _private->export_statfs = 1;
         tmp_data = dict_get (this->options, "export-statfs-size");
