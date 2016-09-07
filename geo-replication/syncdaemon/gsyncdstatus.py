@@ -16,7 +16,7 @@ import urllib
 import json
 import time
 from datetime import datetime
-from errno import EACCES, EAGAIN
+from errno import EACCES, EAGAIN, ENOENT
 
 DEFAULT_STATUS = "N/A"
 MONITOR_STATUS = ("Created", "Started", "Paused", "Stopped")
@@ -265,7 +265,11 @@ class GeorepStatus(object):
                     fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     monitor_status = "Stopped"
             except (IOError, OSError) as e:
-                if e.errno in (EACCES, EAGAIN):
+                # If pid file not exists, either monitor died or Geo-rep
+                # not even started once
+                if e.errno == ENOENT:
+                    monitor_status = "Stopped"
+                elif e.errno in (EACCES, EAGAIN):
                     # cannot grab. so, monitor process still running..move on
                     pass
                 else:
