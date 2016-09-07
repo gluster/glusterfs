@@ -276,7 +276,8 @@ T: git://github.com/nfs-ganesha/nfs-ganesha.git
 F: src/nfs-ganesha~/src/FSAL/FSAL_GLUSTER/
 
 QEMU integration
-M: Bharata B Rao <bharata@linux.vnet.ibm.com>
+M: Niels de Vos <ndevos@redhat.com>
+M: Prasanna Kumar Kalever <prasanna.kalever@redhat.com>
 S: Maintained
 T: git://git.qemu.org/qemu.git
 F: block/gluster.c
@@ -317,3 +318,4 @@ M: Shravan Chandrashekar <shravantc99@gmail.com>
 M: Joseph Fernandes <josferna@redhat.com>
 M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
 M: Anand Subramanian <ansubram@redhat.com>
+M: Bharata B Rao <bharata@linux.vnet.ibm.com>
