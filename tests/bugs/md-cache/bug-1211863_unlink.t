@@ -37,9 +37,13 @@ TEST ls -l $M1/dir1/file3
 TEST rm $M0/dir1/file2
 TEST mv $M0/dir1/file3 $M0/dir1/file6
 
-## Check if the files are not visible from M0
+## Check if the files are not visible from both M0 and M1
 EXPECT_WITHIN $MDC_TIMEOUT "N" path_exists $M0/dir1/file2
 EXPECT_WITHIN $MDC_TIMEOUT "N" path_exists $M0/dir1/file3
 EXPECT_WITHIN $MDC_TIMEOUT "Y" path_exists $M0/dir1/file6
+
+EXPECT_WITHIN $MDC_TIMEOUT "N" path_exists $M1/dir1/file2
+EXPECT_WITHIN $MDC_TIMEOUT "N" path_exists $M1/dir1/file3
+EXPECT_WITHIN $MDC_TIMEOUT "Y" path_exists $M1/dir1/file6
 
 cleanup;
