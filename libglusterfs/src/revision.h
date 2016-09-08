@@ -1,1 +1,1 @@
-#define GLUSTERFS_REPOSITORY_REVISION "git://git.gluster.com/glusterfs.git"
+#define GLUSTERFS_REPOSITORY_REVISION "git://git.gluster.org/glusterfs.git"
