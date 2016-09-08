@@ -2344,6 +2344,7 @@ out:
         return ret;
 }
 
+static int socket_disconnect (rpc_transport_t *this);
 
 /* reads rpc_requests during pollin */
 static int
@@ -2368,7 +2369,23 @@ socket_event_handler (int fd, int idx, void *data,
         }
         pthread_mutex_unlock (&priv->lock);
 
-	ret = (priv->connected == 1) ? 0 : socket_connect_finish(this);
+        if (priv->connected != 1) {
+                if (priv->connect_failed) {
+                        /* connect failed with some other error than
+                        EINPROGRESS or ENOENT, so nothing more to do, fail
+                        reading/writing anything even if poll_in or poll_out
+                        is set */
+                        ret = socket_disconnect (this);
+
+                        /* Force ret to be -1, as we are officially done with
+                        this socket */
+                        ret = -1;
+                } else {
+                        ret = socket_connect_finish (this);
+                }
+        } else {
+                ret = 0;
+        }
 
         if (!ret && poll_out) {
                 ret = socket_event_poll_out (this);
@@ -3044,6 +3061,16 @@ socket_connect (rpc_transport_t *this, int port)
                         gf_log (this->name, GF_LOG_WARNING,
                                "Ignore failed connection attempt on %s, (%s) ",
                                 this->peerinfo.identifier, strerror (errno));
+
+                        /* connect failed with some other error than EINPROGRESS
+                        so, getsockopt (... SO_ERROR ...), will not catch any
+                        errors and return them to us, we need to remember this
+                        state, and take actions in socket_event_handler
+                        appropriately */
+                        /* TBD: What about ENOENT, we will do getsockopt there
+                        as well, so how is that exempt from such a problem? */
+                        priv->connect_failed = 1;
+
                         goto handler;
                 }
 
@@ -3056,9 +3083,22 @@ socket_connect (rpc_transport_t *this, int port)
                                 GF_LOG_DEBUG : GF_LOG_ERROR),
                                 "connection attempt on %s failed, (%s)",
                                 this->peerinfo.identifier, strerror (errno));
+
+                        /* connect failed with some other error than EINPROGRESS
+                        so, getsockopt (... SO_ERROR ...), will not catch any
+                        errors and return them to us, we need to remember this
+                        state, and take actions in socket_event_handler
+                        appropriately */
+                        /* TBD: What about ENOENT, we will do getsockopt there
+                        as well, so how is that exempt from such a problem? */
+                        priv->connect_failed = 1;
+
                         goto handler;
                 }
                 else {
+                        /* reset connect_failed so that any previous attempts
+                        state is not carried forward */
+                        priv->connect_failed = 0;
                         ret = 0;
                 }
 

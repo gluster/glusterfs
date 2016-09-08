@@ -48,7 +48,7 @@ TEST ec_test_make
 
 ## step 4
 TEST $CLI volume start $V0 force
-EXPECT '7' online_brick_count
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "7" online_brick_count
 
 # active heal
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
@@ -70,7 +70,7 @@ EXPECT '5' online_brick_count
 
 ## step 6
 TEST $CLI volume start $V0 force
-EXPECT '7' online_brick_count
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "7" online_brick_count
 
 # self-healing
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status

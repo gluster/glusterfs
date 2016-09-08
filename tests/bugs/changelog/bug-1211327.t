@@ -27,15 +27,13 @@ TEST $CLI volume set $V0 changelog.changelog on;
 sleep 1
 
 TEST killall_gluster;
-sleep 1
-EXPECT 0 online_brick_count;
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "0" online_brick_count
 
 TEST glusterd;
 TEST pidof glusterd;
-##Let the brick processes starts
-sleep 1;
 
-EXPECT 1 online_brick_count;
+##Let the brick processes starts
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
 
 ##On brick restart only one HTIME should be found.
 EXPECT 1 count_htime_files;
