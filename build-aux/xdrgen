@@ -75,7 +75,7 @@ gen_headers ()
     rm -f $hfile;
     rpcgen -h -o $hfile $xfile;
     # the '#ifdef' part of file should be fixed
-    sed -r -e '/#(ifdef|ifndef|define)/s/-/_/g' $hfile > ${hfile}.new && mv ${hfile}.new $hfile;
+    sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' $hfile > ${hfile}.new && mv ${hfile}.new $hfile;
     # Gen header to temp file and append generated file
     append_licence_header $hfile $tmp_hfile;
     # now move the destination file to actual original file
