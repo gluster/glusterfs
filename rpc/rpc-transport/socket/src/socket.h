@@ -200,6 +200,9 @@ typedef struct {
         int32_t                idx;
         /* -1 = not connected. 0 = in progress. 1 = connected */
         char                   connected;
+        /* 1 = connect failed for reasons other than EINPROGRESS/ENOENT
+        see socket_connect for details */
+        char                   connect_failed;
         char                   bio;
         char                   connect_finish_log;
         char                   submit_log;
