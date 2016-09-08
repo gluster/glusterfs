@@ -1132,7 +1132,7 @@ green:
                     loc, flags, fd, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (open, frame, -1, EACCES, NULL, xdata);
+        STACK_UNWIND_STRICT (open, frame, -1, EACCES, NULL, NULL);
         return 0;
 }
 
@@ -1167,7 +1167,8 @@ green:
                     fd, size, offset, flags, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (readv, frame, -1, EACCES, NULL, 0, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (readv, frame, -1, EACCES, NULL, 0, NULL, NULL,
+                             NULL);
         return 0;
 }
 
@@ -1202,7 +1203,7 @@ green:
                     fd, vector, count, offset, flags, iobref, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (writev, frame, -1, EACCES, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (writev, frame, -1, EACCES, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1237,7 +1238,7 @@ green:
                     fd, offset, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, EACCES, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, EACCES, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1265,7 +1266,7 @@ green:
                     loc, fd, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (opendir, frame, -1, EACCES, NULL, xdata);
+        STACK_UNWIND_STRICT (opendir, frame, -1, EACCES, NULL, NULL);
         return 0;
 }
 
@@ -1432,7 +1433,7 @@ green:
         return 0;
 red:
         STACK_UNWIND_STRICT (symlink, frame, -1, EACCES, NULL, NULL, NULL,
-                             NULL, xdata);
+                             NULL, NULL);
         return 0;
 }
 
@@ -1468,7 +1469,7 @@ green:
                     loc, xflag, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (unlink, frame, -1, EACCES, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (unlink, frame, -1, EACCES, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1503,7 +1504,7 @@ green:
                     loc, flags, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (rmdir, frame, -1, EACCES, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (rmdir, frame, -1, EACCES, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1594,7 +1595,8 @@ posix_acl_link (call_frame_t *frame, xlator_t *this, loc_t *old, loc_t *new, dic
                     old, new, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+                             NULL);
 
         return 0;
 }
@@ -1627,7 +1629,7 @@ green:
                     fd, size, offset, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (readdir, frame, -1, EACCES, NULL, xdata);
+        STACK_UNWIND_STRICT (readdir, frame, -1, EACCES, NULL, NULL);
 
         return 0;
 }
@@ -1859,7 +1861,7 @@ posix_acl_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     loc, buf, valid, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -1905,7 +1907,7 @@ posix_acl_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                     fd, buf, valid, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, EACCES, NULL, NULL, xdata);
+        STACK_UNWIND_STRICT (fsetattr, frame, -1, EACCES, NULL, NULL, NULL);
 
         return 0;
 }
@@ -2101,7 +2103,7 @@ posix_acl_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                            loc, xattr, flags, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, xdata);
+        STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, NULL);
 
         return 0;
 }
@@ -2135,7 +2137,7 @@ posix_acl_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                     fd, xattr, flags, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno, xdata);
+        STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno, NULL);
 
         return 0;
 }
@@ -2170,7 +2172,7 @@ green:
         return 0;
 
 red:
-        STACK_UNWIND_STRICT (getxattr, frame, -1, EACCES, NULL, xdata);
+        STACK_UNWIND_STRICT (getxattr, frame, -1, EACCES, NULL, NULL);
 
         return 0;
 }
@@ -2203,7 +2205,7 @@ green:
                     fd, name, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (fgetxattr, frame, -1, EACCES, NULL, xdata);
+        STACK_UNWIND_STRICT (fgetxattr, frame, -1, EACCES, NULL, NULL);
 
         return 0;
 }
@@ -2252,7 +2254,7 @@ green:
                     loc, name, xdata);
         return 0;
 red:
-        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno, xdata);
+        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno, NULL);
 
         return 0;
 }
