@@ -1099,6 +1099,12 @@ class SlaveRemote(object):
         # waiting for transfer to complete
         _, stderr1 = p1.communicate()
 
+        # stdin and stdout of p0 is already closed, Reset to None and
+        # wait for child process to complete
+        p0.stdin = None
+        p0.stdout = None
+        p0.communicate()
+
         if log_err:
             for errline in stderr1.strip().split("\n")[:-1]:
                 logging.error("SYNC Error(Untar): %s" % errline)
