@@ -2227,6 +2227,17 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                                 GD_MSG_VOL_NOT_TIER, "%s", errstr);
                         goto out;
                 }
+                if (volinfo->decommission_in_progress) {
+                        errstr = gf_strdup ("use 'force' option as migration "
+                                            "is in progress");
+                        goto out;
+                }
+                if (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_FAILED) {
+                        errstr = gf_strdup ("use 'force' option as migration "
+                                            "has failed");
+                        goto out;
+                }
+
                 ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
                                                              dict, volinfo,
                                                              &errstr);
