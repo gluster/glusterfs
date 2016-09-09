@@ -15,7 +15,6 @@ import logging
 import fcntl
 from errno import ESRCH, EBADF
 
-import requests
 from eventsapiconf import (LOG_FILE,
                            WEBHOOKS_FILE,
                            DEFAULT_CONFIG_FILE,
@@ -145,6 +144,9 @@ def publish(ts, event_key, data):
 
 
 def plugin_webhook(message):
+    # Import requests here since not used in any other place
+    import requests
+
     message_json = json.dumps(message, sort_keys=True)
     logger.debug("EVENT: {0}".format(message_json))
     for url, token in _webhooks.items():
