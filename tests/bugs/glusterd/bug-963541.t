@@ -17,7 +17,8 @@ TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 start
 TEST ! $CLI volume rebalance $V0 start
 TEST ! $CLI volume remove-brick $V0 $H0:$B0/${V0}2 start
 
-#Try to start rebalance/remove-brick again after commit
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field \
+"$V0" "$H0:$B0/${V0}1"
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 commit
 
 gluster volume status
