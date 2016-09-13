@@ -1700,7 +1700,6 @@ tier_process_self_compact (tier_brick_list_t *local_brick, void *args)
         dict_t *params_dict                             = NULL;
         dict_t *ctr_ipc_dict                            = NULL;
         gfdb_brick_info_t *gfdb_brick_info              = args;
-        int is_changing                                 = -1;
 
         /*Init of all the essentials*/
         GF_VALIDATE_OR_GOTO ("tier", gfdb_brick_info , out);
@@ -1826,7 +1825,6 @@ static int
 tier_compact_db_brick (tier_brick_list_t *local_brick, void *args)
 {
         int ret = -1;
-        char *strval = NULL;
 
         GF_VALIDATE_OR_GOTO ("tier", local_brick, out);
 
@@ -2232,9 +2230,7 @@ static void
         int check_watermark                     = 0;
         gf_defrag_info_t *defrag                = NULL;
         xlator_t  *this                         = NULL;
-        struct list_head *bricklist_temp        = NULL;
         migration_args_t *args = in_args;
-        gf_boolean_t compacted = _gf_false;
         GF_VALIDATE_OR_GOTO ("tier", args, out);
         GF_VALIDATE_OR_GOTO ("tier", args->brick_list, out);
 
