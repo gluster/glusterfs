@@ -3153,7 +3153,6 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t                *this            = NULL;
         dict_t                  *xdata           = NULL;
         clnt_local_t            *local           = NULL;
-        int                     op_errno         = 0;
         int                     i,length         = 0;
         int                     ret              = -1;
 
@@ -3163,7 +3162,8 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         local = frame->local;
 
         if (-1 == req->rpc_status) {
-                op_errno = ENOTCONN;
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
                 goto out;
         }
 
@@ -3171,7 +3171,8 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         PC_MSG_XDR_DECODING_FAILED, "XDR decoding failed");
-                op_errno = EINVAL;
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
                 goto out;
         }
 
@@ -3183,21 +3184,31 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         args_cbk = compound_args_cbk_alloc (length, xdata);
         if (!args_cbk) {
-                op_errno = ENOMEM;
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOMEM;
                 goto out;
         }
 
+        /* TODO: see https://bugzilla.redhat.com/show_bug.cgi?id=1376328 */
         for (i = 0; i < args_cbk->fop_length; i++) {
                 ret = client_process_response (frame, this, req, &rsp,
                                                args_cbk, i);
                 if (ret) {
-                        op_errno = -ret;
+                        rsp.op_ret   = -1;
+                        rsp.op_errno = -ret;
                         goto out;
                 }
 
         }
         rsp.op_ret = 0;
 out:
+        if (rsp.op_ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING,
+                        gf_error_to_errno (rsp.op_errno),
+                        PC_MSG_REMOTE_OP_FAILED,
+                        "remote operation failed");
+        }
+
         CLIENT_STACK_UNWIND (compound, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), args_cbk, xdata);
 
