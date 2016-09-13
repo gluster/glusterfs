@@ -1105,6 +1105,7 @@ exit 0
 %doc extras/clear_xattrs.sh
 # sysconf
 %config(noreplace) %{_sysconfdir}/glusterfs
+%exclude %{_sysconfdir}/glusterfs/eventsconfig.json
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
@@ -1235,7 +1236,7 @@ exit 0
 # Events
 %if ( 0%{!?_without_events:1} )
 %files events
-%config %attr(0600, root, root) %{_sysconfdir}/glusterfs/eventsconfig.json
+%config(noreplace) %{_sysconfdir}/glusterfs/eventsconfig.json
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/events
 %{_libexecdir}/glusterfs/events
 %{_libexecdir}/glusterfs/peer_eventsapi.py*
@@ -1250,6 +1251,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Sep 14 2016 Aravinda VK <avishwan@redhat.com>
+- Changed attribute of eventsconfig.json file as same as other configs (#1375532)
+
 * Thu Sep 08 2016 Aravinda VK <avishwan@redhat.com>
 - Added init script for glustereventsd (#1365395)
 
