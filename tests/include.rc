@@ -8,7 +8,7 @@ V1=${V1:=patchy1};            # volume name to use in tests
 GMV0=${GMV0:=master};	      # master volume name to use in geo-rep tests
 GSV0=${GSV0:=slave};	      # slave volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
-WORKDIRS="$B0 $M0 $M1 $M2 $N0 $N1" 
+WORKDIRS="$B0 $M0 $M1 $M2 $N0 $N1"
 
 ROOT_GFID="00000000-0000-0000-0000-000000000001"
 
@@ -462,9 +462,9 @@ function cleanup()
         umount $flag /tmp/mnt* 2>/dev/null
 
 
-        # Send SIGKILL to all gluster processes that are still running
-        killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
+        # Send SIGKILL to all gluster processes and rpc.statd that are still running
+        killall -9 glusterfs glusterfsd glusterd rpc.statd 2>/dev/null || true;
+        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs
