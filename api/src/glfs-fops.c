@@ -4071,9 +4071,11 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fchdir, 3.4.0);
 
+static gf_boolean_t warn_realpath = _gf_true; /* log once */
 
-char *
-pub_glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
+static char *
+glfs_realpath_common (struct glfs *fs, const char *path, char *resolved_path,
+                      gf_boolean_t warn_deprecated)
 {
 	int              ret = -1;
 	char            *retpath = NULL;
@@ -4088,8 +4090,20 @@ pub_glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
 
 	if (resolved_path)
 		retpath = resolved_path;
-	else
-		retpath = allocpath = malloc (PATH_MAX + 1);
+        else if (warn_deprecated) {
+                retpath = allocpath = malloc (PATH_MAX + 1);
+                if (warn_realpath) {
+                        warn_realpath = _gf_false;
+                        gf_log (THIS->name, GF_LOG_WARNING, "this application "
+                                "is compiled against an old version of "
+                                "libgfapi, it should use glfs_free() to "
+                                "release the path returned by "
+                                "glfs_realpath()");
+                }
+        } else {
+                retpath = allocpath = GF_CALLOC (1, PATH_MAX + 1,
+                                                 glfs_mt_realpath_t);
+        }
 
 	if (!retpath) {
 		ret = -1;
@@ -4120,9 +4134,11 @@ out:
 	loc_wipe (&loc);
 
 	if (ret == -1) {
-		if (allocpath)
-			free (allocpath);
-		retpath = NULL;
+                if (warn_deprecated && allocpath)
+                        free (allocpath);
+                else if (allocpath)
+                        GF_FREE (allocpath);
+                retpath = NULL;
 	}
 
 	glfs_subvol_done (fs, subvol);
@@ -4133,7 +4149,22 @@ invalid_fs:
 	return retpath;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_realpath, 3.4.0);
+
+char *
+pub_glfs_realpath34 (struct glfs *fs, const char *path, char *resolved_path)
+{
+        return glfs_realpath_common (fs, path, resolved_path, _gf_true);
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_realpath34, glfs_realpath, 3.4.0);
+
+char *
+pub_glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
+{
+        return glfs_realpath_common (fs, path, resolved_path, _gf_false);
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_realpath, 3.7.17);
 
 
 char *

@@ -28,6 +28,7 @@ enum glfs_mem_types_ {
         glfs_mt_upcall_entry_t,
 	glfs_mt_acl_t,
         glfs_mt_upcall_inode_t,
+        glfs_mt_realpath_t,
 	glfs_mt_end
 };
 #endif
