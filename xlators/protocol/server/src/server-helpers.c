@@ -2279,7 +2279,6 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                                    compound_args_cbk_t *args_cbk, int index)
 {
         int                     op_errno    = EINVAL;
-        int                     op_ret      = -1;
         default_args_cbk_t      *this_args_cbk = NULL;
         compound_rsp            *this_rsp   = NULL;
         server_state_t          *state      = NULL;
