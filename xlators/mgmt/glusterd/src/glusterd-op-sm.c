@@ -6281,13 +6281,11 @@ _select_hxlator_with_matching_brick (xlator_t *this,
                                      glusterd_volinfo_t *volinfo, dict_t *dict,
                                      int *index)
 {
-        char                    *hostname = NULL;
         char                    *path = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         int                     hxl_children = 0;
 
         if (!dict ||
-            dict_get_str (dict, "per-replica-cmd-hostname", &hostname) ||
             dict_get_str (dict, "per-replica-cmd-path", &path))
                 return -1;
 
@@ -6299,7 +6297,8 @@ _select_hxlator_with_matching_brick (xlator_t *this,
                 if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (!gf_uuid_compare (MY_UUID, brickinfo->uuid)) {
+                if ((!gf_uuid_compare (MY_UUID, brickinfo->uuid)) &&
+                    (!strncmp (brickinfo->path, path, strlen(path)))) {
                         _add_hxlator_to_dict (dict, volinfo,
                                               ((*index) - 1)/hxl_children, 0);
                         return 1;
