@@ -187,7 +187,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         glusterd_volinfo_t                      *volinfo            = NULL;
         glusterd_brickinfo_t                    *src_brickinfo      = NULL;
         char                                    *host               = NULL;
-        char                                    *path               = NULL;
         char                                     msg[2048]          = {0};
         glusterd_peerinfo_t                     *peerinfo           = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo      = NULL;
@@ -195,8 +194,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         char                                     pidfile[PATH_MAX]  = {0};
         xlator_t                                *this               = NULL;
         gf_boolean_t                             is_force           = _gf_false;
-        pid_t                                    pid                = -1;
-        uuid_t                                   volume_id          = {0,};
         char                                    *dup_dstbrick       = NULL;
 
         this = THIS;

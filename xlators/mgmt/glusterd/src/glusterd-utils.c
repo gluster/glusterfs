@@ -11200,8 +11200,6 @@ glusterd_volume_get_type_str (glusterd_volinfo_t *volinfo, char **voltype_str)
 {
         int ret = -1;
         int type = 0;
-        int brick_count = 0;
-        int dist_count = 0;
 
         GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
 

@@ -32,7 +32,6 @@ glusterd_reset_brick_prevalidate (dict_t *dict, char **op_errstr,
                                   dict_t *rsp_dict)
 {
         int                                      ret                = 0;
-        int32_t                                  port               = 0;
         char                                    *src_brick          = NULL;
         char                                    *dst_brick          = NULL;
         char                                    *volname            = NULL;
@@ -44,14 +43,10 @@ glusterd_reset_brick_prevalidate (dict_t *dict, char **op_errstr,
         char                                     msg[2048]          = {0};
         glusterd_peerinfo_t                     *peerinfo           = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo      = NULL;
-        gf_boolean_t                             enabled            = _gf_false;
         glusterd_conf_t                         *priv               = NULL;
-        char                                    *savetok            = NULL;
         char                                     pidfile[PATH_MAX]  = {0};
-        char                                    *task_id_str        = NULL;
         xlator_t                                *this               = NULL;
         gf_boolean_t                             is_force           = _gf_false;
-        gsync_status_param_t                     param              = {0,};
         pid_t                                    pid                = -1;
         uuid_t                                   volume_id          = {0,};
         char                                    *dup_dstbrick       = NULL;
@@ -240,7 +235,6 @@ int
 glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
 {
         int                                      ret           = 0;
-        dict_t                                  *ctx           = NULL;
         char                                    *op            = NULL;
         glusterd_volinfo_t                      *volinfo       = NULL;
         char                                    *volname       = NULL;
@@ -250,7 +244,6 @@ glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
         char                                    *dst_brick     = NULL;
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
-        char                                    *task_id_str   = NULL;
         char                                    pidfile[PATH_MAX] = {0,};
 
         this = THIS;

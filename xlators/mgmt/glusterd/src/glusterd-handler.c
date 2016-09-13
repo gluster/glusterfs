@@ -5021,7 +5021,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         glusterd_peer_hostname_t    *peer_hostname_info = NULL;
         glusterd_volinfo_t          *volinfo = NULL;
         glusterd_brickinfo_t        *brickinfo = NULL;
-        glusterd_snap_t             *snapinfo = NULL;
         xlator_t                    *this = NULL;
         char                        *odir = NULL;
         char                        *filename = NULL;

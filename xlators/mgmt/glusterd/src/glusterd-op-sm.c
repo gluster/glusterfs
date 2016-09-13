@@ -2017,7 +2017,6 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         char            *next_version   = NULL;
         gf_boolean_t    quorum_action   = _gf_false;
         gf_boolean_t     option         = _gf_false;
-        char            *op_errstr      = NULL;
 
         conf = this->private;
         ret = dict_get_str (dict, "key", &key);
