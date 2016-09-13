@@ -15,8 +15,6 @@
 void
 dc_local_cleanup (dc_local_t *local)
 {
-        int i = 0;
-
         compound_args_cbk_cleanup (local->compound_rsp);
         return;
 }
