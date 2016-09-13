@@ -2423,7 +2423,6 @@ mdc_priv_dump (xlator_t *this)
 {
         struct mdc_conf *conf = NULL;
         char  key_prefix[GF_DUMP_MAX_BUF_LEN];
-        char  key[GF_DUMP_MAX_BUF_LEN];
 
         conf = this->private;
 
@@ -2715,7 +2714,6 @@ reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
-        int    ret     = 0;
 
 	conf = this->private;
 
@@ -2755,7 +2753,7 @@ reconfigure (xlator_t *this, dict_t *options)
         }
         conf->timeout = timeout;
 
-        ret = mdc_register_xattr_inval (this);
+        (void) mdc_register_xattr_inval (this);
 out:
 	return 0;
 }
