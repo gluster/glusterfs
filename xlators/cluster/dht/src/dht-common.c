@@ -8738,8 +8738,6 @@ dht_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t  *local                   = NULL;
         int           this_call_cnt           = 0;
-        dht_layout_t *layout                  = NULL;
-        int           ret                     = -1;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
