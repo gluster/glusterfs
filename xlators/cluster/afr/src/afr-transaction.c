@@ -1231,7 +1231,6 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        void *data, dict_t *xdata)
 {
         afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
         call_frame_t    *fop_frame = NULL;
         default_args_cbk_t *write_args_cbk = NULL;
         compound_args_cbk_t *args_cbk = data;
@@ -1240,7 +1239,6 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int i = 0;
 
         local = frame->local;
-        priv = this->private;
         child_index = (long) cookie;
 
 	if (local->pre_op_compat)
@@ -1387,15 +1385,12 @@ afr_post_op_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        compound_args_cbk_t *args_cbk = data;
         int call_count = -1;
         afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk = NULL;
         int32_t             child_index = (long)cookie;
         int i = 0;
 
         local = frame->local;
-        priv = this->private;
         child_index = (long) cookie;
 
         local = frame->local;

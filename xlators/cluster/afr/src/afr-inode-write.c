@@ -362,7 +362,6 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t    *fop_frame = NULL;
         int child_index = (long) cookie;
         int call_count  = -1;
-        int ret = 0;
 
         local = frame->local;
 
