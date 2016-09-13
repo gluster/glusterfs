@@ -530,7 +530,7 @@ Requires:         psmisc
 Requires:         lvm2
 Requires:         nfs-utils
 %if ( 0%{?_with_systemd:1} )
-Requires(post):   systemd-units
+Requires(post):   systemd-units, systemd
 Requires(preun):  systemd-units
 Requires(postun): systemd-units
 %else
@@ -587,6 +587,9 @@ Requires:         python python-requests python-prettytable
 Requires:         python-gluster = %{version}-%{release}
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 Requires:         python-argparse
+%endif
+%if ( 0%{?_with_systemd:1} )
+Requires(post):   systemd
 %endif
 
 %description events
