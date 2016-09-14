@@ -18,7 +18,7 @@ TEST touch $M0/foo
 
 gfid_foo=$(get_gfid_string $M0/foo)
 
-TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/bug-shard-zerofill $(dirname $0)/bug-shard-zerofill.c -lgfapi
+TEST build_tester $(dirname $0)/bug-shard-zerofill.c -lgfapi -Wall -O2
 TEST $(dirname $0)/bug-shard-zerofill $H0 $V0 /foo `gluster --print-logdir`/glfs-$V0.log
 
 # This should ensure /.shard is created on the bricks.

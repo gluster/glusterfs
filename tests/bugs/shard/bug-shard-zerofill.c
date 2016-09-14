@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "glfs.h"
-#include "glfs-handles.h"
+#include <glusterfs/api/glfs.h>
+#include <glusterfs/api/glfs-handles.h>
 
 int
 main (int argc, char *argv[])

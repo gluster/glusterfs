@@ -8,7 +8,7 @@
 #define WRITE_SIZE (128)
 
 glfs_t *
-setup_new_client(char *volname, char *log_fileile)
+setup_new_client(char *hostname, char *volname, char *log_fileile)
 {
         int ret = 0;
         glfs_t *fs = NULL;
@@ -20,7 +20,7 @@ setup_new_client(char *volname, char *log_fileile)
                 goto error;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
         if (ret < 0) {
                 fprintf (stderr, "\nglfs_set_volfile_server failed ret:%d (%s)\n",
                                  ret, strerror (errno));
@@ -127,18 +127,18 @@ main (int argc, char *argv[])
 	char       buf[100];
         glfs_fd_t *fd       = NULL;
 
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr,
-                                "Expect following args %s <Vol> <log file location>\n"
+                                "Expect following args %s <hostname> <Vol> <log file location>\n"
                                 , argv[0]);
                 return -1;
         }
 
-        fs = setup_new_client (argv[1], argv[2]);
+        fs = setup_new_client (argv[1], argv[2], argv[3]);
 	if (!fs)
 		goto error;
 
-        ret = volfile_change (argv[1]);
+        ret = volfile_change (argv[2]);
         if (ret < 0)
                 goto error;
 

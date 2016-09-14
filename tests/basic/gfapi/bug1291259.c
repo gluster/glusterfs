@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <time.h>
 #include <limits.h>
-#include <alloca.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -44,6 +43,7 @@ main (int argc, char *argv[])
         struct    callback_arg cbk;
         char      *logfile = NULL;
         char      *volname = NULL;
+        char      *hostname = NULL;
         int        cnt = 1;
         int       upcall_received = 0;
         struct callback_inode_arg *in_arg = NULL;
@@ -52,13 +52,14 @@ main (int argc, char *argv[])
         unsigned char   globjhdl2[GFAPI_HANDLE_LENGTH];
 
         fprintf (stderr, "Starting libgfapi_fini\n");
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr, "Invalid argument\n");
                 exit(1);
         }
 
-        volname = argv[1];
-        logfile = argv[2];
+        hostname = argv[1];
+        volname = argv[2];
+        logfile = argv[3];
 
 
         fs = glfs_new (volname);
@@ -67,7 +68,7 @@ main (int argc, char *argv[])
                 return 1;
         }
 
-        ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
         LOG_ERR("glfs_set_volfile_server", ret);
 
         ret = glfs_set_logging (fs, logfile, 7);
@@ -89,7 +90,7 @@ main (int argc, char *argv[])
                 return 1;
         }
 
-        ret = glfs_set_volfile_server (fs2, "tcp", "localhost", 24007);
+        ret = glfs_set_volfile_server (fs2, "tcp", hostname, 24007);
         LOG_ERR("glfs_set_volfile_server", ret);
 
         ret = glfs_set_logging (fs2, logfile, 7);

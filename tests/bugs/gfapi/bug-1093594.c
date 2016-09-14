@@ -1,5 +1,5 @@
-#include "../../api/src/glfs.h"
-#include "../../api/src/glfs-handles.h"
+#include <glusterfs/api/glfs.h>
+#include <glusterfs/api/glfs-handles.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -245,25 +245,27 @@ main (int argc, char *argv[])
         char      *topdir   = "topdir", *filename = "file1";
         char      *buf      = NULL;
         char      *logfile  = NULL;
+        char      *hostname = NULL;
 
-        if (argc != 3) {
+        if (argc != 4) {
                 fprintf (stderr,
-                        "Expect following args %s <Vol> <log file>\n"
+                        "Expect following args %s <hostname> <Vol> <log file>\n"
                         , argv[0]);
                 return -1;
         }
 
-        logfile = argv[2];
+        hostname = argv[1];
+        logfile = argv[3];
 
         for (i = 0; i < TEST_CASE_LOOP; i++) {
-                fs = glfs_new (argv[1]);
+                fs = glfs_new (argv[2]);
                 if (!fs) {
                         fprintf (stderr, "glfs_new: returned NULL (%s)\n",
                                 strerror (errno));
                         return -1;
                 }
 
-                ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+                ret = glfs_set_volfile_server (fs, "tcp", hostname, 24007);
                 if (ret < 0) {
                         fprintf (stderr, "glfs_set_volfile_server failed ret:%d (%s)\n",
                         ret, strerror (errno));
@@ -292,7 +294,7 @@ main (int argc, char *argv[])
                 if (ret < 0)
                         return -1;
 
-                ret = volfile_change (argv[1]);
+                ret = volfile_change (argv[2]);
                 if (ret < 0)
                         return -1;
 

@@ -17,7 +17,7 @@ TEST $CLI volume set $V0 features.shard on
 TEST $CLI volume start $V0
 
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
-TEST gcc -Wall -O2 -I api/src -o $(dirname $0)/zero-flag $(dirname $0)/shard-fallocate.c -lgfapi
+TEST build_tester $(dirname $0)/shard-fallocate.c -lgfapi -Wall -O2
 
 # On file1 confirm that when fallocate's offset + len > cur file size,
 # the new file size will increase.
