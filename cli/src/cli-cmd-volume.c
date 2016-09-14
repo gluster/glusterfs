@@ -609,6 +609,10 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     sent = 0;
         int                     parse_error = 0;
         cli_local_t          *local = NULL;
+#if (USE_EVENTS)
+        eventtypes_t         event = EVENT_LAST;
+#endif
+
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
         goto out;
@@ -638,6 +642,19 @@ out:
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume rebalance failed");
+        } else {
+
+#if (USE_EVENTS)
+                if (!(strcmp (words[wordcount-1], "start")) ||
+                        !(strcmp (words[wordcount-1], "force")))  {
+                        event = EVENT_VOLUME_REBALANCE_START;
+                } else if (!strcmp (words[wordcount-1], "stop")) {
+                        event = EVENT_VOLUME_REBALANCE_STOP;
+                }
+
+                if (event != EVENT_LAST)
+                        gf_event (event, "volume=%s", (char *)words[2]);
+#endif
         }
 
         CLI_STACK_DESTROY (frame);
@@ -849,6 +866,115 @@ out:
 
 }
 
+static
+int
+cli_event_remove_brick_str (dict_t *options, char **event_str,
+                            eventtypes_t *event)
+{
+        int           ret             = -1;
+        char          *bricklist      = NULL;
+        char          *brick          = NULL;
+        char          *volname        = NULL;
+        char           key[256]       = {0,};
+        const char    *eventstrformat = "volume=%s;bricks=%s";
+        int32_t        command        = 0;
+        int32_t        i              = 1;
+        int32_t        count          = 0;
+        int32_t        eventstrlen    = 1;
+        char          *tmp_ptr        = NULL;
+
+        if (!options || !event_str || !event)
+                goto out;
+
+        ret = dict_get_str (options, "volname", &volname);
+        if (ret || !volname) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch volname");
+                ret = -1;
+                goto out;
+        }
+        /* Get the list of bricks for the event */
+        ret = dict_get_int32 (options, "command", &command);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch command");
+                ret = -1;
+                goto out;
+        }
+
+        switch (command) {
+        case GF_OP_CMD_START:
+                *event = EVENT_VOLUME_REMOVE_BRICK_START;
+                break;
+        case GF_OP_CMD_COMMIT:
+                *event = EVENT_VOLUME_REMOVE_BRICK_COMMIT;
+                break;
+        case GF_OP_CMD_COMMIT_FORCE:
+                *event = EVENT_VOLUME_REMOVE_BRICK_FORCE;
+                break;
+        case GF_OP_CMD_STOP:
+                *event = EVENT_VOLUME_REMOVE_BRICK_STOP;
+                break;
+        default:
+                *event = EVENT_LAST;
+                break;
+        }
+
+        ret = -1;
+
+        if (*event == EVENT_LAST) {
+                goto out;
+        }
+
+        /* I could just get this from words[] but this is cleaner in case the
+         * format changes  */
+        while (i) {
+                snprintf (key, sizeof (key), "brick%d", i);
+                ret = dict_get_str (options, key, &brick);
+                if (ret) {
+                        break;
+                }
+                eventstrlen += strlen (brick) + 1;
+                i++;
+        }
+
+        count = --i;
+
+        eventstrlen += 1;
+
+        bricklist = GF_CALLOC (eventstrlen, sizeof (char), gf_common_mt_char);
+        if (!bricklist) {
+                goto out;
+        }
+
+        tmp_ptr = bricklist;
+
+        i = 1;
+        while (i <= count) {
+                snprintf (key, sizeof (key), "brick%d", i);
+                ret = dict_get_str (options, key, &brick);
+                if (ret) {
+                        break;
+                }
+                snprintf (tmp_ptr, eventstrlen, "%s ", brick);
+                eventstrlen -= (strlen (brick) + 1);
+                tmp_ptr += (strlen (brick) + 1);
+                i++;
+        }
+
+        if (!ret) {
+                gf_asprintf (event_str, eventstrformat, volname,
+                             bricklist);
+        } else {
+                gf_asprintf (event_str, eventstrformat, volname,
+                             "<unavailable>");
+        }
+
+        ret = 0;
+out:
+        GF_FREE (bricklist);
+        return ret;
+}
+
+
 int
 cli_cmd_volume_add_brick_cbk (struct cli_state *state,
                               struct cli_cmd_word *word, const char **words,
@@ -862,6 +988,12 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         int                     parse_error = 0;
         gf_answer_t             answer = GF_ANSWER_NO;
         cli_local_t             *local = NULL;
+
+#if (USE_EVENTS)
+        char                    *event_str = NULL;
+        char                    *bricks = NULL;
+        const char              *eventstrformat = "volume=%s;bricks=%s";
+#endif
 
         const char *question = "Changing the 'stripe count' of the volume is "
                 "not a supported feature. In some cases it may result in data "
@@ -891,6 +1023,20 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
                 }
         }
 
+#if (USE_EVENTS)
+        /* Get the list of bricks for the event */
+
+        ret = dict_get_str (options, "bricks", &bricks);
+
+        if (!ret) {
+                gf_asprintf (&event_str, eventstrformat, (char *)words[2],
+                            &bricks[1] /*Skip leading space*/);
+        } else {
+                gf_asprintf (&event_str, eventstrformat, (char *)words[2],
+                            "<unavailable>");
+        }
+#endif
+
         if (state->mode & GLUSTER_MODE_WIGNORE) {
                 ret = dict_set_int32 (options, "force", _gf_true);
                 if (ret) {
@@ -913,10 +1059,14 @@ out:
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume add-brick failed");
+        } else {
+#if (USE_EVENTS)
+                gf_event (EVENT_VOLUME_ADD_BRICK, event_str);
+                GF_FREE (event_str);
+#endif
         }
 
         CLI_STACK_DESTROY (frame);
-
         return ret;
 }
 
@@ -1787,7 +1937,11 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         int                     need_question = 0;
         cli_local_t             *local = NULL;
         char                    *volname = NULL;
-
+#if (USE_EVENTS)
+        eventtypes_t            event = EVENT_LAST;
+        char                    *event_str = NULL;
+        int                     event_ret = -1;
+#endif
         const char *question = "Removing brick(s) can result in data loss. "
                                "Do you want to Continue?";
 
@@ -1809,6 +1963,10 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                 ret = -1;
                 goto out;
         }
+
+#if (USE_EVENTS)
+        event_ret = cli_event_remove_brick_str (options, &event_str, &event);
+#endif
 
         if (!strcmp (volname, GLUSTER_SHARED_STORAGE)) {
                 question = "Removing brick from the shared storage volume"
@@ -1841,9 +1999,17 @@ out:
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume remove-brick failed");
+        } else {
+#if (USE_EVENTS)
+                if (!event_ret) {
+                        gf_event (event, event_str);
+                        GF_FREE (event_str);
+                }
+#endif
         }
 
         CLI_STACK_DESTROY (frame);
+
 
         return ret;
 
