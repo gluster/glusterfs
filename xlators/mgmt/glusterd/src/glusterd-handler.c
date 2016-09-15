@@ -5012,7 +5012,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
 {
         int32_t                      ret = -1;
         gf_cli_rsp                   rsp = {0,};
-        int                          fd = -1;
         FILE                        *fp = NULL;
         DIR                         *dp = NULL;
         char                         err_str[2048] = {0,};
