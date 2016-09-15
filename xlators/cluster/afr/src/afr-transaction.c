@@ -1384,11 +1384,9 @@ afr_post_op_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        void *data, dict_t *xdata)
 {
         afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
         int call_count = -1;
         afr_internal_lock_t *int_lock = NULL;
         int32_t             child_index = (long)cookie;
-        int i = 0;
 
         local = frame->local;
         child_index = (long) cookie;
