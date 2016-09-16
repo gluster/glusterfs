@@ -1644,7 +1644,6 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
     ec_lock_t *lock = link->lock;
     ec_fop_data_t *fop = link->fop;
     ec_inode_t *ctx = lock->ctx;
-    ec_t *ec = fop->xl->private;
 
     INIT_LIST_HEAD(&list);
 
@@ -1870,7 +1869,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     int32_t err = -ENOMEM;
 
     fop = link->fop;
-    ec_t *ec = fop->xl->private;
     lock = link->lock;
     ctx = lock->ctx;
 
