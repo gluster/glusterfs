@@ -74,6 +74,49 @@ dht_set_global_defrag_error (gf_defrag_info_t *defrag, int ret)
 }
 
 static int
+dht_send_rebalance_event (xlator_t *this, gf_defrag_status_t status)
+{
+        int ret = -1;
+        char *volname = NULL;
+        char *tmpstr  = NULL;
+
+        eventtypes_t event = EVENT_LAST;
+
+        switch (status) {
+        case GF_DEFRAG_STATUS_COMPLETE:
+                event = EVENT_VOLUME_REBALANCE_COMPLETE;
+                break;
+        case GF_DEFRAG_STATUS_FAILED:
+                event = EVENT_VOLUME_REBALANCE_FAILED;
+                break;
+        case GF_DEFRAG_STATUS_STOPPED:
+                event = EVENT_VOLUME_REBALANCE_STOP;
+                break;
+        default:
+                break;
+
+        }
+
+        tmpstr = gf_strdup (this->name);
+        if (tmpstr) {
+                volname = strtok(tmpstr, "-dht");
+        }
+
+        if (!volname)
+                volname = this->name;
+
+        if (event != EVENT_LAST) {
+                ret = gf_event (event, "volume=%s", volname);
+        }
+        GF_FREE (tmpstr);
+        return ret;
+}
+
+
+
+
+
+static int
 dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                       int32_t size, off_t offset, struct iobref *iobref)
 {
@@ -3830,6 +3873,8 @@ out:
                 defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
         }
 
+        dht_send_rebalance_event (this, defrag->defrag_status);
+
         LOCK (&defrag->lock);
         {
                 status = dict_new ();
@@ -3980,12 +4025,11 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         if (ret)
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set status");
-        if (elapsed) {
-                ret = dict_set_double (dict, "run-time", elapsed);
-                if (ret)
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "failed to set run-time");
-        }
+
+        ret = dict_set_double (dict, "run-time", elapsed);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set run-time");
 
         ret = dict_set_uint64 (dict, "failures", failures);
         if (ret)
