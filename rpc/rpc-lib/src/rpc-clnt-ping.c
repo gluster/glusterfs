@@ -187,6 +187,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int64_t               latency_msec = 0;
         int                   ret = 0;
         int                   unref    = 0;
+        gf_boolean_t          call_notify = _gf_false;
 
         if (!myframe) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -209,12 +210,6 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_log (THIS->name, GF_LOG_DEBUG,
                         "Ping latency is %" PRIu64 "ms",
                         latency_msec);
-
-                ret = local->rpc->notifyfn (local->rpc, NULL, RPC_CLNT_PING,
-                                            NULL);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "RPC_CLNT_PING notify failed");
 
                 if (req->rpc_status == -1) {
                         unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
@@ -242,6 +237,15 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 unlock:
         pthread_mutex_unlock (&conn->lock);
+
+        if (call_notify) {
+                ret = local->rpc->notifyfn (local->rpc, this,
+                                            RPC_CLNT_PING, NULL);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "RPC_CLNT_PING notify failed");
+                }
+        }
 out:
         if (unref)
                 rpc_clnt_unref (local->rpc);
