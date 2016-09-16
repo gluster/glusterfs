@@ -870,6 +870,20 @@ err:
         return txrecord;
 }
 
+static uint32_t
+rpc_callback_new_callid (struct rpc_transport *trans)
+{
+        uint32_t callid = 0;
+
+        pthread_mutex_lock (&trans->lock);
+        {
+                callid = ++trans->xid;
+        }
+        pthread_mutex_unlock (&trans->lock);
+
+        return callid;
+}
+
 int
 rpcsvc_fill_callback (int prognum, int progver, int procnum, int payload,
                       uint32_t xid, struct rpc_msg *request)
@@ -1048,6 +1062,7 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
         rpc_transport_req_t    req;
         int                    ret         = -1;
         int                    proglen     = 0;
+        uint32_t               xid         = 0;
 
         if (!rpc) {
                 goto out;
@@ -1059,11 +1074,11 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                 proglen += iov_length (proghdr, proghdrcount);
         }
 
+        xid = rpc_callback_new_callid (trans);
+
         request_iob = rpcsvc_callback_build_record (rpc, prog->prognum,
                                                     prog->progver, procnum,
-                                                    proglen,
-                                                    GF_UNIVERSAL_ANSWER,
-                                                    &rpchdr);
+                                                    proglen, xid, &rpchdr);
         if (!request_iob) {
                 gf_log ("rpcsvc", GF_LOG_WARNING,
                         "cannot build rpc-record");
