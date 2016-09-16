@@ -633,8 +633,6 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         int32_t                 cmd          = 0;
         char                    msg[2048]    = {0};
         glusterd_volinfo_t      *volinfo     = NULL;
-        glusterd_brickinfo_t    *brickinfo   = NULL;
-        glusterd_peerinfo_t     *peerinfo    = NULL;
         char                    *task_id_str = NULL;
         dict_t                  *op_ctx      = NULL;
         xlator_t                *this        = 0;
@@ -700,43 +698,6 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                            "attempting this command again.",
                                            volname);
                         goto out;
-                }
-
-                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
-                                         brick_list) {
-                        if (glusterd_is_local_brick (THIS, volinfo, brickinfo)) {
-                                if (brickinfo->status != GF_BRICK_STARTED) {
-                                        gf_asprintf (op_errstr, "Received"
-                                                     " rebalance on volume with "
-                                                     " stopped brick %s",
-                                                     brickinfo->path);
-                                        ret = -1;
-                                        goto out;
-                                }
-                        } else {
-                                rcu_read_lock ();
-                                peerinfo = glusterd_peerinfo_find_by_uuid
-                                           (brickinfo->uuid);
-                                if (!peerinfo) {
-                                        gf_asprintf (op_errstr, "Host node %s "
-                                                     "of brick %s doesn't "
-                                                     "belong to cluster",
-                                                     brickinfo->hostname,
-                                                     brickinfo->path);
-                                        ret = -1;
-                                        rcu_read_unlock ();
-                                        goto out;
-                                } else if (!peerinfo->connected) {
-                                        gf_asprintf (op_errstr, "Host node %s "
-                                                     "of brick %s is down",
-                                                     brickinfo->hostname,
-                                                     brickinfo->path);
-                                        ret = -1;
-                                        rcu_read_unlock ();
-                                        goto out;
-                                }
-                                rcu_read_unlock ();
-                        }
                 }
 
         case GF_DEFRAG_CMD_START_FORCE:
