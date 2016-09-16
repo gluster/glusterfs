@@ -344,7 +344,6 @@ free:
 int
 gf_get_mem_type (void *ptr)
 {
-        struct mem_acct   *mem_acct;
         struct mem_header *header = NULL;
 
         if (!ptr || !THIS->ctx->mem_acct_enable)
