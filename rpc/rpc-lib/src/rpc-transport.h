@@ -210,6 +210,7 @@ struct rpc_transport {
 
         uint64_t                   total_bytes_read;
         uint64_t                   total_bytes_write;
+        uint32_t                   xid; /* RPC/XID used for callbacks */
 
         struct list_head           list;
         int                        bind_insecure;
