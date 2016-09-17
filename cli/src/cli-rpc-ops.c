@@ -2970,13 +2970,9 @@ gf_cli_reset_brick_cbk (struct rpc_req *req, struct iovec *iov,
         int                              ret              = -1;
         cli_local_t                     *local            = NULL;
         call_frame_t                    *frame            = NULL;
-        char                            *src_brick        = NULL;
-        char                            *dst_brick        = NULL;
-        char                            *status_reply     = NULL;
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
         char                             msg[1024]        = {0,};
-        char                            *task_id_str      = NULL;
         char                            *reset_op         = NULL;
 
         GF_ASSERT (myframe);
