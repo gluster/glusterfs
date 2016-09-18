@@ -4334,8 +4334,6 @@ gf_cli_get_state (call_frame_t *frame, xlator_t *this, void *data)
         int                     ret = 0;
         dict_t                  *dict = NULL;
 
-        char                    *odir       =  NULL;
-
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;

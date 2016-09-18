@@ -930,7 +930,6 @@ cli_cmd_get_state_parse (struct cli_state *state,
 {
         dict_t    *dict                 = NULL;
         int        ret                  = -1;
-        uint32_t   cmd                  = 0;
         char      *odir                 = NULL;
         char      *filename             = NULL;
         char      *daemon_name          = NULL;
