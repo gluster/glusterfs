@@ -39,14 +39,18 @@ xdrsrc=$(top_srcdir)/rpc/xdr/src
 # could use a '-' (i.e. -@rpcgen ...) and suffer with noisy warnings
 # in the build. Or we do this crufty thing instead.
 $(XDRSOURCES): $(XDRHEADERS)
-	@rpcgen -c -o $(@:.c=.tmp) $(@:.c=.x) && mv $(@:.c=.tmp) $@
+	@if [ ! -e $@ -o $(@:.c=.x) -nt $@ ]; then \
+		rpcgen -c -o $(@:.c=.tmp) $(@:.c=.x) && mv $(@:.c=.tmp) $@ ; \
+	fi
 
 # d*mn sed in netbsd6 doesn't do -i (inline)
 # (why are we still running smoke on netbsd6 and not netbsd7?)
 $(XDRHEADERS): $(XDRGENFILES)
-	@rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x)
-	@sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' \
-		$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp)
+	@if [ ! -e $@ -o $(@:.h=.x) -nt $@ ]; then \
+		rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x) ; \
+		sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' \
+			$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp) ; \
+	fi
 
 # link .x files when doing out-of-tree builds
 # have to use .PHONY here to force it; all versions of make
