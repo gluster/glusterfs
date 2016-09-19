@@ -5424,8 +5424,13 @@ fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
         diov[0].iov_len  = 1;
         diov[1].iov_base = finh;
         diov[1].iov_len  = sizeof (*finh);
+        if (finh->opcode == FUSE_WRITE) {
+                /* WRITE has special data alingment, see comment in
+                   fuse_write(). */
+                diov[1].iov_len += sizeof (struct fuse_write_in);
+        }
         diov[2].iov_base = msg;
-        diov[2].iov_len  = finh->len - sizeof (*finh);
+        diov[2].iov_len  = finh->len - diov[1].iov_len;
 
         pthread_mutex_lock (&priv->fuse_dump_mutex);
         ret = sys_writev (priv->fuse_dump_fd, diov, 3);
