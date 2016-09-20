@@ -43,4 +43,8 @@ syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
                      int (*fn) (xlator_t *subvol, gf_dirent_t *entry,
                                 loc_t *parent, void *data),
                      int count, int sleep_time);
+int
+syncop_inode_find (xlator_t *this, xlator_t *subvol,
+                   uuid_t gfid, inode_t **inode,
+                   dict_t *xdata, dict_t **rsp_dict);
 #endif /* _SYNCOP_H */
