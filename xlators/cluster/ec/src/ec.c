@@ -806,13 +806,11 @@ ec_handle_heal_commands (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!name || strcmp (name, GF_HEAL_INFO))
                 return -1;
 
-        dict_rsp = dict_new ();
-        if (dict_rsp == NULL)
-                goto out;
+        op_errno = -ec_get_heal_info (this, loc, &dict_rsp);
+        if (op_errno <= 0) {
+                op_errno = op_ret = 0;
+        }
 
-        if (dict_set_str (dict_rsp, "heal-info", "heal") == 0)
-                op_ret = 0;
-out:
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict_rsp, NULL);
         if (dict_rsp)
                 dict_unref (dict_rsp);

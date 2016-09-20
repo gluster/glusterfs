@@ -1489,22 +1489,29 @@ unlock:
         return ret;
 }
 
-/*Data heal*/
+/*Find direction for data heal and heal info*/
 int
 ec_heal_data_find_direction (ec_t *ec, default_args_cbk_t *replies,
-                             uint64_t *versions, uint64_t *dirty,
-                             uint64_t *size, unsigned char *sources,
-                             unsigned char *healed_sinks)
+                       uint64_t *data_versions,  uint64_t *meta_versions,
+                       uint64_t *dirty, uint64_t *size, unsigned char *sources,
+                       unsigned char *healed_sinks, int which)
 {
         uint64_t        xattr[EC_VERSION_SIZE] = {0};
-        char            version_size[64] = {0};
+        char            version_size[128] = {0};
         dict_t          *version_size_db = NULL;
+        uint64_t        *m_versions      = NULL;
         unsigned char   *same            = NULL;
         int             max_same_count   = 0;
         int             source           = 0;
         int             i                = 0;
         int             ret              = 0;
+        dict_t          *dict            = NULL;
 
+        if (!meta_versions) {
+                m_versions = alloca0 (ec->nodes * sizeof (*m_versions));
+        } else {
+                m_versions = meta_versions;
+        }
         version_size_db = dict_new ();
         if (!version_size_db) {
                 ret = -ENOMEM;
@@ -1516,23 +1523,31 @@ ec_heal_data_find_direction (ec_t *ec, default_args_cbk_t *replies,
                         continue;
                 if (replies[i].op_ret < 0)
                         continue;
-                ret = ec_dict_del_array (replies[i].xattr, EC_XATTR_VERSION,
+                dict = (which == EC_COMBINE_XDATA) ? replies[i].xdata :
+                                                     replies[i].xattr;
+
+                ret = ec_dict_del_array (dict, EC_XATTR_VERSION,
                                          xattr, EC_VERSION_SIZE);
                 if (ret == 0) {
-                        versions[i] = xattr[EC_DATA_TXN];
+                        data_versions[i] = xattr[EC_DATA_TXN];
+                        if (meta_versions) {
+                                m_versions[i] = xattr[EC_METADATA_TXN];
+                        }
                 }
 
                 memset (xattr, 0, sizeof (xattr));
-                ret = ec_dict_del_array (replies[i].xattr, EC_XATTR_DIRTY,
+                ret = ec_dict_del_array (dict, EC_XATTR_DIRTY,
                                          xattr, EC_VERSION_SIZE);
                 if (ret == 0) {
                         dirty[i] = xattr[EC_DATA_TXN];
                 }
-                ret = ec_dict_del_number (replies[i].xattr, EC_XATTR_SIZE,
+                ret = ec_dict_del_number (dict, EC_XATTR_SIZE,
                                           &size[i]);
-                /*Build a db of same version, size*/
+                /*Build a db of same metadata and data version and size*/
                 snprintf (version_size, sizeof (version_size),
-                          "%"PRIu64"-%"PRIu64, versions[i], size[i]);
+                          "%"PRIu64"-%"PRIu64"-%"PRIu64, data_versions[i],
+                          m_versions[i], size[i]);
+
                 ret = dict_get_bin (version_size_db, version_size,
                                     (void **)&same);
                 if (ret < 0) {
@@ -1562,7 +1577,11 @@ ec_heal_data_find_direction (ec_t *ec, default_args_cbk_t *replies,
                 goto out;
         } else {
                 snprintf (version_size, sizeof (version_size),
-                          "%"PRIu64"-%"PRIu64, versions[source], size[source]);
+                          "%"PRIu64"-%"PRIu64"-%"PRIu64,
+                          data_versions[source],
+                          m_versions[source],
+                          size[source]);
+
                 ret = dict_get_bin (version_size_db, version_size,
                                     (void **)&same);
                 if (ret < 0)
@@ -1621,8 +1640,9 @@ __ec_heal_data_prepare (call_frame_t *frame, ec_t *ec, fd_t *fd,
                 goto out;
         }
 
-        source = ec_heal_data_find_direction (ec, replies, versions, dirty,
-                                              size, sources, healed_sinks);
+        source = ec_heal_data_find_direction (ec, replies, versions, NULL,
+                                              dirty, size, sources,
+                                              healed_sinks, EC_COMBINE_DICT);
         ret = source;
         if (ret < 0)
                 goto out;
@@ -2602,7 +2622,7 @@ out:
 int32_t
 ec_launch_replace_heal (ec_t *ec)
 {
-	int ret = -1;
+        int ret = -1;
 
         if (!ec)
                 return ret;
@@ -2612,5 +2632,209 @@ ec_launch_replace_heal (ec_t *ec)
                 gf_msg_debug (ec->xl->name, 0,
                         "Heal failed for replace brick ret = %d", ret);
         }
+        return ret;
+}
+
+int32_t
+ec_set_heal_info(dict_t **dict_rsp, char *status)
+{
+        dict_t *dict = NULL;
+        int    ret   = 0;
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        ret = dict_set_str (dict, "heal-info", status);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_WARNING, -ret,
+                        EC_MSG_HEAL_FAIL,
+                        "Failed to set heal-info key to "
+                        "%s", status);
+                dict_unref(dict);
+                dict = NULL;
+        }
+        *dict_rsp = dict;
+out:
+        return ret;
+}
+
+int32_t
+ec_need_heal (ec_t *ec, default_args_cbk_t *replies, gf_boolean_t *need_heal)
+{
+        uint64_t           *dirty         = NULL;
+        unsigned char      *sources       = NULL;
+        unsigned char      *healed_sinks  = NULL;
+        uint64_t           *data_versions = NULL;
+        uint64_t           *meta_versions = NULL;
+        uint64_t           *size          = NULL;
+        int                ret            = 0;
+        int                source_count   = 0;
+
+        sources = alloca0(ec->nodes);
+        healed_sinks = alloca0(ec->nodes);
+        dirty = alloca0 (ec->nodes * sizeof (*dirty));
+        size = alloca0 (ec->nodes * sizeof (*size));
+        data_versions = alloca0 (ec->nodes * sizeof (*data_versions));
+        meta_versions = alloca0 (ec->nodes * sizeof (*meta_versions));
+
+        ret = ec_heal_data_find_direction (ec, replies, data_versions,
+                                           meta_versions, dirty, size,
+                                           sources, healed_sinks,
+                                           EC_COMBINE_XDATA);
+        if (ret < 0 && ret != -EIO) {
+                goto out;
+        }
+        source_count = EC_COUNT (sources, ec->nodes);
+        if (source_count != ec->nodes) {
+                *need_heal = _gf_true;
+        }
+        ret = source_count;
+out:
+        return ret;
+}
+
+int32_t
+ec_heal_inspect (call_frame_t *frame, ec_t *ec,
+                 inode_t *inode, unsigned char *locked_on,
+                 gf_boolean_t *need_heal)
+{
+        loc_t              loc           = {0};
+        int                ret           = 0;
+        dict_t             *xdata        = NULL;
+        uint64_t           zero_array[2] = {0};
+        uint64_t           zero_value    = 0;
+        unsigned char      *output       = NULL;
+        default_args_cbk_t *replies      = NULL;
+
+        EC_REPLIES_ALLOC (replies, ec->nodes);
+        output = alloca0 (ec->nodes);
+
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+
+        xdata = dict_new ();
+        if (!xdata ||
+            dict_set_static_bin (xdata, EC_XATTR_VERSION, zero_array,
+                                 sizeof (zero_array)) ||
+            dict_set_static_bin (xdata, EC_XATTR_DIRTY, zero_array,
+                                 sizeof (zero_array)) ||
+            dict_set_static_bin (xdata, EC_XATTR_SIZE, &zero_value,
+                                 sizeof (zero_value))) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        ret = cluster_lookup (ec->xl_list, locked_on, ec->nodes, replies,
+                              output, frame, ec->xl, &loc, xdata);
+        if (ret != ec->nodes) {
+                ret = ec->nodes;
+                *need_heal = _gf_true;
+                goto out;
+        }
+        ret = ec_need_heal (ec, replies, need_heal);
+
+out:
+        cluster_replies_wipe (replies, ec->nodes);
+        loc_wipe (&loc);
+        if (xdata) {
+                dict_unref(xdata);
+        }
+        return ret;
+}
+
+int32_t
+ec_heal_locked_inspect (call_frame_t *frame, ec_t *ec, inode_t *inode,
+                        gf_boolean_t *need_heal)
+{
+        unsigned char      *locked_on  = NULL;
+        unsigned char      *up_subvols = NULL;
+        unsigned char      *output     = NULL;
+        default_args_cbk_t *replies    = NULL;
+        int                ret         = 0;
+
+        EC_REPLIES_ALLOC (replies, ec->nodes);
+        locked_on = alloca0(ec->nodes);
+        output = alloca0(ec->nodes);
+        up_subvols = alloca0(ec->nodes);
+        ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
+
+        ret = cluster_inodelk (ec->xl_list, up_subvols, ec->nodes,
+                               replies, locked_on, frame, ec->xl,
+                               ec->xl->name, inode, 0, 0);
+        if (ret != ec->nodes) {
+                *need_heal = _gf_true;
+                goto unlock;
+        }
+        ret = ec_heal_inspect (frame, ec, inode,
+                               locked_on, need_heal);
+unlock:
+        cluster_uninodelk (ec->xl_list, locked_on, ec->nodes,
+                           replies, output, frame, ec->xl,
+                           ec->xl->name, inode, 0, 0);
+        cluster_replies_wipe (replies, ec->nodes);
+        return ret;
+}
+
+int32_t
+ec_get_heal_info (xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
+{
+        int             ret             = -ENOMEM;
+        gf_boolean_t    need_heal       = _gf_false;
+        call_frame_t    *frame          = NULL;
+        ec_t            *ec             = NULL;
+        unsigned char   *up_subvols     = NULL;
+        loc_t           loc             = {0, };
+
+        VALIDATE_OR_GOTO(this, out);
+        GF_VALIDATE_OR_GOTO(this->name, entry_loc, out);
+
+        ec = this->private;
+        up_subvols = alloca0(ec->nodes);
+        ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                goto out;
+        }
+        ec_owner_set(frame, frame->root);
+        frame->root->uid = 0;
+        frame->root->gid = 0;
+        frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
+
+        if (loc_copy(&loc, entry_loc) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR,
+                        ENOMEM, EC_MSG_LOC_COPY_FAIL,
+                        "Failed to copy a location.");
+                goto out;
+        }
+        if (!loc.inode) {
+                ret = syncop_inode_find (this, this, loc.gfid,
+                                         &loc.inode, NULL, NULL);
+                if (ret < 0)
+                        goto out;
+        }
+
+        ret = ec_heal_inspect (frame, ec, loc.inode, up_subvols,
+                               &need_heal);
+        if (ret == ec->nodes) {
+                goto set_heal;
+        }
+        need_heal = _gf_false;
+        ret = ec_heal_locked_inspect (frame, ec, loc.inode,
+                                      &need_heal);
+        if (ret < 0)
+                goto out;
+set_heal:
+        if (need_heal) {
+                ret =  ec_set_heal_info (dict_rsp, "heal");
+        } else {
+                ret =  ec_set_heal_info (dict_rsp, "no-heal");
+        }
+out:
+        if (frame) {
+                STACK_DESTROY (frame->root);
+        }
+        loc_wipe (&loc);
         return ret;
 }

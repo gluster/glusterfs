@@ -23,7 +23,10 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "0" mount_get_option_value $M0 $V0-disperse-0 background-heals
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "0" mount_get_option_value $M0 $V0-disperse-0 heal-wait-qlength
 TEST touch $M0/a
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "0" get_pending_heal_count $V0 #One for each active brick
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" count_sh_entries $B0/${V0}0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" count_sh_entries $B0/${V0}1
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" count_sh_entries $B0/${V0}2
+
 TEST kill_brick $V0 $H0 $B0/${V0}2
 echo abc > $M0/a
 EXPECT 2 get_pending_heal_count $V0 #One for each active brick
@@ -31,7 +34,6 @@ $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 #Accessing file shouldn't heal the file
 EXPECT "abc" cat $M0/a
-sleep 3
 EXPECT 2 get_pending_heal_count $V0 #One for each active brick
 TEST $CLI volume set $V0 disperse.background-heals 1
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-disperse-0 background-heals
