@@ -893,29 +893,6 @@ ioc_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
-/*
- * ioc_readv_disabled_cbk
- * @frame:
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @vector:
- * @count:
- *
- */
-int32_t
-ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret,	int32_t op_errno, struct iovec *vector,
-                        int32_t count, struct iatt *stbuf,
-                        struct iobref *iobref, dict_t *xdata)
-{
-        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
-                             stbuf, iobref, xdata);
-        return 0;
-}
-
-
 int32_t
 ioc_need_prune (ioc_table_t *table)
 {
@@ -1128,10 +1105,17 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
         if (!ioc_inode) {
                 /* caching disabled, go ahead with normal readv */
-                STACK_WIND (frame, ioc_readv_disabled_cbk,
-                            FIRST_CHILD (frame->this),
-                            FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset, flags, xdata);
+                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
+                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                                 size, offset, flags, xdata);
+                return 0;
+        }
+
+        if (flags & O_DIRECT) {
+                /* disable caching for this fd, if O_DIRECT is used */
+                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
+                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                                 size, offset, flags, xdata);
                 return 0;
         }
 
@@ -1165,10 +1149,9 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (!fd_ctx_get (fd, this, NULL)) {
                 /* disable caching for this fd, go ahead with normal readv */
-                STACK_WIND (frame, ioc_readv_disabled_cbk,
-                            FIRST_CHILD (frame->this),
-                            FIRST_CHILD (frame->this)->fops->readv, fd, size,
-                            offset, flags, xdata);
+                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
+                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                                 size, offset, flags, xdata);
                 return 0;
         }
 
