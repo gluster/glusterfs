@@ -591,3 +591,38 @@ out:
 
         return ret;
 }
+
+int
+syncop_inode_find (xlator_t *this, xlator_t *subvol,
+                   uuid_t gfid, inode_t **inode,
+                   dict_t *xdata, dict_t **rsp_dict)
+{
+        int         ret    = 0;
+        loc_t       loc    = {0, };
+        struct iatt iatt   = {0, };
+	*inode =  NULL;
+
+        *inode = inode_find (this->itable, gfid);
+        if (*inode)
+                goto out;
+
+        loc.inode = inode_new (this->itable);
+        if (!loc.inode) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        gf_uuid_copy (loc.gfid, gfid);
+
+	ret = syncop_lookup (subvol, &loc, &iatt, NULL, xdata, rsp_dict);
+        if (ret < 0)
+                goto out;
+
+        *inode = inode_link (loc.inode, NULL, NULL, &iatt);
+        if (!*inode) {
+                ret = -ENOMEM;
+                goto out;
+        }
+out:
+        loc_wipe (&loc);
+        return ret;
+}

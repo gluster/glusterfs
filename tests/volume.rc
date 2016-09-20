@@ -710,3 +710,8 @@ function get_hard_link_count {
         local path=$1;
         stat -c %h $path
 }
+
+function count_sh_entries()
+{
+    ls $1/.glusterfs/indices/xattrop | grep -v "xattrop-" | wc -l
+}

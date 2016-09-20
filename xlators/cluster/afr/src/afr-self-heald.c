@@ -153,22 +153,11 @@ unlock:
 inode_t *
 afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 {
-	int           ret      = 0;
-        uint64_t       val     = IA_INVAL;
-	loc_t         loc      = {0, };
+        int          ret       = 0;
+        uint64_t     val       = IA_INVAL;
         dict_t       *xdata    = NULL;
         dict_t       *rsp_dict = NULL;
-	inode_t      *inode    = NULL;
-	struct iatt   iatt     = {0, };
-
-	inode = inode_find (this->itable, gfid);
-	if (inode)
-		goto out;
-
-	loc.inode = inode_new (this->itable);
-	if (!loc.inode)
-		goto out;
-	gf_uuid_copy (loc.gfid, gfid);
+        inode_t      *inode    = NULL;
 
         xdata = dict_new ();
         if (!xdata)
@@ -178,7 +167,8 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
         if (ret)
                 goto out;
 
-	ret = syncop_lookup (subvol, &loc, &iatt, NULL, xdata, &rsp_dict);
+	ret = syncop_inode_find (this, subvol, gfid, &inode,
+                                 xdata, &rsp_dict);
 	if (ret < 0)
 		goto out;
 
@@ -188,15 +178,16 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
                 if (ret)
                         goto out;
         }
-
-	inode = inode_link (loc.inode, NULL, NULL, &iatt);
         ret = inode_ctx_set2 (inode, subvol, 0, &val);
 out:
+        if (ret && inode) {
+                inode_unref (inode);
+                inode = NULL;
+        }
         if (xdata)
                 dict_unref (xdata);
         if (rsp_dict)
                 dict_unref (rsp_dict);
-	loc_wipe (&loc);
 	return inode;
 }
 

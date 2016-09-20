@@ -118,4 +118,7 @@ void ec_manager(ec_fop_data_t * fop, int32_t error);
 gf_boolean_t ec_is_recoverable_error (int32_t op_errno);
 void ec_handle_healers_done (ec_fop_data_t *fop);
 
+int32_t
+ec_get_heal_info (xlator_t *this, loc_t *loc, dict_t **dict);
+
 #endif /* __EC_COMMON_H__ */

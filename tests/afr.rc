@@ -85,11 +85,6 @@ function is_file_heal_done {
 #count the number of entries marked for self-heal
 #in brick $1's index
 
-function count_sh_entries()
-{
-    ls $1/.glusterfs/indices/xattrop | grep -v "xattrop-" | wc -l
-}
-
 function count_index_entries()
 {
     ls $1/.glusterfs/indices/xattrop | wc -l
