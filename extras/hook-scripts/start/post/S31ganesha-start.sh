@@ -4,7 +4,7 @@ OPTSPEC="volname:,gd-workdir:"
 VOL=
 declare -i EXPORT_ID
 ganesha_key="ganesha.enable"
-GANESHA_DIR="/etc/ganesha"
+GANESHA_DIR="/var/run/gluster/shared_storage/nfs-ganesha"
 CONF1="$GANESHA_DIR/ganesha.conf"
 GLUSTERD_WORKDIR=
 
