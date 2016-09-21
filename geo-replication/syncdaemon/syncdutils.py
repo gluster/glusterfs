@@ -25,7 +25,13 @@ from os import waitpid as owaitpid
 
 from conf import GLUSTERFS_LIBEXECDIR
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
-from events import eventtypes
+EVENTS_ENABLED = True
+try:
+    from events.eventtypes import GEOREP_FAULTY as EVENT_GEOREP_FAULTY
+except ImportError:
+    # Events APIs not installed, dummy eventtypes with None
+    EVENTS_ENABLED = False
+    EVENT_GEOREP_FAULTY = None
 
 try:
     from cPickle import PickleError
@@ -516,8 +522,9 @@ class ChangelogException(OSError):
 
 
 def gf_event(event_type, **kwargs):
-    from events.gf_event import gf_event as gfevent
-    gfevent(event_type, **kwargs)
+    if EVENTS_ENABLED:
+        from events.gf_event import gf_event as gfevent
+        gfevent(event_type, **kwargs)
 
 
 class GlusterLogLevel(object):
