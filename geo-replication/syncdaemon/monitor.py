@@ -25,7 +25,7 @@ from gconf import gconf
 from syncdutils import select, waitpid, errno_wrap
 from syncdutils import set_term_handler, is_host_local, GsyncdError
 from syncdutils import escape, Thread, finalize, memoize
-from syncdutils import gf_event, eventtypes
+from syncdutils import gf_event, EVENT_GEOREP_FAULTY
 
 from gsyncdstatus import GeorepStatus, set_monitor_status
 
@@ -375,7 +375,7 @@ class Monitor(object):
                 ret = exit_status(ret)
                 if ret in (0, 1):
                     self.status[w[0]['dir']].set_worker_status(self.ST_FAULTY)
-                    gf_event(eventtypes.GEOREP_FAULTY,
+                    gf_event(EVENT_GEOREP_FAULTY,
                              master_volume=master.volume,
                              master_node=w[0]['host'],
                              slave_host=slave_host,
