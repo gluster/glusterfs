@@ -4360,8 +4360,10 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), key_fmt, i);
                 ret = dict_get_str (dict, key, &uuid_str);
-                if (ret)
+                if (ret) {
+                        ret = 0;
                         continue;
+                }
 
                 gf_msg_debug (this->name, 0, "Got uuid %s",
                         uuid_str);
@@ -4370,8 +4372,10 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
                 /* if parsing fails don't error out
                  * let the original value be retained
                  */
-                if (ret)
+                if (ret) {
+                        ret = 0;
                         continue;
+                }
 
                 hostname = glusterd_uuid_to_hostname (uuid);
                 if (hostname) {
