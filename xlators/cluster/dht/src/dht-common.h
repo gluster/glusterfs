@@ -265,8 +265,6 @@ struct dht_local {
         char xsel[256];
         int32_t alloc_len;
 
-        char   *newpath;
-
         /* gfid related */
         uuid_t  gfid;
 

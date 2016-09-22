@@ -304,8 +304,10 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
         int            ret       = 0; /* not found */
 
         /* Why do other tasks if first required 'char' itself is not there */
-        if (!new_loc || !loc || !loc->name || !strchr (loc->name, '@'))
-                goto out;
+        if (!new_loc || !loc || !loc->name || !strchr (loc->name, '@')) {
+                /* Skip the GF_FREE checks here */
+                return ret;
+        }
 
         trav = this->children;
         while (trav) {
@@ -617,8 +619,6 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
 
         dht_lock_array_free (local->lock.locks, local->lock.lk_count);
         GF_FREE (local->lock.locks);
-
-        GF_FREE (local->newpath);
 
         GF_FREE (local->key);
 
