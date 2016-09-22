@@ -200,7 +200,9 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
+%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
 BuildRequires:    python-ctypes
+%endif
 BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 BuildRequires:    automake
@@ -322,7 +324,10 @@ Group:            Applications/File
 # We need python-gluster rpm for gluster module's __init__.py in Python
 # site-packages area
 Requires:         python-gluster = %{version}-%{release}
-Requires:         python python-ctypes
+Requires:         python
+%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
+BuildRequires:    python-ctypes
+%endif
 
 %description extra-xlators
 GlusterFS is a distributed file-system capable of scaling to several
@@ -391,7 +396,11 @@ Summary:          GlusterFS Geo-replication
 Group:            Applications/File
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         python python-ctypes python-prettytable
+Requires:         python
+Requires:         python-prettytable
+%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
+BuildRequires:    python-ctypes
+%endif
 Requires:         python-gluster = %{version}-%{release}
 Requires:         rsync
 
@@ -1254,6 +1263,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Sep 22 2016 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- python-ctypes no long exists, now in python stdlib (#1378436)
+
 * Wed Sep 14 2016 Aravinda VK <avishwan@redhat.com>
 - Changed attribute of eventsconfig.json file as same as other configs (#1375532)
 
