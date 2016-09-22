@@ -8961,6 +8961,14 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 operation   = "";
                 heal_op_str = "Disable heal";
                 break;
+        case    GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE:
+                operation   = "";
+                heal_op_str = "Enable granular entry heal";
+                break;
+        case    GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE:
+                operation   = "";
+                heal_op_str = "Disable granular entry heal";
+                break;
         }
 
         if (rsp.op_ret) {

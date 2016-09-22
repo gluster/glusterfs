@@ -2758,7 +2758,8 @@ cli_print_brick_status (cli_volume_status_t *status)
                              (op == GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME) ||\
                              (op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) ||      \
                              (op == GF_SHD_OP_INDEX_SUMMARY) ||               \
-                             (op == GF_SHD_OP_SPLIT_BRAIN_FILES))
+                             (op == GF_SHD_OP_SPLIT_BRAIN_FILES) ||           \
+                             (op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE))
 
 int
 cli_launch_glfs_heal (int heal_op, dict_t *options)
@@ -2807,6 +2808,10 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                         runner_add_args (&runner, "xml", NULL);
                 }
                 break;
+        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE:
+        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE:
+                runner_add_args (&runner, "granular-entry-heal-op", NULL);
+                break;
         default:
                 ret = -1;
         }
@@ -2818,11 +2823,11 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                 printf ("%s", out);
         }
         ret = runner_end (&runner);
-        ret = WEXITSTATUS (ret);
 
 out:
         return ret;
 }
+
 int
 cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
@@ -2859,19 +2864,19 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         if (NEEDS_GLFS_HEAL (heal_op)) {
                 ret = cli_launch_glfs_heal (heal_op, options);
-                if (ret == -1)
+                if (ret < 0)
+                        goto out;
+                if (heal_op != GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE)
                         goto out;
         }
-        else {
-                proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
-                CLI_LOCAL_INIT (local, words, frame, options);
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
-                if (proc->fn) {
-                        ret = proc->fn (frame, THIS, options);
-                }
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
         }
-
 out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
@@ -3280,7 +3285,8 @@ struct cli_cmd volume_cmds[] = {
           "statistics [heal-count [replica <HOSTNAME:BRICKNAME>]] |"
           "info [healed | heal-failed | split-brain] |"
           "split-brain {bigger-file <FILE> | latest-mtime <FILE> |"
-                       "source-brick <HOSTNAME:BRICKNAME> [<FILE>]}]",
+                       "source-brick <HOSTNAME:BRICKNAME> [<FILE>]} |"
+          "granular-entry-heal {enable | disable}]",
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},
 

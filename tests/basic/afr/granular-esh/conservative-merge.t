@@ -11,13 +11,13 @@ TESTS_EXPECTED_IN_LOOP=4
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST $CLI volume start $V0
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $CLI volume set $V0 data-self-heal off
 TEST $CLI volume set $V0 metadata-self-heal off
 TEST $CLI volume set $V0 entry-self-heal off
-TEST $CLI volume set $V0 granular-entry-heal on
+TEST $CLI volume heal $V0 granular-entry-heal enable
 
-TEST $CLI volume start $V0
 TEST $GFS --volfile-id=$V0 -s $H0 $M0
 
 TEST mkdir $M0/dir

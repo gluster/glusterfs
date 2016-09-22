@@ -1119,6 +1119,25 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (key_fixed)
                         key = key_fixed;
 
+                if (strcmp (key, "cluster.granular-entry-heal") == 0) {
+                        /* For granular entry-heal, if the set command was
+                         * invoked through volume-set CLI, then allow the
+                         * command only if the volume is still in 'Created'
+                         * state
+                         */
+                        if ((dict_get (dict, "is-special-key") == NULL) &&
+                            (volinfo->status != GLUSTERD_STATUS_NONE)) {
+                                snprintf (errstr, sizeof (errstr), " 'gluster "
+                                          "volume set <VOLNAME> %s {enable, "
+                                          "disable}' is not supported. Use "
+                                          "'gluster volume heal <VOLNAME> "
+                                          "granular-entry-heal {enable, "
+                                          "disable}' instead.", key);
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
                 /* Check if the key is cluster.op-version and set
                  * local_new_op_version to the value given if possible.
                  */

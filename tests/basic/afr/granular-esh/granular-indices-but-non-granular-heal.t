@@ -17,7 +17,7 @@ TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume set $V0 self-heal-daemon off
-TEST $CLI volume set $V0 granular-entry-heal on
+TEST $CLI volume heal $V0 granular-entry-heal enable
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
 
@@ -40,7 +40,7 @@ do
 done
 
 # Now disable granular-entry-heal
-TEST $CLI volume set $V0 granular-entry-heal off
+TEST $CLI volume heal $V0 granular-entry-heal disable
 
 # Start the brick that was down
 TEST $CLI volume start $V0 force

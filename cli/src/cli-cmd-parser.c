@@ -3821,7 +3821,8 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
 
         if (wordcount == 5) {
                 if (strcmp (words[3], "info") &&
-                    strcmp (words[3], "statistics")) {
+                    strcmp (words[3], "statistics") &&
+                    strcmp (words[3], "granular-entry-heal")) {
                         ret = -1;
                         goto out;
                 }
@@ -3851,6 +3852,19 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                                 goto done;
                         }
                 }
+
+                if (!strcmp (words[3], "granular-entry-heal")) {
+                        if (!strcmp (words[4], "enable")) {
+                                ret = dict_set_int32 (dict, "heal-op",
+                                          GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE);
+                                goto done;
+                        } else if (!strcmp (words[4], "disable")) {
+                                ret = dict_set_int32 (dict, "heal-op",
+                                         GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE);
+                                goto done;
+                        }
+                }
+
                 ret = -1;
                 goto out;
         }
