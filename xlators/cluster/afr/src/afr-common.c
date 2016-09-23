@@ -1816,10 +1816,6 @@ afr_frame_return (call_frame_t *frame)
 }
 
 static char *afr_ignore_xattrs[] = {
-        GLUSTERFS_OPEN_FD_COUNT,
-        GLUSTERFS_PARENT_ENTRYLK,
-        GLUSTERFS_ENTRYLK_COUNT,
-        GLUSTERFS_INODELK_COUNT,
         GF_SELINUX_XATTR_KEY,
         QUOTA_SIZE_KEY,
         NULL
@@ -1840,8 +1836,13 @@ afr_is_xattr_ignorable (char *key)
 }
 
 static gf_boolean_t
-afr_xattr_match (dict_t *this, char *key1, data_t *value1, void *data)
+afr_xattr_match_needed (dict_t *this, char *key1, data_t *value1, void *data)
 {
+        /* Ignore all non-disk (i.e. virtual) xattrs right away. */
+        if (!gf_is_valid_xattr_namespace (key1))
+                return _gf_false;
+
+        /* Ignore on-disk xattrs that AFR doesn't need to heal. */
         if (!afr_is_xattr_ignorable (key1))
                 return _gf_true;
 
@@ -1851,7 +1852,7 @@ afr_xattr_match (dict_t *this, char *key1, data_t *value1, void *data)
 gf_boolean_t
 afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2)
 {
-        return are_dicts_equal (dict1, dict2, afr_xattr_match, NULL);
+        return are_dicts_equal (dict1, dict2, afr_xattr_match_needed, NULL);
 }
 
 static int

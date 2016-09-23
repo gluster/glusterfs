@@ -117,22 +117,6 @@ posix_xattr_ignorable (char *key)
         return _is_in_array (posix_ignore_xattrs, key);
 }
 
-static gf_boolean_t
-posix_is_valid_namespace (char *key)
-{
-        static char *xattr_namespaces[] = {"trusted.", "security.", "system.",
-                                           "user.", NULL };
-        int i = 0;
-
-        for (i = 0; xattr_namespaces[i]; i++) {
-                if (strncmp (key, xattr_namespaces[i],
-                             strlen (xattr_namespaces[i])) == 0)
-                        return _gf_true;
-        }
-
-        return _gf_false;
-}
-
 static int
 _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
 {
@@ -142,7 +126,7 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
         char     val_buf[256] = {0};
         gf_boolean_t have_val   = _gf_false;
 
-        if (!posix_is_valid_namespace (key)) {
+        if (!gf_is_valid_xattr_namespace (key)) {
                 ret = -1;
                 goto out;
         }

@@ -853,7 +853,7 @@ void
 gf_zero_fill_stat (struct iatt *buf);
 
 gf_boolean_t
-is_virtual_xattr (const char *k);
+gf_is_valid_xattr_namespace (char *k);
 
 const char *
 gf_inode_type_to_str (ia_type_t type);
