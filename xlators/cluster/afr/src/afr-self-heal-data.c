@@ -14,6 +14,7 @@
 #include "byte-order.h"
 #include "protocol-common.h"
 #include "afr-messages.h"
+#include "events.h"
 
 enum {
 	AFR_SELFHEAL_DATA_FULL = 0,
@@ -597,8 +598,11 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
                                                             healed_sinks,
                                                             locked_on, replies,
                                                           AFR_DATA_TRANSACTION);
-                if (source < 0)
+                if (source < 0) {
+                        gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;type=data;"
+                                 "file=%s", this->name, uuid_utoa(inode->gfid));
                         return -EIO;
+                }
                 return source;
 	}
 

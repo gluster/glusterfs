@@ -1655,7 +1655,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
                         gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;"
-                                "msg=file type mismatch;gfid=%s;"
+                                "type=file;gfid=%s;"
                                 "ia_type-%d=%s;ia_type-%d=%s",
                                 this->name,
                                 uuid_utoa (replies[i].poststat.ia_gfid), first,
