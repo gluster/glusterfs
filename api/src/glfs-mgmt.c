@@ -700,6 +700,9 @@ glfs_volfile_fetch (struct glfs *fs)
 				   GF_HNDSK_GETSPEC, glfs_mgmt_getspec_cbk,
 				   (xdrproc_t)xdr_gf_getspec_req);
 out:
+        if (dict)
+                dict_unref (dict);
+
         return ret;
 }
 
