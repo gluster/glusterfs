@@ -63,37 +63,12 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
  * all volumes, we can just add more entries to this *
  * table                                             *
  */
-glusterd_all_vol_opts   valid_all_vol_opts[] = {
+glusterd_all_vol_opts valid_all_vol_opts[] = {
         { GLUSTERD_QUORUM_RATIO_KEY },
         { GLUSTERD_SHARED_STORAGE_KEY },
+        { GLUSTERD_GLOBAL_OP_VERSION_KEY },
         { NULL },
 };
-
-#define ALL_VOLUME_OPTION_CHECK(volname, key, ret, op_errstr, label)           \
-        do {                                                                   \
-                gf_boolean_t    _all   = !strcmp ("all", volname);             \
-                gf_boolean_t    _ratio = _gf_false;                            \
-                int32_t         i      = 0;                                    \
-                                                                               \
-                for (i = 0; valid_all_vol_opts[i].option; i++) {               \
-                        if (!strcmp (key, valid_all_vol_opts[i].option)) {     \
-                                _ratio = _gf_true;                             \
-                                break;                                         \
-                        }                                                      \
-                }                                                              \
-                                                                               \
-                if (_all && !_ratio) {                                         \
-                        ret = -1;                                              \
-                        *op_errstr = gf_strdup ("Not a valid option for all "  \
-                                                "volumes");                    \
-                        goto label;                                            \
-                } else if (!_all && _ratio) {                                  \
-                        ret = -1;                                              \
-                        *op_errstr = gf_strdup ("Not a valid option for "      \
-                                                "single volume");              \
-                        goto label;                                            \
-                }                                                              \
-         } while (0)
 
 static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
@@ -1202,7 +1177,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto cont;
                 }
 
-                ALL_VOLUME_OPTION_CHECK (volname, key, ret, op_errstr, out);
+                ALL_VOLUME_OPTION_CHECK (volname, _gf_false, key, ret,
+                                         op_errstr, out);
                 ret = glusterd_validate_quorum_options (this, key, value,
                                                         op_errstr);
                 if (ret)
@@ -1562,7 +1538,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 goto out;
                         }
-                        ALL_VOLUME_OPTION_CHECK (volname, key, ret,
+                        ALL_VOLUME_OPTION_CHECK (volname, _gf_false, key, ret,
                                                  op_errstr, out);
                 }
         }

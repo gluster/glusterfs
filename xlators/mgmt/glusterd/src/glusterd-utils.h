@@ -32,6 +32,39 @@
                  volinfo->volname, brickid);\
 } while (0)
 
+#define ALL_VOLUME_OPTION_CHECK(volname, get_opt, key, ret, op_errstr, label)  \
+        do {                                                                   \
+                gf_boolean_t    _all   = !strcmp ("all", volname);             \
+                gf_boolean_t    _is_valid_opt = _gf_false;                     \
+                int32_t         i      = 0;                                    \
+                                                                               \
+                if (strcmp (key, "all") == 0 && !get_opt) {                    \
+                        ret = -1;                                              \
+                        *op_errstr = gf_strdup ("Not a valid option to set");  \
+                }                                                              \
+                                                                               \
+                for (i = 0; valid_all_vol_opts[i].option; i++) {               \
+                        if (!strcmp (key, "all") ||                            \
+                            !strcmp (key, valid_all_vol_opts[i].option)) {     \
+                                _is_valid_opt = _gf_true;                      \
+                                break;                                         \
+                        }                                                      \
+                }                                                              \
+                                                                               \
+                if (_all && !_is_valid_opt) {                                  \
+                        ret = -1;                                              \
+                        *op_errstr = gf_strdup ("Not a valid option for all "  \
+                                                "volumes");                    \
+                        goto label;                                            \
+                } else if (!_all && _is_valid_opt) {                           \
+                        ret = -1;                                              \
+                        *op_errstr = gf_strdup ("Not a valid option for "      \
+                                                "single volume");              \
+                        goto label;                                            \
+                }                                                              \
+         } while (0)                                                           \
+
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;
@@ -622,6 +655,9 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo);
 
 int
 glusterd_get_volopt_content (dict_t *dict, gf_boolean_t xml_out);
+
+int
+glusterd_get_global_options_for_all_vols (dict_t *dict, char **op_errstr);
 
 int
 glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,

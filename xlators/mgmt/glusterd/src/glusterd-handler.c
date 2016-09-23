@@ -4620,6 +4620,19 @@ glusterd_handle_barrier (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_barrier);
 }
 
+static gf_boolean_t
+gd_is_global_option (char *opt_key)
+{
+        GF_VALIDATE_OR_GOTO (THIS->name, opt_key, out);
+
+        return (strcmp (opt_key, GLUSTERD_SHARED_STORAGE_KEY) == 0 ||
+                strcmp (opt_key, GLUSTERD_QUORUM_RATIO_KEY) == 0 ||
+                strcmp (opt_key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0);
+
+out:
+        return _gf_false;
+}
+
 int32_t
 glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
 {
@@ -4632,6 +4645,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
         char                      *volname = NULL;
         char                      *value = NULL;
         char                      err_str[2048] = {0,};
+        char                      warn_str[2048] = {0,};
         char                      dict_key[50] = {0,};
         xlator_t                  *this = NULL;
         glusterd_conf_t           *priv = NULL;
@@ -4654,6 +4668,12 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                           "name while handling get volume option command");
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLNAME_NOTFOUND_IN_DICT, "%s", err_str);
+                goto out;
+        }
+
+        if (strcasecmp (volname, "all") == 0) {
+                ret = glusterd_get_global_options_for_all_vols (dict,
+                                                                &rsp.op_errstr);
                 goto out;
         }
 
@@ -4722,6 +4742,25 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                 orig_key = key;
                                 key = key_fixed;
                         }
+                        if (gd_is_global_option (key)) {
+                                snprintf (warn_str, sizeof (warn_str),
+                                          "Warning: Support to get "
+                                          "global option value using "
+                                          "`volume get <volname>` will be "
+                                          "deprecated from next release. "
+                                          "Consider using `volume get all` "
+                                          "instead for global options");
+
+                                ret = dict_set_str (dict, "warning", warn_str);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                0, GD_MSG_DICT_SET_FAILED,
+                                                "Failed to set warning "
+                                                "message in dictionary");
+                                        goto out;
+                                }
+                        }
+
                         if (strcmp (key, "cluster.op-version") == 0) {
                                 sprintf (dict_key, "key%d", count);
                                 ret = dict_set_str(dict, dict_key, key);
