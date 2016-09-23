@@ -11398,12 +11398,18 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        ret = dict_get_str (dict, "warning", &value);
+        if (!ret) {
+                cli_out ("%s", value);
+        }
+
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to retrieve count "
                         "from the dictionary");
                 goto out;
         }
+
         if (count <= 0) {
                 gf_log ("cli", GF_LOG_ERROR, "Value of count :%d is "
                         "invalid", count);

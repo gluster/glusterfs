@@ -93,6 +93,7 @@
 #define NLMV1_VERSION       1
 
 extern struct volopt_map_entry glusterd_volopt_map[];
+extern glusterd_all_vol_opts valid_all_vol_opts[];
 
 static glusterd_lock_t lock;
 
@@ -10908,6 +10909,125 @@ cont:
 
 out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_get_global_options_for_all_vols (dict_t *ctx, char **op_errstr)
+{
+        int                     ret = -1;
+        int                     count = 0;
+        gf_boolean_t            all_opts = _gf_false;
+        gf_boolean_t            key_found = _gf_false;
+        glusterd_conf_t         *priv = NULL;
+        xlator_t                *this = NULL;
+        char                    *key = NULL;
+        char                    *key_fixed = NULL;
+        char                    dict_key[50] = {0,};
+        char                    *def_val = NULL;
+        char                    err_str[PATH_MAX] = {0,};
+        char                    *allvolopt = NULL;
+        int32_t                 i = 0;
+        gf_boolean_t            exists = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
+
+        ret = dict_get_str (ctx, "key", &key);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get option key from dictionary");
+                goto out;
+        }
+
+        if (strcasecmp (key, "all") == 0)
+                all_opts = _gf_true;
+        else {
+                exists = glusterd_check_option_exists (key, &key_fixed);
+                if (!exists) {
+                        snprintf (err_str, sizeof (err_str), "Option "
+                                  "with name: %s does not exist", key);
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_UNKNOWN_KEY, "%s", err_str);
+                        if (key_fixed)
+                                snprintf (err_str, sizeof (err_str),
+                                          "Did you mean %s?", key_fixed);
+                        ret = -1;
+                        goto out;
+                }
+                if (key_fixed)
+                        key = key_fixed;
+        }
+
+        ALL_VOLUME_OPTION_CHECK ("all", _gf_true, key, ret, op_errstr, out);
+
+        for (i = 0; valid_all_vol_opts[i].option; i++) {
+                allvolopt = gf_strdup (valid_all_vol_opts[i].option);
+
+                if (!all_opts && strcmp (key, allvolopt) != 0)
+                        continue;
+
+                ret = dict_get_str (priv->opts, allvolopt, &def_val);
+
+                /* If global option isn't set explicitly */
+                if (!def_val) {
+                        if (!strcmp (allvolopt, GLUSTERD_GLOBAL_OP_VERSION_KEY))
+                                gf_asprintf (&def_val, "%d", priv->op_version);
+                        else if (!strcmp (allvolopt, GLUSTERD_QUORUM_RATIO_KEY))
+                                gf_asprintf (&def_val, "%d", 0);
+                        else if (!strcmp (allvolopt, GLUSTERD_SHARED_STORAGE_KEY))
+                                gf_asprintf (&def_val, "%s", "disable");
+                }
+
+                count++;
+                sprintf (dict_key, "key%d", count);
+                ret = dict_set_str (ctx, dict_key, allvolopt);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set %s in dictionary", allvolopt);
+                        goto out;
+                }
+
+                sprintf (dict_key, "value%d", count);
+                ret = dict_set_dynstr_with_alloc (ctx, dict_key, def_val);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set %s for key %s in dictionary",
+                                def_val, allvolopt);
+                        goto out;
+                }
+
+                def_val = NULL;
+                allvolopt = NULL;
+
+                if (!all_opts)
+                        break;
+        }
+
+        ret = dict_set_int32 (ctx, "count", count);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set count in dictionary");
+        }
+
+out:
+        if (ret && !all_opts && !key_found) {
+                if (err_str == NULL)
+                        snprintf (err_str, sizeof (err_str),
+                                  "option %s does not exist", key);
+                if (*op_errstr == NULL)
+                        *op_errstr = gf_strdup (err_str);
+        }
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
+
         return ret;
 }
 
