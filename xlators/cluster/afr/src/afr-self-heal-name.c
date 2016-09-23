@@ -306,7 +306,7 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
                                         gf_inode_type_to_str (inode_type),
                                         priv->children[type_idx]->name);
                                 gf_event (EVENT_AFR_SPLIT_BRAIN,
-                                         "subvol=%s;msg=file type mismatch;"
+                                         "subvol=%s;type=file;"
                                          "file=<gfid:%s>/%s;count=2;"
                                          "child-%d=%s;type-%d=%s;child-%d=%s;"
                                          "type-%d=%s", this->name,
@@ -368,7 +368,7 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
 					uuid_utoa_r (gfid, g2),
 					priv->children[gfid_idx_iter]->name);
                                 gf_event (EVENT_AFR_SPLIT_BRAIN,
-                                        "subvol=%s;msg=gfid mismatch;"
+                                        "subvol=%s;type=gfid;"
                                         "file=<gfid:%s>/%s;count=2;"
                                         "child-%d=%s;gfid-%d=%s;child-%d=%s;"
                                         "gfid-%d=%s", this->name,
