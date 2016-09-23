@@ -13,6 +13,7 @@
 #include "afr-self-heal.h"
 #include "byte-order.h"
 #include "protocol-common.h"
+#include "events.h"
 
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
@@ -241,6 +242,9 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		}
 
 		if (!priv->metadata_splitbrain_forced_heal) {
+                        gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;"
+                                  "type=metadata;file=%s",
+                                  this->name, uuid_utoa(inode->gfid));
 			return -EIO;
 		}
 
