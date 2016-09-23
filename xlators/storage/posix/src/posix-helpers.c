@@ -632,6 +632,11 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
 
         priv = this->private;
 
+        if (gfid && !gf_uuid_is_null (gfid))
+                gf_uuid_copy (stbuf.ia_gfid, gfid);
+        else
+                posix_fill_gfid_path (this, path, &stbuf);
+
         ret = sys_lstat (path, &lstatbuf);
 
         if (ret != 0) {
@@ -663,11 +668,6 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
                 lstatbuf.st_nlink --;
 
         iatt_from_stat (&stbuf, &lstatbuf);
-
-        if (gfid && !gf_uuid_is_null (gfid))
-                gf_uuid_copy (stbuf.ia_gfid, gfid);
-        else
-                posix_fill_gfid_path (this, path, &stbuf);
 
         posix_fill_ino_from_gfid (this, &stbuf);
 
