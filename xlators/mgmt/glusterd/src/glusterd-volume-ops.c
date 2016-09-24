@@ -278,6 +278,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                    err_str[2048] = {0,};
         gf_cli_rsp              rsp         = {0,};
         xlator_t               *this        = NULL;
+        glusterd_conf_t        *conf        = NULL;
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
         char                   *address_family_str  = NULL;
@@ -291,6 +292,9 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         this = THIS;
         GF_ASSERT(this);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
         ret = -1;
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -385,14 +389,19 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                         goto out;
                 }
         } else if (!strcmp(trans_type, "tcp")) {
-                /* Setting default as inet for trans_type tcp */
-                ret = dict_set_dynstr_with_alloc (dict,
-                                "transport.address-family",
-                                "inet");
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "failed to set transport.address-family");
-                        goto out;
+                /* Setting default as inet for trans_type tcp if the op-version
+                 * is >= 3.8.0
+                 */
+                if (conf->op_version >= GD_OP_VERSION_3_8_0) {
+                        ret = dict_set_dynstr_with_alloc (dict,
+                                        "transport.address-family",
+                                        "inet");
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to set "
+                                        "transport.address-family");
+                                goto out;
+                        }
                 }
         }
         ret = dict_get_str (dict, "bricks", &bricks);

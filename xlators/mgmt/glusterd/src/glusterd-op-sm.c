@@ -2247,6 +2247,68 @@ out:
 }
 
 static int
+glusterd_update_volumes_dict (glusterd_volinfo_t *volinfo)
+{
+        int              ret = -1;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *conf = NULL;
+        char            *address_family_str = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        /* 3.9.0 onwards gNFS will be disabled by default. In case of an upgrade
+         * from anything below than 3.9.0 to 3.9.x the volume's dictionary will
+         * not have 'nfs.disable' key set which means the same will not be set
+         * to on until explicitly done. setnfs.disable to 'on' at op-version
+         * bump up flow is the ideal way here. The same is also applicable for
+         * transport.address-family where if the transport type is set to tcp
+         * then transport.address-family is defaulted to 'inet'.
+         */
+        if (conf->op_version >= GD_OP_VERSION_3_9_0) {
+                if (dict_get_str_boolean (volinfo->dict, NFS_DISABLE_MAP_KEY,
+                                          1)) {
+                        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                                          NFS_DISABLE_MAP_KEY,
+                                                          "on");
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_DICT_SET_FAILED, "Failed to set "
+                                        "option ' NFS_DISABLE_MAP_KEY ' on "
+                                        "volume %s", volinfo->volname);
+                                goto out;
+                        }
+                }
+                ret = dict_get_str (volinfo->dict, "transport.address-family",
+                                    &address_family_str);
+                if (ret) {
+                        if (volinfo->transport_type == GF_TRANSPORT_TCP) {
+                                ret = dict_set_dynstr_with_alloc
+                                        (volinfo->dict,
+                                         "transport.address-family",
+                                         "inet");
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                errno, GD_MSG_DICT_SET_FAILED,
+                                                "failed to set transport."
+                                                "address-family on %s",
+                                                volinfo->volname);
+                                        goto out;
+                                }
+                        }
+                }
+        }
+        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                     char **op_errstr)
 {
@@ -2314,8 +2376,7 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                         }
                 }
                 cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                        ret = glusterd_store_volinfo
-                                (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                        ret = glusterd_update_volumes_dict (volinfo);
                         if (ret)
                                 goto out;
                 }
