@@ -21,7 +21,8 @@ from eventtypes import all_events
 import handlers
 import utils
 from eventsapiconf import SERVER_ADDRESS, PID_FILE
-from utils import logger, PidFile, PidFileLockFailed
+from eventsapiconf import AUTO_BOOL_ATTRIBUTES, AUTO_INT_ATTRIBUTES
+from utils import logger, PidFile, PidFileLockFailed, boolify
 
 
 class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
@@ -44,6 +45,16 @@ class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
         except ValueError:
             logger.warn("Unable to parse Event {0}".format(data))
             return
+
+        for k, v in data_dict.iteritems():
+            try:
+                if k in AUTO_BOOL_ATTRIBUTES:
+                    data_dict[k] = boolify(v)
+                if k in AUTO_INT_ATTRIBUTES:
+                    data_dict[k] = int(v)
+            except ValueError:
+                # Auto Conversion failed, Retain the old value
+                continue
 
         try:
             # Event Type to Function Map, Recieved event data will be in

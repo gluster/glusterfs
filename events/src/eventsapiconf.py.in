@@ -24,3 +24,5 @@ RESTART_CONFIGS = ["port"]
 EVENTS_ENABLED = @EVENTS_ENABLED@
 UUID_FILE = "@GLUSTERD_WORKDIR@/glusterd.info"
 PID_FILE = "@localstatedir@/run/glustereventsd.pid"
+AUTO_BOOL_ATTRIBUTES = ["force", "push-pem", "no-verify"]
+AUTO_INT_ATTRIBUTES = ["ssh-port"]
