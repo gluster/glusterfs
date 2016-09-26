@@ -35,6 +35,14 @@ logger = logging.getLogger(__name__)
 NodeID = None
 
 
+def boolify(value):
+    value = str(value)
+    if value.lower() in ["1", "on", "true", "yes"]:
+        return True
+    else:
+        return False
+
+
 def get_node_uuid():
     val = None
     with open(UUID_FILE) as f:
