@@ -1059,7 +1059,7 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         nfs_loc_wipe (&mres->resolveloc);
         ret = nfs_entry_loc_fill (mres->mstate->nfsx, mres->exp->vol->itable,
                                   gfid, nextcomp, &mres->resolveloc,
-                                  NFS_RESOLVE_CREATE);
+                                  NFS_RESOLVE_CREATE, NULL);
         if ((ret < 0) && (ret != -2)) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
                         NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "
@@ -1374,7 +1374,7 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
         rootgfid[15] = 1;
         ret = nfs_entry_loc_fill (mres->mstate->nfsx, mres->exp->vol->itable,
                                   rootgfid, firstcomp, &mres->resolveloc,
-                                  NFS_RESOLVE_CREATE);
+                                  NFS_RESOLVE_CREATE, NULL);
         if ((ret < 0) && (ret != -2)) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
                         NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "

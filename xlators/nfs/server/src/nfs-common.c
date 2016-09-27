@@ -308,7 +308,7 @@ err:
  */
 int
 nfs_entry_loc_fill (xlator_t *this, inode_table_t *itable, uuid_t pargfid,
-                    char *entry, loc_t *loc, int how)
+                    char *entry, loc_t *loc, int how, gf_boolean_t *freshlookup)
 {
         inode_t         *parent = NULL;
         inode_t         *entryinode = NULL;
@@ -337,8 +337,11 @@ nfs_entry_loc_fill (xlator_t *this, inode_table_t *itable, uuid_t pargfid,
                          * that the caller can use the filled loc to call
                          * lookup.
                          */
-                        if (!entryinode)
+                        if (!entryinode) {
                                 entryinode = inode_new (itable);
+                                if (freshlookup)
+                                        *freshlookup = _gf_true;
+                        }
                         /* Cannot change ret because that must
                          * continue to have -2.
                          */
