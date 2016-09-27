@@ -150,6 +150,12 @@ function afr_child_up_status_meta {
         grep "child_up\[$child\]" $mnt/.meta/graphs/active/$repl/private | awk '{print $3}'
 }
 
+function client_connected_status_meta {
+        local mnt=$1
+        local client=$2
+        grep "connected" $mnt/.meta/graphs/active/$client/private | awk '{print $3}'
+}
+
 function afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
