@@ -10,6 +10,7 @@ TEST pidof glusterd
 TEST $CLI volume info 2>/dev/null;
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
+TEST $CLI volume set $V0 performance.flush-behind off;
 
 TEST $CLI volume start $V0;
 
@@ -40,8 +41,11 @@ EXPECT "$D0" cat $M1/$F0;
 TEST $CLI volume stop $V0;
 sleep 1;
 TEST $CLI volume start $V0;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M0 ${V0}-client-0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M0 ${V0}-client-1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M1 ${V0}-client-0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M1 ${V0}-client-1
 
-sleep 2;
 cat $M1/$F0 >/dev/null;
 
 string=$(gluster volume top $V0 open | grep -w "$F0");
@@ -51,6 +55,11 @@ EXPECT "" echo $string;
 TEST $CLI volume set $V0 performance.open-behind off;
 
 EXPECT_WITHIN $GRAPH_SWITCH_TIMEOUT "2" num_graphs $M0;
+EXPECT_WITHIN $GRAPH_SWITCH_TIMEOUT "2" num_graphs $M1;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M0 ${V0}-client-0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M0 ${V0}-client-1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M1 ${V0}-client-0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" client_connected_status_meta $M1 ${V0}-client-1
 
 D1="hello-this-is-a-test-message1";
 F1="test-file1";
@@ -60,8 +69,7 @@ EXPECT "$D1" cat $M1/$F1;
 
 EXPECT "$D0" cat $M1/$F0;
 
-gluster volume top $V0 open | grep -w "$F0" >/dev/null 2>&1
+$CLI volume top $V0 open | grep -w "$F0" >/dev/null 2>&1
 TEST [ $? -eq 0 ];
 
 cleanup;
-#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1300253
