@@ -302,7 +302,11 @@ wb_liability_has_conflict (wb_inode_t *wb_inode, wb_request_t *req)
         wb_request_t *each     = NULL;
 
         list_for_each_entry (each, &wb_inode->liability, lie) {
-		if (wb_requests_conflict (each, req))
+		if (wb_requests_conflict (each, req)
+                    && (!each->ordering.fulfilled))
+                        /* A fulfilled request shouldn't block another
+                         * request (even a dependent one) from winding.
+                         */
 			return each;
         }
 
@@ -668,7 +672,14 @@ __wb_fulfill_request (wb_request_t *req)
 	wb_inode->window_current -= req->total_size;
 	wb_inode->transit -= req->total_size;
 
-	if (!req->ordering.lied) {
+        if (req->ordering.lied) {
+                /* 1. If yes, request is in liability queue and hence can be
+                      safely removed from list.
+                   2. If no, request is in temptation queue and hence should be
+                      left in the queue so that wb_pick_unwinds picks it up
+                */
+                list_del_init (&req->lie);
+        } else {
 		/* TODO: fail the req->frame with error if
 		   necessary
 		*/
