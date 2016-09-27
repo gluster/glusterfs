@@ -4500,6 +4500,22 @@ gf_zero_fill_stat (struct iatt *buf)
         buf->ia_ctime = 0;
 }
 
+gf_boolean_t
+gf_is_valid_xattr_namespace (char *key)
+{
+        static char *xattr_namespaces[] = {"trusted.", "security.", "system.",
+                                           "user.", NULL };
+        int i = 0;
+
+        for (i = 0; xattr_namespaces[i]; i++) {
+                if (strncmp (key, xattr_namespaces[i],
+                             strlen (xattr_namespaces[i])) == 0)
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int
 gf_bits_count (uint64_t n)
 {
