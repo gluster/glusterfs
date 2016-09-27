@@ -3757,8 +3757,9 @@ out:
 int
 nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 {
-        int             ret = -EFAULT;
-        nfs_user_t      nfu = {0, };
+        int                     ret             = -EFAULT;
+        nfs_user_t              nfu             = {0, };
+        gf_boolean_t            freshlookup     = _gf_false;
 
         if (!cs)
                 return ret;
@@ -3771,7 +3772,7 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 
         ret = nfs_entry_loc_fill (cs->nfsx, cs->vol->itable, cs->resolvefh.gfid,
                                   cs->resolventry, &cs->resolvedloc,
-                                  NFS_RESOLVE_CREATE);
+                                  NFS_RESOLVE_CREATE, &freshlookup);
 
         if (ret == -2) {
                 gf_msg_trace (GF_NFS3, 0, "Entry needs lookup: %s",
@@ -3782,8 +3783,8 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 		 * go ahead in the resume callback so that an EEXIST gets
 		 * handled at posix without an extra fop at this point.
 		 */
-                if (nfs3_lookup_op (cs) ||
-		    (nfs3_create_op (cs) && !nfs3_create_exclusive_op (cs))) {
+                if (freshlookup && (nfs3_lookup_op (cs) ||
+		    (nfs3_create_op (cs) && !nfs3_create_exclusive_op (cs)))) {
                         cs->lookuptype = GF_NFS3_FRESH;
                         cs->resolve_ret = 0;
                         cs->hardresolved = 0;
