@@ -235,7 +235,7 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                                         "failed to unserialize xattr dict");
                                 goto out;
                         }
-                        entry->dict->extra_free = buf;
+                        GF_FREE (buf);
                         buf = NULL;
                 }
 
