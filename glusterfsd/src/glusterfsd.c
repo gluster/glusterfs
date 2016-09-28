@@ -33,7 +33,14 @@
 #include <pwd.h>
 
 #ifdef GF_LINUX_HOST_OS
+#ifdef HAVE_LINUX_OOM_H
 #include <linux/oom.h>
+#else
+#define OOM_SCORE_ADJ_MIN (-1000)
+#define OOM_SCORE_ADJ_MAX   1000
+#define OOM_DISABLE       (-17)
+#define OOM_ADJUST_MAX      15
+#endif
 #endif
 
 #ifdef HAVE_MALLOC_H
@@ -773,21 +780,50 @@ out:
 }
 
 
+#ifdef GF_LINUX_HOST_OS
+static struct oom_api_info {
+        char *oom_api_file;
+        int32_t oom_min;
+        int32_t oom_max;
+} oom_api_info[] = {
+        { "/proc/self/oom_score_adj", OOM_SCORE_ADJ_MIN, OOM_SCORE_ADJ_MAX },
+        { "/proc/self/oom_adj",       OOM_DISABLE,       OOM_ADJUST_MAX },
+        { NULL, 0, 0 }
+};
+
+
+static struct oom_api_info *
+get_oom_api_info (void)
+{
+        struct oom_api_info *api = NULL;
+
+        for (api = oom_api_info; api->oom_api_file; api++) {
+                if (sys_access (api->oom_api_file, F_OK) != -1) {
+                        return api;
+                }
+        }
+
+        return NULL;
+}
+#endif
 
 static error_t
 parse_opts (int key, char *arg, struct argp_state *state)
 {
-        cmd_args_t   *cmd_args      = NULL;
-        uint32_t      n             = 0;
-        int32_t       k             = 0;
-        double        d             = 0.0;
-        gf_boolean_t  b             = _gf_false;
-        char         *pwd           = NULL;
-        char          tmp_buf[2048] = {0,};
-        char         *tmp_str       = NULL;
-        char         *port_str      = NULL;
-        struct passwd *pw           = NULL;
-        int           ret           = 0;
+        cmd_args_t          *cmd_args      = NULL;
+        uint32_t             n             = 0;
+#ifdef GF_LINUX_HOST_OS
+        int32_t              k             = 0;
+        struct oom_api_info *api           = NULL;
+#endif
+        double               d             = 0.0;
+        gf_boolean_t         b             = _gf_false;
+        char                *pwd           = NULL;
+        char                 tmp_buf[2048] = {0,};
+        char                *tmp_str       = NULL;
+        char                *port_str      = NULL;
+        struct passwd       *pw            = NULL;
+        int                  ret           = 0;
 
         cmd_args = state->input;
 
@@ -1132,8 +1168,12 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_OOM_SCORE_ADJ_KEY:
                 k = 0;
 
+                api = get_oom_api_info();
+                if (!api)
+                        goto no_oom_api;
+
                 if (gf_string2int (arg, &k) == 0 &&
-                    k >= OOM_SCORE_ADJ_MIN && k <= OOM_SCORE_ADJ_MAX) {
+                    k >= api->oom_min && k <= api->oom_max) {
                         cmd_args->oom_score_adj = gf_strdup (arg);
                         break;
                 }
@@ -1141,6 +1181,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 argp_failure (state, -1, 0,
                               "unknown oom_score_adj value %s", arg);
 
+no_oom_api:
                 break;
 #endif
 
@@ -2216,17 +2257,22 @@ out:
 static int
 set_oom_score_adj (glusterfs_ctx_t *ctx)
 {
-        int ret              = -1;
-        cmd_args_t *cmd_args = NULL;
-        int fd               = -1;
-        size_t oom_score_len = 0;
+        int                  ret           = -1;
+        cmd_args_t          *cmd_args      =  NULL;
+        int                  fd            = -1;
+        size_t               oom_score_len =  0;
+        struct oom_api_info *api           =  NULL;
 
         cmd_args = &ctx->cmd_args;
 
         if (!cmd_args->oom_score_adj)
                 goto success;
 
-        fd = open ("/proc/self/oom_score_adj", O_WRONLY);
+        api = get_oom_api_info();
+        if (!api)
+                goto out;
+
+        fd = open (api->oom_api_file, O_WRONLY);
         if (fd < 0)
                 goto out;
 
