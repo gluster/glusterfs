@@ -495,6 +495,8 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_CHECK_HEADERS([linux/falloc.h])
 
+AC_CHECK_HEADERS([linux/oom.h], AC_DEFINE(HAVE_LINUX_OOM_H, 1, [have linux/oom.h]))
+
 dnl Mac OS X does not have spinlocks
 AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])
 if test "x${have_spinlock}" = "xyes"; then

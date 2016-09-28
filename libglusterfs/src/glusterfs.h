@@ -350,7 +350,6 @@ struct _cmd_args {
         int              acl;
         int              selinux;
         int              capability;
-        char            *oom_score_adj;
         int              enable_ino32;
         int              worm;
         int              mac_compat;
@@ -396,6 +395,11 @@ struct _cmd_args {
 
         /* Should management connections use SSL? */
         int             secure_mgmt;
+
+        /* Linux-only OOM killer adjustment */
+#ifdef GF_LINUX_HOST_OS
+        char            *oom_score_adj;
+#endif
 };
 typedef struct _cmd_args cmd_args_t;
 
