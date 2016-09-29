@@ -12,6 +12,7 @@
 #define _GLFS_HANDLES_H
 
 #include "glfs.h"
+#include <inttypes.h>
 
 /* GLFS OBJECT BASED OPERATIONS
  *
@@ -110,45 +111,82 @@ typedef struct glfs_object glfs_object_t;
  *
  * Currently supported upcall_events -
  *      GFAPI_INODE_INVALIDATE -
- *              'event_arg' - glfs_callback_inode_arg
+ *              'event_arg' - glfs_upcall_inode
  *
- * After processing the event, applications need to free 'event_arg'.
+ * After processing the event, applications need to free 'event_arg' with
+ * glfs_free().
  *
  * Also similar to I/Os, the application should ideally stop polling
  * before calling glfs_fini(..). Hence making an assumption that
  * 'fs' & ctx structures cannot be freed while in this routine.
  */
-struct glfs_callback_arg {
-        struct glfs             *fs; /* glfs object */
-        int                     reason;  /* Upcall event type */
-        void                    *event_arg; /* changes based in the event type */
+struct glfs_upcall;
+
+struct glfs*
+glfs_upcall_get_fs (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_fs, 3.7.16);
+
+enum glfs_upcall_reason {
+        GLFS_UPCALL_EVENT_NULL = 0,
+        GLFS_UPCALL_INODE_INVALIDATE,    /* invalidate cache entry */
 };
+
+enum glfs_upcall_reason
+glfs_upcall_get_reason (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_reason, 3.7.16);
+
 
 /*
- * After processing upcall event, they need to free "object" , "p_object",
- * "oldp_object" using glfs_h_close(..).
+ * After processing upcall event, glfs_free() should be called on the
+ * glfs_upcall.
  */
-struct glfs_callback_inode_arg {
-        struct glfs_object      *object; /* Object which need to be acted upon */
-        int                     flags; /* Cache UPDATE/INVALIDATE flags */
-        struct stat             buf; /* Latest stat of this entry */
-        unsigned int            expire_time_attr; /* the amount of time for which
-                                                   * the application need to cache
-                                                   * this entry
-                                                   */
-        struct glfs_object      *p_object; /* parent Object to be updated */
-        struct stat             p_buf; /* Latest stat of parent dir handle */
-        struct glfs_object      *oldp_object; /* Old parent Object
-                                               * to be updated */
-        struct stat             oldp_buf; /* Latest stat of old parent
-                                           * dir handle */
-};
+void*
+glfs_upcall_get_event (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_event, 3.7.16);
 
-/* reason list in glfs_callback_arg */
-enum gfapi_callback_type {
-        GFAPI_CBK_EVENT_NULL,
-        GFAPI_INODE_INVALIDATE, /* invalidate cache entry */
-};
+
+/* Functions for getting details about the glfs_upcall_inode
+ *
+ * None of the pointers returned by the below functions should be free()'d,
+ * glfs_free()'d or glfs_h_close()'d by the application.
+ *
+ * Releasing of the structures is done by passing the glfs_upcall pointer
+ * to glfs_free().
+ */
+struct glfs_upcall_inode;
+
+struct glfs_object*
+glfs_upcall_inode_get_object (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_object, 3.7.16);
+
+uint64_t
+glfs_upcall_inode_get_flags (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_flags, 3.7.16);
+
+struct stat*
+glfs_upcall_inode_get_stat (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_stat, 3.7.16);
+
+uint64_t
+glfs_upcall_inode_get_expire (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_expire, 3.7.16);
+
+struct glfs_object*
+glfs_upcall_inode_get_pobject (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_pobject, 3.7.16);
+
+struct stat*
+glfs_upcall_inode_get_pstat (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_pstat, 3.7.16);
+
+struct glfs_object*
+glfs_upcall_inode_get_oldpobject (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_oldpobject, 3.7.16);
+
+struct stat*
+glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_inode_get_oldpstat, 3.7.16);
+
 
 /* Handle based operations */
 /* Operations that generate handles */
@@ -273,7 +311,7 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
   This API is used to poll for upcall events stored in the
   upcall list. Current users of this API is NFS-Ganesha.
   Incase of any event received, it will be mapped appropriately
-  into 'glfs_callback_arg' along with the handle('glfs_object') to be
+  into 'glfs_upcall' along with the handle('glfs_object') to be
   passed to NFS-Ganesha.
 
   In case of success, applications need to check the value of
@@ -283,11 +321,8 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
   PARAMETERS
 
   @fs: glfs object to poll the upcall events for
-  @cbk: Structure to store upcall events as desired by the application.
-        Application is responsible for allocating and passing the
-        references of all the pointers of this structure except for
-        "handle". In case of any events received, it needs to free
-        "handle"
+  @cbk: Pointer that will contain an upcall event for use by the application.
+        Application is responsible for free'ing the structure with glfs_free().
 
   RETURN VALUES
 
@@ -297,8 +332,8 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
 */
 
 int
-glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *cbk) __THROW
-        GFAPI_PUBLIC(glfs_h_poll_upcall, 3.7.0);
+glfs_h_poll_upcall (struct glfs *fs, struct glfs_upcall **cbk) __THROW
+        GFAPI_PUBLIC(glfs_h_poll_upcall, 3.7.16);
 
 int
 glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,

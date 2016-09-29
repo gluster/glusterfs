@@ -1854,9 +1854,27 @@ invalid_fs:
 
 }
 
+static void
+glfs_free_upcall_inode (void *to_free)
+{
+        struct glfs_upcall_inode *arg = to_free;
+
+        if (!arg)
+                return;
+
+        if (arg->object)
+                glfs_h_close (arg->object);
+        if (arg->p_object)
+                glfs_h_close (arg->p_object);
+        if (arg->oldp_object)
+                glfs_h_close (arg->oldp_object);
+
+        GF_FREE (arg);
+}
+
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
-                                struct glfs_callback_arg *up_arg,
+                                struct glfs_upcall *up_arg,
                                 struct gf_upcall *upcall_data)
 {
         int                                 ret           = -1;
@@ -1864,7 +1882,7 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         struct glfs_object                  *oldp_object  = NULL;
         struct glfs_object                  *object       = NULL;
         struct gf_upcall_cache_invalidation *ca_data      = NULL;
-        struct glfs_callback_inode_arg      *up_inode_arg = NULL;
+        struct glfs_upcall_inode            *up_inode_arg = NULL;
 
         ca_data = upcall_data->data;
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
@@ -1889,12 +1907,10 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
                 goto out;
         }
 
-        up_inode_arg = GF_CALLOC (1, sizeof (struct glfs_callback_inode_arg),
-                                  glfs_mt_upcall_entry_t);
+        up_inode_arg = GF_CALLOC (1, sizeof (struct glfs_upcall_inode),
+                                  glfs_mt_upcall_inode_t);
         GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
                              up_inode_arg, out);
-
-        up_arg->event_arg = up_inode_arg;
 
         up_inode_arg->object = object;
         up_inode_arg->flags = ca_data->flags;
@@ -1946,6 +1962,10 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         }
         up_inode_arg->oldp_object = oldp_object;
 
+        up_arg->reason = GLFS_UPCALL_INODE_INVALIDATE;
+        up_arg->event = up_inode_arg;
+        up_arg->free_event = glfs_free_upcall_inode;
+
         ret = 0;
 
 out:
@@ -1954,47 +1974,42 @@ out:
                 if (object)
                         glfs_h_close (object);
 
-                /* Reset event_arg as well*/
-                up_arg->event_arg = NULL;
+                /* Set reason to prevent applications from using ->event */
+                up_arg->reason = GLFS_UPCALL_EVENT_NULL;
                 GF_FREE (up_inode_arg);
         }
         return ret;
 }
 
 /*
- * This API is used to poll for upcall events stored in the
- * upcall list. Current users of this API is NFS-Ganesha.
- * Incase of any event received, it will be mapped appropriately
- * into 'glfs_callback_arg' along with the handle object  to be passed
- * to NFS-Ganesha.
+ * This API is used to poll for upcall events stored in the upcall list.
+ * Current users of this API is NFS-Ganesha. Incase of any event received, it
+ * will be mapped appropriately into 'glfs_upcall' along with the handle object
+ * to be passed to NFS-Ganesha.
  *
- * On success, applications need to check for 'reason' to decide
- * if any upcall event is received.
+ * On success, applications need to check if up_arg is not-NULL or errno is not
+ * ENOENT. glfs_upcall_get_reason() can be used to decide what kind of event
+ * has been received.
  *
- * Current supported upcall_events -
- *      GFAPI_INODE_INVALIDATE -
- *              'arg - glfs_callback_inode_arg
+ * Current supported upcall_events:
+ *      GLFS_UPCALL_INODE_INVALIDATE
  *
- * After processing the event, applications need to free 'event_arg'.
+ * After processing the event, applications need to free 'up_arg' by calling
+ * glfs_free().
  *
- * Incase of INODE_INVALIDATE, applications need to free "object",
- * "p_object" and "oldp_object" using glfs_h_close(..).
- *
- * Also similar to I/Os, the application should ideally stop polling
- * before calling glfs_fini(..). Hence making an assumption that
- * 'fs' & ctx structures cannot be freed while in this routine.
+ * Also similar to I/Os, the application should ideally stop polling before
+ * calling glfs_fini(..). Hence making an assumption that 'fs' & ctx structures
+ * cannot be freed while in this routine.
  */
 int
-pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *up_arg)
+pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_upcall **up_arg)
 {
-        upcall_entry                        *u_list         = NULL;
-        upcall_entry                        *tmp            = NULL;
-        xlator_t                            *subvol         = NULL;
-        int                                 found           = 0;
-        int                                 reason          = 0;
-        glusterfs_ctx_t                     *ctx            = NULL;
-        int                                 ret             = -1;
-        struct gf_upcall                    *upcall_data    = NULL;
+        upcall_entry       *u_list         = NULL;
+        upcall_entry       *tmp            = NULL;
+        xlator_t           *subvol         = NULL;
+        glusterfs_ctx_t    *ctx            = NULL;
+        int                 ret            = -1;
+        struct gf_upcall   *upcall_data    = NULL;
 
         DECLARE_OLD_THIS;
 
@@ -2007,15 +2022,13 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *up_arg)
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
-
         if (!subvol) {
                 errno = EIO;
                 goto restore;
         }
 
         /* Ideally applications should stop polling before calling
-         * 'glfs_fini'. Yet cross check if cleanup has started
-         */
+         * 'glfs_fini'. Yet cross check if cleanup has started. */
         pthread_mutex_lock (&fs->mutex);
         {
                 ctx = fs->ctx;
@@ -2038,46 +2051,55 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_callback_arg *up_arg)
                 list_for_each_entry_safe (u_list, tmp,
                                           &fs->upcall_list,
                                           upcall_list) {
-                        found = 1;
                         list_del_init (&u_list->upcall_list);
+                        upcall_data = &u_list->upcall_data;
                         break;
                 }
         }
         /* No other thread can delete this entry. So unlock it */
         pthread_mutex_unlock (&fs->upcall_list_mutex);
 
-        if (found) {
-                upcall_data = &u_list->upcall_data;
-
+        if (upcall_data) {
                 switch (upcall_data->event_type) {
                 case GF_UPCALL_CACHE_INVALIDATION:
-                        /* XXX: Need to revisit this to support
-                         * GFAPI_INODE_UPDATE if required.
-                         */
-                        reason = GFAPI_INODE_INVALIDATE;
-                        ret = glfs_h_poll_cache_invalidation (fs,
-                                                              up_arg,
-                                                              upcall_data);
-                        if (!ret) {
-                                break;
+                        *up_arg = GF_CALLOC (1, sizeof (struct gf_upcall),
+                                             glfs_mt_upcall_entry_t);
+                        if (!*up_arg) {
+                                errno = ENOMEM;
+                                break; /* goto free u_list */
                         }
-                        /* It could so happen that the file which got
-                         * upcall notification may have got deleted
-                         * by the same client. Irrespective of the error,
-                         * return with CBK_NULL reason.
-                         *
-                         * Applications will ignore this notification
-                         * as up_arg->object will be NULL */
-                        reason = GFAPI_CBK_EVENT_NULL;
+
+                        /* XXX: Need to revisit this to support
+                         * GLFS_UPCALL_INODE_UPDATE if required. */
+                        ret = glfs_h_poll_cache_invalidation (fs, *up_arg,
+                                                              upcall_data);
+                        if (ret
+                            || (*up_arg)->reason == GLFS_UPCALL_EVENT_NULL) {
+                                /* It could so happen that the file which got
+                                 * upcall notification may have got deleted by
+                                 * the same client. Irrespective of the error,
+                                 * return with an error or success+ENOENT. */
+                                if ((*up_arg)->reason == GLFS_UPCALL_EVENT_NULL)
+                                        errno = ENOENT;
+
+                                GF_FREE (*up_arg);
+                                *up_arg = NULL;
+                        }
                         break;
-                default:
+                case GF_UPCALL_RECALL_LEASE:
+                        gf_log ("glfs_h_poll_upcall", GF_LOG_DEBUG,
+                                "UPCALL_RECALL_LEASE is not implemented yet");
+                case GF_UPCALL_EVENT_NULL:
+                /* no 'default:' label, to force handling all upcall events */
+                        errno = ENOENT;
                         break;
                 }
 
-                up_arg->reason = reason;
-
                 GF_FREE (u_list->upcall_data.data);
                 GF_FREE (u_list);
+        } else {
+                /* fs->upcall_list was empty, no upcall events cached */
+                errno = ENOENT;
         }
 
         ret = 0;
@@ -2097,7 +2119,91 @@ err:
         return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.16);
+
+static gf_boolean_t log_upcall370 = _gf_true; /* log once */
+
+/* The old glfs_h_poll_upcall interface requires intimite knowledge of the
+ * structures that are returned to the calling application. This is not
+ * recommended, as the returned structures need to returned correctly (handles
+ * closed, memory free'd with the unavailable GF_FREE(), and possibly more.)
+ *
+ * To the best of our knowledge, only NFS-Ganesha uses the upcall events
+ * through gfapi. We keep this backwards compatability function around so that
+ * applications using the existing implementation do not break.
+ *
+ * WARNING: this function will be removed in the future.
+ */
+int
+pub_glfs_h_poll_upcall370 (struct glfs *fs, struct glfs_callback_arg *up_arg)
+{
+        struct glfs_upcall    *upcall        = NULL;
+        int                    ret           = -1;
+
+        if (log_upcall370) {
+                log_upcall370 = _gf_false;
+                gf_log (THIS->name, GF_LOG_WARNING, "this application is "
+                        "compiled against an old version of libgfapi, it "
+                        "should use glfs_free() to release the structure "
+                        "returned by glfs_h_poll_upcall() - for more details, "
+                        "see http://review.gluster.org/14701");
+        }
+
+        ret = pub_glfs_h_poll_upcall (fs, &upcall);
+        if (ret == 0) {
+                up_arg->fs = fs;
+                if (errno == ENOENT || upcall->event == NULL) {
+                        up_arg->reason = GLFS_UPCALL_EVENT_NULL;
+                        goto out;
+                }
+
+                up_arg->reason = upcall->reason;
+
+                if (upcall->reason == GLFS_UPCALL_INODE_INVALIDATE) {
+                        struct glfs_callback_inode_arg *cb_inode = NULL;
+                        struct glfs_upcall_inode       *up_inode = NULL;
+
+                        cb_inode = GF_CALLOC (1,
+                                              sizeof (struct glfs_callback_inode_arg),
+                                              glfs_mt_upcall_inode_t);
+                        if (!cb_inode) {
+                                errno = ENOMEM;
+                                ret = -1;
+                                goto out;
+                        }
+
+                        up_inode = upcall->event;
+
+                        /* copy attributes one by one, the memory layout might
+                         * be different between the old glfs_callback_inode_arg
+                         * and new glfs_upcall_inode */
+                        cb_inode->object = up_inode->object;
+                        cb_inode->flags = up_inode->flags;
+                        memcpy (&cb_inode->buf, &up_inode->buf,
+                                sizeof (struct stat));
+                        cb_inode->expire_time_attr = up_inode->expire_time_attr;
+                        cb_inode->p_object = up_inode->p_object;
+                        memcpy (&cb_inode->p_buf, &up_inode->p_buf,
+                                sizeof (struct stat));
+                        cb_inode->oldp_object = up_inode->oldp_object;
+                        memcpy (&cb_inode->oldp_buf, &up_inode->oldp_buf,
+                                sizeof (struct stat));
+
+                        up_arg->event_arg = cb_inode;
+                }
+        }
+
+out:
+        if (upcall) {
+                /* we can not use glfs_free() here, objects need to stay */
+                GF_FREE (upcall->event);
+                GF_FREE (upcall);
+        }
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_h_poll_upcall370, glfs_h_poll_upcall, 3.7.0);
 
 #ifdef HAVE_ACL_LIBACL_H
 #include "glusterfs-acl.h"

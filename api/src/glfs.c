@@ -1360,3 +1360,107 @@ pub_glfs_ipc37 (struct glfs *fs, int opcode)
 }
 
 GFAPI_SYMVER_PUBLIC(glfs_ipc37, glfs_ipc, 3.7.0);
+
+
+void
+pub_glfs_free (void *ptr)
+{
+        int mem_type = 0;
+
+        mem_type = gf_get_mem_type (ptr);
+
+        switch (mem_type) {
+        case glfs_mt_upcall_entry_t:
+        {
+                struct glfs_upcall *to_free = ptr;
+
+                if (to_free->event)
+                        to_free->free_event (to_free->event);
+
+                GF_FREE (ptr);
+                break;
+        }
+        default:
+                GF_FREE (ptr);
+        }
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_free, 3.7.16);
+
+
+struct glfs*
+pub_glfs_upcall_get_fs (struct glfs_upcall *arg)
+{
+        return arg->fs;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_fs, 3.7.16);
+
+enum glfs_upcall_reason
+pub_glfs_upcall_get_reason (struct glfs_upcall *arg)
+{
+        return arg->reason;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_reason, 3.7.16);
+
+void*
+pub_glfs_upcall_get_event (struct glfs_upcall *arg)
+{
+        return arg->event;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_event, 3.7.16);
+
+struct glfs_object*
+pub_glfs_upcall_inode_get_object (struct glfs_upcall_inode *arg)
+{
+        return arg->object;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_object, 3.7.16);
+
+uint64_t
+pub_glfs_upcall_inode_get_flags (struct glfs_upcall_inode *arg)
+{
+        return arg->flags;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_flags, 3.7.16);
+
+struct stat*
+pub_glfs_upcall_inode_get_stat (struct glfs_upcall_inode *arg)
+{
+        return &arg->buf;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_stat, 3.7.16);
+
+uint64_t
+pub_glfs_upcall_inode_get_expire (struct glfs_upcall_inode *arg)
+{
+        return arg->expire_time_attr;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_expire, 3.7.16);
+
+struct glfs_object*
+pub_glfs_upcall_inode_get_pobject (struct glfs_upcall_inode *arg)
+{
+        return arg->p_object;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_pobject, 3.7.16);
+
+struct stat*
+pub_glfs_upcall_inode_get_pstat (struct glfs_upcall_inode *arg)
+{
+        return &arg->p_buf;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_pstat, 3.7.16);
+
+struct glfs_object*
+pub_glfs_upcall_inode_get_oldpobject (struct glfs_upcall_inode *arg)
+{
+        return arg->oldp_object;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_oldpobject, 3.7.16);
+
+struct stat*
+pub_glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg)
+{
+        return &arg->oldp_buf;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_oldpstat, 3.7.16);
