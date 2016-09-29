@@ -343,14 +343,14 @@ ssl_setup_connection (rpc_transport_t *this, int server)
 	gf_log(this->name,GF_LOG_INFO,"peer CN = %s", peer_CN);
         gf_log (this->name, GF_LOG_INFO,
                 "SSL verification succeeded (client: %s)",
-                this->xl_private?this->xl_private->client_uid:"");
+                this->peerinfo.identifier);
         return gf_strdup(peer_CN);
 
 	/* Error paths. */
 ssl_error:
 	gf_log (this->name, GF_LOG_ERROR,
                 "SSL connect error (client: %s)",
-                this->xl_private?this->xl_private->client_uid:"");
+                this->peerinfo.identifier);
 	ssl_dump_error_stack(this->name);
 free_ssl:
 	SSL_free(priv->ssl_ssl);
