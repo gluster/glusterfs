@@ -1341,7 +1341,8 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
                         loc->path, GLUSTERFS_PARENT_ENTRYLK);
         }
 
-        ret = dict_set_str (xattr_req, "link-count", GF_XATTROP_INDEX_COUNT);
+        ret = dict_set_str (local->xattr_req, "link-count",
+                            GF_XATTROP_INDEX_COUNT);
         if (ret) {
                 gf_msg_debug (this->name, -ret,
                               "Unable to set link-count in dict ");
