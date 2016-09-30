@@ -161,8 +161,10 @@ retry:
                 if (!upcall_received)
                         sleep (1); /* glfs_h_poll_upcall() does not block */
 
-                glfs_free (cbk);
-                cbk = NULL;
+                if (!ret) {
+                        glfs_free (cbk);
+                        cbk = NULL;
+                }
         }
 
         if (!upcall_received) {
