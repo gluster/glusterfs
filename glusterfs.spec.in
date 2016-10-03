@@ -371,7 +371,8 @@ Summary:          NFS-Ganesha configuration
 Group:            Applications/File
 
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         nfs-ganesha-gluster, pcs, dbus
+Requires:         nfs-ganesha-gluster >= 2.4.0
+Requires:         pcs, dbus
 %if ( 0%{?rhel} && 0%{?rhel} == 6 )
 Requires:         cman, pacemaker, corosync
 %endif
