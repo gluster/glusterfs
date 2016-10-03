@@ -2407,7 +2407,7 @@ out:
 	return ret;
 }
 
-
+static int poll_err_cnt;
 static void *
 socket_poller (void *ctx)
 {
@@ -2543,8 +2543,11 @@ socket_poller (void *ctx)
 			break;
 		}
 		if (ret < 0 && errno != ENODATA) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "error in polling loop");
+                        GF_LOG_OCCASIONALLY (poll_err_cnt, this->name,
+                                             GF_LOG_ERROR,
+                                             "socket_poller %s failed (%s)",
+                                             this->peerinfo.identifier,
+                                             strerror (errno));
 			break;
 		}
                 if (priv->ot_gen != gen) {
