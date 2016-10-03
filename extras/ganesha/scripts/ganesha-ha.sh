@@ -241,9 +241,6 @@ refresh_config ()
         local HA_CONFDIR=${2}
         local short_host=$(hostname -s)
 
-        removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
-
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
@@ -251,19 +248,7 @@ grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
-uint16:$removed_id 2>&1")
-                ret=$?
-                logger <<< "${output}"
-                if [ ${ret} -ne 0 ]; then
-                       echo "Error: refresh-config failed on ${current_host}."
-                       exit 1
-                fi
-                sleep 1
-                output=$(ssh -oPasswordAuthentication=no \
--oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
-"dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
+/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.UpdateExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
 string:\"EXPORT(Path=/$VOL)\" 2>&1")
                 ret=$?
@@ -285,17 +270,7 @@ string:\"EXPORT(Path=/$VOL)\" 2>&1")
 
     # Run the same command on the localhost,
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.RemoveExport \
-uint16:$removed_id 2>&1)
-        ret=$?
-        logger <<< "${output}"
-        if [ ${ret} -ne 0 ]; then
-                echo "Error: refresh-config failed on localhost."
-                exit 1
-        fi
-        sleep 1
-        output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
+/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.UpdateExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
 string:"EXPORT(Path=/$VOL)" 2>&1)
         ret=$?
