@@ -428,8 +428,8 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (!priv->shd.enabled)
                 return -EBUSY;
 
-        gf_msg_debug (healer->this->name, 0, "got entry: %s",
-                      entry->d_name);
+        gf_msg_debug (healer->this->name, 0, "got entry: %s from %s",
+                      entry->d_name, priv->children[healer->subvol]->name);
 
         ret = gf_uuid_parse (entry->d_name, gfid);
         if (ret)

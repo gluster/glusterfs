@@ -542,7 +542,7 @@ syncop_is_subvol_local (xlator_t *this, loc_t *loc, gf_boolean_t *is_local)
         ret = glusterfs_is_local_pathinfo (pathinfo, is_local);
 
         gf_msg_debug (this->name, 0, "subvol %s is %slocal",
-                this->name, is_local ? "" : "not ");
+                this->name, *is_local ? "" : "not ");
 
 out:
         if (xattr)
