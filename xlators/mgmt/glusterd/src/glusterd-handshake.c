@@ -476,6 +476,10 @@ out:
         peerinfo->max_op_version = client_max_op_version;
         peerinfo->min_op_version = client_min_op_version;
 
+        if (dict)
+                dict_unref (dict);
+
+
         return ret;
 }
 
@@ -929,6 +933,8 @@ fail:
                                (xdrproc_t)xdr_gf_getspec_rsp);
         free (args.key);//malloced by xdr
         free (rsp.spec);
+        if (args.xdata.xdata_val)
+                free (args.xdata.xdata_val);
 
         return 0;
 }
