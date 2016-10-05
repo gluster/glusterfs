@@ -4923,10 +4923,6 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
-                if (start_svcs == _gf_false) {
-                        start_svcs = _gf_true;
-                        glusterd_svcs_manager (NULL);
-                }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
 
@@ -4949,6 +4945,11 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                          */
                         continue;
                 } else {
+                        if (start_svcs == _gf_false) {
+                                start_svcs = _gf_true;
+                                glusterd_svcs_manager (NULL);
+                        }
+
                         cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                                  brick_list) {
                                 glusterd_brick_start (volinfo, brickinfo,
@@ -4961,8 +4962,8 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         if (volinfo->status != GLUSTERD_STATUS_STARTED)
                                 continue;
-                        /* Check the quorum, if quorum is not met, don't start the
-                           bricks
+                        /* Check the quorum, if quorum is not met, don't start
+                         * the bricks
                         */
                         ret = check_quorum_for_brick_start (volinfo,
                                                             node_quorum);
