@@ -1666,6 +1666,53 @@ mdc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 }
 
 
+static int
+mdc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, fd_t *fd,
+                dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret || !local)
+                goto out;
+
+        if (local->fd->flags & O_TRUNC) {
+                /* O_TRUNC modifies file size. Hence invalidate the
+                 * cache entry to fetch latest attributes. */
+                mdc_inode_iatt_invalidate (this, local->fd->inode);
+        }
+
+out:
+        MDC_STACK_UNWIND (open, frame, op_ret, op_errno, fd, xdata);
+        return 0;
+}
+
+
+static int
+mdc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
+          fd_t *fd, dict_t *xdata)
+{
+        mdc_local_t  *local = NULL;
+
+        if (!fd || !IA_ISREG(fd->inode->ia_type) ||
+            !(fd->flags & O_TRUNC)) {
+                goto out;
+        }
+
+        local = mdc_local_get (frame);
+
+        local->fd = fd_ref (fd);
+
+out:
+        STACK_WIND (frame, mdc_open_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
+                    loc, flags, fd, xdata);
+        return 0;
+}
+
+
 int
 mdc_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno,
@@ -2898,6 +2945,7 @@ struct xlator_fops fops = {
         .rename      = mdc_rename,
         .link        = mdc_link,
         .create      = mdc_create,
+        .open        = mdc_open,
         .readv       = mdc_readv,
         .writev      = mdc_writev,
         .setattr     = mdc_setattr,
