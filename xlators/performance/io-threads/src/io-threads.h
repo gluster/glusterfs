@@ -79,6 +79,7 @@ struct iot_conf {
         xlator_t            *this;
         size_t              stack_size;
 
+        gf_boolean_t         down; /*PARENT_DOWN event is notified*/
 	struct iot_least_throttle throttle;
 };
 
