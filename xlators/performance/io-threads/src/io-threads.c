@@ -165,8 +165,7 @@ iot_worker (void *data)
         struct timespec   sleep_till = {0, };
         int               ret = 0;
         int               pri = -1;
-        char              timeout = 0;
-        char              bye = 0;
+        gf_boolean_t      bye = _gf_false;
 
         conf = data;
         this = conf->this;
@@ -182,6 +181,11 @@ iot_worker (void *data)
                                 pri = -1;
                         }
                         while (conf->queue_size == 0) {
+                                if (conf->down) {
+                                        bye = _gf_true;/*Avoid sleep*/
+                                        break;
+                                }
+
                                 conf->sleep_count++;
 
                                 ret = pthread_cond_timedwait (&conf->cond,
@@ -189,42 +193,39 @@ iot_worker (void *data)
                                                               &sleep_till);
                                 conf->sleep_count--;
 
-                                if (ret == ETIMEDOUT) {
-                                        timeout = 1;
+                                if (conf->down || ret == ETIMEDOUT) {
+                                        bye = _gf_true;
                                         break;
                                 }
                         }
 
-                        if (timeout) {
-                                if (conf->curr_count > IOT_MIN_THREADS) {
+                        if (bye) {
+                                if (conf->down || conf->curr_count > IOT_MIN_THREADS) {
                                         conf->curr_count--;
-                                        bye = 1;
+                                        if (conf->curr_count == 0)
+                                           pthread_cond_broadcast (&conf->cond);
                                         gf_msg_debug (conf->this->name, 0,
-                                                      "timeout, terminated. conf->curr_count=%d",
+                                                      "terminated. "
+                                                      "conf->curr_count=%d",
                                                       conf->curr_count);
                                 } else {
-                                        timeout = 0;
+                                        bye = _gf_false;
                                 }
                         }
 
-                        stub = __iot_dequeue (conf, &pri);
+                        if (!bye)
+                                stub = __iot_dequeue (conf, &pri);
                 }
                 pthread_mutex_unlock (&conf->mutex);
 
                 if (stub) /* guard against spurious wakeups */
                         call_resume (stub);
+                stub = NULL;
 
                 if (bye)
                         break;
         }
 
-        if (pri != -1) {
-                pthread_mutex_lock (&conf->mutex);
-                {
-                        conf->ac_iot_count[pri]--;
-                }
-                pthread_mutex_unlock (&conf->mutex);
-        }
         return NULL;
 }
 
@@ -1045,6 +1046,27 @@ out:
 	return ret;
 }
 
+int
+notify (xlator_t *this, int32_t event, void *data, ...)
+{
+        iot_conf_t *conf = this->private;
+
+        if (GF_EVENT_PARENT_DOWN == event) {
+                pthread_mutex_lock (&conf->mutex);
+                {
+                        conf->down = _gf_true;
+                        /*Let all the threads know that xl is going down*/
+                        pthread_cond_broadcast (&conf->cond);
+                        while (conf->curr_count)/*Wait for threads to exit*/
+                                pthread_cond_wait (&conf->cond, &conf->mutex);
+                }
+                pthread_mutex_unlock (&conf->mutex);
+        }
+
+        default_notify (this, event, data);
+
+        return 0;
+}
 
 void
 fini (xlator_t *this)
