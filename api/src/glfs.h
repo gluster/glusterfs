@@ -755,9 +755,11 @@ int glfs_chdir (glfs_t *fs, const char *path) __THROW
 int glfs_fchdir (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_fchdir, 3.4.0);
 
-char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW
+char *glfs_realpath34 (glfs_t *fs, const char *path, char *resolved_path) __THROW
         GFAPI_PUBLIC(glfs_realpath, 3.4.0);
 
+char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW
+        GFAPI_PUBLIC(glfs_realpath, 3.7.17);
 /*
  * @cmd and @flock are as specified in man fcntl(2).
  */

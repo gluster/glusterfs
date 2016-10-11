@@ -82,7 +82,7 @@ _pub_glfs_fremovexattr _glfs_fremovexattr$GFAPI_3.4.0
 _pub_glfs_getcwd _glfs_getcwd$GFAPI_3.4.0
 _pub_glfs_chdir _glfs_chdir$GFAPI_3.4.0
 _pub_glfs_fchdir _glfs_fchdir$GFAPI_3.4.0
-_pub_glfs_realpath _glfs_realpath$GFAPI_3.4.0
+_pub_glfs_realpath34 _glfs_realpath$GFAPI_3.4.0
 _pub_glfs_posix_lock _glfs_posix_lock$GFAPI_3.4.0
 _pub_glfs_dup _glfs_dup$GFAPI_3.4.0
 
@@ -153,5 +153,6 @@ _pub_glfs_upcall_inode_get_pobject _glfs_upcall_inode_get_pobject$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_pstat _glfs_upcall_inode_get_pstat$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_oldpobject _glfs_upcall_inode_get_oldpobject$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_oldpstat _glfs_upcall_inode_get_oldpstat$GFAPI_3.7.16
+_pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
 _pub_glfs_ipc _glfs_ipc$GFAPI_4.0.0
