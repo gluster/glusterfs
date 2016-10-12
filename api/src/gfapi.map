@@ -186,3 +186,8 @@ GFAPI_3.7.16 {
 		glfs_upcall_inode_get_oldpobject;
 		glfs_upcall_inode_get_oldpstat;
 } GFAPI_3.7.15;
+
+GFAPI_3.7.17 {
+	global:
+		glfs_realpath;
+} GFAPI_3.7.16;
