@@ -40,7 +40,7 @@ from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 from syncdutils import get_changelog_log_level
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from gsyncdstatus import GeorepStatus
-
+from syncdutils import get_master_and_slave_data_from_args
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-zA-Z\d](?:[a-zA-Z\d.-]*[a-zA-Z\d])?', re.I)
@@ -1541,7 +1541,10 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             changelog_register_failed = False
             (inf, ouf, ra, wa) = gconf.rpc_fd.split(',')
             changelog_agent = RepceClient(int(inf), int(ouf))
-            status = GeorepStatus(gconf.state_file, gconf.local_path)
+            master_name, slave_data = get_master_and_slave_data_from_args(
+                sys.argv)
+            status = GeorepStatus(gconf.state_file, gconf.local_path,
+                                  master_name, slave_data)
             status.reset_on_worker_start()
             rv = changelog_agent.version()
             if int(rv) != CHANGELOG_AGENT_CLIENT_VERSION:

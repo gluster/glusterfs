@@ -212,7 +212,10 @@ class Monitor(object):
         """
         if not self.status.get(w[0]['dir'], None):
             self.status[w[0]['dir']] = GeorepStatus(gconf.state_file,
-                                                    w[0]['dir'])
+                                                    w[0]['dir'],
+                                                    master,
+                                                    "%s::%s" % (slave_host,
+                                                                slave_vol))
 
         set_monitor_status(gconf.state_file, self.ST_STARTED)
         self.status[w[0]['dir']].set_worker_status(self.ST_INIT)

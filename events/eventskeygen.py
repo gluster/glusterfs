@@ -128,6 +128,10 @@ keys = (
     "EVENT_EC_MIN_BRICKS_UP",
     #georep async events
     "EVENT_GEOREP_FAULTY",
+    "EVENT_GEOREP_CHECKPOINT_COMPLETED",
+    "EVENT_GEOREP_ACTIVE",
+    "EVENT_GEOREP_PASSIVE",
+
     #quota async events
     "EVENT_QUOTA_CROSSED_SOFT_LIMIT",
     #bitrot async events

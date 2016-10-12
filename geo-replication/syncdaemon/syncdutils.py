@@ -28,10 +28,17 @@ sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
 EVENTS_ENABLED = True
 try:
     from events.eventtypes import GEOREP_FAULTY as EVENT_GEOREP_FAULTY
+    from events.eventtypes import GEOREP_ACTIVE as EVENT_GEOREP_ACTIVE
+    from events.eventtypes import GEOREP_PASSIVE as EVENT_GEOREP_PASSIVE
+    from events.eventtypes import GEOREP_CHECKPOINT_COMPLETED \
+        as EVENT_GEOREP_CHECKPOINT_COMPLETED
 except ImportError:
     # Events APIs not installed, dummy eventtypes with None
     EVENTS_ENABLED = False
     EVENT_GEOREP_FAULTY = None
+    EVENT_GEOREP_ACTIVE = None
+    EVENT_GEOREP_PASSIVE = None
+    EVENT_GEOREP_CHECKPOINT_COMPLETED = None
 
 try:
     from cPickle import PickleError
@@ -542,3 +549,15 @@ class GlusterLogLevel(object):
 
 def get_changelog_log_level(lvl):
     return getattr(GlusterLogLevel, lvl, GlusterLogLevel.INFO)
+
+
+def get_master_and_slave_data_from_args(args):
+    master_name = None
+    slave_data = None
+    for arg in args:
+        if arg.startswith(":"):
+            master_name = arg.replace(":", "")
+        if "::" in arg:
+            slave_data = arg.replace("ssh://", "")
+
+    return (master_name, slave_data)

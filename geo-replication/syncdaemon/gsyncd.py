@@ -39,6 +39,7 @@ from changelogagent import agent, Changelog
 from gsyncdstatus import set_monitor_status, GeorepStatus
 from libcxattr import Xattr
 import struct
+from syncdutils import get_master_and_slave_data_from_args
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
@@ -698,8 +699,11 @@ def main_i():
 
     status_get = rconf.get('status_get')
     if status_get:
+        master_name, slave_data = get_master_and_slave_data_from_args(args)
         for brick in gconf.path:
             brick_status = GeorepStatus(gconf.state_file, brick,
+                                        master_name,
+                                        slave_data,
                                         getattr(gconf, "pid_file", None))
             checkpoint_time = int(getattr(gconf, "checkpoint", "0"))
             brick_status.print_status(checkpoint_time=checkpoint_time)
