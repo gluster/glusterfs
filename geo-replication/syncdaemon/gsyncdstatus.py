@@ -17,6 +17,8 @@ import json
 import time
 from datetime import datetime
 from errno import EACCES, EAGAIN, ENOENT
+from syncdutils import EVENT_GEOREP_ACTIVE, EVENT_GEOREP_PASSIVE, gf_event
+from syncdutils import EVENT_GEOREP_CHECKPOINT_COMPLETED
 
 DEFAULT_STATUS = "N/A"
 MONITOR_STATUS = ("Created", "Started", "Paused", "Stopped")
@@ -115,7 +117,12 @@ def set_monitor_status(status_file, status):
 
 
 class GeorepStatus(object):
-    def __init__(self, monitor_status_file, brick, monitor_pid_file=None):
+    def __init__(self, monitor_status_file, brick, master, slave,
+                 monitor_pid_file=None):
+        self.master = master
+        slv_data = slave.split("::")
+        self.slave_host = slv_data[0]
+        self.slave_volume = slv_data[1].split(":")[0]  # Remove Slave UUID
         self.work_dir = os.path.dirname(monitor_status_file)
         self.monitor_status_file = monitor_status_file
         self.filename = os.path.join(self.work_dir,
@@ -138,6 +145,10 @@ class GeorepStatus(object):
                 data = self.default_values
 
             data = mergerfunc(data)
+            # If Data is not changed by merger func
+            if not data:
+                return False
+
             with tempfile.NamedTemporaryFile(
                     'w',
                     dir=os.path.dirname(self.filename),
@@ -150,6 +161,7 @@ class GeorepStatus(object):
                             os.O_DIRECTORY)
             os.fsync(dirfd)
             os.close(dirfd)
+            return True
 
     def reset_on_worker_start(self):
         def merger(data):
@@ -164,10 +176,24 @@ class GeorepStatus(object):
 
     def set_field(self, key, value):
         def merger(data):
+            # Current data and prev data is same
+            if data[key] == value:
+                return {}
+
             data[key] = value
             return json.dumps(data)
 
-        self._update(merger)
+        return self._update(merger)
+
+    def trigger_gf_event_checkpoint_completion(self, checkpoint_time,
+                                               checkpoint_completion_time):
+        gf_event(EVENT_GEOREP_CHECKPOINT_COMPLETED,
+                 master_volume=self.master,
+                 slave_host=self.slave_host,
+                 slave_volume=self.slave_volume,
+                 brick_path=self.brick,
+                 checkpoint_time=checkpoint_time,
+                 checkpoint_completion_time=checkpoint_completion_time)
 
     def set_last_synced(self, value, checkpoint_time):
         def merger(data):
@@ -185,9 +211,13 @@ class GeorepStatus(object):
             # previously then update the checkpoint completed time
             if checkpoint_time > 0 and checkpoint_time <= value[0]:
                 if data["checkpoint_completed"] == "No":
+                    curr_time = int(time.time())
                     data["checkpoint_time"] = checkpoint_time
-                    data["checkpoint_completion_time"] = int(time.time())
+                    data["checkpoint_completion_time"] = curr_time
                     data["checkpoint_completed"] = "Yes"
+                    self.trigger_gf_event_checkpoint_completion(
+                        checkpoint_time, curr_time)
+
             return json.dumps(data)
 
         self._update(merger)
@@ -222,10 +252,20 @@ class GeorepStatus(object):
         self._update(merger)
 
     def set_active(self):
-        self.set_field("worker_status", "Active")
+        if self.set_field("worker_status", "Active"):
+            gf_event(EVENT_GEOREP_ACTIVE,
+                     master_volume=self.master,
+                     slave_host=self.slave_host,
+                     slave_volume=self.slave_volume,
+                     brick_path=self.brick)
 
     def set_passive(self):
-        self.set_field("worker_status", "Passive")
+        if self.set_field("worker_status", "Passive"):
+            gf_event(EVENT_GEOREP_PASSIVE,
+                     master_volume=self.master,
+                     slave_host=self.slave_host,
+                     slave_volume=self.slave_volume,
+                     brick_path=self.brick)
 
     def get_monitor_status(self):
         data = ""
