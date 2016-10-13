@@ -196,4 +196,4 @@ GFAPI_3.7.17 {
 GFAPI_4.0.0 {
 	global:
 		glfs_ipc;
-} GFAPI_3.7.16;
+} GFAPI_3.7.17;
