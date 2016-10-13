@@ -11207,8 +11207,8 @@ glusterd_volume_get_type_str (glusterd_volinfo_t *volinfo, char **voltype_str)
 
         GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
 
-        type = get_vol_type (volinfo->type, volinfo->brick_count,
-                             volinfo->dist_leaf_count);
+        type = get_vol_type (volinfo->type, volinfo->dist_leaf_count,
+                             volinfo->brick_count);
 
         *voltype_str = vol_type_str[type];
 
