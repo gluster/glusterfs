@@ -4951,6 +4951,9 @@ glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
         GF_VALIDATE_OR_GOTO (THIS->name, val, out);
         GF_VALIDATE_OR_GOTO (THIS->name, data, out);
 
+        if (strcmp (key, "global-option-version") == 0)
+                goto out;
+
         fp = (FILE *) data;
         fprintf (fp, "%s: %s\n", key, val->data);
 out:
@@ -5037,7 +5040,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         char     transport_type_str[STATUS_STRLEN] = {0,};
         char     quorum_status_str[STATUS_STRLEN] = {0,};
         char     rebal_status_str[STATUS_STRLEN] = {0,};
-        char     peer_state_str[STATUS_STRLEN] = {0,};
         char     vol_status_str[STATUS_STRLEN] = {0,};
 
         this = THIS;
@@ -5125,25 +5127,29 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         fprintf (fp, "\n[Peers]\n");
 
         cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
-                ret = gd_peer_state_str (peerinfo, peer_state_str);
-                if (ret) {
-                        rcu_read_unlock ();
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_STATE_STR_GET_FAILED,
-                                "Failed to get peer state");
-                        goto out;
-                }
-
                 fprintf (fp, "Peer%d.primary_hostname: %s\n", ++count,
                          peerinfo->hostname);
                 fprintf (fp, "Peer%d.uuid: %s\n", count, gd_peer_uuid_str (peerinfo));
-                fprintf (fp, "Peer%d.state: %s\n", count, peer_state_str);
-                fprintf (fp, "Peer%d.connected: %d\n", count, peerinfo->connected);
+                fprintf (fp, "Peer%d.state: %s\n", count,
+                         glusterd_friend_sm_state_name_get (peerinfo->state.state));
+                fprintf (fp, "Peer%d.connected: %s\n", count,
+                         peerinfo->connected ? "Connected" : "Disconnected");
 
-                fprintf (fp, "Peer%d.hostnames: ", count);
+                fprintf (fp, "Peer%d.othernames: ", count);
+                count_bkp = 0;
                 cds_list_for_each_entry (peer_hostname_info,
-                                         &peerinfo->hostnames, hostname_list)
-                        fprintf (fp, "%s, ", peer_hostname_info->hostname);
+                                         &peerinfo->hostnames, hostname_list) {
+                        if (strcmp (peerinfo->hostname,
+                                    peer_hostname_info->hostname) == 0)
+                                continue;
+
+                        if (count_bkp > 0)
+                                fprintf (fp, ",");
+
+                        fprintf (fp, "%s", peer_hostname_info->hostname);
+                        count_bkp++;
+                }
+                count_bkp = 0;
                 fprintf (fp, "\n");
         }
         rcu_read_unlock ();
@@ -5229,12 +5235,17 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  count, brickinfo->rdma_port);
                         fprintf (fp, "Volume%d.Brick%d.status: %s\n", count_bkp,
                                  count, brickinfo->status ? "Started" : "Stopped");
-                        fprintf (fp, "Volume%d.Brick%d.filesystem_type: %s\n",
-                                 count_bkp, count, brickinfo->fstype);
-                        fprintf (fp, "Volume%d.Brick%d.mount_options: %s\n",
-                                 count_bkp, count, brickinfo->mnt_opts);
                         fprintf (fp, "Volume%d.Brick%d.signedin: %s\n", count_bkp,
                                  count, brickinfo->signed_in ? "True" : "False");
+
+                        /*FIXME: This is a hacky way of figuring out whether a
+                         * brick belongs to the hot or cold tier */
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                 fprintf (fp, "Volume%d.Brick%d.tier: %s\n",
+                                      count_bkp, count,
+                                      count <= volinfo->tier_info.hot_brick_count ?
+                                      "Hot" : "Cold");
+                        }
                 }
 
                 count = count_bkp;
@@ -5247,6 +5258,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                          volinfo->snap_count);
                 fprintf (fp, "Volume%d.stripe_count: %d\n", count,
                          volinfo->stripe_count);
+                fprintf (fp, "Volume%d.replica_count: %d\n", count,
+                         volinfo->replica_count);
                 fprintf (fp, "Volume%d.subvol_count: %d\n", count,
                          volinfo->subvol_count);
                 fprintf (fp, "Volume%d.arbiter_count: %d\n", count,
@@ -5275,10 +5288,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                          volinfo->rebal.lookedup_files);
                 fprintf (fp, "Volume%d.rebalance.files: %"PRIu64"\n", count,
                          volinfo->rebal.rebalance_files);
-                fprintf (fp, "Volume%d.rebalance.data: %"PRIu64"\n", count,
-                         volinfo->rebal.rebalance_data);
-                fprintf (fp, "Volume%d.rebalance.data: %"PRIu64"\n", count,
-                         volinfo->rebal.rebalance_data);
+                fprintf (fp, "Volume%d.rebalance.data: %s\n", count,
+                         gf_uint64_2human_readable (volinfo->rebal.rebalance_data));
 
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         ret = glusterd_volume_get_hot_tier_type_str (

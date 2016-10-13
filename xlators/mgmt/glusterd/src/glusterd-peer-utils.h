@@ -42,9 +42,6 @@ glusterd_uuid_to_hostname (uuid_t uuid);
 char*
 gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo);
 
-int
-gd_peer_state_str (glusterd_peerinfo_t *peerinfo, char *state_str);
-
 gf_boolean_t
 glusterd_are_all_peers_up ();
 
