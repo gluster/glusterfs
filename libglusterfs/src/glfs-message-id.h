@@ -172,7 +172,7 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
                                          GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_DC                     GLFS_MSGID_COMP_PL_END
-#define GLFS_MSGID_COMP_DC_END                 (GLFS_MSGID_COMP_PL_END+\
+#define GLFS_MSGID_COMP_DC_END                 (GLFS_MSGID_COMP_DC +\
                                                  GLFS_MSGID_SEGMENT)
 
 #define GLFS_MSGID_COMP_LEASES             GLFS_MSGID_COMP_DC_END
