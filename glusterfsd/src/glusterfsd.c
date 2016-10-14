@@ -2472,6 +2472,13 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        /*
+         * If we do this before daemonize, the pool-sweeper thread dies with
+         * the parent, but we want to do it as soon as possible after that in
+         * case something else depends on pool allocations.
+         */
+        mem_pools_init ();
+
 #ifdef GF_LINUX_HOST_OS
         ret = set_oom_score_adj (ctx);
         if (ret)

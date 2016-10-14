@@ -97,6 +97,15 @@ $CLI volume statedump $V0 all
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
+# This is ugly, but there seems to be a latent race between other actions and
+# stopping the volume.  The visible symptom is that "umount -l" (run from
+# gf_umount_lazy in glusterd) hangs.  This happens pretty consistently with the
+# new mem-pool code, though it's not really anything to do with memory pools -
+# just with changed timing.  Adding the sleep here makes it work consistently.
+#
+# If anyone else wants to debug the race condition, feel free.
+sleep 3
+
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
 

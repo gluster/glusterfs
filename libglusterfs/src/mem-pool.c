@@ -338,8 +338,20 @@ free:
 }
 
 
-/* Based on the mem-type that is used for the allocation, GF_FREE can be
+/*
+ * Based on the mem-type that is used for the allocation, GF_FREE can be
  * called, or something more intelligent for the structure can be done.
+ *
+ * NOTE: this will not work for allocations from a memory pool.  It never did,
+ * because those allocations never set the type in the first place.  Any caller
+ * that relies on knowing whether a particular type was allocated via a pool or
+ * not is *BROKEN*, or will be any time either this module or the module
+ * "owning" the type changes.  The proper way to handle this, assuming the
+ * caller is not smart enough to call a type-specific free function themselves,
+ * would be to create a callback interface where destructors for specific types
+ * can be registered so that code *here* (GF_FREE, mem_put, etc.) can do the
+ * right thing.  That allows type-specific behavior without creating the kind
+ * of fragile coupling that we have now.
  */
 int
 gf_get_mem_type (void *ptr)
@@ -358,80 +370,201 @@ gf_get_mem_type (void *ptr)
 }
 
 
+#define POOL_SMALLEST   7       /* i.e. 128 */
+#define POOL_LARGEST    20      /* i.e. 1048576 */
+#define NPOOLS          (POOL_LARGEST - POOL_SMALLEST + 1)
+#define N_COLD_LISTS    1024
+#define POOL_SWEEP_SECS 30
 
+static pthread_key_t            pool_key;
+static pthread_mutex_t          pool_lock       = PTHREAD_MUTEX_INITIALIZER;
+static struct list_head         pool_threads;
+static pthread_mutex_t          pool_free_lock  = PTHREAD_MUTEX_INITIALIZER;
+static struct list_head         pool_free_threads;
+static struct mem_pool          pools[NPOOLS];
+static size_t                   pool_list_size;
+static unsigned long            sweep_times;
+static unsigned long            sweep_usecs;
+static unsigned long            frees_to_system;
+
+typedef struct {
+        struct list_head        death_row;
+        pooled_obj_hdr_t        *cold_lists[N_COLD_LISTS];
+        unsigned int            n_cold_lists;
+} sweep_state_t;
+
+
+void
+collect_garbage (sweep_state_t *state, per_thread_pool_list_t *pool_list)
+{
+        unsigned int            i;
+        per_thread_pool_t       *pt_pool;
+
+        if (pool_list->poison) {
+                list_del (&pool_list->thr_list);
+                list_add (&pool_list->thr_list, &state->death_row);
+                return;
+        }
+
+        if (state->n_cold_lists >= N_COLD_LISTS) {
+                return;
+        }
+
+        (void) pthread_spin_lock (&pool_list->lock);
+        for (i = 0; i < NPOOLS; ++i) {
+                pt_pool = &pool_list->pools[i];
+                if (pt_pool->cold_list) {
+                        state->cold_lists[state->n_cold_lists++]
+                                = pt_pool->cold_list;
+                }
+                pt_pool->cold_list = pt_pool->hot_list;
+                pt_pool->hot_list = NULL;
+                if (state->n_cold_lists >= N_COLD_LISTS) {
+                        /* We'll just catch up on a future pass. */
+                        break;
+                }
+        }
+        (void) pthread_spin_unlock (&pool_list->lock);
+}
+
+
+void
+free_obj_list (pooled_obj_hdr_t *victim)
+{
+        pooled_obj_hdr_t        *next;
+
+        while (victim) {
+                next = victim->next;
+                free (victim);
+                victim = next;
+                ++frees_to_system;
+        }
+}
+
+void *
+pool_sweeper (void *arg)
+{
+        sweep_state_t           state;
+        per_thread_pool_list_t  *pool_list;
+        per_thread_pool_list_t  *next_pl;
+        per_thread_pool_t       *pt_pool;
+        unsigned int            i;
+        struct timeval          begin_time;
+        struct timeval          end_time;
+        struct timeval          elapsed;
+
+        /*
+         * This is all a bit inelegant, but the point is to avoid doing
+         * expensive things (like freeing thousands of objects) while holding a
+         * global lock.  Thus, we split each iteration into three passes, with
+         * only the first and fastest holding the lock.
+         */
+
+        for (;;) {
+                sleep (POOL_SWEEP_SECS);
+                INIT_LIST_HEAD (&state.death_row);
+                state.n_cold_lists = 0;
+
+                /* First pass: collect stuff that needs our attention. */
+                (void) gettimeofday (&begin_time, NULL);
+                (void) pthread_mutex_lock (&pool_lock);
+                list_for_each_entry_safe (pool_list, next_pl,
+                                          &pool_threads, thr_list) {
+                        collect_garbage (&state, pool_list);
+                }
+                (void) pthread_mutex_unlock (&pool_lock);
+                (void) gettimeofday (&end_time, NULL);
+                timersub (&end_time, &begin_time, &elapsed);
+                sweep_usecs += elapsed.tv_sec * 1000000 + elapsed.tv_usec;
+                sweep_times += 1;
+
+                /* Second pass: free dead pools. */
+                (void) pthread_mutex_lock (&pool_free_lock);
+                list_for_each_entry_safe (pool_list, next_pl,
+                                          &state.death_row, thr_list) {
+                        for (i = 0; i < NPOOLS; ++i) {
+                                pt_pool = &pool_list->pools[i];
+                                free_obj_list (pt_pool->cold_list);
+                                free_obj_list (pt_pool->hot_list);
+                                pt_pool->hot_list = pt_pool->cold_list = NULL;
+                        }
+                        list_del (&pool_list->thr_list);
+                        list_add (&pool_list->thr_list, &pool_free_threads);
+                }
+                (void) pthread_mutex_unlock (&pool_free_lock);
+
+                /* Third pass: free cold objects from live pools. */
+                for (i = 0; i < state.n_cold_lists; ++i) {
+                        free_obj_list (state.cold_lists[i]);
+                }
+        }
+}
+
+
+void
+pool_destructor (void *arg)
+{
+        per_thread_pool_list_t  *pool_list      = arg;
+
+        /* The pool-sweeper thread will take it from here. */
+        pool_list->poison = 1;
+}
+
+
+static __attribute__((constructor)) void
+mem_pools_preinit (void)
+{
+#if !defined(GF_DISABLE_MEMPOOL)
+        unsigned int    i;
+
+        /* Use a pthread_key destructor to clean up when a thread exits. */
+        if (pthread_key_create (&pool_key, pool_destructor) != 0) {
+                gf_log ("mem-pool", GF_LOG_CRITICAL,
+                        "failed to initialize mem-pool key");
+        }
+
+        INIT_LIST_HEAD (&pool_threads);
+        INIT_LIST_HEAD (&pool_free_threads);
+
+        for (i = 0; i < NPOOLS; ++i) {
+                pools[i].power_of_two = POOL_SMALLEST + i;
+        }
+
+        pool_list_size = sizeof (per_thread_pool_list_t)
+                       + sizeof (per_thread_pool_t) * (NPOOLS - 1);
+#endif
+}
+
+void
+mem_pools_init (void)
+{
+        pthread_t       kid;
+
+        (void) pthread_create (&kid, NULL, pool_sweeper, NULL);
+        (void) pthread_detach (kid);
+}
+ 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
                  unsigned long count, char *name)
 {
-        struct mem_pool  *mem_pool = NULL;
-        unsigned long     padded_sizeof_type = 0;
-        GF_UNUSED void             *pool = NULL;
-        GF_UNUSED int               i = 0;
-        int               ret = 0;
-        GF_UNUSED struct list_head *list = NULL;
-        glusterfs_ctx_t  *ctx = NULL;
+        unsigned int            i;
 
-        if (!sizeof_type || !count) {
+        if (!sizeof_type) {
                 gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
                                   LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
-        padded_sizeof_type = sizeof_type + GF_MEM_POOL_PAD_BOUNDARY;
 
-        mem_pool = GF_CALLOC (sizeof (*mem_pool), 1, gf_common_mt_mem_pool);
-        if (!mem_pool)
-                return NULL;
-
-        ret = gf_asprintf (&mem_pool->name, "%s:%s", THIS->name, name);
-        if (ret < 0)
-                return NULL;
-
-        if (!mem_pool->name) {
-                GF_FREE (mem_pool);
-                return NULL;
+        for (i = 0; i < NPOOLS; ++i) {
+                if (sizeof_type <= AVAILABLE_SIZE(pools[i].power_of_two)) {
+                        return &pools[i];
+                }
         }
 
-#if !defined(GF_DISABLE_MEMPOOL)
-        LOCK_INIT (&mem_pool->lock);
-        INIT_LIST_HEAD (&mem_pool->list);
-        INIT_LIST_HEAD (&mem_pool->global_list);
-
-        mem_pool->padded_sizeof_type = padded_sizeof_type;
-        mem_pool->real_sizeof_type = sizeof_type;
-
-#ifndef DEBUG
-        mem_pool->cold_count = count;
-        pool = GF_CALLOC (count, padded_sizeof_type, gf_common_mt_long);
-        if (!pool) {
-                GF_FREE (mem_pool->name);
-                GF_FREE (mem_pool);
-                return NULL;
-        }
-
-        for (i = 0; i < count; i++) {
-                list = pool + (i * (padded_sizeof_type));
-                INIT_LIST_HEAD (list);
-                list_add_tail (list, &mem_pool->list);
-        }
-
-        mem_pool->pool = pool;
-        mem_pool->pool_end = pool + (count * (padded_sizeof_type));
-#endif
-
-        /* add this pool to the global list */
-        ctx = THIS->ctx;
-        if (!ctx)
-                goto out;
-
-        LOCK (&ctx->lock);
-        {
-                list_add (&mem_pool->global_list, &ctx->mempool_list);
-        }
-        UNLOCK (&ctx->lock);
-
-out:
-#endif /* GF_DISABLE_MEMPOOL */
-        return mem_pool;
+        gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                          LG_MSG_INVALID_ARG, "invalid argument");
+        return NULL;
 }
 
 void*
@@ -447,23 +580,93 @@ mem_get0 (struct mem_pool *mem_pool)
 
         ptr = mem_get(mem_pool);
 
-        if (ptr)
-                memset(ptr, 0, mem_pool->real_sizeof_type);
+        if (ptr) {
+                memset (ptr, 0, AVAILABLE_SIZE(mem_pool->power_of_two));
+        }
 
         return ptr;
 }
 
+
+per_thread_pool_list_t *
+mem_get_pool_list (void)
+{
+        per_thread_pool_list_t  *pool_list;
+        unsigned int            i;
+
+        pool_list = pthread_getspecific (pool_key);
+        if (pool_list) {
+                return pool_list;
+        }
+
+        (void) pthread_mutex_lock (&pool_free_lock);
+        if (!list_empty (&pool_free_threads)) {
+                pool_list = list_entry (pool_free_threads.next,
+                                        per_thread_pool_list_t, thr_list);
+                list_del (&pool_list->thr_list);
+        }
+        (void) pthread_mutex_unlock (&pool_free_lock);
+
+        if (!pool_list) {
+                pool_list = GF_CALLOC (pool_list_size, 1,
+                                       gf_common_mt_mem_pool);
+                if (!pool_list) {
+                        return NULL;
+                }
+
+                INIT_LIST_HEAD (&pool_list->thr_list);
+                (void) pthread_spin_init (&pool_list->lock,
+                                          PTHREAD_PROCESS_PRIVATE);
+                for (i = 0; i < NPOOLS; ++i) {
+                        pool_list->pools[i].parent = &pools[i];
+                        pool_list->pools[i].hot_list = NULL;
+                        pool_list->pools[i].cold_list = NULL;
+                }
+        }
+
+        (void) pthread_mutex_lock (&pool_lock);
+        pool_list->poison = 0;
+        list_add (&pool_list->thr_list, &pool_threads);
+        (void) pthread_mutex_unlock (&pool_lock);
+
+        (void) pthread_setspecific (pool_key, pool_list);
+        return pool_list;
+}
+
+pooled_obj_hdr_t *
+mem_get_from_pool (per_thread_pool_t *pt_pool)
+{
+        pooled_obj_hdr_t        *retval;
+
+        retval = pt_pool->hot_list;
+        if (retval) {
+                (void) __sync_fetch_and_add (&pt_pool->parent->allocs_hot, 1);
+                pt_pool->hot_list = retval->next;
+                return retval;
+        }
+
+        retval = pt_pool->cold_list;
+        if (retval) {
+                (void) __sync_fetch_and_add (&pt_pool->parent->allocs_cold, 1);
+                pt_pool->cold_list = retval->next;
+                return retval;
+        }
+
+        (void) __sync_fetch_and_add (&pt_pool->parent->allocs_stdc, 1);
+        return malloc (1 << pt_pool->parent->power_of_two);
+}
+
+
 void *
 mem_get (struct mem_pool *mem_pool)
 {
-#ifdef GF_DISABLE_MEMPOOL
-          return GF_CALLOC (1, mem_pool->real_sizeof_type,
-                                gf_common_mt_mem_pool);
+#if defined(GF_DISABLE_MEMPOOL)
+        return GF_CALLOC (1, mem_pool->real_sizeof_type,
+                          gf_common_mt_mem_pool);
 #else
-        struct list_head *list = NULL;
-        void             *ptr = NULL;
-        int             *in_use = NULL;
-        struct mem_pool **pool_ptr = NULL;
+        per_thread_pool_list_t  *pool_list;
+        per_thread_pool_t       *pt_pool;
+        pooled_obj_hdr_t        *retval;
 
         if (!mem_pool) {
                 gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
@@ -471,104 +674,39 @@ mem_get (struct mem_pool *mem_pool)
                 return NULL;
         }
 
-        LOCK (&mem_pool->lock);
-        {
-                mem_pool->alloc_count++;
-                if (mem_pool->cold_count) {
-                        list = mem_pool->list.next;
-                        list_del (list);
-
-                        mem_pool->hot_count++;
-                        mem_pool->cold_count--;
-
-                        if (mem_pool->max_alloc < mem_pool->hot_count)
-                                mem_pool->max_alloc = mem_pool->hot_count;
-
-                        ptr = list;
-                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY +
-                                  GF_MEM_POOL_PTR);
-                        *in_use = 1;
-
-                        goto fwd_addr_out;
-                }
-
-                /* This is a problem area. If we've run out of
-                 * chunks in our slab above, we need to allocate
-                 * enough memory to service this request.
-                 * The problem is, these individual chunks will fail
-                 * the first address range check in __is_member. Now, since
-                 * we're not allocating a full second slab, we wont have
-                 * enough info perform the range check in __is_member.
-                 *
-                 * I am working around this by performing a regular allocation
-                 * , just the way the caller would've done when not using the
-                 * mem-pool. That also means, we're not padding the size with
-                 * the list_head structure because, this will not be added to
-                 * the list of chunks that belong to the mem-pool allocated
-                 * initially.
-                 *
-                 * This is the best we can do without adding functionality for
-                 * managing multiple slabs. That does not interest us at present
-                 * because it is too much work knowing that a better slab
-                 * allocator is coming RSN.
-                 */
-                mem_pool->pool_misses++;
-                mem_pool->curr_stdalloc++;
-                if (mem_pool->max_stdalloc < mem_pool->curr_stdalloc)
-                        mem_pool->max_stdalloc = mem_pool->curr_stdalloc;
-                ptr = GF_CALLOC (1, mem_pool->padded_sizeof_type,
-                                 gf_common_mt_mem_pool);
-
-                /* Memory coming from the heap need not be transformed from a
-                 * chunkhead to a usable pointer since it is not coming from
-                 * the pool.
-                 */
+        pool_list = mem_get_pool_list ();
+        if (!pool_list || pool_list->poison) {
+                return NULL;
         }
-fwd_addr_out:
-        pool_ptr = mem_pool_from_ptr (ptr);
-        *pool_ptr = (struct mem_pool *)mem_pool;
-        ptr = mem_pool_chunkhead2ptr (ptr);
-        UNLOCK (&mem_pool->lock);
 
-        return ptr;
+        (void) pthread_spin_lock (&pool_list->lock);
+        pt_pool = &pool_list->pools[mem_pool->power_of_two-POOL_SMALLEST];
+        retval = mem_get_from_pool (pt_pool);
+        (void) pthread_spin_unlock (&pool_list->lock);
+
+        if (!retval) {
+                return NULL;
+        }
+
+        retval->magic = GF_MEM_HEADER_MAGIC;
+        retval->next = NULL;
+        retval->pool_list = pool_list;;
+        retval->power_of_two = mem_pool->power_of_two;
+
+        return retval + 1;
+}
 #endif /* GF_DISABLE_MEMPOOL */
-}
-
-
-#if !defined(GF_DISABLE_MEMPOOL)
-static int
-__is_member (struct mem_pool *pool, void *ptr)
-{
-        if (!pool || !ptr) {
-                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
-                return -1;
-        }
-
-        if (ptr < pool->pool || ptr >= pool->pool_end)
-                return 0;
-
-        if ((mem_pool_ptr2chunkhead (ptr) - pool->pool)
-            % pool->padded_sizeof_type)
-                return -1;
-
-        return 1;
-}
-#endif
 
 
 void
 mem_put (void *ptr)
 {
-#ifdef GF_DISABLE_MEMPOOL
+#if defined(GF_DISABLE_MEMPOOL)
         GF_FREE (ptr);
-        return;
 #else
-        struct list_head *list = NULL;
-        int    *in_use = NULL;
-        void   *head = NULL;
-        struct mem_pool **tmp = NULL;
-        struct mem_pool *pool = NULL;
+        pooled_obj_hdr_t        *hdr;
+        per_thread_pool_list_t  *pool_list;
+        per_thread_pool_t       *pt_pool;
 
         if (!ptr) {
                 gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
@@ -576,71 +714,20 @@ mem_put (void *ptr)
                 return;
         }
 
-        list = head = mem_pool_ptr2chunkhead (ptr);
-        tmp = mem_pool_from_ptr (head);
-        if (!tmp) {
-                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, 0,
-                                  LG_MSG_PTR_HEADER_CORRUPTED,
-                                  "ptr header is corrupted");
+        hdr = ((pooled_obj_hdr_t *)ptr) - 1;
+        if (hdr->magic != GF_MEM_HEADER_MAGIC) {
+                /* Not one of ours; don't touch it. */
                 return;
         }
+        pool_list = hdr->pool_list;
+        pt_pool = &pool_list->pools[hdr->power_of_two-POOL_SMALLEST];
 
-        pool = *tmp;
-        if (!pool) {
-                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, 0,
-                                  LG_MSG_MEMPOOL_PTR_NULL,
-                                  "mem-pool ptr is NULL");
-                return;
-        }
-        LOCK (&pool->lock);
-        {
-
-                switch (__is_member (pool, ptr))
-                {
-                case 1:
-                        in_use = (head + GF_MEM_POOL_LIST_BOUNDARY +
-                                  GF_MEM_POOL_PTR);
-                        if (!is_mem_chunk_in_use(in_use)) {
-                                gf_msg_callingfn ("mem-pool", GF_LOG_CRITICAL,
-                                                  0,
-                                                  LG_MSG_MEMPOOL_INVALID_FREE,
-                                                  "mem_put called on freed ptr"
-                                                  " %p of mem pool %p", ptr,
-                                                  pool);
-                                break;
-                        }
-                        pool->hot_count--;
-                        pool->cold_count++;
-                        *in_use = 0;
-                        list_add (list, &pool->list);
-                        break;
-                case -1:
-                        /* For some reason, the address given is within
-                         * the address range of the mem-pool but does not align
-                         * with the expected start of a chunk that includes
-                         * the list headers also. Sounds like a problem in
-                         * layers of clouds up above us. ;)
-                         */
-                        abort ();
-                        break;
-                case 0:
-                        /* The address is outside the range of the mem-pool. We
-                         * assume here that this address was allocated at a
-                         * point when the mem-pool was out of chunks in mem_get
-                         * or the programmer has made a mistake by calling the
-                         * wrong de-allocation interface. We do
-                         * not have enough info to distinguish between the two
-                         * situations.
-                         */
-                        pool->curr_stdalloc--;
-                        GF_FREE (list);
-                        break;
-                default:
-                        /* log error */
-                        break;
-                }
-        }
-        UNLOCK (&pool->lock);
+        (void) pthread_spin_lock (&pool_list->lock);
+        hdr->magic = GF_MEM_INVALID_MAGIC;
+        hdr->next = pt_pool->hot_list;
+        pt_pool->hot_list = hdr;
+        (void) __sync_fetch_and_add (&pt_pool->parent->frees_to_list, 1);
+        (void) pthread_spin_unlock (&pool_list->lock);
 #endif /* GF_DISABLE_MEMPOOL */
 }
 
@@ -650,16 +737,11 @@ mem_pool_destroy (struct mem_pool *pool)
         if (!pool)
                 return;
 
-        gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_MEM_POOL_DESTROY, "size=%lu "
-                "max=%d total=%"PRIu64, pool->padded_sizeof_type,
-                pool->max_alloc, pool->alloc_count);
-
-#if !defined(GF_DISABLE_MEMPOOL)
-        list_del (&pool->global_list);
-
-        LOCK_DESTROY (&pool->lock);
-        GF_FREE (pool->name);
-        GF_FREE (pool->pool);
-#endif
-        GF_FREE (pool);
+        /*
+         * Pools are now permanent, so this does nothing.  Yes, this means we
+         * can keep allocating from a pool after calling mem_destroy on it, but
+         * that's kind of OK.  All of the objects *in* the pool will eventually
+         * be freed via the pool-sweeper thread, and this way we don't have to
+         * add a lot of reference-counting complexity.
+         */
 }
