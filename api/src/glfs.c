@@ -1325,7 +1325,7 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volfile, 3.6.0);
 
 int
-pub_glfs_ipc (struct glfs *fs, int opcode, void *xd_in, void **xd_out)
+pub_glfs_ipc (struct glfs *fs, int opcode)
 {
 	xlator_t        *subvol = NULL;
         int             ret = -1;
@@ -1340,7 +1340,7 @@ pub_glfs_ipc (struct glfs *fs, int opcode, void *xd_in, void **xd_out)
 		goto out;
 	}
 
-	ret = syncop_ipc (subvol, opcode, (dict_t *) xd_in, (dict_t **) xd_out);
+	ret = syncop_ipc (subvol, opcode, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 out:
@@ -1351,15 +1351,7 @@ invalid_fs:
         return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ipc, 4.0.0);
-
-int
-pub_glfs_ipc37 (struct glfs *fs, int opcode)
-{
-        return pub_glfs_ipc (fs, opcode, NULL, NULL);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_ipc37, glfs_ipc, 3.7.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ipc, 3.7.0);
 
 
 void
