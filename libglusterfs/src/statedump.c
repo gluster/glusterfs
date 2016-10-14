@@ -376,6 +376,7 @@ gf_proc_dump_mem_info_to_dict (dict_t *dict)
 void
 gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
 {
+#if defined(OLD_MEM_POOLS)
         struct mem_pool *pool = NULL;
 
         gf_proc_dump_add_section ("mempool");
@@ -394,11 +395,13 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
                 gf_proc_dump_write ("cur-stdalloc", "%d", pool->curr_stdalloc);
                 gf_proc_dump_write ("max-stdalloc", "%d", pool->max_stdalloc);
         }
+#endif
 }
 
 void
 gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
 {
+#if defined(OLD_MEM_POOLS)
         struct mem_pool *pool = NULL;
         char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
         int             count = 0;
@@ -458,8 +461,7 @@ gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
                 count++;
         }
         ret = dict_set_int32 (dict, "mempool-count", count);
-
-        return;
+#endif
 }
 
 void gf_proc_dump_latency_info (xlator_t *xl);
